@@ -16,6 +16,15 @@ class Socket extends Base {
      */
     maxReconnectAttempts = 5
     /**
+     * @member {Object} messageCallbacks={}
+     */
+    messageCallbacks = {}
+    /**
+     * @member {Number} messageId=1
+     * @protected
+     */
+    messageId = 1
+    /**
      * @member {Number} reconnectAttempts=0
      * @protected
      */
@@ -177,9 +186,15 @@ class Socket extends Base {
      * @param {MessageEvent} event
      */
     onMessage(event) {
-        let data = JSON.parse(event.data);
+        let me   = this,
+            data = JSON.parse(event.data);
 
         console.log('onMessage', data);
+
+        if (data.mId) {
+            me.messageCallbacks[data.mId].resolve(data.data);
+            delete me.messageCallbacks[data.mId];
+        }
     }
 
     /**
@@ -187,6 +202,21 @@ class Socket extends Base {
      */
     onOpen() {
         this.fire('open', {scope: this});
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {Promise<any>}
+     */
+    promiseMessage(data) {
+        let me = this;
+
+        return new Promise((resolve, reject) => {
+            me.messageCallbacks[me.messageId] = {reject, resolve};
+
+            me.sendMessage({data, mId: me.messageId});
+            me.messageId++;
+        });
     }
 
     /**

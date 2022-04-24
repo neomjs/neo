@@ -1,12 +1,12 @@
-import Base     from './Base.mjs';
-import NeoArray from '../util/Array.mjs';
+import Base     from '../Base.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
- * @class Neo.manager.RpcMessage
+ * @class Neo.manager.rpc.Message
  * @extends Neo.manager.Base
  * @singleton
  */
-class RpcMessage extends Base {
+class Message extends Base {
     /**
      * Stores the urls of endpoints for which a setTimeout() call is in progress
      * @member {String[]} endPointTimeouts=[]
@@ -24,6 +24,10 @@ class RpcMessage extends Base {
      */
     requestBuffer = 20
     /**
+     * @member {Object} socketConnections={}
+     */
+    socketConnections = {}
+    /**
      * internal incrementing flag
      * @member {Number} transactionId=1
      * @protected
@@ -32,10 +36,10 @@ class RpcMessage extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.RpcMessage'
+         * @member {String} className='Neo.manager.rpc.Message'
          * @protected
          */
-        className: 'Neo.manager.RpcMessage',
+        className: 'Neo.manager.rpc.Message',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -56,10 +60,22 @@ class RpcMessage extends Base {
      * @returns {Promise<any>}
      */
     onMessage(msg) {
+        let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
+
+        return this[`onMessage${Neo.capitalize(method.type)}`](msg, api);
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     * @param {Object} api
+     * @protected
+     * @returns {Promise<any>}
+     */
+    onMessageAjax(msg, api) {
         return new Promise((resolve, reject) => {
-            let me     = this,
-                method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`),
-                url    = method.url;
+            let me  = this,
+                url = api.url;
 
             me.register({
                 id           : me.messageId,
@@ -82,6 +98,33 @@ class RpcMessage extends Base {
                 }, me.requestBuffer)
             }
         });
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     * @param {Object} api
+     * @protected
+     * @returns {Promise<any>}
+     */
+    async onMessageWebsocket(msg, api) {
+        console.log('onMessageWebsocket', msg, api);
+
+        let me         = this,
+            url        = api.url,
+            connection = me.socketConnections[url];
+
+        if (!connection) {
+            let module = await import('../../data/connection/WebSocket.mjs');
+
+            me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url});
+        }
+
+        return await connection.promiseMessage({
+            data   : msg,
+            method : api.method,
+            service: api.service
+        })
     }
 
     /**
@@ -126,9 +169,9 @@ class RpcMessage extends Base {
     }
 }
 
-Neo.applyClassConfig(RpcMessage);
+Neo.applyClassConfig(Message);
 
-let instance = Neo.create(RpcMessage);
+let instance = Neo.create(Message);
 
 Neo.applyToGlobalNs(instance);
 
