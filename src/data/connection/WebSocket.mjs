@@ -237,12 +237,12 @@ class Socket extends Base {
             case WebSocket.CLOSED:
             case WebSocket.CLOSING:
                 me.attemptReconnect(function() {
-                    me.send(d);
+                    me.sendMessage(d);
                 });
                 break;
             case WebSocket.CONNECTING:
                 me.on('open', function() {
-                    me.send(d);
+                    me.sendMessage(d);
                 }, me, {single: true});
                 break;
             case WebSocket.OPEN:
