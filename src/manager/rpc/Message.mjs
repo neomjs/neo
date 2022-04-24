@@ -108,9 +108,10 @@ class Message extends Base {
      * @returns {Promise<any>}
      */
     async onMessageWebsocket(msg, api) {
-        console.log('onMessageWebsocket', msg, url);
+        console.log('onMessageWebsocket', msg, api);
 
         let me         = this,
+            url        = api.url,
             connection = me.socketConnections[url];
 
         if (!connection) {
@@ -123,7 +124,7 @@ class Message extends Base {
             data   : msg,
             method : api.method,
             service: api.service
-        });
+        })
     }
 
     /**
