@@ -62,7 +62,7 @@ class Message extends Base {
     onMessage(msg) {
         let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
 
-        return this[`onMessage${Neo.capitalize(method.type)}`](msg, api);
+        return this[`onMessage${Neo.capitalize(api.type)}`](msg, api);
     }
 
     /**
