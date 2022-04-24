@@ -1,12 +1,12 @@
-import Base     from './Base.mjs';
-import NeoArray from '../util/Array.mjs';
+import Base     from '../Base.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
- * @class Neo.manager.RpcMessage
+ * @class Neo.manager.rpc.Message
  * @extends Neo.manager.Base
  * @singleton
  */
-class RpcMessage extends Base {
+class Message extends Base {
     /**
      * Stores the urls of endpoints for which a setTimeout() call is in progress
      * @member {String[]} endPointTimeouts=[]
@@ -32,10 +32,10 @@ class RpcMessage extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.RpcMessage'
+         * @member {String} className='Neo.manager.rpc.Message'
          * @protected
          */
-        className: 'Neo.manager.RpcMessage',
+        className: 'Neo.manager.rpc.Message',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -58,7 +58,7 @@ class RpcMessage extends Base {
     onMessage(msg) {
         return new Promise((resolve, reject) => {
             let me     = this,
-                method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`),
+                method = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`),
                 url    = method.url;
 
             me.register({
@@ -126,9 +126,9 @@ class RpcMessage extends Base {
     }
 }
 
-Neo.applyClassConfig(RpcMessage);
+Neo.applyClassConfig(Message);
 
-let instance = Neo.create(RpcMessage);
+let instance = Neo.create(Message);
 
 Neo.applyToGlobalNs(instance);
 

@@ -1,17 +1,17 @@
-import Base from './Base.mjs';
+import Base from '../Base.mjs';
 
 /**
- * @class Neo.manager.RpcApi
+ * @class Neo.manager.rpc.Api
  * @extends Neo.manager.Base
  * @singleton
  */
-class RpcApi extends Base {
+class Api extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.RpcApi'
+         * @member {String} className='Neo.manager.rpc.Api'
          * @protected
          */
-        className: 'Neo.manager.RpcApi',
+        className: 'Neo.manager.rpc.Api',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -38,9 +38,9 @@ class RpcApi extends Base {
     }
 }
 
-Neo.applyClassConfig(RpcApi);
+Neo.applyClassConfig(Api);
 
-let instance = Neo.create(RpcApi);
+let instance = Neo.create(Api);
 
 Neo.applyToGlobalNs(instance);
 
