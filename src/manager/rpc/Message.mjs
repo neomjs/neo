@@ -61,6 +61,9 @@ class Message extends Base {
                 method = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`),
                 url    = method.url;
 
+            // todo: separate the logic for method.type ajax vs websocket
+            console.log('onMessage', method);
+
             me.register({
                 id           : me.messageId,
                 method       : msg.method,
