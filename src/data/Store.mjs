@@ -215,7 +215,7 @@ class Store extends Base {
         let me = this;
 
         if (me.api) {
-            let apiArray = me.api.create.split('.'),
+            let apiArray = me.api.read.split('.'),
                 fn       = apiArray.pop(),
                 service  = Neo.ns(apiArray.join('.'));
 
