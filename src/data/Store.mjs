@@ -30,6 +30,19 @@ class Store extends Base {
          */
         ntype: 'store',
         /**
+         * Instead of setting an url, you can define the RPC BE API methods.
+         * In case the 4 methods are using the same service and this service is using the CRUD based fn-names,
+         * you can switch to a string based shortcut.
+         * The following 2 examples are equivalent.
+         * @example
+         * api: {
+         *    create : 'MyApp.backend.UserService.create',
+         *    destroy: 'MyApp.backend.UserService.destroy',
+         *    read   : 'MyApp.backend.UserService.read',
+         *    update : 'MyApp.backend.UserService.update'
+         * }
+         * @example
+         * api: 'MyApp.backend.UserService'
          * @member {Object|String|null} api_=null
          */
         api_: null,
