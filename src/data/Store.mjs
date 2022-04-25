@@ -148,6 +148,25 @@ class Store extends Base {
     }
 
     /**
+     * @param {Object|String|null} value
+     * @param {Object|String|null} oldValue
+     * @protected
+     * @returns {Object|null}
+     */
+    beforeSetApi(value, oldValue) {
+        if (Neo.typeOf(value) === 'String') {
+            value = {
+                create : value + '.create',
+                destroy: value + '.destroy',
+                read   : value + '.read',
+                update : value + '.update'
+            };
+        }
+
+        return value;
+    }
+
+    /**
      * @param value
      * @param oldValue
      * @protected
