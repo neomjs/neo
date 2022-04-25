@@ -62,7 +62,7 @@ class Message extends Base {
     onMessage(msg) {
         let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
 
-        return this[`onMessage${Neo.capitalize(method.type)}`](msg, api);
+        return this[`onMessage${Neo.capitalize(api.type)}`](msg, api);
     }
 
     /**
@@ -108,8 +108,6 @@ class Message extends Base {
      * @returns {Promise<any>}
      */
     async onMessageWebsocket(msg, api) {
-        console.log('onMessageWebsocket', msg, api);
-
         let me         = this,
             url        = api.url,
             connection = me.socketConnections[url];
@@ -120,11 +118,7 @@ class Message extends Base {
             me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url});
         }
 
-        return await connection.promiseMessage({
-            data   : msg,
-            method : api.method,
-            service: api.service
-        })
+        return await connection.promiseMessage(msg);
     }
 
     /**

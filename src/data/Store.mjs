@@ -30,6 +30,10 @@ class Store extends Base {
          */
         ntype: 'store',
         /**
+         * @member {Object|String|null} api_=null
+         */
+        api_: null,
+        /**
          * @member {Boolean} autoLoad=false
          */
         autoLoad: false,
@@ -187,8 +191,8 @@ class Store extends Base {
     }
 
     /**
-     * @param {Neo.data.Model} value
-     * @param {Neo.data.Model} oldValue
+     * @param {Neo.data.Model|Object} value
+     * @param {Neo.data.Model|Object} oldValue
      * @protected
      * @returns {Neo.data.Model}
      */
@@ -210,14 +214,31 @@ class Store extends Base {
     load() {
         let me = this;
 
-        Neo.Xhr.promiseJson({
-            url: me.url
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
-        }).then(data => {
-            me.data = Array.isArray(data.json) ? data.json : data.json.data;
-            // we do not need to fire a load event => onCollectionMutate()
-        });
+        if (me.api) {
+            let apiArray = me.api.create.split('.'),
+                fn       = apiArray.pop(),
+                service  = Neo.ns(apiArray.join('.'));
+
+            if (!service) {
+                console.log('Api is not defined', this);
+            } else {
+                // todo: add params
+
+                service[fn]().then(response => {
+                    me.data = response.data;
+                });
+            }
+
+        } else {
+            Neo.Xhr.promiseJson({
+                url: me.url
+            }).catch(err => {
+                console.log('Error for Neo.Xhr.request', err, me.id);
+            }).then(data => {
+                me.data = Array.isArray(data.json) ? data.json : data.json.data;
+                // we do not need to fire a load event => onCollectionMutate()
+            });
+        }
     }
 
     /**
