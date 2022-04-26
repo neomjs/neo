@@ -328,42 +328,40 @@ class Base extends Panel {
     /**
      *
      */
-    animateShow() {
+    async animateShow() {
         let me           = this,
             appName      = me.appName,
             id           = me.getAnimateTargetId(),
-            wrapperStyle = me.wrapperStyle;
+            wrapperStyle = me.wrapperStyle,
+            rect         = await me.getDomRect(me.animateTargetId);
 
-        me.getDomRect(me.animateTargetId).then(rect => {
-            Neo.currentWorker.promiseMessage('main', {
-                action  : 'mountDom',
-                appName : appName,
-                html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
-                parentId: 'document.body'
-            }).then(() => {
-                setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action  : 'updateDom',
-                        appName : appName,
-
-                        deltas: [{
-                            id   : id,
-                            style: {
-                                height   : wrapperStyle?.height    || '50%',
-                                left     : wrapperStyle?.left      || '50%',
-                                top      : wrapperStyle?.top       || '50%',
-                                transform: wrapperStyle?.transform || 'translate(-50%, -50%)',
-                                width    : wrapperStyle?.width     || '50%'
-                            }
-                        }]
-                    }).then(() => {
-                        setTimeout(() => {
-                            me.show(false);
-                        }, 200);
-                    });
-                }, 30);
-            });
+        await Neo.currentWorker.promiseMessage('main', {
+            action  : 'mountDom',
+            appName,
+            html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
+            parentId: 'document.body'
         });
+
+        await Neo.timeout(30);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id,
+                style: {
+                    height   : wrapperStyle?.height    || '50%',
+                    left     : wrapperStyle?.left      || '50%',
+                    top      : wrapperStyle?.top       || '50%',
+                    transform: wrapperStyle?.transform || 'translate(-50%, -50%)',
+                    width    : wrapperStyle?.width     || '50%'
+                }
+            }]
+        });
+
+        await Neo.timeout(200);
+
+        me.show(false);
     }
 
     /**
