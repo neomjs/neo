@@ -134,9 +134,7 @@ class Base extends Panel {
 
         me.createHeader();
 
-        if (me.animateTargetId) {
-            me.animateShow();
-        }
+        me.animateTargetId && me.animateShow();
     }
 
     /**
@@ -188,27 +186,25 @@ class Base extends Panel {
             me.headerToolbar.cls = cls;
         }
 
-        if (value) {
-            import('../draggable/DragZone.mjs').then(module => {
-                DragZone = module.default;
+        value && import('../draggable/DragZone.mjs').then(module => {
+            DragZone = module.default;
 
-                if (!me.dragListenersAdded) {
+            if (!me.dragListenersAdded) {
+                domListeners.push(
+                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                );
+
+                if (me.dragZoneConfig?.alwaysFireDragMove) {
                     domListeners.push(
-                        {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                        {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                        {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
                     );
-
-                    if (me.dragZoneConfig?.alwaysFireDragMove) {
-                        domListeners.push(
-                            {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
-                        );
-                    }
-
-                    me.domListeners       = domListeners;
-                    me.dragListenersAdded = true;
                 }
-            });
-        }
+
+                me.domListeners       = domListeners;
+                me.dragListenersAdded = true;
+            }
+        });
     }
 
     /**
@@ -235,19 +231,17 @@ class Base extends Panel {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value) {
-            let me = this;
+        let me = this;
 
-            if (me.animateTargetId) {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: me.appName,
-                    deltas : [{
-                        action: 'removeNode',
-                        id    : me.getAnimateTargetId()
-                    }]
-                });
-            }
+        if (value && me.animateTargetId) {
+            Neo.currentWorker.promiseMessage('main', {
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : [{
+                    action: 'removeNode',
+                    id    : me.getAnimateTargetId()
+                }]
+            });
         }
     }
 
@@ -258,24 +252,22 @@ class Base extends Panel {
      * @protected
      */
     afterSetResizable(value, oldValue) {
-        if (value) {
-            import('../plugin/Resizable.mjs').then(module => {
-                let me      = this,
-                    plugins = me.plugins || [];
+        value && import('../plugin/Resizable.mjs').then(module => {
+            let me      = this,
+                plugins = me.plugins || [];
 
-                if (!me.getPlugin({flag: 'resizable'})) {
-                    plugins.push({
-                        module       : module.default,
-                        appName      : me.appName,
-                        delegationCls: 'neo-dialog',
-                        flag         : 'resizable',
-                        ...me.resizablePluginConfig
-                    });
+            if (!me.getPlugin({flag: 'resizable'})) {
+                plugins.push({
+                    module       : module.default,
+                    appName      : me.appName,
+                    delegationCls: 'neo-dialog',
+                    flag         : 'resizable',
+                    ...me.resizablePluginConfig
+                });
 
-                    me.plugins = plugins;
-                }
-            });
-        }
+                me.plugins = plugins;
+            }
+        });
     }
 
     /**
