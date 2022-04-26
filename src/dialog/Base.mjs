@@ -281,47 +281,43 @@ class Base extends Panel {
     /**
      *
      */
-    animateHide() {
+    async animateHide() {
         let me      = this,
             appName = me.appName,
-            id      = me.getAnimateTargetId();
+            id      = me.getAnimateTargetId(),
+            rects   = await me.getDomRect([me.id, me.animateTargetId]);
 
-        me.getDomRect([me.id, me.animateTargetId]).then(rects => {
-            Neo.currentWorker.promiseMessage('main', {
-                action  : 'mountDom',
-                appName : appName,
-                html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
-                parentId: 'document.body'
-            }).then(() => {
-                setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: appName,
-                        deltas : [{
-                            id   : id,
-                            style: {
-                                height: `${rects[1].height}px`,
-                                left  : `${rects[1].left  }px`,
-                                top   : `${rects[1].top   }px`,
-                                width : `${rects[1].width }px`
-                            }
-                        }]
-                    }).then(() => {
-                        setTimeout(() => {
-                            Neo.currentWorker.promiseMessage('main', {
-                                action : 'updateDom',
-                                appName: appName,
-                                deltas : [{
-                                    action: 'removeNode',
-                                    id    : id
-                                }]
-                            });
-                        }, 250);
-                    });
-                }, 30);
+        await Neo.currentWorker.promiseMessage('main', {
+            action  : 'mountDom',
+            appName,
+            html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
+            parentId: 'document.body'
+        });
 
-                me.closeOrHide(false);
-            });
+        me.closeOrHide(false);
+
+        await Neo.timeout(30);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id,
+                style: {
+                    height: `${rects[1].height}px`,
+                    left  : `${rects[1].left  }px`,
+                    top   : `${rects[1].top   }px`,
+                    width : `${rects[1].width }px`
+                }
+            }]
+        });
+
+        await Neo.timeout(250);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{action: 'removeNode', id}]
         });
     }
 
