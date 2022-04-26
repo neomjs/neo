@@ -51,6 +51,11 @@
     position: relative;
 
     &.neo-panel {
+        .neo-footer-toolbar {
+            border    : none;
+            border-top: 1px solid v(dialog-border-color);
+        }
+
         .neo-header-toolbar {
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);
