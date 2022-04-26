@@ -1002,7 +1002,7 @@ class Component extends BaseComponent {
                     removeDom
                 });
 
-                Object.assign(header.cn[i], {id: headerId, removeDom});
+                Object.assign(header.cn[i],       {id: headerId, removeDom});
                 Object.assign(header.cn[i].cn[0], {html: me.intlFormat_day.format(date), id: `${headerId}_day`});
                 Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`});
             }
