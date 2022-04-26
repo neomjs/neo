@@ -446,10 +446,11 @@ class Component extends BaseComponent {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMounted(value, oldValue) {
+    async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
+        let me = this,
+            rect;
 
         if (value) {
             if (me.needsEventUpdate) {
@@ -457,16 +458,16 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false;
             }
 
-            setTimeout(() => {
-                me.getDomRect(me.getColumnContainer().id).then(data => {
-                    Neo.main.DomAccess.scrollBy({
-                        appName  : me.appName,
-                        direction: 'left',
-                        id       : me.getScrollContainer().id,
-                        value    : data.width * me.columnsBuffer / me.columnsVisible / 3
-                    });
-                });
-            }, 20);
+            await Neo.timeout(20);
+
+            rect = await me.getDomRect(me.getColumnContainer().id);
+
+            Neo.main.DomAccess.scrollBy({
+                appName  : me.appName,
+                direction: 'left',
+                id       : me.getScrollContainer().id,
+                value    : rect.width * me.columnsBuffer / me.columnsVisible / 3
+            });
         }
     }
 
