@@ -24,10 +24,7 @@ class MainContainerController extends Component {
         let me = this;
 
         if (!me.dialog) {
-            import(
-                /* webpackChunkName: 'examples/model/dialog/EditUserDialog' */
-                './EditUserDialog.mjs'
-            ).then(module => {
+            import('./EditUserDialog.mjs').then(module => {
                 me.dialog = Neo.create({
                     module         : module.default,
                     animateTargetId: me.getReference('edit-user-button').id,
