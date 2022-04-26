@@ -329,9 +329,10 @@ class Base extends Panel {
      *
      */
     animateShow() {
-        let me      = this,
-            appName = me.appName,
-            id      = me.getAnimateTargetId();
+        let me           = this,
+            appName      = me.appName,
+            id           = me.getAnimateTargetId(),
+            wrapperStyle = me.wrapperStyle;
 
         me.getDomRect(me.animateTargetId).then(rect => {
             Neo.currentWorker.promiseMessage('main', {
@@ -348,11 +349,11 @@ class Base extends Panel {
                         deltas: [{
                             id   : id,
                             style: {
-                                height   : me.wrapperStyle?.height || '50%',
-                                left     : '50%',
-                                top      : '50%',
-                                transform: 'translate(-50%, -50%)',
-                                width    : me.wrapperStyle?.width || '50%'
+                                height   : wrapperStyle?.height    || '50%',
+                                left     : wrapperStyle?.left      || '50%',
+                                top      : wrapperStyle?.top       || '50%',
+                                transform: wrapperStyle?.transform || 'translate(-50%, -50%)',
+                                width    : wrapperStyle?.width     || '50%'
                             }
                         }]
                     }).then(() => {
