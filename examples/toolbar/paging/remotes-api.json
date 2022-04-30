@@ -1,0 +1,21 @@
+{
+    "namespace": "MyApp.backend",
+    "type"     : "websocket",
+    "url"      : "ws://localhost:3001",
+
+    "services": {
+        "FriendService": {
+            "methods": {
+                "getAll": {}
+            }
+        },
+        "UserService": {
+            "methods": {
+                "create" : {},
+                "destroy": {},
+                "read"   : {"params":  [{"type":  "Object"}]},
+                "update" : {}
+            }
+        }
+    }
+}
