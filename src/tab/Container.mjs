@@ -369,7 +369,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.container.Toolbar}
+     * @returns {Neo.toolbar.Base}
      */
     getTabBar() {
         return Neo.getComponent(this.tabBarId);

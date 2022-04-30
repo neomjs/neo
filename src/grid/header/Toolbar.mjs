@@ -1,8 +1,8 @@
-import BaseToolbar from '../../container/Toolbar.mjs';
+import BaseToolbar from '../../toolbar/Base.mjs';
 
 /**
  * @class Neo.grid.header.Toolbar
- * @extends Neo.container.Toolbar
+ * @extends Neo.toolbar.Base
  */
 class Toolbar extends BaseToolbar {
     static getConfig() {return {

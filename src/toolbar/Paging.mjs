@@ -1,8 +1,8 @@
-import Toolbar from '../container/Toolbar.mjs';
+import Toolbar from './Base.mjs';
 
 /**
  * @class Neo.toolbar.Paging
- * @extends Neo.container.Toolbar
+ * @extends Neo.toolbar.Base
  */
 class Paging extends Toolbar {
     static getConfig() {return {
