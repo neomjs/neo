@@ -58,7 +58,7 @@ You can switch between <a href="https://developer.mozilla.org/en-US/docs/Web/API
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers-setup-v4.png">
 
-The dedicated workers setup uses 4 threads (CPUs).
+The dedicated workers setup uses 3-6 threads (CPUs).
 Most parts of the frameworks as well as your apps and components live within the app worker.
 Main threads are as small and idle as possible (42KB) plus optional main thread addons.
 

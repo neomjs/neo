@@ -601,7 +601,7 @@ class Base extends CoreBase {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
                         DomEventManager.mountDomListeners(me);
-                    }, 300);
+                    }, 100);
                 }
 
                 me.fire('mounted', me.id);
@@ -1120,7 +1120,7 @@ class Base extends CoreBase {
     /**
      * Can get called after the component got rendered. See the autoMount config as well.
      */
-    mount() {
+    async mount() {
         let me = this,
             child, childIds;
 
@@ -1148,16 +1148,18 @@ class Base extends CoreBase {
 
             me.render(true);
         } else {
-            Neo.currentWorker.promiseMessage('main', {
+            await Neo.currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
                 appName    : me.appName,
                 id         : me.id,
                 html       : me.vnode.outerHTML,
                 parentId   : me.parentId,
                 parentIndex: me.parentIndex
-            }).then(() => {
-                me.mounted = true;
             });
+
+            await Neo.timeout(2000);
+
+            me.mounted = true;
         }
     }
 

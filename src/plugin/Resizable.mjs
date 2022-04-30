@@ -424,11 +424,11 @@ class Resizable extends Base {
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module             : DragZone,
-                appName            : appName,
+                appName,
                 boundaryContainerId: owner.boundaryContainerId,
                 dragElement        : owner.vdom,
                 moveInMainThread   : false,
-                owner              : owner,
+                owner,
                 ...me.dragZoneConfig
             });
         } else {
