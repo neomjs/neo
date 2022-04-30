@@ -25,6 +25,21 @@ class Paging extends Toolbar {
          */
         store_: null
     }}
+
+    /**
+     * @param config
+     */
+    construct(config) {
+        super.construct(config);
+        this.createToolbarItems()
+    }
+
+    /**
+     *
+     */
+    createToolbarItems() {
+
+    }
 }
 
 Neo.applyClassConfig(Paging);
