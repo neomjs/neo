@@ -1,4 +1,5 @@
-import Toolbar from './Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Toolbar         from './Base.mjs';
 
 /**
  * @class Neo.toolbar.Paging
@@ -46,6 +47,19 @@ class Paging extends Toolbar {
      */
     afterSetPage(value, oldValue) {
         console.log('afterSetPage', value);
+    }
+
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Neo.data.Store|Object|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @returns {Neo.data.Store}
+     * @protected
+     */
+    beforeSetStore(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value);
     }
 
     /**
