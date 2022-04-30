@@ -27,7 +27,7 @@ class MainContainer extends Viewport {
             module      : UserTableContainer,
             flex        : 1,
             reference   : 'user-table',
-            wrapperStyle: {marginTop: '20px', maxHeight: '300px'}
+            wrapperStyle: {maxHeight: '300px'}
         }, {
             module: PagingToolbar,
             flex  : 'none'
