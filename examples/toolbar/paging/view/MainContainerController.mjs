@@ -1,22 +1,21 @@
 import ComponentController from '../../../../src/controller/Component.mjs';
-import SocketConnection    from '../../../../src/data/connection/WebSocket.mjs';
 
 /**
- * @class MyApp.view.MainContainerController
+ * @class Neo.examples.toolbar.paging.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
     /**
-     * @member {MyApp.view.AddUserDialog|null} addUserDialog=null
+     * @member {Neo.examples.toolbar.paging.view.AddUserDialog|null} addUserDialog=null
      */
     addUserDialog = null
 
     static getConfig() {return {
         /**
-         * @member {String} className='MyApp.view.MainContainerController'
+         * @member {String} className='Neo.examples.toolbar.paging.view.MainContainerController'
          * @protected
          */
-        className: 'MyApp.view.MainContainerController'
+        className: 'Neo.examples.toolbar.paging.view.MainContainerController'
     }}
 
     /**

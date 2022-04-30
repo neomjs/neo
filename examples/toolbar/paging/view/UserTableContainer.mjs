@@ -2,16 +2,16 @@ import TableContainer from '../../../../src/table/Container.mjs';
 import UserStore      from '../store/Users.mjs';
 
 /**
- * @class MyApp.view.UserTableContainer
+ * @class Neo.examples.toolbar.paging.view.UserTableContainer
  * @extends Neo.table.Container
  */
 class UserTableContainer extends TableContainer {
     static getConfig() {return {
         /**
-         * @member {String} className='MyApp.view.UserTableContainer'
+         * @member {String} className='Neo.examples.toolbar.paging.view.UserTableContainer'
          * @protected
          */
-        className: 'MyApp.view.UserTableContainer',
+        className: 'Neo.examples.toolbar.paging.view.UserTableContainer',
         /**
          * @member {Object[]} columns
          */

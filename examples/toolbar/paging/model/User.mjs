@@ -1,16 +1,16 @@
 import Model from '../../../../src/data/Model.mjs';
 
 /**
- * @class MyApp.model.User
+ * @class Neo.examples.toolbar.paging.model.User
  * @extends Neo.data.Model
  */
 class User extends Model {
     static getConfig() {return {
         /**
-         * @member {String} className='MyApp.model.User'
+         * @member {String} className='Neo.examples.toolbar.paging.model.User'
          * @protected
          */
-        className: 'MyApp.model.User',
+        className: 'Neo.examples.toolbar.paging.model.User',
         /**
          * @member {Object[]} fields
          */

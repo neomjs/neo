@@ -2,16 +2,16 @@ import Dialog    from '../../../../src/dialog/Base.mjs';
 import TextField from '../../../../src/form/field/Text.mjs';
 
 /**
- * @class MyApp.view.AddUserDialog
+ * @class Neo.examples.toolbar.paging.view.AddUserDialog
  * @extends Neo.dialog.Base
  */
 class AddUserDialog extends Dialog {
     static getConfig() {return {
         /**
-         * @member {String} className='MyApp.view.AddUserDialog'
+         * @member {String} className='Neo.examples.toolbar.paging.view.AddUserDialog'
          * @protected
          */
-        className: 'MyApp.view.AddUserDialog',
+        className: 'Neo.examples.toolbar.paging.view.AddUserDialog',
         /**
          * @member {Object} containerConfig={style:{padding:'1em'}}
          */
