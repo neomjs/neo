@@ -15,7 +15,15 @@ class Paging extends Toolbar {
          * @member {String} ntype='paging-toolbar'
          * @protected
          */
-        ntype: 'paging-toolbar'
+        ntype: 'paging-toolbar',
+        /**
+         * @member {Number} page_=1
+         */
+        page_: 1,
+        /**
+         * @member {Neo.data.Store|null} store_=null
+         */
+        store_: null
     }}
 }
 
