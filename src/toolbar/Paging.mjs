@@ -114,7 +114,7 @@ class Paging extends Toolbar {
     onNextPageButtonClick() {
         let me = this;
 
-        if (me.page <= me.getMaxPages()) {
+        if (me.page < me.getMaxPages()) {
             me.page++;
         }
     }
