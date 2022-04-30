@@ -1,6 +1,6 @@
 import Container                   from '../../../src/container/Base.mjs';
 import NumberField                 from '../../../src/form/field/Number.mjs';
-import Toolbar                     from '../../../src/container/Toolbar.mjs';
+import Toolbar                     from '../../../src/toolbar/Base.mjs';
 import WorldMapComponent           from './WorldMapComponent.mjs';
 import WorldMapContainerController from './WorldMapContainerController.mjs';
 

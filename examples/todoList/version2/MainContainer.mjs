@@ -3,7 +3,7 @@ import Container     from '../../../src/container/Base.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
 import TodoList      from './TodoList.mjs';
 import TodoListStore from './TodoListStore.mjs';
-import Toolbar       from '../../../src/container/Toolbar.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Neo.examples.todoList.version2.MainContainer

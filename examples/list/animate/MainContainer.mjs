@@ -4,7 +4,7 @@ import MainContainerController from './MainContainerController.mjs';
 import MainStore               from './MainStore.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
-import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import Toolbar                 from '../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
