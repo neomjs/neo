@@ -37,6 +37,7 @@ class Paging extends Toolbar {
     construct(config) {
         super.construct(config);
         this.createToolbarItems();
+        console.log(this);
     }
 
     /**

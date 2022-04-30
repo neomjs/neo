@@ -1,5 +1,4 @@
 import TableContainer from '../../../../src/table/Container.mjs';
-import UserStore      from '../store/Users.mjs';
 
 /**
  * @class Neo.examples.toolbar.paging.view.UserTableContainer
@@ -30,11 +29,7 @@ class UserTableContainer extends TableContainer {
         }, {
             dataField: 'image',
             text     : 'Image'
-        }],
-        /**
-         * @member {Neo.data.Store} store=UserStore
-         */
-        store: UserStore
+        }]
     }}
 }
 

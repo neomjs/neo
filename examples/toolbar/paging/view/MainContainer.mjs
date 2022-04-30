@@ -1,4 +1,5 @@
 import MainContainerController from './MainContainerController.mjs';
+import MainContainerModel      from './MainContainerModel.mjs';
 import PagingToolbar           from '../../../../src/toolbar/Paging.mjs';
 import UserTableContainer      from './UserTableContainer.mjs';
 import Viewport                from '../../../../src/container/Viewport.mjs';
@@ -13,6 +14,7 @@ class MainContainer extends Viewport {
         autoMount : true,
         controller: MainContainerController,
         layout    : {ntype: 'vbox', align: 'stretch'},
+        model     : MainContainerModel,
         style     : {padding: '20px'},
 
         items: [{
@@ -25,11 +27,13 @@ class MainContainer extends Viewport {
             }]
         }, {
             module      : UserTableContainer,
+            bind        : {store: 'stores.users'},
             flex        : 1,
             reference   : 'user-table',
             wrapperStyle: {maxHeight: '300px'}
         }, {
             module: PagingToolbar,
+            bind  : {store: 'stores.users'},
             flex  : 'none'
         }]
     }}
