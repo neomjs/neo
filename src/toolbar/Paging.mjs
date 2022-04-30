@@ -39,6 +39,16 @@ class Paging extends Toolbar {
     }
 
     /**
+     * Triggered after the page config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPage(value, oldValue) {
+        console.log('afterSetPage', value);
+    }
+
+    /**
      *
      */
     createToolbarItems() {
