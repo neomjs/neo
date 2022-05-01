@@ -261,10 +261,12 @@ class Store extends Base {
                 // todo: add params
 
                 service[fn]().then(response => {
-                    me.data = response.data;
+                    if (response.success) {
+                        me.data       = response.data;
+                        me.totalCount = response.totalCount;
+                    }
                 });
             }
-
         } else {
             Neo.Xhr.promiseJson({
                 url: me.url
