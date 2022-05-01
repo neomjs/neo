@@ -18,9 +18,9 @@ class Paging extends Toolbar {
          */
         ntype: 'paging-toolbar',
         /**
-         * @member {Number} page_=1
+         * @member {Number} currentPage_=1
          */
-        page_: 1,
+        currentPage_: 1,
         /**
          * @member {Number} pageSize_=30
          */
@@ -28,7 +28,7 @@ class Paging extends Toolbar {
         /**
          * @member {Function} pagesText=me=>`Page: ${me.page} / ${me.getMaxPages()}`
          */
-        pagesText: me => `Page ${me.page} / ${me.getMaxPages()}`,
+        pagesText: me => `Page ${me.currentPage} / ${me.getMaxPages()}`,
         /**
          * @member {Neo.data.Store|null} store_=null
          */
@@ -45,17 +45,16 @@ class Paging extends Toolbar {
     construct(config) {
         super.construct(config);
         this.createToolbarItems();
-        console.log(this);
     }
 
     /**
-     * Triggered after the page config got changed
+     * Triggered after the currentPage config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetPage(value, oldValue) {
-        console.log('afterSetPage', value);
+    afterSetCurrentPage(value, oldValue) {
+        console.log('afterSetCurrentPage', value);
     }
 
     /**
@@ -120,14 +119,14 @@ class Paging extends Toolbar {
      *
      */
     onFirstPageButtonClick() {
-        this.page = 1;
+        this.currentPage = 1;
     }
 
     /**
      *
      */
     onLastPageButtonClick() {
-        this.page = this.getMaxPages();
+        this.currentPage = this.getMaxPages();
     }
 
     /**
@@ -136,8 +135,8 @@ class Paging extends Toolbar {
     onNextPageButtonClick() {
         let me = this;
 
-        if (me.page < me.getMaxPages()) {
-            me.page++;
+        if (me.currentPage < me.getMaxPages()) {
+            me.currentPage++;
         }
     }
 
@@ -145,8 +144,8 @@ class Paging extends Toolbar {
      *
      */
     onPrevPageButtonClick() {
-        if (this.page > 1) {
-            this.page--;
+        if (this.currentPage > 1) {
+            this.currentPage--;
         }
     }
 
