@@ -79,6 +79,11 @@ class Store extends Base {
          */
         model_: null,
         /**
+         * Use a value of 0 to not limit the pageSize
+         * @member {Number} pageSize_=0
+         */
+        pageSize_: 0,
+        /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
          * @member {Boolean} remoteFilter=false
@@ -176,6 +181,16 @@ class Store extends Base {
             value.storeId = this.id;
             RecordFactory.createRecordClass(value);
         }
+    }
+
+    /**
+     * Triggered after the pageSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPageSize(value, oldValue) {
+        oldValue && this.load();
     }
 
     /**
