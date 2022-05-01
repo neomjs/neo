@@ -26,6 +26,10 @@ class Paging extends Toolbar {
          */
         pageSize_: 30,
         /**
+         * @member {Function} pagesText=me=>`Page: ${me.page} / ${me.getMaxPages()}`
+         */
+        pagesText: me => `Page ${me.page} / ${me.getMaxPages()}`,
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
@@ -86,6 +90,11 @@ class Paging extends Toolbar {
             iconCls: 'fa fa-angle-left',
             style  : {marginLeft: '10px'}
         }, {
+            ntype    : 'label',
+            reference: 'pages-text',
+            style    : {marginLeft: '10px'},
+            text     : me.pagesText(me)
+        }, {
             handler: me.onNextPageButtonClick.bind(me),
             iconCls: 'fa fa-angle-right',
             style  : {marginLeft: '10px'}
@@ -145,7 +154,17 @@ class Paging extends Toolbar {
      *
      */
     onStoreLoad() {
+        this.updatePagesText();
         this.updateTotalText();
+    }
+
+    /**
+     *
+     */
+    updatePagesText() {
+        let me = this;
+
+        me.down({reference: 'pages-text'}).text = me.pagesText(me);
     }
 
     /**
