@@ -28,6 +28,7 @@ class UserTableContainer extends TableContainer {
             text     : 'Is Online'
         }, {
             dataField: 'image',
+            flex     : 1,
             text     : 'Image'
         }]
     }}
