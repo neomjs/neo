@@ -58,9 +58,14 @@ class Paging extends Toolbar {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
+        let listeners = {
+            load : this.onStoreLoad,
+            scope: this
+        };
 
-        return ClassSystemUtil.beforeSetInstance(value);
+        oldValue?.un(listeners);
+
+        return ClassSystemUtil.beforeSetInstance(value, null, listeners);
     }
 
     /**
@@ -129,6 +134,10 @@ class Paging extends Toolbar {
         if (this.page > 1) {
             this.page--;
         }
+    }
+
+    onStoreLoad() {
+        console.log('onStoreLoad', arguments);
     }
 }
 
