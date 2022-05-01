@@ -87,6 +87,10 @@ class Store extends Base {
          */
         remoteSort: false,
         /**
+         * @member {Number} totalCount=0
+         */
+        totalCount: 0,
+        /**
          * Url for Ajax requests
          * @member {String|null} url=null
          */
