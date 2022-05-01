@@ -96,7 +96,7 @@ class Paging extends Toolbar {
         }, '->', {
             ntype    : 'label',
             reference: 'total-text',
-            text     : `Total: ${me.store.totalCount} records`
+            text     : me.totalText(me.store.totalCount)
         }];
     }
 
