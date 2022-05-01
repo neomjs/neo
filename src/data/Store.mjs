@@ -287,9 +287,10 @@ class Store extends Base {
             if (!service) {
                 console.log('Api is not defined', this);
             } else {
-                // todo: add params
-
-                service[fn]().then(response => {
+                service[fn]({
+                    page    : me.currentPage,
+                    pageSize: me.pageSize
+                }).then(response => {
                     if (response.success) {
                         me.totalCount = response.totalCount;
                         me.data       = response.data; // fires the load event
