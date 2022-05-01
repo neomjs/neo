@@ -84,6 +84,9 @@ class Paging extends Toolbar {
             handler: me.onLastPageButtonClick.bind(me),
             iconCls: 'fa fa-angles-right',
             style  : {marginLeft: '10px'}
+        }, '->', {
+            ntype: 'label',
+            text : `Total: ${me.store.totalCount} records`
         }];
     }
 
