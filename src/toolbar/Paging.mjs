@@ -28,7 +28,11 @@ class Paging extends Toolbar {
         /**
          * @member {Neo.data.Store|null} store_=null
          */
-        store_: null
+        store_: null,
+        /**
+         * @member {Function} totalText=count=>`Total: ${count} records`
+         */
+        totalText: count => `Total: ${count} records`
     }}
 
     /**
@@ -90,8 +94,9 @@ class Paging extends Toolbar {
             iconCls: 'fa fa-angles-right',
             style  : {marginLeft: '10px'}
         }, '->', {
-            ntype: 'label',
-            text : `Total: ${me.store.totalCount} records`
+            ntype    : 'label',
+            reference: 'total-text',
+            text     : `Total: ${me.store.totalCount} records`
         }];
     }
 
@@ -136,8 +141,20 @@ class Paging extends Toolbar {
         }
     }
 
+    /**
+     *
+     */
     onStoreLoad() {
-        console.log('onStoreLoad', arguments);
+        this.updateTotalText();
+    }
+
+    /**
+     *
+     */
+    updateTotalText() {
+        let me = this;
+
+        me.down({reference: 'total-text'}).text = me.totalText(me.store.totalCount);
     }
 }
 

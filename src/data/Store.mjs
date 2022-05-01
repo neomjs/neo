@@ -262,8 +262,8 @@ class Store extends Base {
 
                 service[fn]().then(response => {
                     if (response.success) {
-                        me.data       = response.data;
                         me.totalCount = response.totalCount;
+                        me.data       = response.data; // fires the load event
                     }
                 });
             }
