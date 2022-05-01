@@ -84,25 +84,29 @@ class Paging extends Toolbar {
         let me = this;
 
         me.items = [{
-            handler: me.onFirstPageButtonClick.bind(me),
-            iconCls: 'fa fa-angles-left'
+            handler  : me.onFirstPageButtonClick.bind(me),
+            iconCls  : 'fa fa-angles-left',
+            reference: 'nav-button-first'
         }, {
-            handler: me.onPrevPageButtonClick.bind(me),
-            iconCls: 'fa fa-angle-left',
-            style  : {marginLeft: '10px'}
+            handler  : me.onPrevPageButtonClick.bind(me),
+            iconCls  : 'fa fa-angle-left',
+            reference: 'nav-button-prev',
+            style    : {marginLeft: '2px'}
         }, {
             ntype    : 'label',
             reference: 'pages-text',
             style    : {marginLeft: '10px'},
             text     : me.pagesText(me)
         }, {
-            handler: me.onNextPageButtonClick.bind(me),
-            iconCls: 'fa fa-angle-right',
-            style  : {marginLeft: '10px'}
+            handler  : me.onNextPageButtonClick.bind(me),
+            iconCls  : 'fa fa-angle-right',
+            reference: 'nav-button-next',
+            style    : {marginLeft: '10px'}
         }, {
-            handler: me.onLastPageButtonClick.bind(me),
-            iconCls: 'fa fa-angles-right',
-            style  : {marginLeft: '10px'}
+            handler  : me.onLastPageButtonClick.bind(me),
+            iconCls  : 'fa fa-angles-right',
+            reference: 'nav-button-last',
+            style    : {marginLeft: '2px'}
         }, '->', {
             ntype    : 'label',
             reference: 'total-text',
@@ -155,8 +159,25 @@ class Paging extends Toolbar {
      *
      */
     onStoreLoad() {
-        this.updatePagesText();
-        this.updateTotalText();
+        let me = this;
+
+        me.updateNavigationButtons();
+        me.updatePagesText();
+        me.updateTotalText();
+    }
+
+    /**
+     *
+     */
+    updateNavigationButtons() {
+        let me          = this,
+            currentPage = me.currentPage,
+            maxPages    = me.getMaxPages();
+
+        me.down({reference: 'nav-button-first'}).disabled = currentPage === 1;
+        me.down({reference: 'nav-button-prev'}) .disabled = currentPage === 1;
+        me.down({reference: 'nav-button-next'}) .disabled = currentPage === maxPages;
+        me.down({reference: 'nav-button-last'}) .disabled = currentPage === maxPages;
     }
 
     /**
