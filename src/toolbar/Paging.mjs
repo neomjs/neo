@@ -65,7 +65,7 @@ class Paging extends Toolbar {
 
         oldValue?.un(listeners);
 
-        return ClassSystemUtil.beforeSetInstance(value, null, listeners);
+        return ClassSystemUtil.beforeSetInstance(value, null, {listeners});
     }
 
     /**
