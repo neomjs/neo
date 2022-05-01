@@ -16,7 +16,10 @@ class MainContainerModel extends Component {
          * @member {Object} stores
          */
         stores: {
-            users: UserStore
+            users: {
+                module  : UserStore,
+                pageSize: 30
+            }
         }
     }}
 }
