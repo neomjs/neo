@@ -54,7 +54,9 @@ class Paging extends Toolbar {
      * @protected
      */
     afterSetCurrentPage(value, oldValue) {
-        console.log('afterSetCurrentPage', value);
+        if (oldValue) {
+            this.store.currentPage = value;
+        }
     }
 
     /**
