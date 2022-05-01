@@ -118,7 +118,7 @@ class Paging extends Toolbar {
      * @returns {Number}
      */
     getMaxPages() {
-        return Math.floor(this.store.totalCount / this.pageSize);
+        return Math.ceil(this.store.totalCount / this.pageSize);
     }
 
     /**
