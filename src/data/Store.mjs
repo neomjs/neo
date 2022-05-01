@@ -51,6 +51,10 @@ class Store extends Base {
          */
         autoLoad: false,
         /**
+         * @member {Number} currentPage_=1
+         */
+        currentPage_: 1,
+        /**
          * @member {Array|null} data_=null
          */
         data_: null,
@@ -120,6 +124,16 @@ class Store extends Base {
      */
     add(item) {
         return super.add(this.beforeSetData(item));
+    }
+
+    /**
+     * Triggered after the currentPage config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCurrentPage(value, oldValue) {
+        oldValue && this.load();
     }
 
     /**
