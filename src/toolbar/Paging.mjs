@@ -18,6 +18,10 @@ class Paging extends Toolbar {
          */
         ntype: 'paging-toolbar',
         /**
+         * @member {String[]} cls=['neo-paging-toolbar','neo-toolbar']
+         */
+        cls: ['neo-paging-toolbar', 'neo-toolbar'],
+        /**
          * @member {Number} currentPage_=1
          */
         currentPage_: 1,
