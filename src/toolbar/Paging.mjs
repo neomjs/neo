@@ -65,6 +65,18 @@ class Paging extends Toolbar {
     }
 
     /**
+     * Triggered after the pageSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPageSize(value, oldValue) {
+        if (oldValue) {
+            this.store.pageSize = value;
+        }
+    }
+
+    /**
      * Triggered after the pagesText config got changed
      * @param {Function} value
      * @param {Function} oldValue
@@ -140,15 +152,15 @@ class Paging extends Toolbar {
             module       : SelectField,
             clearable    : false,
             hideLabel    : true,
+            listConfig   : {highlightFilterValue: false},
+            listeners    : {change: me.onPageSizeFieldChange.bind(me)},
             style        : {margin: 0},
             triggerAction: 'all',
             useFilter    : false,
             value        : 30,
             width        : 70,
 
-            listConfig: {
-                highlightFilterValue: false
-            },
+
 
             store: {
                 model: {
@@ -202,6 +214,13 @@ class Paging extends Toolbar {
         if (me.currentPage < me.getMaxPages()) {
             me.currentPage++;
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPageSizeFieldChange(data) {
+        this.pageSize = data.value;
     }
 
     /**
