@@ -40,6 +40,10 @@ class Select extends Picker {
          */
         displayField: 'name',
         /**
+         * @member {String} filterOperator='like'
+         */
+        filterOperator: 'like',
+        /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
          * @member {Boolean} forceSelection=false
@@ -153,7 +157,7 @@ class Select extends Picker {
 
             filters.push({
                 includeEmptyValues: true,
-                operator          : 'like',
+                operator          : me.filterOperator,
                 property          : me.displayField,
                 value             : value.get(me.value)?.[me.displayField] || me.value
             });
