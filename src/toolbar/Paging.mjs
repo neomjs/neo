@@ -30,9 +30,9 @@ class Paging extends Toolbar {
          */
         pageSize_: 30,
         /**
-         * @member {Function} pagesText=me=>`Page: ${me.page} / ${me.getMaxPages()}`
+         * @member {Function} pagesText_=me=>`Page: ${me.page} / ${me.getMaxPages()}`
          */
-        pagesText: me => `Page ${me.currentPage} / ${me.getMaxPages()}`,
+        pagesText_: me => `Page ${me.currentPage} / ${me.getMaxPages()}`,
         /**
          * @member {Neo.data.Store|null} store_=null
          */
@@ -61,6 +61,16 @@ class Paging extends Toolbar {
         if (oldValue) {
             this.store.currentPage = value;
         }
+    }
+
+    /**
+     * Triggered after the pagesText config got changed
+     * @param {Function} value
+     * @param {Function} oldValue
+     * @protected
+     */
+    afterSetPagesText(value, oldValue) {
+        oldValue && this.updatePagesText();
     }
 
     /**
