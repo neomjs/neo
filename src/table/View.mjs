@@ -150,6 +150,10 @@ class View extends Component {
                     }
                 }
 
+                if (column.flex) {
+                    config.style.width = '100%';
+                }
+
                 data[i].cn.push(config);
             }
 

@@ -1,7 +1,7 @@
 import ChipField from '../../../../src/form/field/Chip.mjs';
 import Container from '../../../../src/form/Container.mjs';
 import TextArea  from '../../../../src/form/field/TextArea.mjs';
-import Toolbar   from '../../../../src/container/Toolbar.mjs';
+import Toolbar   from '../../../../src/toolbar/Base.mjs';
 import TextField from '../../../../src/form/field/Text.mjs';
 
 /**

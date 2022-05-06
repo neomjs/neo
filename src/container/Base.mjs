@@ -37,7 +37,7 @@ class Base extends Component {
          * @example
          * import Button      from '../button/Base.mjs';
          * import MyRedButton from 'myapp/MyRedButton.mjs';
-         * import Toolbar     from '../container/Toolbar.mjs';
+         * import Toolbar     from '../toolbar/Base.mjs';
          *
          * let myButton = Neo.create(Button, {
          *     text: 'Button1'

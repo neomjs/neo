@@ -51,6 +51,10 @@ class Store extends Base {
          */
         autoLoad: false,
         /**
+         * @member {Number} currentPage_=1
+         */
+        currentPage_: 1,
+        /**
          * @member {Array|null} data_=null
          */
         data_: null,
@@ -75,6 +79,11 @@ class Store extends Base {
          */
         model_: null,
         /**
+         * Use a value of 0 to not limit the pageSize
+         * @member {Number} pageSize_=0
+         */
+        pageSize_: 0,
+        /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
          * @member {Boolean} remoteFilter=false
@@ -86,6 +95,10 @@ class Store extends Base {
          * @member {Boolean} remoteSort=false
          */
         remoteSort: false,
+        /**
+         * @member {Number} totalCount=0
+         */
+        totalCount: 0,
         /**
          * Url for Ajax requests
          * @member {String|null} url=null
@@ -116,6 +129,16 @@ class Store extends Base {
      */
     add(item) {
         return super.add(this.beforeSetData(item));
+    }
+
+    /**
+     * Triggered after the currentPage config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCurrentPage(value, oldValue) {
+        oldValue && this.load();
     }
 
     /**
@@ -157,6 +180,19 @@ class Store extends Base {
         if (value) {
             value.storeId = this.id;
             RecordFactory.createRecordClass(value);
+        }
+    }
+
+    /**
+     * Triggered after the pageSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPageSize(value, oldValue) {
+        if (oldValue) {
+            this._currentPage = 1; // silent update
+            this.load();
         }
     }
 
@@ -254,13 +290,16 @@ class Store extends Base {
             if (!service) {
                 console.log('Api is not defined', this);
             } else {
-                // todo: add params
-
-                service[fn]().then(response => {
-                    me.data = response.data;
+                service[fn]({
+                    page    : me.currentPage,
+                    pageSize: me.pageSize
+                }).then(response => {
+                    if (response.success) {
+                        me.totalCount = response.totalCount;
+                        me.data       = response.data; // fires the load event
+                    }
                 });
             }
-
         } else {
             Neo.Xhr.promiseJson({
                 url: me.url

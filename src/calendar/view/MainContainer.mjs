@@ -5,7 +5,7 @@ import DateUtil              from '../../util/Date.mjs';
 import EditCalendarContainer from './calendars/EditContainer.mjs';
 import EditEventContainer    from './EditEventContainer.mjs';
 import MainContainerModel    from './MainContainerModel.mjs';
-import Toolbar               from '../../container/Toolbar.mjs';
+import Toolbar               from '../../toolbar/Base.mjs';
 
 const todayDate = new Date();
 

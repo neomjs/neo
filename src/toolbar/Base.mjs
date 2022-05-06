@@ -1,14 +1,14 @@
 import Button    from '../button/Base.mjs';
 import Component from '../component/Base.mjs';
-import Container from './Base.mjs';
+import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
- * @class Neo.container.Toolbar
+ * @class Neo.toolbar.Base
  * @extends Neo.container.Base
  */
-class Toolbar extends Container {
+class Base extends Container {
     static getStaticConfig() {return {
         /**
          * Valid values for dock
@@ -20,10 +20,10 @@ class Toolbar extends Container {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.container.Toolbar'
+         * @member {String} className='Neo.toolbar.Base'
          * @protected
          */
-        className: 'Neo.container.Toolbar',
+        className: 'Neo.toolbar.Base',
         /**
          * @member {String} ntype='toolbar'
          * @protected
@@ -189,6 +189,6 @@ class Toolbar extends Container {
     }
 }
 
-Neo.applyClassConfig(Toolbar);
+Neo.applyClassConfig(Base);
 
-export default Toolbar;
+export default Base;

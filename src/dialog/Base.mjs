@@ -81,7 +81,7 @@ class Base extends Panel {
          */
         dragZoneConfig: null,
         /**
-         * @member {Neo.container.Toolbar|null} headerToolbar=null
+         * @member {Neo.toolbar.Base|null} headerToolbar=null
          */
         headerToolbar: null,
         /**

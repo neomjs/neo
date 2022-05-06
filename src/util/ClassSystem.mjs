@@ -21,6 +21,8 @@ class ClassSystem extends Base {
      * @returns {Neo.core.Base} instance
      */
     static beforeSetInstance(config, DefaultClass=null, defaultValues={}) {
+        let isInstance = config instanceof Neo.core.Base;
+
         if (Neo.isString(DefaultClass)) {
             DefaultClass = Neo.ns(DefaultClass);
         }
@@ -29,7 +31,7 @@ class ClassSystem extends Base {
             config = Neo.create(DefaultClass, defaultValues);
         } else if (config?.isClass) {
             config = Neo.create(config, defaultValues);
-        } else if (Neo.isObject(config) && !(config instanceof Neo.core.Base)) {
+        } else if (Neo.isObject(config) && !isInstance) {
             if (config.ntype) {
                 config = Neo.ntype({
                     ...defaultValues,
@@ -48,6 +50,10 @@ class ClassSystem extends Base {
                 });
 
                 config = Neo.create(newConfig);
+            }
+        } else if (isInstance) {
+            if (defaultValues?.listeners) {
+                config.on(defaultValues.listeners);
             }
         }
 
