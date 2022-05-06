@@ -209,7 +209,7 @@ class Select extends Picker {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue && oldValue.destroy();
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Store);
     }
@@ -452,7 +452,7 @@ class Select extends Picker {
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
             me.fire('select', {
-                record: record,
+                record,
                 value : record[displayField]
             });
         }
