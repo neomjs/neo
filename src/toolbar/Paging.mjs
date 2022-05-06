@@ -160,8 +160,6 @@ class Paging extends Toolbar {
             value        : 30,
             width        : 70,
 
-
-
             store: {
                 model: {
                     fields: [

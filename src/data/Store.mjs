@@ -190,7 +190,10 @@ class Store extends Base {
      * @protected
      */
     afterSetPageSize(value, oldValue) {
-        oldValue && this.load();
+        if (oldValue) {
+            this._currentPage = 1; // silent update
+            this.load();
+        }
     }
 
     /**
