@@ -72,6 +72,7 @@ class Paging extends Toolbar {
      */
     afterSetPageSize(value, oldValue) {
         if (oldValue) {
+            this._currentPage = 1; // silent update
             this.store.pageSize = value;
         }
     }
