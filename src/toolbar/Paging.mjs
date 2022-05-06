@@ -1,4 +1,5 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import SelectField     from '../form/field/Select.mjs';
 import Toolbar         from './Base.mjs';
 
 /**
@@ -40,7 +41,7 @@ class Paging extends Toolbar {
         /**
          * @member {Function} totalText_=count=>`Total: ${count} records`
          */
-        totalText_: count => `Total: ${count} records`
+        totalText_: count => `Total: ${count} rows`
     }}
 
     /**
@@ -131,6 +132,39 @@ class Paging extends Toolbar {
             iconCls  : 'fa fa-angles-right',
             reference: 'nav-button-last',
             style    : {marginLeft: '2px'}
+        }, {
+            ntype: 'label',
+            style: {marginLeft: '50px'},
+            text : 'Rows per page:'
+        }, {
+            module       : SelectField,
+            clearable    : false,
+            hideLabel    : true,
+            style        : {margin: 0},
+            triggerAction: 'all',
+            useFilter    : false,
+            value        : 30,
+            width        : 70,
+
+            listConfig: {
+                highlightFilterValue: false
+            },
+
+            store: {
+                model: {
+                    fields: [
+                        {name: 'id',   type: 'Integer'},
+                        {name: 'name', type: 'Integer'}
+                    ]
+                },
+                data: [
+                    {id: 1, name:  10},
+                    {id: 2, name:  20},
+                    {id: 3, name:  30},
+                    {id: 4, name:  50},
+                    {id: 5, name: 100}
+                ]
+            }
         }, '->', {
             ntype    : 'label',
             reference: 'total-text',
