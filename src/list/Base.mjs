@@ -293,6 +293,7 @@ class Base extends Component {
                 break;
             }
 
+            case 'Number':
             case 'String': {
                 item.html = itemContent;
             }
@@ -348,7 +349,7 @@ class Base extends Component {
         if (!(me.animate && !me.getPlugin('animate'))) {
             vdom.cn = [];
 
-            me.store.items.forEach((item, index) => {
+            me.store.items.forEach((item, index) => {console.log(item, index);
                 listItem = me.createItem(item, index);
                 listItem && vdom.cn.push(listItem);
             });
