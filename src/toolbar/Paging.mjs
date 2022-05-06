@@ -38,9 +38,9 @@ class Paging extends Toolbar {
          */
         store_: null,
         /**
-         * @member {Function} totalText=count=>`Total: ${count} records`
+         * @member {Function} totalText_=count=>`Total: ${count} records`
          */
-        totalText: count => `Total: ${count} records`
+        totalText_: count => `Total: ${count} records`
     }}
 
     /**
@@ -71,6 +71,16 @@ class Paging extends Toolbar {
      */
     afterSetPagesText(value, oldValue) {
         oldValue && this.updatePagesText();
+    }
+
+    /**
+     * Triggered after the totalText config got changed
+     * @param {Function} value
+     * @param {Function} oldValue
+     * @protected
+     */
+    afterSetTotalText(value, oldValue) {
+        oldValue && this.updateTotalText();
     }
 
     /**
