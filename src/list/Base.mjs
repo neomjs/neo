@@ -349,7 +349,7 @@ class Base extends Component {
         if (!(me.animate && !me.getPlugin('animate'))) {
             vdom.cn = [];
 
-            me.store.items.forEach((item, index) => {console.log(item, index);
+            me.store.items.forEach((item, index) => {
                 listItem = me.createItem(item, index);
                 listItem && vdom.cn.push(listItem);
             });
