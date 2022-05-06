@@ -10,6 +10,16 @@ import VDomUtil        from '../../util/VDom.mjs';
  * @extends Neo.form.field.Picker
  */
 class Select extends Picker {
+    /**
+     * @member {String} filterOperator='like'
+     */
+    filterOperator = 'like'
+    /**
+     * Set this config to false, in case typing into the input field should not filter list items
+     * @member {Boolean} useFilter=true
+     */
+    useFilter = true
+
     static getStaticConfig() {return {
         /**
          * Valid values for triggerAction
@@ -39,10 +49,6 @@ class Select extends Picker {
          * @member {String} displayField='name'
          */
         displayField: 'name',
-        /**
-         * @member {String} filterOperator='like'
-         */
-        filterOperator: 'like',
         /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
@@ -152,7 +158,7 @@ class Select extends Picker {
         let me = this,
             filters;
 
-        if (value) {
+        if (value && me.useFilter) {
             filters = value.filters || [];
 
             filters.push({
