@@ -23,6 +23,7 @@
     position : absolute;
     top      : 50%;
     transform: translate(-50%, -50%);
+    z-index  : 20; // ensure to be on top of table headers
 
     transition-duration       : 200ms;
     transition-property       : height, left, top, transform, width;
@@ -51,6 +52,11 @@
     position: relative;
 
     &.neo-panel {
+        .neo-footer-toolbar {
+            border    : none;
+            border-top: 1px solid v(dialog-border-color);
+        }
+
         .neo-header-toolbar {
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);

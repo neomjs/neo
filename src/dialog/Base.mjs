@@ -81,7 +81,7 @@ class Base extends Panel {
          */
         dragZoneConfig: null,
         /**
-         * @member {Neo.container.Toolbar|null} headerToolbar=null
+         * @member {Neo.toolbar.Base|null} headerToolbar=null
          */
         headerToolbar: null,
         /**
@@ -134,9 +134,7 @@ class Base extends Panel {
 
         me.createHeader();
 
-        if (me.animateTargetId) {
-            me.animateShow();
-        }
+        me.animateTargetId && me.animateShow();
     }
 
     /**
@@ -188,27 +186,25 @@ class Base extends Panel {
             me.headerToolbar.cls = cls;
         }
 
-        if (value) {
-            import('../draggable/DragZone.mjs').then(module => {
-                DragZone = module.default;
+        value && import('../draggable/DragZone.mjs').then(module => {
+            DragZone = module.default;
 
-                if (!me.dragListenersAdded) {
+            if (!me.dragListenersAdded) {
+                domListeners.push(
+                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                );
+
+                if (me.dragZoneConfig?.alwaysFireDragMove) {
                     domListeners.push(
-                        {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                        {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                        {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
                     );
-
-                    if (me.dragZoneConfig?.alwaysFireDragMove) {
-                        domListeners.push(
-                            {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
-                        );
-                    }
-
-                    me.domListeners       = domListeners;
-                    me.dragListenersAdded = true;
                 }
-            });
-        }
+
+                me.domListeners       = domListeners;
+                me.dragListenersAdded = true;
+            }
+        });
     }
 
     /**
@@ -235,19 +231,17 @@ class Base extends Panel {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value) {
-            let me = this;
+        let me = this;
 
-            if (me.animateTargetId) {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: me.appName,
-                    deltas : [{
-                        action: 'removeNode',
-                        id    : me.getAnimateTargetId()
-                    }]
-                });
-            }
+        if (value && me.animateTargetId) {
+            Neo.currentWorker.promiseMessage('main', {
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : [{
+                    action: 'removeNode',
+                    id    : me.getAnimateTargetId()
+                }]
+            });
         }
     }
 
@@ -258,111 +252,104 @@ class Base extends Panel {
      * @protected
      */
     afterSetResizable(value, oldValue) {
-        if (value) {
-            import('../plugin/Resizable.mjs').then(module => {
-                let me      = this,
-                    plugins = me.plugins || [];
+        value && import('../plugin/Resizable.mjs').then(module => {
+            let me      = this,
+                plugins = me.plugins || [];
 
-                if (!me.getPlugin({flag: 'resizable'})) {
-                    plugins.push({
-                        module       : module.default,
-                        appName      : me.appName,
-                        delegationCls: 'neo-dialog',
-                        flag         : 'resizable',
-                        ...me.resizablePluginConfig
-                    });
+            if (!me.getPlugin({flag: 'resizable'})) {
+                plugins.push({
+                    module       : module.default,
+                    appName      : me.appName,
+                    delegationCls: 'neo-dialog',
+                    flag         : 'resizable',
+                    ...me.resizablePluginConfig
+                });
 
-                    me.plugins = plugins;
+                me.plugins = plugins;
+            }
+        });
+    }
+
+    /**
+     *
+     */
+    async animateHide() {
+        let me      = this,
+            appName = me.appName,
+            id      = me.getAnimateTargetId(),
+            rects   = await me.getDomRect([me.id, me.animateTargetId]);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action  : 'mountDom',
+            appName,
+            html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
+            parentId: 'document.body'
+        });
+
+        me.closeOrHide(false);
+
+        await Neo.timeout(30);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id,
+                style: {
+                    height: `${rects[1].height}px`,
+                    left  : `${rects[1].left  }px`,
+                    top   : `${rects[1].top   }px`,
+                    width : `${rects[1].width }px`
                 }
-            });
-        }
-    }
+            }]
+        });
 
-    /**
-     *
-     */
-    animateHide() {
-        let me      = this,
-            appName = me.appName,
-            id      = me.getAnimateTargetId();
+        await Neo.timeout(250);
 
-        me.getDomRect([me.id, me.animateTargetId]).then(rects => {
-            Neo.currentWorker.promiseMessage('main', {
-                action  : 'mountDom',
-                appName : appName,
-                html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
-                parentId: 'document.body'
-            }).then(() => {
-                setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: appName,
-                        deltas : [{
-                            id   : id,
-                            style: {
-                                height: `${rects[1].height}px`,
-                                left  : `${rects[1].left  }px`,
-                                top   : `${rects[1].top   }px`,
-                                width : `${rects[1].width }px`
-                            }
-                        }]
-                    }).then(() => {
-                        setTimeout(() => {
-                            Neo.currentWorker.promiseMessage('main', {
-                                action : 'updateDom',
-                                appName: appName,
-                                deltas : [{
-                                    action: 'removeNode',
-                                    id    : id
-                                }]
-                            });
-                        }, 250);
-                    });
-                }, 30);
-
-                me.closeOrHide(false);
-            });
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{action: 'removeNode', id}]
         });
     }
 
     /**
      *
      */
-    animateShow() {
-        let me      = this,
-            appName = me.appName,
-            id      = me.getAnimateTargetId();
+    async animateShow() {
+        let me           = this,
+            appName      = me.appName,
+            id           = me.getAnimateTargetId(),
+            wrapperStyle = me.wrapperStyle,
+            rect         = await me.getDomRect(me.animateTargetId);
 
-        me.getDomRect(me.animateTargetId).then(rect => {
-            Neo.currentWorker.promiseMessage('main', {
-                action  : 'mountDom',
-                appName : appName,
-                html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
-                parentId: 'document.body'
-            }).then(() => {
-                setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action  : 'updateDom',
-                        appName : appName,
-
-                        deltas: [{
-                            id   : id,
-                            style: {
-                                height   : me.wrapperStyle?.height || '50%',
-                                left     : '50%',
-                                top      : '50%',
-                                transform: 'translate(-50%, -50%)',
-                                width    : me.wrapperStyle?.width || '50%'
-                            }
-                        }]
-                    }).then(() => {
-                        setTimeout(() => {
-                            me.show(false);
-                        }, 200);
-                    });
-                }, 30);
-            });
+        await Neo.currentWorker.promiseMessage('main', {
+            action  : 'mountDom',
+            appName,
+            html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
+            parentId: 'document.body'
         });
+
+        await Neo.timeout(30);
+
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id,
+                style: {
+                    height   : wrapperStyle?.height    || '50%',
+                    left     : wrapperStyle?.left      || '50%',
+                    top      : wrapperStyle?.top       || '50%',
+                    transform: wrapperStyle?.transform || 'translate(-50%, -50%)',
+                    width    : wrapperStyle?.width     || '50%'
+                }
+            }]
+        });
+
+        await Neo.timeout(200);
+
+        me.show(false);
     }
 
     /**

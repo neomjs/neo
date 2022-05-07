@@ -1,7 +1,7 @@
 import Button                  from '../../../src/button/Base.mjs';
 import Calendar                from '../../../src/calendar/view/MainContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import Toolbar                 from '../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**

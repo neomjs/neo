@@ -70,7 +70,7 @@ class Data extends Base {
      * @param {Object} msg.data the API content
      */
     onRegisterApi(msg) {
-        import('../manager/RpcApi.mjs').then(module => {
+        import('../manager/rpc/Api.mjs').then(module => {
             module.default.registerApi(msg.data);
             this.rpcApiManagerLoaded = true
         })
@@ -82,7 +82,7 @@ class Data extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        Neo.config.remotesApiUrl && import('../manager/RpcMessage.mjs').then(module => {
+        Neo.config.remotesApiUrl && import('../manager/rpc/Message.mjs').then(module => {
             this.rpcMessageManagerLoaded = true
         })
     }
@@ -102,7 +102,7 @@ class Data extends Base {
 
             me.reject(msg);
         } else {
-            response = await Neo.manager.RpcMessage.onMessage(msg);
+            response = await Neo.manager.rpc.Message.onMessage(msg);
 
             me.resolve(msg, response);
         }

@@ -28,6 +28,22 @@ class NeoFunction extends Base {
     }
 
     /**
+     * Intended for functions with 1 param where the interceptor can change the value
+     * @param {Object} target
+     * @param {String} targetMethodName
+     * @param {Function} interceptFunction
+     * @param {Object} scope=target
+     * @returns {Function}
+     */
+    static createInterceptor(target, targetMethodName, interceptFunction, scope) {
+        let targetMethod = target[targetMethodName];
+
+        return (target[targetMethodName] = function(value) {
+            return targetMethod.call(target, interceptFunction.call(scope || target, value));
+        });
+    }
+
+    /**
      * @param {Neo.core.Base} target
      * @param {String} methodName
      * @param {Function} fn
@@ -44,20 +60,21 @@ class NeoFunction extends Base {
     }
 
     /**
-     * @param {Neo.core.Base} target
-     * @param {String} methodName
-     * @param {Function} fn
-     * @param {Object} scope
+     * The interceptor can prevent the targetMethod from getting executed in case it returns false.
+     * @param {Object} target
+     * @param {String} targetMethodName
+     * @param {Function} interceptFunction
+     * @param {Object} scope=target
+     * @param {*} preventedReturnValue=null The value to return in case the interceptFunction returns false
      * @returns {Function}
      */
-    static intercept(target, methodName, fn, scope) {
-        let method = target[methodName] || Neo.emptyFn;
+    static intercept(target, targetMethodName, interceptFunction, scope, preventedReturnValue=null) {
+        let targetMethod = target[targetMethodName];
 
-        return (target[methodName] = function() {
-            let returnValue = fn.apply(scope || this, arguments);
-            method.apply(this, arguments);
-
-            return returnValue;
+        return (target[targetMethodName] = function() {
+            return (interceptFunction.apply(scope || target, arguments) === false)
+                ? preventedReturnValue
+                : targetMethod.apply(target, arguments);
         });
     }
 }

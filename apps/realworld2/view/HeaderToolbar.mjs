@@ -1,9 +1,9 @@
 import HeaderToolbarController from './HeaderToolbarController.mjs';
-import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import Toolbar                 from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class RealWorld2.view.HeaderToolbar
- * @extends Neo.container.Toolbar
+ * @extends Neo.toolbar.Base
  */
 class HeaderToolbar extends Toolbar {
     static getConfig() {return {

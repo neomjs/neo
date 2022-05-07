@@ -41,13 +41,13 @@ class Base extends CoreBase {
         /**
          * When filtering the collection for the first time, allItems will become a new collection for the unfiltered
          * state, using this id as the sourceCollectionId
-         * @member {Neo.collection.Base|null} allItems
+         * @member {Neo.collection.Base|null} allItems=null
          * @protected
          */
         allItems: null,
         /**
          * True to sort the collection items when adding / inserting new ones
-         * @member {Boolean} autoSort
+         * @member {Boolean} autoSort=true
          */
         autoSort: true,
         /**
@@ -515,7 +515,7 @@ class Base extends CoreBase {
                 if (hasTransformValue) {
                     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
                     mappedItems = items.map((item, index) => {
-                        obj = {index: index};
+                        obj = {index};
                         i   = 0;
 
                         for (; i < countSorters; i++) {

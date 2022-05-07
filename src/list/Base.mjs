@@ -293,6 +293,7 @@ class Base extends Component {
                 break;
             }
 
+            case 'Number':
             case 'String': {
                 item.html = itemContent;
             }

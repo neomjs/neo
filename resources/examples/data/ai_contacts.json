@@ -501,7 +501,6 @@
         {"id" : 498, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000498.jpg"},
         {"id" : 499, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000499.jpg"},
         {"id" : 500, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000500.jpg"},
-
         {"id" : 501, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000501.jpg"},
         {"id" : 502, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000502.jpg"},
         {"id" : 503, "firstname" : "John", "lastname" : "Doe",   "isOnline" : false, "image" : "ai_images/000503.jpg"},

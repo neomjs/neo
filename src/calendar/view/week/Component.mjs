@@ -446,10 +446,11 @@ class Component extends BaseComponent {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMounted(value, oldValue) {
+    async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
+        let me = this,
+            rect;
 
         if (value) {
             if (me.needsEventUpdate) {
@@ -457,16 +458,16 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false;
             }
 
-            setTimeout(() => {
-                me.getDomRect(me.getColumnContainer().id).then(data => {
-                    Neo.main.DomAccess.scrollBy({
-                        appName  : me.appName,
-                        direction: 'left',
-                        id       : me.getScrollContainer().id,
-                        value    : data.width * me.columnsBuffer / me.columnsVisible / 3
-                    });
-                });
-            }, 20);
+            await Neo.timeout(70);
+
+            rect = await me.getDomRect(me.getColumnContainer().id);
+
+            Neo.main.DomAccess.scrollBy({
+                appName  : me.appName,
+                direction: 'left',
+                id       : me.getScrollContainer().id,
+                value    : rect.width * me.columnsBuffer / me.columnsVisible / 3
+            });
         }
     }
 
@@ -1001,7 +1002,7 @@ class Component extends BaseComponent {
                     removeDom
                 });
 
-                Object.assign(header.cn[i], {id: headerId, removeDom});
+                Object.assign(header.cn[i],       {id: headerId, removeDom});
                 Object.assign(header.cn[i].cn[0], {html: me.intlFormat_day.format(date), id: `${headerId}_day`});
                 Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`});
             }

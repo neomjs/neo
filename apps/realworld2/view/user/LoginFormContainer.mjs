@@ -1,7 +1,7 @@
 import Container     from '../../../../src/form/Container.mjs';
 import PasswordField from '../../../../src/form/field/Password.mjs';
 import TextField     from '../../../../src/form/field/Text.mjs';
-import Toolbar       from '../../../../src/container/Toolbar.mjs';
+import Toolbar       from '../../../../src/toolbar/Base.mjs';
 
 /**
  * @class RealWorld2.view.user.LoginFormContainer

@@ -10,6 +10,16 @@ import VDomUtil        from '../../util/VDom.mjs';
  * @extends Neo.form.field.Picker
  */
 class Select extends Picker {
+    /**
+     * @member {String} filterOperator='like'
+     */
+    filterOperator = 'like'
+    /**
+     * Set this config to false, in case typing into the input field should not filter list items
+     * @member {Boolean} useFilter=true
+     */
+    useFilter = true
+
     static getStaticConfig() {return {
         /**
          * Valid values for triggerAction
@@ -148,12 +158,12 @@ class Select extends Picker {
         let me = this,
             filters;
 
-        if (value) {
+        if (value && me.useFilter) {
             filters = value.filters || [];
 
             filters.push({
                 includeEmptyValues: true,
-                operator          : 'like',
+                operator          : me.filterOperator,
                 property          : me.displayField,
                 value             : value.get(me.value)?.[me.displayField] || me.value
             });
@@ -209,7 +219,7 @@ class Select extends Picker {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue && oldValue.destroy();
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Store);
     }
@@ -452,7 +462,7 @@ class Select extends Picker {
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
             me.fire('select', {
-                record: record,
+                record,
                 value : record[displayField]
             });
         }

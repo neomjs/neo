@@ -30,9 +30,30 @@ class Store extends Base {
          */
         ntype: 'store',
         /**
+         * Instead of setting an url, you can define the RPC BE API methods.
+         * In case the 4 methods are using the same service and this service is using the CRUD based fn-names,
+         * you can switch to a string based shortcut.
+         * The following 2 examples are equivalent.
+         * @example
+         * api: {
+         *    create : 'MyApp.backend.UserService.create',
+         *    destroy: 'MyApp.backend.UserService.destroy',
+         *    read   : 'MyApp.backend.UserService.read',
+         *    update : 'MyApp.backend.UserService.update'
+         * }
+         * @example
+         * api: 'MyApp.backend.UserService'
+         * @member {Object|String|null} api_=null
+         */
+        api_: null,
+        /**
          * @member {Boolean} autoLoad=false
          */
         autoLoad: false,
+        /**
+         * @member {Number} currentPage_=1
+         */
+        currentPage_: 1,
         /**
          * @member {Array|null} data_=null
          */
@@ -58,6 +79,11 @@ class Store extends Base {
          */
         model_: null,
         /**
+         * Use a value of 0 to not limit the pageSize
+         * @member {Number} pageSize_=0
+         */
+        pageSize_: 0,
+        /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
          * @member {Boolean} remoteFilter=false
@@ -69,6 +95,10 @@ class Store extends Base {
          * @member {Boolean} remoteSort=false
          */
         remoteSort: false,
+        /**
+         * @member {Number} totalCount=0
+         */
+        totalCount: 0,
         /**
          * Url for Ajax requests
          * @member {String|null} url=null
@@ -99,6 +129,16 @@ class Store extends Base {
      */
     add(item) {
         return super.add(this.beforeSetData(item));
+    }
+
+    /**
+     * Triggered after the currentPage config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCurrentPage(value, oldValue) {
+        oldValue && this.load();
     }
 
     /**
@@ -141,6 +181,38 @@ class Store extends Base {
             value.storeId = this.id;
             RecordFactory.createRecordClass(value);
         }
+    }
+
+    /**
+     * Triggered after the pageSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPageSize(value, oldValue) {
+        if (oldValue) {
+            this._currentPage = 1; // silent update
+            this.load();
+        }
+    }
+
+    /**
+     * @param {Object|String|null} value
+     * @param {Object|String|null} oldValue
+     * @protected
+     * @returns {Object|null}
+     */
+    beforeSetApi(value, oldValue) {
+        if (Neo.typeOf(value) === 'String') {
+            value = {
+                create : value + '.create',
+                destroy: value + '.destroy',
+                read   : value + '.read',
+                update : value + '.update'
+            };
+        }
+
+        return value;
     }
 
     /**
@@ -187,8 +259,8 @@ class Store extends Base {
     }
 
     /**
-     * @param {Neo.data.Model} value
-     * @param {Neo.data.Model} oldValue
+     * @param {Neo.data.Model|Object} value
+     * @param {Neo.data.Model|Object} oldValue
      * @protected
      * @returns {Neo.data.Model}
      */
@@ -210,14 +282,34 @@ class Store extends Base {
     load() {
         let me = this;
 
-        Neo.Xhr.promiseJson({
-            url: me.url
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
-        }).then(data => {
-            me.data = Array.isArray(data.json) ? data.json : data.json.data;
-            // we do not need to fire a load event => onCollectionMutate()
-        });
+        if (me.api) {
+            let apiArray = me.api.read.split('.'),
+                fn       = apiArray.pop(),
+                service  = Neo.ns(apiArray.join('.'));
+
+            if (!service) {
+                console.log('Api is not defined', this);
+            } else {
+                service[fn]({
+                    page    : me.currentPage,
+                    pageSize: me.pageSize
+                }).then(response => {
+                    if (response.success) {
+                        me.totalCount = response.totalCount;
+                        me.data       = response.data; // fires the load event
+                    }
+                });
+            }
+        } else {
+            Neo.Xhr.promiseJson({
+                url: me.url
+            }).catch(err => {
+                console.log('Error for Neo.Xhr.request', err, me.id);
+            }).then(data => {
+                me.data = Array.isArray(data.json) ? data.json : data.json.data;
+                // we do not need to fire a load event => onCollectionMutate()
+            });
+        }
     }
 
     /**
@@ -279,7 +371,7 @@ class Store extends Base {
     }
 
     /**
-     * @param {Object} opts
+     * @param {Object} opts={}
      * @param {String} opts.direction
      * @param {String} opts.property
      */
@@ -287,7 +379,31 @@ class Store extends Base {
         let me = this;
 
         if (me.remoteSort) {
-            // todo
+            if (me.api) {
+                let apiArray = me.api.read.split('.'),
+                    fn       = apiArray.pop(),
+                    service  = Neo.ns(apiArray.join('.'));
+
+                if (!service) {
+                    console.log('Api is not defined', this);
+                } else {
+                    // todo: the vdom engine needs to get enhanced to better support remote sorting
+                    me.clear();
+
+                    service[fn]({
+                        page    : 1,
+                        pageSize: me.pageSize,
+                        sorters : [opts],
+                    }).then(response => {
+                        if (response.success) {
+                            me.totalCount = response.totalCount;
+                            me.data       = response.data; // fires the load event
+                        }
+                    });
+                }
+            } else {
+                // todo
+            }
         } else {
             // console.log('sort', opts.property, opts.direction, me.configsApplied);
 
