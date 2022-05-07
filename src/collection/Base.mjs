@@ -515,7 +515,7 @@ class Base extends CoreBase {
                 if (hasTransformValue) {
                     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
                     mappedItems = items.map((item, index) => {
-                        obj = {index: index};
+                        obj = {index};
                         i   = 0;
 
                         for (; i < countSorters; i++) {
