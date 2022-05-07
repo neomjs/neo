@@ -25,6 +25,10 @@ class Users extends Store {
          */
         model: UserModel,
         /**
+         * @member {Boolean} remoteSort=true
+         */
+        remoteSort: true,
+        /**
          * @member {Object[]} sorters
          */
         sorters: [{

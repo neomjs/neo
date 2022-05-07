@@ -371,7 +371,7 @@ class Store extends Base {
     }
 
     /**
-     * @param {Object} opts
+     * @param {Object} opts={}
      * @param {String} opts.direction
      * @param {String} opts.property
      */
@@ -379,7 +379,28 @@ class Store extends Base {
         let me = this;
 
         if (me.remoteSort) {
-            // todo
+            if (me.api) {
+                let apiArray = me.api.read.split('.'),
+                    fn       = apiArray.pop(),
+                    service  = Neo.ns(apiArray.join('.'));
+
+                if (!service) {
+                    console.log('Api is not defined', this);
+                } else {
+                    service[fn]({
+                        page    : 1,
+                        pageSize: me.pageSize,
+                        sorters : [opts],
+                    }).then(response => {
+                        if (response.success) {
+                            me.totalCount = response.totalCount;
+                            me.data       = response.data; // fires the load event
+                        }
+                    });
+                }
+            } else {
+                // todo
+            }
         } else {
             // console.log('sort', opts.property, opts.direction, me.configsApplied);
 
