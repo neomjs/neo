@@ -387,6 +387,9 @@ class Store extends Base {
                 if (!service) {
                     console.log('Api is not defined', this);
                 } else {
+                    // todo: the vdom engine needs to get enhanced to better support remote sorting
+                    me.clear();
+
                     service[fn]({
                         page    : 1,
                         pageSize: me.pageSize,
