@@ -352,11 +352,9 @@ class Base extends CoreBase {
             }
         });
 
-        if (Array.isArray(oldValue)) {
-            oldValue.forEach(key => {
-                key.destroy();
-            });
-        }
+        oldValue?.forEach(key => {
+            key.destroy();
+        });
 
         return value;
     }
