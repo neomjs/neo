@@ -280,7 +280,12 @@ class Store extends Base {
     }
 
     load() {
-        let me = this;
+        let me = this,
+            params = {page: me.currentPage, pageSize: me.pageSize};
+
+        if (me.remoteSort) {
+            params.sorters = me.exportSorters();
+        }
 
         if (me.api) {
             let apiArray = me.api.read.split('.'),
@@ -290,10 +295,7 @@ class Store extends Base {
             if (!service) {
                 console.log('Api is not defined', this);
             } else {
-                service[fn]({
-                    page    : me.currentPage,
-                    pageSize: me.pageSize
-                }).then(response => {
+                service[fn](params).then(response => {
                     if (response.success) {
                         me.totalCount = response.totalCount;
                         me.data       = response.data; // fires the load event
@@ -301,8 +303,10 @@ class Store extends Base {
                 });
             }
         } else {
+            params.url = me.url;
+
             Neo.Xhr.promiseJson({
-                url: me.url
+                url: params
             }).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
             }).then(data => {
