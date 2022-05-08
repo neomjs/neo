@@ -197,6 +197,17 @@ class Store extends Base {
     }
 
     /**
+     * @param {Array} value
+     * @param {Array} oldValue
+     * @protected
+     */
+    afterSetSorters(value, oldValue) {
+        super.afterSetSorters(value, oldValue);
+
+        this.remoteSort && this.load();
+    }
+
+    /**
      * @param {Object|String|null} value
      * @param {Object|String|null} oldValue
      * @protected
@@ -382,45 +393,23 @@ class Store extends Base {
     sort(opts={}) {
         let me = this;
 
-        if (me.remoteSort) {
-            if (me.api) {
-                let apiArray = me.api.read.split('.'),
-                    fn       = apiArray.pop(),
-                    service  = Neo.ns(apiArray.join('.'));
+        me._currentPage = 1; // silent update
 
-                if (!service) {
-                    console.log('Api is not defined', this);
-                } else {
-                    // todo: the vdom engine needs to get enhanced to better support remote sorting
-                    me.clear();
-
-                    service[fn]({
-                        page    : 1,
-                        pageSize: me.pageSize,
-                        sorters : [opts],
-                    }).then(response => {
-                        if (response.success) {
-                            me.totalCount = response.totalCount;
-                            me.data       = response.data; // fires the load event
-                        }
-                    });
-                }
+        if (me.configsApplied) {
+            if (opts.direction) {
+                me.sorters = [{
+                    direction: opts.direction,
+                    property : opts.property
+                }];
             } else {
-                // todo
-            }
-        } else {
-            // console.log('sort', opts.property, opts.direction, me.configsApplied);
-
-            if (me.configsApplied) {
-                if (opts.direction) {
-                    me.sorters = [{
-                        direction: opts.direction,
-                        property : opts.property
-                    }];
-                } else {
+                if (!me.remoteSort) {
                     me.startUpdate();
                     me.clear();
-                    me.sorters = [];
+                }
+
+                me.sorters = [];
+
+                if (!me.remoteSort) {
                     me.add([...me.initialData]);
                     me.endUpdate();
                     me.fire('sort');
