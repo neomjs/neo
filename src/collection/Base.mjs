@@ -598,6 +598,24 @@ class Base extends CoreBase {
     }
 
     /**
+     * Needed for remote sorting
+     * @returns {Object[]}
+     */
+    exportSorters() {
+        let me      = this,
+            sorters = [],
+            sorter;
+
+        me.sorters?.forEach(key => {
+            sorter = key.export();
+
+            sorter && sorters.push(sorter);
+        });
+
+        return sorters;
+    }
+
+    /**
      * @protected
      */
     filter() {
