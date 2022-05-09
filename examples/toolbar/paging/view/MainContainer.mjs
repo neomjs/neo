@@ -24,6 +24,10 @@ class MainContainer extends Viewport {
                 handler: 'onAddUserButtonClick',
                 iconCls: 'fa fa-circle-plus',
                 text   : 'Add User'
+            }, {
+                iconCls: 'fa fa-filter',
+                style  : {marginLeft: '2px'},
+                text   : 'Show Filters'
             }]
         }, {
             module      : UserTableContainer,
