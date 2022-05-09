@@ -170,7 +170,11 @@ class Store extends Base {
     afterSetFilters(value, oldValue) {
         super.afterSetFilters(value, oldValue);
 
-        oldValue && this.remoteFilter && this.load();
+        let me = this;
+
+        me._currentPage = 1; // silent update
+
+        oldValue && me.remoteFilter && me.load();
     }
 
     /**
@@ -215,7 +219,11 @@ class Store extends Base {
     afterSetSorters(value, oldValue) {
         super.afterSetSorters(value, oldValue);
 
-        oldValue && this.remoteSort && this.load();
+        let me = this;
+
+        me._currentPage = 1; // silent update
+
+        oldValue && me.remoteSort && me.load();
     }
 
     /**
@@ -386,8 +394,11 @@ class Store extends Base {
      * @protected
      */
     onFilterChange(opts) {
-        if (this.remoteFilter) {
-            this.load();
+        let me = this;
+
+        if (me.remoteFilter) {
+            me._currentPage = 1; // silent update
+            me.load();
         } else {
             super.onFilterChange(opts);
         }
