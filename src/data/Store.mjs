@@ -204,7 +204,7 @@ class Store extends Base {
     afterSetSorters(value, oldValue) {
         super.afterSetSorters(value, oldValue);
 
-        this.remoteSort && this.load();
+        oldValue && this.remoteSort && this.load();
     }
 
     /**
