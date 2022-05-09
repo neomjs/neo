@@ -596,6 +596,24 @@ class Base extends CoreBase {
     }
 
     /**
+     * Needed for remote filtering
+     * @returns {Object[]}
+     */
+    exportFilters() {
+        let me      = this,
+            filters = [],
+            filter;
+
+        me.filters?.forEach(key => {
+            filter = key.export();
+
+            filter && filters.push(filter);
+        });
+
+        return filters;
+    }
+
+    /**
      * Needed for remote sorting
      * @returns {Object[]}
      */
