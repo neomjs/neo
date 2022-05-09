@@ -163,6 +163,17 @@ class Store extends Base {
     }
 
     /**
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetFilters(value, oldValue) {
+        super.afterSetFilters(value, oldValue);
+
+        oldValue && this.remoteFilter && this.load();
+    }
+
+    /**
      * @param value
      * @param oldValue
      * @protected
@@ -197,8 +208,8 @@ class Store extends Base {
     }
 
     /**
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     afterSetSorters(value, oldValue) {
