@@ -305,6 +305,10 @@ class Store extends Base {
         let me = this,
             params = {page: me.currentPage, pageSize: me.pageSize};
 
+        if (me.remoteFilter) {
+            params.filters = me.exportFilters();
+        }
+
         if (me.remoteSort) {
             params.sorters = me.exportSorters();
         }
