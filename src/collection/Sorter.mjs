@@ -126,10 +126,11 @@ class Sorter extends Base {
      * @returns {Object|null}
      */
     export() {
-        let direction = this.direction,
-            property  = this.property;
+        let me        = this,
+            direction = me.direction,
+            property  = me.property;
 
-        if (direction && property) {
+        if (!me.sortBy && direction && property) {
             return {direction, property};
         }
 
