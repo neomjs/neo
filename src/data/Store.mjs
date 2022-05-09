@@ -259,8 +259,6 @@ class Store extends Base {
                     value[index] = RecordFactory.createRecord(me.model, key);
                 }
             });
-
-            // console.log('beforeSetData', value);
         }
 
         return value;
@@ -287,9 +285,7 @@ class Store extends Base {
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Model);
     }
@@ -382,6 +378,18 @@ class Store extends Base {
             setTimeout(() => { // todo
                 me.load();
             }, 100);
+        }
+    }
+
+    /**
+     * @param {Object} opts
+     * @protected
+     */
+    onFilterChange(opts) {
+        if (this.remoteFilter) {
+            this.load();
+        } else {
+            super.onFilterChange(opts);
         }
     }
 
