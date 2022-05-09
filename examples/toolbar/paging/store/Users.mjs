@@ -21,9 +21,22 @@ class Users extends Store {
          */
         autoLoad: true,
         /**
+         * True to sort the collection items when adding / inserting new ones
+         * @member {Boolean} autoSort=false
+         */
+        autoSort: false,
+        /**
          * @member {Neo.data.Model} model=UserModel
          */
         model: UserModel,
+        /**
+         * @member {Boolean} remoteFilter=true
+         */
+        remoteFilter: true,
+        /**
+         * @member {Boolean} remoteSort=true
+         */
+        remoteSort: true,
         /**
          * @member {Object[]} sorters
          */

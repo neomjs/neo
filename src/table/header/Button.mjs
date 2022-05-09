@@ -178,12 +178,10 @@ class Button extends BaseButton {
             return;
         }
 
-        if (me.mounted) {
-            me.fire('sort', {
-                direction: value,
-                property : me.dataField
-            });
-        }
+        me.mounted && me.fire('sort', {
+            direction: value,
+            property : me.dataField
+        });
     }
 
     /**
@@ -243,9 +241,7 @@ class Button extends BaseButton {
      *
      */
     destroy(...args) {
-        if (this.filterField) {
-            this.filterField.destroy();
-        }
+        this.filterField?.destroy();
 
         super.destroy(...args);
     }
@@ -378,7 +374,7 @@ class Button extends BaseButton {
 
                 filters.push({
                     property: me.dataField,
-                    operator: operator,
+                    operator,
                     value   : null,
                     ...me.filterConfig
                 });
@@ -415,7 +411,7 @@ class Button extends BaseButton {
                 filters.push({
                     property: me.dataField,
                     operator: 'like',
-                    value   : value,
+                    value,
                     ...me.filterConfig
                 });
 
