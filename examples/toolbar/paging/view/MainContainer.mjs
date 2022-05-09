@@ -34,6 +34,7 @@ class MainContainer extends Viewport {
                 iconCls: 'fa fa-circle-plus',
                 text   : 'Add User'
             }, {
+                handler: 'onShowFiltersButtonClick',
                 iconCls: 'fa fa-filter',
                 style  : {marginLeft: '2px'},
                 text   : 'Show Filters'
