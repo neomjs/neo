@@ -87,7 +87,7 @@ class Toolbar extends BaseToolbar {
             // todo: only add px if number
             if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
             if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
-            if (item.width)    {style.width    = item.width + 'px'}
+            if (item.width)    {style.width    = item.width    + 'px'}
 
             if (item.dock) {
                 item.vdom.cls = ['neo-locked'];
