@@ -35,8 +35,8 @@
     "homepage": "https://neomjs.github.io/pages/",
     "dependencies": {
         "@fortawesome/fontawesome-free": "^6.1.1",
-        "@material/mwc-button": "0.25.3",
-        "@material/mwc-textfield": "0.25.3",
+        "@material/mwc-button": "^0.26.1",
+        "@material/mwc-textfield": "^0.26.1",
         "autoprefixer": "^10.4.7",
         "chalk": "^5.0.1",
         "clean-webpack-plugin": "^4.0.0",
