@@ -396,7 +396,7 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
-     * Maps a className string into a global namespace
+     * Maps a className string into a given or global namespace
      * @example
      * Neo.ns('Neo.button.Base', true);
      * // =>
