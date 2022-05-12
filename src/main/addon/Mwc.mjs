@@ -49,7 +49,7 @@ class Mwc extends Base {
         if (Neo.config.environment === 'development') {
             import(
                 /* webpackIgnore: true */
-                'https://unpkg.com/@material/mwc-button@0.23.0-canary.78b1eaac.0/mwc-button.js?module'
+                'https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module'
             );
         } else {
             // dist/development & dist/production
@@ -64,7 +64,7 @@ class Mwc extends Base {
         if (Neo.config.environment === 'development') {
             import(
                 /* webpackIgnore: true */
-                'https://unpkg.com/@material/mwc-textfield@0.23.0-canary.fe7cca31.0/mwc-textfield.js?module'
+                'https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module'
             );
         } else {
             // dist/development & dist/production
