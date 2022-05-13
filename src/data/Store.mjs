@@ -336,7 +336,7 @@ class Store extends Base {
             params.url = me.url;
 
             Neo.Xhr.promiseJson({
-                url: params
+                url: params.url
             }).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
             }).then(data => {
