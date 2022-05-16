@@ -262,7 +262,7 @@ if (programOpts.info) {
                 "        /*",
                 "         * @member {Object} layout={ntype:'fit'}",
                 "         */",
-                "        layout: {ntype: 'fit'},",
+                "        layout: {ntype: 'fit'}",
                 "    }}",
                 "}",
                 "",
