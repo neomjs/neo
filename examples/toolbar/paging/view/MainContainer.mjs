@@ -10,13 +10,22 @@ import Viewport                from '../../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'Neo.examples.toolbar.paging.view.MainContainer',
-        autoMount : true,
+        /**
+         * @member {String} className='Neo.examples.toolbar.paging.view.MainContainer'
+         * @protected
+         */
+        className: 'Neo.examples.toolbar.paging.view.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
-        model     : MainContainerModel,
-        style     : {padding: '20px'},
-
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             ntype: 'toolbar',
             flex : 'none',
@@ -24,6 +33,11 @@ class MainContainer extends Viewport {
                 handler: 'onAddUserButtonClick',
                 iconCls: 'fa fa-circle-plus',
                 text   : 'Add User'
+            }, {
+                handler: 'onShowFiltersButtonClick',
+                iconCls: 'fa fa-filter',
+                style  : {marginLeft: '2px'},
+                text   : 'Show Filters'
             }]
         }, {
             module      : UserTableContainer,
@@ -35,7 +49,19 @@ class MainContainer extends Viewport {
             module: PagingToolbar,
             bind  : {store: 'stores.users'},
             flex  : 'none'
-        }]
+        }],
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Neo.model.Component} model=MainContainerModel
+         */
+        model: MainContainerModel,
+        /**
+         * @member {Object} style={padding:'20px'}
+         */
+        style: {padding: '20px'}
     }}
 }
 

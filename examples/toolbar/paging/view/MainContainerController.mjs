@@ -38,6 +38,15 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {Object} data
+     */
+    onShowFiltersButtonClick(data) {
+        let userTable = this.getReference('user-table');
+
+        userTable.showHeaderFilters = !userTable.showHeaderFilters;
+    }
+
+    /**
      * Sending messages through a WebSocket inside the data worker
      * @param {Object} data
      */

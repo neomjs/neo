@@ -141,6 +141,23 @@ class Filter extends Base {
     }
 
     /**
+     * Needed for remote filtering
+     * @returns {Object|null}
+     */
+    export() {
+        let me       = this,
+            operator = me.operator,
+            property = me.property,
+            value    = me.value;
+
+        if (!me.filterBy) {
+            return {operator, property, value};
+        }
+
+        return null;
+    }
+
+    /**
      * @param value
      * @param oldValue
      */

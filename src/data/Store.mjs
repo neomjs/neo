@@ -163,6 +163,21 @@ class Store extends Base {
     }
 
     /**
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetFilters(value, oldValue) {
+        super.afterSetFilters(value, oldValue);
+
+        let me = this;
+
+        me._currentPage = 1; // silent update
+
+        oldValue && me.remoteFilter && me.load();
+    }
+
+    /**
      * @param value
      * @param oldValue
      * @protected
@@ -194,6 +209,21 @@ class Store extends Base {
             this._currentPage = 1; // silent update
             this.load();
         }
+    }
+
+    /**
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetSorters(value, oldValue) {
+        super.afterSetSorters(value, oldValue);
+
+        let me = this;
+
+        me._currentPage = 1; // silent update
+
+        oldValue && me.remoteSort && me.load();
     }
 
     /**
@@ -237,8 +267,6 @@ class Store extends Base {
                     value[index] = RecordFactory.createRecord(me.model, key);
                 }
             });
-
-            // console.log('beforeSetData', value);
         }
 
         return value;
@@ -265,9 +293,7 @@ class Store extends Base {
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Model);
     }
@@ -280,7 +306,16 @@ class Store extends Base {
     }
 
     load() {
-        let me = this;
+        let me = this,
+            params = {page: me.currentPage, pageSize: me.pageSize};
+
+        if (me.remoteFilter) {
+            params.filters = me.exportFilters();
+        }
+
+        if (me.remoteSort) {
+            params.sorters = me.exportSorters();
+        }
 
         if (me.api) {
             let apiArray = me.api.read.split('.'),
@@ -290,10 +325,7 @@ class Store extends Base {
             if (!service) {
                 console.log('Api is not defined', this);
             } else {
-                service[fn]({
-                    page    : me.currentPage,
-                    pageSize: me.pageSize
-                }).then(response => {
+                service[fn](params).then(response => {
                     if (response.success) {
                         me.totalCount = response.totalCount;
                         me.data       = response.data; // fires the load event
@@ -301,8 +333,10 @@ class Store extends Base {
                 });
             }
         } else {
+            params.url = me.url;
+
             Neo.Xhr.promiseJson({
-                url: me.url
+                url: params.url
             }).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
             }).then(data => {
@@ -356,6 +390,21 @@ class Store extends Base {
     }
 
     /**
+     * @param {Object} opts
+     * @protected
+     */
+    onFilterChange(opts) {
+        let me = this;
+
+        if (me.remoteFilter) {
+            me._currentPage = 1; // silent update
+            me.load();
+        } else {
+            super.onFilterChange(opts);
+        }
+    }
+
+    /**
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} data
@@ -378,45 +427,23 @@ class Store extends Base {
     sort(opts={}) {
         let me = this;
 
-        if (me.remoteSort) {
-            if (me.api) {
-                let apiArray = me.api.read.split('.'),
-                    fn       = apiArray.pop(),
-                    service  = Neo.ns(apiArray.join('.'));
+        me._currentPage = 1; // silent update
 
-                if (!service) {
-                    console.log('Api is not defined', this);
-                } else {
-                    // todo: the vdom engine needs to get enhanced to better support remote sorting
-                    me.clear();
-
-                    service[fn]({
-                        page    : 1,
-                        pageSize: me.pageSize,
-                        sorters : [opts],
-                    }).then(response => {
-                        if (response.success) {
-                            me.totalCount = response.totalCount;
-                            me.data       = response.data; // fires the load event
-                        }
-                    });
-                }
+        if (me.configsApplied) {
+            if (opts.direction) {
+                me.sorters = [{
+                    direction: opts.direction,
+                    property : opts.property
+                }];
             } else {
-                // todo
-            }
-        } else {
-            // console.log('sort', opts.property, opts.direction, me.configsApplied);
-
-            if (me.configsApplied) {
-                if (opts.direction) {
-                    me.sorters = [{
-                        direction: opts.direction,
-                        property : opts.property
-                    }];
-                } else {
+                if (!me.remoteSort) {
                     me.startUpdate();
                     me.clear();
-                    me.sorters = [];
+                }
+
+                me.sorters = [];
+
+                if (!me.remoteSort) {
                     me.add([...me.initialData]);
                     me.endUpdate();
                     me.fire('sort');

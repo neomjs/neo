@@ -27,7 +27,7 @@ class Sorter extends Base {
          */
         ntype: 'sorter',
         /**
-         * Internal config which mapps the direction ASC to 1, -1 otherwise
+         * Internal config which maps the direction ASC to 1, -1 otherwise
          * @member {Number} directionMultiplier=1
          * @protected
          */
@@ -119,6 +119,22 @@ class Sorter extends Base {
         }
 
         return 0;
+    }
+
+    /**
+     * Needed for remote sorting
+     * @returns {Object|null}
+     */
+    export() {
+        let me        = this,
+            direction = me.direction,
+            property  = me.property;
+
+        if (!me.sortBy && direction && property) {
+            return {direction, property};
+        }
+
+        return null;
     }
 
     /**

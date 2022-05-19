@@ -237,6 +237,8 @@ class Paging extends Toolbar {
     onStoreLoad() {
         let me = this;
 
+        me.currentPage = me.store.currentPage;
+
         me.updateNavigationButtons();
         me.updatePagesText();
         me.updateTotalText();

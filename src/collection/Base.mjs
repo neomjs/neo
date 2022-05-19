@@ -352,11 +352,9 @@ class Base extends CoreBase {
             }
         });
 
-        if (Array.isArray(oldValue)) {
-            oldValue.forEach(key => {
-                key.destroy();
-            });
-        }
+        oldValue?.forEach(key => {
+            key.destroy();
+        });
 
         return value;
     }
@@ -595,6 +593,42 @@ class Base extends CoreBase {
             me[toAddArray]   .splice(0, me[toAddArray]   .length);
             me[toRemoveArray].splice(0, me[toRemoveArray].length);
         }
+    }
+
+    /**
+     * Needed for remote filtering
+     * @returns {Object[]}
+     */
+    exportFilters() {
+        let me      = this,
+            filters = [],
+            filter;
+
+        me.filters?.forEach(key => {
+            filter = key.export();
+
+            filter && filters.push(filter);
+        });
+
+        return filters;
+    }
+
+    /**
+     * Needed for remote sorting
+     * @returns {Object[]}
+     */
+    exportSorters() {
+        let me      = this,
+            sorters = [],
+            sorter;
+
+        me.sorters?.forEach(key => {
+            sorter = key.export();
+
+            sorter && sorters.push(sorter);
+        });
+
+        return sorters;
     }
 
     /**
