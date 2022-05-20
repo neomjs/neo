@@ -49,9 +49,9 @@ class Component extends BaseComponent {
             beforeId: 'waterway-label',
             filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle',
+            minzoom : 5,
             source  : 'covid19',
             type    : 'circle',
-            minzoom : 5,
 
             paint: {
                 'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, '#00ffff', 200, '#ffff00', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
@@ -63,9 +63,9 @@ class Component extends BaseComponent {
             beforeId: 'waterway-label',
             filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle-text',
+            minzoom : 5,
             source  : 'covid19',
             type    : 'symbol',
-            minzoom : 5,
 
             layout: {
                 'text-allow-overlap'   : true,
@@ -102,8 +102,8 @@ class Component extends BaseComponent {
             id  : 'covid19',
             type: 'geojson',
             data: {
-                type    : 'FeatureCollection',
-                features: []
+                features: [],
+                type    : 'FeatureCollection'
             }
         }, {
             id  : 'dem',

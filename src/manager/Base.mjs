@@ -28,7 +28,7 @@ class Base extends CollectionBase{
     register(item) {
         let me = this;
 
-        if (me.get(item.id)) {console.log(this);
+        if (me.get(item.id)) {
             Neo.logError('Trying to create an item with an already existing id', item, me.get(item.id));
         } else {
             me.push(item);
