@@ -47,11 +47,20 @@ class Stylesheet extends Base {
     construct(config) {
         super.construct(config);
 
-        if (Neo.config.useFontAwesome) {
-            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        let neoConfig = Neo.config,
+            faPath;
+
+        if (neoConfig.useFontAwesome) {
+            if (neoConfig.env === 'development') {
+                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
+            } else {
+                faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css';
+            }
+
+            this.createStyleSheet(null, null, faPath);
         }
 
-        if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
+        if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
             this.addGlobalCss();
         }
     }
