@@ -90,7 +90,7 @@ class Stylesheet extends Base {
         let className = data.className,
             config    = Neo.config,
             env       = config.environment,
-            path      = env.startsWith('dist/') ? env : ('dist/' + env);
+            path      = env.startsWith('dist/') ? '' : `dist/${env}/`;
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4);
@@ -108,7 +108,7 @@ class Stylesheet extends Base {
                 this.createStyleSheet(
                     null,
                     null,
-                    `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
+                    `../../${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
                 );
             }
         });
