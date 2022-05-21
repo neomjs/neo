@@ -51,7 +51,7 @@ class Stylesheet extends Base {
             faPath;
 
         if (neoConfig.useFontAwesome) {
-            if (neoConfig.env === 'development') {
+            if (neoConfig.environment === 'development') {
                 faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
             } else {
                 faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css';
