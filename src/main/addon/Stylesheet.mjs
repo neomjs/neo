@@ -60,11 +60,12 @@ class Stylesheet extends Base {
      *
      */
     addGlobalCss() {
-        let config  = Neo.config,
-            themes  = config.themes,
-            folders = config.useCssVars ? ['src', ...themes] : [themes[0]],
-            env     = config.environment,
-            path    = env.startsWith('dist/') ? env : ('dist/' + env);
+        let config   = Neo.config,
+            themes   = config.themes,
+            folders  = config.useCssVars ? ['src', ...themes] : [themes[0]],
+            env      = config.environment,
+            path     = env.startsWith('dist/') ? '' : `../../dist/${env}/`,
+            rootPath = config.basePath.substr(6);
 
         document.body.classList.add(themes[0]);
 
@@ -76,7 +77,7 @@ class Stylesheet extends Base {
             this.createStyleSheet(
                 null,
                 null,
-                `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
+                `${rootPath}${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
             );
         });
     }
