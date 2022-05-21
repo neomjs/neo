@@ -1,5 +1,5 @@
-import fs   from 'fs-extra';
-import path from 'path';
+import fs                from 'fs-extra';
+import path              from 'path';
 import WebpackHookPlugin from 'webpack-hook-plugin';
 
 const cwd            = process.cwd(),
