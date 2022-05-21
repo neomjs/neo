@@ -192,7 +192,7 @@ if (programOpts.info) {
                 } else {
                     fileInfo = path.parse(file);
 
-                    if (!fileInfo.name.startsWith('_')) {
+                    if (!fileInfo.name.startsWith('_') && fileInfo.ext === '.scss') {
                         className = relativePath === '' ? fileInfo.name : `${relativePath.substring(1)}/${fileInfo.name}`;
                         className = className.split('/').join('.');
 
