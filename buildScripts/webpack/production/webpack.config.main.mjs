@@ -1,5 +1,6 @@
 import fs   from 'fs-extra';
 import path from 'path';
+import WebpackHookPlugin from 'webpack-hook-plugin';
 
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
@@ -7,12 +8,21 @@ const cwd            = process.cwd(),
       neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       buildTarget    = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
       filenameConfig = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      entry          = {main: path.resolve(neoPath, filenameConfig.mainInput)};
+      entry          = {main: path.resolve(neoPath, filenameConfig.mainInput)},
+      copyFolder     = path.resolve(neoPath, 'buildScripts/copyFolder.mjs'),
+      faFrom         = path.resolve(cwd, 'node_modules/@fortawesome/fontawesome-free'),
+      faTo           = path.resolve(cwd, buildTarget.folder, 'resources/fontawesome-free');
 
 export default {
     mode  : 'production',
     entry,
     target: 'web',
+
+    plugins: [
+        new WebpackHookPlugin({
+            onBuildEnd: [`node ${copyFolder} -s ${faFrom} -t ${faTo}`]
+        })
+    ],
 
     output: {
         chunkFilename: 'chunks/main/[id].js',
