@@ -318,76 +318,78 @@ if (programOpts.info) {
             }
 
             files.forEach(file => {
-                addItemToThemeMap(file, target, useCssVars);
+                if (file.path.endsWith('.scss')) {
+                    addItemToThemeMap(file, target, useCssVars);
 
-                let folderPath = path.resolve(cwd, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
-                    destPath   = path.resolve(folderPath, `${file.name}.css`);
+                    let folderPath = path.resolve(cwd, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
+                        destPath   = path.resolve(folderPath, `${file.name}.css`);
 
-                fs.readFile(file.path).then(content => {
-                    let result = sass.renderSync({
-                        data          : data + scssCombine(content.toString(), path.resolve(neoPath, scssPath, target, file.relativePath)),
-                        outFile       : destPath,
-                        sourceMap     : devMode,
-                        sourceMapEmbed: false
+                    fs.readFile(file.path).then(content => {
+                        let result = sass.renderSync({
+                            data          : data + scssCombine(content.toString(), path.resolve(neoPath, scssPath, target, file.relativePath)),
+                            outFile       : destPath,
+                            sourceMap     : devMode,
+                            sourceMapEmbed: false
+                        });
+
+                        const plugins = [autoprefixer];
+
+                        if (mode === 'production') {
+                            plugins.push(cssnano);
+                        }
+
+                        map = result.map?.toString();
+
+                        if (map) {
+                            // https://github.com/neomjs/neo/issues/1970
+                            map = JSON.parse(map);
+                            let len = file.relativePath.split('/').length,
+                                src = `${target}${file.relativePath}/${file.name}.scss`,
+                                i   = 0;
+
+                            for (; i < len; i++) {
+                                src = '../' + src;
+                            }
+
+                            map.sources = [src];
+                        }
+
+                        postcss(plugins).process(result.css, {
+                            from: file.path,
+                            to  : destPath,
+                            map : !devMode ? null : {
+                                prev: map && JSON.stringify(map)
+                            }
+                        }).then(result => {
+                            fs.mkdirpSync(folderPath);
+                            fileCount[mode][varsFlag]++;
+
+                            const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                            console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
+                            fs.writeFileSync(destPath, result.css, () => true);
+
+                            if (result.map) {
+                                fs.writeFileSync(result.opts.to + '.map', result.map.toString());
+                            }
+
+                            if (fileCount[mode][varsFlag] === totalFiles[mode][varsFlag]) {
+                                fs.writeFileSync(
+                                    path.resolve(cwd, useCssVars ? themeMapFile : themeMapFileNoVars),
+                                    JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
+                                );
+
+                                fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {
+                                    recursive: true
+                                });
+
+                                fs.writeFileSync(
+                                    path.join(cwd, '/dist/', mode, useCssVars ? themeMapFile : themeMapFileNoVars),
+                                    JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
+                                );
+                            }
+                        });
                     });
-
-                    const plugins = [autoprefixer];
-
-                    if (mode === 'production') {
-                        plugins.push(cssnano);
-                    }
-
-                    map = result.map?.toString();
-
-                    if (map) {
-                        // https://github.com/neomjs/neo/issues/1970
-                        map = JSON.parse(map);
-                        let len = file.relativePath.split('/').length,
-                            src = `${target}${file.relativePath}/${file.name}.scss`,
-                            i   = 0;
-
-                        for (; i < len; i++) {
-                            src = '../' + src;
-                        }
-
-                        map.sources = [src];
-                    }
-
-                    postcss(plugins).process(result.css, {
-                        from: file.path,
-                        to  : destPath,
-                        map : !devMode ? null : {
-                            prev: map && JSON.stringify(map)
-                        }
-                    }).then(result => {
-                        fs.mkdirpSync(folderPath);
-                        fileCount[mode][varsFlag]++;
-
-                        const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                        console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
-                        fs.writeFileSync(destPath, result.css, () => true);
-
-                        if (result.map) {
-                            fs.writeFileSync(result.opts.to + '.map', result.map.toString());
-                        }
-
-                        if (fileCount[mode][varsFlag] === totalFiles[mode][varsFlag]) {
-                            fs.writeFileSync(
-                                path.resolve(cwd, useCssVars ? themeMapFile : themeMapFileNoVars),
-                                JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
-                            );
-
-                            fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {
-                                recursive: true
-                            });
-
-                            fs.writeFileSync(
-                                path.join(cwd, '/dist/', mode, useCssVars ? themeMapFile : themeMapFileNoVars),
-                                JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
-                            );
-                        }
-                    });
-                });
+                }
             });
         }
 
