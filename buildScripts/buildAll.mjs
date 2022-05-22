@@ -128,6 +128,16 @@ if (programOpts.info) {
         threads    === 'yes' && spawnSync('node', [`${webpackPath}/buildThreads.mjs`]        .concat(cpArgs), cpOpts);
         parsedocs  === 'yes' && spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
 
+        if (env === 'all' || env === 'dev') {
+            spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
+            spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/development/docs/resources')}`], cpOpts);
+        }
+
+        if (env === 'all' || env === 'prod') {
+            spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/production/docs/output')}`],    cpOpts);
+            spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/production/docs/resources')}`], cpOpts);
+        }
+
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 

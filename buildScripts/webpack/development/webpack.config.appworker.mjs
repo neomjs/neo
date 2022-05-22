@@ -1,7 +1,6 @@
-import fs                from 'fs-extra';
-import path              from 'path';
-import webpack           from 'webpack';
-import WebpackHookPlugin from 'webpack-hook-plugin';
+import fs      from 'fs-extra';
+import path    from 'path';
+import webpack from 'webpack';
 
 const cwd                   = process.cwd(),
       configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
@@ -134,9 +133,6 @@ export default env => {
                 if (!insideNeo && context.context.includes('/src/worker')) {
                     context.request = '../../' + context.request;
                 }
-            }),
-            new WebpackHookPlugin({
-                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.mjs')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(cwd, buildTarget.folder, 'docs/resources')]
             }),
             ...plugins
         ],
