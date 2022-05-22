@@ -73,7 +73,7 @@ class Stylesheet extends Base {
             themes   = config.themes,
             folders  = config.useCssVars ? ['src', ...themes] : [themes[0]],
             env      = config.environment,
-            path     = env.startsWith('dist/') ? '' : `../../dist/${env}/`,
+            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath = config.basePath.substr(6);
 
         document.body.classList.add(themes[0]);
@@ -93,6 +93,7 @@ class Stylesheet extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.appName
      * @param {String} data.className
      * @param {String[]} data.folders
      */
@@ -100,7 +101,7 @@ class Stylesheet extends Base {
         let className = data.className,
             config    = Neo.config,
             env       = config.environment,
-            path      = env.startsWith('dist/') ? '' : `../../dist/${env}/`,
+            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath  = config.basePath.substr(6);
 
         if (className.startsWith('Neo.')) {
