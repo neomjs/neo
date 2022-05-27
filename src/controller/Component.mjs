@@ -218,6 +218,8 @@ class Component extends Base {
                 break;
             }
         }
+
+        me.getParent()?.removeReference(component);
     }
 }
 
