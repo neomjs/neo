@@ -37,6 +37,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        HashHistory.un('change', this.onHashChange, this);
+
+        super.destroy(...args);
+    }
+
+    /**
      * Placeholder method which gets triggered when the hash inside the browser url changes
      * @param {Object} value
      * @param {Object} oldValue
