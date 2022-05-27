@@ -305,7 +305,7 @@ class Base extends Component {
      */
     destroy(updateParentVdom=false, silent=false) {
         this.items.forEach(item => {
-            item.destroy(false, true);
+            item.destroy?.(false, true);
         });
 
         super.destroy(updateParentVdom, silent);
