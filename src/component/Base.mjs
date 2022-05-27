@@ -753,9 +753,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         if (value) {
             let me            = this,
@@ -852,12 +850,11 @@ class Base extends CoreBase {
 
         me.domListeners = [];
 
-        me.controller?.destroy();
-        me.controller = null;
+        me.controller = null; // triggers destroy()
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        me.model?.destroy();
+        me.model = null; // triggers destroy()
 
         me.bind && parentModel?.removeBindings(me.id);
 
