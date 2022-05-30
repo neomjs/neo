@@ -548,7 +548,49 @@ StartTest(t => {
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__rwaters',       innerHTML: 'Rich',    nodeName: 'li', style: {}, vtype: 'vnode'},
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__tobiu',         innerHTML: 'Tobias',  nodeName: 'li', style: {}, vtype: 'vnode'}
         ], 'vnode got updated successfully');
+    });
 
-        // console.log(deltas);
+    t.it('Sorting', t => {
+        t.diag("Creating a sorted array");
+
+        vdom =
+            {id: 'root', cn: [
+            {id: '0', html: 'g'},
+            {id: '1', html: 'g'},
+            {id: '2', html: 'g'},
+            {id: '3', html: 'g'},
+            {id: '4', html: 'm'},
+            {id: '5', html: 'm'},
+            {id: '6', html: 'w'},
+            {id: '7', html: 'w'},
+            {id: '8', html: 'w'},
+            {id: '9', html: 'w'}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'root',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            outerHTML : t.any(String),
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: '0', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '1', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '2', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '3', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '4', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '5', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '6', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '7', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '8', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '9', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        }, 'vnode got created successfully');
     });
 });
