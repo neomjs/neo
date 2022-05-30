@@ -243,6 +243,9 @@ class Helper extends Base {
                         oldVnodeRoot,
                         parentId: movedNode.parentNode.id
                     });
+
+                    // see: https://github.com/neomjs/neo/issues/3116
+                    movedOldNode.parentNode.childNodes.splice(index, 0, movedOldNode);
                 } else if (!movedNode && movedOldNode) {
                     if (newVnode.id === movedOldNode.vnode.id) {
                         indexDelta = 0;

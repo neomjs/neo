@@ -43,8 +43,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-1'},
-            {innerHTML: '06:00', id: 'neo-event-2__time'},
-            {action: 'moveNode', id: 'neo-event-1', index: 1, parentId: 'neo-column-1'} // todo: does not hurt, but not needed
+            {innerHTML: '06:00', id: 'neo-event-2__time'}
         ], 'deltas got created successfully');
 
         t.diag("Revert operation");
@@ -67,7 +66,6 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
-            {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'}, // todo: does not hurt, but not needed
             {innerHTML: '10:00', id: 'neo-event-2__time'}
         ], 'deltas got created successfully');
     });
