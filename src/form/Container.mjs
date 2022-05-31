@@ -24,7 +24,7 @@ class Container extends BaseContainer {
          */
         cls: ['neo-form-container'],
         /**
-         * @member {Object} vdom={tag: 'form',cn: [],onsubmit:'return false;'}
+         * @member {Object} vdom={tag: 'form',cn:[],onsubmit:'return false;'}
          */
         vdom:
         {tag: 'form', cn: [], onsubmit: 'return false;'}
@@ -57,9 +57,7 @@ class Container extends BaseContainer {
             fields   = [];
 
         children.forEach(item => {
-            if (item instanceof BaseField) {
-                fields.push(item);
-            }
+            item instanceof BaseField && fields.push(item);
         });
 
         return fields;

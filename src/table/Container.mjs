@@ -358,6 +358,13 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @returns {Object[]} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
      * @returns {Neo.table.View}
      */
     getView() {

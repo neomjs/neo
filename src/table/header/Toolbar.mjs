@@ -129,14 +129,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Specify a different vdom items root if needed (useful in case this container uses a wrapper node).
-     * @returns {Object} The new vdom items root
-     */
-    getVdomItemsRoot() {
-        return this.vdom.cn[0].cn;
-    }
-
-    /**
      * Specify a different vdom root if needed to apply the top level style attributes on a different level.
      * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
      * @returns {Object} The new vdom root

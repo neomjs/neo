@@ -132,7 +132,7 @@ class Panel extends Container {
                 config = {
                     ntype       : 'container',
                     flex        : 1,
-                    items       : items,
+                    items,
                     itemDefaults: me.itemDefaults,
                     ...containerConfig
                 };
@@ -155,7 +155,7 @@ class Panel extends Container {
                 config = {
                     ntype       : 'container',
                     flex        : 1,
-                    items       : items,
+                    items,
                     itemDefaults: me.itemDefaults,
                     ...containerConfig
                 };

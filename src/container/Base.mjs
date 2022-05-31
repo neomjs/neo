@@ -254,13 +254,13 @@ class Base extends Component {
      * @protected
      */
     createItems() {
-        let me       = this,
-            items    = me._items,
-            layout   = me.layout,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot();
+        let me        = this,
+            items     = me._items,
+            itemsRoot = me.getVdomItemsRoot(),
+            layout    = me.layout,
+            vdom      = me.vdom;
 
-        vdomRoot.cn = [];
+        itemsRoot.cn = [];
 
         items.forEach((item, index) => {
             items[index] = item = me.createItem(item, index);
@@ -269,7 +269,7 @@ class Base extends Component {
                 layout.applyChildAttributes(item, index);
             }
 
-            vdomRoot.cn.push(item.vdom);
+            itemsRoot.cn.push(item.vdom);
         });
 
         me.vdom = vdom;
@@ -316,7 +316,7 @@ class Base extends Component {
      * @returns {Object} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.vdom.cn;
+        return this.getVdomRoot();
     }
 
     /**
@@ -377,7 +377,7 @@ class Base extends Component {
 
             me.items = items;
 
-            vdom.cn.splice(index, 0, item.vdom);
+            me.getVdomItemsRoot().cn.splice(index, 0, item.vdom);
         }
 
         if (silent) {
@@ -385,8 +385,8 @@ class Base extends Component {
         } else {
             me.promiseVdomUpdate().then(() => {
                 me.fire('insert', {
-                    index: index,
-                    item : item
+                    index,
+                    item
                 });
             });
         }
@@ -427,9 +427,7 @@ class Base extends Component {
         let me   = this,
             item = me.items[fromIndex];
 
-        if (fromIndex !== toIndex) {
-            me.switchItems(toIndex, fromIndex);
-        }
+        fromIndex !== toIndex && me.switchItems(toIndex, fromIndex);
 
         return item;
     }
@@ -502,20 +500,16 @@ class Base extends Component {
         let me    = this,
             items = me.items,
             vdom  = me.vdom,
-            cn, item;
+            item;
 
         if (index >= items.length) {
             Neo.warn('Container.removeAt: index >= items.length. ' + me.id);
         } else {
             item = items[index];
 
-            // console.log('remove item', item.id);
-
             items.splice(index, 1);
 
-            cn = vdom.cn || vdom.childNodes || vdom.children;
-
-            cn.splice(index, 1);
+            me.getVdomItemsRoot().cn.splice(index, 1);
 
             me[silent && !destroyItem ? '_vdom' : 'vdom'] = vdom;
 
@@ -548,8 +542,8 @@ class Base extends Component {
             item2Index = Neo.isNumber(item2id) ? item2id : me.indexOf(item2id),
             vdom       = me.vdom;
 
-        NeoArray.move(me.items,              item2Index, item1Index);
-        NeoArray.move(me.getVdomItemsRoot(), item2Index, item1Index);
+        NeoArray.move(me.items,                 item2Index, item1Index);
+        NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
 
         me.vdom = vdom;
     }
