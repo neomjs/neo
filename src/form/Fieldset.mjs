@@ -221,16 +221,16 @@ class Fieldset extends Container {
         } else {
             if (me.legend) {
                 me.legend.setSilent({
-                    iconCls: iconCls,
-                    text   : title
+                    iconCls,
+                    text: title
                 });
 
                 delete me.legend.vdom.reomveDom;
             } else {
                 me.legend = me.insert(0, {
-                    module : Legend,
-                    iconCls: iconCls,
-                    text   : title,
+                    module: Legend,
+                    iconCls,
+                    text  : title,
                     ...me.legendConfig
                 });
             }
