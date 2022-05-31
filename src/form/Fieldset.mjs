@@ -189,9 +189,7 @@ class Fieldset extends Container {
     onConstructed() {
         super.onConstructed();
 
-        if (this.collapsed) {
-            this.afterSetCollapsed(true, false);
-        }
+        this.collapsed && this.afterSetCollapsed(true, false);
     }
 
     /**
