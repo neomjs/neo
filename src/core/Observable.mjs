@@ -111,7 +111,12 @@ class Observable extends Base {
                     eventConfig.fn = eventConfig.scope[eventConfig.fn];
                 }
 
-                eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
+                // remove the listener, in case the scope no longer exists
+                if (eventConfig.scope && !eventConfig.scope.id) {
+                    listeners[name].splice(i, 1);
+                } else {
+                    eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
+                }
             }
         }
     }

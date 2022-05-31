@@ -95,9 +95,7 @@ class NeoArray extends Base {
         items.forEach(item => {
             index = arr.indexOf(item);
 
-            if (index > -1) {
-                arr.splice(index, 1);
-            }
+            index > -1 && arr.splice(index, 1);
         });
     }
 

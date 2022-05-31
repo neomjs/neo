@@ -306,8 +306,8 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-vnode-3', index: 0, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-2', index: 2, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-3',  index: 0, parentId: 'neo-vnode-1'},
+            {action: 'moveNode', id: 'neo-button-1', index: 1, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
 
         vdom.cn.push(vdom.cn.shift()); // left shift
@@ -333,8 +333,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-button-1', index: 0, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-2',  index: 1, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-3',  index: 2, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-2',  index: 1, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
 
         vdom.cn.unshift(vdom.cn.pop()); // right shift
@@ -359,9 +358,7 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-vnode-3',  index: 0, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-button-1', index: 1, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-2',  index: 2, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-3', index: 0, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
     });
 
@@ -548,7 +545,89 @@ StartTest(t => {
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__rwaters',       innerHTML: 'Rich',    nodeName: 'li', style: {}, vtype: 'vnode'},
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__tobiu',         innerHTML: 'Tobias',  nodeName: 'li', style: {}, vtype: 'vnode'}
         ], 'vnode got updated successfully');
+    });
 
-        // console.log(deltas);
+    t.it('Sorting', t => {
+        t.diag("Creating a sorted array");
+
+        vdom =
+            {id: 'root', cn: [
+            {id: '0', html: 'g'},
+            {id: '1', html: 'g'},
+            {id: '2', html: 'g'},
+            {id: '3', html: 'g'},
+            {id: '4', html: 'm'},
+            {id: '5', html: 'm'},
+            {id: '6', html: 'w'},
+            {id: '7', html: 'w'},
+            {id: '8', html: 'w'},
+            {id: '9', html: 'w'}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'root',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            outerHTML : t.any(String),
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: '0', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '1', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '2', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '3', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '4', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '5', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '6', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '7', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '8', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '9', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        }, 'vnode got created successfully');
+
+        vdom.cn = [
+            {id: '9', html: 'w'},
+            {id: '8', html: 'w'},
+            {id: '7', html: 'w'},
+            {id: '6', html: 'w'},
+            {id: '4', html: 'm'},
+            {id: '5', html: 'm'},
+            {id: '3', html: 'g'},
+            {id: '2', html: 'g'},
+            {id: '1', html: 'g'},
+            {id: '0', html: 'g'}
+        ];
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'root',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: '9', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '8', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '7', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '6', innerHTML: 'w', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '4', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '5', innerHTML: 'm', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '3', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '2', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '1', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: '0', innerHTML: 'g', nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        }, 'vnode got updated successfully');
+
+        console.log(deltas);
     });
 });

@@ -47,11 +47,20 @@ class Stylesheet extends Base {
     construct(config) {
         super.construct(config);
 
-        if (Neo.config.useFontAwesome) {
-            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        let neoConfig = Neo.config,
+            faPath;
+
+        if (neoConfig.useFontAwesome) {
+            if (neoConfig.environment === 'development') {
+                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
+            } else {
+                faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css';
+            }
+
+            this.createStyleSheet(null, null, faPath);
         }
 
-        if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
+        if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
             this.addGlobalCss();
         }
     }
@@ -60,11 +69,12 @@ class Stylesheet extends Base {
      *
      */
     addGlobalCss() {
-        let config  = Neo.config,
-            themes  = config.themes,
-            folders = config.useCssVars ? ['src', ...themes] : [themes[0]],
-            env     = config.environment,
-            path    = env.startsWith('dist/') ? env : ('dist/' + env);
+        let config   = Neo.config,
+            themes   = config.themes,
+            folders  = config.useCssVars ? ['src', ...themes] : [themes[0]],
+            env      = config.environment,
+            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            rootPath = config.basePath.substr(6);
 
         document.body.classList.add(themes[0]);
 
@@ -76,13 +86,14 @@ class Stylesheet extends Base {
             this.createStyleSheet(
                 null,
                 null,
-                `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
+                `${rootPath}${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
             );
         });
     }
 
     /**
      * @param {Object} data
+     * @param {String} data.appName
      * @param {String} data.className
      * @param {String[]} data.folders
      */
@@ -90,7 +101,8 @@ class Stylesheet extends Base {
         let className = data.className,
             config    = Neo.config,
             env       = config.environment,
-            path      = env.startsWith('dist/') ? env : ('dist/' + env);
+            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            rootPath  = config.basePath.substr(6);
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4);
@@ -108,7 +120,7 @@ class Stylesheet extends Base {
                 this.createStyleSheet(
                     null,
                     null,
-                    `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
+                    `${rootPath}${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
                 );
             }
         });

@@ -112,7 +112,7 @@ class View extends Component {
                     value    : rendererValue
                 });
 
-                cellCls = rendererOutput.cls || ['neo-table-cell'];
+                cellCls = rendererOutput?.cls || ['neo-table-cell'];
 
                 if (column.align !== 'left') {
                     cellCls.push('neo-' + column.align);
@@ -121,7 +121,7 @@ class View extends Component {
                 if (!Neo.isObject(rendererOutput)) {
                     rendererOutput = {
                         cls : cellCls,
-                        html: rendererOutput.toString()
+                        html: rendererOutput?.toString()
                     };
                 }
 
