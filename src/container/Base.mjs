@@ -84,7 +84,7 @@ class Base extends Component {
         return me.insert(me.items ? me.items.length : 0, item);
     }
     
-        /**
+    /**
      * Add a new cls to the component
      * @param {String} newCls
      * @protected
