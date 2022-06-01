@@ -403,6 +403,17 @@ class Base extends CoreBase {
     }
 
     /**
+     * Add a new cls to the vdomRoot
+     * @param {String} value
+     */
+    addCls(value) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, value);
+        this.cls = cls;
+    }
+
+    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
@@ -1283,6 +1294,17 @@ class Base extends CoreBase {
     }
 
     /**
+     * Remove a cls from the vdomRoot
+     * @param {String} value
+     */
+    removeCls(value) {
+        let cls = this.cls;
+
+        NeoArray.remove(cls, value);
+        this.cls = cls;
+    }
+
+    /**
      * @param {Array|Object} value
      */
     removeDomListeners(value) {
@@ -1473,7 +1495,17 @@ class Base extends CoreBase {
             let end = performance.now();
             console.log('syncVnodeTree', me.id, end - start);
         }
+    }
 
+    /**
+     * Toggle a cls inside the vdomRoot of the component
+     * @param {String} value
+     */
+    toggleCls(value) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, value);
+        this.cls = cls;
     }
 
     /**
