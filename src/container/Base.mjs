@@ -83,6 +83,48 @@ class Base extends Component {
         let me = this;
         return me.insert(me.items ? me.items.length : 0, item);
     }
+    
+    /**
+     * Add a new cls to the component
+     * @param {String} newCls
+     * @protected
+     */
+    addCls(newCls) {
+        let cls = this.cls;
+
+        if(!cls.includes(newCls)) cls.push(newCls);
+
+        this.cls = cls;
+    }
+
+    /**
+     * Remove a cls from the component
+     * @param {String} newCls
+     * @protected
+     */
+    removeCls(oldCls) {
+        let cls = this.cls,
+            clsIndex = cls.indexOf(oldCls);
+
+        if(clsIndex > -1) delete cls[clsIndex];
+
+        this.cls = cls;
+    }
+
+    /**
+     * Toggle a cls from the component. If available remove otherwise add
+     * @param {String} newCls
+     * @protected
+     */
+    toggleCls(value) {
+        let clsIndex = this.cls.indexOf(value);
+
+        if(clsIndex > -1) {
+            this.removeCls(value);
+        } else {
+            this.addCls(value)
+        }
+    }
 
     /**
      * Triggered after the appName config got changed
