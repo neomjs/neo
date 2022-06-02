@@ -52,7 +52,7 @@
         "sass": "^1.52.0",
         "webpack": "^5.72.1",
         "webpack-cli": "^4.9.2",
-        "webpack-dev-server": "4.9.0",
+        "webpack-dev-server": "4.9.1",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^3.0.0"
     },
