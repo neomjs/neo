@@ -148,6 +148,12 @@ class Base extends CoreBase {
          */
         height_: null,
         /**
+         * Used for hide and show and defines if the component
+         * should use css visibility:'hidden' or vdom:removeDom
+         * @member {'visible', 'remove'} hiddenType='visible'
+         */
+        hiddenType: 'visible',
+        /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
          */
@@ -1071,6 +1077,35 @@ class Base extends CoreBase {
     getVnodeRoot() {
         return this.vnode;
     }
+    
+        /**
+     * Hide the component. If hiddenType 'visible' it uses css
+     * visibility. If hiddenType 'remove' it uses vdom removeDom.
+     * If hiddenType 'remove' you can pass a timeout for custom
+     * css class hiding.
+     * @param timeout
+     */
+    hide(timeout) {
+        let me = this,
+            doRemove = me.hiddenType !== 'visible';
+
+        if(doRemove) {
+            const removeFn = function() {
+                const vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }
+            if(timeout) {
+                setTimeout(removeFn, timeout);
+            } else {
+                removeFn();
+            }
+        } else {
+            const style = me.style;
+            style.visibility = 'hidden';
+            me.style = style;
+        }
+    }
 
     /**
      *
@@ -1424,6 +1459,25 @@ class Base extends CoreBase {
      */
     setSilent(values={}) {
         return this.set(values, true);
+    }
+
+    /**
+     * Show the component. If hiddenType 'visible' it uses css
+     * visibility. If hiddenType 'remove' it uses vdom removeDom.
+     */
+    show() {
+        let me = this,
+            doAdd = me.hiddenType !== 'visible';
+
+        if(doAdd) {
+            const vdom = me.vdom;
+            vdom.removeDom = false;
+            me.vdom = vdom;
+        } else {
+            const style = me.style;
+            style.visibility = 'visible';
+            me.style = style;
+        }
     }
 
     /**
