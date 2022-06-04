@@ -1077,31 +1077,32 @@ class Base extends CoreBase {
     getVnodeRoot() {
         return this.vnode;
     }
-    
-        /**
-     * Hide the component. If hiddenType 'visible' it uses css
-     * visibility. If hiddenType 'remove' it uses vdom removeDom.
-     * If hiddenType 'remove' you can pass a timeout for custom
-     * css class hiding.
-     * @param timeout
+
+    /**
+     * Hide the component.
+     * hiddenType: 'visible' uses css visibility.
+     * hiddenType: 'remove' uses vdom removeDom.
+     * If hiddenType 'remove' you can pass a timeout for custom css class hiding.
+     * @param {Number} timeout
      */
     hide(timeout) {
-        let me = this,
+        let me       = this,
             doRemove = me.hiddenType !== 'visible';
 
-        if(doRemove) {
-            const removeFn = function() {
-                const vdom = me.vdom;
+        if (doRemove) {
+            let removeFn = function() {
+                let vdom = me.vdom;
                 vdom.removeDom = true;
                 me.vdom = vdom;
             }
-            if(timeout) {
+
+            if (timeout) {
                 setTimeout(removeFn, timeout);
             } else {
                 removeFn();
             }
         } else {
-            const style = me.style;
+            let style = me.style;
             style.visibility = 'hidden';
             me.style = style;
         }
@@ -1462,19 +1463,20 @@ class Base extends CoreBase {
     }
 
     /**
-     * Show the component. If hiddenType 'visible' it uses css
-     * visibility. If hiddenType 'remove' it uses vdom removeDom.
+     * Show the component.
+     * hiddenType: 'visible' uses css visibility.
+     * hiddenType: 'remove' uses vdom removeDom.
      */
     show() {
-        let me = this,
+        let me    = this,
             doAdd = me.hiddenType !== 'visible';
 
-        if(doAdd) {
-            const vdom = me.vdom;
+        if (doAdd) {
+            let vdom = me.vdom;
             vdom.removeDom = false;
             me.vdom = vdom;
         } else {
-            const style = me.style;
+            let style = me.style;
             style.visibility = 'visible';
             me.style = style;
         }
