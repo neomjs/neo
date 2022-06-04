@@ -223,7 +223,7 @@ class Carousel extends Component {
             cn.cls.unshift(positionCls);
 
             // Update new Record
-            if(positionCls === vdomCls) {
+            if (positionCls === vdomCls) {
                 recordIndex = newRecordIndex;
                 cn          = me.createItem(recordIndex, mappingIndex);
             }
