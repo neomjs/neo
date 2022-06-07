@@ -1,0 +1,70 @@
+/**
+ * CAROUSEL TRANSFORM
+ */
+.neo-carousel {
+  /**
+   * VARS
+   */
+  --neo-carousel-translate-x: 0;
+  --neo-carousel-translate-y: 0;
+  --neo-carousel-transition-timing: cubic-bezier(.4,0,.2,1);
+  --neo-carousel-duration: .7s;
+
+  .neo-carousel-inner {
+    position: relative;
+    overflow: hidden;
+
+    .neo-carousel-item {
+      transition-timing-function: var(--neo-carousel-transition-timing);
+      transition-duration: var(--neo-carousel-duration);
+      transition-property: all;
+      z-index: 10;
+      inset: 0;
+      position: absolute;
+      transform: translate(var(--neo-carousel-translate-x), var(--neo-carousel-translate-y));
+    }
+  }
+}
+
+.neo-carousel--translate-x-full{
+  --neo-carousel-translate-x: -100%;
+  transform: translate(var(--neo-carousel-translate-x),var(--neo-carousel-translate-y));
+}
+.neo-carousel-translate-x-0{
+  --neo-carousel-translate-x: 0;
+  transform: translate(var(--neo-carousel-translate-x),var(--neo-carousel-translate-y));
+}
+.neo-carousel-translate-x-full{
+  --neo-carousel-translate-x: 100%;
+  transform: translate(var(--neo-carousel-translate-x),var(--neo-carousel-translate-y));
+}
+
+/**
+ * BASE STYLING
+ */
+.neo-carousel {
+  padding: 15px;
+  height: 14rem;
+  background: var(--container-background-color);
+
+  .neo-carousel-btn-bar {
+    text-align: end;
+
+    .neo-carousel-btn {
+      padding: 15px;
+      font-size: 18px;
+    }
+  }
+  .neo-carousel-inner {
+    border-radius: 5px;
+    height: 9rem;
+    overflow: hidden;
+    background-color: var(--button-active-color);
+    color: var(--button-background-color);
+
+    .neo-carousel-item {
+      height: 9rem;
+      padding: 15px;
+    }
+  }
+}

@@ -148,6 +148,12 @@ class Base extends CoreBase {
          */
         height_: null,
         /**
+         * Used for hide and show and defines if the component
+         * should use css visibility:'hidden' or vdom:removeDom
+         * @member {'visible', 'remove'} hiddenType='visible'
+         */
+        hiddenType: 'visible',
+        /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
          */
@@ -400,6 +406,17 @@ class Base extends CoreBase {
 
             me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
+    }
+
+    /**
+     * Add a new cls to the vdomRoot
+     * @param {String} value
+     */
+    addCls(value) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, value);
+        this.cls = cls;
     }
 
     /**
@@ -1062,6 +1079,36 @@ class Base extends CoreBase {
     }
 
     /**
+     * Hide the component.
+     * hiddenType: 'visible' uses css visibility.
+     * hiddenType: 'remove' uses vdom removeDom.
+     * If hiddenType 'remove' you can pass a timeout for custom css class hiding.
+     * @param {Number} timeout
+     */
+    hide(timeout) {
+        let me       = this,
+            doRemove = me.hiddenType !== 'visible';
+
+        if (doRemove) {
+            let removeFn = function() {
+                let vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }
+
+            if (timeout) {
+                setTimeout(removeFn, timeout);
+            } else {
+                removeFn();
+            }
+        } else {
+            let style = me.style;
+            style.visibility = 'hidden';
+            me.style = style;
+        }
+    }
+
+    /**
      *
      */
     init() {
@@ -1283,6 +1330,17 @@ class Base extends CoreBase {
     }
 
     /**
+     * Remove a cls from the vdomRoot
+     * @param {String} value
+     */
+    removeCls(value) {
+        let cls = this.cls;
+
+        NeoArray.remove(cls, value);
+        this.cls = cls;
+    }
+
+    /**
      * @param {Array|Object} value
      */
     removeDomListeners(value) {
@@ -1405,6 +1463,26 @@ class Base extends CoreBase {
     }
 
     /**
+     * Show the component.
+     * hiddenType: 'visible' uses css visibility.
+     * hiddenType: 'remove' uses vdom removeDom.
+     */
+    show() {
+        let me    = this,
+            doAdd = me.hiddenType !== 'visible';
+
+        if (doAdd) {
+            let vdom = me.vdom;
+            vdom.removeDom = false;
+            me.vdom = vdom;
+        } else {
+            let style = me.style;
+            style.visibility = 'visible';
+            me.style = style;
+        }
+    }
+
+    /**
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
@@ -1473,7 +1551,17 @@ class Base extends CoreBase {
             let end = performance.now();
             console.log('syncVnodeTree', me.id, end - start);
         }
+    }
 
+    /**
+     * Toggle a cls inside the vdomRoot of the component
+     * @param {String} value
+     */
+    toggleCls(value) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, value);
+        this.cls = cls;
     }
 
     /**
