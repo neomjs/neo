@@ -5,12 +5,16 @@ import path         from 'path';
 import postcss      from 'postcss';
 import sass         from 'sass';
 
-const cwd         = process.cwd(),
-      requireJson = path => JSON.parse(fs.readFileSync((path))),
-      packageJson = requireJson(path.resolve(cwd, 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      mixinPath   = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
-      scssPath    = path.resolve(neoPath, 'resources/scss');
+let cwd         = process.cwd(),
+    requireJson = path => JSON.parse(fs.readFileSync((path))),
+    packageJson = requireJson(path.resolve(cwd, 'package.json')),
+    neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+    mixinPath   = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
+    scssPath    = path.resolve(cwd, 'resources/scss');
+
+if (path.sep === '\\') {
+    mixinPath = mixinPath.replace(/\\/g, '/');
+}
 
 fs.watch(scssPath, {
     recursive: true
@@ -28,7 +32,7 @@ function buildFile(filename) {
     console.log('start processing', filename);
 
     let filePath  = path.join(scssPath, filename),
-        destPath  = path.join(neoPath, 'dist/development/css', filename.replace('.scss', '.css')),
+        destPath  = path.join(cwd, 'dist/development/css', filename.replace('.scss', '.css')),
         startDate = new Date(),
         data, map;
 
@@ -54,13 +58,19 @@ function buildFile(filename) {
             // https://github.com/neomjs/neo/issues/1970
             map = JSON.parse(map);
 
-            let len = filename.split('/').length,
-                src = `/scss/${filename}`,
-                i   = 0;
+            let filenameSlash = filename;
 
+            if (path.sep === '\\') {
+                filenameSlash = filenameSlash.replace(/\\/g, '/');
+            }
+
+            let len = filenameSlash.split('/').length,
+                src = `/scss/${filenameSlash}`,
+                i   = 0;            
+            
             for (; i < len; i++) {
                 src = '../' + src;
-            }
+            }            
 
             map.sources = [src];
         }
