@@ -18,6 +18,13 @@ import VNodeUtil        from '../util/VNode.mjs';
 class Base extends CoreBase {
     static getStaticConfig() {return {
         /**
+         * Valid values for hideMode
+         * @member {String[]} hideModes=['remove','visible']
+         * @protected
+         * @static
+         */
+        hideModes: ['remove', 'visible'],
+        /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
@@ -148,11 +155,11 @@ class Base extends CoreBase {
          */
         height_: null,
         /**
-         * Used for hide and show and defines if the component
+         * Used for hide() and show() and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
-         * @member {'visible', 'remove'} hiddenType='visible'
+         * @member {String} hideMode_='visible'
          */
-        hiddenType: 'visible',
+        hideMode_: 'visible',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -743,6 +750,16 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered before the hideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+     beforeSetHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode');
+    }
+
+    /**
      * Triggered before the keys config gets changed.
      * Creates a KeyNavigation instance if needed.
      * @param {Object} value
@@ -1080,14 +1097,14 @@ class Base extends CoreBase {
 
     /**
      * Hide the component.
-     * hiddenType: 'visible' uses css visibility.
-     * hiddenType: 'remove' uses vdom removeDom.
-     * If hiddenType 'remove' you can pass a timeout for custom css class hiding.
+     * hideMode: 'visible' uses css visibility.
+     * hideMode: 'remove' uses vdom removeDom.
+     * If hideMode 'remove' you can pass a timeout for custom css class hiding.
      * @param {Number} timeout
      */
     hide(timeout) {
         let me       = this,
-            doRemove = me.hiddenType !== 'visible';
+            doRemove = me.hideMode !== 'visible';
 
         if (doRemove) {
             let removeFn = function() {
@@ -1464,12 +1481,12 @@ class Base extends CoreBase {
 
     /**
      * Show the component.
-     * hiddenType: 'visible' uses css visibility.
-     * hiddenType: 'remove' uses vdom removeDom.
+     * hideMode: 'visible' uses css visibility.
+     * hideMode: 'remove' uses vdom removeDom.
      */
     show() {
         let me    = this,
-            doAdd = me.hiddenType !== 'visible';
+            doAdd = me.hideMode !== 'visible';
 
         if (doAdd) {
             let vdom = me.vdom;
