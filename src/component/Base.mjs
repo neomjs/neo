@@ -150,9 +150,9 @@ class Base extends CoreBase {
         /**
          * Initial setting to hide or show the component and
          * you can use either hide/show or hidden to change hidden
-         * @member {Boolean} hiddenType=false
+         * @member {Boolean} hidden_=false
          */
-        hidden_: false,        
+        hidden_: false,
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
@@ -1122,7 +1122,7 @@ class Base extends CoreBase {
             style.visibility = 'hidden';
             me.style = style;
         }
-        
+
         this._hidden = true;
     }
 
@@ -1498,7 +1498,7 @@ class Base extends CoreBase {
             style.visibility = 'visible';
             me.style = style;
         }
-        
+
         this._hidden = false;
     }
 
