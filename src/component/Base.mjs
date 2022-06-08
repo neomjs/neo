@@ -19,11 +19,11 @@ class Base extends CoreBase {
     static getStaticConfig() {return {
         /**
          * Valid values for hideMode
-         * @member {String[]} hideModes=['remove','visible']
+         * @member {String[]} hideModes=['removeDom','visibility']
          * @protected
          * @static
          */
-        hideModes: ['remove', 'visible'],
+        hideModes: ['removeDom', 'visibility'],
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
@@ -163,9 +163,9 @@ class Base extends CoreBase {
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
-         * @member {String} hideMode_='visible'
+         * @member {String} hideMode_='visibility'
          */
-        hideMode_: 'visible',
+        hideMode_: 'visibility',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -1113,14 +1113,14 @@ class Base extends CoreBase {
 
     /**
      * Hide the component.
-     * hideMode: 'visible' uses css visibility.
-     * hideMode: 'remove' uses vdom removeDom.
-     * If hideMode 'remove' you can pass a timeout for custom css class hiding.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     * If hideMode === 'removeDom' you can pass a timeout for custom css class hiding.
      * @param {Number} timeout
      */
     hide(timeout) {
         let me       = this,
-            doRemove = me.hideMode !== 'visible';
+            doRemove = me.hideMode !== 'visibility';
 
         if (doRemove) {
             let removeFn = function() {
@@ -1499,12 +1499,12 @@ class Base extends CoreBase {
 
     /**
      * Show the component.
-     * hideMode: 'visible' uses css visibility.
-     * hideMode: 'remove' uses vdom removeDom.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
      */
     show() {
         let me    = this,
-            doAdd = me.hideMode !== 'visible';
+            doAdd = me.hideMode !== 'visibility';
 
         if (doAdd) {
             let vdom = me.vdom;
