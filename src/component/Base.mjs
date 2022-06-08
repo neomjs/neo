@@ -148,6 +148,12 @@ class Base extends CoreBase {
          */
         height_: null,
         /**
+         * Initial setting to hide or show the component and
+         * you can use either hide/show or hidden to change hidden
+         * @member {Boolean} hiddenType=false
+         */
+        hidden_: false,        
+        /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
          * @member {'visible', 'remove'} hiddenType='visible'
@@ -535,6 +541,16 @@ class Base extends CoreBase {
      */
     afterSetHeight(value, oldValue) {
         this.changeVdomRootKey('height', value);
+    }
+
+    /**
+     * Triggered after the hidden config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHidden(value, oldValue) {
+        this[value ? 'hide' : 'show']();
     }
 
     /**
@@ -1106,6 +1122,8 @@ class Base extends CoreBase {
             style.visibility = 'hidden';
             me.style = style;
         }
+        
+        this._hidden = true;
     }
 
     /**
@@ -1480,6 +1498,8 @@ class Base extends CoreBase {
             style.visibility = 'visible';
             me.style = style;
         }
+        
+        this._hidden = false;
     }
 
     /**
