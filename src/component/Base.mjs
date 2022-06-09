@@ -557,7 +557,9 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        this[value ? 'hide' : 'show']();
+        if (!(!value && oldValue === undefined)) {
+            this[value ? 'hide' : 'show']();
+        }
     }
 
     /**
