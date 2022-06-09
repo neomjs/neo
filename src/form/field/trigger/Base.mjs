@@ -41,10 +41,6 @@ class Base extends Component {
          */
         field: null,
         /**
-         * @member {Boolean} hidden_=false
-         */
-        hidden_: false,
-        /**
          * @member {String|null} iconCls_=null
          */
         iconCls_: null,
