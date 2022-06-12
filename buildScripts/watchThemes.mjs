@@ -20,7 +20,7 @@ fs.watch(scssPath, {
     recursive: true
 }, (eventType, filename) => {
     if (filename.endsWith('.scss')) {
-        switch (eventType) {
+        switch(eventType) {
             case 'change': {
                 buildFile(filename);
             }
