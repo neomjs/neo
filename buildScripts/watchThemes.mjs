@@ -20,7 +20,7 @@ fs.watch(scssPath, {
     recursive: true
 }, (eventType, filename) => {
     if (filename.endsWith('.scss')) {
-        switch (eventType) {
+        switch(eventType) {
             case 'change': {
                 buildFile(filename);
             }
@@ -45,51 +45,55 @@ function buildFile(filename) {
     ].join('');
 
     fs.readFile(filePath).then(content => {
-        let result = sass.renderSync({
-            data          : data + content.toString(),
-            outFile       : destPath,
-            sourceMap     : true,
-            sourceMapEmbed: false
-        });
+        try {
+            let result = sass.renderSync({
+                data          : data + content.toString(),
+                outFile       : destPath,
+                sourceMap     : true,
+                sourceMapEmbed: false
+            });
 
-        map = result.map?.toString();
+            map = result.map?.toString();
 
-        if (map) {
-            // https://github.com/neomjs/neo/issues/1970
-            map = JSON.parse(map);
+            if (map) {
+                // https://github.com/neomjs/neo/issues/1970
+                map = JSON.parse(map);
 
-            let filenameSlash = filename;
+                let filenameSlash = filename;
 
-            if (path.sep === '\\') {
-                filenameSlash = filenameSlash.replace(/\\/g, '/');
+                if (path.sep === '\\') {
+                    filenameSlash = filenameSlash.replace(/\\/g, '/');
+                }
+
+                let len = filenameSlash.split('/').length,
+                    src = `/scss/${filenameSlash}`,
+                    i   = 0;
+
+                for (; i < len; i++) {
+                    src = '../' + src;
+                }
+
+                map.sources = [src];
             }
 
-            let len = filenameSlash.split('/').length,
-                src = `/scss/${filenameSlash}`,
-                i   = 0;            
-            
-            for (; i < len; i++) {
-                src = '../' + src;
-            }            
+            postcss([autoprefixer]).process(result.css, {
+                from: filePath,
+                to  : destPath,
+                map : {
+                    prev: map && JSON.stringify(map)
+                }
+            }).then(result => {
+                fs.writeFileSync(destPath, result.css, () => true);
 
-            map.sources = [src];
+                if (result.map) {
+                    fs.writeFileSync(result.opts.to + '.map', result.map.toString());
+                }
+
+                const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                console.log('Updated file:', (chalk.blue(`${processTime}s`)), destPath);
+            });
+        } catch(error) {
+            console.log('SCSS build failed for', chalk.red(filename));
         }
-
-        postcss([autoprefixer]).process(result.css, {
-            from: filePath,
-            to  : destPath,
-            map : {
-                prev: map && JSON.stringify(map)
-            }
-        }).then(result => {
-            fs.writeFileSync(destPath, result.css, () => true);
-
-            if (result.map) {
-                fs.writeFileSync(result.opts.to + '.map', result.map.toString());
-            }
-
-            const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-            console.log('Updated file:', (chalk.blue(`${processTime}s`)), destPath);
-        });
     });
 }

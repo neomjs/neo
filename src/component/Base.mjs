@@ -18,6 +18,13 @@ import VNodeUtil        from '../util/VNode.mjs';
 class Base extends CoreBase {
     static getStaticConfig() {return {
         /**
+         * Valid values for hideMode
+         * @member {String[]} hideModes=['removeDom','visibility']
+         * @protected
+         * @static
+         */
+        hideModes: ['removeDom', 'visibility'],
+        /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
@@ -148,11 +155,17 @@ class Base extends CoreBase {
          */
         height_: null,
         /**
+         * Initial setting to hide or show the component and
+         * you can use either hide()/show() or change this config directly to change the hidden state
+         * @member {Boolean} hidden_=false
+         */
+        hidden_: false,
+        /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
-         * @member {'visible', 'remove'} hiddenType='visible'
+         * @member {String} hideMode_='visibility'
          */
-        hiddenType: 'visible',
+        hideMode_: 'visibility',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -538,6 +551,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the hidden config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHidden(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this[value ? 'hide' : 'show']();
+        }
+    }
+
+    /**
      * Triggered after the html config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -740,6 +765,16 @@ class Base extends CoreBase {
         }
 
         return value || [];
+    }
+
+    /**
+     * Triggered before the hideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+     beforeSetHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode');
     }
 
     /**
@@ -1080,14 +1115,14 @@ class Base extends CoreBase {
 
     /**
      * Hide the component.
-     * hiddenType: 'visible' uses css visibility.
-     * hiddenType: 'remove' uses vdom removeDom.
-     * If hiddenType 'remove' you can pass a timeout for custom css class hiding.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     * If hideMode === 'removeDom' you can pass a timeout for custom css class hiding.
      * @param {Number} timeout
      */
     hide(timeout) {
         let me       = this,
-            doRemove = me.hiddenType !== 'visible';
+            doRemove = me.hideMode !== 'visibility';
 
         if (doRemove) {
             let removeFn = function() {
@@ -1106,6 +1141,8 @@ class Base extends CoreBase {
             style.visibility = 'hidden';
             me.style = style;
         }
+
+        this._hidden = true;
     }
 
     /**
@@ -1464,12 +1501,12 @@ class Base extends CoreBase {
 
     /**
      * Show the component.
-     * hiddenType: 'visible' uses css visibility.
-     * hiddenType: 'remove' uses vdom removeDom.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
      */
     show() {
         let me    = this,
-            doAdd = me.hiddenType !== 'visible';
+            doAdd = me.hideMode !== 'visibility';
 
         if (doAdd) {
             let vdom = me.vdom;
@@ -1480,6 +1517,8 @@ class Base extends CoreBase {
             style.visibility = 'visible';
             me.style = style;
         }
+
+        this._hidden = false;
     }
 
     /**
