@@ -227,14 +227,14 @@ class RecordFactory extends Base {
      * @returns {*}
      */
     parseRecordValue(field, value, recordConfig) {
-        let mapping = record.mapping,
+        let mapping = field.mapping,
             type    = field.type?.toLowerCase();
 
         // only trigger mappings for initial values
         // dynamic changes of a field will not pass the recordConfig
         if (mapping && recordConfig) {
             let ns  = mapping.split('.'),
-                key = mapping.pop();
+                key = ns.pop();
 
             ns    = Neo.ns(ns, true, recordConfig);
             value = ns[key];
