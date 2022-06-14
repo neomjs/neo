@@ -6,6 +6,8 @@ import Base from './Base.mjs';
  * @singleton
  *
  * @example
+ *     import Task from "../../../node_modules/neo.mjs/src/manager/Task.mjs";
+ *     
  *     task = {
  *         args: [clockDom],           // arguments passed into the run fn
  *         addCountToArgs: true,       // adds the count to the arguments
@@ -20,11 +22,12 @@ import Base from './Base.mjs';
  *         scope: this                 // scope of the function
  *     };
  *
- *     Neo.manager.Task.start(task); // or taskId if exists
- *     Neo.manager.Task.stop('clockcounter', remove); // false to not remove it from the TaskManager
- *     Neo.manager.Task.stopAll(remove);
- *     Neo.manager.Task.remove(taskId);
- *     Neo.manager.Task.get(taskId).repeat = 20;
+ *     Task.start(task); // or taskId if exists
+ *     Task.stop('clockcounter', remove); // false to not remove it from the TaskManager
+ *     Task.stopAll(remove);
+ *     Task.remove(taskId);
+ *     Task.run(taskId);
+ *     Task.get(taskId).repeat = 20;
  */
 class Task extends Base {
 
