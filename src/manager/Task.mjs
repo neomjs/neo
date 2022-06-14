@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 
 /**
- * @class Neo.util.TaskManager
+ * @class Neo.manager.Task
  * @extends Neo.core.Base
  * @singleton
  *
@@ -20,11 +20,11 @@ import Base from './Base.mjs';
  *         scope: this                 // scope of the function
  *     };
  *
- *     Neo.TaskManager.start(task); // or taskId if exists
- *     Neo.TaskManager.stop('clockcounter', remove); // false to not remove it from the TaskManager
- *     Neo.TaskManager.stopAll(remove);
- *     Neo.TaskManager.remove(taskId);
- *     Neo.TaskManager.get(taskId).repeat = 20;
+ *     Neo.manager.Task.start(task); // or taskId if exists
+ *     Neo.manager.Task.stop('clockcounter', remove); // false to not remove it from the TaskManager
+ *     Neo.manager.Task.stopAll(remove);
+ *     Neo.manager.Task.remove(taskId);
+ *     Neo.manager.Task.get(taskId).repeat = 20;
  */
 class Task extends Base {
 
