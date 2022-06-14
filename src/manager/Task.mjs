@@ -49,7 +49,7 @@ class Task extends Base {
      * @param {Object} task
      * @return {Object}
      */
-    addTask(task) {
+    createTask(task) {
         let me = this;
 
         if(!task.id) task.id = Neo.core.IdGenerator.getId('task');
@@ -121,7 +121,7 @@ class Task extends Base {
             task = this.get(task);
             if(!task) Neo.logError('[Neo.util.TaskManager] You passed a taskId which does not exits');
         } else {
-            if(!task.id || !this.get(task.id)) task = this.addTask(task);
+            if(!task.id || !this.get(task.id)) task = this.createTask(task);
         }
 
         if(task.isRunning) {
