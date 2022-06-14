@@ -76,7 +76,7 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let parsedValue = instance.parseRecordValue(field, config[field.name]),
+                                let parsedValue = instance.parseRecordValue(field, config[field.name], config),
                                     symbol      = Symbol.for(field.name);
 
                                 properties = {
@@ -98,7 +98,7 @@ class RecordFactory extends Base {
                                                 oldValue = me[symbol];
 
                                             if (!Neo.isEqual(value, oldValue)) {
-                                                value = instance.parseRecordValue(field, value);
+                                                value = instance.parseRecordValue(field, value, null);
 
                                                 me[symbol] = value;
 
@@ -223,10 +223,22 @@ class RecordFactory extends Base {
      * todo: parse value for more field types
      * @param {Object} field
      * @param {*} value
+     * @param {Object} recordConfig
      * @returns {*}
      */
-    parseRecordValue(field, value) {
-        const type = field?.type.toLowerCase();
+    parseRecordValue(field, value, recordConfig) {
+        let mapping = field.mapping,
+            type    = field.type?.toLowerCase();
+
+        // only trigger mappings for initial values
+        // dynamic changes of a field will not pass the recordConfig
+        if (mapping && recordConfig) {
+            let ns  = mapping.split('.'),
+                key = ns.pop();
+
+            ns    = Neo.ns(ns, true, recordConfig);
+            value = ns[key];
+        }
 
         if (type === 'date') {
             return new Date(value);

@@ -18,6 +18,13 @@ import VNodeUtil        from '../util/VNode.mjs';
 class Base extends CoreBase {
     static getStaticConfig() {return {
         /**
+         * Valid values for hideMode
+         * @member {String[]} hideModes=['removeDom','visibility']
+         * @protected
+         * @static
+         */
+        hideModes: ['removeDom', 'visibility'],
+        /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
@@ -147,6 +154,18 @@ class Base extends CoreBase {
          * @member {Number|String|null} height_=null
          */
         height_: null,
+        /**
+         * Initial setting to hide or show the component and
+         * you can use either hide()/show() or change this config directly to change the hidden state
+         * @member {Boolean} hidden_=false
+         */
+        hidden_: false,
+        /**
+         * Used for hide and show and defines if the component
+         * should use css visibility:'hidden' or vdom:removeDom
+         * @member {String} hideMode_='visibility'
+         */
+        hideMode_: 'visibility',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -403,6 +422,17 @@ class Base extends CoreBase {
     }
 
     /**
+     * Add a new cls to the vdomRoot
+     * @param {String} value
+     */
+    addCls(value) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, value);
+        this.cls = cls;
+    }
+
+    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
@@ -518,6 +548,18 @@ class Base extends CoreBase {
      */
     afterSetHeight(value, oldValue) {
         this.changeVdomRootKey('height', value);
+    }
+
+    /**
+     * Triggered after the hidden config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHidden(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this[value ? 'hide' : 'show']();
+        }
     }
 
     /**
@@ -723,6 +765,16 @@ class Base extends CoreBase {
         }
 
         return value || [];
+    }
+
+    /**
+     * Triggered before the hideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+     beforeSetHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode');
     }
 
     /**
@@ -1062,6 +1114,38 @@ class Base extends CoreBase {
     }
 
     /**
+     * Hide the component.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     * If hideMode === 'removeDom' you can pass a timeout for custom css class hiding.
+     * @param {Number} timeout
+     */
+    hide(timeout) {
+        let me       = this,
+            doRemove = me.hideMode !== 'visibility';
+
+        if (doRemove) {
+            let removeFn = function() {
+                let vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }
+
+            if (timeout) {
+                setTimeout(removeFn, timeout);
+            } else {
+                removeFn();
+            }
+        } else {
+            let style = me.style;
+            style.visibility = 'hidden';
+            me.style = style;
+        }
+
+        this._hidden = true;
+    }
+
+    /**
      *
      */
     init() {
@@ -1283,6 +1367,17 @@ class Base extends CoreBase {
     }
 
     /**
+     * Remove a cls from the vdomRoot
+     * @param {String} value
+     */
+    removeCls(value) {
+        let cls = this.cls;
+
+        NeoArray.remove(cls, value);
+        this.cls = cls;
+    }
+
+    /**
      * @param {Array|Object} value
      */
     removeDomListeners(value) {
@@ -1405,6 +1500,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Show the component.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     */
+    show() {
+        let me    = this,
+            doAdd = me.hideMode !== 'visibility';
+
+        if (doAdd) {
+            let vdom = me.vdom;
+            vdom.removeDom = false;
+            me.vdom = vdom;
+        } else {
+            let style = me.style;
+            style.visibility = 'visible';
+            me.style = style;
+        }
+
+        this._hidden = false;
+    }
+
+    /**
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
@@ -1473,7 +1590,17 @@ class Base extends CoreBase {
             let end = performance.now();
             console.log('syncVnodeTree', me.id, end - start);
         }
+    }
 
+    /**
+     * Toggle a cls inside the vdomRoot of the component
+     * @param {String} value
+     */
+    toggleCls(value) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, value);
+        this.cls = cls;
     }
 
     /**
