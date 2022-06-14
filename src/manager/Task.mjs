@@ -15,7 +15,7 @@ import Base from './Base.mjs';
  *         onError: function(){},      // runs in case an error occured
  *         repeat: 10,                 // stopAfterTenTimes
  *         run: function(clock) {      // function to run
- *             clock.setHtml(Ext.Date.format(new Date(), 'g:i:s A'));
+ *             clock.setHtml(new Date());
  *         },
  *         scope: this                 // scope of the function
  *     };
