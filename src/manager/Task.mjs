@@ -25,7 +25,10 @@ import Base from './Base.mjs';
  *     Task.start(task); // or taskId if exists
  *     Task.stop('clockcounter', remove); // false to not remove it from the TaskManager
  *     Task.stopAll(remove);
+ *
+ *     Task.createTask(task);
  *     Task.remove(taskId);
+ *
  *     Task.run(taskId);
  *     Task.get(taskId).repeat = 20;
  */
