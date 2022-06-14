@@ -8,11 +8,11 @@ import Base from '../core/Base.mjs';
  * @example
  *     task = {
  *         id: 'clockcounter',
- *         run: function() {
+ *         run: function(clock) {
  *             clock.setHtml(Ext.Date.format(new Date(), 'g:i:s A'));
  *         },
  *         onError: funciton(){},
- *         args: [],
+ *         args: [clockDom],
  *         addCountToArgs: true,
  *         scope: this,
  *         repeat: 10, // stopAfterTenTimes
