@@ -192,7 +192,7 @@ class Component extends Base {
                             listeners[key] = {};
                             listeners[key].fn = handlerScope[eventHandler].bind(handlerScope);
                         }
-                    } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
+                    } else {
                         value.forEach(listener => {
                             if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
                                 eventHandler = listener.fn;
