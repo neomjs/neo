@@ -2,19 +2,19 @@ import Base from './Base.mjs';
 
 /**
  * @class Neo.manager.Task
- * @extends Neo.core.Base
+ * @extends Neo.manager.Base
  * @singleton
  *
  * @example
- *     import Task from "../../../node_modules/neo.mjs/src/manager/Task.mjs";
- *     
+ *     import TaskManager from '../../../node_modules/neo.mjs/src/manager/Task.mjs';
+ *
  *     task = {
  *         args: [clockDom],           // arguments passed into the run fn
  *         addCountToArgs: true,       // adds the count to the arguments
  *         fireOnStart: false          // run before the first interval
  *         id: 'clockcounter',         // id for the task or autocreated
  *         interval: 1000,             // in ms
- *         onError: function(){},      // runs in case an error occured
+ *         onError: function(){},      // runs in case an error occurred
  *         repeat: 10,                 // stopAfterTenTimes
  *         run: function(clock) {      // function to run
  *             clock.setHtml(new Date());
@@ -22,54 +22,55 @@ import Base from './Base.mjs';
  *         scope: this                 // scope of the function
  *     };
  *
- *     Task.start(task); // or taskId if exists
- *     Task.stop('clockcounter', remove); // false to not remove it from the TaskManager
- *     Task.stopAll(remove);
+ *     TaskManager.start(task); // or taskId if exists
+ *     TaskManager.stop('clockcounter', remove); // false to not remove it from the TaskManager
+ *     TaskManager.stopAll(remove);
  *
- *     Task.createTask(task);
- *     Task.remove(taskId);
+ *     TaskManager.createTask(task);
+ *     TaskManager.remove(taskId);
  *
- *     Task.run(taskId);
- *     Task.get(taskId).repeat = 20;
+ *     TaskManager.run(taskId);
+ *     TaskManager.get(taskId).repeat = 20;
  */
 class Task extends Base {
-
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.manager.Task'
-             * @protected
-             */
-            className: 'Neo.manager.Task',
-            /**
-             * @member {boolean} enableLogs=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.manager.Task'
+         * @protected
+         */
+        className: 'Neo.manager.Task',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * Adds a task to collection.
      * Typically used via `start(task)`
      * @param {Object} task
-     * @return {Object}
+     * @returns {Object}
      */
     createTask(task) {
         let me = this;
 
-        if(!task.id) task.id = Neo.core.IdGenerator.getId('task');
-        if(task.scope) task.run.bind(task.scope);
-        if(task.addCountToArgs) task.args.push(0);
+        if (!task.id) {
+            task.id = Neo.core.IdGenerator.getId('task');
+        }
 
-        task = Neo.merge({
-            args: [],
-            isRunning: false,
-            onError: Neo.emptyFn,
-            runCount: 0,
-            runner: null,
-            runOnStart: false
-        }, task);
+        task.scope          && task.run.bind(task.scope);
+        task.addCountToArgs && task.args.push(0);
+
+        task = {
+            args      : [],
+            isRunning : false,
+            onError   : Neo.emptyFn,
+            runCount  : 0,
+            runner    : null,
+            runOnStart: false,
+            ...task
+        };
 
         me.register(task);
 
@@ -89,19 +90,23 @@ class Task extends Base {
      * @param {String} taskId
      */
     run(taskId) {
-        const me = this,
-            task = this.get(taskId);
+        let me   = this,
+            task = me.get(taskId);
 
-        if(task.isRunning) {
+        if (task.isRunning) {
             Neo.logError('[Neo.util.TaskManager] Task is already running');
             return task;
         }
 
         try {
-            let fn = function (task) {
+            let fn = function(task) {
                 task.runCount++;
-                if(task.addCountToArgs) task.args[task.args.length - 1] = task.runCount;
-                if(task.repeat && task.runCount === task.repeat) {
+
+                if(task.addCountToArgs) {
+                    task.args[task.args.length - 1] = task.runCount;
+                }
+
+                if (task.repeat && task.runCount === task.repeat) {
                     me.stop(task.id);
                 }
 
@@ -109,7 +114,7 @@ class Task extends Base {
             };
 
             task.isRunning = true;
-            task.runner = setInterval(fn, task.interval, task);
+            task.runner    = setInterval(fn, task.interval, task);
         } catch (taskError) {
             Neo.logError('[Neo.util.TaskManager] Error while running task ' + task.id);
             task.onError(taskError);
@@ -120,27 +125,29 @@ class Task extends Base {
     /**
      * Adds a task and runs it.
      * @param {Object|String} task or taskId
-     * @return {Object}
+     * @returns {Object}
      */
     start(task) {
-        if(typeof task === 'string') {
-            task = this.get(task);
-            if(!task) Neo.logError('[Neo.util.TaskManager] You passed a taskId which does not exits');
-        } else {
-            if(!task.id || !this.get(task.id)) task = this.createTask(task);
+        let me = this;
+
+        if (Neo.isString(task)) {
+            task = me.get(task);
+            !task && Neo.logError('[Neo.util.TaskManager] You passed a taskId which does not exits');
+        } else if (!task.id || !me.get(task.id)){
+            task = me.createTask(task);
         }
 
-        if(task.isRunning) {
+        if (task.isRunning) {
             Neo.logError('[Neo.util.TaskManager] Task is already running');
             return task;
         }
 
-        if(task.runOnStart) {
+        if (task.runOnStart) {
             task.runCount++;
             task.run(...task.args);
         }
 
-        this.run(task.id);
+        me.run(task.id);
 
         return task;
     }
@@ -153,15 +160,19 @@ class Task extends Base {
      */
     stop(taskId, remove) {
         let task = this.get(taskId);
-        if(task.isRunning) clearInterval(task.runner);
 
-        if(remove) {
+        task.isRunning && clearInterval(task.runner);
+
+        if (remove) {
             this.removeTask(task);
         } else {
             task.isRunning = false;
-            task.runCount = 0;
-            task.runner = null;
-            if(task.addCountToArgs) task.args[task.args.length - 1] = 0;
+            task.runCount  = 0;
+            task.runner    = null;
+
+            if(task.addCountToArgs) {
+                task.args[task.args.length - 1] = 0;
+            }
         }
     }
 
@@ -171,12 +182,9 @@ class Task extends Base {
      * @param {Boolean} remove
      */
     stopAll(remove) {
-        let me = this,
-            map = me.map;
-
-        for (var [key, value] of map.entries()) {
-            me.stop(key, remove);
-        }
+        Object.keys(this.map).forEach(key => {
+            this.stop(key, remove);
+        });
     }
 }
 
