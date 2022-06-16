@@ -86,7 +86,7 @@ class View extends Component {
 
             data.push({
                 tag     : 'tr',
-                id      : id,
+                id,
                 cls     : trCls,
                 cn      : [],
                 tabIndex: '-1'
@@ -108,7 +108,7 @@ class View extends Component {
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
                     dataField: column.dataField,
                     index    : i,
-                    record   : record,
+                    record,
                     value    : rendererValue
                 });
 

@@ -182,18 +182,30 @@ class Component extends Base {
         if (listeners) {
             Object.entries(listeners).forEach(([key, value]) => {
                 if (key !== 'scope' && key !== 'delegate') {
-                    value.forEach(listener => {
-                        if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
-                            eventHandler = listener.fn;
-                            handlerScope = me.getHandlerScope(eventHandler);
+                    if (Neo.isString(value)) {
+                        eventHandler = value;
+                        handlerScope = me.getHandlerScope(eventHandler);
 
-                            if (!handlerScope) {
-                                Logger.logError('Unknown event handler for', eventHandler, component);
-                            } else {
-                                listener.fn = handlerScope[eventHandler].bind(handlerScope);
-                            }
+                        if (!handlerScope) {
+                            Logger.logError('Unknown event handler for', eventHandler, component);
+                        } else {
+                            listeners[key] = {};
+                            listeners[key].fn = handlerScope[eventHandler].bind(handlerScope);
                         }
-                    });
+                    } else {
+                        value.forEach(listener => {
+                            if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
+                                eventHandler = listener.fn;
+                                handlerScope = me.getHandlerScope(eventHandler);
+
+                                if (!handlerScope) {
+                                    Logger.logError('Unknown event handler for', eventHandler, component);
+                                } else {
+                                    listener.fn = handlerScope[eventHandler].bind(handlerScope);
+                                }
+                            }
+                        });
+                    }
                 }
             });
         }

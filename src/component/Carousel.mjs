@@ -1,6 +1,8 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from './Base.mjs';
 import Store           from '../data/Store.mjs';
+import TaskManager     from '../manager/Task.mjs';
+
 
 /**
  * @class Neo.component.Carousel
@@ -31,6 +33,14 @@ class Carousel extends Component {
          * @protected
          */
         ntype: 'carousel',
+        /**
+         * autoRun allows to run through the all items timebased
+         * 0 means it is turned off. Other values are the timer in ms,
+         * which will hide the arrows.
+         *
+         * @member {int} autoRun=0
+         */
+        autoRun_: 0,
         /**
          * @member {String[]} cls=['neo-carousel']
          */
@@ -82,6 +92,8 @@ class Carousel extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
+        if(me.autoRun) return;
+
         domListeners.push({
             click: {
                 fn      : me.onCarouselBtnClick,
@@ -91,6 +103,30 @@ class Carousel extends Component {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after autoRun config got changed
+     * @param {boolean|integer} value
+     * @protected
+     */
+    afterSetAutoRun(value, oldValue) {
+        let me = this;
+
+        if(!value) return;
+
+        TaskManager.start({
+            id: this.id,
+            interval: value,
+            run: function() {
+                me.onCarouselBtnClick('forward');
+            }
+        });
+
+        let vdom = this._vdom;
+        vdom.cn[0].cn[0].removeDom = true;
+
+        this._vdom = vdom;
     }
 
     /**
@@ -188,7 +224,7 @@ class Carousel extends Component {
      */
     onCarouselBtnClick(event) {
         let me            = this,
-            action        = event.target.data.carouselaction,
+            action        = (typeof event === 'string') ? event : event.target.data.carouselaction,
             store         = me.store,
             countItems    = store.getCount(),
             vdom          = me.vdom,

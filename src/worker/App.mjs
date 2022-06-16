@@ -118,10 +118,10 @@ class App extends Base {
         if (Neo.config.themes.length > 0) {
             className = className || proto.className;
 
-            let me        = this,
-                lAppName  = appName.toLowerCase(),
-                cssMap    = Neo.cssMap,
-                parent    = proto?.__proto__,
+            let me       = this,
+                lAppName = appName.toLowerCase(),
+                cssMap   = Neo.cssMap,
+                parent   = proto?.__proto__,
                 classPath, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {

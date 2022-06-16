@@ -124,7 +124,10 @@ class Component extends Base {
      * @protected
      */
     beforeSetStores(value, oldValue) {
+        let controller = this.component.getController();
+
         value && Object.entries(value).forEach(([key, storeValue]) => {
+            controller?.parseConfig(storeValue);
             value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
         });
 
