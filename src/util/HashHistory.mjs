@@ -65,15 +65,16 @@ class HashHistory extends Base {
      * @param {String} data.hashString
      */
     push(data) {
-        let me = this;
+        let me    = this,
+            stack = me.stack;
 
-        me.stack.unshift(data);
+        stack.unshift(data);
 
-        if (me.stack.length > me.maxItems) {
-            me.stack.length = me.maxItems;
+        if (stack.length > me.maxItems) {
+            stack.length = me.maxItems;
         }
 
-        me.fire('change', data, me.stack[1]);
+        me.fire('change', data, stack[1]);
     }
 }
 
