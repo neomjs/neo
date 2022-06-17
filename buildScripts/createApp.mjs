@@ -174,7 +174,7 @@ if (programOpts.info) {
                 appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
                 basePath   : '../../',
                 environment: 'development',
-                mainPath   : './Main.mjs'
+                mainPath   : `${insideNeo ? './' : '../node_modules/neo.mjs/src/'}Main.mjs`
             };
 
             if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
