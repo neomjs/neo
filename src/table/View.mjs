@@ -80,7 +80,7 @@ class View extends Component {
                 trCls.push('neo-selected');
 
                 Neo.getComponent(me.containerId).fire('select', {
-                    record: record
+                    record
                 });
             }
 

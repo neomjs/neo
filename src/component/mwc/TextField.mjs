@@ -191,8 +191,8 @@ class TextField extends Component {
 
         me.fire('change', {
             component: me,
-            oldValue : oldValue,
-            value    : value
+            oldValue,
+            value
         });
     }
 

@@ -42,8 +42,8 @@ class Base extends Component {
     fireChangeEvent(value, oldValue) {
         this.fire('change', {
             component: this,
-            oldValue : oldValue,
-            value    : value
+            oldValue,
+            value
         });
     }
 
