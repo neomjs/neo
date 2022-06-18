@@ -1007,7 +1007,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({ appName, id });
+        return Neo.main.DomAccess.getBoundingClientRect({appName, id});
     }
 
     /**
