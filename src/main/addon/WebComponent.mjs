@@ -36,10 +36,13 @@ class WebComponent extends Base {
         customElements.define('element-loader', class extends HTMLElement {
             async connectedCallback() {
                 let me      = this,
-                    content = await (await fetch(me.getAttribute('src'))).text();
+                    content = await (await fetch(me.getAttribute('src'))).text(),
+                    styles;
 
                 me.attachShadow({mode: 'open'}).innerHTML = content;
-                me.shadowRoot.append(me.querySelector('style'));
+
+                styles = me.querySelector('style');
+                styles && me.shadowRoot.append(styles);
             }
         });
     }
