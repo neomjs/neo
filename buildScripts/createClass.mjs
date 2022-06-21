@@ -17,7 +17,7 @@ const __dirname    = path.resolve(),
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',                     'print environment debug info')
+    .option('-i, --info',              'print environment debug info')
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
     .allowUnknownOption()
@@ -52,7 +52,8 @@ if (programOpts.info) {
         questions.push({
             type   : 'input',
             name   : 'className',
-            message: 'Please choose the namespace for your class:'
+            message: 'Please choose the namespace for your class:',
+            default: 'Covid.view.FooContainer'
         });
     }
 
@@ -69,9 +70,25 @@ if (programOpts.info) {
     inquirer.prompt(questions).then(answers => {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
-            startDate = new Date();
+            startDate = new Date(),
+            ns, root;
 
-        console.log(className, baseClass);
+        if (className.endsWith('.mjs')) {
+            className = className.slice(0, -4);
+        }
+
+        ns   = className.split('.');
+        root = ns.shift();
+
+        if (root === 'Neo') {
+            console.log('todo: create the file inside the src folder');
+        } else {
+            if (fs.existsSync(path.resolve(cwd, 'apps', root.toLowerCase()))) {
+                console.log('valid app folder');
+            }
+        }
+
+        console.log(root, ns, className, baseClass);
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
