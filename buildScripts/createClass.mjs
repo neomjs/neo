@@ -127,13 +127,13 @@ if (programOpts.info) {
      * @returns {String}
      */
     function createContent(opts) {
-        let baseClass     = opts.baseClass,
-            baseClassNs   = baseClass.split('.'),
+        let baseClass    = opts.baseClass,
+            baseClassNs  = baseClass.split('.'),
             baseFileName = baseClassNs.pop(),
-            className     = opts.className,
-            file          = opts.file,
-            i             = 0,
-            importDelta   = '';
+            className    = opts.className,
+            file         = opts.file,
+            i            = 0,
+            importDelta  = '';
 
         for (; i < opts.folderDelta; i++) {
             importDelta += '../';
