@@ -71,24 +71,28 @@ if (programOpts.info) {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
             startDate = new Date(),
-            ns, root;
+            classFolder, file, ns, root, rootLowerCase;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
         }
 
-        ns   = className.split('.');
-        root = ns.shift();
+        ns            = className.split('.');
+        file          = ns.pop();
+        root          = ns.shift();
+        rootLowerCase = root.toLowerCase();
 
         if (root === 'Neo') {
             console.log('todo: create the file inside the src folder');
         } else {
-            if (fs.existsSync(path.resolve(cwd, 'apps', root.toLowerCase()))) {
-                console.log('valid app folder');
+            if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
+                classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
+
+                fs.mkdirpSync(classFolder);
+
+                fs.writeFileSync(path.join(classFolder, file + '.mjs'), 'test');
             }
         }
-
-        console.log(root, ns, className, baseClass);
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
