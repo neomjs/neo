@@ -64,7 +64,7 @@ if (programOpts.info) {
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
             choices: ['component.Base', 'container.Base'],
-            default: 'component.Base'
+            default: 'container.Base'
         });
     }
 
