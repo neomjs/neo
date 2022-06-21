@@ -14,6 +14,7 @@
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
+        "create-class": "node ./buildScripts/createClass.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test": "echo \"Error: no test specified\" && exit 1",
