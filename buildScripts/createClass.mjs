@@ -6,13 +6,14 @@ import inquirer    from 'inquirer';
 import os          from 'os';
 import path        from 'path';
 
-const __dirname    = path.resolve(),
-      cwd          = process.cwd(),
-      requireJson  = path => JSON.parse(fs.readFileSync((path))),
-      packageJson  = requireJson(path.join(__dirname, 'package.json')),
-      program      = new Command(),
-      programName  = `${packageJson.name} create-class`,
-      questions    = [];
+const __dirname   = path.resolve(),
+      cwd         = process.cwd(),
+      requireJson = path => JSON.parse(fs.readFileSync((path))),
+      packageJson = requireJson(path.join(__dirname, 'package.json')),
+      insideNeo   = packageJson.name === 'neo.mjs',
+      program     = new Command(),
+      programName = `${packageJson.name} create-class`,
+      questions   = [];
 
 program
     .name(programName)
@@ -90,7 +91,7 @@ if (programOpts.info) {
 
                 fs.mkdirpSync(classFolder);
 
-                fs.writeFileSync(path.join(classFolder, file + '.mjs'), 'test');
+                fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, ns, root}));
             }
         }
 
@@ -99,4 +100,51 @@ if (programOpts.info) {
 
         process.exit();
     });
+
+    /**
+     *
+     * @param {Object} opts
+     * @param {String} opts.baseClass
+     * @param {String} opts.className
+     * @param {String} opts.file
+     * @param {String} opts.ns
+     * @param {String} opts.root
+     * @returns {String}
+     */
+    function createContent(opts) {
+        let baseClass     = opts.baseClass,
+            baseClassNs   = baseClass.split('.'),
+            baseFileName = baseClassNs.pop(),
+            className     = opts.className,
+            file          = opts.file;
+
+        let classContent = [
+            `import ${baseFileName} from '../../../${(insideNeo ? '' : 'node_modules/neo.mjs/')}${baseClassNs.join('/')}${baseFileName}.mjs';`,
+            "",
+            "/**",
+            " * @class " + className,
+            " * @extends Neo." + baseClass,
+            " */",
+            `class ${file} extends ${baseFileName} {`,
+            "    static getConfig() {return {",
+            "        /*",
+            `         * @member {String} className='${className}'`,
+            "         * @protected",
+            "         */",
+            `        className: '${className}',`,
+            "        /*",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: []",
+            "    }}",
+            "}",
+            "",
+            `Neo.applyClassConfig(${file});`,
+            "",
+            `export default ${file};`,
+            ""
+        ].join(os.EOL);
+
+        return classContent;
+    }
 }
