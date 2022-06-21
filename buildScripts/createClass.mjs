@@ -72,7 +72,7 @@ if (programOpts.info) {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
             startDate = new Date(),
-            classFolder, file, ns, root, rootLowerCase;
+            classFolder, file, folderDelta, ns, root, rootLowerCase;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -88,10 +88,11 @@ if (programOpts.info) {
         } else {
             if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
                 classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
+                folderDelta = ns.length + 2;
 
                 fs.mkdirpSync(classFolder);
 
-                fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, ns, root}));
+                fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
             } else {
                 console.log('\nNon existing neo app name:', chalk.red(root));
                 process.exit(1);
@@ -118,6 +119,7 @@ if (programOpts.info) {
      * @param {String} opts.baseClass
      * @param {String} opts.className
      * @param {String} opts.file
+     * @param {String} opts.folderDelta
      * @param {String} opts.ns
      * @param {String} opts.root
      * @returns {String}
@@ -127,10 +129,16 @@ if (programOpts.info) {
             baseClassNs   = baseClass.split('.'),
             baseFileName = baseClassNs.pop(),
             className     = opts.className,
-            file          = opts.file;
+            file          = opts.file,
+            i             = 0,
+            importDelta   = '';
+
+        for (; i < opts.folderDelta; i++) {
+            importDelta += '../';
+        }
 
         let classContent = [
-            `import ${baseFileName} from '../../../${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
+            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
             "",
             "/**",
             " * @class " + className,
