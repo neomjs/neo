@@ -54,7 +54,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'MyApp.view.FooContainer'
+            default: 'Covid.view.FooContainer'
         });
     }
 
@@ -105,6 +105,14 @@ if (programOpts.info) {
     });
 
     /**
+     * Adds a comma to the last element of the contentArray
+     * @param {String[]} contentArray
+     */
+    function addComma(contentArray) {
+        contentArray[contentArray.length - 1] += ',';
+    }
+
+    /**
      * Creates the content of the neo-class .mjs file
      * @param {Object} opts
      * @param {String} opts.baseClass
@@ -137,8 +145,20 @@ if (programOpts.info) {
             `        className: '${className}'`
         ];
 
+        if (baseClass === 'component.Base') {
+            addComma(classContent);
+
+            classContent.push(
+            "        /*",
+            "         * @member {Object} _vdom",
+            "         */",
+            "        _vdom:",
+            "        {}",
+            );
+        }
+
         if (baseClass === 'container.Base') {
-            classContent[classContent.length - 1] += ',';
+            addComma(classContent);
 
             classContent.push(
             "        /*",
