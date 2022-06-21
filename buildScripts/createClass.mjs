@@ -119,7 +119,7 @@ if (programOpts.info) {
             file          = opts.file;
 
         let classContent = [
-            `import ${baseFileName} from '../../../${(insideNeo ? '' : 'node_modules/neo.mjs/')}${baseClassNs.join('/')}${baseFileName}.mjs';`,
+            `import ${baseFileName} from '../../../${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
             "",
             "/**",
             " * @class " + className,
