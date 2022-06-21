@@ -108,9 +108,11 @@ if (programOpts.info) {
     /**
      * Adds a comma to the last element of the contentArray
      * @param {String[]} contentArray
+     * @returns {String[]}
      */
     function addComma(contentArray) {
         contentArray[contentArray.length - 1] += ',';
+        return contentArray;
     }
 
     /**
@@ -141,8 +143,8 @@ if (programOpts.info) {
             `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
             "",
             "/**",
-            " * @class " + className,
-            " * @extends Neo." + baseClass,
+            ` * @class ${className}`,
+            ` * @extends Neo.${baseClass}`,
             " */",
             `class ${file} extends ${baseFileName} {`,
             "    static getConfig() {return {",
@@ -153,28 +155,20 @@ if (programOpts.info) {
             `        className: '${className}'`
         ];
 
-        if (baseClass === 'component.Base') {
-            addComma(classContent);
-
-            classContent.push(
+        baseClass === 'component.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object} _vdom",
             "         */",
             "        _vdom:",
-            "        {}",
-            );
-        }
+            "        {}"
+        );
 
-        if (baseClass === 'container.Base') {
-            addComma(classContent);
-
-            classContent.push(
+        baseClass === 'container.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object[]} items",
             "         */",
-            "        items: []",
-            );
-        }
+            "        items: []"
+        );
 
         classContent.push(
             "    }}",
