@@ -54,7 +54,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.FooContainer'
+            default: 'MyApp.view.FooContainer'
         });
     }
 
@@ -92,6 +92,9 @@ if (programOpts.info) {
                 fs.mkdirpSync(classFolder);
 
                 fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, ns, root}));
+            } else {
+                console.log('\nNon existing neo app name:', chalk.red(root));
+                process.exit(1);
             }
         }
 
