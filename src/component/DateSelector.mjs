@@ -326,8 +326,9 @@ class DateSelector extends Component {
             me.currentDate = new Date(`${value}T00:00:00`);
 
             me.fire('change', {
-                oldValue: oldValue,
-                value   : value
+                component: me,
+                oldValue,
+                value
             });
         } else {
             me.cacheUpdate();

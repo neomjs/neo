@@ -140,7 +140,7 @@ class GalleryModel extends Model {
         me.select(record[store.keyProperty]);
 
         view.fire('select', {
-            record: record
+            record
         });
     }
 
@@ -190,7 +190,7 @@ class GalleryModel extends Model {
         me.select(record[store.keyProperty]);
 
         view.fire('select', {
-            record: record
+            record
         });
     }
 

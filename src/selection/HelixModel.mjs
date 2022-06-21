@@ -154,7 +154,7 @@ class HelixModel extends Model {
         me.select(record[store.keyProperty]);
 
         view.fire('select', {
-            record: record
+            record
         });
     }
 
@@ -186,7 +186,7 @@ class HelixModel extends Model {
         me.select(record[store.keyProperty]);
 
         view.fire('select', {
-            record: record
+            record
         });
     }
 
@@ -259,7 +259,7 @@ class HelixModel extends Model {
         view.mounted && Neo.currentWorker.promiseMessage('main', {
             action : 'updateDom',
             appName: view.appName,
-            deltas : deltas
+            deltas
         }).then(() => {
             view.onSelect?.(items);
             me.fire('selectionChange', items, oldItems);

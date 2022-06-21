@@ -45,8 +45,8 @@ class BooleanContainer extends Container {
         if (oldValue !== undefined) {
             this.fire('change', {
                 component: this,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }

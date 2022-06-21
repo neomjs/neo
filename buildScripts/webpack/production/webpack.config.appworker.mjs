@@ -16,7 +16,8 @@ const cwd                   = process.cwd(),
       regexTrimEnd          = /\s+$/gm,
       regexTrimStart        = /^\s+/gm;
 
-let config, examplesPath;
+let contextAdjusted = false,
+    config, examplesPath;
 
 if (fs.existsSync(configPath)) {
     config = requireJson(configPath);
@@ -134,8 +135,11 @@ export default env => {
 
         plugins: [
             new webpack.ContextReplacementPlugin(/.*/, context => {
-                if (!insideNeo && context.context.includes('/src/worker')) {
-                    context.request = '../../' + context.request;
+                let con = context.context;
+
+                if (!insideNeo && !contextAdjusted && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
+                    context.request = path.join('../../', context.request);
+                    contextAdjusted = true;
                 }
             }),
             ...plugins
