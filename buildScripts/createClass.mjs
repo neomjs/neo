@@ -102,7 +102,7 @@ if (programOpts.info) {
     });
 
     /**
-     *
+     * Creates the content of the neo-class .mjs file
      * @param {Object} opts
      * @param {String} opts.baseClass
      * @param {String} opts.className
@@ -131,11 +131,21 @@ if (programOpts.info) {
             `         * @member {String} className='${className}'`,
             "         * @protected",
             "         */",
-            `        className: '${className}',`,
+            `        className: '${className}'`
+        ];
+
+        if (baseClass === 'container.Base') {
+            classContent[classContent.length - 1] += ',';
+
+            classContent.push(
             "        /*",
             "         * @member {Object[]} items",
             "         */",
             "        items: []",
+            );
+        }
+
+        classContent.push(
             "    }}",
             "}",
             "",
@@ -143,8 +153,8 @@ if (programOpts.info) {
             "",
             `export default ${file};`,
             ""
-        ].join(os.EOL);
+        );
 
-        return classContent;
+        return classContent.join(os.EOL);
     }
 }
