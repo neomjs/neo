@@ -54,7 +54,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.FooContainer'
+            default: 'Covid.view.HeaderContainerController'
         });
     }
 
@@ -63,7 +63,7 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            choices: ['component.Base', 'container.Base', 'core.Base'],
+            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base'],
             default: 'container.Base'
         });
     }
