@@ -101,7 +101,7 @@ if (programOpts.info) {
                         viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                         if (fs.existsSync(viewFile)) {
-                            adjustView(viewFile);
+                            adjustView({file, viewFile});
                         }
                     }
                 }
@@ -127,8 +127,41 @@ if (programOpts.info) {
         return contentArray;
     }
 
-    function adjustView(viewFile) {
-        console.log('adjust view', viewFile);
+    /**
+     * Adjusts the views related to controller.Component or model.Component
+     * @param {Object} opts
+     * @param {String} opts.file
+     * @param {String} opts.viewFile
+     */
+    function adjustView(opts) {
+        let file     = opts.file,
+            viewFile = opts.viewFile,
+            content  = fs.readFileSync(viewFile).toString().split(os.EOL),
+            i        = 0,
+            len      = content.length,
+            codeLine, importName;
+
+        for (; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            importName = codeLine.substr(7);
+            importName = importName.substr(0, importName.indexOf(' '));
+
+            if (importName > file) {
+                break;
+            }
+        }
+
+        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+
+        fs.writeFileSync(viewFile, content.join(os.EOL));
+
+        console.log(i, opts.file);
+        console.log(content);
     }
 
     /**
