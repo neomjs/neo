@@ -72,7 +72,7 @@ if (programOpts.info) {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
             startDate = new Date(),
-            classFolder, file, folderDelta, ns, root, rootLowerCase;
+            classFolder, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -93,6 +93,18 @@ if (programOpts.info) {
                 fs.mkdirpSync(classFolder);
 
                 fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+
+                if (baseClass === 'controller.Component') {
+                    index = file.indexOf('Controller');
+
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                        if (fs.existsSync(viewFile)) {
+                            adjustView(viewFile);
+                        }
+                    }
+                }
             } else {
                 console.log('\nNon existing neo app name:', chalk.red(root));
                 process.exit(1);
@@ -113,6 +125,10 @@ if (programOpts.info) {
     function addComma(contentArray) {
         contentArray[contentArray.length - 1] += ',';
         return contentArray;
+    }
+
+    function adjustView(viewFile) {
+        console.log('adjust view', viewFile);
     }
 
     /**
