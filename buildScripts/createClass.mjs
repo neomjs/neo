@@ -172,6 +172,7 @@ if (programOpts.info) {
             fromMaxPosition = Math.max(fromMaxPosition, codeLine.indexOf('from'));
         }
 
+        // adjust the block-formatting for imports
         for (i=0; i < len; i++) {
             codeLine = content[i];
 
@@ -239,19 +240,19 @@ if (programOpts.info) {
             `        className: '${className}'`
         ];
 
+        baseClass === 'container.Base' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: []"
+        );
+
         baseClass === 'component.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object} _vdom",
             "         */",
             "        _vdom:",
             "        {}"
-        );
-
-        baseClass === 'container.Base' && addComma(classContent).push(
-            "        /*",
-            "         * @member {Object[]} items",
-            "         */",
-            "        items: []"
         );
 
         classContent.push(
