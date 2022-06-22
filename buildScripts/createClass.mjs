@@ -134,12 +134,14 @@ if (programOpts.info) {
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let file     = opts.file,
-            viewFile = opts.viewFile,
-            content  = fs.readFileSync(viewFile).toString().split(os.EOL),
-            i        = 0,
-            len      = content.length,
-            codeLine, importName;
+        let file       = opts.file,
+            viewFile   = opts.viewFile,
+            content    = fs.readFileSync(viewFile).toString().split(os.EOL),
+            foundIndex = 0,
+            i          = 0,
+            len        = content.length,
+            setIndex   = false,
+            adjustSpaces, codeLine, importLength, importName, j, spaces;
 
         for (; i < len; i++) {
             codeLine = content[i];
@@ -148,15 +150,29 @@ if (programOpts.info) {
                 break;
             }
 
-            importName = codeLine.substr(7);
-            importName = importName.substr(0, importName.indexOf(' '));
+            importName   = codeLine.substr(7);
+            importName   = importName.substr(0, importName.indexOf(' '));
+            importLength = importName.length;
+            adjustSpaces = file.length - importLength;
 
-            if (importName > file) {
-                break;
+            if (adjustSpaces > 0) {
+                spaces = ' ';
+
+                for (j=0; j < adjustSpaces; j++) {
+                    spaces += ' ';
+                }
+
+                content[i] = codeLine.substr(0, 7 + importLength) + spaces + codeLine.substr(codeLine.indexOf('from'));
+            }
+            console.log(adjustSpaces);
+
+            if (!setIndex && importName > file) {
+                foundIndex = i;
+                setIndex   = true;
             }
         }
 
-        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+        content.splice(Math.min(foundIndex, i), 0, `import ${file} from './${file}.mjs';`);
 
         fs.writeFileSync(viewFile, content.join(os.EOL));
 
