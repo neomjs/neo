@@ -134,15 +134,15 @@ if (programOpts.info) {
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let file       = opts.file,
-            viewFile   = opts.viewFile,
-            content    = fs.readFileSync(viewFile).toString().split(os.EOL),
-            foundIndex = 0,
-            i          = 0,
-            len        = content.length,
-            setIndex   = false,
-            adjustSpaces, codeLine, importLength, importName, j, spaces;
+        let file            = opts.file,
+            viewFile        = opts.viewFile,
+            content         = fs.readFileSync(viewFile).toString().split(os.EOL),
+            fromMaxPosition = 0,
+            i               = 0,
+            len             = content.length,
+            adjustSpaces, codeLine, fromPosition, importLength, importName, j, spaces;
 
+        // find the index where we want to insert our import statement
         for (; i < len; i++) {
             codeLine = content[i];
 
@@ -153,26 +153,45 @@ if (programOpts.info) {
             importName   = codeLine.substr(7);
             importName   = importName.substr(0, importName.indexOf(' '));
             importLength = importName.length;
-            adjustSpaces = file.length - importLength;
+
+            if (importName > file) {
+                break;
+            }
+        }
+
+        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+
+        // find the longest import module name
+        for (i=0; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            fromMaxPosition = Math.max(fromMaxPosition, codeLine.indexOf('from'));
+        }
+
+        for (i=0; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            fromPosition = codeLine.indexOf('from');
+            adjustSpaces = fromMaxPosition - fromPosition;
 
             if (adjustSpaces > 0) {
-                spaces = ' ';
+                spaces = '';
 
                 for (j=0; j < adjustSpaces; j++) {
                     spaces += ' ';
                 }
 
-                content[i] = codeLine.substr(0, 7 + importLength) + spaces + codeLine.substr(codeLine.indexOf('from'));
-            }
-            console.log(adjustSpaces);
-
-            if (!setIndex && importName > file) {
-                foundIndex = i;
-                setIndex   = true;
+                content[i] = codeLine.substr(0, fromPosition) + spaces + codeLine.substr(fromPosition);
             }
         }
-
-        content.splice(Math.min(foundIndex, i), 0, `import ${file} from './${file}.mjs';`);
 
         fs.writeFileSync(viewFile, content.join(os.EOL));
 
