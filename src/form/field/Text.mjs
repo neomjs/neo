@@ -806,9 +806,19 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
-        let me = this;
+        let me          = this,
+            value       = me.value,
+            valueLength = value?.length;
 
-        if (me.required && (!me.value || me.value?.length < 1)) {
+        if (me.required && (!value || valueLength < 1)) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.maxLength) && valueLength > me.maxLength) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.minLength) && valueLength < me.minLength) {
             return false;
         }
 
