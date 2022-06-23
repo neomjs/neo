@@ -808,7 +808,7 @@ class Text extends Base {
     isValid() {
         let me          = this,
             value       = me.value,
-            valueLength = value?.length;
+            valueLength = value?.toString().length;
 
         if (me.required && (!value || valueLength < 1)) {
             return false;
