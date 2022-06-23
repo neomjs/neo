@@ -190,7 +190,11 @@ class DeltaUpdates extends Base {
                                 // see https://github.com/neomjs/neo/issues/1922
                                 node[key] = false;
                             } else {
-                                node.setAttribute(key, val);
+                                if (key === 'value') {
+                                    node[key] = val;
+                                } else {
+                                    node.setAttribute(key, val);
+                                }
                             }
                         });
                         break;
