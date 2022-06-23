@@ -237,8 +237,9 @@ class Number extends Text {
      */
     onSpinButtonDownClick() {
         let me       = this,
-            oldValue = me.value || (me.maxValue + me.stepSize),
-            value    = Math.max(me.minValue, oldValue - me.stepSize);
+            stepSize = me.stepSize,
+            oldValue = Neo.isNumber(me.value) ? me.value : me.minValue,
+            value    = (oldValue - stepSize) < me.minValue ? me.maxValue : (oldValue - stepSize);
 
         if (me.excludedValues) {
             while(me.excludedValues.includes(value)) {
@@ -256,12 +257,13 @@ class Number extends Text {
      */
     onSpinButtonUpClick() {
         let me       = this,
-            oldValue = me.value || (me.minValue - me.stepSize),
-            value    = Math.min(me.maxValue, oldValue + me.stepSize);
+            stepSize = me.stepSize,
+            oldValue = Neo.isNumber(me.value) ? me.value : me.maxValue,
+            value    = (oldValue + stepSize) > me.maxValue ? me.minValue : (oldValue + stepSize);
 
         if (me.excludedValues) {
             while(me.excludedValues.includes(value)) {
-                value = Math.min(me.maxValue, value + me.stepSize);
+                value = Math.min(me.maxValue, value + stepSize);
             }
         }
 
