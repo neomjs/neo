@@ -94,6 +94,16 @@ class Text extends Base {
          */
         labelWidth_: 150,
         /**
+         * The maximum amount of chars which you can enter into this field
+         * @member {Number|null} maxLength_=null
+         */
+        maxLength_: null,
+        /**
+         * The minimum amount of chars which you can enter into this field
+         * @member {Number|null} minLength_=null
+         */
+        minLength_: null,
+        /**
          * @member {String|null} placeholderText_=null
          */
         placeholderText_: null,
@@ -356,6 +366,26 @@ class Text extends Base {
 
             !me.hideLabel && me.updateInputWidth();
         }
+    }
+
+    /**
+     * Triggered after the maxLength config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetMaxLength(value, oldValue) {
+        this.changeInputElKey('maxlength', value);
+    }
+
+    /**
+     * Triggered after the minLength config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetMinLength(value, oldValue) {
+        this.changeInputElKey('minlength', value);
     }
 
     /**
@@ -776,9 +806,19 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
-        let me = this;
+        let me          = this,
+            value       = me.value,
+            valueLength = value?.toString().length;
 
-        if (me.required && (!me.value || me.value?.length < 1)) {
+        if (me.required && (!value || valueLength < 1)) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.maxLength) && valueLength > me.maxLength) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.minLength) && valueLength < me.minLength) {
             return false;
         }
 

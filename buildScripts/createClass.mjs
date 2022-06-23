@@ -54,7 +54,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.FooContainer'
+            default: 'Covid.view.HeaderContainerController'
         });
     }
 
@@ -63,8 +63,8 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            choices: ['component.Base', 'container.Base'],
-            default: 'component.Base'
+            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base'],
+            default: 'container.Base'
         });
     }
 
@@ -72,7 +72,7 @@ if (programOpts.info) {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
             startDate = new Date(),
-            classFolder, file, folderDelta, ns, root, rootLowerCase;
+            classFolder, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -93,6 +93,18 @@ if (programOpts.info) {
                 fs.mkdirpSync(classFolder);
 
                 fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+
+                if (baseClass === 'controller.Component') {
+                    index = file.indexOf('Controller');
+
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                        if (fs.existsSync(viewFile)) {
+                            adjustView({file, viewFile});
+                        }
+                    }
+                }
             } else {
                 console.log('\nNon existing neo app name:', chalk.red(root));
                 process.exit(1);
@@ -108,9 +120,84 @@ if (programOpts.info) {
     /**
      * Adds a comma to the last element of the contentArray
      * @param {String[]} contentArray
+     * @returns {String[]}
      */
     function addComma(contentArray) {
         contentArray[contentArray.length - 1] += ',';
+        return contentArray;
+    }
+
+    /**
+     * Adjusts the views related to controller.Component or model.Component
+     * @param {Object} opts
+     * @param {String} opts.file
+     * @param {String} opts.viewFile
+     */
+    function adjustView(opts) {
+        let file            = opts.file,
+            viewFile        = opts.viewFile,
+            content         = fs.readFileSync(viewFile).toString().split(os.EOL),
+            fromMaxPosition = 0,
+            i               = 0,
+            len             = content.length,
+            adjustSpaces, codeLine, fromPosition, importLength, importName, j, spaces;
+
+        // find the index where we want to insert our import statement
+        for (; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            importName   = codeLine.substr(7);
+            importName   = importName.substr(0, importName.indexOf(' '));
+            importLength = importName.length;
+
+            if (importName > file) {
+                break;
+            }
+        }
+
+        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+
+        // find the longest import module name
+        for (i=0; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            fromMaxPosition = Math.max(fromMaxPosition, codeLine.indexOf('from'));
+        }
+
+        // adjust the block-formatting for imports
+        for (i=0; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine === '') {
+                break;
+            }
+
+            fromPosition = codeLine.indexOf('from');
+            adjustSpaces = fromMaxPosition - fromPosition;
+
+            if (adjustSpaces > 0) {
+                spaces = '';
+
+                for (j=0; j < adjustSpaces; j++) {
+                    spaces += ' ';
+                }
+
+                content[i] = codeLine.substr(0, fromPosition) + spaces + codeLine.substr(fromPosition);
+            }
+        }
+
+        fs.writeFileSync(viewFile, content.join(os.EOL));
+
+        console.log(i, opts.file);
+        console.log(content);
     }
 
     /**
@@ -125,13 +212,13 @@ if (programOpts.info) {
      * @returns {String}
      */
     function createContent(opts) {
-        let baseClass     = opts.baseClass,
-            baseClassNs   = baseClass.split('.'),
+        let baseClass    = opts.baseClass,
+            baseClassNs  = baseClass.split('.'),
             baseFileName = baseClassNs.pop(),
-            className     = opts.className,
-            file          = opts.file,
-            i             = 0,
-            importDelta   = '';
+            className    = opts.className,
+            file         = opts.file,
+            i            = 0,
+            importDelta  = '';
 
         for (; i < opts.folderDelta; i++) {
             importDelta += '../';
@@ -141,8 +228,8 @@ if (programOpts.info) {
             `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
             "",
             "/**",
-            " * @class " + className,
-            " * @extends Neo." + baseClass,
+            ` * @class ${className}`,
+            ` * @extends Neo.${baseClass}`,
             " */",
             `class ${file} extends ${baseFileName} {`,
             "    static getConfig() {return {",
@@ -153,28 +240,20 @@ if (programOpts.info) {
             `        className: '${className}'`
         ];
 
-        if (baseClass === 'component.Base') {
-            addComma(classContent);
+        baseClass === 'container.Base' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: []"
+        );
 
-            classContent.push(
+        baseClass === 'component.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object} _vdom",
             "         */",
             "        _vdom:",
-            "        {}",
-            );
-        }
-
-        if (baseClass === 'container.Base') {
-            addComma(classContent);
-
-            classContent.push(
-            "        /*",
-            "         * @member {Object[]} items",
-            "         */",
-            "        items: []",
-            );
-        }
+            "        {}"
+        );
 
         classContent.push(
             "    }}",

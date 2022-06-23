@@ -175,6 +175,28 @@ class Number extends Text {
     }
 
     /**
+     * @returns {Boolean}
+     */
+    isValid() {
+        let me    = this,
+            value = me.value;
+
+        if (Neo.isNumber(me.maxValue) && value > me.maxValue) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.minValue) && value < me.minValue) {
+            return false;
+        }
+
+        if (value % me.stepSize !== 0) {
+            return false;
+        }
+
+        return super.isValid();
+    }
+
+    /**
      *
      */
     onConstructed() {
