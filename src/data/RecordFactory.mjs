@@ -240,7 +240,7 @@ class RecordFactory extends Base {
             value = ns[key];
         }
 
-        if (type === 'date') {
+        if (type === 'date' && Neo.typeOf(value) !== 'Date') {
             return new Date(value);
         }
 
