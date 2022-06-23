@@ -98,6 +98,22 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             value    : me.exampleComponent.labelWidth
         }, {
+            module   : NumberField,
+            labelText: 'maxLength',
+            listeners: {change: me.onConfigChange.bind(me, 'maxLength')},
+            maxValue : 50,
+            minValue : 1,
+            stepSize : 1,
+            value    : me.exampleComponent.maxLength
+        }, {
+            module   : NumberField,
+            labelText: 'minLength',
+            listeners: {change: me.onConfigChange.bind(me, 'minLength')},
+            maxValue : 50,
+            minValue : 1,
+            stepSize : 1,
+            value    : me.exampleComponent.minLength
+        }, {
             module   : TextField,
             clearable: true,
             labelText: 'placeholderText',
