@@ -185,7 +185,7 @@ class Number extends Text {
             return false;
         }
 
-        if (Neo.isNumber(me.minValue) && value > me.minValue) {
+        if (Neo.isNumber(me.minValue) && value < me.minValue) {
             return false;
         }
 
