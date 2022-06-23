@@ -186,11 +186,11 @@ class DeltaUpdates extends Base {
                                 }
                             } else if (key === 'id') {
                                 node[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = val;
-                            }else if (key === 'spellcheck' && val === 'false') {
+                            } else if (key === 'spellcheck' && val === 'false') {
                                 // see https://github.com/neomjs/neo/issues/1922
                                 node[key] = false;
                             } else {
-                                node[key] = val;
+                                node.setAttribute(key, val);
                             }
                         });
                         break;
