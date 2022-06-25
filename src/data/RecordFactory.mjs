@@ -98,7 +98,7 @@ class RecordFactory extends Base {
                                                 oldValue = me[symbol];
 
                                             if (!Neo.isEqual(value, oldValue)) {
-                                                value = instance.parseRecordValue(field, value, null);
+                                                value = instance.parseRecordValue(field, value);
 
                                                 me[symbol] = value;
 
@@ -223,10 +223,10 @@ class RecordFactory extends Base {
      * todo: parse value for more field types
      * @param {Object} field
      * @param {*} value
-     * @param {Object} recordConfig
+     * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(field, value, recordConfig) {
+    parseRecordValue(field, value, recordConfig=null) {
         let mapping = field.mapping,
             type    = field.type?.toLowerCase();
 
@@ -259,6 +259,7 @@ class RecordFactory extends Base {
 
         Object.entries(fields).forEach(([key, value]) => {
             oldValue = record[key];
+            value    = instance.parseRecordValue(model.getField(key), value);
 
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
