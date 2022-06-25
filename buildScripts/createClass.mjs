@@ -83,7 +83,7 @@ if (programOpts.info) {
         }
 
         if (programOpts.className.indexOf('.') !== -1) {
-            console.error(chalk.red('No .dot-notation avcailable when -d option is selected.'));
+            console.error(chalk.red('No .dot-notation available when -d option is selected.'));
             console.info(chalk.bgCyan('Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]'));
             process.exit(1);
         }
