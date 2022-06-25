@@ -1,41 +1,16 @@
 #!/usr/bin/env node
 
-/**
- * neo.mjs
- * create-class
- * Copyright (C) 2022 https://github.com/neomjs
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without restriction,
- * including without limitation the rights to use, copy, modify, merge,
- * publish, distribute, sublicense, and/or sell copies of the Software,
- * and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
- * USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
-import chalk       from 'chalk';
-import { Command } from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
-import {fileURLToPath} from "url";
+import chalk           from 'chalk';
+import { Command }     from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 
 const
-      __dirname   = fileURLToPath(new URL("../", import.meta.url)),
+      __dirname   = fileURLToPath(new URL('../', import.meta.url)),
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.join(__dirname, 'package.json')),
@@ -54,14 +29,14 @@ const
        * Can be overwritten with the -s option.
        * @type {string[]}
        */
-      sourceRootDirs = ["apps"];
+      sourceRootDirs = ['apps'];
 
 program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',              'print environment debug info')
     .option('-d, --drop',              'drops class in the currently selected folder')
-    .option('-s, --source <value>',            `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(",")}`)
+    .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
     .allowUnknownOption()
@@ -93,7 +68,6 @@ if (programOpts.info) {
     console.log(chalk.green(programName));
 
     if (programOpts.drop) {
-
         // change source folder if the user wants to
         if (programOpts.source) {
             while (sourceRootDirs.length) {
@@ -103,14 +77,14 @@ if (programOpts.info) {
         }
 
         if (!programOpts.className || !programOpts.baseClass) {
-            console.error(chalk.red("-d is non interactive. Please provide name base class, and optionally the source parent for the class to create"));
-            console.info(chalk.bgCyan("Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]"));
+            console.error(chalk.red('-d is non interactive. Please provide name base class, and optionally the source parent for the class to create'));
+            console.info(chalk.bgCyan('Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]'));
             process.exit(1);
         }
 
-        if (programOpts.className.indexOf(".") !== -1) {
-            console.error(chalk.red("No .dot-notation avcailable when -d option is selected."));
-            console.info(chalk.bgCyan("Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]"));
+        if (programOpts.className.indexOf('.') !== -1) {
+            console.error(chalk.red('No .dot-notation avcailable when -d option is selected.'));
+            console.info(chalk.bgCyan('Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]'));
             process.exit(1);
         }
     }
@@ -146,36 +120,39 @@ if (programOpts.info) {
         }
 
         if (!isDrop) {
-            ns = className.split('.');
+            ns            = className.split('.');
             file          = ns.pop();
             root          = ns.shift();
             rootLowerCase = root.toLowerCase();
         }
 
-
         if (root === 'Neo') {
             console.log('todo: create the file inside the src folder');
         } else {
-
             if (isDrop === true) {
                 ns = [];
+
                 let pathInfo = path.parse(cwd),
-                    baseName, loc = baseName = "",
-                    sep = path.sep;
+                    sep      = path.sep,
+                    baseName, loc = baseName = '',
+                    tmpNs;
 
                 sourceRootDirs.some(dir => {
-                    loc = cwd;
-                    let tmpNs = [];
+                    loc   = cwd;
+                    tmpNs = [];
+
                     while (pathInfo.root !== loc) {
-                        baseName = path.resolve(loc, "./").split(sep).pop();
+                        baseName = path.resolve(loc, './').split(sep).pop();
+
                         if (baseName === dir) {
-                            ns = tmpNs.reverse();
+                            ns          = tmpNs.reverse();
                             classFolder = path.resolve(loc, ns.join(sep));
-                            file = className;
-                            className = ns.concat(className).join('.');
-                            loc = path.resolve(loc, ns.join(sep));
+                            file        = className;
+                            className   = ns.concat(className).join('.');
+                            loc         = path.resolve(loc, ns.join(sep));
                             return true;
-                        };
+                        }
+
                         tmpNs.push(baseName);
                         loc = path.resolve(loc, '../');
                     }
@@ -183,8 +160,8 @@ if (programOpts.info) {
 
                 if (!ns.length) {
                     console.error(chalk.red(
-                        "Could not determine namespace for application. Did you provide the " +
-                            `correct source parent with -s? (was: ${sourceRootDirs.join(",")}`));
+                        'Could not determine namespace for application. Did you provide the ' +
+                            `correct source parent with -s? (was: ${sourceRootDirs.join(',')}`));
                     process.exit(1);
                 }
 
@@ -200,13 +177,11 @@ if (programOpts.info) {
                     process.exit(1);
                 }
 
-
-                let delta = delta_r.replace(delta_l, ""),
+                let delta = delta_r.replace(delta_l, ''),
                     parts = delta.split(sep);
 
                 folderDelta = parts.length;
             }
-
 
             if (isDrop !== true) {
                 if (fs.existsSync(path.resolve(__dirname, 'apps', rootLowerCase))) {
@@ -236,7 +211,6 @@ if (programOpts.info) {
                     }
                 }
             }
-
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
