@@ -1,24 +1,42 @@
-import chalk       from 'chalk';
-import { Command } from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
+#!/usr/bin/env node
 
-const __dirname   = path.resolve(),
+import chalk           from 'chalk';
+import { Command }     from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+
+const
+      __dirname   = fileURLToPath(new URL('../', import.meta.url)),
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.join(__dirname, 'package.json')),
       insideNeo   = packageJson.name === 'neo.mjs',
       program     = new Command(),
       programName = `${packageJson.name} create-class`,
-      questions   = [];
+      questions   = [],
+      /**
+       * Maintain a list of dir-names recognized as source root directories.
+       * When not using dot notation with a class-name, the program assumes
+       * that we want to create the class inside the cwd. The proper namespace
+       * is then looked up by traversing the directory path up to the first
+       * folder that matches an entry in "sourceRootDirs". The owning
+       * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
+       * namespace for this created class.
+       * Can be overwritten with the -s option.
+       * @type {string[]}
+       */
+      sourceRootDirs = ['apps'];
 
 program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',              'print environment debug info')
+    .option('-d, --drop',              'drops class in the currently selected folder')
+    .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
     .allowUnknownOption()
@@ -33,7 +51,7 @@ const programOpts = program.opts();
 if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
-    console.log(`  running from ${__dirname}`);
+    console.log(`  running from ${cwd}`);
 
     envinfo
         .run({
@@ -48,6 +66,28 @@ if (programOpts.info) {
         .then(console.log);
 } else {
     console.log(chalk.green(programName));
+
+    if (programOpts.drop) {
+        // change source folder if the user wants to
+        if (programOpts.source) {
+            while (sourceRootDirs.length) {
+                sourceRootDirs.pop();
+            }
+            sourceRootDirs.push(programOpts.source);
+        }
+
+        if (!programOpts.className || !programOpts.baseClass) {
+            console.error(chalk.red('-d is non interactive. Please provide name base class, and optionally the source parent for the class to create'));
+            console.info(chalk.bgCyan('Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]'));
+            process.exit(1);
+        }
+
+        if (programOpts.className.indexOf('.') !== -1) {
+            console.error(chalk.red('No .dot-notation avcailable when -d option is selected.'));
+            console.info(chalk.bgCyan('Usage: createClass -d -c <className> -b <baseClass> [-s sourceParent]'));
+            process.exit(1);
+        }
+    }
 
     if (!programOpts.className) {
         questions.push({
@@ -71,6 +111,7 @@ if (programOpts.info) {
     inquirer.prompt(questions).then(answers => {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
+            isDrop    = programOpts.drop,
             startDate = new Date(),
             classFolder, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
@@ -78,36 +119,97 @@ if (programOpts.info) {
             className = className.slice(0, -4);
         }
 
-        ns            = className.split('.');
-        file          = ns.pop();
-        root          = ns.shift();
-        rootLowerCase = root.toLowerCase();
+        if (!isDrop) {
+            ns            = className.split('.');
+            file          = ns.pop();
+            root          = ns.shift();
+            rootLowerCase = root.toLowerCase();
+        }
 
         if (root === 'Neo') {
             console.log('todo: create the file inside the src folder');
         } else {
-            if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
-                classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
-                folderDelta = ns.length + 2;
+            if (isDrop === true) {
+                ns = [];
 
-                fs.mkdirpSync(classFolder);
+                let pathInfo = path.parse(cwd),
+                    sep      = path.sep,
+                    baseName, loc = baseName = '',
+                    tmpNs;
 
-                fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+                sourceRootDirs.some(dir => {
+                    loc   = cwd;
+                    tmpNs = [];
 
-                if (baseClass === 'controller.Component') {
-                    index = file.indexOf('Controller');
+                    while (pathInfo.root !== loc) {
+                        baseName = path.resolve(loc, './').split(sep).pop();
 
-                    if (index > 0) {
-                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
-
-                        if (fs.existsSync(viewFile)) {
-                            adjustView({file, viewFile});
+                        if (baseName === dir) {
+                            ns          = tmpNs.reverse();
+                            classFolder = path.resolve(loc, ns.join(sep));
+                            file        = className;
+                            className   = ns.concat(className).join('.');
+                            loc         = path.resolve(loc, ns.join(sep));
+                            return true;
                         }
+
+                        tmpNs.push(baseName);
+                        loc = path.resolve(loc, '../');
+                    }
+                });
+
+                if (!ns.length) {
+                    console.error(chalk.red(
+                        'Could not determine namespace for application. Did you provide the ' +
+                            `correct source parent with -s? (was: ${sourceRootDirs.join(',')}`));
+                    process.exit(1);
+                }
+
+                console.info(
+                    chalk.yellow(`Creating ${chalk.bgGreen(className)} extending ${chalk.bgGreen(baseClass)} in ${loc}${sep}${file}.mjs`)
+                );
+
+                let delta_l = path.normalize(__dirname),
+                    delta_r = path.normalize(loc);
+
+                if (delta_r.indexOf(delta_l) !== 0) {
+                    console.error(chalk.red(`Could not determine ${loc} being a child of ${__dirname}`));
+                    process.exit(1);
+                }
+
+                let delta = delta_r.replace(delta_l, ''),
+                    parts = delta.split(sep);
+
+                folderDelta = parts.length;
+            }
+
+            if (isDrop !== true) {
+                if (fs.existsSync(path.resolve(__dirname, 'apps', rootLowerCase))) {
+                    classFolder = path.resolve(__dirname, 'apps', rootLowerCase, ns.join('/'));
+                } else {
+                    console.log('\nNon existing neo app name:', chalk.red(root));
+                    process.exit(1);
+                }
+            }
+
+            if (folderDelta === undefined) {
+                folderDelta = ns.length + 2;
+            }
+
+            fs.mkdirpSync(classFolder);
+
+            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+
+            if (baseClass === 'controller.Component') {
+                index = file.indexOf('Controller');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({file, viewFile});
                     }
                 }
-            } else {
-                console.log('\nNon existing neo app name:', chalk.red(root));
-                process.exit(1);
             }
         }
 

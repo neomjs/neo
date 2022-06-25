@@ -1,11 +1,14 @@
 {
     "name": "neo.mjs",
-    "version": "4.0.51",
+    "version": "4.0.52",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
+    },
+    "bin": {
+        "neo-cc": "./buildScripts/createClass.mjs"
     },
     "scripts": {
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
@@ -51,7 +54,7 @@
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
         "postcss": "^8.4.14",
-        "sass": "^1.52.3",
+        "sass": "^1.53.0",
         "webpack": "^5.73.0",
         "webpack-cli": "^4.10.0",
         "webpack-dev-server": "4.9.2",
@@ -59,7 +62,8 @@
         "webpack-node-externals": "^3.0.0"
     },
     "devDependencies": {
-        "siesta-lite": "^5.5.2"
+        "siesta-lite": "^5.5.2",
+        "url": "^0.11.0"
     },
     "funding": {
         "type": "GitHub Sponsors",
