@@ -7,6 +7,9 @@
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
     },
+    "bin": {
+        "neo-cc": "./buildScripts/createClass.mjs"
+    },
     "scripts": {
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
@@ -59,7 +62,8 @@
         "webpack-node-externals": "^3.0.0"
     },
     "devDependencies": {
-        "siesta-lite": "^5.5.2"
+        "siesta-lite": "^5.5.2",
+        "url": "^0.11.0"
     },
     "funding": {
         "type": "GitHub Sponsors",
