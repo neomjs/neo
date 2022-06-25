@@ -247,9 +247,9 @@ class Container extends BaseContainer {
         }
 
         if (value) {
-            let me = this;
+            let me = this,
 
-            const listeners = {
+            listeners = {
                 filter      : me.onStoreFilter,
                 load        : me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
@@ -258,13 +258,10 @@ class Container extends BaseContainer {
 
             if (value instanceof Store) {
                 value.on(listeners);
-
-                if (value.getCount() > 0) {
-                    me.onStoreLoad(value.items);
-                }
+                value.getCount() > 0 && me.onStoreLoad(value.items);
             } else {
                 value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                    listeners: listeners
+                    listeners
                 });
             }
 

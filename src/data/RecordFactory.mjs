@@ -28,9 +28,9 @@ class RecordFactory extends Base {
          */
         ovPrefix: 'ov_',
         /**
-         * @member {String} recordNamespace='Neo.data.record.'
+         * @member {String} recordNamespace='Neo.data.record'
          */
-        recordNamespace: 'Neo.data.record.'
+        recordNamespace: 'Neo.data.record'
     }}
 
     /**
@@ -39,7 +39,7 @@ class RecordFactory extends Base {
      * @returns {Object}
      */
     createRecord(model, config) {
-        let recordClass = Neo.ns(this.recordNamespace + model.className);
+        let recordClass = Neo.ns(`${this.recordNamespace}.${model.className}.${model.id}`);
 
         if (!recordClass) {
             recordClass = this.createRecordClass(model);
@@ -54,7 +54,7 @@ class RecordFactory extends Base {
      */
     createRecordClass(model) {
         if (model instanceof Model) {
-            let className = this.recordNamespace + model.className,
+            let className = `${this.recordNamespace}.${model.className}.${model.id}`,
                 ns        = Neo.ns(className),
                 key, nsArray;
 
@@ -97,9 +97,9 @@ class RecordFactory extends Base {
                                             let me       = this,
                                                 oldValue = me[symbol];
 
-                                            if (!Neo.isEqual(value, oldValue)) {
-                                                value = instance.parseRecordValue(me, field, value);
+                                            value = instance.parseRecordValue(me, field, value);
 
+                                            if (!Neo.isEqual(value, oldValue)) {
                                                 me[symbol] = value;
 
                                                 me._isModified = true;
