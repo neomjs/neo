@@ -36,6 +36,14 @@
         }
     }
 
+    &.neo-invalid:not(.neo-disabled, .neo-has-content) {
+        .neo-label-wrapper {
+            .neo-center-border {
+                border-top-color: v(textfield-border-color-invalid);
+            }
+        }
+    }
+
     &.label-bottom {
         align-items   : start;
         flex-direction: column-reverse;
