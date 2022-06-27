@@ -18,12 +18,9 @@
 }
 
 .neo-dialog-wrapper {
-    display  : flex;
-    left     : 50%;
-    position : absolute;
-    top      : 50%;
-    transform: translate(-50%, -50%);
-    z-index  : 20; // ensure to be on top of table headers
+    display : flex;
+    position: absolute;
+    z-index : 20; // ensure to be on top of table headers
 
     transition-duration       : 200ms;
     transition-property       : height, left, top, transform, width;
