@@ -532,6 +532,7 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
+        NeoArray[!me.isValid()                     ? 'add' : 'remove'](me._cls, 'neo-invalid');
 
         me.vdom = vdom;
 
