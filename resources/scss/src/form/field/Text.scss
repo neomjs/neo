@@ -14,24 +14,24 @@
 
     &.neo-invalid:not(.neo-disabled) {
         .neo-input-wrapper {
-            border-color: v(textfield-border-color-error);
+            border-color: v(textfield-border-color-invalid);
         }
 
         .neo-label-wrapper {
             .neo-center-border, .neo-left-border, .neo-right-border {
-                border-bottom-color: v(textfield-border-color-error);
+                border-bottom-color: v(textfield-border-color-invalid);
             }
 
             .neo-left-border, .neo-right-border {
-                border-top-color: v(textfield-border-color-error);
+                border-top-color: v(textfield-border-color-invalid);
             }
 
             .neo-left-border {
-                border-left-color: v(textfield-border-color-error);
+                border-left-color: v(textfield-border-color-invalid);
             }
 
             .neo-right-border {
-                border-right-color: v(textfield-border-color-error);
+                border-right-color: v(textfield-border-color-invalid);
             }
         }
     }
@@ -205,7 +205,7 @@
         }
 
         &.neo-invalid {
-            border-color: v(textfield-border-color-error);
+            border-color: v(textfield-border-color-invalid);
 
             &.neo-disabled {
                 border-color: inherit;
