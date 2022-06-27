@@ -375,6 +375,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMaxLength(value, oldValue) {
+        this.updateValidationIndicators();
         this.changeInputElKey('maxlength', value);
     }
 
@@ -385,6 +386,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMinLength(value, oldValue) {
+        this.updateValidationIndicators();
         this.changeInputElKey('minlength', value);
     }
 
@@ -437,6 +439,7 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
+        this.updateValidationIndicators();
         this.changeInputElKey('required', value ? value : null);
     }
 
@@ -532,7 +535,7 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
-        NeoArray[!me.isValid()                     ? 'add' : 'remove'](me._cls, 'neo-invalid');
+        me.updateValidationIndicators();
 
         me.vdom = vdom;
 
@@ -1011,6 +1014,20 @@ class Text extends Base {
                 _mounted : true
             });
         });
+    }
+
+    /**
+     * @param {Boolean} silent=true
+     */
+    updateValidationIndicators(silent=true) {
+        let me   = this,
+            vdom = me.vdom;
+
+        NeoArray[!me.isValid() ? 'add' : 'remove'](me._cls, 'neo-invalid');
+
+        if (!silent) {
+            me.vdom = vdom;
+        }
     }
 }
 
