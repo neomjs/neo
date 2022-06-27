@@ -16,6 +16,24 @@
         .neo-input-wrapper {
             border-color: brown;
         }
+
+        .neo-label-wrapper {
+            .neo-center-border, .neo-left-border, .neo-right-border {
+                border-bottom-color: brown;
+            }
+
+            .neo-left-border, .neo-right-border {
+                border-top-color: brown;
+            }
+
+            .neo-left-border {
+                border-left-color: brown;
+            }
+
+            .neo-right-border {
+                border-right-color: brown;
+            }
+        }
     }
 
     &.label-bottom {
@@ -42,7 +60,7 @@
                 }
 
                 .neo-center-border {
-                    border-top-color: transparent;
+                    border-top-color: transparent !important;
                 }
 
                 .neo-left-border {
@@ -76,7 +94,7 @@
         }
 
         .neo-input-wrapper {
-            border-color: transparent;
+            border-color: transparent !important;
         }
 
         .neo-label-wrapper {
