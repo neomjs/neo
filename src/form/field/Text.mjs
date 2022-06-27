@@ -887,7 +887,7 @@ class Text extends Base {
 
         me.updateValidationIndicators();
 
-        NeoArray.remove(me.cls, 'neo-focus');
+        NeoArray.remove(me._cls, 'neo-focus');
 
         if (centerBorderEl && me.isEmpty()) {
             delete centerBorderEl.width;
