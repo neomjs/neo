@@ -16,6 +16,12 @@
         .neo-input-wrapper {
             border-color: brown;
         }
+
+        &.neo-disabled {
+            .neo-input-wrapper {
+                border-color: inherit;
+            }
+        }
     }
 
     &.label-bottom {
@@ -188,6 +194,10 @@
 
         &.neo-invalid {
             border-color: brown;
+
+            &.neo-disabled {
+                border-color: inherit;
+            }
         }
     }
 
