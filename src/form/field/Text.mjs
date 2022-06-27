@@ -10,6 +10,12 @@ import VNodeUtil    from '../../util/VNode.mjs';
  * @extends Neo.form.field.Base
  */
 class Text extends Base {
+    /**
+     * Set this value to false, in case a field should display errors up front
+     * @member {Boolean} validBeforeMount=true
+     */
+    validBeforeMount = true
+
     static getStaticConfig() {return {
         /**
          * Valid values for autoCapitalize
@@ -1021,10 +1027,12 @@ class Text extends Base {
         let me   = this,
             vdom = me.vdom;
 
-        NeoArray[!me.isValid() ? 'add' : 'remove'](me._cls, 'neo-invalid');
+        if (!(me.validBeforeMount && !me.mounted)) {
+            NeoArray[!me.isValid() ? 'add' : 'remove'](me._cls, 'neo-invalid');
 
-        if (!silent) {
-            me.vdom = vdom;
+            if (!silent) {
+                me.vdom = vdom;
+            }
         }
     }
 }
