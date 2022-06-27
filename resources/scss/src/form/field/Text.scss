@@ -12,14 +12,26 @@
         }
     }
 
-    &.neo-invalid {
+    &.neo-invalid:not(.neo-disabled) {
         .neo-input-wrapper {
-            border-color: brown;
+            border-color: v(textfield-border-color-invalid);
         }
 
-        &.neo-disabled {
-            .neo-input-wrapper {
-                border-color: inherit;
+        .neo-label-wrapper {
+            .neo-center-border, .neo-left-border, .neo-right-border {
+                border-bottom-color: v(textfield-border-color-invalid);
+            }
+
+            .neo-left-border, .neo-right-border {
+                border-top-color: v(textfield-border-color-invalid);
+            }
+
+            .neo-left-border {
+                border-left-color: v(textfield-border-color-invalid);
+            }
+
+            .neo-right-border {
+                border-right-color: v(textfield-border-color-invalid);
             }
         }
     }
@@ -48,7 +60,7 @@
                 }
 
                 .neo-center-border {
-                    border-top-color: transparent;
+                    border-top-color: transparent !important;
                 }
 
                 .neo-left-border {
@@ -82,7 +94,7 @@
         }
 
         .neo-input-wrapper {
-            border-color: transparent;
+            border-color: transparent !important;
         }
 
         .neo-label-wrapper {
@@ -193,7 +205,7 @@
         }
 
         &.neo-invalid {
-            border-color: brown;
+            border-color: v(textfield-border-color-invalid);
 
             &.neo-disabled {
                 border-color: inherit;
