@@ -143,15 +143,11 @@ class Container extends BaseContainer {
      * This can be useful for create entity forms which show up "clean", when pressing a submit button.
      */
     updateValidationIndicators() {
-        let fields = this.getFields(),
-            form   = this.component,
-            vdom   = form.vdom;
+        let fields = this.getFields();
 
         fields.forEach(item => {
-            item.updateValidationIndicators?.(); // silent update
+            item.updateValidationIndicators?.(false);
         });
-
-        form.vdom = vdom;
     }
 }
 
