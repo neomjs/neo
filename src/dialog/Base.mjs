@@ -388,7 +388,7 @@ class Base extends Panel {
      */
     createHeader() {
         let me      = this,
-            cls     = ['neo-header-toolbar', 'neo-toolbar', 'neo-dock-top'],
+            cls     = ['neo-header-toolbar', 'neo-toolbar'],
             headers = me.headers || [];
 
         me.draggable && cls.push('neo-draggable');
