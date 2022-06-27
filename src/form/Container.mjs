@@ -137,6 +137,22 @@ class Container extends BaseContainer {
             }
         });
     }
+
+    /**
+     * Updates the invalid state for all fields, which have updateValidationIndicators() implemented.
+     * This can be useful for create entity forms which show up "clean", when pressing a submit button.
+     */
+    updateValidationIndicators() {
+        let fields = this.getFields(),
+            form   = this.component,
+            vdom   = form.vdom;
+
+        fields.forEach(item => {
+            item.updateValidationIndicators?.(); // silent update
+        });
+
+        form.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Container);
