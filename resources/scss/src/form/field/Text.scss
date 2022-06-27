@@ -12,15 +12,9 @@
         }
     }
 
-    &.neo-invalid {
+    &.neo-invalid:not(.neo-disabled) {
         .neo-input-wrapper {
             border-color: brown;
-        }
-
-        &.neo-disabled {
-            .neo-input-wrapper {
-                border-color: inherit;
-            }
         }
     }
 
