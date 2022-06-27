@@ -99,6 +99,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMaxValue(value, oldValue) {
+        this.updateValidationIndicators();
         this.changeInputElKey('max', value);
     }
 
@@ -109,6 +110,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMinValue(value, oldValue) {
+        this.updateValidationIndicators();
         this.changeInputElKey('min', value);
     }
 
@@ -178,14 +180,17 @@ class Number extends Text {
      * @returns {Boolean}
      */
     isValid() {
-        let me    = this,
-            value = me.value;
+        let me       = this,
+            maxValue = me.maxValue,
+            minValue = me.minValue,
+            value    = me.value,
+            isNumber = Neo.isNumber(value);
 
-        if (Neo.isNumber(me.maxValue) && value > me.maxValue) {
+        if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
             return false;
         }
 
-        if (Neo.isNumber(me.minValue) && value < me.minValue) {
+        if (Neo.isNumber(minValue) && isNumber && value < minValue) {
             return false;
         }
 
