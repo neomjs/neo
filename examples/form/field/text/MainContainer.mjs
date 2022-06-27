@@ -151,11 +151,13 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TextField, {
-            clearable : true,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'Hello World',
-            width     : 200
+            clearable    : true,
+            labelPosition: 'inline',
+            labelText    : 'Label',
+            labelWidth   : 70,
+            minLength    : 3,
+            value        : 'Hello World',
+            width        : 200
         });
     }
 }
