@@ -391,9 +391,7 @@ class Base extends Panel {
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
             headers = me.headers || [];
 
-        if (me.draggable) {
-            cls.push('neo-draggable');
-        }
+        me.draggable && cls.push('neo-draggable');
 
         headers.unshift({
             cls  : cls,
