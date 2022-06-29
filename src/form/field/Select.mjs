@@ -463,7 +463,7 @@ class Select extends Picker {
 
             me.fire('select', {
                 record,
-                value : record[displayField]
+                value: record[displayField]
             });
         }
     }
