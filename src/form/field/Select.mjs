@@ -109,7 +109,13 @@ class Select extends Picker {
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
          */
-        typeAhead_: true
+        typeAhead_: true,
+        /**
+         * This config should point to the store keyProperty or a different model field,
+         * which you want to submit instead
+         * @member {Number|String} valueField='id'
+         */
+        valueField: 'id'
     }}
 
     /**
@@ -336,6 +342,15 @@ class Select extends Picker {
             recordKey = list.selectionModel.getSelection()[0];
 
         return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null;
+    }
+
+    /**
+     * @returns {Number|String}
+     */
+    getSubmitValue() {
+        let me = this;
+
+        return me.record?.[me.valueField] || me.value;
     }
 
     /**
