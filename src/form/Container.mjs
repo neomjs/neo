@@ -64,7 +64,21 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Object} values
+     * @returns {Object}
+     */
+    getSubmitValues() {
+        let fields = this.getFields(),
+            values = {};
+
+        fields.forEach(item => {
+            values[item.name || item.id] = item.getSubmitValue();
+        });
+
+        return values;
+    }
+
+    /**
+     * @returns {Object}
      */
     getValues() {
         let fields = this.getFields(),
