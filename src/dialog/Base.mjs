@@ -112,7 +112,7 @@ class Base extends Panel {
         /**
          * @member {String} title='Dialog Title'
          */
-        title: 'Dialog Title',
+        title_: 'Dialog Title',
         /**
          * @member {Object} _vdom
          */
@@ -271,6 +271,18 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the title config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        if (oldValue) {
+            this.down({flag: 'title-label'}).text = value;
+        }
+    }
+
+    /**
      *
      */
     async animateHide() {
@@ -399,6 +411,7 @@ class Base extends Panel {
             id   : me.getHeaderToolbarId(),
             items: [{
                 ntype: 'label',
+                flag : 'title-label',
                 text : me.title
             }, '->', {
                 iconCls: 'far fa-window-maximize',
