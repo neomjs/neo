@@ -113,7 +113,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
+            baseType, classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -201,6 +201,7 @@ if (programOpts.info) {
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
 
             if (baseClass === 'controller.Component') {
+                baseType   = 'Neo.controller.Component';
                 configName = 'controller';
                 index      = file.indexOf('Controller');
 
@@ -208,10 +209,11 @@ if (programOpts.info) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({configName, file, viewFile});
+                        adjustView({baseType, configName, file, viewFile});
                     }
                 }
             } else if (baseClass === 'model.Component') {
+                baseType   = 'Neo.model.Component';
                 configName = 'model';
                 index      = file.indexOf('Model');
 
@@ -219,7 +221,7 @@ if (programOpts.info) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({configName, file, viewFile});
+                        adjustView({baseType, configName, file, viewFile});
                     }
                 }
             }
@@ -245,6 +247,7 @@ if (programOpts.info) {
     /**
      * Adds a config to the given index of the contentArray
      * @param {Object} opts
+     * @param {String} opts.baseType
      * @param {String} opts.className
      * @param {String} opts.configName
      * @param {String[]} opts.contentArray
@@ -255,7 +258,7 @@ if (programOpts.info) {
     function addConfig(opts) {
         const config = [
             '        /**',
-            `         * @member {Neo.controller.Component} ${opts.configName}=${opts.className}`,
+            `         * @member {${opts.baseType}} ${opts.configName}=${opts.className}`,
             '         */',
             `        ${opts.configName}: ${opts.className}`
         ];
@@ -269,12 +272,14 @@ if (programOpts.info) {
     /**
      * Adjusts the views related to controller.Component or model.Component
      * @param {Object} opts
+     * @param {String} opts.baseType
      * @param {String} opts.configName
      * @param {String} opts.file
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let configName      = opts.configName,
+        let baseType        = opts.baseType,
+            configName      = opts.configName,
             file            = opts.file,
             viewFile        = opts.viewFile,
             content         = fs.readFileSync(viewFile).toString().split(os.EOL),
@@ -351,6 +356,7 @@ if (programOpts.info) {
             if (codeLine.includes('}}')) {
                 addComma(content, i - 1);
                 addConfig({
+                    baseType,
                     className   : file,
                     configName,
                     contentArray: content,
@@ -372,6 +378,7 @@ if (programOpts.info) {
                     for (j=i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig({
+                                baseType,
                                 className   : file,
                                 configName,
                                 contentArray: content,
