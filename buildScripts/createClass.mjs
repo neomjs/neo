@@ -209,29 +209,41 @@ if (programOpts.info) {
 
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
 
-            if (baseClass === 'controller.Component') {
-                baseType   = 'Neo.controller.Component';
-                configName = 'controller';
-                index      = file.indexOf('Controller');
+            switch(baseClass) {
+                case 'controller.Component': {
+                    baseType   = 'Neo.controller.Component';
+                    configName = 'controller';
+                    index      = file.indexOf('Controller');
 
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, file, viewFile});
+                        if (fs.existsSync(viewFile)) {
+                            adjustView({baseType, configName, file, viewFile});
+                        }
                     }
+
+                    break;
                 }
-            } else if (baseClass === 'model.Component') {
-                baseType   = 'Neo.model.Component';
-                configName = 'model';
-                index      = file.indexOf('Model');
 
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+                case 'data.Store': {
+                    break;
+                }
 
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, file, viewFile});
+                case 'model.Component': {
+                    baseType   = 'Neo.model.Component';
+                    configName = 'model';
+                    index      = file.indexOf('Model');
+
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                        if (fs.existsSync(viewFile)) {
+                            adjustView({baseType, configName, file, viewFile});
+                        }
                     }
+
+                    break;
                 }
             }
         }
