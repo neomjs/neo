@@ -234,10 +234,11 @@ if (programOpts.info) {
     /**
      * Adds a comma to the last element of the contentArray
      * @param {String[]} contentArray
+     * @param {Number} index=contentArray.length - 1
      * @returns {String[]}
      */
-    function addComma(contentArray) {
-        contentArray[contentArray.length - 1] += ',';
+    function addComma(contentArray, index=contentArray.length - 1) {
+        contentArray[index] += ',';
         return contentArray;
     }
 
@@ -337,6 +338,7 @@ if (programOpts.info) {
             codeLine = content[i];
 
             if (codeLine.includes('}}')) {
+                addComma(content, i - 1);
                 addConfig(content, i, file, true);
                 break;
             }
