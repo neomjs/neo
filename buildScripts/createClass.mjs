@@ -94,7 +94,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.store.Users'
+            default: 'Covid.view.Base'
         });
     }
 
@@ -103,7 +103,7 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            default: 'data.Store',
+            default: 'container.Base',
 
             choices: [
                 'component.Base',
@@ -122,7 +122,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+            baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -207,7 +207,24 @@ if (programOpts.info) {
 
             fs.mkdirpSync(classFolder);
 
-            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+            baseFileName = baseClass.split('.').pop();
+
+            if (baseFileName === file) {
+                baseFileName = baseClass.split('.');
+                baseFileName = baseFileName.map(e => capitalize(e)).join('');
+            }
+
+            console.log(baseFileName, baseClass);
+
+            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
+                baseFileName,
+                baseClass,
+                className,
+                file,
+                folderDelta,
+                ns,
+                root
+            }));
 
             switch(baseClass) {
                 case 'controller.Component': {
@@ -449,9 +466,19 @@ if (programOpts.info) {
     }
 
     /**
+     * Makes the first character of a string uppercase
+     * @param {String} string
+     * @returns {Boolean|String} Returns false for non string inputs
+     */
+    function capitalize(value) {
+        return typeof value === 'string' && value[0].toUpperCase() + value.slice(1);
+    }
+
+    /**
      * Creates the content of the neo-class .mjs file
      * @param {Object} opts
      * @param {String} opts.baseClass
+     * @param {String} opts.baseFileName
      * @param {String} opts.className
      * @param {String} opts.file
      * @param {String} opts.folderDelta
@@ -460,20 +487,20 @@ if (programOpts.info) {
      * @returns {String}
      */
     function createContent(opts) {
-        let baseClass    = opts.baseClass,
-            baseClassNs  = baseClass.split('.'),
-            baseFileName = baseClassNs.pop(),
-            className    = opts.className,
-            file         = opts.file,
-            i            = 0,
-            importDelta  = '';
+        let baseClass     = opts.baseClass,
+            baseFileName  = opts.baseFileName,
+            baseClassPath = baseClass.split('.').join('/'),
+            className     = opts.className,
+            file          = opts.file,
+            i             = 0,
+            importDelta   = '';
 
         for (; i < opts.folderDelta; i++) {
             importDelta += '../';
         }
 
         let classContent = [
-            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
+            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassPath}.mjs';`,
             "",
             "/**",
             ` * @class ${className}`,
