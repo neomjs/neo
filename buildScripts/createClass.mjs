@@ -113,7 +113,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            classFolder, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
+            classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -201,13 +201,25 @@ if (programOpts.info) {
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
 
             if (baseClass === 'controller.Component') {
-                index = file.indexOf('Controller');
+                configName = 'controller';
+                index      = file.indexOf('Controller');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({file, viewFile});
+                        adjustView({configName, file, viewFile});
+                    }
+                }
+            } else if (baseClass === 'model.Component') {
+                configName = 'model';
+                index      = file.indexOf('Model');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({configName, file, viewFile});
                     }
                 }
             }
@@ -246,6 +258,7 @@ if (programOpts.info) {
     /**
      * Adjusts the views related to controller.Component or model.Component
      * @param {Object} opts
+     * @param {String} opts.configName
      * @param {String} opts.file
      * @param {String} opts.viewFile
      */
@@ -336,7 +349,7 @@ if (programOpts.info) {
                     continue;
                 }
 
-                if (className > 'controller') {
+                if (className > opts.configName) {
                     for (j=i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig(content, j, file, false);
