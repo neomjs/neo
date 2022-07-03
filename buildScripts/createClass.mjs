@@ -122,7 +122,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            baseType, classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
+            baseType, classFolder, configName, file, folderDelta, importName, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -229,21 +229,28 @@ if (programOpts.info) {
                 case 'data.Store': {
                     baseType   = 'Neo.data.Model';
                     configName = 'model';
-                    viewFile   = className.replace('.store.', '.model.');
+                    importName = className.replace('.store.', '.model.');
 
-                    if (viewFile.endsWith('ies')) {
-                        viewFile.replace(new RegExp('ies$'), 'y')
+                    if (importName.endsWith('ies')) {
+                        importName.replace(new RegExp('ies$'), 'y')
                     } else {
-                        viewFile = viewFile.slice(0, -1);
+                        importName = importName.slice(0, -1);
                     }
 
-                    viewFile = viewFile.split('.');
+                    viewFile = importName.split('.');
                     viewFile.shift();
                     viewFile = viewFile.join('/');
                     viewFile = path.join(classFolder, '../', viewFile + '.mjs');
 
+                    // checking for the data.Model file
                     if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, file, viewFile});
+                        // adjusting the data.Store file
+                        viewFile = path.join(classFolder, file + '.mjs');
+
+                        importName = importName.split('.');
+                        importName = importName.pop();
+                        console.log(file, importName);
+                        adjustView({baseType, configName, file: importName, viewFile});
                     }
 
                     break;
