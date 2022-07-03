@@ -94,7 +94,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.MyContainer'
+            default: 'Covid.model.User'
         });
     }
 
@@ -103,8 +103,16 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base', 'model.Component'],
-            default: 'container.Base'
+            default: 'data.Model',
+
+            choices: [
+                'component.Base',
+                'container.Base',
+                'controller.Component',
+                'core.Base',
+                'data.Model',
+                'model.Component'
+            ]
         });
     }
 
