@@ -122,7 +122,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            baseType, classFolder, configName, file, folderDelta, importName, index, ns, root, rootLowerCase, viewFile;
+            baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -213,13 +213,14 @@ if (programOpts.info) {
                 case 'controller.Component': {
                     baseType   = 'Neo.controller.Component';
                     configName = 'controller';
+                    importPath = `./${file}.mjs`;
                     index      = file.indexOf('Controller');
 
                     if (index > 0) {
                         viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                         if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, file, viewFile});
+                            adjustView({baseType, configName, file, importPath, viewFile});
                         }
                     }
 
@@ -239,18 +240,18 @@ if (programOpts.info) {
 
                     viewFile = importName.split('.');
                     viewFile.shift();
-                    viewFile = viewFile.join('/');
-                    viewFile = path.join(classFolder, '../', viewFile + '.mjs');
+
+                    importPath = `../${viewFile.join('/')}.mjs`;
+                    viewFile   = path.join(classFolder, importPath);
 
                     // checking for the data.Model file
                     if (fs.existsSync(viewFile)) {
                         // adjusting the data.Store file
-                        viewFile = path.join(classFolder, file + '.mjs');
-
+                        viewFile   = path.join(classFolder, file + '.mjs');
                         importName = importName.split('.');
                         importName = importName.pop();
-                        console.log(file, importName);
-                        adjustView({baseType, configName, file: importName, viewFile});
+
+                        adjustView({baseType, configName, file: importName, importPath, viewFile});
                     }
 
                     break;
@@ -259,13 +260,14 @@ if (programOpts.info) {
                 case 'model.Component': {
                     baseType   = 'Neo.model.Component';
                     configName = 'model';
+                    importPath = `./${file}.mjs`;
                     index      = file.indexOf('Model');
 
                     if (index > 0) {
                         viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                         if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, file, viewFile});
+                            adjustView({baseType, configName, file, importPath, viewFile});
                         }
                     }
 
@@ -322,6 +324,7 @@ if (programOpts.info) {
      * @param {String} opts.baseType
      * @param {String} opts.configName
      * @param {String} opts.file
+     * @param {String} opts.importPath
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
@@ -352,7 +355,7 @@ if (programOpts.info) {
             }
         }
 
-        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+        content.splice(i, 0, `import ${file} from '${opts.importPath}';`);
 
         // find the longest import module name
         for (i=0; i < len; i++) {
