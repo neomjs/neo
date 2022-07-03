@@ -241,7 +241,7 @@ These full-time roles are based on German contracts, so they require living in (
 Ping us on LinkedIn or Slack for details.
 
 </br></br>
-Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
+Logo contributed by <a href="https://www.linkedin.com/in/torsten-dinkheller-614516231/">Torsten Dinkheller</a>.
 
 </br></br>
 Build with :heart: in Germany.
