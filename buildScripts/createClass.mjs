@@ -241,7 +241,6 @@ if (programOpts.info) {
                             adjustView({baseType, configName, importName, importPath, viewFile});
                         }
                     }
-
                     break;
                 }
 
@@ -271,7 +270,6 @@ if (programOpts.info) {
 
                         adjustView({baseType, configName, importName, importPath, viewFile});
                     }
-
                     break;
                 }
 
@@ -289,7 +287,6 @@ if (programOpts.info) {
                             adjustView({baseType, configName, importName, importPath, viewFile});
                         }
                     }
-
                     break;
                 }
             }
