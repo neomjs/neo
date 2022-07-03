@@ -94,7 +94,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.HeaderContainerController'
+            default: 'Covid.view.MyContainer'
         });
     }
 
@@ -103,7 +103,7 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base'],
+            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base', 'model.Component'],
             default: 'container.Base'
         });
     }
@@ -113,7 +113,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            classFolder, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
+            baseType, classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -201,13 +201,27 @@ if (programOpts.info) {
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
 
             if (baseClass === 'controller.Component') {
-                index = file.indexOf('Controller');
+                baseType   = 'Neo.controller.Component';
+                configName = 'controller';
+                index      = file.indexOf('Controller');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({file, viewFile});
+                        adjustView({baseType, configName, file, viewFile});
+                    }
+                }
+            } else if (baseClass === 'model.Component') {
+                baseType   = 'Neo.model.Component';
+                configName = 'model';
+                index      = file.indexOf('Model');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({baseType, configName, file, viewFile});
                     }
                 }
             }
@@ -222,35 +236,51 @@ if (programOpts.info) {
     /**
      * Adds a comma to the last element of the contentArray
      * @param {String[]} contentArray
+     * @param {Number} index=contentArray.length - 1
      * @returns {String[]}
      */
-    function addComma(contentArray) {
-        contentArray[contentArray.length - 1] += ',';
+    function addComma(contentArray, index=contentArray.length - 1) {
+        contentArray[index] += ',';
         return contentArray;
     }
 
-    function addConfig(contentArray, index, className, isLastConfig) {
+    /**
+     * Adds a config to the given index of the contentArray
+     * @param {Object} opts
+     * @param {String} opts.baseType
+     * @param {String} opts.className
+     * @param {String} opts.configName
+     * @param {String[]} opts.contentArray
+     * @param {Boolean} opts.isLastConfig
+     * @param {Number} opts.index
+     * @returns {String[]}
+     */
+    function addConfig(opts) {
         const config = [
             '        /**',
-            `         * @member {Neo.controller.Component} controller=${className}`,
+            `         * @member {${opts.baseType}} ${opts.configName}=${opts.className}`,
             '         */',
-            `        controller: ${className}`
+            `        ${opts.configName}: ${opts.className}`
         ];
 
-        !isLastConfig && addComma(config);
+        !opts.isLastConfig && addComma(config);
 
-        contentArray.splice(index, 0, config.join(os.EOL));
-        return contentArray;
+        opts.contentArray.splice(opts.index, 0, config.join(os.EOL));
+        return opts.contentArray;
     }
 
     /**
      * Adjusts the views related to controller.Component or model.Component
      * @param {Object} opts
+     * @param {String} opts.baseType
+     * @param {String} opts.configName
      * @param {String} opts.file
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let file            = opts.file,
+        let baseType        = opts.baseType,
+            configName      = opts.configName,
+            file            = opts.file,
             viewFile        = opts.viewFile,
             content         = fs.readFileSync(viewFile).toString().split(os.EOL),
             fromMaxPosition = 0,
@@ -324,7 +354,15 @@ if (programOpts.info) {
             codeLine = content[i];
 
             if (codeLine.includes('}}')) {
-                addConfig(content, i, file, true);
+                addComma(content, i - 1);
+                addConfig({
+                    baseType,
+                    className   : file,
+                    configName,
+                    contentArray: content,
+                    index       : i,
+                    isLastConfig: true
+                });
                 break;
             }
 
@@ -336,10 +374,17 @@ if (programOpts.info) {
                     continue;
                 }
 
-                if (className > 'controller') {
+                if (className > configName) {
                     for (j=i; j > 0; j--) {
                         if (content[j].includes('/**')) {
-                            addConfig(content, j, file, false);
+                            addConfig({
+                                baseType,
+                                className   : file,
+                                configName,
+                                contentArray: content,
+                                index       : j,
+                                isLastConfig: false
+                            });
                             break;
                         }
                     }
