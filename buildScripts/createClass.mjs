@@ -27,7 +27,7 @@ const
        * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
        * namespace for this created class.
        * Can be overwritten with the -s option.
-       * @type {string[]}
+       * @type {String[]}
        */
       sourceRootDirs = ['apps'];
 
@@ -229,6 +229,20 @@ if (programOpts.info) {
         return contentArray;
     }
 
+    function addConfig(contentArray, index, className, isLastConfig) {
+        const config = [
+            '        /**',
+            `         * @member {Neo.controller.Component} controller=${className}`,
+            '         */',
+            `        controller: ${className}`
+        ];
+
+        !isLastConfig && addComma(config);
+
+        contentArray.splice(index, 0, config.join(os.EOL));
+        return contentArray;
+    }
+
     /**
      * Adjusts the views related to controller.Component or model.Component
      * @param {Object} opts
@@ -242,7 +256,7 @@ if (programOpts.info) {
             fromMaxPosition = 0,
             i               = 0,
             len             = content.length,
-            adjustSpaces, codeLine, fromPosition, importLength, importName, j, spaces;
+            adjustSpaces, className, codeLine, fromPosition, importLength, importName, j, nextLine, spaces;
 
         // find the index where we want to insert our import statement
         for (; i < len; i++) {
@@ -296,10 +310,45 @@ if (programOpts.info) {
             }
         }
 
-        fs.writeFileSync(viewFile, content.join(os.EOL));
+        i   = 0;
+        len = content.length;
 
-        console.log(i, opts.file);
-        console.log(content);
+        // find the starting point
+        for (; i < len; i++) {
+            if (content[i].includes('static getConfig')) {
+                break;
+            }
+        }
+
+        for (; i < len; i++) {
+            codeLine = content[i];
+
+            if (codeLine.includes('}}')) {
+                addConfig(content, i, file, true);
+                break;
+            }
+
+            if (codeLine.includes('*/')) {
+                nextLine  = content[i + 1]
+                className = nextLine.substring(0, nextLine.indexOf(':')).trim();
+
+                if (className === 'className' || className === 'ntype') {
+                    continue;
+                }
+
+                if (className > 'controller') {
+                    for (j=i; j > 0; j--) {
+                        if (content[j].includes('/**')) {
+                            addConfig(content, j, file, false);
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        fs.writeFileSync(viewFile, content.join(os.EOL));
     }
 
     /**
