@@ -336,7 +336,7 @@ if (programOpts.info) {
             fromMaxPosition = 0,
             i               = 0,
             len             = content.length,
-            adjustSpaces, className, codeLine, fromPosition, importLength, importName, j, nextLine, spaces;
+            adjustSpaces, className, codeLine, existingImportName, fromPosition, importLength, j, nextLine, spaces;
 
         // find the index where we want to insert our import statement
         for (; i < len; i++) {
@@ -346,11 +346,11 @@ if (programOpts.info) {
                 break;
             }
 
-            importName   = codeLine.substr(7);
-            importName   = importName.substr(0, importName.indexOf(' '));
-            importLength = importName.length;
+            existingImportName = codeLine.substr(7);
+            existingImportName = existingImportName.substr(0, existingImportName.indexOf(' '));
+            importLength       = existingImportName.length;
 
-            if (importName > file) {
+            if (existingImportName > file) {
                 break;
             }
         }
