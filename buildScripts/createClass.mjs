@@ -94,7 +94,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.Base'
+            default: 'Covid.view.MyContainer'
         });
     }
 
