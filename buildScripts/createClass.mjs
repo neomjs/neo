@@ -213,14 +213,15 @@ if (programOpts.info) {
                 case 'controller.Component': {
                     baseType   = 'Neo.controller.Component';
                     configName = 'controller';
-                    importPath = `./${file}.mjs`;
+                    importName = file;
+                    importPath = `./${importName}.mjs`;
                     index      = file.indexOf('Controller');
 
                     if (index > 0) {
                         viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                         if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, file, importPath, viewFile});
+                            adjustView({baseType, configName, importName, importPath, viewFile});
                         }
                     }
 
@@ -251,7 +252,7 @@ if (programOpts.info) {
                         importName = importName.split('.');
                         importName = importName.pop();
 
-                        adjustView({baseType, configName, file: importName, importPath, viewFile});
+                        adjustView({baseType, configName, importName, importPath, viewFile});
                     }
 
                     break;
@@ -260,14 +261,15 @@ if (programOpts.info) {
                 case 'model.Component': {
                     baseType   = 'Neo.model.Component';
                     configName = 'model';
-                    importPath = `./${file}.mjs`;
+                    importName = file;
+                    importPath = `./${importName}.mjs`;
                     index      = file.indexOf('Model');
 
                     if (index > 0) {
                         viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                         if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, file, importPath, viewFile});
+                            adjustView({baseType, configName, importName, importPath, viewFile});
                         }
                     }
 
@@ -323,14 +325,14 @@ if (programOpts.info) {
      * @param {Object} opts
      * @param {String} opts.baseType
      * @param {String} opts.configName
-     * @param {String} opts.file
+     * @param {String} opts.importName
      * @param {String} opts.importPath
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
         let baseType        = opts.baseType,
             configName      = opts.configName,
-            file            = opts.file,
+            importName      = opts.importName,
             viewFile        = opts.viewFile,
             content         = fs.readFileSync(viewFile).toString().split(os.EOL),
             fromMaxPosition = 0,
@@ -350,12 +352,12 @@ if (programOpts.info) {
             existingImportName = existingImportName.substr(0, existingImportName.indexOf(' '));
             importLength       = existingImportName.length;
 
-            if (existingImportName > file) {
+            if (existingImportName > importName) {
                 break;
             }
         }
 
-        content.splice(i, 0, `import ${file} from '${opts.importPath}';`);
+        content.splice(i, 0, `import ${importName} from '${opts.importPath}';`);
 
         // find the longest import module name
         for (i=0; i < len; i++) {
@@ -407,7 +409,7 @@ if (programOpts.info) {
                 addComma(content, i - 1);
                 addConfig({
                     baseType,
-                    className   : file,
+                    className   : importName,
                     configName,
                     contentArray: content,
                     index       : i,
@@ -429,7 +431,7 @@ if (programOpts.info) {
                         if (content[j].includes('/**')) {
                             addConfig({
                                 baseType,
-                                className   : file,
+                                className   : importName,
                                 configName,
                                 contentArray: content,
                                 index       : j,
