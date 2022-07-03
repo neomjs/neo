@@ -444,6 +444,16 @@ if (programOpts.info) {
             `        className: '${className}'`
         ];
 
+        baseClass === 'data.Model' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} fields",
+            "         */",
+            "        fields: [{",
+            "            name: 'id',",
+            "            type: 'String'",
+            "        }]"
+        );
+
         baseClass === 'container.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object[]} items",
