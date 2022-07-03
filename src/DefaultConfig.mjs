@@ -98,7 +98,10 @@ const DefaultConfig = {
     /**
      * Add addons for the main thread
      * Possible values: AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet, WindowPosition
-     * (src/main/addon)
+     * (src/main/addon) contains all framework related options.
+     * You can also create your own addons within your workspace scope. Make sure to put them inside 'src/main/addon/'
+     * and prefix them with 'WS/' inside your neo-config.json file.
+     * Example: ['DragDrop', 'Stylesheet', 'WS/MyAddon']
      * @default ['DragDrop','Stylesheet']
      * @memberOf! module:Neo
      * @name config.mainThreadAddons
