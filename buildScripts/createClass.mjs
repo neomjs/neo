@@ -227,6 +227,25 @@ if (programOpts.info) {
                 }
 
                 case 'data.Store': {
+                    baseType   = 'Neo.data.Model';
+                    configName = 'model';
+                    viewFile   = className.replace('.store.', '.model.');
+
+                    if (viewFile.endsWith('ies')) {
+                        viewFile.replace(new RegExp('ies$'), 'y')
+                    } else {
+                        viewFile = viewFile.slice(0, -1);
+                    }
+
+                    viewFile = viewFile.split('.');
+                    viewFile.shift();
+                    viewFile = viewFile.join('/');
+                    viewFile = path.join(classFolder, '../', viewFile + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({baseType, configName, file, viewFile});
+                    }
+
                     break;
                 }
 
