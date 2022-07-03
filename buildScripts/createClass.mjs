@@ -242,18 +242,28 @@ if (programOpts.info) {
         return contentArray;
     }
 
-    function addConfig(contentArray, index, className, isLastConfig) {
+    /**
+     * Adds a config to the given index of the contentArray
+     * @param {Object} opts
+     * @param {String} opts.className
+     * @param {String} opts.configName
+     * @param {String[]} opts.contentArray
+     * @param {Boolean} opts.isLastConfig
+     * @param {Number} opts.index
+     * @returns {String[]}
+     */
+    function addConfig(opts) {
         const config = [
             '        /**',
-            `         * @member {Neo.controller.Component} controller=${className}`,
+            `         * @member {Neo.controller.Component} ${opts.configName}=${opts.className}`,
             '         */',
-            `        controller: ${className}`
+            `        ${opts.configName}: ${opts.className}`
         ];
 
-        !isLastConfig && addComma(config);
+        !opts.isLastConfig && addComma(config);
 
-        contentArray.splice(index, 0, config.join(os.EOL));
-        return contentArray;
+        opts.contentArray.splice(opts.index, 0, config.join(os.EOL));
+        return opts.contentArray;
     }
 
     /**
@@ -264,7 +274,8 @@ if (programOpts.info) {
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let file            = opts.file,
+        let configName      = opts.configName,
+            file            = opts.file,
             viewFile        = opts.viewFile,
             content         = fs.readFileSync(viewFile).toString().split(os.EOL),
             fromMaxPosition = 0,
@@ -339,7 +350,13 @@ if (programOpts.info) {
 
             if (codeLine.includes('}}')) {
                 addComma(content, i - 1);
-                addConfig(content, i, file, true);
+                addConfig({
+                    className   : file,
+                    configName,
+                    contentArray: content,
+                    index       : i,
+                    isLastConfig: true
+                });
                 break;
             }
 
@@ -351,10 +368,16 @@ if (programOpts.info) {
                     continue;
                 }
 
-                if (className > opts.configName) {
+                if (className > configName) {
                     for (j=i; j > 0; j--) {
                         if (content[j].includes('/**')) {
-                            addConfig(content, j, file, false);
+                            addConfig({
+                                className   : file,
+                                configName,
+                                contentArray: content,
+                                index       : j,
+                                isLastConfig: false
+                            });
                             break;
                         }
                     }
