@@ -94,7 +94,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.model.User'
+            default: 'Covid.store.Users'
         });
     }
 
@@ -103,7 +103,7 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            default: 'data.Model',
+            default: 'data.Store',
 
             choices: [
                 'component.Base',
@@ -111,6 +111,7 @@ if (programOpts.info) {
                 'controller.Component',
                 'core.Base',
                 'data.Model',
+                'data.Store',
                 'model.Component'
             ]
         });
