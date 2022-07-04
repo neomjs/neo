@@ -36,6 +36,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',              'print environment debug info')
     .option('-d, --drop',              'drops class in the currently selected folder')
+    .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"')
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
@@ -117,13 +118,24 @@ if (programOpts.info) {
         });
     }
 
+    if (!programOpts.singleton) {
+        questions.push({
+            type   : 'list',
+            name   : 'singleton',
+            message: 'Singleton?',
+            default: 'no',
+            choices: ['yes', 'no']
+        });
+    }
+
     inquirer.prompt(questions).then(answers => {
         let baseClass = programOpts.baseClass || answers.baseClass,
             className = programOpts.className || answers.className,
+            singleton = programOpts.singleton || answers.singleton || 'no',
             isDrop    = programOpts.drop,
             startDate = new Date(),
             baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
-
+console.log({singleton});
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
         }
