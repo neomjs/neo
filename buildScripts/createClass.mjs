@@ -193,8 +193,8 @@ if (programOpts.info) {
             }
 
             if (isDrop !== true) {
-                if (fs.existsSync(path.resolve(__dirname, 'apps', rootLowerCase))) {
-                    classFolder = path.resolve(__dirname, 'apps', rootLowerCase, ns.join('/'));
+                if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
+                    classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
                 } else {
                     console.log('\nNon existing neo app name:', chalk.red(root));
                     process.exit(1);
