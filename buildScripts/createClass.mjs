@@ -129,13 +129,14 @@ if (programOpts.info) {
     }
 
     inquirer.prompt(questions).then(answers => {
-        let baseClass = programOpts.baseClass || answers.baseClass,
-            className = programOpts.className || answers.className,
-            singleton = programOpts.singleton || answers.singleton || 'no',
-            isDrop    = programOpts.drop,
-            startDate = new Date(),
+        let baseClass   = programOpts.baseClass || answers.baseClass,
+            className   = programOpts.className || answers.className,
+            singleton   = programOpts.singleton || answers.singleton || 'no',
+            isDrop      = programOpts.drop,
+            isSingleton = singleton === 'yes',
+            startDate   = new Date(),
             baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
-console.log({singleton});
+
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
         }
@@ -226,12 +227,11 @@ console.log({singleton});
                 baseFileName = baseFileName.map(e => capitalize(e)).join('');
             }
 
-            console.log(baseFileName, baseClass);
-
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
                 baseClass,
                 baseFileName,
                 className,
+                isSingleton,
                 file,
                 folderDelta,
                 ns,
@@ -489,6 +489,7 @@ console.log({singleton});
      * @param {String} opts.baseClass
      * @param {String} opts.baseFileName
      * @param {String} opts.className
+     * @param {Boolean} opts.isSingleton
      * @param {String} opts.file
      * @param {String} opts.folderDelta
      * @param {String} opts.ns
@@ -500,6 +501,7 @@ console.log({singleton});
             baseFileName  = opts.baseFileName,
             baseClassPath = baseClass.split('.').join('/'),
             className     = opts.className,
+            isSingleton   = opts.isSingleton,
             file          = opts.file,
             i             = 0,
             importDelta   = '';
@@ -513,7 +515,14 @@ console.log({singleton});
             "",
             "/**",
             ` * @class ${className}`,
-            ` * @extends Neo.${baseClass}`,
+            ` * @extends Neo.${baseClass}`
+        ];
+
+        isSingleton && classContent.push(
+            " * @singleton"
+        );
+
+        classContent.push(
             " */",
             `class ${file} extends ${baseFileName} {`,
             "    static getConfig() {return {",
@@ -522,7 +531,7 @@ console.log({singleton});
             "         * @protected",
             "         */",
             `        className: '${className}'`
-        ];
+        );
 
         baseClass === 'data.Model' && addComma(classContent).push(
             "        /*",
@@ -541,6 +550,14 @@ console.log({singleton});
             "        items: []"
         );
 
+        isSingleton && addComma(classContent).push(
+            "        /*",
+            "         * @member {Boolean} singleton=true",
+            "         * @protected",
+            "         */",
+            "        singleton: true"
+        );
+
         baseClass === 'component.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object} _vdom",
@@ -554,8 +571,22 @@ console.log({singleton});
             "}",
             "",
             `Neo.applyClassConfig(${file});`,
+            ""
+        );
+
+        isSingleton && classContent.push(
+            `let instance = Neo.create(${file});`,
             "",
-            `export default ${file};`,
+            "Neo.applyToGlobalNs(instance);",
+            "",
+            "export default instance;"
+        );
+
+        !isSingleton && classContent.push(
+            `export default ${file};`
+        );
+
+        classContent.push(
             ""
         );
 
