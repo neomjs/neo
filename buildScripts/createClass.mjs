@@ -217,8 +217,8 @@ if (programOpts.info) {
             console.log(baseFileName, baseClass);
 
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
-                baseFileName,
                 baseClass,
+                baseFileName,
                 className,
                 file,
                 folderDelta,
@@ -464,7 +464,7 @@ if (programOpts.info) {
 
     /**
      * Makes the first character of a string uppercase
-     * @param {String} string
+     * @param {String} value
      * @returns {Boolean|String} Returns false for non string inputs
      */
     function capitalize(value) {
