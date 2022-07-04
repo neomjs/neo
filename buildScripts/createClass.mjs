@@ -14,7 +14,7 @@ const
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.join(__dirname, 'package.json')),
-      insideNeo   = packageJson.name === 'neo.mjs',
+      insideNeo   = process.env.npm_package_name === 'neo.mjs',
       program     = new Command(),
       programName = `${packageJson.name} create-class`,
       questions   = [],
@@ -103,8 +103,17 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            choices: ['component.Base', 'container.Base', 'controller.Component', 'core.Base', 'model.Component'],
-            default: 'container.Base'
+            default: 'container.Base',
+
+            choices: [
+                'component.Base',
+                'container.Base',
+                'controller.Component',
+                'core.Base',
+                'data.Model',
+                'data.Store',
+                'model.Component'
+            ]
         });
     }
 
@@ -113,7 +122,7 @@ if (programOpts.info) {
             className = programOpts.className || answers.className,
             isDrop    = programOpts.drop,
             startDate = new Date(),
-            baseType, classFolder, configName, file, folderDelta, index, ns, root, rootLowerCase, viewFile;
+            baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
             className = className.slice(0, -4);
@@ -184,8 +193,8 @@ if (programOpts.info) {
             }
 
             if (isDrop !== true) {
-                if (fs.existsSync(path.resolve(__dirname, 'apps', rootLowerCase))) {
-                    classFolder = path.resolve(__dirname, 'apps', rootLowerCase, ns.join('/'));
+                if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
+                    classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
                 } else {
                     console.log('\nNon existing neo app name:', chalk.red(root));
                     process.exit(1);
@@ -198,31 +207,87 @@ if (programOpts.info) {
 
             fs.mkdirpSync(classFolder);
 
-            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({baseClass, className, file, folderDelta, ns, root}));
+            baseFileName = baseClass.split('.').pop();
 
-            if (baseClass === 'controller.Component') {
-                baseType   = 'Neo.controller.Component';
-                configName = 'controller';
-                index      = file.indexOf('Controller');
+            if (baseFileName === file) {
+                baseFileName = baseClass.split('.');
+                baseFileName = baseFileName.map(e => capitalize(e)).join('');
+            }
 
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+            console.log(baseFileName, baseClass);
 
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, file, viewFile});
+            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
+                baseClass,
+                baseFileName,
+                className,
+                file,
+                folderDelta,
+                ns,
+                root
+            }));
+
+            switch(baseClass) {
+                case 'controller.Component': {
+                    baseType   = 'Neo.controller.Component';
+                    configName = 'controller';
+                    importName = file;
+                    importPath = `./${importName}.mjs`;
+                    index      = file.indexOf('Controller');
+
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                        if (fs.existsSync(viewFile)) {
+                            adjustView({baseType, configName, importName, importPath, viewFile});
+                        }
                     }
+                    break;
                 }
-            } else if (baseClass === 'model.Component') {
-                baseType   = 'Neo.model.Component';
-                configName = 'model';
-                index      = file.indexOf('Model');
 
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+                case 'data.Store': {
+                    baseType   = 'Neo.data.Model';
+                    configName = 'model';
+                    importName = className.replace('.store.', '.model.');
 
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, file, viewFile});
+                    if (importName.endsWith('ies')) {
+                        importName.replace(new RegExp('ies$'), 'y')
+                    } else {
+                        importName = importName.slice(0, -1);
                     }
+
+                    viewFile = importName.split('.');
+                    viewFile.shift();
+
+                    importPath = `../${viewFile.join('/')}.mjs`;
+                    viewFile   = path.join(classFolder, importPath);
+
+                    // checking for the data.Model file
+                    if (fs.existsSync(viewFile)) {
+                        // adjusting the data.Store file
+                        viewFile   = path.join(classFolder, file + '.mjs');
+                        importName = importName.split('.');
+                        importName = importName.pop();
+
+                        adjustView({baseType, configName, importName, importPath, viewFile});
+                    }
+                    break;
+                }
+
+                case 'model.Component': {
+                    baseType   = 'Neo.model.Component';
+                    configName = 'model';
+                    importName = file;
+                    importPath = `./${importName}.mjs`;
+                    index      = file.indexOf('Model');
+
+                    if (index > 0) {
+                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                        if (fs.existsSync(viewFile)) {
+                            adjustView({baseType, configName, importName, importPath, viewFile});
+                        }
+                    }
+                    break;
                 }
             }
         }
@@ -274,19 +339,20 @@ if (programOpts.info) {
      * @param {Object} opts
      * @param {String} opts.baseType
      * @param {String} opts.configName
-     * @param {String} opts.file
+     * @param {String} opts.importName
+     * @param {String} opts.importPath
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
         let baseType        = opts.baseType,
             configName      = opts.configName,
-            file            = opts.file,
+            importName      = opts.importName,
             viewFile        = opts.viewFile,
             content         = fs.readFileSync(viewFile).toString().split(os.EOL),
             fromMaxPosition = 0,
             i               = 0,
             len             = content.length,
-            adjustSpaces, className, codeLine, fromPosition, importLength, importName, j, nextLine, spaces;
+            adjustSpaces, className, codeLine, existingImportName, fromPosition, importLength, j, nextLine, spaces;
 
         // find the index where we want to insert our import statement
         for (; i < len; i++) {
@@ -296,16 +362,16 @@ if (programOpts.info) {
                 break;
             }
 
-            importName   = codeLine.substr(7);
-            importName   = importName.substr(0, importName.indexOf(' '));
-            importLength = importName.length;
+            existingImportName = codeLine.substr(7);
+            existingImportName = existingImportName.substr(0, existingImportName.indexOf(' '));
+            importLength       = existingImportName.length;
 
-            if (importName > file) {
+            if (existingImportName > importName) {
                 break;
             }
         }
 
-        content.splice(i, 0, `import ${file} from './${file}.mjs';`);
+        content.splice(i, 0, `import ${importName} from '${opts.importPath}';`);
 
         // find the longest import module name
         for (i=0; i < len; i++) {
@@ -357,7 +423,7 @@ if (programOpts.info) {
                 addComma(content, i - 1);
                 addConfig({
                     baseType,
-                    className   : file,
+                    className   : importName,
                     configName,
                     contentArray: content,
                     index       : i,
@@ -379,7 +445,7 @@ if (programOpts.info) {
                         if (content[j].includes('/**')) {
                             addConfig({
                                 baseType,
-                                className   : file,
+                                className   : importName,
                                 configName,
                                 contentArray: content,
                                 index       : j,
@@ -397,9 +463,19 @@ if (programOpts.info) {
     }
 
     /**
+     * Makes the first character of a string uppercase
+     * @param {String} value
+     * @returns {Boolean|String} Returns false for non string inputs
+     */
+    function capitalize(value) {
+        return typeof value === 'string' && value[0].toUpperCase() + value.slice(1);
+    }
+
+    /**
      * Creates the content of the neo-class .mjs file
      * @param {Object} opts
      * @param {String} opts.baseClass
+     * @param {String} opts.baseFileName
      * @param {String} opts.className
      * @param {String} opts.file
      * @param {String} opts.folderDelta
@@ -408,20 +484,20 @@ if (programOpts.info) {
      * @returns {String}
      */
     function createContent(opts) {
-        let baseClass    = opts.baseClass,
-            baseClassNs  = baseClass.split('.'),
-            baseFileName = baseClassNs.pop(),
-            className    = opts.className,
-            file         = opts.file,
-            i            = 0,
-            importDelta  = '';
+        let baseClass     = opts.baseClass,
+            baseFileName  = opts.baseFileName,
+            baseClassPath = baseClass.split('.').join('/'),
+            className     = opts.className,
+            file          = opts.file,
+            i             = 0,
+            importDelta   = '';
 
         for (; i < opts.folderDelta; i++) {
             importDelta += '../';
         }
 
         let classContent = [
-            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassNs.join('/')}/${baseFileName}.mjs';`,
+            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassPath}.mjs';`,
             "",
             "/**",
             ` * @class ${className}`,
@@ -435,6 +511,16 @@ if (programOpts.info) {
             "         */",
             `        className: '${className}'`
         ];
+
+        baseClass === 'data.Model' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} fields",
+            "         */",
+            "        fields: [{",
+            "            name: 'id',",
+            "            type: 'String'",
+            "        }]"
+        );
 
         baseClass === 'container.Base' && addComma(classContent).push(
             "        /*",

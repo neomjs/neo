@@ -236,12 +236,12 @@ More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
 </br></br>
 <h2 id="jobs">14. Jobs</h2>
 Accenture is hiring multiple neo.mjs developers for the new Cloud Technology Studio in Kaiserslauern (Germany):</br>
-<a href="https://www.accenture.com/de-de/careers/jobdetails?id=R00057924_de">Senior neo.mjs Frontend Developer /Architect (all genders)</a></br></br>
-
+</br>
 These full-time roles are based on German contracts, so they require living in (or relocating to) Germany.
+Ping us on LinkedIn or Slack for details.
 
 </br></br>
-Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
+Logo contributed by <a href="https://www.linkedin.com/in/torsten-dinkheller-614516231/">Torsten Dinkheller</a>.
 
 </br></br>
 Build with :heart: in Germany.
