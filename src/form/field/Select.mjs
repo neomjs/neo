@@ -463,24 +463,8 @@ class Select extends Picker {
      * @protected
      */
     onListItemClick(record) {
-        let me           = this,
-            displayField = me.displayField,
-            oldValue     = me.value,
-            value        = record[displayField];
-
-        if (me.value !== value) {
-            me.hintRecordId = null;
-            me.record       = record;
-            me._value       = value;
-            me.getInputHintEl().value = null;
-
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
-
-            me.fire('select', {
-                record,
-                value: record[displayField]
-            });
-        }
+        this.onListItemChange(record);
+        this.hidePicker();
     }
 
     /**
@@ -518,12 +502,38 @@ class Select extends Picker {
         this.focusInputEl();
     }
 
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
+    onListItemChange(record) {
+        let me           = this,
+            displayField = me.displayField,
+            oldValue     = me.value,
+            value        = record[displayField];
+
+        if (me.value !== value) {
+            me.hintRecordId = null;
+            me.record       = record;
+            me._value       = value;
+            me.getInputHintEl().value = null;
+
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+
+            me.fire('select', {
+                record,
+                value: record[displayField]
+            });
+        }
+    }
+
     /**
      * @param {Object} record
      * @protected
      */
     onListItemNavigate(record) {
-        this.onListItemClick(record);
+        this.onListItemChange(record);
     }
 
     /**

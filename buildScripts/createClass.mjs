@@ -36,6 +36,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',              'print environment debug info')
     .option('-d, --drop',              'drops class in the currently selected folder')
+    .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"')
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
@@ -117,11 +118,23 @@ if (programOpts.info) {
         });
     }
 
+    if (!programOpts.singleton) {
+        questions.push({
+            type   : 'list',
+            name   : 'singleton',
+            message: 'Singleton?',
+            default: 'no',
+            choices: ['yes', 'no']
+        });
+    }
+
     inquirer.prompt(questions).then(answers => {
-        let baseClass = programOpts.baseClass || answers.baseClass,
-            className = programOpts.className || answers.className,
-            isDrop    = programOpts.drop,
-            startDate = new Date(),
+        let baseClass   = programOpts.baseClass || answers.baseClass,
+            className   = programOpts.className || answers.className,
+            singleton   = programOpts.singleton || answers.singleton || 'no',
+            isDrop      = programOpts.drop,
+            isSingleton = singleton === 'yes',
+            startDate   = new Date(),
             baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
         if (className.endsWith('.mjs')) {
@@ -214,12 +227,11 @@ if (programOpts.info) {
                 baseFileName = baseFileName.map(e => capitalize(e)).join('');
             }
 
-            console.log(baseFileName, baseClass);
-
             fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
                 baseClass,
                 baseFileName,
                 className,
+                isSingleton,
                 file,
                 folderDelta,
                 ns,
@@ -477,6 +489,7 @@ if (programOpts.info) {
      * @param {String} opts.baseClass
      * @param {String} opts.baseFileName
      * @param {String} opts.className
+     * @param {Boolean} opts.isSingleton
      * @param {String} opts.file
      * @param {String} opts.folderDelta
      * @param {String} opts.ns
@@ -488,6 +501,7 @@ if (programOpts.info) {
             baseFileName  = opts.baseFileName,
             baseClassPath = baseClass.split('.').join('/'),
             className     = opts.className,
+            isSingleton   = opts.isSingleton,
             file          = opts.file,
             i             = 0,
             importDelta   = '';
@@ -501,7 +515,14 @@ if (programOpts.info) {
             "",
             "/**",
             ` * @class ${className}`,
-            ` * @extends Neo.${baseClass}`,
+            ` * @extends Neo.${baseClass}`
+        ];
+
+        isSingleton && classContent.push(
+            " * @singleton"
+        );
+
+        classContent.push(
             " */",
             `class ${file} extends ${baseFileName} {`,
             "    static getConfig() {return {",
@@ -510,7 +531,7 @@ if (programOpts.info) {
             "         * @protected",
             "         */",
             `        className: '${className}'`
-        ];
+        );
 
         baseClass === 'data.Model' && addComma(classContent).push(
             "        /*",
@@ -529,6 +550,14 @@ if (programOpts.info) {
             "        items: []"
         );
 
+        isSingleton && addComma(classContent).push(
+            "        /*",
+            "         * @member {Boolean} singleton=true",
+            "         * @protected",
+            "         */",
+            "        singleton: true"
+        );
+
         baseClass === 'component.Base' && addComma(classContent).push(
             "        /*",
             "         * @member {Object} _vdom",
@@ -542,8 +571,22 @@ if (programOpts.info) {
             "}",
             "",
             `Neo.applyClassConfig(${file});`,
+            ""
+        );
+
+        isSingleton && classContent.push(
+            `let instance = Neo.create(${file});`,
             "",
-            `export default ${file};`,
+            "Neo.applyToGlobalNs(instance);",
+            "",
+            "export default instance;"
+        );
+
+        !isSingleton && classContent.push(
+            `export default ${file};`
+        );
+
+        classContent.push(
             ""
         );
 
