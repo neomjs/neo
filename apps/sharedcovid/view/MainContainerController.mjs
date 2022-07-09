@@ -360,6 +360,8 @@ class MainContainerController extends ComponentController {
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
             }
+
+            Neo.apps[name].destroy();
         }
     }
 
