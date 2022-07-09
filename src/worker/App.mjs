@@ -271,6 +271,15 @@ class App extends Base {
     }
 
     /**
+     * Unregister the app from the CSS map
+     * Only needed for SharedWorkers
+     * @param {String} appName
+     */
+    removeAppFromThemeMap(appName) {
+        delete Neo.cssMap[appName.toLowerCase()];
+    }
+
+    /**
      * @private
      */
     resolveThemeFilesCache() {

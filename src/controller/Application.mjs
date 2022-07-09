@@ -99,6 +99,15 @@ class Application extends Base {
 
         return null;
     }
+
+    /**
+     * Unregister the app from the CSS map
+     * @param args
+     */
+    destroy(...args) {
+        Neo.currentWorker.removeAppFromThemeMap(this.name);
+        super.destroy(...args);
+    }
 }
 
 Neo.applyClassConfig(Application);
