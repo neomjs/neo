@@ -149,14 +149,16 @@ class DragDrop extends Base {
 
         me.addGlobalEventListeners();
 
-        if (Neo.config.hasTouchEvents) {
-            imports.push(import('../draggable/sensor/Touch.mjs'));
-        } else {
+        if (Neo.config.hasMouseEvents) {
             imports.push(import('../draggable/sensor/Mouse.mjs'));
         }
 
+        if (Neo.config.hasTouchEvents) {
+            imports.push(import('../draggable/sensor/Touch.mjs'));
+        }
+
         Promise.all(imports).then(modules => {
-            // create the Touch or MouseSensor
+            // create the Mouse- and / or TouchSensor
             Neo.create({
                 module: modules[0].default
             });
