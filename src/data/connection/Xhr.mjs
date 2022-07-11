@@ -217,6 +217,15 @@ class Xhr extends Base {
 
         return this.request(opts);
     }
+
+    /**
+     * Needed for remote method access
+     * 
+     * @param {String} value
+     */
+    setDefaultHeaders(value) {
+        this.defaultHeaders = value;
+    }
 }
 
 Neo.applyClassConfig(Xhr);

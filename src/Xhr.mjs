@@ -24,7 +24,8 @@ class Xhr extends XhrConnection {
         remote: {
             app: [
                 'promiseJson',
-                'promiseRequest'
+                'promiseRequest',
+                'setDefaultHeaders'
             ]
         },
         /**
