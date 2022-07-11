@@ -221,7 +221,7 @@ class Xhr extends Base {
     /**
      * Needed for remote method access
      * 
-     * @param {String} value
+     * @param {Object} value
      */
     setDefaultHeaders(value) {
         this.defaultHeaders = value;
