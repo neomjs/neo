@@ -204,6 +204,7 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
+        NeoConfig.hasMouseEvents = matchMedia('(pointer:fine)').matches;
         NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (window.Worker) {
