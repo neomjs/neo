@@ -247,14 +247,14 @@ class RecordFactory extends Base {
         }
 
         if (Object.hasOwn(field, 'maxLength')) {
-            if (value?.toString() > maxLength) {
+            if (value?.toString().length > maxLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with maxLength: ${maxLength}`);
                 return oldValue;
             }
         }
 
         if (Object.hasOwn(field, 'minLength')) {
-            if (value?.toString() < minLength) {
+            if (value?.toString().length < minLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with minLength: ${minLength}`);
                 return oldValue;
             }
