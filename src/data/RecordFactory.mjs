@@ -228,11 +228,12 @@ class RecordFactory extends Base {
      * @returns {*}
      */
     parseRecordValue(record, field, value, recordConfig=null) {
-        let mapping   = field.mapping,
+        let fieldName = field.name,
+            mapping   = field.mapping,
             maxLength = field.maxLength,
             minLength = field.minLength,
             nullable  = field.nullable,
-            oldValue  = recordConfig?.[field.name] || record[field.name],
+            oldValue  = recordConfig?.[fieldName] || record[fieldName],
             type      = field.type?.toLowerCase();
 
         // only trigger mappings for initial values
@@ -247,21 +248,21 @@ class RecordFactory extends Base {
 
         if (Object.hasOwn(field, 'maxLength')) {
             if (value?.toString() > maxLength) {
-                console.warn(`Setting record field: ${field} value: ${value} conflicts with maxLength: ${maxLength}`);
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with maxLength: ${maxLength}`);
                 return oldValue;
             }
         }
 
         if (Object.hasOwn(field, 'minLength')) {
             if (value?.toString() < minLength) {
-                console.warn(`Setting record field: ${field} value: ${value} conflicts with minLength: ${minLength}`);
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with minLength: ${minLength}`);
                 return oldValue;
             }
         }
 
         if (Object.hasOwn(field, 'nullable')) {
             if (nullable === false && value === null) {
-                console.warn(`Setting record field: ${field} value: ${value} conflicts with nullable: ${nullable}`);
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with nullable: ${nullable}`);
                 return oldValue;
             }
         }
