@@ -397,10 +397,7 @@ class Base extends CoreBase {
      * Removes all items and clears the map
      */
     clear() {
-        let me = this;
-
-        me._items.splice(0, me.getCount());
-        me.map.clear();
+        this.splice(0, this.getCount());
     }
 
     /**
