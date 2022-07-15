@@ -1108,7 +1108,7 @@ class Base extends CoreBase {
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             i, item, key, len, toAddMap;
 
-        if (!index && removeCountAtIndex) {
+        if (!Util.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used');
         }
 
