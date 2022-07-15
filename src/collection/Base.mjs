@@ -409,6 +409,16 @@ class Base extends CoreBase {
     }
 
     /**
+     * Removes all items and clears the map, without firing a mutate event
+     */
+    clearSilent() {
+        let me = this;
+
+        me._items.splice(0, me.getCount());
+        me.map.clear();
+    }
+
+    /**
      * Clears all current sorters and optionally restores the original ones in case they existed.
      * Without restoreInitialState as true this will not affect the current sorting of this collection.
      * @param {boolean} [restoreOriginalSorters=false]
@@ -457,7 +467,7 @@ class Base extends CoreBase {
     destroy() {
         let me = this;
 
-        me.items.splice(0, me._items.length);
+        me._items.splice(0, me._items.length);
         me.map.clear();
 
         super.destroy();
@@ -655,7 +665,7 @@ class Base extends CoreBase {
                 needsSorting = true;
             }
 
-            me.clear();
+            me.clearSilent();
 
             me.items = [...me.allItems._items];
             me.map.set(...me.allItems.map);
