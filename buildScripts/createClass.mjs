@@ -90,13 +90,18 @@ if (programOpts.info) {
         }
     }
 
+    let answers = {},
+        answer;
+
     if (!programOpts.className) {
-        questions.push({
+        answer = await inquirer.prompt({
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
             default: 'Covid.view.MyContainer'
         });
+
+        Object.assign(answers, answer);
     }
 
     if (!programOpts.baseClass) {
@@ -104,7 +109,7 @@ if (programOpts.info) {
             type   : 'list',
             name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
-            default: 'container.Base',
+            default: guessBaseClass(programOpts.className || answers.className),
 
             choices: [
                 'component.Base',
@@ -128,187 +133,189 @@ if (programOpts.info) {
         });
     }
 
-    inquirer.prompt(questions).then(answers => {
-        let baseClass   = programOpts.baseClass || answers.baseClass,
-            className   = programOpts.className || answers.className,
-            singleton   = programOpts.singleton || answers.singleton || 'no',
-            isDrop      = programOpts.drop,
-            isSingleton = singleton === 'yes',
-            startDate   = new Date(),
-            baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+    answer = await inquirer.prompt(questions);
 
-        if (className.endsWith('.mjs')) {
-            className = className.slice(0, -4);
+    Object.assign(answers, answer);
+
+    let baseClass   = programOpts.baseClass || answers.baseClass,
+        className   = programOpts.className || answers.className,
+        singleton   = programOpts.singleton || answers.singleton || 'no',
+        isDrop      = programOpts.drop,
+        isSingleton = singleton === 'yes',
+        startDate   = new Date(),
+        baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+
+    if (className.endsWith('.mjs')) {
+        className = className.slice(0, -4);
+    }
+
+    if (!isDrop) {
+        ns            = className.split('.');
+        file          = ns.pop();
+        root          = ns.shift();
+        rootLowerCase = root.toLowerCase();
+    }
+
+    if (root === 'Neo') {
+        console.log('todo: create the file inside the src folder');
+    } else {
+        if (isDrop === true) {
+            ns = [];
+
+            let pathInfo = path.parse(cwd),
+                sep      = path.sep,
+                baseName, loc = baseName = '',
+                tmpNs;
+
+            sourceRootDirs.some(dir => {
+                loc   = cwd;
+                tmpNs = [];
+
+                while (pathInfo.root !== loc) {
+                    baseName = path.resolve(loc, './').split(sep).pop();
+
+                    if (baseName === dir) {
+                        ns          = tmpNs.reverse();
+                        classFolder = path.resolve(loc, ns.join(sep));
+                        file        = className;
+                        className   = ns.concat(className).join('.');
+                        loc         = path.resolve(loc, ns.join(sep));
+                        return true;
+                    }
+
+                    tmpNs.push(baseName);
+                    loc = path.resolve(loc, '../');
+                }
+            });
+
+            if (!ns.length) {
+                console.error(chalk.red(
+                    'Could not determine namespace for application. Did you provide the ' +
+                    `correct source parent with -s? (was: ${sourceRootDirs.join(',')}`));
+                process.exit(1);
+            }
+
+            console.info(
+                chalk.yellow(`Creating ${chalk.bgGreen(className)} extending ${chalk.bgGreen(baseClass)} in ${loc}${sep}${file}.mjs`)
+            );
+
+            let delta_l = path.normalize(__dirname),
+                delta_r = path.normalize(loc);
+
+            if (delta_r.indexOf(delta_l) !== 0) {
+                console.error(chalk.red(`Could not determine ${loc} being a child of ${__dirname}`));
+                process.exit(1);
+            }
+
+            let delta = delta_r.replace(delta_l, ''),
+                parts = delta.split(sep);
+
+            folderDelta = parts.length;
         }
 
-        if (!isDrop) {
-            ns            = className.split('.');
-            file          = ns.pop();
-            root          = ns.shift();
-            rootLowerCase = root.toLowerCase();
+        if (isDrop !== true) {
+            if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
+                classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
+            } else {
+                console.log('\nNon existing neo app name:', chalk.red(root));
+                process.exit(1);
+            }
         }
 
-        if (root === 'Neo') {
-            console.log('todo: create the file inside the src folder');
-        } else {
-            if (isDrop === true) {
-                ns = [];
+        if (folderDelta === undefined) {
+            folderDelta = ns.length + 2;
+        }
 
-                let pathInfo = path.parse(cwd),
-                    sep      = path.sep,
-                    baseName, loc = baseName = '',
-                    tmpNs;
+        fs.mkdirpSync(classFolder);
 
-                sourceRootDirs.some(dir => {
-                    loc   = cwd;
-                    tmpNs = [];
+        baseFileName = baseClass.split('.').pop();
 
-                    while (pathInfo.root !== loc) {
-                        baseName = path.resolve(loc, './').split(sep).pop();
+        if (baseFileName === file) {
+            baseFileName = baseClass.split('.');
+            baseFileName = baseFileName.map(e => capitalize(e)).join('');
+        }
 
-                        if (baseName === dir) {
-                            ns          = tmpNs.reverse();
-                            classFolder = path.resolve(loc, ns.join(sep));
-                            file        = className;
-                            className   = ns.concat(className).join('.');
-                            loc         = path.resolve(loc, ns.join(sep));
-                            return true;
-                        }
+        fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
+            baseClass,
+            baseFileName,
+            className,
+            isSingleton,
+            file,
+            folderDelta,
+            ns,
+            root
+        }));
 
-                        tmpNs.push(baseName);
-                        loc = path.resolve(loc, '../');
-                    }
-                });
+        switch(baseClass) {
+            case 'controller.Component': {
+                baseType   = 'Neo.controller.Component';
+                configName = 'controller';
+                importName = file;
+                importPath = `./${importName}.mjs`;
+                index      = file.indexOf('Controller');
 
-                if (!ns.length) {
-                    console.error(chalk.red(
-                        'Could not determine namespace for application. Did you provide the ' +
-                            `correct source parent with -s? (was: ${sourceRootDirs.join(',')}`));
-                    process.exit(1);
-                }
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
-                console.info(
-                    chalk.yellow(`Creating ${chalk.bgGreen(className)} extending ${chalk.bgGreen(baseClass)} in ${loc}${sep}${file}.mjs`)
-                );
-
-                let delta_l = path.normalize(__dirname),
-                    delta_r = path.normalize(loc);
-
-                if (delta_r.indexOf(delta_l) !== 0) {
-                    console.error(chalk.red(`Could not determine ${loc} being a child of ${__dirname}`));
-                    process.exit(1);
-                }
-
-                let delta = delta_r.replace(delta_l, ''),
-                    parts = delta.split(sep);
-
-                folderDelta = parts.length;
-            }
-
-            if (isDrop !== true) {
-                if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
-                    classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
-                } else {
-                    console.log('\nNon existing neo app name:', chalk.red(root));
-                    process.exit(1);
-                }
-            }
-
-            if (folderDelta === undefined) {
-                folderDelta = ns.length + 2;
-            }
-
-            fs.mkdirpSync(classFolder);
-
-            baseFileName = baseClass.split('.').pop();
-
-            if (baseFileName === file) {
-                baseFileName = baseClass.split('.');
-                baseFileName = baseFileName.map(e => capitalize(e)).join('');
-            }
-
-            fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
-                baseClass,
-                baseFileName,
-                className,
-                isSingleton,
-                file,
-                folderDelta,
-                ns,
-                root
-            }));
-
-            switch(baseClass) {
-                case 'controller.Component': {
-                    baseType   = 'Neo.controller.Component';
-                    configName = 'controller';
-                    importName = file;
-                    importPath = `./${importName}.mjs`;
-                    index      = file.indexOf('Controller');
-
-                    if (index > 0) {
-                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
-
-                        if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, importName, importPath, viewFile});
-                        }
-                    }
-                    break;
-                }
-
-                case 'data.Store': {
-                    baseType   = 'Neo.data.Model';
-                    configName = 'model';
-                    importName = className.replace('.store.', '.model.');
-
-                    if (importName.endsWith('ies')) {
-                        importName.replace(new RegExp('ies$'), 'y')
-                    } else {
-                        importName = importName.slice(0, -1);
-                    }
-
-                    viewFile = importName.split('.');
-                    viewFile.shift();
-
-                    importPath = `../${viewFile.join('/')}.mjs`;
-                    viewFile   = path.join(classFolder, importPath);
-
-                    // checking for the data.Model file
                     if (fs.existsSync(viewFile)) {
-                        // adjusting the data.Store file
-                        viewFile   = path.join(classFolder, file + '.mjs');
-                        importName = importName.split('.');
-                        importName = importName.pop();
-
                         adjustView({baseType, configName, importName, importPath, viewFile});
                     }
-                    break;
+                }
+                break;
+            }
+
+            case 'data.Store': {
+                baseType   = 'Neo.data.Model';
+                configName = 'model';
+                importName = className.replace('.store.', '.model.');
+
+                if (importName.endsWith('ies')) {
+                    importName.replace(new RegExp('ies$'), 'y')
+                } else {
+                    importName = importName.slice(0, -1);
                 }
 
-                case 'model.Component': {
-                    baseType   = 'Neo.model.Component';
-                    configName = 'model';
-                    importName = file;
-                    importPath = `./${importName}.mjs`;
-                    index      = file.indexOf('Model');
+                viewFile = importName.split('.');
+                viewFile.shift();
 
-                    if (index > 0) {
-                        viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+                importPath = `../${viewFile.join('/')}.mjs`;
+                viewFile   = path.join(classFolder, importPath);
 
-                        if (fs.existsSync(viewFile)) {
-                            adjustView({baseType, configName, importName, importPath, viewFile});
-                        }
+                // checking for the data.Model file
+                if (fs.existsSync(viewFile)) {
+                    // adjusting the data.Store file
+                    viewFile   = path.join(classFolder, file + '.mjs');
+                    importName = importName.split('.');
+                    importName = importName.pop();
+
+                    adjustView({baseType, configName, importName, importPath, viewFile});
+                }
+                break;
+            }
+
+            case 'model.Component': {
+                baseType   = 'Neo.model.Component';
+                configName = 'model';
+                importName = file;
+                importPath = `./${importName}.mjs`;
+                index      = file.indexOf('Model');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({baseType, configName, importName, importPath, viewFile});
                     }
-                    break;
                 }
+                break;
             }
         }
+    }
 
-        const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-        console.log(`\nTotal time for ${programName}: ${processTime}s`);
+    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+    console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-        process.exit();
-    });
+    process.exit();
 
     /**
      * Adds a comma to the last element of the contentArray
@@ -591,5 +598,25 @@ if (programOpts.info) {
         );
 
         return classContent.join(os.EOL);
+    }
+
+    function guessBaseClass(className) {
+        if (className.includes('.model.')) {
+            return 'data.Model';
+        }
+
+        if (className.includes('.store.')) {
+            return 'data.Store';
+        }
+
+        if (className.endsWith('Controller')) {
+            return 'controller.Component';
+        }
+
+        if (className.endsWith('Model')) {
+            return 'model.Component';
+        }
+
+        return 'container.Base';
     }
 }

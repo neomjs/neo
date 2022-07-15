@@ -228,9 +228,7 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, RowModel);
     }
@@ -242,9 +240,7 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         if (value) {
             let me = this,
@@ -285,7 +281,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param columns
+     * @param {Object[]} columns
      * @returns {*}
      */
     createColumns(columns) {
@@ -302,9 +298,7 @@ class Container extends BaseContainer {
                 Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
 
-            if (columnDefaults) {
-                Neo.assignDefaults(column, columnDefaults);
-            }
+            columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
             if (sorters?.[0]) {
                 if (column.dataField === sorters[0].property) {
@@ -431,7 +425,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Array} data
+     * @param {Object[]} data
      * @protected
      */
     onStoreLoad(data) {

@@ -397,10 +397,7 @@ class Base extends CoreBase {
      * Removes all items and clears the map
      */
     clear() {
-        let me = this;
-
-        me._items.splice(0, me.getCount());
-        me.map.clear();
+        this.splice(0, this.getCount());
     }
 
     /**
@@ -409,6 +406,16 @@ class Base extends CoreBase {
      */
     clearFilters(restoreOriginalFilters) {
         this.filters = restoreOriginalFilters ? Neo.clone(this.originalConfig.filters, true, true) : null;
+    }
+
+    /**
+     * Removes all items and clears the map, without firing a mutate event
+     */
+    clearSilent() {
+        let me = this;
+
+        me._items.splice(0, me.getCount());
+        me.map.clear();
     }
 
     /**
@@ -460,7 +467,7 @@ class Base extends CoreBase {
     destroy() {
         let me = this;
 
-        me.items.splice(0, me._items.length);
+        me._items.splice(0, me._items.length);
         me.map.clear();
 
         super.destroy();
@@ -658,7 +665,7 @@ class Base extends CoreBase {
                 needsSorting = true;
             }
 
-            me.clear();
+            me.clearSilent();
 
             me.items = [...me.allItems._items];
             me.map.set(...me.allItems.map);
@@ -1108,7 +1115,7 @@ class Base extends CoreBase {
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             i, item, key, len, toAddMap;
 
-        if (!index && removeCountAtIndex) {
+        if (!Util.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used');
         }
 
