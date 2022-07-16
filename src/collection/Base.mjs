@@ -1099,8 +1099,8 @@ class Base extends CoreBase {
      * If the toRemoveArray is used, then the index is not used for removing, the entries are found by key and removed from where they are.
      * If index is not passed, toAddArray is appended to the Collection.
      * @param {Number|null} index
-     * @param {Number|Array} [removeCountOrToRemoveArray]
-     * @param {Array| Object} [toAddArray]
+     * @param {Number|Object[]} [removeCountOrToRemoveArray]
+     * @param {Object|Object[]} [toAddArray]
      * @returns {Object} An object containing the addedItems & removedItems arrays
      */
     splice(index, removeCountOrToRemoveArray, toAddArray) {
