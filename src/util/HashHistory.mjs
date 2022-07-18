@@ -23,11 +23,6 @@ class HashHistory extends Base {
          */
         className: 'Neo.util.HashHistory',
         /**
-         * @member {String} ntype='hash-history'
-         * @protected
-         */
-        ntype: 'hash-history',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -71,7 +66,7 @@ class HashHistory extends Base {
         stack.unshift(data);
 
         if (stack.length > me.maxItems) {
-            stack.length = me.maxItems;
+            stack.pop();
         }
 
         me.fire('change', data, stack[1]);
