@@ -148,18 +148,21 @@ class Carousel extends Component {
 
     /**
      * Ensure the itemTpl is setup correctly to match a valid JSON
-     * @param {String} value
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @returns {String}
      * @protected
      */
-    beforeSetItemTpl(value) {
-        let itemTpl = value.replaceAll('\'', '"');
+    beforeSetItemTpl(value, oldValue) {
+        if (value) {
+            value = value.replaceAll('\'', '"');
 
-        itemTpl = itemTpl.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
-            return `"${matchedStr.substring(0, matchedStr.length - 1)}":`;
-        });
+            value = value.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
+                return `"${matchedStr.substring(0, matchedStr.length - 1)}":`;
+            });
+        }
 
-        return itemTpl;
+        return value;
     }
 
     /**
