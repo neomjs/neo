@@ -52,7 +52,6 @@ class RemoteMethodAccess extends Base {
         if (remote.destination === Neo.workerId) {
             let me        = this,
                 className = remote.className,
-                exists    = false,
                 methods   = remote.methods,
                 pkg       = Neo.ns(className, true);
 
@@ -63,15 +62,8 @@ class RemoteMethodAccess extends Base {
 
                 if (!pkg[method] ) {
                     pkg[method] = me.generateRemote(remote, method);
-                } else {
-                    exists = true;
                 }
             });
-
-            // todo: inspect if this can get removed
-            if (!exists && Neo.workerId !== 'main') {
-                me.fire('remoteregistered', remote);
-            }
         }
     }
 

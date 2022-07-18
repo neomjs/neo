@@ -246,10 +246,7 @@ class Base extends CoreBase {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = {
-                resolve,
-                reject
-            };
+            me.promises[msgId] = { reject, resolve };
         });
     }
 

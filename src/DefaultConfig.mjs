@@ -79,6 +79,14 @@ const DefaultConfig = {
      */
     isInsideSiesta: false,
     /**
+     * delay in ms for the worker.Manager:loadApplication() call
+     * @default 20
+     * @memberOf! module:Neo
+     * @name config.loadApplicationDelay
+     * @type Number
+     */
+    loadApplicationDelay: 20,
+    /**
      * Used by Intl.DateTimeFormat, for details take a look at:
      * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
      * @default 'default'
