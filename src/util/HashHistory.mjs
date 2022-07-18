@@ -69,7 +69,7 @@ class HashHistory extends Base {
             stack.pop();
         }
 
-        me.fire('change', data, stack[1]);
+        me.fire('change', data, stack[1] || null);
     }
 }
 

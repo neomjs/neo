@@ -33,7 +33,12 @@ class Base extends CoreBase {
     construct(config) {
         super.construct(config);
 
-        HashHistory.on('change', this.onHashChange, this);
+        let me          = this,
+            currentHash = HashHistory.first();
+
+        currentHash && me.onHashChange(currentHash, null);
+
+        HashHistory.on('change', me.onHashChange, me);
     }
 
     /**
