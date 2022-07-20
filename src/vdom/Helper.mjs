@@ -167,9 +167,6 @@ class Helper extends Base {
             // use case: calendar week view => move an event into a column on the right side
 
             if (movedNode) {
-
-                // todo: check if there is a real index change
-
                 deltas.push({
                     action: 'moveNode',
                     id      : oldVnode.id,
