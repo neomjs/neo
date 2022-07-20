@@ -3,7 +3,6 @@ import Component       from './Base.mjs';
 import Store           from '../data/Store.mjs';
 import TaskManager     from '../manager/Task.mjs';
 
-
 /**
  * @class Neo.component.Carousel
  * @extends Neo.component.Base
@@ -107,26 +106,27 @@ class Carousel extends Component {
 
     /**
      * Triggered after autoRun config got changed
-     * @param {boolean|integer} value
+     * @param {Boolean|Number} value
+     * @param {Boolean|Number} oldValue
      * @protected
      */
     afterSetAutoRun(value, oldValue) {
-        let me = this;
+        if (value) {
+            let me   = this,
+                vdom = me._vdom;
 
-        if(!value) return;
+            TaskManager.start({
+                id      : me.id,
+                interval: value,
+                run     : function () {
+                    me.onCarouselBtnClick('forward');
+                }
+            });
 
-        TaskManager.start({
-            id: this.id,
-            interval: value,
-            run: function() {
-                me.onCarouselBtnClick('forward');
-            }
-        });
+            vdom.cn[0].cn[0].removeDom = true;
 
-        let vdom = this._vdom;
-        vdom.cn[0].cn[0].removeDom = true;
-
-        this._vdom = vdom;
+            me._vdom = vdom;
+        }
     }
 
     /**
@@ -148,18 +148,21 @@ class Carousel extends Component {
 
     /**
      * Ensure the itemTpl is setup correctly to match a valid JSON
-     * @param {String} value
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @returns {String}
      * @protected
      */
-    beforeSetItemTpl(value) {
-        let itemTpl = value.replaceAll('\'', '"');
+    beforeSetItemTpl(value, oldValue) {
+        if (value) {
+            value = value.replaceAll('\'', '"');
 
-        itemTpl = itemTpl.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
-            return `"${matchedStr.substring(0, matchedStr.length - 1)}":`;
-        });
+            value = value.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
+                return `"${matchedStr.substring(0, matchedStr.length - 1)}":`;
+            });
+        }
 
-        return itemTpl;
+        return value;
     }
 
     /**

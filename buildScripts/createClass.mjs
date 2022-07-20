@@ -143,7 +143,7 @@ if (programOpts.info) {
         isDrop      = programOpts.drop,
         isSingleton = singleton === 'yes',
         startDate   = new Date(),
-        baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+        baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
     if (className.endsWith('.mjs')) {
         className = className.slice(0, -4);
@@ -162,8 +162,8 @@ if (programOpts.info) {
         if (isDrop === true) {
             ns = [];
 
-            let pathInfo = path.parse(cwd),
-                sep      = path.sep,
+            let pathInfo      = path.parse(cwd),
+                sep           = path.sep,
                 baseName, loc = baseName = '',
                 tmpNs;
 
@@ -226,89 +226,18 @@ if (programOpts.info) {
             folderDelta = ns.length + 2;
         }
 
-        fs.mkdirpSync(classFolder);
-
-        baseFileName = baseClass.split('.').pop();
-
-        if (baseFileName === file) {
-            baseFileName = baseClass.split('.');
-            baseFileName = baseFileName.map(e => capitalize(e)).join('');
-        }
-
-        fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
+        createClass({
             baseClass,
-            baseFileName,
             className,
             isSingleton,
             file,
             folderDelta,
             ns,
             root
-        }));
+        });
 
-        switch(baseClass) {
-            case 'controller.Component': {
-                baseType   = 'Neo.controller.Component';
-                configName = 'controller';
-                importName = file;
-                importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Controller');
-
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
-
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, importName, importPath, viewFile});
-                    }
-                }
-                break;
-            }
-
-            case 'data.Store': {
-                baseType   = 'Neo.data.Model';
-                configName = 'model';
-                importName = className.replace('.store.', '.model.');
-
-                if (importName.endsWith('ies')) {
-                    importName.replace(new RegExp('ies$'), 'y')
-                } else {
-                    importName = importName.slice(0, -1);
-                }
-
-                viewFile = importName.split('.');
-                viewFile.shift();
-
-                importPath = `../${viewFile.join('/')}.mjs`;
-                viewFile   = path.join(classFolder, importPath);
-
-                // checking for the data.Model file
-                if (fs.existsSync(viewFile)) {
-                    // adjusting the data.Store file
-                    viewFile   = path.join(classFolder, file + '.mjs');
-                    importName = importName.split('.');
-                    importName = importName.pop();
-
-                    adjustView({baseType, configName, importName, importPath, viewFile});
-                }
-                break;
-            }
-
-            case 'model.Component': {
-                baseType   = 'Neo.model.Component';
-                configName = 'model';
-                importName = file;
-                importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Model');
-
-                if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
-
-                    if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, importName, importPath, viewFile});
-                    }
-                }
-                break;
-            }
+        if (baseClass === 'data.Model') {
+            // todo: add a question for auto-generating a matching store
         }
     }
 
@@ -488,6 +417,113 @@ if (programOpts.info) {
      */
     function capitalize(value) {
         return typeof value === 'string' && value[0].toUpperCase() + value.slice(1);
+    }
+
+    /**
+     * @param {Object} opts
+     * @param {String} opts.baseClass
+     * @param {String} opts.className
+     * @param {Boolean} opts.isSingleton
+     * @param {String} opts.file
+     * @param {Number} opts.folderDelta
+     * @param {String[]} opts.ns
+     * @param {String} opts.root
+     */
+    function createClass(opts) {
+        let {
+            baseClass,
+            className,
+            isSingleton,
+            file,
+            folderDelta,
+            ns,
+            root
+        } = opts, baseFileName;
+
+        fs.mkdirpSync(classFolder);
+
+        baseFileName = baseClass.split('.').pop();
+
+        if (baseFileName === file) {
+            baseFileName = baseClass.split('.');
+            baseFileName = baseFileName.map(e => capitalize(e)).join('');
+        }
+
+        fs.writeFileSync(path.join(classFolder, file + '.mjs'), createContent({
+            baseClass,
+            baseFileName,
+            className,
+            isSingleton,
+            file,
+            folderDelta,
+            ns,
+            root
+        }));
+
+        switch(baseClass) {
+            case 'controller.Component': {
+                baseType   = 'Neo.controller.Component';
+                configName = 'controller';
+                importName = file;
+                importPath = `./${importName}.mjs`;
+                index      = file.indexOf('Controller');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({baseType, configName, importName, importPath, viewFile});
+                    }
+                }
+                break;
+            }
+
+            case 'data.Store': {
+                baseType   = 'Neo.data.Model';
+                configName = 'model';
+                importName = className.replace('.store.', '.model.');
+
+                if (importName.endsWith('ies')) {
+                    importName.replace(new RegExp('ies$'), 'y')
+                } else {
+                    importName = importName.slice(0, -1);
+                }
+
+                viewFile = importName.split('.');
+                viewFile.shift();
+
+                importPath = `../${viewFile.join('/')}.mjs`;
+                viewFile   = path.join(classFolder, importPath);
+
+                // checking for the data.Model file
+                if (fs.existsSync(viewFile)) {
+                    // adjusting the data.Store file
+                    viewFile   = path.join(classFolder, file + '.mjs');
+                    importName = importName.split('.');
+                    importName = importName.pop();
+
+                    adjustView({baseType, configName, importName, importPath, viewFile});
+                }
+                break;
+            }
+
+            case 'model.Component': {
+                baseType   = 'Neo.model.Component';
+                configName = 'model';
+                importName = file;
+                importPath = `./${importName}.mjs`;
+                index      = file.indexOf('Model');
+
+                if (index > 0) {
+                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+
+                    if (fs.existsSync(viewFile)) {
+                        adjustView({baseType, configName, importName, importPath, viewFile});
+                    }
+                }
+                break;
+            }
+        }
     }
 
     /**
