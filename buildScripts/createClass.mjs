@@ -143,7 +143,7 @@ if (programOpts.info) {
         isDrop      = programOpts.drop,
         isSingleton = singleton === 'yes',
         startDate   = new Date(),
-        baseFileName, baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+        baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
     if (className.endsWith('.mjs')) {
         className = className.slice(0, -4);
@@ -235,6 +235,10 @@ if (programOpts.info) {
             ns,
             root
         });
+
+        if (baseClass === 'data.Model') {
+            // todo: add a question for auto-generating a matching store
+        }
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
