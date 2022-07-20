@@ -410,7 +410,7 @@ class Base extends CoreBase {
                     app.un('mounted', listenerId);
 
                     setTimeout(() => {
-                        me.updateVdom(me.vdom, me.vnode);
+                        me.vnode && me.updateVdom(me.vdom, me.vnode);
                     }, 50);
                 });
             } else if (me.mounted) {
