@@ -82,6 +82,10 @@ class Text extends Base {
          */
         hideLabel_: false,
         /**
+         * @member {RegExp|null} inputPattern=null
+         */
+        inputPattern_: null,
+        /**
          * @member {String} inputType_='text'
          */
         inputType_: 'text',
@@ -144,7 +148,7 @@ class Text extends Base {
 
         let me           = this,
             domListeners = me.domListeners;
-
+        
         domListeners.push(
             {input: me.onInputValueChange, scope: me}
         );
@@ -254,6 +258,16 @@ class Text extends Base {
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId(value, oldValue);
+    }
+
+    /**
+     * Triggered after the inputPattern config got changed
+     * @param {RegExp|null} value 
+     * @param {RegExp|null} oldValue
+     * @protected
+     */
+    afterSetInputPattern(value, oldValue) {
+        
     }
 
     /**
@@ -828,10 +842,6 @@ class Text extends Base {
             return false;
         }
 
-        if (Neo.isNumber(me.minLength) && valueLength < me.minLength) {
-            return false;
-        }
-
         return super.isValid();
     }
 
@@ -911,7 +921,9 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        if (value !== oldValue) {
+        if (me.inputPattern && !me.inputPattern.test(value) ) {            
+            me.afterSetValue(oldValue, value);
+        } else if (value !== oldValue) {
             me.value = value;
         }
     }
