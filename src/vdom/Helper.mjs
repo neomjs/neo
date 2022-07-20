@@ -786,8 +786,8 @@ class Helper extends Base {
      * @returns {Object|Promise<Object>}
      */
     update(opts) {
-        let me     = this,
-            node   = me.parseHelper(opts.vdom),
+        let me   = this,
+            node = me.parseHelper(opts.vdom),
 
         deltas = me.createDeltas({
             newVnode: node,
