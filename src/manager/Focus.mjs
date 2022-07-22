@@ -14,11 +14,6 @@ class Focus extends CoreBase {
          */
         className: 'Neo.manager.Focus',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * An array containing opts objects.
          * opts.componentPath
          * opts.data
@@ -47,7 +42,12 @@ class Focus extends CoreBase {
          * The maximum amount of items stored inside the history array
          * @member {Number} maxHistoryLength=20
          */
-        maxHistoryLength: 20
+        maxHistoryLength: 20,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }}
 
     /**

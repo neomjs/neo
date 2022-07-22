@@ -148,7 +148,7 @@ class Text extends Base {
 
         let me           = this,
             domListeners = me.domListeners;
-        
+
         domListeners.push(
             {input: me.onInputValueChange, scope: me}
         );
@@ -839,6 +839,10 @@ class Text extends Base {
         }
 
         if (Neo.isNumber(me.maxLength) && valueLength > me.maxLength) {
+            return false;
+        }
+
+        if (Neo.isNumber(me.minLength) && valueLength < me.minLength) {
             return false;
         }
 
