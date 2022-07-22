@@ -82,6 +82,10 @@ class Text extends Base {
          */
         hideLabel_: false,
         /**
+         * @member {RegExp|null} inputPattern=null
+         */
+        inputPattern_: null,
+        /**
          * @member {String} inputType_='text'
          */
         inputType_: 'text',
@@ -254,6 +258,16 @@ class Text extends Base {
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId(value, oldValue);
+    }
+
+    /**
+     * Triggered after the inputPattern config got changed
+     * @param {RegExp|null} value 
+     * @param {RegExp|null} oldValue
+     * @protected
+     */
+    afterSetInputPattern(value, oldValue) {
+        
     }
 
     /**
@@ -911,7 +925,9 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        if (value !== oldValue) {
+        if (me.inputPattern && !me.inputPattern.test(value) ) {            
+            me.afterSetValue(oldValue, value);
+        } else if (value !== oldValue) {
             me.value = value;
         }
     }
