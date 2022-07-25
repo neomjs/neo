@@ -78,6 +78,10 @@ class Text extends Base {
          */
         cls: ['neo-textfield'],
         /**
+         * @member {String|null} error_=null
+         */
+        error_: null,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -136,7 +140,8 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: ['neo-textfield-label'], style: {}},
-            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}}
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
+            {cls: ['neo-textfield-error'], html: 'ERROR', removeDom: true}
         ]}
     }}
 
@@ -222,6 +227,16 @@ class Text extends Base {
             oldValue,
             value
         });
+    }
+
+    /**
+     * Triggered after the error config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetError(value, oldValue) {
+        this.updateValidationIndicators(false);
     }
 
     /**
