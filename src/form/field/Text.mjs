@@ -565,7 +565,7 @@ class Text extends Base {
 
         me.getInputEl().value = value;
 
-        if (!!value !== !!oldValue) { // change from empty to non empty
+        if (!!value !== !!oldValue) { // change from empty to non-empty
             NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](me._cls, 'neo-has-content');
         }
 
