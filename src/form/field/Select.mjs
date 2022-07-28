@@ -261,7 +261,7 @@ class Select extends Picker {
 
             if (record) {
                 me.record = record;
-                return record[me.displayField];
+                return record[displayField];
             }
         }
 

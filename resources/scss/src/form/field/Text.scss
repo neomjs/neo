@@ -54,6 +54,7 @@
     }
 
     &.label-inline {
+        display  : block;
         font-size: 14px;
         position : relative;
 
@@ -189,6 +190,12 @@
             min-height   : 25px;
             width        : 30px;
         }
+    }
+
+    .neo-textfield-error {
+        color     : v(textfield-border-color-invalid);
+        font-size : 11px;
+        margin-top: .3em;
     }
 
     .neo-textfield-input {

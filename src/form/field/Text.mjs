@@ -78,6 +78,10 @@ class Text extends Base {
          */
         cls: ['neo-textfield'],
         /**
+         * @member {String|null} error_=null
+         */
+        error_: null,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -136,7 +140,8 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: ['neo-textfield-label'], style: {}},
-            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}}
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
+            {cls: ['neo-textfield-error'], removeDom: true}
         ]}
     }}
 
@@ -225,6 +230,16 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the error config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetError(value, oldValue) {
+        this.updateValidationIndicators(false);
+    }
+
+    /**
      * Triggered after the hideLabel config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -262,12 +277,12 @@ class Text extends Base {
 
     /**
      * Triggered after the inputPattern config got changed
-     * @param {RegExp|null} value 
+     * @param {RegExp|null} value
      * @param {RegExp|null} oldValue
      * @protected
      */
     afterSetInputPattern(value, oldValue) {
-        
+
     }
 
     /**
@@ -550,7 +565,7 @@ class Text extends Base {
 
         me.getInputEl().value = value;
 
-        if (!!value !== !!oldValue) { // change from empty to non empty
+        if (!!value !== !!oldValue) { // change from empty to non-empty
             NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](me._cls, 'neo-has-content');
         }
 
@@ -831,18 +846,23 @@ class Text extends Base {
      */
     isValid() {
         let me          = this,
+            maxLength   = me.maxLength,
+            minLength   = me.minLength,
             value       = me.value,
             valueLength = value?.toString().length;
 
         if (me.required && (!value || valueLength < 1)) {
+            me._error = 'Required';
             return false;
         }
 
-        if (Neo.isNumber(me.maxLength) && valueLength > me.maxLength) {
+        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            me._error = `Max length violation: ${valueLength} / ${maxLength}`;
             return false;
         }
 
-        if (Neo.isNumber(me.minLength) && valueLength < me.minLength) {
+        if (Neo.isNumber(minLength) && valueLength < minLength) {
+            me._error = `Min length violation: ${valueLength} / ${minLength}`;
             return false;
         }
 
@@ -925,7 +945,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        if (me.inputPattern && !me.inputPattern.test(value) ) {            
+        if (me.inputPattern && !me.inputPattern.test(value) ) {
             me.afterSetValue(oldValue, value);
         } else if (value !== oldValue) {
             me.value = value;
@@ -1041,10 +1061,18 @@ class Text extends Base {
      */
     updateValidationIndicators(silent=true) {
         let me   = this,
-            vdom = me.vdom;
+            vdom = me.vdom,
+            errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
-            NeoArray[!me.isValid() ? 'add' : 'remove'](me._cls, 'neo-invalid');
+            isValid = me.isValid();
+
+            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+
+            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+
+            errorNode.html      = me.error;
+            errorNode.removeDom = isValid;
 
             if (!silent) {
                 me.vdom = vdom;
