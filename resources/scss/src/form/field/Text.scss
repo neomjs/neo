@@ -194,9 +194,11 @@
     }
 
     .neo-textfield-error {
-        color     : v(textfield-border-color-invalid);
-        font-size : 11px;
-        margin-top: .3em;
+        color      : v(textfield-border-color-invalid);
+        font-size  : 11px;
+        margin-top : .3em;
+        white-space: break-spaces;
+        word-break : break-word;
     }
 
     .neo-textfield-input {
