@@ -236,7 +236,27 @@ class Text extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        this.updateValidationIndicators(false);
+        let me   = this,
+            vdom = me.vdom,
+            errorNode, isValid;
+
+        if (!(me.validBeforeMount && !me.mounted)) {
+            isValid = !value || value === '';
+
+            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+
+            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+
+            if (isValid) {
+                errorNode.html = me.error;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = isValid;
+
+            me.vdom = vdom;
+        }
     }
 
     /**
@@ -410,7 +430,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMaxLength(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate();
         this.changeInputElKey('maxlength', value);
     }
 
@@ -421,7 +441,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMinLength(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate();
         this.changeInputElKey('minlength', value);
     }
 
@@ -474,7 +494,7 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate();
         this.changeInputElKey('required', value ? value : null);
     }
 
@@ -570,7 +590,7 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
-        me.updateValidationIndicators();
+        me.validate();
 
         me.vdom = vdom;
 
@@ -898,7 +918,7 @@ class Text extends Base {
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
             vdom           = me.vdom;
 
-        me.updateValidationIndicators();
+        me.validate();
 
         NeoArray.remove(me._cls, 'neo-focus');
 
@@ -1033,30 +1053,6 @@ class Text extends Base {
                 _mounted : true
             });
         });
-    }
-
-    /**
-     * @param {Boolean} silent=true
-     */
-    updateValidationIndicators(silent=true) {
-        let me   = this,
-            vdom = me.vdom,
-            errorNode, isValid;
-
-        if (!(me.validBeforeMount && !me.mounted)) {
-            isValid = me.isValid();
-
-            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
-
-            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
-
-            errorNode.html      = me.error;
-            errorNode.removeDom = isValid;
-
-            if (!silent) {
-                me.vdom = vdom;
-            }
-        }
     }
 
     /**
