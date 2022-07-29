@@ -47,6 +47,7 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'error',
             listeners: {change: me.onConfigChange.bind(me, 'error')},
+            reference: 'error-field',
             value    : me.exampleComponent.error
         }, {
             module   : CheckBox,
@@ -163,7 +164,14 @@ class MainContainer extends ConfigurationViewport {
             labelWidth   : 70,
             minLength    : 3,
             value        : 'Hello World',
-            width        : 200
+            width        : 200,
+
+            listeners: {
+                change(value) {
+                    this.down({reference: 'error-field'}).clear();
+                },
+                scope: this
+            }
         });
     }
 }
