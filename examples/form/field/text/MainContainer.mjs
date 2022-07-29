@@ -43,6 +43,13 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'disabled')},
             style    : {marginTop: '10px'}
         }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'error',
+            listeners: {change: me.onConfigChange.bind(me, 'error')},
+            reference: 'error-field',
+            value    : me.exampleComponent.error
+        }, {
             module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
             labelText: 'hideLabel',
@@ -157,7 +164,14 @@ class MainContainer extends ConfigurationViewport {
             labelWidth   : 70,
             minLength    : 3,
             value        : 'Hello World',
-            width        : 200
+            width        : 200,
+
+            listeners: {
+                change(value) {
+                    this.down({reference: 'error-field'}).clear();
+                },
+                scope: this
+            }
         });
     }
 }

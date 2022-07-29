@@ -236,7 +236,7 @@ class Text extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        this.updateValidationIndicators(false);
+        this.updateError(value);
     }
 
     /**
@@ -410,7 +410,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMaxLength(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate(); // silent
         this.changeInputElKey('maxlength', value);
     }
 
@@ -421,7 +421,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMinLength(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate(); // silent
         this.changeInputElKey('minlength', value);
     }
 
@@ -474,7 +474,7 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate(); // silent
         this.changeInputElKey('required', value ? value : null);
     }
 
@@ -570,7 +570,7 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
-        me.updateValidationIndicators();
+        me.validate(); // silent
 
         me.vdom = vdom;
 
@@ -845,28 +845,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
-        let me          = this,
-            maxLength   = me.maxLength,
-            minLength   = me.minLength,
-            value       = me.value,
-            valueLength = value?.toString().length;
-
-        if (me.required && (!value || valueLength < 1)) {
-            me._error = 'Required';
-            return false;
-        }
-
-        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-            me._error = `Max length violation: ${valueLength} / ${maxLength}`;
-            return false;
-        }
-
-        if (Neo.isNumber(minLength) && valueLength < minLength) {
-            me._error = `Min length violation: ${valueLength} / ${minLength}`;
-            return false;
-        }
-
-        return super.isValid();
+        return this.error?.length > 0 ? false : super.isValid();
     }
 
     /**
@@ -919,7 +898,7 @@ class Text extends Base {
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
             vdom           = me.vdom;
 
-        me.updateValidationIndicators();
+        me.validate(); // silent
 
         NeoArray.remove(me._cls, 'neo-focus');
 
@@ -1018,6 +997,36 @@ class Text extends Base {
     }
 
     /**
+     @param {String|null} value
+     @param {Boolean} silent=false
+     */
+    updateError(value, silent=false) {
+        let me   = this,
+            vdom = me.vdom,
+            errorNode, isValid;
+
+        if (!(me.validBeforeMount && !me.mounted)) {
+            isValid = !value || value === '';
+
+            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+
+            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+
+            if (!isValid) {
+                errorNode.html = me.error;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = isValid;
+
+            if (!silent) {
+                me.vdom = vdom;
+            }
+        }
+    }
+
+    /**
      * Calculates the new inputWidth based on the labelWidth & total width
      * @protected
      */
@@ -1057,27 +1066,43 @@ class Text extends Base {
     }
 
     /**
+     * Checks for client-side field errors
      * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    updateValidationIndicators(silent=true) {
-        let me   = this,
-            vdom = me.vdom,
-            errorNode, isValid;
+    validate(silent=true) {
+        let me          = this,
+            errorField  = silent ? '_error' : 'error',
+            maxLength   = me.maxLength,
+            minLength   = me.minLength,
+            required    = me.required,
+            returnValue = true,
+            value       = me.value,
+            valueLength = value?.toString().length,
+            isEmpty     = !value || valueLength < 1;
 
-        if (!(me.validBeforeMount && !me.mounted)) {
-            isValid = me.isValid();
-
-            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
-
-            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
-
-            errorNode.html      = me.error;
-            errorNode.removeDom = isValid;
-
-            if (!silent) {
-                me.vdom = vdom;
+        if (required && isEmpty) {
+            me[errorField] = 'Required';
+            returnValue = false;
+        } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            if (required || !isEmpty) {
+                me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
+                returnValue = false;
+            }
+        } else if (Neo.isNumber(minLength) && valueLength < minLength) {
+            if (required || !isEmpty) {
+                me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+                returnValue = false;
             }
         }
+
+        if (returnValue) {
+            me[errorField] = null;
+        }
+
+        silent && me.updateError(me[errorField], true);
+
+        return !returnValue ? false : super.validate(silent);
     }
 }
 
