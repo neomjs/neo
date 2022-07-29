@@ -99,7 +99,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMaxValue(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate(); // silent
         this.changeInputElKey('max', value);
     }
 
@@ -110,7 +110,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMinValue(value, oldValue) {
-        this.updateValidationIndicators();
+        this.validate(); // silent
         this.changeInputElKey('min', value);
     }
 
