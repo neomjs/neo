@@ -410,7 +410,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMaxLength(value, oldValue) {
-        this.validate();
+        this.validate(); // silent
         this.changeInputElKey('maxlength', value);
     }
 
@@ -421,7 +421,7 @@ class Text extends Base {
      * @protected
      */
     afterSetMinLength(value, oldValue) {
-        this.validate();
+        this.validate(); // silent
         this.changeInputElKey('minlength', value);
     }
 
@@ -474,7 +474,7 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        this.validate();
+        this.validate(); // silent
         this.changeInputElKey('required', value ? value : null);
     }
 
@@ -570,7 +570,7 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
-        me.validate();
+        me.validate(); // silent
 
         me.vdom = vdom;
 
@@ -898,7 +898,7 @@ class Text extends Base {
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
             vdom           = me.vdom;
 
-        me.validate();
+        me.validate(); // silent
 
         NeoArray.remove(me._cls, 'neo-focus');
 
@@ -997,9 +997,10 @@ class Text extends Base {
     }
 
     /**
-     * @param value
+     @param {String|null} value
+     @param {Boolean} silent=false
      */
-    updateError(value) {
+    updateError(value, silent=false) {
         let me   = this,
             vdom = me.vdom,
             errorNode, isValid;
@@ -1019,7 +1020,9 @@ class Text extends Base {
 
             errorNode.removeDom = isValid;
 
-            me.vdom = vdom;
+            if (!silent) {
+                me.vdom = vdom;
+            }
         }
     }
 
@@ -1064,31 +1067,32 @@ class Text extends Base {
 
     /**
      * Checks for client-side field errors
+     * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate() {
+    validate(silent=true) {
         let me          = this,
+            errorField  = silent ? '_error' : 'error',
             maxLength   = me.maxLength,
             minLength   = me.minLength,
+            returnValue = true,
             value       = me.value,
             valueLength = value?.toString().length;
 
         if (me.required && (!value || valueLength < 1)) {
-            me.error = 'Required';
-            return false;
+            me[errorField] = 'Required';
+            returnValue = false;
+        } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
+            returnValue = false;
+        } else if (Neo.isNumber(minLength) && valueLength < minLength) {
+            me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+            returnValue = false;
         }
 
-        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-            me.error = `Max length violation: ${valueLength} / ${maxLength}`;
-            return false;
-        }
+        silent && me.updateError(me[errorField], true);
 
-        if (Neo.isNumber(minLength) && valueLength < minLength) {
-            me.error = `Min length violation: ${valueLength} / ${minLength}`;
-            return false;
-        }
-
-        return super.validate();
+        return !returnValue ? false : super.validate(silent);
     }
 }
 

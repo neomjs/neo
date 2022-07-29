@@ -71,9 +71,10 @@ class Base extends Component {
 
     /**
      * Checks for client-side field errors
+     * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate() {
+    validate(silent=true) {
         return true;
     }
 }
