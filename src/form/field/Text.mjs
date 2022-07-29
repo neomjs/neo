@@ -1012,7 +1012,7 @@ class Text extends Base {
 
             errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
 
-            if (isValid) {
+            if (!isValid) {
                 errorNode.html = me.error;
             } else {
                 delete errorNode.html;
@@ -1075,19 +1075,29 @@ class Text extends Base {
             errorField  = silent ? '_error' : 'error',
             maxLength   = me.maxLength,
             minLength   = me.minLength,
+            required    = me.required,
             returnValue = true,
             value       = me.value,
-            valueLength = value?.toString().length;
+            valueLength = value?.toString().length,
+            isEmpty     = !value || valueLength < 1;
 
-        if (me.required && (!value || valueLength < 1)) {
+        if (required && isEmpty) {
             me[errorField] = 'Required';
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-            me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
-            returnValue = false;
+            if (required || !isEmpty) {
+                me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
+                returnValue = false;
+            }
         } else if (Neo.isNumber(minLength) && valueLength < minLength) {
-            me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
-            returnValue = false;
+            if (required || !isEmpty) {
+                me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+                returnValue = false;
+            }
+        }
+
+        if (returnValue) {
+            me[errorField] = null;
         }
 
         silent && me.updateError(me[errorField], true);
