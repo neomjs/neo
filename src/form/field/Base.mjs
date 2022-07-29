@@ -68,6 +68,14 @@ class Base extends Component {
     reset(value) {
         this.value = value;
     }
+
+    /**
+     * Checks for client-side field errors
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate() {
+        return true;
+    }
 }
 
 /**
