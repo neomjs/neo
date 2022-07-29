@@ -236,27 +236,7 @@ class Text extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom,
-            errorNode, isValid;
-
-        if (!(me.validBeforeMount && !me.mounted)) {
-            isValid = !value || value === '';
-
-            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
-
-            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
-
-            if (isValid) {
-                errorNode.html = me.error;
-            } else {
-                delete errorNode.html;
-            }
-
-            errorNode.removeDom = isValid;
-
-            me.vdom = vdom;
-        }
+        this.updateError(value);
     }
 
     /**
@@ -1014,6 +994,33 @@ class Text extends Base {
                 me.vdom = vdom;
             }
         });
+    }
+
+    /**
+     * @param value
+     */
+    updateError(value) {
+        let me   = this,
+            vdom = me.vdom,
+            errorNode, isValid;
+
+        if (!(me.validBeforeMount && !me.mounted)) {
+            isValid = !value || value === '';
+
+            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+
+            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+
+            if (isValid) {
+                errorNode.html = me.error;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = isValid;
+
+            me.vdom = vdom;
+        }
     }
 
     /**
