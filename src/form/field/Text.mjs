@@ -845,28 +845,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
-        let me          = this,
-            maxLength   = me.maxLength,
-            minLength   = me.minLength,
-            value       = me.value,
-            valueLength = value?.toString().length;
-
-        if (me.required && (!value || valueLength < 1)) {
-            me._error = 'Required';
-            return false;
-        }
-
-        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-            me._error = `Max length violation: ${valueLength} / ${maxLength}`;
-            return false;
-        }
-
-        if (Neo.isNumber(minLength) && valueLength < minLength) {
-            me._error = `Min length violation: ${valueLength} / ${minLength}`;
-            return false;
-        }
-
-        return super.isValid();
+        return this.error?.length > 0 ? false : super.isValid();
     }
 
     /**
@@ -1078,6 +1057,35 @@ class Text extends Base {
                 me.vdom = vdom;
             }
         }
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate() {
+        let me          = this,
+            maxLength   = me.maxLength,
+            minLength   = me.minLength,
+            value       = me.value,
+            valueLength = value?.toString().length;
+
+        if (me.required && (!value || valueLength < 1)) {
+            me.error = 'Required';
+            return false;
+        }
+
+        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            me.error = `Max length violation: ${valueLength} / ${maxLength}`;
+            return false;
+        }
+
+        if (Neo.isNumber(minLength) && valueLength < minLength) {
+            me.error = `Min length violation: ${valueLength} / ${minLength}`;
+            return false;
+        }
+
+        return super.validate();
     }
 }
 
