@@ -153,6 +153,11 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            ntype  : 'button',
+            handler: (() => {me.exampleComponent.reset()}),
+            style  : {marginTop: '10px', width: '50%'},
+            text   : 'reset()'
         }];
     }
 

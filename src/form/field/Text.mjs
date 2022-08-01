@@ -969,11 +969,17 @@ class Text extends Base {
      * @param {String|null} [value=null]
      */
     reset(value=null) {
-        if (value && this.clearToOriginalValue) {
-            this.originalConfig.value = value;
+        let me = this;
+
+        if (value && me.clearToOriginalValue) {
+            me.originalConfig.value = value;
         }
 
         super.reset(value);
+
+        if (value === null && me.validBeforeMount) {
+            me.updateError(null);
+        }
     }
 
     /**
@@ -1006,6 +1012,8 @@ class Text extends Base {
             errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
+            me._error = value;
+
             isValid = !value || value === '';
 
             NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
