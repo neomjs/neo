@@ -975,11 +975,11 @@ class Text extends Base {
             me.originalConfig.value = value;
         }
 
-        if (value === null && me.validBeforeMount) {
-            me.updateError(null, true);
-        }
-
         super.reset(value);
+
+        if (value === null && me.validBeforeMount) {
+            me.updateError(null);
+        }
     }
 
     /**
@@ -1012,6 +1012,8 @@ class Text extends Base {
             errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
+            me._error = value;
+
             isValid = !value || value === '';
 
             NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
