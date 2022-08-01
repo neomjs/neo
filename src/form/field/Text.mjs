@@ -969,8 +969,14 @@ class Text extends Base {
      * @param {String|null} [value=null]
      */
     reset(value=null) {
-        if (value && this.clearToOriginalValue) {
-            this.originalConfig.value = value;
+        let me = this;
+
+        if (value && me.clearToOriginalValue) {
+            me.originalConfig.value = value;
+        }
+
+        if (value === null && me.validBeforeMount) {
+            me.updateError(null, true);
         }
 
         super.reset(value);
