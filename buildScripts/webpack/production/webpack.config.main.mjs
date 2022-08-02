@@ -1,6 +1,7 @@
 import fs                from 'fs-extra';
 import path              from 'path';
 import WebpackHookPlugin from 'webpack-hook-plugin';
+import webpack from "webpack";
 
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
@@ -14,6 +15,8 @@ const cwd            = process.cwd(),
       faFrom         = path.resolve(cwd, 'node_modules/@fortawesome/fontawesome-free'),
       faTo           = path.resolve(cwd, buildTarget.folder, 'resources/fontawesome-free'),
       plugins        = [];
+
+let contextAdjusted = false;
 
 if (!insideNeo) {
     let resourcesPath = path.resolve(cwd, 'resources'),
@@ -37,6 +40,17 @@ export default {
     target: 'web',
 
     plugins: [
+        // Only for the non workspace based build scope, we have to ignore workspace related addons.
+        // This might be a fit for webpack.ContextExclusionPlugin, but I did not get it working.
+        new webpack.ContextReplacementPlugin(/.*/, context => {
+            if (insideNeo && !contextAdjusted && path.join(context.request) === path.join('../../../src/main/addon')) {
+                let req = context.request.split(path.sep);
+                req.splice(0, 2);
+
+                context.request = req.join(path.sep);
+                contextAdjusted = true;
+            }
+        }),
         new WebpackHookPlugin({
             onBuildEnd: [`node ${copyFolder} -s ${faFrom} -t ${faTo}`]
         }),
