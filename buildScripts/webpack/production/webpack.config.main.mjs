@@ -1,7 +1,7 @@
 import fs                from 'fs-extra';
 import path              from 'path';
+import webpack           from 'webpack';
 import WebpackHookPlugin from 'webpack-hook-plugin';
-import webpack from "webpack";
 
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
