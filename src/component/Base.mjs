@@ -414,7 +414,7 @@ class Base extends CoreBase {
                     }, 50);
                 });
             } else if (me.mounted) {
-                me.updateVdom(vdom, me.vnode);
+                me.vnode && me.updateVdom(vdom, me.vnode);
             }
 
             me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
