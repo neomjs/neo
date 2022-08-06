@@ -20,6 +20,10 @@ class Container extends Base {
          */
         ntype: 'sitemap',
         /*
+         * @member {String[} cls=['neo-sitemap','neo-container']
+         */
+        cls: ['neo-sitemap', 'neo-container'],
+        /*
          * @member {Neo.sitemap.store.Groups|null} groupStore_=null
          */
         groupStore_: null,
