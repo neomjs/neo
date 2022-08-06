@@ -15,7 +15,25 @@ class Item extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'disabled',
+            type: 'Boolean'
+        }, {
+            name: 'groupId',
+            type: 'Number'
+        }, {
             name: 'id',
+            type: 'Number'
+        }, {
+            name: 'level', // indentation
+            type: 'Number'
+        }, {
+            name: 'name',
+            type: 'String'
+        }, {
+            name: 'route',
+            type: 'String'
+        }, {
+            name: 'url',
             type: 'String'
         }]
     }}
