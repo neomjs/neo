@@ -157,7 +157,13 @@ if (programOpts.info) {
     }
 
     if (root === 'Neo') {
-        console.log('todo: create the file inside the src folder');
+        if (isDrop) {
+            console.log(chalk.red('Drop mode not yet supported for the neo framework scope'));
+            process.exit(1);
+        } else {
+            classFolder = path.join(cwd, '/src/', ns.join('/'));
+            folderDelta = ns.length;
+        }
     } else {
         if (isDrop) {
             ns = [];
@@ -219,24 +225,24 @@ if (programOpts.info) {
                 process.exit(1);
             }
         }
+    }
 
-        if (folderDelta === undefined) {
-            folderDelta = ns.length + 2;
-        }
+    if (folderDelta === undefined) {
+        folderDelta = ns.length + 2;
+    }
 
-        createClass({
-            baseClass,
-            className,
-            isSingleton,
-            file,
-            folderDelta,
-            ns,
-            root
-        });
+    createClass({
+        baseClass,
+        className,
+        isSingleton,
+        file,
+        folderDelta,
+        ns,
+        root
+    });
 
-        if (baseClass === 'data.Model') {
-            // todo: add a question for auto-generating a matching store
-        }
+    if (baseClass === 'data.Model') {
+        // todo: add a question for auto-generating a matching store
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
@@ -438,7 +444,7 @@ if (programOpts.info) {
             root
         } = opts, baseFileName;
 
-        fs.mkdirpSync(classFolder);
+        fs.mkdirpSync(classFolder, {recursive: true});
 
         baseFileName = baseClass.split('.').pop();
 
@@ -532,7 +538,7 @@ if (programOpts.info) {
      * @param {String} opts.className
      * @param {Boolean} opts.isSingleton
      * @param {String} opts.file
-     * @param {String} opts.folderDelta
+     * @param {Number} opts.folderDelta
      * @param {String} opts.ns
      * @param {String} opts.root
      * @returns {String}
@@ -542,6 +548,7 @@ if (programOpts.info) {
             baseFileName  = opts.baseFileName,
             baseClassPath = baseClass.split('.').join('/'),
             className     = opts.className,
+            importSrc     = root === 'Neo' ? '' : 'src/',
             isSingleton   = opts.isSingleton,
             file          = opts.file,
             i             = 0,
@@ -552,7 +559,7 @@ if (programOpts.info) {
         }
 
         let classContent = [
-            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}src/${baseClassPath}.mjs';`,
+            `import ${baseFileName} from '${importDelta}${(insideNeo ? '' : 'node_modules/neo.mjs/')}${importSrc + baseClassPath}.mjs';`,
             "",
             "/**",
             ` * @class ${className}`,
