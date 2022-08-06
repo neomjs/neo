@@ -37,8 +37,8 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(SiteMapContainer, {
-            height: 800,
-            width : 600,
+            height: 600,
+            width : 800,
 
             groupStore: {
                 data: [

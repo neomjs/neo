@@ -1,3 +1,11 @@
 .neo-sitemap {
-    border: 1px solid v(panel-border-color);
+    border : 1px solid v(panel-border-color);
+    padding: 30px 100px 60px;
+
+    .neo-sitemap-column {
+        &:not(:last-child) {
+            border-right: 1px solid v(panel-border-color);
+            margin-right: 25px;
+        }
+    }
 }
