@@ -159,7 +159,7 @@ if (programOpts.info) {
     if (root === 'Neo') {
         console.log('todo: create the file inside the src folder');
     } else {
-        if (isDrop === true) {
+        if (isDrop) {
             ns = [];
 
             let pathInfo      = path.parse(cwd),
@@ -211,9 +211,7 @@ if (programOpts.info) {
                 parts = delta.split(sep);
 
             folderDelta = parts.length;
-        }
-
-        if (isDrop !== true) {
+        } else {
             if (fs.existsSync(path.resolve(cwd, 'apps', rootLowerCase))) {
                 classFolder = path.resolve(cwd, 'apps', rootLowerCase, ns.join('/'));
             } else {
