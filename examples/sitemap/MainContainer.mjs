@@ -1,5 +1,3 @@
-import CheckBox              from '../../src/form/field/CheckBox.mjs';
-import Carousel              from '../../src/component/Carousel.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
 import RangeField            from '../../src/form/field/Range.mjs';
 import SiteMapContainer      from '../../src/sitemap/Container.mjs';
@@ -40,7 +38,20 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(SiteMapContainer, {
             height: 800,
-            width : 600
+            width : 600,
+
+            itemStore: {
+                data: [
+                    {id: 1, groupId: 1, name: 'Item 1', level: 0},
+                    {id: 2, groupId: 1, name: 'Item 2', level: 0},
+                    {id: 3, groupId: 1, name: 'Item 3', level: 1},
+                    {id: 4, groupId: 1, name: 'Item 4', level: 1},
+                    {id: 5, groupId: 2, name: 'Item 1', level: 0},
+                    {id: 6, groupId: 2, name: 'Item 2', level: 0},
+                    {id: 7, groupId: 2, name: 'Item 3', level: 1},
+                    {id: 8, groupId: 2, name: 'Item 4', level: 1}
+                ]
+            }
         })
     }
 }
