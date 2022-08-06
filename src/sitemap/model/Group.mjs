@@ -21,6 +21,9 @@ class Group extends Model {
             name: 'disabled',
             type: 'Boolean'
         }, {
+            name: 'hidden',
+            type: 'Boolean'
+        }, {
             name: 'id',
             type: 'Number'
         }, {

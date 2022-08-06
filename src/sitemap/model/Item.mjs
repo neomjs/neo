@@ -21,6 +21,9 @@ class Item extends Model {
             name: 'groupId',
             type: 'Number'
         }, {
+            name: 'hidden',
+            type: 'Boolean'
+        }, {
             name: 'id',
             type: 'Number'
         }, {
