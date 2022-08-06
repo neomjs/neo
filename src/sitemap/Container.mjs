@@ -15,13 +15,16 @@ class Container extends Base {
          */
         className: 'Neo.sitemap.Container',
         /*
-         * @member {Object[]} items
-         */
-        items: [],
-        /*
          * @member {Neo.sitemap.store.Groups|null} groupStore_=null
          */
         groupStore_: null,
+        /*
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module: Base,
+            cls   : ['neo-sitemap-column', 'neo-container']
+        },
         /*
          * @member {Neo.sitemap.store.Items|null} itemStore_=null
          */
@@ -45,7 +48,7 @@ class Container extends Base {
             scope       : me
         });
 
-        value?.getCount() > 0 && me.createColumns();
+        value?.getCount() > 0 && me.itemStore.getCount() > 0 && me.createColumns();
     }
 
     /**
@@ -64,8 +67,6 @@ class Container extends Base {
             sort        : 'onItemStoreSort',
             scope       : me
         });
-
-        value?.getCount() > 0 && me.createColumns();
     }
 
     /**
@@ -96,7 +97,17 @@ class Container extends Base {
      *
      */
     createColumns() {
-        console.log('createColumns');
+        let me      = this,
+            groups  = me.groupStore.items,
+            columns = Math.max(...groups.map(e => e.column + 1)),
+            i       = 0,
+            items   = [];
+
+        for (; i < columns; i++) {
+            items.push({});
+        }
+
+        me.items = items;
     }
 
     /**
