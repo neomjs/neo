@@ -15,6 +15,11 @@ class Container extends Base {
          */
         className: 'Neo.sitemap.Container',
         /*
+         * @member {String} ntype='sitemap'
+         * @protected
+         */
+        ntype: 'sitemap',
+        /*
          * @member {Neo.sitemap.store.Groups|null} groupStore_=null
          */
         groupStore_: null,
