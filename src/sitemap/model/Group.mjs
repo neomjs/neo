@@ -15,7 +15,16 @@ class Group extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'column',
+            type: 'Number' // zero based
+        }, {
+            name: 'disabled',
+            type: 'Boolean'
+        }, {
             name: 'id',
+            type: 'Number'
+        }, {
+            name: 'name',
             type: 'String'
         }]
     }}
