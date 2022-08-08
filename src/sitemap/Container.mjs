@@ -79,7 +79,7 @@ class Container extends Base {
             records     = me.itemStore.items,
             columnIndex = -1,
             items       = [],
-            column, record;
+            action, column, item, record;
 
         for (record of records) {
             if (record.column !== columnIndex) {
@@ -88,15 +88,34 @@ class Container extends Base {
                 items.push(column);
             }
 
-            column.vdom.cn.push({
+            action = record.action;
+
+            item = {
                 tag : 'a',
                 cls : ['neo-action'],
                 id  : me.getItemId(record.id),
                 html: record.name
-            });
-        }
+            };
 
-        console.log(records);
+            if (action && action !== '') {
+                switch (record.actionType) {
+                    case 'handler': {
+                        item.cls.push('neo-action-handler');
+                        break;
+                    }
+                    case 'route': {
+                        item.href = `#${record.action}`;
+                        break;
+                    }
+                    case 'url': {
+                        item.href   = record.action;
+                        item.target = '_blank';
+                    }
+                }
+            }
+
+            column.vdom.cn.push(item);
+        }
 
         me.items = items;
     }
