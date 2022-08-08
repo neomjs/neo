@@ -68,7 +68,6 @@ class Container extends Base {
             filter      : 'onItemStoreFilter',
             load        : 'onItemStoreLoad',
             recordChange: 'onItemStoreRecordChange',
-            sort        : 'onItemStoreSort',
             scope       : me
         });
 
@@ -183,13 +182,6 @@ class Container extends Base {
      */
     onItemStoreRecordChange() {
         console.log('onItemStoreRecordChange');
-    }
-
-    /**
-     *
-     */
-    onItemStoreSort() {
-        console.log('onItemStoreSort');
     }
 }
 
