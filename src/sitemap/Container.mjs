@@ -118,7 +118,7 @@ class Container extends Base {
 
             item = {
                 tag : 'a',
-                cls : ['neo-action'],
+                cls : ['neo-action', `neo-level-${record.level}`],
                 id  : me.getItemId(record.id),
                 html: record.name
             };
