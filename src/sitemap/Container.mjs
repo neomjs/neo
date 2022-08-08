@@ -91,6 +91,7 @@ class Container extends Base {
             column.vdom.cn.push({
                 tag : 'a',
                 cls : ['neo-action'],
+                id  : me.getItemId(record.id),
                 html: record.name
             });
         }
@@ -98,6 +99,14 @@ class Container extends Base {
         console.log(items);
 
         me.items = items;
+    }
+
+    /**
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getItemId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
