@@ -41,7 +41,7 @@ class Item extends Model {
             type        : 'Number'
         }, {
             name: 'name',
-            type: 'String'
+            type: 'Html'
         }]
     }}
 }
