@@ -7,6 +7,16 @@ import ItemStore       from './store/Items.mjs';
  * @extends Neo.container.Base
  */
 class Container extends Base {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for itemHideMode
+         * @member {String[]} itemHideModes=['removeDom','visibility']
+         * @protected
+         * @static
+         */
+        itemHideModes: ['removeDom', 'visibility']
+    }}
+
     static getConfig() {return {
         /*
          * @member {String} className='Neo.sitemap.Container'
@@ -29,6 +39,12 @@ class Container extends Base {
             ntype: 'component',
             cls  : ['neo-sitemap-column', 'neo-container']
         },
+        /**
+         * Valid values: removeDom, visibility
+         * Defines if the component items should use css visibility:'hidden' or vdom:removeDom
+         * @member {String} hideMode_='removeDom'
+         */
+        itemHideMode_: 'removeDom',
         /*
          * @member {Neo.sitemap.store.Items|null} itemStore_=null
          */
@@ -57,6 +73,16 @@ class Container extends Base {
         });
 
         value?.getCount() > 0 && me.createColumns();
+    }
+
+    /**
+     * Triggered before the itemHideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetItemHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'itemHideMode');
     }
 
     /**
@@ -115,6 +141,14 @@ class Container extends Base {
             }
 
             record.disabled && item.cls.push('neo-disabled');
+
+            if (record.hidden) {
+                if (me.itemHideMode === 'removeDom') {
+                    item.removeDom = true;
+                } else {
+                    item.cls.push('neo-hidden');
+                }
+            }
 
             column.vdom.cn.push(item);
         }

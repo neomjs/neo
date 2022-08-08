@@ -49,7 +49,7 @@ class MainContainer extends ConfigurationViewport {
                     {id:  5, column: 0, name: 'Item 4',  level: 2, disabled: true},
                     {id:  6, column: 1, name: 'Group 2', level: 0},
                     {id:  7, column: 1, name: 'Item 1',  level: 1},
-                    {id:  8, column: 1, name: 'Item 2',  level: 1},
+                    {id:  8, column: 1, name: 'Item 2',  level: 1, hidden: true},
                     {id:  9, column: 1, name: 'Item 3',  level: 1},
                     {id: 10, column: 1, name: 'Item 4',  level: 2}
                 ]
