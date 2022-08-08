@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/sitemap/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
