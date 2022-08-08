@@ -28,9 +28,6 @@ class Item extends Model {
             name: 'disabled',
             type: 'Boolean'
         }, {
-            name: 'groupId',
-            type: 'Number'
-        }, {
             name: 'hidden',
             type: 'Boolean'
         }, {
