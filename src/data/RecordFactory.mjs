@@ -278,6 +278,10 @@ class RecordFactory extends Base {
             return new Date(value);
         }
 
+        if (type === 'html' && value) {
+            value = value + '';
+        }
+
         if (type === 'string' && value) {
             value = value + '';
             value =  value.replace(/(<([^>]+)>)/ig, '');

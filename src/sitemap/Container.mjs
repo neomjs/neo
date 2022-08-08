@@ -56,6 +56,20 @@ class Container extends Base {
     }}
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({click: me.onItemClick, delegate: '.neo-action', scope: me});
+
+        me.domListeners = domListeners;
+    }
+
+    /**
      * Triggered after the itemStore config got changed
      * @param {Neo.sitemap.store.Items|null} value
      * @param {Neo.sitemap.store.Items|null} oldValue
@@ -162,6 +176,12 @@ class Container extends Base {
     getItemId(recordId) {
         return `${this.id}__${recordId}`;
     }
+
+    /**
+     * Override as needed
+     * @param {Object} data
+     */
+    onItemClick(data) {}
 
     /**
      *
