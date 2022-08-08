@@ -167,21 +167,21 @@ class Container extends Base {
      *
      */
     onItemStoreFilter() {
-        console.log('onItemStoreFilter');
+        this.createColumns();
     }
 
     /**
      *
      */
     onItemStoreLoad() {
-        console.log('onItemStoreLoad');
+        this.createColumns();
     }
 
     /**
      *
      */
     onItemStoreRecordChange() {
-        console.log('onItemStoreRecordChange');
+        this.createColumns();
     }
 }
 
