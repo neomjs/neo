@@ -96,7 +96,7 @@ class Container extends Base {
             });
         }
 
-        console.log(items);
+        console.log(records);
 
         me.items = items;
     }

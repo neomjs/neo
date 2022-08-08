@@ -76,8 +76,15 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let parsedValue = instance.parseRecordValue(me, field, config[field.name], config),
-                                    symbol      = Symbol.for(field.name);
+                                let value  = config[field.name],
+                                    symbol = Symbol.for(field.name),
+                                    parsedValue;
+
+                                if (!Object.hasOwn(config, field.name) && Object.hasOwn(field, 'defaultValue')) {
+                                    value = field.defaultValue;
+                                }
+
+                                parsedValue = instance.parseRecordValue(me, field, value, config);
 
                                 properties = {
                                     [Symbol.for('isRecord')]: {
