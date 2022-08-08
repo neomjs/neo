@@ -15,6 +15,23 @@
         }
     }
 
+    .neo-level-0 {
+        font-size  : 16px/22px;
+        font-weight: 600;
+    }
+
+    .neo-level-1 {
+        margin-left: 1em;
+    }
+
+    .neo-level-2 {
+        margin-left: 2em;
+    }
+
+    .neo-level-3 {
+        margin-left: 3em;
+    }
+
     .neo-sitemap-column {
         &:not(:last-child) {
             border-right: 1px solid v(panel-border-color);
