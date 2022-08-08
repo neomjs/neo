@@ -1,6 +1,5 @@
 import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import GroupStore      from './store/Groups.mjs';
 import ItemStore       from './store/Items.mjs';
 
 /**
@@ -24,10 +23,6 @@ class Container extends Base {
          */
         cls: ['neo-sitemap', 'neo-container'],
         /*
-         * @member {Neo.sitemap.store.Groups|null} groupStore_=null
-         */
-        groupStore_: null,
-        /*
          * @member {Object} itemDefaults
          */
         itemDefaults: {
@@ -50,26 +45,6 @@ class Container extends Base {
      * @param {Neo.sitemap.store.Items|null} oldValue
      * @protected
      */
-    afterSetGroupStore(value, oldValue) {
-        let me = this;
-
-        value?.on({
-            filter      : 'onGroupStoreFilter',
-            load        : 'onGroupStoreLoad',
-            recordChange: 'onGroupStoreRecordChange',
-            sort        : 'onGroupStoreSort',
-            scope       : me
-        });
-
-        value?.getCount() > 0 && me.itemStore.getCount() > 0 && me.createColumns();
-    }
-
-    /**
-     * Triggered after the itemStore config got changed
-     * @param {Neo.sitemap.store.Items|null} value
-     * @param {Neo.sitemap.store.Items|null} oldValue
-     * @protected
-     */
     afterSetItemStore(value, oldValue) {
         let me = this;
 
@@ -80,18 +55,8 @@ class Container extends Base {
             sort        : 'onItemStoreSort',
             scope       : me
         });
-    }
 
-    /**
-     * Triggered before the groupStore config gets changed.
-     * @param {Object|Neo.data.Store} value
-     * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
-     * @protected
-     */
-    beforeSetGroupStore(value, oldValue) {
-        oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, GroupStore);
+        value?.getCount() > 0 && me.createColumns();
     }
 
     /**
@@ -133,34 +98,6 @@ class Container extends Base {
         console.log(items);
 
         me.items = items;
-    }
-
-    /**
-     *
-     */
-    onGroupStoreFilter() {
-        console.log('onItemStoreFilter');
-    }
-
-    /**
-     *
-     */
-    onGroupStoreLoad() {
-        console.log('onItemStoreLoad');
-    }
-
-    /**
-     *
-     */
-    onGroupStoreRecordChange() {
-        console.log('onItemStoreRecordChange');
-    }
-
-    /**
-     *
-     */
-    onGroupStoreSort() {
-        console.log('onItemStoreSort');
     }
 
     /**
