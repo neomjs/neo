@@ -25,17 +25,20 @@ class Item extends Model {
             name: 'column',
             type: 'Number' // zero based
         }, {
-            name: 'disabled',
-            type: 'Boolean'
+            name        : 'disabled',
+            defaultValue: false,
+            type        : 'Boolean'
         }, {
-            name: 'hidden',
-            type: 'Boolean'
+            name        : 'hidden',
+            defaultValue: false,
+            type        : 'Boolean'
         }, {
             name: 'id',
             type: 'Number'
         }, {
-            name: 'level', // indentation
-            type: 'Number'
+            name        : 'level', // indentation
+            defaultValue: 0,
+            type        : 'Number'
         }, {
             name: 'name',
             type: 'String'

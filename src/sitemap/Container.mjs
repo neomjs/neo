@@ -114,6 +114,8 @@ class Container extends Base {
                 }
             }
 
+            record.disabled && item.cls.push('neo-disabled');
+
             column.vdom.cn.push(item);
         }
 
