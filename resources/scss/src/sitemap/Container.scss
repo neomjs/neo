@@ -3,8 +3,16 @@
     padding: 30px 100px 60px;
 
     .neo-action {
-        display: block;
-        margin : 1em 0;
+        color          : inherit;
+        display        : block;
+        margin         : 1em 0;
+        text-decoration: none;
+    }
+
+    .neo-action[href] {
+        &:hover {
+            text-decoration: underline;
+        }
     }
 
     .neo-sitemap-column {
