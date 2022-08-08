@@ -31,8 +31,8 @@ class Container extends Base {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module: Base,
-            cls   : ['neo-sitemap-column', 'neo-container']
+            ntype: 'component',
+            cls  : ['neo-sitemap-column', 'neo-container']
         },
         /*
          * @member {Neo.sitemap.store.Items|null} itemStore_=null
@@ -110,15 +110,27 @@ class Container extends Base {
      *
      */
     createColumns() {
-        let me      = this,
-            groups  = me.groupStore.items,
-            columns = Math.max(...groups.map(e => e.column + 1)),
-            i       = 0,
-            items   = [];
+        let me          = this,
+            records     = me.itemStore.items,
+            columnIndex = -1,
+            items       = [],
+            column, record;
 
-        for (; i < columns; i++) {
-            items.push({});
+        for (record of records) {
+            if (record.column !== columnIndex) {
+                columnIndex++;
+                column = {vdom: {cn: []}};
+                items.push(column);
+            }
+
+            column.vdom.cn.push({
+                tag : 'a',
+                cls : ['neo-action'],
+                html: record.name
+            });
         }
+
+        console.log(items);
 
         me.items = items;
     }

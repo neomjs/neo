@@ -2,6 +2,11 @@
     border : 1px solid v(panel-border-color);
     padding: 30px 100px 60px;
 
+    .neo-action {
+        display: block;
+        margin : 1em 0;
+    }
+
     .neo-sitemap-column {
         &:not(:last-child) {
             border-right: 1px solid v(panel-border-color);

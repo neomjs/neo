@@ -15,6 +15,16 @@ class Item extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'action',
+            type: 'String'
+        }, {
+            name        : 'actionType',
+            defaultValue: 'route',
+            type        : 'String'
+        }, {
+            name: 'column',
+            type: 'Number' // zero based
+        }, {
             name: 'disabled',
             type: 'Boolean'
         }, {
@@ -31,12 +41,6 @@ class Item extends Model {
             type: 'Number'
         }, {
             name: 'name',
-            type: 'String'
-        }, {
-            name: 'route',
-            type: 'String'
-        }, {
-            name: 'url',
             type: 'String'
         }]
     }}

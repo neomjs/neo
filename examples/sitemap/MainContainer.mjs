@@ -49,14 +49,16 @@ class MainContainer extends ConfigurationViewport {
 
             itemStore: {
                 data: [
-                    {id: 1, groupId: 1, name: 'Item 1', level: 0},
-                    {id: 2, groupId: 1, name: 'Item 2', level: 0},
-                    {id: 3, groupId: 1, name: 'Item 3', level: 1},
-                    {id: 4, groupId: 1, name: 'Item 4', level: 1},
-                    {id: 5, groupId: 2, name: 'Item 1', level: 0},
-                    {id: 6, groupId: 2, name: 'Item 2', level: 0},
-                    {id: 7, groupId: 2, name: 'Item 3', level: 1},
-                    {id: 8, groupId: 2, name: 'Item 4', level: 1}
+                    {id:  1, column: 0, name: 'Group 1', level: 0},
+                    {id:  2, column: 0, name: 'Item 1',  level: 1},
+                    {id:  3, column: 0, name: 'Item 2',  level: 1},
+                    {id:  4, column: 0, name: 'Item 3',  level: 2},
+                    {id:  5, column: 0, name: 'Item 4',  level: 2},
+                    {id:  6, column: 1, name: 'Group 2', level: 0},
+                    {id:  7, column: 1, name: 'Item 1',  level: 1},
+                    {id:  8, column: 1, name: 'Item 2',  level: 1},
+                    {id:  9, column: 1, name: 'Item 3',  level: 1},
+                    {id: 10, column: 1, name: 'Item 4',  level: 2}
                 ]
             }
         })
