@@ -183,7 +183,7 @@ class Container extends Base {
      */
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
-            model    = this.store.model,
+            model    = this.itemStore.model,
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type.toLowerCase();
 
