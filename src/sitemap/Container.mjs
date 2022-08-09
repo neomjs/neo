@@ -178,6 +178,23 @@ class Container extends Base {
     }
 
     /**
+     * @param {String} vnodeId
+     * @returns {String|Number} itemId
+     */
+    getItemRecordId(vnodeId) {
+        let itemId   = vnodeId.split('__')[1],
+            model    = this.store.model,
+            keyField = model?.getField(model.keyProperty),
+            keyType  = keyField?.type.toLowerCase();
+
+        if (keyType === 'integer' || keyType === 'number') {
+            itemId = parseInt(itemId);
+        }
+
+        return itemId;
+    }
+
+    /**
      * Override as needed
      * @param {Object} data
      */
