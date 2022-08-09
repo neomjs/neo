@@ -123,7 +123,7 @@ class Container extends Base {
         for (record of records) {
             if (record.column !== columnIndex) {
                 columnIndex++;
-                column = {vdom: {cn: []}};
+                column = {id: `${me.id}__column-${columnIndex}`, vdom: {cn: []}};
                 items.push(column);
             }
 
