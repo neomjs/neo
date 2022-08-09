@@ -41,11 +41,7 @@ class Component extends Base {
         /*
          * @member {Neo.sitemap.store.Items|null} itemStore_=null
          */
-        itemStore_: null,
-        /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
-         */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        itemStore_: null
     }}
 
     /**
