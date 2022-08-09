@@ -163,9 +163,9 @@ class Base extends CoreBase {
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
-         * @member {String} hideMode_='visibility'
+         * @member {String} hideMode_='removeDom'
          */
-        hideMode_: 'visibility',
+        hideMode_: 'removeDom',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
