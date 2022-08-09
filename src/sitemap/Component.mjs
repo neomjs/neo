@@ -1,12 +1,12 @@
-import Base            from '../container/Base.mjs';
+import Base            from '../component/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import ItemStore       from './store/Items.mjs';
 
 /**
- * @class Neo.sitemap.Container
- * @extends Neo.container.Base
+ * @class Neo.sitemap.Component
+ * @extends Neo.component.Base
  */
-class Container extends Base {
+class Component extends Base {
     static getStaticConfig() {return {
         /**
          * Valid values for itemHideMode
@@ -19,26 +19,19 @@ class Container extends Base {
 
     static getConfig() {return {
         /*
-         * @member {String} className='Neo.sitemap.Container'
+         * @member {String} className='Neo.sitemap.Component'
          * @protected
          */
-        className: 'Neo.sitemap.Container',
+        className: 'Neo.sitemap.Component',
         /*
          * @member {String} ntype='sitemap'
          * @protected
          */
         ntype: 'sitemap',
         /*
-         * @member {String[} cls=['neo-sitemap','neo-container']
+         * @member {String[} cls=['neo-sitemap']
          */
-        cls: ['neo-sitemap', 'neo-container'],
-        /*
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            ntype: 'component',
-            cls  : ['neo-sitemap-column', 'neo-container']
-        },
+        cls: ['neo-sitemap'],
         /**
          * Valid values: removeDom, visibility
          * Defines if the component items should use css visibility:'hidden' or vdom:removeDom
@@ -85,7 +78,7 @@ class Container extends Base {
             scope       : me
         });
 
-        value?.getCount() > 0 && me.createColumns();
+        value?.getCount() > 0 && me.createItems();
     }
 
     /**
@@ -113,18 +106,27 @@ class Container extends Base {
     /**
      *
      */
-    createColumns() {
+    createItems() {
         let me          = this,
             records     = me.itemStore.items,
             columnIndex = -1,
-            items       = [],
+            vdom        = me.vdom,
             action, column, item, record;
+
+        vdom.cn = [];
 
         for (record of records) {
             if (record.column !== columnIndex) {
                 columnIndex++;
-                column = {id: `${me.id}__column-${columnIndex}`, vdom: {cn: []}};
-                items.push(column);
+
+                column = {
+                    ...me.itemDefaults,
+                    cls: ['neo-sitemap-column'],
+                    cn : [],
+                    id : `${me.id}__column-${columnIndex}`
+                };
+
+                vdom.cn.push(column);
             }
 
             action = record.action;
@@ -163,10 +165,10 @@ class Container extends Base {
                 }
             }
 
-            column.vdom.cn.push(item);
+            column.cn.push(item);
         }
 
-        me.items = items;
+        me.vdom = vdom;
     }
 
     /**
@@ -204,24 +206,24 @@ class Container extends Base {
      *
      */
     onItemStoreFilter() {
-        this.createColumns();
+        this.createItems();
     }
 
     /**
      *
      */
     onItemStoreLoad() {
-        this.createColumns();
+        this.createItems();
     }
 
     /**
      *
      */
     onItemStoreRecordChange() {
-        this.createColumns();
+        this.createItems();
     }
 }
 
-Neo.applyClassConfig(Container);
+Neo.applyClassConfig(Component);
 
-export default Container;
+export default Component;

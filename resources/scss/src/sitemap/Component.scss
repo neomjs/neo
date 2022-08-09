@@ -1,5 +1,6 @@
 .neo-sitemap {
     border : 1px solid v(panel-border-color);
+    display: flex;
     padding: 30px 100px 60px;
 
     .neo-action {
@@ -33,6 +34,8 @@
     }
 
     .neo-sitemap-column {
+        flex: 1;
+
         &:not(:last-child) {
             border-right: 1px solid v(panel-border-color);
             margin-right: 25px;

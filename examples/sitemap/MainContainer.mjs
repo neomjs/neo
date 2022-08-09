@@ -1,6 +1,6 @@
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
 import RangeField            from '../../src/form/field/Range.mjs';
-import SiteMapContainer      from '../../src/sitemap/Container.mjs';
+import SiteMapComponent      from '../../src/sitemap/Component.mjs';
 
 /**
  * @class Neo.examples.sitemap.MainContainer
@@ -36,7 +36,7 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create(SiteMapContainer, {
+        return Neo.create(SiteMapComponent, {
             height: 600,
             width : 800,
 
