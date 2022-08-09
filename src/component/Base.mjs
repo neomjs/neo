@@ -163,9 +163,9 @@ class Base extends CoreBase {
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
-         * @member {String} hideMode_='visibility'
+         * @member {String} hideMode_='removeDom'
          */
-        hideMode_: 'visibility',
+        hideMode_: 'removeDom',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -1121,10 +1121,9 @@ class Base extends CoreBase {
      * @param {Number} timeout
      */
     hide(timeout) {
-        let me       = this,
-            doRemove = me.hideMode !== 'visibility';
+        let me = this;
 
-        if (doRemove) {
+        if (me.hideMode !== 'visibility') {
             let removeFn = function() {
                 let vdom = me.vdom;
                 vdom.removeDom = true;
@@ -1142,7 +1141,7 @@ class Base extends CoreBase {
             me.style = style;
         }
 
-        this._hidden = true;
+        me._hidden = true;
     }
 
     /**
@@ -1505,10 +1504,9 @@ class Base extends CoreBase {
      * hideMode: 'visibility' uses css visibility.
      */
     show() {
-        let me    = this,
-            doAdd = me.hideMode !== 'visibility';
+        let me = this;
 
-        if (doAdd) {
+        if (me.hideMode !== 'visibility') {
             let vdom = me.vdom;
             vdom.removeDom = false;
             me.vdom = vdom;
@@ -1518,7 +1516,7 @@ class Base extends CoreBase {
             me.style = style;
         }
 
-        this._hidden = false;
+        me._hidden = false;
     }
 
     /**
