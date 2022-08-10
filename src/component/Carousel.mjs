@@ -127,19 +127,19 @@ class Carousel extends Component {
      */
     afterSetAutoRun(value, oldValue) {
         if (value) {
-            let me = this;
+            let me   = this,
+                vdom = me._vdom;
 
             if(!value) return;
 
             TaskManager.start({
-                id      : this.id,
+                id      : me.id,
                 interval: value,
                 run     : function() {
                     me.onCarouselBtnClick('forward');
                 }
             });
 
-            let vdom = this._vdom;
             vdom.cn[0].cn[0].removeDom = true;
 
             this._vdom = vdom;
