@@ -3,6 +3,7 @@ import Component       from './Base.mjs';
 import Store           from '../data/Store.mjs';
 import TaskManager     from '../manager/Task.mjs';
 
+
 /**
  * @class Neo.component.Carousel
  * @extends Neo.component.Base
@@ -20,6 +21,11 @@ class Carousel extends Component {
      * @member {String[]} positionArray
      */
     positionArray = ['neo-carousel--translate-x-full', 'neo-carousel-translate-x-0', 'neo-carousel-translate-x-full']
+    /**
+     * keeps track of the data for the onClickEvent
+     * @type {null}
+     */
+    itemData = {}
 
     static getConfig() {return {
         /**
@@ -57,8 +63,14 @@ class Carousel extends Component {
          * but it is a string instead of surrounding "`"
          * @member {String|null} tpl=null
          * @example
-         *     record = {foo: ... , bar: ...}
-         *     "[{cls: 'css-foo-class', html: '${foo}'}, {html: '${baa}'}]"
+         *      record = {foo: ... , bar: ...}
+         *      data => [{
+         *          cls: 'css-foo-class',
+         *          html: data.foo
+         *      },
+         *      {
+         *          html: data.baa
+         *      }]"
          */
         itemTpl_: null,
         /**
@@ -71,15 +83,15 @@ class Carousel extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {cls: ['neo-carousel'], cn: [
-                {cls: ['neo-carousel-btn-bar'], cn: [
-                    {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
-                    {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
-                ]},
-                {cls: ['neo-carousel-inner'], cn: []}
-            ]}
-        ]}
+            {cn: [
+                    {cls: ['neo-carousel'], cn: [
+                            {cls: ['neo-carousel-btn-bar'], cn: [
+                                    {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
+                                    {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
+                                ]},
+                            {cls: ['neo-carousel-inner'], cn: []}
+                        ]}
+                ]}
     }}
 
     /**
@@ -91,12 +103,16 @@ class Carousel extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        if(me.autoRun) return;
-
         domListeners.push({
             click: {
                 fn      : me.onCarouselBtnClick,
                 delegate: '.neo-carousel-btn',
+                scope   : me
+            }
+        }, {
+            click: {
+                fn      : me.onClick,
+                delegate: '.neo-carousel-item',
                 scope   : me
             }
         });
@@ -106,27 +122,26 @@ class Carousel extends Component {
 
     /**
      * Triggered after autoRun config got changed
-     * @param {Boolean|Number} value
-     * @param {Boolean|Number} oldValue
+     * @param {boolean|integer} value
      * @protected
      */
     afterSetAutoRun(value, oldValue) {
-        if (value) {
-            let me   = this,
-                vdom = me._vdom;
+        let me = this;
 
-            TaskManager.start({
-                id      : me.id,
-                interval: value,
-                run     : function () {
-                    me.onCarouselBtnClick('forward');
-                }
-            });
+        if(!value) return;
 
-            vdom.cn[0].cn[0].removeDom = true;
+        TaskManager.start({
+            id: this.id,
+            interval: value,
+            run: function() {
+                me.onCarouselBtnClick('forward');
+            }
+        });
 
-            me._vdom = vdom;
-        }
+        let vdom = this._vdom;
+        vdom.cn[0].cn[0].removeDom = true;
+
+        this._vdom = vdom;
     }
 
     /**
@@ -144,25 +159,6 @@ class Carousel extends Component {
         });
 
         value?.getCount() > 0 && me.onStoreLoad();
-    }
-
-    /**
-     * Ensure the itemTpl is setup correctly to match a valid JSON
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @returns {String}
-     * @protected
-     */
-    beforeSetItemTpl(value, oldValue) {
-        if (value) {
-            value = value.replaceAll('\'', '"');
-
-            value = value.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
-                return `"${matchedStr.substring(0, matchedStr.length - 1)}":`;
-            });
-        }
-
-        return value;
     }
 
     /**
@@ -207,15 +203,17 @@ class Carousel extends Component {
             positionArray = me.positionArray,
             store         = me.store,
             data          = store.getAt(recordIndex),
-            itemTpl       = me.#formatTpl(me.itemTpl, data),
+            cn            = me.itemTpl(data),
 
-        newItem = {
-            cls: [positionArray[positionIndex], 'neo-carousel-item'],
-            cn : itemTpl,
-            recordIndex
-        };
+            newItem = {
+                cls: [positionArray[positionIndex], 'neo-carousel-item'],
+                cn,
+                recordIndex
+            };
 
         itemCls && newItem.cls.push(itemCls);
+
+        me.itemData[positionIndex] = data;
 
         return newItem;
     }
@@ -274,6 +272,48 @@ class Carousel extends Component {
     }
 
     /**
+     * Check if the user clicked an item or the container
+     * @param data
+     */
+    onClick(data) {
+        let me = this,
+            item;
+
+        if (data.path[0].id === me.id) {
+            me.onContainerClick(data);
+        } else {
+            for (item of data.path) {
+                if (item.cls.includes(me.itemCls)) {
+                    me.onItemClick(item, data);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * If the user wants to listen for the container click
+     * @param {Object} data
+     */
+    onContainerClick(data){}
+
+    /**
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        let me = this;
+
+        /**
+         * The itemClick event fires when a click occurs on a list item
+         * @event itemClick
+         * @param {String} id the record matching the list item
+         * @returns {Object}
+         */
+        me.fire('itemClick', me.itemData[me.itemIndex]);
+    }
+
+    /**
      * As soon as the store is loaded we want to
      * - create the three items
      * - fill the first three records
@@ -291,12 +331,6 @@ class Carousel extends Component {
 
     #arrayRotate(arr, n) {
         return n ? [...arr.slice(n, arr.length), ...arr.slice(0, n)] : arr;
-    }
-
-    #formatTpl(tpl, record) {
-        let resultStr = tpl.replace(/\$\{[^\}]+\}/g, (m) => record[m.slice(2, -1).trim()]);
-
-        return JSON.parse(resultStr);
     }
 }
 
