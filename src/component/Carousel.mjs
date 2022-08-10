@@ -121,7 +121,8 @@ class Carousel extends Component {
 
     /**
      * Triggered after autoRun config got changed
-     * @param {boolean|integer} value
+     * @param {Boolean|Number} value
+     * @param {Boolean|Number} oldValue
      * @protected
      */
     afterSetAutoRun(value, oldValue) {
