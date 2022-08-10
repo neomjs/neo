@@ -3,7 +3,6 @@ import Component       from './Base.mjs';
 import Store           from '../data/Store.mjs';
 import TaskManager     from '../manager/Task.mjs';
 
-
 /**
  * @class Neo.component.Carousel
  * @extends Neo.component.Base
@@ -83,15 +82,15 @@ class Carousel extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                    {cls: ['neo-carousel'], cn: [
-                            {cls: ['neo-carousel-btn-bar'], cn: [
-                                    {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
-                                    {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
-                                ]},
-                            {cls: ['neo-carousel-inner'], cn: []}
-                        ]}
-                ]}
+        {cn: [
+            {cls: ['neo-carousel'], cn: [
+                {cls: ['neo-carousel-btn-bar'], cn: [
+                    {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
+                        {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
+                    ]},
+                {cls: ['neo-carousel-inner'], cn: []}
+            ]}
+        ]}
     }}
 
     /**
@@ -126,22 +125,24 @@ class Carousel extends Component {
      * @protected
      */
     afterSetAutoRun(value, oldValue) {
-        let me = this;
+        if(value) {
+            let me = this;
 
-        if(!value) return;
+            if(!value) return;
 
-        TaskManager.start({
-            id: this.id,
-            interval: value,
-            run: function() {
-                me.onCarouselBtnClick('forward');
-            }
-        });
+            TaskManager.start({
+                id: this.id,
+                interval: value,
+                run: function() {
+                    me.onCarouselBtnClick('forward');
+                }
+            });
 
-        let vdom = this._vdom;
-        vdom.cn[0].cn[0].removeDom = true;
+            let vdom = this._vdom;
+            vdom.cn[0].cn[0].removeDom = true;
 
-        this._vdom = vdom;
+            this._vdom = vdom;
+        }
     }
 
     /**
