@@ -86,8 +86,8 @@ class Carousel extends Component {
             {cls: ['neo-carousel'], cn: [
                 {cls: ['neo-carousel-btn-bar'], cn: [
                     {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
-                        {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
-                    ]},
+                    {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}
+                ]},
                 {cls: ['neo-carousel-inner'], cn: []}
             ]}
         ]}
