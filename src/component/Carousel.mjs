@@ -135,14 +135,14 @@ class Carousel extends Component {
             TaskManager.start({
                 id      : me.id,
                 interval: value,
-                run     : function() {
+                run     : function () {
                     me.onCarouselBtnClick('forward');
                 }
             });
 
             vdom.cn[0].cn[0].removeDom = true;
 
-            this._vdom = vdom;
+            me._vdom = vdom;
         }
     }
 
