@@ -126,15 +126,15 @@ class Carousel extends Component {
      * @protected
      */
     afterSetAutoRun(value, oldValue) {
-        if(value) {
+        if (value) {
             let me = this;
 
             if(!value) return;
 
             TaskManager.start({
-                id: this.id,
+                id      : this.id,
                 interval: value,
-                run: function() {
+                run     : function() {
                     me.onCarouselBtnClick('forward');
                 }
             });
