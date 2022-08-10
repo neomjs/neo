@@ -130,8 +130,6 @@ class Carousel extends Component {
             let me   = this,
                 vdom = me._vdom;
 
-            if(!value) return;
-
             TaskManager.start({
                 id      : me.id,
                 interval: value,
@@ -207,11 +205,11 @@ class Carousel extends Component {
             data          = store.getAt(recordIndex),
             cn            = me.itemTpl(data),
 
-            newItem = {
-                cls: [positionArray[positionIndex], 'neo-carousel-item'],
-                cn,
-                recordIndex
-            };
+        newItem = {
+            cls: [positionArray[positionIndex], 'neo-carousel-item'],
+            cn,
+            recordIndex
+        };
 
         itemCls && newItem.cls.push(itemCls);
 
