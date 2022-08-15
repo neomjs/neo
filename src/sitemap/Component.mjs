@@ -39,7 +39,7 @@ class Component extends Base {
          */
         itemHideMode_: 'removeDom',
         /*
-         * @member {Neo.sitemap.store.Items|null} store_=null
+         * @member {Neo.sitemap.Store|null} store_=null
          */
         store_: null
     }}
