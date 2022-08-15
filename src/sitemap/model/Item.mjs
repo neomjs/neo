@@ -18,7 +18,7 @@ class Item extends Model {
             name: 'action',
             type: 'String'
         }, {
-            name        : 'actionType',
+            name        : 'actionType', // handler, route, url
             defaultValue: 'route',
             type        : 'String'
         }, {

@@ -53,7 +53,10 @@ class Component extends Base {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({click: me.onItemClick, delegate: '.neo-action', scope: me});
+        domListeners.push(
+            {click: me.onItemHandlerClick, delegate: '.neo-action-handler', scope: me},
+            {click: me.onItemClick,        delegate: '.neo-action',         scope: me}
+        );
 
         me.domListeners = domListeners;
     }
@@ -194,10 +197,20 @@ class Component extends Base {
     }
 
     /**
-     * Override as needed
+     * Override as needed (e.g. unmounting an overlay)
      * @param {Object} data
      */
     onItemClick(data) {}
+
+    /**
+     * @param {Object} data
+     */
+    onItemHandlerClick(data) {
+        let me     = this,
+            record = me.store.get(me.getRecordId(data.path[0].id));
+
+        me[record.action](record);
+    }
 
     /**
      *

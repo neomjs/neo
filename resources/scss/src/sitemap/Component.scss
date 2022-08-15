@@ -10,7 +10,8 @@
         text-decoration: none;
     }
 
-    .neo-action[href] {
+    .neo-action[href],
+    .neo-action-handler {
         &:hover {
             text-decoration: underline;
         }
