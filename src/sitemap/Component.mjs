@@ -63,8 +63,8 @@ class Component extends Base {
 
     /**
      * Triggered after the store config got changed
-     * @param {Neo.sitemap.store.Store|null} value
-     * @param {Neo.sitemap.store.Store|null} oldValue
+     * @param {Neo.sitemap.Store|null} value
+     * @param {Neo.sitemap.Store|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
