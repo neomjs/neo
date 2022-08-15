@@ -76,7 +76,7 @@ class Component extends Base {
         };
 
         oldValue?.un(listeners);
-        value?.on(listeners);
+        value   ?.on(listeners);
 
         value?.getCount() > 0 && this.createItems();
     }
