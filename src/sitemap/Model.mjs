@@ -1,16 +1,16 @@
-import Model from '../../data/Model.mjs';
+import BaseModel from '../data/Model.mjs';
 
 /**
- * @class Neo.sitemap.model.Item
+ * @class Neo.sitemap.Model
  * @extends Neo.data.Model
  */
-class Item extends Model {
+class Model extends BaseModel {
     static getConfig() {return {
         /*
-         * @member {String} className='Neo.sitemap.model.Item'
+         * @member {String} className='Neo.sitemap.Model'
          * @protected
          */
-        className: 'Neo.sitemap.model.Item',
+        className: 'Neo.sitemap.Model',
         /*
          * @member {Object[]} fields
          */
@@ -46,6 +46,6 @@ class Item extends Model {
     }}
 }
 
-Neo.applyClassConfig(Item);
+Neo.applyClassConfig(Model);
 
-export default Item;
+export default Model;

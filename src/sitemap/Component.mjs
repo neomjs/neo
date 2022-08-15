@@ -1,6 +1,6 @@
 import Base            from '../component/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import ItemStore       from './store/Items.mjs';
+import Store           from './Store.mjs';
 
 /**
  * @class Neo.sitemap.Component
@@ -63,8 +63,8 @@ class Component extends Base {
 
     /**
      * Triggered after the store config got changed
-     * @param {Neo.sitemap.store.Items|null} value
-     * @param {Neo.sitemap.store.Items|null} oldValue
+     * @param {Neo.sitemap.store.Store|null} value
+     * @param {Neo.sitemap.store.Store|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
@@ -100,7 +100,7 @@ class Component extends Base {
      */
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, ItemStore);
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
