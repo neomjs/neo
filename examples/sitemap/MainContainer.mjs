@@ -40,7 +40,7 @@ class MainContainer extends ConfigurationViewport {
             height: 600,
             width : 800,
 
-            itemStore: {
+            store: {
                 data: [
                     {id:  1, column: 0, name: 'Group 1', level: 0},
                     {id:  2, column: 0, name: 'Item 1',  level: 1, action: 'item1'},

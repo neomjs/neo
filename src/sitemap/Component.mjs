@@ -39,9 +39,9 @@ class Component extends Base {
          */
         itemHideMode_: 'removeDom',
         /*
-         * @member {Neo.sitemap.store.Items|null} itemStore_=null
+         * @member {Neo.sitemap.store.Items|null} store_=null
          */
-        itemStore_: null
+        store_: null
     }}
 
     /**
@@ -59,22 +59,23 @@ class Component extends Base {
     }
 
     /**
-     * Triggered after the itemStore config got changed
+     * Triggered after the store config got changed
      * @param {Neo.sitemap.store.Items|null} value
      * @param {Neo.sitemap.store.Items|null} oldValue
      * @protected
      */
-    afterSetItemStore(value, oldValue) {
-        let me = this;
+    afterSetStore(value, oldValue) {
+        let listeners = {
+            filter      : 'onStoreFilter',
+            load        : 'onStoreLoad',
+            recordChange: 'onStoreRecordChange',
+            scope       : this
+        };
 
-        value?.on({
-            filter      : 'onItemStoreFilter',
-            load        : 'onItemStoreLoad',
-            recordChange: 'onItemStoreRecordChange',
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value?.on(listeners);
 
-        value?.getCount() > 0 && me.createItems();
+        value?.getCount() > 0 && this.createItems();
     }
 
     /**
@@ -88,13 +89,13 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the itemStore config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
-    beforeSetItemStore(value, oldValue) {
+    beforeSetStore(value, oldValue) {
         oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, ItemStore);
     }
@@ -104,7 +105,7 @@ class Component extends Base {
      */
     createItems() {
         let me          = this,
-            records     = me.itemStore.items,
+            records     = me.store.items,
             columnIndex = -1,
             vdom        = me.vdom,
             action, column, item, record;
@@ -179,9 +180,9 @@ class Component extends Base {
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
-    getItemRecordId(vnodeId) {
+    getRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
-            model    = this.itemStore.model,
+            model    = this.store.model,
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type.toLowerCase();
 
@@ -201,21 +202,21 @@ class Component extends Base {
     /**
      *
      */
-    onItemStoreFilter() {
+    onStoreFilter() {
         this.createItems();
     }
 
     /**
      *
      */
-    onItemStoreLoad() {
+    onStoreLoad() {
         this.createItems();
     }
 
     /**
      *
      */
-    onItemStoreRecordChange() {
+    onStoreRecordChange() {
         this.createItems();
     }
 }
