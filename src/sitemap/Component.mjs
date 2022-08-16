@@ -1,12 +1,12 @@
-import Base            from '../container/Base.mjs';
+import Base            from '../component/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import ItemStore       from './store/Items.mjs';
+import Store           from './Store.mjs';
 
 /**
- * @class Neo.sitemap.Container
- * @extends Neo.container.Base
+ * @class Neo.sitemap.Component
+ * @extends Neo.component.Base
  */
-class Container extends Base {
+class Component extends Base {
     static getStaticConfig() {return {
         /**
          * Valid values for itemHideMode
@@ -19,26 +19,19 @@ class Container extends Base {
 
     static getConfig() {return {
         /*
-         * @member {String} className='Neo.sitemap.Container'
+         * @member {String} className='Neo.sitemap.Component'
          * @protected
          */
-        className: 'Neo.sitemap.Container',
+        className: 'Neo.sitemap.Component',
         /*
          * @member {String} ntype='sitemap'
          * @protected
          */
         ntype: 'sitemap',
         /*
-         * @member {String[} cls=['neo-sitemap','neo-container']
+         * @member {String[} cls=['neo-sitemap']
          */
-        cls: ['neo-sitemap', 'neo-container'],
-        /*
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            ntype: 'component',
-            cls  : ['neo-sitemap-column', 'neo-container']
-        },
+        cls: ['neo-sitemap'],
         /**
          * Valid values: removeDom, visibility
          * Defines if the component items should use css visibility:'hidden' or vdom:removeDom
@@ -46,13 +39,9 @@ class Container extends Base {
          */
         itemHideMode_: 'removeDom',
         /*
-         * @member {Neo.sitemap.store.Items|null} itemStore_=null
+         * @member {Neo.sitemap.Store|null} store_=null
          */
-        itemStore_: null,
-        /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
-         */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        store_: null
     }}
 
     /**
@@ -64,28 +53,32 @@ class Container extends Base {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({click: me.onItemClick, delegate: '.neo-action', scope: me});
+        domListeners.push(
+            {click: me.onItemHandlerClick, delegate: '.neo-action-handler', scope: me},
+            {click: me.onItemClick,        delegate: '.neo-action',         scope: me}
+        );
 
         me.domListeners = domListeners;
     }
 
     /**
-     * Triggered after the itemStore config got changed
-     * @param {Neo.sitemap.store.Items|null} value
-     * @param {Neo.sitemap.store.Items|null} oldValue
+     * Triggered after the store config got changed
+     * @param {Neo.sitemap.Store|null} value
+     * @param {Neo.sitemap.Store|null} oldValue
      * @protected
      */
-    afterSetItemStore(value, oldValue) {
-        let me = this;
+    afterSetStore(value, oldValue) {
+        let listeners = {
+            filter      : 'onStoreFilter',
+            load        : 'onStoreLoad',
+            recordChange: 'onStoreRecordChange',
+            scope       : this
+        };
 
-        value?.on({
-            filter      : 'onItemStoreFilter',
-            load        : 'onItemStoreLoad',
-            recordChange: 'onItemStoreRecordChange',
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
 
-        value?.getCount() > 0 && me.createColumns();
+        value?.getCount() > 0 && this.createItems();
     }
 
     /**
@@ -99,32 +92,41 @@ class Container extends Base {
     }
 
     /**
-     * Triggered before the itemStore config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
-    beforeSetItemStore(value, oldValue) {
+    beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, ItemStore);
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
      *
      */
-    createColumns() {
+    createItems() {
         let me          = this,
-            records     = me.itemStore.items,
+            records     = me.store.items,
             columnIndex = -1,
-            items       = [],
+            vdom        = me.vdom,
             action, column, item, record;
+
+        vdom.cn = [];
 
         for (record of records) {
             if (record.column !== columnIndex) {
                 columnIndex++;
-                column = {vdom: {cn: []}};
-                items.push(column);
+
+                column = {
+                    ...me.itemDefaults,
+                    cls: ['neo-sitemap-column'],
+                    cn : [],
+                    id : `${me.id}__column-${columnIndex}`
+                };
+
+                vdom.cn.push(column);
             }
 
             action = record.action;
@@ -163,10 +165,10 @@ class Container extends Base {
                 }
             }
 
-            column.vdom.cn.push(item);
+            column.cn.push(item);
         }
 
-        me.items = items;
+        me.vdom = vdom;
     }
 
     /**
@@ -181,9 +183,9 @@ class Container extends Base {
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
-    getItemRecordId(vnodeId) {
+    getRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
-            model    = this.itemStore.model,
+            model    = this.store.model,
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type.toLowerCase();
 
@@ -195,33 +197,43 @@ class Container extends Base {
     }
 
     /**
-     * Override as needed
+     * Override as needed (e.g. unmounting an overlay)
      * @param {Object} data
      */
     onItemClick(data) {}
 
     /**
-     *
+     * @param {Object} data
      */
-    onItemStoreFilter() {
-        this.createColumns();
+    onItemHandlerClick(data) {
+        let me     = this,
+            record = me.store.get(me.getRecordId(data.path[0].id));
+
+        me[record.action](record);
     }
 
     /**
      *
      */
-    onItemStoreLoad() {
-        this.createColumns();
+    onStoreFilter() {
+        this.createItems();
     }
 
     /**
      *
      */
-    onItemStoreRecordChange() {
-        this.createColumns();
+    onStoreLoad() {
+        this.createItems();
+    }
+
+    /**
+     *
+     */
+    onStoreRecordChange() {
+        this.createItems();
     }
 }
 
-Neo.applyClassConfig(Container);
+Neo.applyClassConfig(Component);
 
-export default Container;
+export default Component;

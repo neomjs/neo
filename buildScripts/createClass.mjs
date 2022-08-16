@@ -118,7 +118,9 @@ if (programOpts.info) {
                 'core.Base',
                 'data.Model',
                 'data.Store',
-                'model.Component'
+                'model.Component',
+                'tab.Container',
+                'table.Container'
             ]
         });
     }
@@ -581,6 +583,19 @@ if (programOpts.info) {
             `        className: '${className}'`
         );
 
+        baseClass === 'table.Container' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} columns",
+            "         */",
+            "        columns: [{",
+            "            dataField: 'id',",
+            "            text     : 'Id'",
+            "        }, {",
+            "            dataField: 'name',",
+            "            text     : 'Name'",
+            "        }]"
+        );
+
         baseClass === 'data.Model' && addComma(classContent).push(
             "        /*",
             "         * @member {Object[]} fields",
@@ -596,6 +611,27 @@ if (programOpts.info) {
             "         * @member {Object[]} items",
             "         */",
             "        items: []"
+        );
+
+        baseClass === 'tab.Container' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: [{",
+            "            ntype: 'component',",
+            "",
+            "            tabButtonConfig: {",
+            "                iconCls: 'fa fa-home',",
+            "                text   : 'Tab 1'",
+            "            }",
+            "        }, {",
+            "            ntype: 'component',",
+            "",
+            "            tabButtonConfig: {",
+            "                iconCls: 'fa fa-play-circle',",
+            "                text   : 'Tab 2'",
+            "            }",
+            "        }]",
         );
 
         isSingleton && addComma(classContent).push(
@@ -642,6 +678,8 @@ if (programOpts.info) {
     }
 
     function guessBaseClass(className) {
+        className = className.toLowerCase();
+
         if (className.includes('.model.')) {
             return 'data.Model';
         }
@@ -650,12 +688,20 @@ if (programOpts.info) {
             return 'data.Store';
         }
 
-        if (className.endsWith('Controller')) {
+        if (className.endsWith('controller')) {
             return 'controller.Component';
         }
 
-        if (className.endsWith('Model')) {
+        if (className.endsWith('model')) {
             return 'model.Component';
+        }
+
+        if (className.includes('table')) {
+            return 'table.Container';
+        }
+
+        if (className.includes('tab')) {
+            return 'tab.Container';
         }
 
         return 'container.Base';
