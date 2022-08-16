@@ -119,6 +119,7 @@ if (programOpts.info) {
                 'data.Model',
                 'data.Store',
                 'model.Component',
+                'tab.Container',
                 'table.Container'
             ]
         });
@@ -612,6 +613,27 @@ if (programOpts.info) {
             "        items: []"
         );
 
+        baseClass === 'tab.Container' && addComma(classContent).push(
+            "        /*",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: [{",
+            "            ntype: 'component',",
+            "",
+            "            tabButtonConfig: {",
+            "                iconCls: 'fa fa-home',",
+            "                text   : 'Tab 1'",
+            "            }",
+            "        }, {",
+            "            ntype: 'component',",
+            "",
+            "            tabButtonConfig: {",
+            "                iconCls: 'fa fa-play-circle',",
+            "                text   : 'Tab 2'",
+            "            }",
+            "        }]",
+        );
+
         isSingleton && addComma(classContent).push(
             "        /*",
             "         * @member {Boolean} singleton=true",
@@ -676,6 +698,10 @@ if (programOpts.info) {
 
         if (className.includes('table')) {
             return 'table.Container';
+        }
+
+        if (className.includes('tab')) {
+            return 'tab.Container';
         }
 
         return 'container.Base';
