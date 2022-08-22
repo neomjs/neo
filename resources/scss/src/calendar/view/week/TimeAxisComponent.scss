@@ -18,6 +18,10 @@
         display        : flex;
         font-size      : 0.625em;
         justify-content: center;
+
+        > div {
+            height: 1em;
+        }
     }
 }
 
