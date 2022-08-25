@@ -48,8 +48,9 @@ class Canvas extends Component {
 
         if (value && me.offscreen) {
             worker.promiseMessage('main', {
-                action: 'getOffscreenCanvas',
-                nodeId: id
+                action : 'getOffscreenCanvas',
+                appName: me.appName,
+                nodeId : id
             }).then(data => {
                 worker.promiseMessage('canvas', {
                     action: 'registerCanvas',
