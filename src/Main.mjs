@@ -121,7 +121,7 @@ class Main extends core.Base {
     /**
      * Workers can not trigger alert(), so we need remote method access.
      * @param {Object} data
-     * @param {String} message
+     * @param {String} data.message
      */
     alert(data) {
         alert(data.message);
