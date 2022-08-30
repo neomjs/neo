@@ -31,7 +31,14 @@ class Toolbar extends BaseToolbar {
          */
         itemDefaults: {
             ntype: 'grid-header-button'
-        }
+        },
+        /**
+         * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
+         */
+        _vdom:
+        {cn: [
+            {cls: 'neo-grid-row', cn: []}
+        ]}
     }}
 
     /**
@@ -96,6 +103,13 @@ class Toolbar extends BaseToolbar {
      */
     getLayoutConfig(dock) {
         return 'base';
+    }
+
+    /**
+     * @returns {Object[]} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn[0];
     }
 }
 
