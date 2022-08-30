@@ -22,11 +22,11 @@ class Container extends BaseContainer {
          */
         amountRows: 20,
         /**
-         * @member {Array} cls=['neo-grid-container']
+         * @member {String[]} cls=['neo-grid-container']
          */
         cls: ['neo-grid-container'],
         /**
-         * @member {Array} columns_=[]
+         * @member {Object[]} columns_=[]
          */
         columns_: [],
         /**
@@ -77,8 +77,8 @@ class Container extends BaseContainer {
 
     /**
      * Triggered before the columns config gets changed.
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     beforeSetColumns(value, oldValue) {
