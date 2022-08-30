@@ -26,7 +26,7 @@ class GridContainer extends BaseGridContainer {
             align               : 'right',
             defaultSortDirection: 'DESC',
             renderer            : Util.formatNumber,
-            width               : 200
+            width               : 100
         },
         /**
          * @member {Object[]} columns
@@ -45,6 +45,7 @@ class GridContainer extends BaseGridContainer {
             dock                : 'left',
             field               : 'country',
             text                : 'Country',
+            width               : 200,
 
             renderer: data => {
                 return {
