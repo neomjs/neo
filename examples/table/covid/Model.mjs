@@ -1,12 +1,12 @@
-import Model from '../../../src/data/Model.mjs';
+import BaseModel from '../../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.table.covid.MainModel
+ * @class Neo.examples.table.covid.Model
  * @extends Neo.data.Model
  */
-class MainModel extends Model {
+class Model extends BaseModel {
     static getConfig() {return {
-        className: 'Neo.examples.table.covid.MainModel',
+        className: 'Neo.examples.table.covid.Model',
 
         fields: [{
             name: 'country',
@@ -24,6 +24,6 @@ class MainModel extends Model {
     }}
 }
 
-Neo.applyClassConfig(MainModel);
+Neo.applyClassConfig(Model);
 
-export default MainModel;
+export default Model;

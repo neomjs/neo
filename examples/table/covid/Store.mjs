@@ -1,13 +1,13 @@
-import Store from '../../../src/data/Store.mjs';
-import Model from './MainModel.mjs';
+import BaseStore from '../../../src/data/Store.mjs';
+import Model     from './Model.mjs';
 
 /**
- * @class Neo.examples.table.covid.MainStore
+ * @class Neo.examples.table.covid.Store
  * @extends Neo.data.Store
  */
-class MainStore extends Store {
+class Store extends BaseStore {
     static getConfig() {return {
-        className  : 'Neo.examples.table.covid.MainStore',
+        className  : 'Neo.examples.table.covid.Store',
         keyProperty: 'githubId',
         model      : Model,
 
@@ -50,6 +50,6 @@ class MainStore extends Store {
     }}
 }
 
-Neo.applyClassConfig(MainStore);
+Neo.applyClassConfig(Store);
 
-export default MainStore;
+export default Store;

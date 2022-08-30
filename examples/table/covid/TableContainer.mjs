@@ -1,5 +1,5 @@
 import BaseTableContainer from '../../../src/table/Container.mjs';
-import MainStore          from './MainStore.mjs';
+import Store              from './Store.mjs';
 
 
 /**
@@ -25,7 +25,7 @@ class TableContainer extends BaseTableContainer {
         /**
          * @member {Object[]} store=MainStore
          */
-        store: MainStore
+        store: Store
     }}
 }
 
