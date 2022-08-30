@@ -67,15 +67,13 @@ class Toolbar extends BaseToolbar {
             if (item.width)    {style.width    = item.width    + 'px'}
 
             if (item.dock) {
-                item.vdom.cls = ['neo-locked'];
+                item.vdom.cls.push('neo-locked');
 
                 if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px';
                 }
 
                 dockLeftWidth += (item.width + 1); // todo: borders fix
-            } else {
-                item.vdom.cls = []; // remove the button cls from the th tag
             }
 
             item.wrapperStyle = style;

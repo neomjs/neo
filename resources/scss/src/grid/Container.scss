@@ -6,14 +6,6 @@
     height        : 100%;
     line-height   : 19px;
     overflow      : hidden;
-    //position      : relative;
-
-    .neo-grid-header-toolbar {
-        //position: sticky;
-        //top     : 0;
-        display : table;
-        width   : 100%;
-    }
 
     .neo-grid-row {
         display   : table-row;
@@ -90,22 +82,5 @@
     .neo-grid-header-cell {
         display: table-cell;
         padding: 0;
-    }
-
-    /* Scrollbars */
-    /*&::-webkit-scrollbar {
-        display: none;
-    }*/
-
-    .neo-grid-y-scroller {
-        background-color: green;
-        height: 100%;
-        position: absolute;
-        right: 0;
-        top: 32px;
-        width: 17px;
-        overflow: auto;
-        transform: translateZ(0);
-        -webkit-transform: translateZ(0);
     }
 }
