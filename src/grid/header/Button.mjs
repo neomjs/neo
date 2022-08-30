@@ -18,7 +18,7 @@ class Button extends BaseButton {
          */
         ntype: 'grid-header-button',
         /**
-         * @member {Array} cls=['neo-grid-header-button']
+         * @member {String[]} cls=['neo-grid-header-button']
          */
         cls: ['neo-grid-header-button'],
         /**
@@ -57,11 +57,6 @@ class Button extends BaseButton {
         }
 
         me.cls = cls;
-
-        // testing check until all example tables have a store
-        if (!container || !container.store) {
-            return;
-        }
 
         me.mounted && me.fire('sort', {
             direction: value,
