@@ -1,6 +1,8 @@
-import BaseContainer from '../container/Base.mjs';
-import View          from './View.mjs';
-import * as header   from './header/_export.mjs';
+import BaseContainer   from '../container/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Store           from '../data/Store.mjs';
+import View            from './View.mjs';
+import * as header     from './header/_export.mjs';
 
 /**
  * @class Neo.grid.Container
@@ -51,6 +53,10 @@ class Container extends BaseContainer {
          */
         layout: 'base',
         /**
+         * @member {Neo.data.Store} store_=null
+         */
+        store_: null,
+        /**
          * @member {Object} _vdom={cls:['neo-grid-wrapper'],cn:[{cn:[]}]}
          */
         _vdom:
@@ -97,6 +103,43 @@ class Container extends BaseContainer {
     beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
             return this.createColumns(value);
+        }
+
+        return value;
+    }
+
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Neo.data.Store} value
+     * @param {Neo.data.Store} oldValue
+     * @protected
+     */
+    beforeSetStore(value, oldValue) {
+        oldValue?.destroy();
+
+        if (value) {
+            let me = this,
+
+                listeners = {
+                    filter      : me.onStoreFilter,
+                    load        : me.onStoreLoad,
+                    recordChange: me.onStoreRecordChange,
+                    scope       : me
+                };
+
+            if (value instanceof Store) {
+                value.on(listeners);
+                value.getCount() > 0 && me.onStoreLoad(value.items);
+            } else {
+                value = ClassSystemUtil.beforeSetInstance(value, Store, {
+                    listeners
+                });
+            }
+
+            // in case we dynamically change the store, the view needs to get the new reference
+            if (me.view) {
+                me.view.store = value;
+            }
         }
 
         return value;
@@ -181,6 +224,63 @@ class Container extends BaseContainer {
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
         me.onStoreLoad(me.store.items);
+    }
+
+    /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad(this.store.items);
+    }
+
+    /**
+     * @param {Object[]} data
+     * @protected
+     */
+    onStoreLoad(data) {
+        let me = this,
+            listenerId;
+
+        if (me.rendered) {
+            me.createViewData(data);
+
+            if (me.store.sorters.length < 1) {
+                me.removeSortingCss();
+            }
+        } else {
+            listenerId = me.on('rendered', () => {
+                me.un('rendered', listenerId);
+                setTimeout(() => {
+                    me.createViewData(data);
+                }, 50);
+            });
+        }
+    }
+
+    /**
+     * Gets triggered after changing the value of a record field.
+     * E.g. myRecord.foo = 'bar';
+     * @param {Object} opts
+     * @param {String} opts.field The name of the field which got changed
+     * @param {Neo.data.Model} opts.model The model instance of the changed record
+     * @param {*} opts.oldValue
+     * @param {Object} opts.record
+     * @param {*} opts.value
+     */
+    onStoreRecordChange(opts) {
+        this.getView().onStoreRecordChange(opts);
+    }
+
+    /**
+     * @param {String} dataField
+     * @protected
+     */
+    removeSortingCss(dataField) {
+        this.items[0].items.forEach(column => {
+            if (column.dataField !== dataField) {
+                column.removeSortingCss();
+            }
+        });
     }
 }
 
