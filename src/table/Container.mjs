@@ -39,11 +39,11 @@ class Container extends BaseContainer {
          */
         createRandomData: false,
         /**
-         * @member {Array} cls=['neo-table-container']
+         * @member {String[]} cls=['neo-table-container']
          */
         cls: ['neo-table-container'],
         /**
-         * @member {Array} columns_=[]
+         * @member {Object[]} columns_=[]
          */
         columns_: [],
         /**
@@ -199,8 +199,8 @@ class Container extends BaseContainer {
 
     /**
      * Triggered before the columns config gets changed.
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     beforeSetColumns(value, oldValue) {
