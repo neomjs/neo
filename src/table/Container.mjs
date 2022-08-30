@@ -294,11 +294,11 @@ class Container extends BaseContainer {
         }
 
         columns.forEach(column => {
+            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+
             if (column.dock && !column.width) {
                 Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
-
-            columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
             if (sorters?.[0]) {
                 if (column.dataField === sorters[0].property) {
