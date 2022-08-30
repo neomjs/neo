@@ -183,6 +183,13 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Object[]} inputData
+     */
+    createViewData(inputData) {
+        this.getView().createViewData(inputData);
+    }
+
+    /**
      * @override
      * @returns {*}
      */
