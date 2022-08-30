@@ -72,6 +72,7 @@
     }
 
     .neo-grid-cell {
+        align-items     : center;
         background-color: #3c3f41;
         display         : flex;
         height          : 32px !important;
