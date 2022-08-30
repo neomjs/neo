@@ -31,42 +31,60 @@ class Toolbar extends BaseToolbar {
          */
         itemDefaults: {
             ntype: 'grid-header-button'
-        },
-        /**
-         * @member {Object} _vdom
-         * @protected
-         */
-        _vdom:
-        {cn: [
-            {cls: ['neo-grid-row'], cn: []}
-        ]}
+        }
     }}
 
     /**
-     * @param {Array} items
+     *
      */
-    createItems(items) {
-        let me = this,
-            cn = [],
-            i  = 0,
-            len, vdom;
+    createItems() {
+        let me = this;
+
+        me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
         super.createItems();
 
-        items = me.items;
-        len   = items.length;
-        vdom  = me.vdom;
+        let dockLeftWidth  = 0,
+            dockRightWidth = 0,
+            items          = me.items,
+            len            = items.length,
+            vdom           = me.vdom,
+            style;
 
-        for (; i < len; i++) {
-            cn.push(items[i]._vdom = {
-                cls: ['neo-grid-header-cell'],
-                cn : items[i].vdom
-            });
+        items.forEach((item, index) => {
+            style = item.wrapperStyle;
 
-            //items[i].vdom.cls = []; // remove the button cls from the th tag
-        }
+            // todo: only add px if number
+            if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
+            if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
+            if (item.width)    {style.width    = item.width    + 'px'}
 
-        vdom.cn[0].cn = cn;
+            if (item.dock) {
+                item.vdom.cls = ['neo-locked'];
+
+                if (item.dock === 'left') {
+                    style.left = dockLeftWidth + 'px';
+                }
+
+                dockLeftWidth += (item.width + 1); // todo: borders fix
+            } else {
+                item.vdom.cls = []; // remove the button cls from the th tag
+            }
+
+            item.wrapperStyle = style;
+
+            // inverse loop direction
+            item = items[len - index -1];
+
+            if (item.dock === 'right') {
+                style = item.wrapperStyle;
+                style.right = dockRightWidth + 'px';
+
+                item.wrapperStyle = style;
+
+                dockRightWidth += (item.width + 1); // todo: borders fix
+            }
+        });
 
         me.vdom = vdom;
     }
@@ -78,20 +96,6 @@ class Toolbar extends BaseToolbar {
      */
     getLayoutConfig(dock) {
         return 'base';
-    }
-
-    /**
-     * @returns {Object}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     * @returns {Object}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
     }
 }
 
