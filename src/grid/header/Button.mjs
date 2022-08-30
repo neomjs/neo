@@ -43,6 +43,23 @@ class Button extends BaseButton {
     }}
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: me.onButtonClick,
+            scope: me
+        })
+
+        me.domListeners = domListeners;
+    }
+
+    /**
      * Triggered after the isSorted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -74,6 +91,30 @@ class Button extends BaseButton {
             direction: value,
             property : me.field
         });
+    }
+
+    /**
+     * @protected
+     */
+    onButtonClick() {
+        let me = this,
+            map;
+
+        if (me.defaultSortDirection === 'DESC') {
+            map = {
+                ASC : null,
+                DESC: 'ASC',
+                null: 'DESC'
+            };
+        } else {
+            map = {
+                ASC : 'DESC',
+                DESC: null,
+                null: 'ASC'
+            };
+        }
+
+        me.isSorted = map[me.isSorted + ''];
     }
 
     /**
