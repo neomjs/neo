@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/table/covid/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Stylesheet"],
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+}
