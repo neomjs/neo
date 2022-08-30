@@ -26,9 +26,9 @@ class Container extends BaseContainer {
          */
         cls: ['neo-grid-container'],
         /**
-         * @member {Array} columns=[]
+         * @member {Array} columns_=[]
          */
-        columns: [],
+        columns_: [],
         /**
          * @member {String} _layout='base'
          */
@@ -66,13 +66,6 @@ class Container extends BaseContainer {
         ]}
     }}
 
-    get columns() {
-        return this._columns;
-    }
-    set columns(value) {
-        this._columns = this.createColumns(value); // todo: beforeSetColumns
-    }
-
     /**
      * @param {Object} config
      */
@@ -80,6 +73,20 @@ class Container extends BaseContainer {
         super.construct(config);
 
         this.createRandomViewData(this.amountRows);
+    }
+
+    /**
+     * Triggered before the columns config gets changed.
+     * @param {Array} value
+     * @param {Array} oldValue
+     * @protected
+     */
+    beforeSetColumns(value, oldValue) {
+        if (this.configsApplied) {
+            return this.createColumns(value);
+        }
+
+        return value;
     }
 
     /**
