@@ -25,7 +25,8 @@ class GridContainer extends BaseGridContainer {
         columnDefaults: {
             align               : 'right',
             defaultSortDirection: 'DESC',
-            renderer            : Util.formatNumber
+            renderer            : Util.formatNumber,
+            width               : 200
         },
         /**
          * @member {Object[]} columns
@@ -44,7 +45,6 @@ class GridContainer extends BaseGridContainer {
             dock                : 'left',
             field               : 'country',
             text                : 'Country',
-            width               : 200,
 
             renderer: data => {
                 return {
@@ -97,11 +97,11 @@ class GridContainer extends BaseGridContainer {
             text : 'Tests / 1M'
         }],
         /**
-         * @member {Neo.controller.Component} controller=TableContainerController
+         * @member {Neo.controller.Component} controller=GridContainerController
          */
         controller: GridContainerController,
         /**
-         * @member {Object[]} store=MainStore
+         * @member {Object[]} store=Store
          */
         store: Store
     }}
