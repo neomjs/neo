@@ -279,14 +279,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {String} dataField
+     * @param {String} field
      * @protected
      */
-    removeSortingCss(dataField) {
+    removeSortingCss(field) {
         this.items[0].items.forEach(column => {
-            if (column.dataField !== dataField) {
-                column.removeSortingCss();
-            }
+            column.field !== field && column.removeSortingCss();
         });
     }
 }
