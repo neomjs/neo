@@ -73,7 +73,7 @@ class Button extends BaseButton {
 
     /**
      * @param {Object} data
-     * @param {String} data.dataField
+     * @param {String} data.field
      * @param {Number} data.index
      * @param {Object} data.record
      * @param {Number|String} data.value

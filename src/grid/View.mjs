@@ -75,17 +75,17 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererValue  = record[column.dataField];
+                rendererValue  = record[column.field];
 
                 if (rendererValue === undefined) {
                     rendererValue = '';
                 }
 
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
-                    dataField: column.dataField,
-                    index    : i,
+                    field: column.field,
+                    index: i,
                     record,
-                    value    : rendererValue
+                    value: rendererValue
                 });
 
                 cellCls = rendererOutput?.cls || ['neo-grid-cell'];
@@ -102,7 +102,7 @@ class View extends Component {
                 }
 
                 config = {
-                    id       : me.getCellId(record, column.dataField),
+                    id       : me.getCellId(record, column.field),
                     cls      : rendererOutput.cls   || ['neo-grid-cell'],
                     innerHTML: rendererOutput.html  || '',
                     style    : rendererOutput.style || {},
@@ -162,11 +162,11 @@ class View extends Component {
 
     /**
      * @param {Object} record
-     * @param {String} dataField
+     * @param {String} field
      * @returns {String}
      */
-    getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    getCellId(record, field) {
+        return this.id + '__' + record[this.store.keyProperty] + '__' + field;
     }
 
     /**
