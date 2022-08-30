@@ -1,2 +1,3 @@
 The grid implementation using div tags is currently on hold in favor for the table implementation using a table tag.
-Depending on how buffering works out for a real table, this one might get continued.
+
+The BufferedGrid implementation is currently scoped for neo v5.
