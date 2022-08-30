@@ -51,11 +51,11 @@ class Container extends BaseContainer {
          */
         layout: 'base',
         /**
-         * @member {Object} _vdom
+         * @member {Object} _vdom={cls:['neo-grid-wrapper'],cn:[{cn:[]}]}
          */
         _vdom:
-        {style: {height: '300px', width: '100%'}, cn: [
-            {cls: ['neo-grid-container'], cn: []}
+        {cls: ['neo-grid-wrapper'], cn: [
+            {cn: []}
         ]}
     }}
 
@@ -112,7 +112,7 @@ class Container extends BaseContainer {
             sorters        = me.store?.sorters;
 
         if (!columns || !columns.length) {
-            Neo.logError('Attempting to create a table.Container without defined columns', me.id);
+            Neo.logError('Attempting to create a grid.Container without defined columns', me.id);
         }
 
         columns.forEach(column => {
@@ -145,6 +145,20 @@ class Container extends BaseContainer {
      */
     getVdomRoot() {
         return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Object[]} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Neo.grid.View}
+     */
+    getView() {
+        return Neo.getComponent(this.viewId) || Neo.get(this.viewId);
     }
 
     /**
