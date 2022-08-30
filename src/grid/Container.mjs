@@ -166,7 +166,7 @@ class Container extends BaseContainer {
             }
 
             if (sorters?.[0]) {
-                if (column.dataField === sorters[0].property) {
+                if (column.field === sorters[0].property) {
                     column.isSorted = sorters[0].direction;
                 }
             }
