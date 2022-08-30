@@ -1,10 +1,9 @@
-import MainStore      from './MainStore.mjs';
-import TableContainer from '../../../src/table/Container.mjs';
+import TableContainer from './TableContainer.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.table.covid.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
@@ -18,19 +17,9 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {Object[]} items
+         * @member {Object[]} items=[TableContainer]
          */
-        items: [{
-            module:TableContainer,
-            store : MainStore,
-
-            columns: [
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id'},
-                {dataField: 'country',   text: 'Country'}
-            ]
-        }],
+        items: [TableContainer],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
