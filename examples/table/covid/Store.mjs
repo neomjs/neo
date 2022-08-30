@@ -8,7 +8,7 @@ import Model     from './Model.mjs';
 class Store extends BaseStore {
     static getConfig() {return {
         className  : 'Neo.examples.table.covid.Store',
-        keyProperty: 'githubId',
+        keyProperty: 'country',
         model      : Model,
 
         data: [{
@@ -46,6 +46,11 @@ class Store extends BaseStore {
             firstname: 'Bastian',
             githubId : 'bhaustein',
             lastname : 'Haustein'
+        }],
+
+        sorters: [{
+            property : 'active',
+            direction: 'DESC'
         }]
     }}
 }
