@@ -123,6 +123,19 @@ class Button extends BaseButton {
     }
 
     /**
+     * @protected
+     */
+    removeSortingCss() {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray.add(cls, 'neo-sort-hidden');
+
+        me.cls       = cls;
+        me._isSorted = null;
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.field
      * @param {Number} data.index
