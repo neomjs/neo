@@ -22,6 +22,14 @@ class Button extends BaseButton {
          */
         cls: ['neo-grid-header-button'],
         /**
+         * @member {String} iconCls='fa fa-arrow-circle-up'
+         */
+        iconCls: 'fa fa-arrow-circle-up',
+        /**
+         * @member {String} iconPosition='right'
+         */
+        iconPosition: 'right',
+        /**
          * 'ASC', 'DESC' or null
          * @member {String|null} isSorted_=null
          * @protected
