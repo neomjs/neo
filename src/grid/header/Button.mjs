@@ -6,6 +6,11 @@ import NeoArray   from '../../util/Array.mjs';
  * @extends Neo.button.Base
  */
 class Button extends BaseButton {
+    /**
+     * @member {String|null} field=null
+     */
+    field = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.header.Button'
@@ -67,7 +72,7 @@ class Button extends BaseButton {
 
         me.mounted && me.fire('sort', {
             direction: value,
-            property : me.dataField
+            property : me.field
         });
     }
 
