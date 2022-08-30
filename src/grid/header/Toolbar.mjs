@@ -17,28 +17,16 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'grid-header-toolbar',
         /**
-         * @member {Array} cls=['neo-grid-header-toolbar']
+         * @member {Array} cls=['neo-grid-header-toolbar','neo-toolbar']
          */
-        cls: ['grid-header-toolbar'],
-        /**
-         * @member {String} _layout='base'
-         * @protected
-         */
-        _layout  : 'base',
+        cls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Object} itemDefaults={ntype:'grid-header-button'}
          * @protected
          */
         itemDefaults: {
             ntype: 'grid-header-button'
-        },
-        /**
-         * @member {Object} _vdom={cn:[{cls:'neo-grid-row',cn:[]}]}
-         */
-        _vdom:
-        {cn: [
-            {cls: 'neo-grid-row', cn: []}
-        ]}
+        }
     }}
 
     /**
@@ -92,22 +80,6 @@ class Toolbar extends BaseToolbar {
         });
 
         me.vdom = vdom;
-    }
-
-    /**
-     * @param dock
-     * @returns {String} layoutConfig
-     * @override
-     */
-    getLayoutConfig(dock) {
-        return 'base';
-    }
-
-    /**
-     * @returns {Object[]} The new vdom items root
-     */
-    getVdomItemsRoot() {
-        return this.vdom.cn[0];
     }
 }
 

@@ -1,6 +1,7 @@
 .neo-grid-header-button {
     align-items     : center;
     background-color: v(grid-header-button-background-color);
+    background-image: v(grid-header-button-background-image);
     border-width    : 0;
     color           : v(grid-header-button-color);
     cursor          : pointer;
@@ -11,11 +12,13 @@
     height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
     margin          : 0;
+    min-width       : 200px;
     padding         : 7px 10px 6px;
     white-space     : nowrap;
-    width           : 100%;
 
-    background-image: v(grid-header-button-background-image);
+    &:not(:last-child) {
+        border-right: 1px solid v(grid-container-border-color);
+    }
 
     &.neo-drag-over {
         background-image: linear-gradient(green, darkgreen);;
