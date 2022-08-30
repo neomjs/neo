@@ -7,6 +7,7 @@
     cursor          : pointer;
     display         : flex;
     flex-direction  : row;
+    flex-shrink     : 0;
     font-size       : 13px;
     font-weight     : 600;
     height          : 29px; // Webkit => Safari can not handle 100%
