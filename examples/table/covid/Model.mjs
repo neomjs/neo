@@ -6,8 +6,14 @@ import BaseModel from '../../../src/data/Model.mjs';
  */
 class Model extends BaseModel {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.table.covid.Model'
+         * @protected
+         */
         className: 'Neo.examples.table.covid.Model',
-
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'active',
             type: 'Integer'
