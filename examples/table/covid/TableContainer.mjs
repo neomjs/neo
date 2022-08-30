@@ -1,6 +1,6 @@
-import BaseTableContainer from '../../../src/table/Container.mjs';
-import Store              from './Store.mjs';
-
+import BaseTableContainer       from '../../../src/table/Container.mjs';
+import Store                    from './Store.mjs';
+import TableContainerController from './TableContainerController.mjs'
 
 /**
  * @class Neo.examples.table.covid.TableContainer
@@ -22,6 +22,10 @@ class TableContainer extends BaseTableContainer {
             {dataField: 'githubId',  text: 'Github Id'},
             {dataField: 'country',   text: 'Country'}
         ],
+        /**
+         * @member {Neo.controller.Component} controller=TableContainerController
+         */
+        controller: TableContainerController,
         /**
          * @member {Object[]} store=MainStore
          */
