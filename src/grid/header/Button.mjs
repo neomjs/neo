@@ -7,6 +7,11 @@ import NeoArray   from '../../util/Array.mjs';
  */
 class Button extends BaseButton {
     /**
+     * Sort direction when clicking on an unsorted button
+     * @member {String} defaultSortDirection='ASC'
+     */
+    defaultSortDirection = 'ASC'
+    /**
      * @member {String|null} field=null
      */
     field = null
