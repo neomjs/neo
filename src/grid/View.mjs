@@ -41,7 +41,7 @@ class View extends Component {
 
         // console.log('createViewData', me.id, inputData);
 
-        if (container.selectionModel.ntype === 'selection-table-rowmodel') {
+        if (container.selectionModel?.ntype === 'selection-table-rowmodel') {
             selectedRows = container.selectionModel.items || [];
         }
 
@@ -183,15 +183,7 @@ class View extends Component {
      * @returns {String}
      */
     getRowId(record, index) {
-        let me    = this,
-            store = me.store;
-
-        if (me.useRowRecordIds) {
-            return `${me.id}__tr__${record[store.keyProperty]}`;
-        } else {
-            index = Neo.isNumber(index) ? index : store.indexOf(record);
-            return me.vdom.cn[index]?.id || Neo.getId('tr');
-        }
+        return `${this.id}__tr__${record[this.store.keyProperty]}`;
     }
 
     /**
