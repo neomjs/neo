@@ -8,7 +8,7 @@
     overflow      : hidden;
 
     .neo-grid-row {
-        display   : table-row;
+        display   : flex;
         height    : 32px !important;
         max-height: 32px !important;
         width     : 100%;
@@ -73,14 +73,10 @@
 
     .neo-grid-cell {
         background-color: #3c3f41;
-        display         : table-cell;
+        display         : flex;
         height          : 32px !important;
         max-height      : 32px !important;
         padding         : 2px 10px 2px;
-    }
-
-    .neo-grid-header-cell {
-        display: table-cell;
-        padding: 0;
+        width           : fit-content;
     }
 }

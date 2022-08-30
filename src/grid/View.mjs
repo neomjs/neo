@@ -34,7 +34,7 @@ class View extends Component {
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellCls, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
+            cellCls, cellStyle, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
             record, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
@@ -101,11 +101,17 @@ class View extends Component {
                     };
                 }
 
+                cellStyle = rendererOutput.style || {};
+
+                if (column.width) {
+                    cellStyle.minWidth = `${column.width}px`;
+                }
+
                 config = {
                     id       : me.getCellId(record, column.field),
                     cls      : rendererOutput.cls   || ['neo-grid-cell'],
                     innerHTML: rendererOutput.html  || '',
-                    style    : rendererOutput.style || {},
+                    style    : cellStyle,
                     tabIndex : '-1'
                 };
 
