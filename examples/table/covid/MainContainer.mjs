@@ -21,9 +21,13 @@ class MainContainer extends Viewport {
          */
         items: [TableContainer],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'fit'}
          */
-        layout: {ntype: 'fit'}
+        layout: {ntype: 'fit'},
+        /**
+         * @member {Object} style={padding:'20px'}
+         */
+        style: {padding: '20px'}
     }}
 }
 
