@@ -1,10 +1,32 @@
 import BaseContainer from '../container/Base.mjs';
+import View          from './View.mjs';
+import * as header   from './header/_export.mjs';
 
 /**
  * @class Neo.grid.Container
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
+    /**
+     * Configs for Neo.grid.header.Toolbar
+     * @member {Object|null} [headerToolbarConfig=null]
+     */
+    headerToolbarConfig = null
+    /**
+     * @member {String|null} headerToolbarId_=null
+     */
+    headerToolbarId = null
+    /**
+     * Configs for Neo.grid.View
+     * @member {Object|null} [viewConfig=null]
+     */
+    viewConfig = null
+    /**
+     * @member {String|null} viewId_=null
+     * @protected
+     */
+    viewId = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.Container'
@@ -25,33 +47,9 @@ class Container extends BaseContainer {
          */
         columns_: [],
         /**
-         * @member {String} _layout='base'
+         * @member {String} layout='base'
          */
-        _layout: 'base',
-        /**
-         * @member {Array} _items
-         */
-        _items: [
-            {
-                ntype: 'grid-header-toolbar'
-            },
-            {
-                ntype: 'grid-view'
-            }/*,
-            {
-                ntype: 'component',
-                cls  : ['neo-grid-y-scroller'],
-                style: {
-                    height: 'calc(100% - 32px)',
-                    top   : '32px'
-                },
-                vdom: {
-                    cn: [{
-                        height: 800
-                    }]
-                }
-            }*/
-        ],
+        layout: 'base',
         /**
          * @member {Object} _vdom
          */
@@ -67,7 +65,27 @@ class Container extends BaseContainer {
     construct(config) {
         super.construct(config);
 
-        this.createRandomViewData(this.amountRows);
+        let me = this;
+
+        me.headerToolbarId = Neo.getId('grid-header-toolbar');
+        me.viewId          = Neo.getId('grid-view');
+
+        me.items = [{
+            module           : header.Toolbar,
+            id               : me.headerToolbarId,
+            showHeaderFilters: me.showHeaderFilters,
+            ...me.headerToolbarConfig
+        }, {
+            module     : View,
+            containerId: me.id,
+            id         : me.viewId,
+            store      : me.store,
+            ...me.viewConfig
+        }];
+
+        me.vdom.id = me.id + 'wrapper';
+
+        me.createColumns(me.columns);
     }
 
     /**
@@ -85,26 +103,40 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param columns
+     * @param {Object[]} columns
      * @returns {*}
      */
     createColumns(columns) {
-        let me = this;
+        let me             = this,
+            columnDefaults = me.columnDefaults,
+            sorters        = me.store?.sorters;
 
         if (!columns || !columns.length) {
-            Neo.logError('Attempting to create a grid.Container without defined columns', me.id);
+            Neo.logError('Attempting to create a table.Container without defined columns', me.id);
         }
 
-        columns.forEach(function(column) {
-            if (column.locked && !column.width) {
-                Neo.logError('Attempting to create a locked column without a defined width', column, me.id);
+        columns.forEach(column => {
+            if (column.dock && !column.width) {
+                Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
+
+            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+
+            if (sorters?.[0]) {
+                if (column.dataField === sorters[0].property) {
+                    column.isSorted = sorters[0].direction;
+                }
+            }
+
+            column.listeners = {
+                sort : me.onSortColumn,
+                scope: me
+            };
         });
 
         me.items[0].items = columns;
 
         return columns;
-
     }
 
     /**
@@ -121,6 +153,20 @@ class Container extends BaseContainer {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0];
+    }
+
+    /**
+     * @param {Object} opts
+     * @param {String} opts.direction
+     * @param {String} opts.property
+     * @protected
+     */
+    onSortColumn(opts) {
+        let me = this;
+
+        me.store.sort(opts);
+        me.removeSortingCss(opts.property);
+        me.onStoreLoad(me.store.items);
     }
 }
 

@@ -5,7 +5,7 @@ import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/table/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
-import * as header from './header/_export.mjs';
+import * as header     from './header/_export.mjs';
 
 /**
  * @class Neo.table.Container
