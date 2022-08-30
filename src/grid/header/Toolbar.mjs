@@ -33,7 +33,7 @@ class Toolbar extends BaseToolbar {
             ntype: 'grid-header-button'
         },
         /**
-         * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
+         * @member {Object} _vdom={cn:[{cls:'neo-grid-row',cn:[]}]}
          */
         _vdom:
         {cn: [

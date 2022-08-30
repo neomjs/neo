@@ -35,7 +35,7 @@ class Toolbar extends BaseToolbar {
          */
         showHeaderFilters_: false,
         /**
-         * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
+         * @member {Object} _vdom={tag:'thead',cn:[{tag:'tr',cn:[]}]}
          */
         _vdom:
         {tag: 'thead', cn: [
