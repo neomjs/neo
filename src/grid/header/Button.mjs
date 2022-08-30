@@ -44,9 +44,8 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetIsSorted(value, oldValue) {
-        let me        = this,
-            cls       = me.cls,
-            container = me.up('grid-container');
+        let me  = this,
+            cls = me.cls;
 
         switch(value) {
             case null:
