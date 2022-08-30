@@ -17,11 +17,6 @@ class Container extends BaseContainer {
          */
         ntype: 'grid-container',
         /**
-         * todo: testing config, remove when Stores are ready
-         * @member {Number} amountRows=20
-         */
-        amountRows: 20,
-        /**
          * @member {String[]} cls=['neo-grid-container']
          */
         cls: ['neo-grid-container'],
@@ -110,44 +105,6 @@ class Container extends BaseContainer {
 
         return columns;
 
-    }
-
-    /**
-     * Dummy method until we have a data package in place
-     * @param {Number} amountRows
-     */
-    createRandomViewData(amountRows) {
-        let me      = this,
-            columns = me.items[0].items,
-            i      = 0,
-            data   = [],
-            vdom   = me.items[1].vdom;
-
-        for (; i < amountRows; i++) {
-            data.push({
-                cls: ['neo-grid-row'],
-                cn : []
-            });
-
-            columns.forEach(function(column, index) {
-                data[i].cn.push({
-                    cls      : ['neo-grid-cell'],
-                    innerHTML: 'Column' + (index + 1) + ' - ' + Math.round(Math.random() / 1.5),
-                    style: {
-                        backgroundColor: Math.round(Math.random() / 1.7) > 0 ? 'brown' : '#3c3f41'
-                    }
-                });
-            });
-        }
-
-        vdom.cn = data;
-
-        // we want to ignore id checks inside of the vdom helper
-        if (me.items[1].vnode) {
-            me.syncVdomIds(me.items[1].vnode, vdom);
-        }
-
-        me.items[1].vdom = vdom;
     }
 
     /**
