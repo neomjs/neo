@@ -7,10 +7,22 @@ import Model     from './Model.mjs';
  */
 class Store extends BaseStore {
     static getConfig() {return {
-        className  : 'Neo.examples.table.covid.Store',
+        /**
+         * @member {String} className='Neo.examples.table.covid.Store'
+         * @protected
+         */
+        className: 'Neo.examples.table.covid.Store',
+        /**
+         * @member {String} keyProperty='country'
+         */
         keyProperty: 'country',
-        model      : Model,
-
+        /**
+         * @member {Neo.data.Model} model=Model
+         */
+        model: Model,
+        /**
+         * @member {Object[]} sorters
+         */
         sorters: [{
             property : 'active',
             direction: 'DESC'
