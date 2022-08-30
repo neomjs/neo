@@ -68,6 +68,18 @@ class Button extends BaseButton {
             property : me.dataField
         });
     }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.dataField
+     * @param {Number} data.index
+     * @param {Object} data.record
+     * @param {Number|String} data.value
+     * @returns {*}
+     */
+    renderer(data) {
+        return data.value;
+    }
 }
 
 Neo.applyClassConfig(Button);
