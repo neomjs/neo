@@ -1,22 +1,14 @@
 .neo-grid-container {
-    border        : 1px solid #2b2b2b;
+    border        : 1px solid v(grid-container-border-color);
     border-spacing: 0;
     font-size     : 13px;
     font-weight   : 400;
     height        : 100%;
     line-height   : 19px;
     overflow      : hidden;
-    //position      : relative;
-
-    .neo-grid-header-toolbar {
-        //position: sticky;
-        //top     : 0;
-        display : table;
-        width   : 100%;
-    }
 
     .neo-grid-row {
-        display   : table-row;
+        display   : flex;
         height    : 32px !important;
         max-height: 32px !important;
         width     : 100%;
@@ -80,32 +72,12 @@
     }
 
     .neo-grid-cell {
+        align-items     : center;
         background-color: #3c3f41;
-        display         : table-cell;
+        display         : flex;
         height          : 32px !important;
         max-height      : 32px !important;
         padding         : 2px 10px 2px;
-    }
-
-    .neo-grid-header-cell {
-        display: table-cell;
-        padding: 0;
-    }
-
-    /* Scrollbars */
-    /*&::-webkit-scrollbar {
-        display: none;
-    }*/
-
-    .neo-grid-y-scroller {
-        background-color: green;
-        height: 100%;
-        position: absolute;
-        right: 0;
-        top: 32px;
-        width: 17px;
-        overflow: auto;
-        transform: translateZ(0);
-        -webkit-transform: translateZ(0);
+        width           : fit-content;
     }
 }

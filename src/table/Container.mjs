@@ -5,7 +5,7 @@ import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/table/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
-import * as header from './header/_export.mjs';
+import * as header     from './header/_export.mjs';
 
 /**
  * @class Neo.table.Container
@@ -39,11 +39,11 @@ class Container extends BaseContainer {
          */
         createRandomData: false,
         /**
-         * @member {Array} cls=['neo-table-container']
+         * @member {String[]} cls=['neo-table-container']
          */
         cls: ['neo-table-container'],
         /**
-         * @member {Array} columns_=[]
+         * @member {Object[]} columns_=[]
          */
         columns_: [],
         /**
@@ -147,9 +147,7 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -199,8 +197,8 @@ class Container extends BaseContainer {
 
     /**
      * Triggered before the columns config gets changed.
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     beforeSetColumns(value, oldValue) {
@@ -294,11 +292,11 @@ class Container extends BaseContainer {
         }
 
         columns.forEach(column => {
+            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+
             if (column.dock && !column.width) {
                 Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
-
-            columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
             if (sorters?.[0]) {
                 if (column.dataField === sorters[0].property) {
@@ -391,9 +389,7 @@ class Container extends BaseContainer {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        me.selectionModel?.register(me);
 
         if (me.createRandomData) {
             // todo: if mounting apply after mount

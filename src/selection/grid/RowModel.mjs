@@ -2,21 +2,21 @@ import Model    from '../Model.mjs';
 import VDomUtil from '../../util/VDom.mjs';
 
 /**
- * @class Neo.selection.table.RowModel
+ * @class Neo.selection.grid.RowModel
  * @extends Neo.selection.Model
  */
 class RowModel extends Model {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.selection.table.RowModel'
+         * @member {String} className='Neo.selection.grid.RowModel'
          * @protected
          */
-        className: 'Neo.selection.table.RowModel',
+        className: 'Neo.selection.grid.RowModel',
         /**
-         * @member {String} ntype='selection-table-rowmodel'
+         * @member {String} ntype='selection-grid-rowmodel'
          * @protected
          */
-        ntype: 'selection-table-rowmodel',
+        ntype: 'selection-grid-rowmodel',
         /**
          * @member {String} cls='selection-rowmodel'
          * @protected
@@ -34,7 +34,7 @@ class RowModel extends Model {
 
         domListeners.push({
             click   : me.onRowClick,
-            delegate: '.neo-table-row',
+            delegate: '.neo-grid-row',
             scope   : me
         });
 
@@ -66,7 +66,7 @@ class RowModel extends Model {
             node = null;
 
         for (; i < len; i++) {
-            if (path[i].cls.includes('neo-table-row')) {
+            if (path[i].cls.includes('neo-grid-row')) {
                 node = path[i];
             }
         }
