@@ -124,7 +124,7 @@ class RowModel extends Model {
     onRowClick(data) {
         let me   = this,
             node = RowModel.getRowNode(data.path),
-            id   = node && node.id,
+            id   = node?.id,
             view = me.view,
             isSelected, record;
 

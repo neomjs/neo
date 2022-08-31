@@ -1,5 +1,6 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
 import * as header     from './header/_export.mjs';
@@ -49,9 +50,18 @@ class Container extends BaseContainer {
          */
         columns_: [],
         /**
+         * Additional used keys for the selection model
+         * @member {Object} keys={}
+         */
+        keys: {},
+        /**
          * @member {String} layout='base'
          */
         layout: 'base',
+        /**
+         * @member {Neo.selection.Model} selectionModel_=null
+         */
+        selectionModel_: null,
         /**
          * @member {Neo.data.Store} store_=null
          */
@@ -95,6 +105,16 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.rendered && value.register(this);
+    }
+
+    /**
      * Triggered before the columns config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -106,6 +126,18 @@ class Container extends BaseContainer {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RowModel);
     }
 
     /**
