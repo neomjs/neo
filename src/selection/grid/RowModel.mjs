@@ -137,7 +137,7 @@ class RowModel extends Model {
             !isSelected && view.onDeselect?.(record);
 
             view.fire(isSelected ? 'select' : 'deselect', {
-                record: record
+                record
             });
         }
     }
@@ -148,42 +148,36 @@ class RowModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let id   = this.id,
+            view = this.view;
 
-        if (view.keys) {
-            view.keys._keys.push({
-                fn   : 'onKeyDownDown',
-                key  : 'Down',
-                scope: id
-            }, {
-                fn   : 'onKeyDownUp',
-                key  : 'Up',
-                scope: id
-            });
-        }
+        view.keys?._keys.push({
+            fn   : 'onKeyDownDown',
+            key  : 'Down',
+            scope: id
+        }, {
+            fn   : 'onKeyDownUp',
+            key  : 'Up',
+            scope: id
+        });
     }
 
     /**
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let id   = this.id,
+            view = this.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([{
-                fn   : 'onKeyDownDown',
-                key  : 'Down',
-                scope: id
-            }, {
-                fn   : 'onKeyDownUp',
-                key  : 'Up',
-                scope: id
-            }]);
-        }
+        view.keys?.removeKeys([{
+            fn   : 'onKeyDownDown',
+            key  : 'Down',
+            scope: id
+        }, {
+            fn   : 'onKeyDownUp',
+            key  : 'Up',
+            scope: id
+        }]);
 
         super.unregister();
     }

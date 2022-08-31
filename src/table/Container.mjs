@@ -147,9 +147,7 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -391,9 +389,7 @@ class Container extends BaseContainer {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        me.selectionModel?.register(me);
 
         if (me.createRandomData) {
             // todo: if mounting apply after mount

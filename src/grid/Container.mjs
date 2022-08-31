@@ -252,6 +252,14 @@ class Container extends BaseContainer {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this);
+    }
+
+    /**
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property
