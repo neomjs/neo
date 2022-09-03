@@ -120,7 +120,7 @@ class View extends Component {
 
                     if (column.dock === 'left') {
                         config.style.left = dockLeftMargin + 'px';
-                        dockLeftMargin += (column.width + 1); // todo: borders fix
+                        dockLeftMargin += column.width;
                     }
                 }
 

@@ -576,7 +576,7 @@ if (programOpts.info) {
             " */",
             `class ${file} extends ${baseFileName} {`,
             "    static getConfig() {return {",
-            "        /*",
+            "        /**",
             `         * @member {String} className='${className}'`,
             "         * @protected",
             "         */",
@@ -584,7 +584,7 @@ if (programOpts.info) {
         );
 
         baseClass === 'table.Container' && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Object[]} columns",
             "         */",
             "        columns: [{",
@@ -597,7 +597,7 @@ if (programOpts.info) {
         );
 
         baseClass === 'data.Model' && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Object[]} fields",
             "         */",
             "        fields: [{",
@@ -607,14 +607,14 @@ if (programOpts.info) {
         );
 
         baseClass === 'container.Base' && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Object[]} items",
             "         */",
             "        items: []"
         );
 
         baseClass === 'tab.Container' && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Object[]} items",
             "         */",
             "        items: [{",
@@ -635,7 +635,7 @@ if (programOpts.info) {
         );
 
         isSingleton && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Boolean} singleton=true",
             "         * @protected",
             "         */",
@@ -643,7 +643,7 @@ if (programOpts.info) {
         );
 
         baseClass === 'component.Base' && addComma(classContent).push(
-            "        /*",
+            "        /**",
             "         * @member {Object} _vdom",
             "         */",
             "        _vdom:",
