@@ -11,6 +11,7 @@
         "neo-cc": "./buildScripts/createClass.mjs"
     },
     "scripts": {
+        "add-config": "node ./buildScripts/addConfig.mjs",
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.mjs -f",
