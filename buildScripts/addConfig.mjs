@@ -22,6 +22,7 @@ program
     .version(packageJson.version)
     .option('-i, --info', 'print environment debug info')
     .option('-c, --configName <value>')
+    .option('-t, --type <value>')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -58,6 +59,26 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'configName',
             message: 'Please pick a name for your class config:'
+        });
+
+        Object.assign(answers, answer);
+    }
+
+    if (!programOpts.configName) {
+        answer = await inquirer.prompt({
+            type   : 'list',
+            name   : 'type',
+            message: 'Please pick a type for your class config:',
+            default: 'Custom',
+            choices: [
+                'Custom',
+                'Object',
+                'Object[]',
+                'Number',
+                'Number[]',
+                'String',
+                'String[]'
+            ]
         });
 
         Object.assign(answers, answer);
