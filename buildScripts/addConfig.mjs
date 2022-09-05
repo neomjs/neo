@@ -22,6 +22,7 @@ program
     .version(packageJson.version)
     .option('-i, --info', 'print environment debug info')
     .option('-c, --configName <value>')
+    .option('-h, --hooks <value>')
     .option('-t, --type <value>')
     .allowUnknownOption()
     .on('--help', () => {
@@ -58,7 +59,7 @@ if (programOpts.info) {
         answer = await inquirer.prompt({
             type   : 'input',
             name   : 'configName',
-            message: 'Please pick a name for your class config:'
+            message: 'Please enter a name for your class config:'
         });
 
         Object.assign(answers, answer);
@@ -68,7 +69,7 @@ if (programOpts.info) {
         answer = await inquirer.prompt({
             type   : 'list',
             name   : 'type',
-            message: 'Please pick a type for your class config:',
+            message: 'Please choose a type for your class config:',
             default: 'Custom',
             choices: [
                 'Custom',
@@ -83,4 +84,28 @@ if (programOpts.info) {
 
         Object.assign(answers, answer);
     }
+
+    if (answers.type === 'Custom') {
+        answer = await inquirer.prompt({
+            type   : 'input',
+            name   : 'type',
+            message: 'Please enter the type for your class config:'
+        });
+
+        Object.assign(answers, answer);
+    }
+
+    if (!programOpts.hooks) {
+        answer = await inquirer.prompt({
+            type   : 'checkbox',
+            name   : 'hooks',
+            message: 'Please choose the hooks for your class config:',
+            choices: [`afterSet`, `beforeGet`, `beforeSet`],
+            default: [`afterSet`]
+        });
+
+        Object.assign(answers, answer);
+    }
+
+    console.log(answers);
 }
