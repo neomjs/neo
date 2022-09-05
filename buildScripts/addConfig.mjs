@@ -16,6 +16,47 @@ const
     program     = new Command(),
     programName = `${packageJson.name} add-config`;
 
+/**
+ * Adds a comma to the last element of the contentArray
+ * @param {String[]} contentArray
+ * @param {Number} index=contentArray.length - 1
+ * @returns {String[]}
+ */
+function addComma(contentArray, index=contentArray.length - 1) {
+    contentArray[index] += ',';
+    return contentArray;
+}
+
+/**
+ * Adds a config to the given index of the contentArray
+ * @param {Object} opts
+ * @param {String} opts.configName
+ * @param {String} opts.defaultValue
+ * @param {String[]} opts.contentArray
+ * @param {Boolean} opts.isLastConfig
+ * @param {Number} opts.index
+ * @param {String} opts.type
+ * @returns {String[]}
+ */
+function addConfig(opts) {
+    const config = [
+        '        /**',
+        `         * @member {${opts.type}} ${opts.configName}=${opts.defaultValue}`,
+        '         */',
+        `        ${opts.configName}: ${opts.defaultValue}`
+    ];
+
+    !opts.isLastConfig && addComma(config);
+
+    opts.contentArray.splice(opts.index, 0, config.join(os.EOL));
+    return opts.contentArray;
+}
+
+/**
+ * Makes the first character of a string uppercase
+ * @param {String} value
+ * @returns {Boolean|String} Returns false for non string inputs
+ */
 function capitalize(value) {
     return value[0].toUpperCase() + value.slice(1);
 }
@@ -140,6 +181,36 @@ if (programOpts.info) {
         Object.assign(answers, answer);
     }
 
-    let hooks = programOpts.hooks || answers.hooks,
-        type  = programOpts.type  || answers.type;
+    let defaultValue = programOpts.defaultValue || answers.defaultValue,
+        hooks        = programOpts.hooks        || answers.hooks,
+        type         = programOpts.type         || answers.type,
+        content      = fs.readFileSync(classPath).toString().split(os.EOL),
+        i            = 0,
+        len          = content.length,
+        codeLine;
+
+    for (; i < len; i++) {
+        if (content[i].includes('static getConfig')) {
+            break;
+        }
+    }
+
+    for (; i < len; i++) {
+        codeLine = content[i];
+
+        if (codeLine.includes('}}')) {
+            addComma(content, i - 1);
+            addConfig({
+                configName,
+                defaultValue,
+                contentArray: content,
+                index       : i,
+                isLastConfig: true,
+                type
+            });
+            break;
+        }
+    }
+
+    fs.writeFileSync(classPath, content.join(os.EOL));
 }
