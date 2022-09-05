@@ -62,6 +62,7 @@ function addConfig(opts) {
  * @param {String} opts.comment
  * @param {String[]} opts.contentArray
  * @param {String} opts.name
+ * @param {Boolean} opts.oldValueParam
  * @param {Boolean} opts.returnValue
  * @param {String} opts.type
  * @returns {String[]}
@@ -77,9 +78,14 @@ function addHook(opts) {
         '',
         '    /**',
         `     * ${opts.comment}`,
-        `     * @param {${opts.type}} value`,
-        `     * @param {${opts.type}} oldValue`
+        `     * @param {${opts.type}} value`
     ];
+
+    if (opts.oldValueParam) {
+        method.push(
+        `     * @param {${opts.type}} oldValue`
+        );
+    }
 
     if (opts.returnValue) {
         method.push(
@@ -89,9 +95,18 @@ function addHook(opts) {
 
     method.push(
     '     * @protected',
-    '     */',
-    `    ${opts.name}(value, oldValue) {`
+    '     */'
     );
+
+    if (opts.oldValueParam) {
+        method.push(
+        `    ${opts.name}(value, oldValue) {`
+        );
+    } else {
+        method.push(
+        `    ${opts.name}(value) {`
+        );
+    }
 
     if (opts.returnValue) {
         method.push(
@@ -348,20 +363,33 @@ if (programOpts.info) {
 
     if (hooks.includes(`afterSet${uConfigName}()`)) {
         addHook({
-            comment    : `Triggered after the ${configName} config got changed`,
+            comment      : `Triggered after the ${configName} config got changed`,
             contentArray,
-            name       : `afterSet${uConfigName}`,
-            returnValue: false,
+            name         : `afterSet${uConfigName}`,
+            oldValueParam: true,
+            returnValue  : false,
+            type
+        });
+    }
+
+    if (hooks.includes(`beforeGet${uConfigName}()`)) {
+        addHook({
+            comment      : `Gets triggered when accessing the value of the ${configName} config`,
+            contentArray,
+            name         : `beforeGet${uConfigName}`,
+            oldValueParam: false,
+            returnValue  : true,
             type
         });
     }
 
     if (hooks.includes(`beforeSet${uConfigName}()`)) {
         addHook({
-            comment    : `Triggered before the ${configName} config gets changed`,
+            comment      : `Triggered before the ${configName} config gets changed`,
             contentArray,
-            name       : `beforeSet${uConfigName}`,
-            returnValue: true,
+            name         : `beforeSet${uConfigName}`,
+            oldValueParam: true,
+            returnValue  : true,
             type
         });
     }
