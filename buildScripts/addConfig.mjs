@@ -49,4 +49,17 @@ if (programOpts.info) {
         .then(console.log);
 } else {
     console.log(chalk.green(programName));
+
+    let answers = {},
+        answer;
+
+    if (!programOpts.configName) {
+        answer = await inquirer.prompt({
+            type   : 'input',
+            name   : 'configName',
+            message: 'Please pick a name for your class config:'
+        });
+
+        Object.assign(answers, answer);
+    }
 }
