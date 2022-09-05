@@ -184,33 +184,59 @@ if (programOpts.info) {
     let defaultValue = programOpts.defaultValue || answers.defaultValue,
         hooks        = programOpts.hooks        || answers.hooks,
         type         = programOpts.type         || answers.type,
-        content      = fs.readFileSync(classPath).toString().split(os.EOL),
+        contentArray = fs.readFileSync(classPath).toString().split(os.EOL),
         i            = 0,
-        len          = content.length,
-        codeLine;
+        len          = contentArray.length,
+        codeLine, j, nextLine;
 
     for (; i < len; i++) {
-        if (content[i].includes('static getConfig')) {
+        if (contentArray[i].includes('static getConfig')) {
             break;
         }
     }
 
     for (; i < len; i++) {
-        codeLine = content[i];
+        codeLine = contentArray[i];
 
         if (codeLine.includes('}}')) {
-            addComma(content, i - 1);
+            addComma(contentArray, i - 1);
             addConfig({
                 configName,
                 defaultValue,
-                contentArray: content,
+                contentArray,
                 index       : i,
                 isLastConfig: true,
                 type
             });
             break;
         }
+
+        if (codeLine.includes('*/')) {
+            nextLine  = contentArray[i + 1]
+            className = nextLine.substring(0, nextLine.indexOf(':')).trim();
+
+            if (className === 'className' || className === 'ntype') {
+                continue;
+            }
+
+            if (className > configName) {
+                for (j=i; j > 0; j--) {
+                    if (contentArray[j].includes('/**')) {
+                        addConfig({
+                            configName,
+                            contentArray,
+                            defaultValue,
+                            index       : j,
+                            isLastConfig: false,
+                            type
+                        });
+                        break;
+                    }
+                }
+                break;
+            }
+        }
     }
 
-    fs.writeFileSync(classPath, content.join(os.EOL));
+    fs.writeFileSync(classPath, contentArray.join(os.EOL));
 }
