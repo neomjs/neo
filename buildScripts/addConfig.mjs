@@ -187,7 +187,7 @@ if (programOpts.info) {
         contentArray = fs.readFileSync(classPath).toString().split(os.EOL),
         i            = 0,
         len          = contentArray.length,
-        codeLine, j, nextLine;
+        codeLine, existingConfigName, j, nextLine;
 
     for (; i < len; i++) {
         if (contentArray[i].includes('static getConfig')) {
@@ -212,14 +212,14 @@ if (programOpts.info) {
         }
 
         if (codeLine.includes('*/')) {
-            nextLine  = contentArray[i + 1]
-            className = nextLine.substring(0, nextLine.indexOf(':')).trim();
+            nextLine           = contentArray[i + 1]
+            existingConfigName = nextLine.substring(0, nextLine.indexOf(':')).trim();
 
-            if (className === 'className' || className === 'ntype') {
+            if (existingConfigName === 'className' || existingConfigName === 'ntype') {
                 continue;
             }
 
-            if (className > configName) {
+            if (existingConfigName > configName) {
                 for (j=i; j > 0; j--) {
                     if (contentArray[j].includes('/**')) {
                         addConfig({
