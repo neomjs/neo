@@ -45,9 +45,9 @@ function addConfig(opts) {
 
     const config = [
         '        /**',
-        `         * @member {${opts.type}} ${opts.configName}=${opts.defaultValue}`,
+        `         * @member {${opts.type}} ${opts.configName}_=${opts.defaultValue}`,
         '         */',
-        `        ${opts.configName}: ${opts.defaultValue}`
+        `        ${opts.configName}_: ${opts.defaultValue}`
     ];
 
     !opts.isLastConfig && addComma(config);
@@ -55,6 +55,76 @@ function addConfig(opts) {
     opts.contentArray.splice(opts.index, 0, config.join(os.EOL));
     return opts.contentArray;
 }
+
+/**
+ * Adds a config hook at the matching index
+ * @param {Object} opts
+ * @param {String} opts.comment
+ * @param {String[]} opts.contentArray
+ * @param {String} opts.name
+ * @param {String} opts.type
+ * @returns {String[]}
+ */
+function addHook(opts) {
+    let contentArray = opts.contentArray,
+        i            = 0,
+        inserted     = false,
+        len          = contentArray.length,
+        j, methodName, nextLine,
+
+    method = [
+        '',
+        '    /**',
+        `     * ${opts.comment}`,
+        `     * @param {${opts.type}} value`,
+        `     * @param {${opts.type}} oldValue`,
+        '     * @protected',
+        '     */',
+        `    ${opts.name}(value, oldValue) {`,
+        '        ',
+        '    }',
+    ];
+
+    for (; i < len; i++) {
+        if (contentArray[i].includes('}}')) {
+            break;
+        }
+    }
+
+    for (; i < len; i++) {
+        if (contentArray[i].includes('*/')) {
+            nextLine   = contentArray[i + 1]
+            methodName = nextLine.substring(0, nextLine.indexOf('(')).trim();
+
+            if (methodName === 'construct') {
+                continue;
+            }
+
+            if (methodName > opts.name) {
+                for (j=i; j > 0; j--) {
+                    if (contentArray[j].includes('/**')) {
+                        contentArray.splice(j - 1, 0, method.join(os.EOL));
+                        inserted = true;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    if (!inserted) {
+        for (i=contentArray.length - 1; i > 0; i--) {
+            if (contentArray[i].includes('}')) {
+                contentArray.splice(i, 0, method.join(os.EOL));
+                break;
+            }
+        }
+    }
+
+    return contentArray;
+}
+
 
 /**
  * Makes the first character of a string uppercase
@@ -252,6 +322,15 @@ if (programOpts.info) {
                 break;
             }
         }
+    }
+
+    if (hooks.includes(`afterSet${uConfigName}()`)) {
+        addHook({
+            comment: `Triggered after the ${configName} config got changed`,
+            contentArray,
+            name   : `afterSet${uConfigName}`,
+            type
+        });
     }
 
     fs.writeFileSync(classPath, contentArray.join(os.EOL));
