@@ -14,8 +14,11 @@ const
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
     program     = new Command(),
-    programName = `${packageJson.name} add-config`,
-    questions   = [];
+    programName = `${packageJson.name} add-config`;
+
+function capitalize(value) {
+    return value[0].toUpperCase() + value.slice(1);
+}
 
 program
     .name(programName)
@@ -65,6 +68,14 @@ if (programOpts.info) {
         Object.assign(answers, answer);
     }
 
+    let configName = programOpts.configName || answers.configName;
+
+    if (configName.endsWith('_')) {
+        configName = configName.slice(0, -1);
+    }
+
+    let uConfigName = capitalize(configName);
+
     if (!programOpts.configName) {
         answer = await inquirer.prompt({
             type   : 'list',
@@ -100,8 +111,8 @@ if (programOpts.info) {
             type   : 'checkbox',
             name   : 'hooks',
             message: 'Please choose the hooks for your class config:',
-            choices: [`afterSet`, `beforeGet`, `beforeSet`],
-            default: [`afterSet`]
+            choices: [`afterSet${uConfigName}()`, `beforeGet${uConfigName}()`, `beforeSet${uConfigName}()`],
+            default: [`afterSet${uConfigName}()`]
         });
 
         Object.assign(answers, answer);
