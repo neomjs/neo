@@ -71,6 +71,7 @@ function addHook(opts) {
     let contentArray = opts.contentArray,
         i            = 0,
         inserted     = false,
+        name         = opts.name,
         len          = contentArray.length,
         j, methodName, nextLine,
 
@@ -100,11 +101,11 @@ function addHook(opts) {
 
     if (opts.oldValueParam) {
         method.push(
-        `    ${opts.name}(value, oldValue) {`
+        `    ${name}(value, oldValue) {`
         );
     } else {
         method.push(
-        `    ${opts.name}(value) {`
+        `    ${name}(value) {`
         );
     }
 
@@ -137,7 +138,7 @@ function addHook(opts) {
                 continue;
             }
 
-            if (methodName > opts.name) {
+            if (methodName > name) {
                 for (j=i; j > 0; j--) {
                     if (contentArray[j].includes('/**')) {
                         contentArray.splice(j - 1, 0, method.join(os.EOL));
