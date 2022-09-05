@@ -73,24 +73,25 @@ function addHook(opts) {
         inserted     = false,
         name         = opts.name,
         len          = contentArray.length,
+        type         = opts.type,
         j, methodName, nextLine,
 
     method = [
         '',
         '    /**',
         `     * ${opts.comment}`,
-        `     * @param {${opts.type}} value`
+        `     * @param {${type}} value`
     ];
 
     if (opts.oldValueParam) {
         method.push(
-        `     * @param {${opts.type}} oldValue`
+        `     * @param {${type}} oldValue`
         );
     }
 
     if (opts.returnValue) {
         method.push(
-        `     * @returns {${opts.type}}`
+        `     * @returns {${type}}`
         );
     }
 
