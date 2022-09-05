@@ -66,6 +66,7 @@ program
     .version(packageJson.version)
     .option('-i, --info', 'print environment debug info')
     .option('-c, --className <value>')
+    .option('-d, --defaultValue <value>')
     .option('-h, --hooks <value>')
     .option('-n, --configName <value>')
     .option('-t, --type <value>')
@@ -164,6 +165,17 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'type',
             message: 'Please enter the type for your class config:'
+        });
+
+        Object.assign(answers, answer);
+    }
+
+    if (!programOpts.defaultValue) {
+        answer = await inquirer.prompt({
+            type   : 'input',
+            name   : 'defaultValue',
+            message: 'Please enter a defaultValue:',
+            default: 'null'
         });
 
         Object.assign(answers, answer);
