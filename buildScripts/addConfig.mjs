@@ -24,8 +24,9 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info', 'print environment debug info')
-    .option('-c, --configName <value>')
+    .option('-c, --className <value>')
     .option('-h, --hooks <value>')
+    .option('-n, --configName <value>')
     .option('-t, --type <value>')
     .allowUnknownOption()
     .on('--help', () => {
@@ -58,6 +59,27 @@ if (programOpts.info) {
     let answers = {},
         answer;
 
+    if (!programOpts.className) {
+        answer = await inquirer.prompt({
+            type   : 'input',
+            name   : 'className',
+            message: 'Please choose the namespace of your class:',
+            default: 'Covid.view.MainContainer'
+        });
+
+        Object.assign(answers, answer);
+    }
+
+    let className = programOpts.className || answers.className,
+        ns        = className.split('.'),
+        root      = ns.shift().toLowerCase(),
+        classPath = path.resolve(cwd, root === 'neo' ? 'src' : `apps/${root}`, `${ns.join('/')}.mjs`);
+
+    if (!fs.existsSync(path.resolve(classPath))) {
+        console.log(chalk.red(`File not found for ${className} => ${classPath}`));
+        process.exit(1);
+    }
+
     if (!programOpts.configName) {
         answer = await inquirer.prompt({
             type   : 'input',
@@ -76,7 +98,7 @@ if (programOpts.info) {
 
     let uConfigName = capitalize(configName);
 
-    if (!programOpts.configName) {
+    if (!programOpts.type) {
         answer = await inquirer.prompt({
             type   : 'list',
             name   : 'type',
@@ -118,5 +140,6 @@ if (programOpts.info) {
         Object.assign(answers, answer);
     }
 
-    console.log(answers);
+    let hooks = programOpts.hooks || answers.hooks,
+        type  = programOpts.type  || answers.type;
 }
