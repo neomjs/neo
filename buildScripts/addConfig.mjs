@@ -62,6 +62,7 @@ function addConfig(opts) {
  * @param {String} opts.comment
  * @param {String[]} opts.contentArray
  * @param {String} opts.name
+ * @param {Boolean} opts.returnValue
  * @param {String} opts.type
  * @returns {String[]}
  */
@@ -77,13 +78,34 @@ function addHook(opts) {
         '    /**',
         `     * ${opts.comment}`,
         `     * @param {${opts.type}} value`,
-        `     * @param {${opts.type}} oldValue`,
-        '     * @protected',
-        '     */',
-        `    ${opts.name}(value, oldValue) {`,
-        '        ',
-        '    }',
+        `     * @param {${opts.type}} oldValue`
     ];
+
+    if (opts.returnValue) {
+        method.push(
+        `     * @returns {${opts.type}}`
+        );
+    }
+
+    method.push(
+    '     * @protected',
+    '     */',
+    `    ${opts.name}(value, oldValue) {`
+    );
+
+    if (opts.returnValue) {
+        method.push(
+        '        return value;'
+        );
+    } else {
+        method.push(
+        '        '
+        );
+    }
+
+    method.push(
+        '    }'
+    );
 
     for (; i < len; i++) {
         if (contentArray[i].includes('}}')) {
@@ -326,9 +348,20 @@ if (programOpts.info) {
 
     if (hooks.includes(`afterSet${uConfigName}()`)) {
         addHook({
-            comment: `Triggered after the ${configName} config got changed`,
+            comment    : `Triggered after the ${configName} config got changed`,
             contentArray,
-            name   : `afterSet${uConfigName}`,
+            name       : `afterSet${uConfigName}`,
+            returnValue: false,
+            type
+        });
+    }
+
+    if (hooks.includes(`beforeSet${uConfigName}()`)) {
+        addHook({
+            comment    : `Triggered before the ${configName} config gets changed`,
+            contentArray,
+            name       : `beforeSet${uConfigName}`,
+            returnValue: true,
             type
         });
     }
