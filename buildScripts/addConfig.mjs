@@ -94,8 +94,8 @@ function addHook(opts) {
     }
 
     method.push(
-    '     * @protected',
-    '     */'
+        '     * @protected',
+        '     */'
     );
 
     if (opts.oldValueParam) {
