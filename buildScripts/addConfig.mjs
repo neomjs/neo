@@ -39,6 +39,10 @@ function addComma(contentArray, index=contentArray.length - 1) {
  * @returns {String[]}
  */
 function addConfig(opts) {
+    if (opts.type === 'String' && opts.defaultValue !== 'null') {
+        opts.defaultValue = `'${opts.defaultValue}'`;
+    }
+
     const config = [
         '        /**',
         `         * @member {${opts.type}} ${opts.configName}=${opts.defaultValue}`,
