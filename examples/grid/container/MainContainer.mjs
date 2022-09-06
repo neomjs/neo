@@ -86,10 +86,10 @@ class MainContainer extends ConfigurationViewport {
             store         : MainStore,
 
             columns: [
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id'},
-                {dataField: 'country',   text: 'Country'}
+                {field: 'firstname', text: 'Firstname'},
+                {field: 'lastname',  text: 'Lastname'},
+                {field: 'githubId',  text: 'Github Id'},
+                {field: 'country',   text: 'Country'}
             ]
         });
     }
