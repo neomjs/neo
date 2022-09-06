@@ -41,7 +41,7 @@ class View extends Component {
 
         // console.log('createViewData', me.id, inputData);
 
-        if (container.selectionModel?.ntype === 'selection-table-rowmodel') {
+        if (container.selectionModel?.ntype === 'selection-grid-rowmodel') {
             selectedRows = container.selectionModel.items || [];
         }
 

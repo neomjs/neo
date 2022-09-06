@@ -16,6 +16,16 @@ class Button extends BaseButton {
      */
     field = null
 
+    static getStaticConfig() {return {
+        /**
+         * Valid values for align
+         * @member {String[]} alignValues: ['left', 'center', 'right']
+         * @protected
+         * @static
+         */
+        alignValues: ['left', 'center', 'right']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.header.Button'
@@ -27,6 +37,11 @@ class Button extends BaseButton {
          * @protected
          */
         ntype: 'grid-header-button',
+        /**
+         * Alignment of the matching table cells. Valid values are left, center, right
+         * @member {String} align_='left'
+         */
+        align_: 'left',
         /**
          * @member {String[]} cls=['neo-grid-header-button']
          */
@@ -96,6 +111,16 @@ class Button extends BaseButton {
             direction: value,
             property : me.field
         });
+    }
+
+    /**
+     * Triggered before the align config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
     }
 
     /**

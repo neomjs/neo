@@ -46,7 +46,7 @@ class MainContainer extends Viewport {
             ntype    : 'container',
             flex     : 1,
             items    : [],
-            layout   : {ntype: 'card'},
+            layout   : {ntype: 'card', activeIndex: null},
             reference: 'cards'
         }, {
             module: FooterComponent

@@ -45,21 +45,19 @@ class CellModel extends Model {
      */
     onCellClick(data) {
         let me   = this,
-            id   = null,
             path = data.path,
             i    = 0,
-            len  = path.length;
+            len  = path.length,
+            id;
 
         for (; i < len; i++) {
-            if (path[i].tagName === 'td') {
+            if (path[i].cls.includes('neo-grid-cell')) {
                 id = path[i].id;
                 break;
             }
         }
 
-        if (id) {
-            me.toggleSelection(id);
-        }
+        id && me.toggleSelection(id);
     }
 
     /**
@@ -99,7 +97,7 @@ class CellModel extends Model {
             view          = me.view,
             idArray       = data.path[0].id.split('__'),
             currentColumn = idArray[2],
-            dataFields    = view.columns.map(c => c.dataField),
+            dataFields    = view.columns.map(c => c.field),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             id;
 
@@ -148,14 +146,12 @@ class CellModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys._keys.push(
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            );
-        }
+        view.keys?._keys.push(
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        );
     }
 
     /**
@@ -166,14 +162,12 @@ class CellModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            ]);
-        }
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        ]);
 
         super.unregister();
     }

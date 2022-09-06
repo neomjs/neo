@@ -267,7 +267,7 @@ class PreviewComponent extends Component {
             favorited = !me.favorited;
 
         me.set({
-            favorited     : favorited,
+            favorited,
             favoritesCount: favorited ? (me.favoritesCount + 1) : (me.favoritesCount - 1)
         });
     }

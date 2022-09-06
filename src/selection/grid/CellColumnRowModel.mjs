@@ -72,7 +72,7 @@ class CellColumnRowModel extends CellRowModel {
 
         if (id) {
             index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.deselectAllCells(true);
@@ -91,15 +91,15 @@ class CellColumnRowModel extends CellRowModel {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             view          = me.view,
-            dataFields    = view.columns.map(c => c.dataField),
-            newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
+            fields        = view.columns.map(c => c.field),
+            newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
             columnNodeIds, tbodyNode;
 
         while (newIndex < 0) {
-            newIndex += dataFields.length;
+            newIndex += fields.length;
         }
 
-        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.deselectAllCells(true);

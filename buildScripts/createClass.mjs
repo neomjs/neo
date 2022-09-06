@@ -114,6 +114,7 @@ if (programOpts.info) {
             choices: [
                 'component.Base',
                 'container.Base',
+                'container.Viewport',
                 'controller.Component',
                 'core.Base',
                 'data.Model',
@@ -581,6 +582,13 @@ if (programOpts.info) {
             "         * @protected",
             "         */",
             `        className: '${className}'`
+        );
+
+        baseClass === 'container.Viewport' && addComma(classContent).push(
+            "        /**",
+            "         * @member {Boolean} autoMount=true",
+            "         */",
+            "        autoMount: true"
         );
 
         baseClass === 'table.Container' && addComma(classContent).push(

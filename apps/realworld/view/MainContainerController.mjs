@@ -144,7 +144,7 @@ class MainContainerController extends ComponentController {
      */
     getArticle(slug) {
         return ArticleApi.get({
-            slug: slug
+            slug
         });
     }
 
@@ -406,9 +406,9 @@ class MainContainerController extends ComponentController {
             module = await module();
 
             me[key] = Neo.create({
-                module   : module.default,
-                parentId : me.component.id,
-                reference: reference
+                module  : module.default,
+                parentId: me.component.id,
+                reference
             });
         }
 

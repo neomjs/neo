@@ -51,7 +51,7 @@ class ColumnModel extends Model {
             len  = eventPath.length;
 
         for (; i < len; i++) {
-            if (eventPath[i].tagName === 'td') {
+            if (eventPath[i].cls.includes('neo-grid-cell')) {
                 id = eventPath[i].id;
                 break;
             }
@@ -61,15 +61,15 @@ class ColumnModel extends Model {
     }
 
     /**
-     * todo: move to table.Container or view
+     * todo: move to grid.Container or view
      * @param {String} cellId
-     * @param {Array} columns
+     * @param {Object[]} columns
      * @returns {Number} index
      */
     static getColumnIndex(cellId, columns) {
         let idArray       = cellId.split('__'),
             currentColumn = idArray[2],
-            dataFields    = columns.map(c => c.dataField);
+            dataFields    = columns.map(c => c.field);
 
         return dataFields.indexOf(currentColumn);
     }
@@ -78,13 +78,13 @@ class ColumnModel extends Model {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            id   = ColumnModel.getCellId(data.path),
+        let me = this,
+            id = ColumnModel.getCellId(data.path),
             columnNodeIds, index, tbodyNode;
 
         if (id) {
             index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.select(columnNodeIds);
@@ -114,18 +114,18 @@ class ColumnModel extends Model {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             view          = me.view,
-            dataFields    = view.columns.map(c => c.dataField),
-            newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
+            fields        = view.columns.map(c => c.field),
+            newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
             columnNodeIds, id, tbodyNode;
 
         while (newIndex < 0) {
-            newIndex += dataFields.length;
+            newIndex += fields.length;
         }
 
-        idArray[2] = dataFields[newIndex];
+        idArray[2] = fields[newIndex];
         id = idArray.join('__');
 
-        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.select(columnNodeIds);
@@ -142,17 +142,15 @@ class ColumnModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys._keys.push({
-                fn   : 'onKeyDownLeft',
-                key  : 'Left',
-                scope: id
-            }, {
-                fn   : 'onKeyDownRight',
-                key  : 'Right',
-                scope: id
-            });
-        }
+        view.keys?._keys.push({
+            fn   : 'onKeyDownLeft',
+            key  : 'Left',
+            scope: id
+        }, {
+            fn   : 'onKeyDownRight',
+            key  : 'Right',
+            scope: id
+        });
     }
 
 
@@ -164,17 +162,15 @@ class ColumnModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([{
-                fn   : 'onKeyDownLeft',
-                key  : 'Left',
-                scope: id
-            }, {
-                fn   : 'onKeyDownRight',
-                key  : 'Right',
-                scope: id
-            }]);
-        }
+        view.keys?.removeKeys([{
+            fn   : 'onKeyDownLeft',
+            key  : 'Left',
+            scope: id
+        }, {
+            fn   : 'onKeyDownRight',
+            key  : 'Right',
+            scope: id
+        }]);
 
         super.unregister();
     }

@@ -71,40 +71,42 @@ function addHook(opts) {
     let contentArray = opts.contentArray,
         i            = 0,
         inserted     = false,
+        name         = opts.name,
         len          = contentArray.length,
+        type         = opts.type,
         j, methodName, nextLine,
 
     method = [
         '',
         '    /**',
         `     * ${opts.comment}`,
-        `     * @param {${opts.type}} value`
+        `     * @param {${type}} value`
     ];
 
     if (opts.oldValueParam) {
         method.push(
-        `     * @param {${opts.type}} oldValue`
+        `     * @param {${type}} oldValue`
         );
     }
 
     if (opts.returnValue) {
         method.push(
-        `     * @returns {${opts.type}}`
+        `     * @returns {${type}}`
         );
     }
 
     method.push(
-    '     * @protected',
-    '     */'
+        '     * @protected',
+        '     */'
     );
 
     if (opts.oldValueParam) {
         method.push(
-        `    ${opts.name}(value, oldValue) {`
+        `    ${name}(value, oldValue) {`
         );
     } else {
         method.push(
-        `    ${opts.name}(value) {`
+        `    ${name}(value) {`
         );
     }
 
@@ -137,7 +139,7 @@ function addHook(opts) {
                 continue;
             }
 
-            if (methodName > opts.name) {
+            if (methodName > name) {
                 for (j=i; j > 0; j--) {
                     if (contentArray[j].includes('/**')) {
                         contentArray.splice(j - 1, 0, method.join(os.EOL));

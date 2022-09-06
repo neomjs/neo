@@ -78,8 +78,8 @@ class TagListComponent extends Component {
     afterSetActiveTag(value, oldValue) {
         if (oldValue !== undefined) {
             this.fire('tagChange', {
-                oldValue: oldValue,
-                value   : value
+                oldValue,
+                value
             });
         }
     }

@@ -1,6 +1,7 @@
 .neo-grid-container {
     border        : 1px solid v(grid-container-border-color);
     border-spacing: 0;
+    color         : v(grid-container-color);
     font-size     : 13px;
     font-weight   : 400;
     height        : 100%;
@@ -32,7 +33,7 @@
 
     .neo-grid-row:nth-child(even) {
         .neo-grid-cell {
-            background-color: #323232;
+            background-color: v(grid-container-cell-background-color-even);
         }
     }
 
@@ -56,8 +57,8 @@
     }
 
     .neo-grid-cell, .neo-grid-header-cell {
-        border-bottom: 1px solid #2b2b2b;
-        border-right : 1px solid #2b2b2b;
+        border-bottom: 1px solid v(grid-container-border-color);
+        border-right : 1px solid v(grid-container-border-color);
         height       : inherit;
         min-width    : 300px;
 
@@ -73,7 +74,7 @@
 
     .neo-grid-cell {
         align-items     : center;
-        background-color: #3c3f41;
+        background-color: v(grid-container-cell-background-color);
         display         : flex;
         height          : 32px !important;
         max-height      : 32px !important;
