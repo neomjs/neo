@@ -45,34 +45,34 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellmodel',
             labelText     : 'selectionModel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-columnmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-columnmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', ColumnModel)},
             valueLabelText: 'Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-rowmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-rowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', RowModel)},
             valueLabelText: 'Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellcolumnmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellrowmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellcolumnrowmodel',
+            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }];
