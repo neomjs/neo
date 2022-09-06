@@ -15,12 +15,12 @@ class FooterComponent extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {tag: 'footer', cn: [
-                {cls: ['container'], cn: [
-                    {tag: 'a', cls: ['logo-font'], href: '#/', html: 'conduit'},
-                    {tag: 'span', cls: 'attribution', html: 'An interactive learning project from <a href="https://thinkster.io">Thinkster</a>. Code &amp; design licensed under MIT.'}
-                ]}
+        {tag: 'footer', cn: [
+            {cls: ['container'], cn: [
+                {tag: 'a', cls: ['logo-font'], href: '#/', html: 'conduit'},
+                {tag: 'span', cls: 'attribution', html: 'An interactive learning project from <a href="https://thinkster.io">Thinkster</a>. Code &amp; design licensed under MIT.'}
             ]}
+        ]}
     }}
 }
 

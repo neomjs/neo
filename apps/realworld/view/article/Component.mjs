@@ -233,8 +233,8 @@ class Component extends BaseComponent {
 
                 VDomUtil.getByFlag(vdom, 'body').cn[0] = {
                     cn: [{
-                        tag : 'p',
-                        html: html
+                        tag: 'p',
+                        html
                     }]
                 };
 

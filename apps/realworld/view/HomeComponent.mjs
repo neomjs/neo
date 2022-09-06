@@ -280,8 +280,8 @@ class HomeComponent extends Component {
                 cls: ['nav-item'],
                 id : me.id + '__nav-item_' + index,
                 cn : [{
-                    tag: 'a',
-                    cls: cls,
+                    tag : 'a',
+                    cls : cls,
                     href: '',
                     html: item.name,
                     id  : me.id + '__nav-item-link_' + index,
@@ -447,12 +447,12 @@ class HomeComponent extends Component {
         if (feeds.length < 3) {
             feeds.push({
                 active: true,
-                name  : name
+                name
             });
         } else {
             Object.assign(feeds[2], {
                 active: true,
-                name  : name
+                name
             });
         }
 
