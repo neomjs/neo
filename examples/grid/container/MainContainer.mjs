@@ -80,10 +80,12 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(GridContainer, {
-            autoRender    : false,
-            id            : 'myTableStoreContainer',
             selectionModel: CellModel,
             store         : MainStore,
+
+            columnDefaults: {
+                width: 200
+            },
 
             columns: [
                 {field: 'firstname', text: 'Firstname'},
