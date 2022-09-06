@@ -209,8 +209,8 @@ class MainContainerController extends ComponentController {
 
         if (!card) {
             card = me.getReference('cards').add({
-                module   : module,
-                reference: reference
+                module,
+                reference
             });
         }
 
