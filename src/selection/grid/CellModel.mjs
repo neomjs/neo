@@ -51,7 +51,7 @@ class CellModel extends Model {
             id;
 
         for (; i < len; i++) {
-            if (path[i].cls.includes() === 'neo-grid-cell') {
+            if (path[i].cls.includes('neo-grid-cell')) {
                 id = path[i].id;
                 break;
             }
@@ -97,7 +97,7 @@ class CellModel extends Model {
             view          = me.view,
             idArray       = data.path[0].id.split('__'),
             currentColumn = idArray[2],
-            dataFields    = view.columns.map(c => c.dataField),
+            dataFields    = view.columns.map(c => c.field),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             id;
 
