@@ -4,11 +4,11 @@ import CellModel             from '../../../src/selection/grid/CellModel.mjs';
 import CellRowModel          from '../../../src/selection/grid/CellRowModel.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import ColumnModel           from '../../../src/selection/grid/ColumnModel.mjs';
+import GridContainer         from '../../../src/grid/Container.mjs';
 import MainStore             from './MainStore.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import RowModel              from '../../../src/selection/grid/RowModel.mjs';
-import TableContainer        from '../../../src/grid/Container.mjs';
 
 /**
  * @class Neo.examples.grid.container.MainContainer
@@ -79,7 +79,7 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create(TableContainer, {
+        return Neo.create(GridContainer, {
             autoRender    : false,
             id            : 'myTableStoreContainer',
             selectionModel: CellModel,
