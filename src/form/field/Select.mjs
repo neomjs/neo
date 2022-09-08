@@ -5,7 +5,7 @@ import Store           from '../../data/Store.mjs';
 import VDomUtil        from '../../util/VDom.mjs';
 
 /**
- * Provides a drop down list to select one or multiple items
+ * Provides a dropdown list to select one or multiple items
  * @class Neo.form.field.Select
  * @extends Neo.form.field.Picker
  */
