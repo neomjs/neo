@@ -604,6 +604,13 @@ if (programOpts.info) {
             "        }]"
         );
 
+        baseClass === 'model.Component' && addComma(classContent).push(
+            "        /**",
+            "         * @member {Object} data",
+            "         */",
+            "        data: {}"
+        );
+
         baseClass === 'data.Model' && addComma(classContent).push(
             "        /**",
             "         * @member {Object[]} fields",
@@ -614,7 +621,7 @@ if (programOpts.info) {
             "        }]"
         );
 
-        baseClass === 'container.Base' && addComma(classContent).push(
+        (baseClass === 'container.Base' || baseClass === 'container.Viewport') && addComma(classContent).push(
             "        /**",
             "         * @member {Object[]} items",
             "         */",
