@@ -614,7 +614,7 @@ if (programOpts.info) {
             "        }]"
         );
 
-        baseClass === 'container.Base' && addComma(classContent).push(
+        (baseClass === 'container.Base' || baseClass === 'container.Viewport') && addComma(classContent).push(
             "        /**",
             "         * @member {Object[]} items",
             "         */",
