@@ -657,6 +657,13 @@ if (programOpts.info) {
             "        singleton: true"
         );
 
+        baseClass === 'model.Component' && addComma(classContent).push(
+            "        /**",
+            "         * @member {Object} stores",
+            "         */",
+            "        stores: {}",
+        );
+
         baseClass === 'component.Base' && addComma(classContent).push(
             "        /**",
             "         * @member {Object} _vdom",

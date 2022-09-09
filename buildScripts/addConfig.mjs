@@ -397,4 +397,6 @@ if (programOpts.info) {
     }
 
     fs.writeFileSync(classPath, contentArray.join(os.EOL));
+
+    process.exit();
 }
