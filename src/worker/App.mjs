@@ -130,7 +130,7 @@ class App extends Base {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
                     className = className.split('.');
-                    className.shift();
+                    lAppName  = className.shift().toLowerCase();
 
                     className[0] === 'view' && className.shift();
 
