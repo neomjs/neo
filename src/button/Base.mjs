@@ -113,7 +113,7 @@ class Base extends Component {
     afterSetHandler(value, oldValue) {
         if (value) {
             let me           = this,
-                domListeners = me.domListeners || [];
+                domListeners = me.domListeners;
 
             domListeners.push({
                 click: value,
@@ -207,7 +207,7 @@ class Base extends Component {
     afterSetRoute(value, oldValue) {
         if (value) {
             let me           = this,
-                domListeners = me.domListeners || [];
+                domListeners = me.domListeners;
 
             domListeners.push({
                 click: me.changeRoute,
@@ -264,6 +264,26 @@ class Base extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the useRippleEffect config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseRippleEffect(value, oldValue) {
+        if (value) {
+            let me           = this,
+                domListeners = me.domListeners;
+
+            domListeners.push({
+                click: me.showRipple,
+                scope: me
+            });
+
+            me.domListeners = domListeners;
+        }
     }
 
     /**
@@ -337,6 +357,13 @@ class Base extends Component {
         } else {
             Neo.Main.setRoute({value: me.route});
         }
+    }
+
+    /**
+     *
+     */
+    showRipple() {
+        console.log('show ripple');
     }
 }
 

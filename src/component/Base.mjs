@@ -105,7 +105,7 @@ class Base extends CoreBase {
          * afterSetStayOnHover(value, oldValue) {
          *     if (value) {
          *         let me           = this,
-         *             domListeners = me.domListeners || [];
+         *             domListeners = me.domListeners;
          *
          *         domListeners.push(
          *             {mouseenter: me.onMouseEnter, scope: me},

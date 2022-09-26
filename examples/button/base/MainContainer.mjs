@@ -94,11 +94,12 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            height : 50,
-            iconCls: 'fa fa-home',
-            module : Button,
-            text   : 'Hello World',
-            width  : 150,
+            height         : 50,
+            iconCls        : 'fa fa-home',
+            module         : Button,
+            text           : 'Hello World',
+            useRippleEffect: true,
+            width          : 150,
 
             handler: (data) => {
                 let button = Neo.getComponent(data.target.id);
