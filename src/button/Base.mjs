@@ -100,7 +100,8 @@ class Base extends Component {
         _vdom:
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
-            {tag: 'span', cls: ['neo-button-text']}
+            {tag: 'span', cls: ['neo-button-text']},
+            {tag: 'span', cls: ['neo-button-ripple'], removeDom: true}
         ]}
     }}
 
@@ -362,8 +363,29 @@ class Base extends Component {
     /**
      *
      */
-    showRipple() {
-        console.log('show ripple');
+    async showRipple() {
+        let me       = this,
+            domRect  = await me.getDomRect(),
+            diameter = Math.max(domRect.height, domRect.width),
+            radius   = diameter / 2,
+            vdom     = me.vdom,
+            rippleEl = vdom.cn[2];
+
+        rippleEl.style = Object.assign(rippleEl.style || {}, {
+            animation: 'none',
+            height   : `${diameter}px`,
+            width    : `${diameter}px`
+        });
+
+        delete rippleEl.removeDom;
+
+        me.vdom = vdom;
+
+        setTimeout(() => {
+            vdom = me.vdom;
+            vdom.cn[2].style.animation = 'ripple 600ms linear';
+            me.vdom = vdom;
+        }, 30);
     }
 }
 

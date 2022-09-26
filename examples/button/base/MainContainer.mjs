@@ -102,8 +102,7 @@ class MainContainer extends ConfigurationViewport {
             width          : 150,
 
             handler: (data) => {
-                let button = Neo.getComponent(data.target.id);
-                console.log('button click =>', button.id);
+                console.log('button click =>', data.component.id);
             }
 
             /*tooltips: [{
