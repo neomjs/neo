@@ -94,22 +94,20 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
+            height : 50,
             iconCls: 'fa fa-home',
             module : Button,
             text   : 'Hello World',
+            width  : 150,
+
+            handler: (data) => {
+                let button = Neo.getComponent(data.target.id);
+                console.log('button click =>', button.id);
+            }
 
             /*tooltips: [{
                 text: 'Hello World Tooltip'
             }],*/
-
-            domListeners: {
-                click: {
-                    fn: (data) => {
-                        let button = Neo.getComponent(data.target.id);
-                        console.log('button click =>', button.id);
-                    }
-                }
-            }
         });
     }
 }
