@@ -361,19 +361,21 @@ class Base extends Component {
     }
 
     /**
-     *
+     * @param {Object} data
      */
-    async showRipple() {
-        let me       = this,
-            domRect  = await me.getDomRect(),
-            diameter = Math.max(domRect.height, domRect.width),
-            radius   = diameter / 2,
-            vdom     = me.vdom,
-            rippleEl = vdom.cn[2];
+    async showRipple(data) {
+        let me         = this,
+            buttonRect = data.path[0].rect,
+            diameter   = Math.max(buttonRect.height, buttonRect.width),
+            radius     = diameter / 2,
+            vdom       = me.vdom,
+            rippleEl   = vdom.cn[2];
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
+            left     : `${data.clientX - buttonRect.left - radius}px`,
             height   : `${diameter}px`,
+            top      : `${data.clientY - buttonRect.top - radius}px`,
             width    : `${diameter}px`
         });
 
@@ -381,11 +383,10 @@ class Base extends Component {
 
         me.vdom = vdom;
 
-        setTimeout(() => {
-            vdom = me.vdom;
-            vdom.cn[2].style.animation = 'ripple 600ms linear';
-            me.vdom = vdom;
-        }, 30);
+        await Neo.timeout(30);
+
+        rippleEl.style.animation = 'ripple 400ms linear';
+        me.vdom = vdom;
     }
 }
 

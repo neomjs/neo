@@ -70,9 +70,9 @@
         background-color: red;
         border-radius   : 50%;
         opacity         : 0;
+        pointer-events  : none;
         position        : absolute;
         transform       : scale(4);
-        user-select     : none;
     }
 
     .neo-button-text {
