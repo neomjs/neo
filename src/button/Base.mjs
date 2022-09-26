@@ -383,7 +383,7 @@ class Base extends Component {
 
         me.vdom = vdom;
 
-        await Neo.timeout(30);
+        await Neo.timeout(1);
 
         rippleEl.style.animation = 'ripple 400ms linear';
         me.vdom = vdom;
