@@ -107,7 +107,7 @@ class MainContainer extends ConfigurationViewport {
 
             /*tooltips: [{
                 text: 'Hello World Tooltip'
-            }],*/
+            }]*/
         });
     }
 }
