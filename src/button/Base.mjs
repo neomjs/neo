@@ -125,17 +125,12 @@ class Base extends Component {
      * @protected
      */
     afterSetHandler(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me = this;
 
-            domListeners.push({
-                click: value,
-                scope: me.handlerScope || me
-            });
-
-            me.domListeners = domListeners;
-        }
+        value && me.addDomListeners({
+            click: value,
+            scope: me.handlerScope || me
+        });
     }
 
     /**
@@ -219,17 +214,12 @@ class Base extends Component {
      * @protected
      */
     afterSetRoute(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me = this;
 
-            domListeners.push({
-                click: me.changeRoute,
-                scope: me
-            });
-
-            me.domListeners = domListeners;
-        }
+        value && me.addDomListeners({
+            click: me.changeRoute,
+            scope: me
+        });
     }
 
     /**
@@ -287,17 +277,15 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        let me           = this,
-            domListeners = me.domListeners,
-            listener     = {click: me.showRipple, scope: me},
-            rippleEl     = me.getRippleEl(),
-            vdom         = me.vdom;
+        let me       = this,
+            listener = {click: me.showRipple, scope: me},
+            rippleEl = me.getRippleEl(),
+            vdom     = me.vdom;
 
         if (!value && oldValue) {
             me.removeDomListeners(listener);
         } else if (value) {
-            domListeners.push(listener);
-            me.domListeners = domListeners;
+            me.addDomListeners(listener);
         }
 
         // setting the config to false should end running ripple animations
