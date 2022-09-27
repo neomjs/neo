@@ -90,12 +90,18 @@ class Base extends Component {
          */
         urlTarget_: '_blank',
         /**
+         * True adds an expanding circle on click
+         * @member {Boolean} useRippleEffect_=false
+         */
+        useRippleEffect_: false,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
-            {tag: 'span', cls: ['neo-button-text']}
+            {tag: 'span', cls: ['neo-button-text']},
+            {tag: 'span', cls: ['neo-button-ripple'], removeDom: true}
         ]}
     }}
 
@@ -108,7 +114,7 @@ class Base extends Component {
     afterSetHandler(value, oldValue) {
         if (value) {
             let me           = this,
-                domListeners = me.domListeners || [];
+                domListeners = me.domListeners;
 
             domListeners.push({
                 click: value,
@@ -202,7 +208,7 @@ class Base extends Component {
     afterSetRoute(value, oldValue) {
         if (value) {
             let me           = this,
-                domListeners = me.domListeners || [];
+                domListeners = me.domListeners;
 
             domListeners.push({
                 click: me.changeRoute,
@@ -259,6 +265,26 @@ class Base extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the useRippleEffect config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseRippleEffect(value, oldValue) {
+        if (value) {
+            let me           = this,
+                domListeners = me.domListeners;
+
+            domListeners.push({
+                click: me.showRipple,
+                scope: me
+            });
+
+            me.domListeners = domListeners;
+        }
     }
 
     /**
@@ -332,6 +358,35 @@ class Base extends Component {
         } else {
             Neo.Main.setRoute({value: me.route});
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async showRipple(data) {
+        let me         = this,
+            buttonRect = data.path[0].rect,
+            diameter   = Math.max(buttonRect.height, buttonRect.width),
+            radius     = diameter / 2,
+            vdom       = me.vdom,
+            rippleEl   = vdom.cn[2];
+
+        rippleEl.style = Object.assign(rippleEl.style || {}, {
+            animation: 'none',
+            left     : `${data.clientX - buttonRect.left - radius}px`,
+            height   : `${diameter}px`,
+            top      : `${data.clientY - buttonRect.top - radius}px`,
+            width    : `${diameter}px`
+        });
+
+        delete rippleEl.removeDom;
+
+        me.vdom = vdom;
+
+        await Neo.timeout(1);
+
+        rippleEl.style.animation = 'ripple 400ms linear';
+        me.vdom = vdom;
     }
 }
 

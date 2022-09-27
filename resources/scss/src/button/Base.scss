@@ -1,3 +1,14 @@
+@keyframes ripple {
+    from {
+        opacity  : 1;
+        transform: scale(0);
+    }
+    to {
+        opacity  : 0;
+        transform: scale(4);
+    }
+}
+
 .neo-disabled {
     .neo-button {
         cursor: default;
@@ -16,6 +27,7 @@
     flex-direction     : row;
     justify-content    : center;
     margin             : v(button-margin);
+    overflow           : hidden;
     padding            : v(button-padding);
     position           : relative;
     text-decoration    : none; // for url buttons => links
@@ -52,6 +64,15 @@
         font-size     : 12px;
         margin        : 0 6px 0 0;
         pointer-events: none;
+    }
+
+    .neo-button-ripple {
+        background-color: red;
+        border-radius   : 50%;
+        opacity         : 0;
+        pointer-events  : none;
+        position        : absolute;
+        transform       : scale(4);
     }
 
     .neo-button-text {
