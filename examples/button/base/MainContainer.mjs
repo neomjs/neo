@@ -12,8 +12,8 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.button.base.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 110,
-        configItemWidth     : 230,
+        configItemLabelWidth: 150,
+        configItemWidth     : 270,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -73,6 +73,15 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'left')},
             name          : 'iconPosition',
             valueLabelText: 'Left'
+        }, {
+            module    :  NumberField,
+            clearable : true,
+            labelText : 'rippleEffectDuration',
+            listeners : {change: me.onConfigChange.bind(me, 'rippleEffectDuration')},
+            maxValue  : 1000,
+            minValue  : 100,
+            stepSize  : 100,
+            value     : me.exampleComponent.rippleEffectDuration
         }, {
             module    :  TextField,
             clearable : true,
