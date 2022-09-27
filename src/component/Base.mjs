@@ -433,6 +433,22 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut to add additional dom listeners
+     * @param {Object|Object[]} value
+     */
+    addDomListeners(value) {
+        if (!Array.isArray(value)) {
+            value = [value];
+        }
+
+        let domListeners = this.domListeners;
+
+        domListeners.push(...value);
+
+        this.domListeners = domListeners;
+    }
+
+    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
