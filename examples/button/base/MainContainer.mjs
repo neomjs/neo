@@ -1,4 +1,5 @@
 import Button                from '../../../src/button/Base.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
@@ -12,8 +13,8 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.button.base.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 150,
-        configItemWidth     : 270,
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -81,6 +82,7 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 1000,
             minValue  : 100,
             stepSize  : 100,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.rippleEffectDuration
         }, {
             module    :  TextField,
@@ -90,6 +92,12 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.useRippleEffect,
+            labelText: 'useRippleEffect',
+            listeners: {change: me.onConfigChange.bind(me, 'useRippleEffect')},
+            style    : {marginTop: '10px'}
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'width',
@@ -97,6 +105,7 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 300,
             minValue  : 100,
             stepSize  : 5,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.width
         }];
     }
