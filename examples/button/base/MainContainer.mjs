@@ -79,7 +79,7 @@ class MainContainer extends ConfigurationViewport {
             clearable : true,
             labelText : 'rippleEffectDuration',
             listeners : {change: me.onConfigChange.bind(me, 'rippleEffectDuration')},
-            maxValue  : 1000,
+            maxValue  : 5000,
             minValue  : 100,
             stepSize  : 100,
             style     : {marginTop: '10px'},
