@@ -219,15 +219,12 @@ class Component extends BaseComponent {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
             {wheel   : me.onWheel,            scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             appName  : me.appName,

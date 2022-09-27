@@ -75,14 +75,11 @@ class CheckBox extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {change: me.onInputValueChange, scope: me}
         );
-
-        me.domListeners = domListeners;
     }
 
     /**

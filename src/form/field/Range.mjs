@@ -51,20 +51,17 @@ class Range extends Number {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners,
-            inputEl      = me.vdom.cn[1];
+        let me      = this,
+            inputEl = me.vdom.cn[1];
 
         if (me.useInputEvent) {
-            domListeners.push({
+            me.addDomListeners({
                 input: {
                     fn    : me.onInputValueChange,
                     id    : me.vdom.cn[1].id,
                     scope : me
                 }
             });
-
-            me.domListeners = domListeners;
         }
 
         inputEl.cls = ['neo-rangefield-input']; // replace neo-textfield-input

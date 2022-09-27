@@ -143,15 +143,12 @@ class DateSelector extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
-            click: {fn: me.onComponentClick, scope: me},
-            wheel: {fn: me.onComponentWheel, scope: me}
-        });
-
-        me.domListeners = domListeners;
+        me.addDomListeners([
+            {click: me.onComponentClick, scope: me},
+            {wheel: me.onComponentWheel, scope: me}
+        ]);
 
         me.updateHeaderMonth(0, 0, true);
         me.updateHeaderYear(0, true);

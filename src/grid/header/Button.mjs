@@ -68,15 +68,12 @@ class Button extends BaseButton {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: me.onButtonClick,
             scope: me
-        })
-
-        me.domListeners = domListeners;
+        });
     }
 
     /**

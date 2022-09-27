@@ -99,24 +99,12 @@ class Carousel extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
-            click: {
-                fn      : me.onCarouselBtnClick,
-                delegate: '.neo-carousel-btn',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onClick,
-                delegate: '.neo-carousel-item',
-                scope   : me
-            }
-        });
-
-        me.domListeners = domListeners;
+        me.addDomListeners([
+            {click: me.onCarouselBtnClick, delegate: '.neo-carousel-btn',  scope: me},
+            {click: me.onClick,            delegate: '.neo-carousel-item', scope: me}
+        ]);
     }
 
     /**

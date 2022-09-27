@@ -63,19 +63,14 @@ class Chip extends Component {
     construct(config) {
         super.construct(config);
 
-        let me = this,
-            domListeners;
+        let me = this;
 
         if (me.useDomListeners) {
-            domListeners = me.domListeners;
-
-            domListeners.push({
+            me.addDomListeners({
                 click   : me.onCloseButtonClick,
                 delegate: 'neo-chip-close-button',
                 scope   : me
             });
-
-            me.domListeners = domListeners;
         }
     }
 

@@ -160,15 +160,12 @@ class Component extends BaseComponent {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
             {wheel   : me.onWheel, scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             me.needsEventUpdate = true;

@@ -74,15 +74,12 @@ class Splitter extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {'drag:end'  : me.onDragEnd,   scope: me},
             {'drag:start': me.onDragStart, scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
     }
 
     /**

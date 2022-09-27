@@ -118,14 +118,12 @@ class Base extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
-            click: {fn: me.onClick, scope: me}
+        me.addDomListeners({
+            click: me.onClick,
+            scope: me
         });
-
-        me.domListeners = domListeners;
     }
 
     /**

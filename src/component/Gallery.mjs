@@ -176,18 +176,15 @@ class Gallery extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = Neo.clone(me.domListeners, true);
+        let me = this;
 
         me[itemsMounted] = false;
 
-        domListeners.push({
+        me.addDomListeners({
             click: me.onClick,
             wheel: me.onMouseWheel,
             scope: me
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -581,7 +578,7 @@ class Gallery extends Component {
         if (me.mouseWheelEnabled) {
             me._translateX = me.translateX - (me.deltaX * me.mouseWheelDeltaX); // silent update
             me._translateZ = me.translateZ + (me.deltaY * me.mouseWheelDeltaY); // silent update
-
+console.log(me._translateX, me._translateZ);
             me.moveOrigin();
 
             me.fire('changeTranslateX', me._translateX);
