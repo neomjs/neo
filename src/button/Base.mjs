@@ -12,6 +12,12 @@ class Base extends Component {
      * @member {Number} rippleEffectDuration=400
      */
     rippleEffectDuration = 400
+    /**
+     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
+     * @member {Number} #rippleTimeoutId=null
+     * @private
+     */
+    #rippleTimeoutId = null
 
     static getStaticConfig() {return {
         /**
@@ -378,12 +384,14 @@ class Base extends Component {
      * @param {Object} data
      */
     async showRipple(data) {
-        let me         = this,
-            buttonRect = data.path[0].rect,
-            diameter   = Math.max(buttonRect.height, buttonRect.width),
-            radius     = diameter / 2,
-            vdom       = me.vdom,
-            rippleEl   = me.getRippleEl();
+        let me                   = this,
+            buttonRect           = data.path[0].rect,
+            diameter             = Math.max(buttonRect.height, buttonRect.width),
+            radius               = diameter / 2,
+            vdom                 = me.vdom,
+            rippleEffectDuration = me.rippleEffectDuration,
+            rippleEl             = me.getRippleEl(),
+            rippleTimeoutId;
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
@@ -399,8 +407,18 @@ class Base extends Component {
 
         await Neo.timeout(1);
 
-        rippleEl.style.animation = `ripple ${me.rippleEffectDuration}ms linear`;
+        rippleEl.style.animation = `ripple ${rippleEffectDuration}ms linear`;
         me.vdom = vdom;
+
+        me.#rippleTimeoutId = rippleTimeoutId = setTimeout(() => {
+            // we do not want to break animations when clicking multiple times
+            if (me.#rippleTimeoutId === rippleTimeoutId) {
+                me.#rippleTimeoutId = null;
+
+                rippleEl.removeDom = true;
+                me.vdom = vdom;
+            }
+        }, rippleEffectDuration);
     }
 }
 
