@@ -6,6 +6,13 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
+    /**
+     * Time in ms for the ripple effect when clicking on the button.
+     * Only active if useRippleEffect is set to true.
+     * @member {Number} rippleEffectDuration=400
+     */
+    rippleEffectDuration = 400
+
     static getStaticConfig() {return {
         /**
          * Valid values for iconPosition
@@ -385,7 +392,7 @@ class Base extends Component {
 
         await Neo.timeout(1);
 
-        rippleEl.style.animation = 'ripple 400ms linear';
+        rippleEl.style.animation = `ripple ${me.rippleEffectDuration}ms linear`;
         me.vdom = vdom;
     }
 }
