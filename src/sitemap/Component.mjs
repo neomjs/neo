@@ -50,15 +50,12 @@ class Component extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: me.onItemHandlerClick, delegate: '.neo-action-handler', scope: me},
             {click: me.onItemClick,        delegate: '.neo-action',         scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
     }
 
     /**

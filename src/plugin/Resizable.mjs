@@ -175,10 +175,9 @@ class Resizable extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.owner.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,    scope: me, delegate: '.neo-resizable'},
             {'drag:move' : me.onDragMove,   scope: me, delegate: '.neo-resizable'},
             {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-resizable'},
@@ -186,9 +185,7 @@ class Resizable extends Base {
             {mousemove   : me.onMouseMove,  scope: me, local   : true},
             {mouseleave  : me.onMouseLeave, scope: me, delegate: `.${me.delegationCls}`},
             {mouseup     : me.onMouseUp,    scope: me, delegate: '.neo-resizable'}
-        );
-
-        me.owner.domListeners = domListeners;
+        ]);
     }
 
     /**

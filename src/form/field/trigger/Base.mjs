@@ -81,28 +81,20 @@ class Base extends Component {
     construct(config) {
         super.construct(config);
 
-        let me             = this,
-            domListeners   = me.domListeners || [],
-            fieldListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {click: me.onTriggerClick, scope: me}
         );
-
-        me.domListeners = domListeners;
 
         if (me.showOnHover) {
             me.hidden = true;
 
             me.field.on('constructed', () => {
-                fieldListeners = me.field.domListeners || [];
-
-                fieldListeners.push(
+                me.field.addDomListeners([
                     {mouseenter: me.onMouseEnter, scope: me},
                     {mouseleave: me.onMouseLeave, scope: me}
-                );
-
-                me.field.domListeners = fieldListeners;
+                ]);
             }, me);
         }
     }

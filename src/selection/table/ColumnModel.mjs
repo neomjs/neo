@@ -28,17 +28,14 @@ class ColumnModel extends Model {
      *
      */
     addDomListener() {
-        let me           = this,
-            view         = me.view,
-            domListeners = view.domListeners;
+        let me   = this,
+            view = me.view;
 
-        domListeners.push({
+        view.addDomListeners({
             click   : me.onCellClick,
             delegate: '.neo-table-cell',
             scope   : me
         });
-
-        view.domListeners = domListeners;
     }
 
     /**

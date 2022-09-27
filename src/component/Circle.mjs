@@ -132,9 +132,8 @@ class Circle extends Component {
             cls : ['neo-circle', 'neo-circle-back']
         });
 
-        let me           = this,
-            domListeners = me.domListeners,
-            vdom         = me.vdom;
+        let me   = this,
+            vdom = me.vdom;
 
         if (!me.backsideIconPath) {
             me.backsideIconPath = Neo.config.resourcesPath + 'images/circle/';
@@ -144,7 +143,7 @@ class Circle extends Component {
             me.itemImagePath = Neo.config.resourcesPath + 'examples/';
         }
 
-        domListeners.push({
+        me.addDomListeners([{
             mouseenter: me.expand,
             mouseleave: me.collapse,
             scope     : me
@@ -166,9 +165,7 @@ class Circle extends Component {
             wheel      : me.onMouseWheel,
             delegate   : 'neo-circle',
             scope      : me
-        });
-
-        me.domListeners = domListeners;
+        }]);
 
         me.store = Neo.create(Collection, {
             keyProperty: 'id'

@@ -126,9 +126,8 @@ class Fieldset extends Container {
      * @protected
      */
     afterSetCollapsible(value, oldValue) {
-        let me           = this,
-            cls          = me.cls,
-            domListeners = me.domListeners || [];
+        let me  = this,
+            cls = me.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-collapsible');
         me.cls = cls;
@@ -140,12 +139,10 @@ class Fieldset extends Container {
         if (value && !me.hasLabelClickListener) {
             me.hasLabelClickListener = true;
 
-            domListeners.push({
+            me.addDomListeners({
                 click   : me.onLegendClick,
                 delegate: 'neo-legend'
             });
-
-            me.domListeners = domListeners;
         }
     }
 

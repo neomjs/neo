@@ -28,17 +28,14 @@ class RowModel extends Model {
      *
      */
     addDomListener() {
-        let me           = this,
-            view         = me.view,
-            domListeners = view.domListeners;
+        let me   = this,
+            view = me.view;
 
-        domListeners.push({
+        view.addDomListeners({
             click   : me.onRowClick,
             delegate: '.neo-table-row',
             scope   : me
         });
-
-        view.domListeners = domListeners;
     }
 
     /**
