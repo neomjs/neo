@@ -367,6 +367,14 @@ class Base extends Component {
     }
 
     /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getRippleEl() {
+        return this.vdom.cn[2];
+    }
+
+    /**
      * @param {Object} data
      */
     async showRipple(data) {
@@ -375,7 +383,7 @@ class Base extends Component {
             diameter   = Math.max(buttonRect.height, buttonRect.width),
             radius     = diameter / 2,
             vdom       = me.vdom,
-            rippleEl   = vdom.cn[2];
+            rippleEl   = me.getRippleEl();
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
