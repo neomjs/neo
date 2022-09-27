@@ -46,19 +46,16 @@ class CreateCommentComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners,
-            vdom         = me.vdom;
+        let me   = this,
+            vdom = me.vdom;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onSubmitButtonClick,
                 delegate: '.btn-primary',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
 
         vdom.cn[0].cn[0].id = me.getInputElId();
         me.vdom = vdom;

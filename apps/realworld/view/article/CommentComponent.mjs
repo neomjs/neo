@@ -66,15 +66,12 @@ class CommentComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onDeleteButtonClick, delegate: '.ion-trash-a', scope: me}}
             /*{click: {fn: me.onEditButtonClick,   delegate: '.ion-edit',    scope: me}*/
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,

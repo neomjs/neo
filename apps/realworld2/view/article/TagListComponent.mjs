@@ -59,18 +59,15 @@ class TagListComponent extends Component {
             cls : 'tag-pill'
         });
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onTagLinkClick,
                 delegate: '.tag-pill',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
     }
 
     /**

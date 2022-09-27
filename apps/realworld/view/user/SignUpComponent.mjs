@@ -67,18 +67,15 @@ class SignUpComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onSubmitButtonClick,
                 delegate: '.btn-primary',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
