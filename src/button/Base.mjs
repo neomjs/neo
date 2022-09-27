@@ -114,7 +114,7 @@ class Base extends Component {
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
-            {tag: 'span', cls: ['neo-button-ripple'], removeDom: true}
+            {tag: 'span', cls: ['neo-button-ripple']}
         ]}
     }}
 
@@ -289,7 +289,9 @@ class Base extends Component {
     afterSetUseRippleEffect(value, oldValue) {
         let me           = this,
             domListeners = me.domListeners,
-            listener     = {click: me.showRipple, scope: me};
+            listener     = {click: me.showRipple, scope: me},
+            rippleEl     = me.getRippleEl(),
+            vdom         = me.vdom;
 
         if (!value && oldValue) {
             me.removeDomListeners(listener);
@@ -297,6 +299,10 @@ class Base extends Component {
             domListeners.push(listener);
             me.domListeners = domListeners;
         }
+
+        // setting the config to false should end running ripple animations
+        rippleEl.removeDom = true;
+        me.vdom = vdom;
     }
 
     /**
