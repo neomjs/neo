@@ -281,15 +281,14 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me           = this,
+            domListeners = me.domListeners,
+            listener     = {click: me.showRipple, scope: me};
 
-            domListeners.push({
-                click: me.showRipple,
-                scope: me
-            });
-
+        if (!value && oldValue) {
+            me.removeDomListeners(listener);
+        } else if (value) {
+            domListeners.push(listener);
             me.domListeners = domListeners;
         }
     }
