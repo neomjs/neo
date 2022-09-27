@@ -122,7 +122,7 @@ class App extends Base {
                 lAppName = appName.toLowerCase(),
                 cssMap   = Neo.cssMap,
                 parent   = proto?.__proto__,
-                classPath, fileName, mapClassName, ns, themeFolders;
+                classPath, classRoot, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
                 me.themeFilesCache.push([appName, proto]);
@@ -130,11 +130,11 @@ class App extends Base {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
                     className = className.split('.');
-                    lAppName  = className.shift().toLowerCase();
+                    classRoot = className.shift().toLowerCase();
 
                     className[0] === 'view' && className.shift();
 
-                    mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
+                    mapClassName = `apps.${Neo.apps[appName].appThemeFolder || classRoot}.${className.join('.')}`;
                     className    = `apps.${lAppName}.${className.join('.')}`;
                 }
 
