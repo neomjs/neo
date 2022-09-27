@@ -576,9 +576,9 @@ class Gallery extends Component {
         let me = this;
 
         if (me.mouseWheelEnabled) {
-            me._translateX = me.translateX - (me.deltaX * me.mouseWheelDeltaX); // silent update
-            me._translateZ = me.translateZ + (me.deltaY * me.mouseWheelDeltaY); // silent update
-console.log(me._translateX, me._translateZ);
+            me._translateX = me.translateX - (data.deltaX * me.mouseWheelDeltaX); // silent update
+            me._translateZ = me.translateZ + (data.deltaY * me.mouseWheelDeltaY); // silent update
+
             me.moveOrigin();
 
             me.fire('changeTranslateX', me._translateX);

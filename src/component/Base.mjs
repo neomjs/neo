@@ -440,7 +440,7 @@ class Base extends CoreBase {
         if (!Array.isArray(value)) {
             value = [value];
         }
-console.log(value);
+
         let domListeners = this.domListeners;
 
         domListeners.push(...value);
