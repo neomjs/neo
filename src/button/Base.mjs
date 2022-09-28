@@ -118,8 +118,10 @@ class Base extends Component {
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
-            {tag: 'span', cls: ['neo-button-badge']},
-            {tag: 'span', cls: ['neo-button-ripple']}
+            {tag: 'span', cls: ['neo-button-ripple-wrapper'], cn: [
+                {tag: 'span', cls: ['neo-button-ripple']}
+            ]},
+            {tag: 'span', cls: ['neo-button-badge']}
         ]}
     }}
 
@@ -132,7 +134,7 @@ class Base extends Component {
     afterSetBadgeText(value, oldValue) {
         let me      = this,
             vdom    = me.vdom,
-            badgeEl = vdom.cn[2];
+            badgeEl = vdom.cn[3];
 
         badgeEl.html      = value;
         badgeEl.removeDom = !Boolean(value);
@@ -299,10 +301,10 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        let me       = this,
-            listener = {click: me.showRipple, scope: me},
-            rippleEl = me.getRippleEl(),
-            vdom     = me.vdom;
+        let me            = this,
+            listener      = {click: me.showRipple, scope: me},
+            rippleWrapper = me.getRippleWrapper(),
+            vdom          = me.vdom;
 
         if (!value && oldValue) {
             me.removeDomListeners(listener);
@@ -311,7 +313,7 @@ class Base extends Component {
         }
 
         // setting the config to false should end running ripple animations
-        rippleEl.removeDom = true;
+        //rippleWrapper.removeDom = true;
         me.vdom = vdom;
     }
 
@@ -392,8 +394,8 @@ class Base extends Component {
      * Convenience shortcut
      * @returns {Object}
      */
-    getRippleEl() {
-        return this.vdom.cn[3];
+    getRippleWrapper() {
+        return this.vdom.cn[2];
     }
 
     /**
@@ -406,7 +408,8 @@ class Base extends Component {
             radius               = diameter / 2,
             vdom                 = me.vdom,
             rippleEffectDuration = me.rippleEffectDuration,
-            rippleEl             = me.getRippleEl(),
+            rippleWrapper        = me.getRippleWrapper(),
+            rippleEl             = rippleWrapper.cn[0],
             rippleTimeoutId;
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
@@ -417,7 +420,7 @@ class Base extends Component {
             width    : `${diameter}px`
         });
 
-        delete rippleEl.removeDom;
+        delete rippleWrapper.removeDom;
 
         me.vdom = vdom;
 
@@ -431,7 +434,7 @@ class Base extends Component {
             if (me.#rippleTimeoutId === rippleTimeoutId) {
                 me.#rippleTimeoutId = null;
 
-                rippleEl.removeDom = true;
+                //rippleWrapper.removeDom = true;
                 me.vdom = vdom;
             }
         }, rippleEffectDuration);
