@@ -126,7 +126,7 @@ class Button extends BaseButton {
             });
         }
 
-        me.domListeners = listeners;
+        me.addDomListeners(listeners);
     }
 
     /**
@@ -150,8 +150,8 @@ class Button extends BaseButton {
 
     /**
      * Triggered after the isSorted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetIsSorted(value, oldValue) {
