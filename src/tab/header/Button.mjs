@@ -28,9 +28,13 @@ class Button extends BaseButton {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'button', cn: [
+        {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
+            {tag: 'span', cls: ['neo-button-badge']},
+            {tag: 'span', cls: ['neo-button-ripple-wrapper'], cn: [
+                    {tag: 'span', cls: ['neo-button-ripple']}
+                ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
     }}
@@ -52,7 +56,7 @@ class Button extends BaseButton {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[2].removeDom = !me.useActiveTabIndicator;
+        vdom.cn[4].removeDom = !me.useActiveTabIndicator;
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
     }
