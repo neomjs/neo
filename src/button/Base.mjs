@@ -21,6 +21,13 @@ class Base extends Component {
 
     static getStaticConfig() {return {
         /**
+         * Valid values for badgePosition
+         * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
+         * @protected
+         * @static
+         */
+        badgePositions: ['bottom-left', 'bottom-right', 'top-left', 'top-right'],
+        /**
          * Valid values for iconPosition
          * @member {String[]} iconPositions=['top','right','bottom','left']
          * @protected
@@ -383,7 +390,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetBadgePosition(value, oldValue) {
-        return value;
+        return this.beforeSetEnumValue(value, oldValue, 'badgePosition');
     }
 
     /**
