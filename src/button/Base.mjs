@@ -144,7 +144,7 @@ class Base extends Component {
      */
     afterSetBadgePosition(value, oldValue) {
         let me      = this,
-            badgeEl = me.getBadgeEl(),
+            badgeEl = me.getBadgeNode(),
             cls     = badgeEl.cls || [],
             vdom    = me.vdom;
 
@@ -162,12 +162,12 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgeText(value, oldValue) {
-        let me      = this,
-            badgeEl = me.getBadgeEl(),
-            vdom    = me.vdom;
+        let me        = this,
+            badgeNode = me.getBadgeNode(),
+            vdom      = me.vdom;
 
-        badgeEl.html      = value;
-        badgeEl.removeDom = !Boolean(value);
+        badgeNode.html      = value;
+        badgeNode.removeDom = !Boolean(value);
 
         me.vdom = vdom;
     }
@@ -196,7 +196,7 @@ class Base extends Component {
     afterSetIconCls(value, oldValue) {
         let me       = this,
             vdom     = me.vdom,
-            iconNode = me.getVdomRoot().cn[0];
+            iconNode = me.getIconNode();
 
         NeoArray.remove(iconNode.cls, oldValue);
 
@@ -219,7 +219,7 @@ class Base extends Component {
     afterSetIconColor(value, oldValue) {
         let me       = this,
             vdom     = me.vdom,
-            iconNode = me.getVdomRoot().cn[0];
+            iconNode = me.getIconNode();
 
         if (!iconNode.style) {
             iconNode.style = {};
@@ -435,8 +435,16 @@ class Base extends Component {
      * Convenience shortcut
      * @returns {Object}
      */
-    getBadgeEl() {
-        return this.vdom.cn[2];
+    getBadgeNode() {
+        return this.getVdomRoot().cn[2];
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getIconNode() {
+        return this.getVdomRoot().cn[0];
     }
 
     /**
@@ -444,7 +452,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getRippleWrapper() {
-        return this.vdom.cn[3];
+        return this.getVdomRoot().cn[3];
     }
 
     /**
