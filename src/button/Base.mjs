@@ -41,6 +41,10 @@ class Base extends Component {
          */
         ntype: 'button',
         /**
+         * @member {String} badgePosition_='tr'
+         */
+        badgePosition_: 'tr',
+        /**
          * @member {String|null} badgeText_=null
          */
         badgeText_: null,
@@ -124,6 +128,16 @@ class Base extends Component {
             ]}
         ]}
     }}
+
+    /**
+     * Triggered after the badgePosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBadgePosition(value, oldValue) {
+        
+    }
 
     /**
      * Triggered after the badgeText config got changed
@@ -350,6 +364,17 @@ class Base extends Component {
         }
 
         return iconCls;
+    }
+
+    /**
+     * Triggered before the badgePosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetBadgePosition(value, oldValue) {
+        return value;
     }
 
     /**
