@@ -136,7 +136,16 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgePosition(value, oldValue) {
-        
+        let me      = this,
+            badgeEl = me.getBadgeEl(),
+            cls     = badgeEl.cls || [],
+            vdom    = me.vdom;
+
+        NeoArray.remove(cls, 'neo-' + oldValue);
+        NeoArray.add(cls, 'neo-' + value);
+
+        badgeEl.cls = cls;
+        me.vdom = vdom;
     }
 
     /**
@@ -147,8 +156,8 @@ class Base extends Component {
      */
     afterSetBadgeText(value, oldValue) {
         let me      = this,
-            vdom    = me.vdom,
-            badgeEl = vdom.cn[2];
+            badgeEl = me.getBadgeEl(),
+            vdom    = me.vdom;
 
         badgeEl.html      = value;
         badgeEl.removeDom = !Boolean(value);
@@ -413,6 +422,14 @@ class Base extends Component {
         } else {
             Neo.Main.setRoute({value: me.route});
         }
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getBadgeEl() {
+        return this.vdom.cn[2];
     }
 
     /**
