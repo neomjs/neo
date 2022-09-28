@@ -113,7 +113,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module         : Button,
-            badgeText      : 3,
+            badgeText      : 'Hello',
             height         : 50,
             iconCls        : 'fa fa-home',
             text           : 'Hello World',
