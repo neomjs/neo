@@ -22,9 +22,42 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'bottom-left',
+            hideValueLabel: false,
+            labelText     : 'badgePosition',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-left'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'bottom-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-right'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'top-left',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-left'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'top-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-right'
+        }, {
             module    :  TextField,
             labelText : 'badgeText',
             listeners : {change: me.onConfigChange.bind(me, 'badgeText')},
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.badgeText
         }, {
             module    :  NumberField,

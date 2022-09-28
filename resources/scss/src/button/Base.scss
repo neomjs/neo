@@ -57,6 +57,7 @@
     &.pressed {
         border-color: v(button-pressed-border-color);
     }
+
     .neo-button-badge {
         background-color: red;
         border-radius   : 5px;
@@ -64,9 +65,27 @@
         margin-left     : auto;
         padding         : 3px;
         position        : absolute;
-        right           : -10px;
-        top             : -10px;
         z-index         : 2;
+
+        &.neo-bottom-left {
+            bottom: -10px;
+            left  : -10px;
+        }
+
+        &.neo-bottom-right {
+            bottom: -10px;
+            right : -10px;
+        }
+
+        &.neo-top-left {
+            left: -10px;
+            top : -10px;
+        }
+
+        &.neo-top-right {
+            right: -10px;
+            top  : -10px;
+        }
     }
 
     .neo-button-glyph {

@@ -41,9 +41,9 @@ class Base extends Component {
          */
         ntype: 'button',
         /**
-         * @member {String} badgePosition_='tr'
+         * @member {String} badgePosition_='top-right'
          */
-        badgePosition_: 'tr',
+        badgePosition_: 'top-right',
         /**
          * @member {String|null} badgeText_=null
          */
