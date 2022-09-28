@@ -41,6 +41,10 @@ class Base extends Component {
          */
         ntype: 'button',
         /**
+         * @member {String|null} badgeText_=null
+         */
+        badgeText_: null,
+        /**
          * @member {String[]} cls=['neo-button']
          */
         cls: ['neo-button'],
@@ -117,6 +121,16 @@ class Base extends Component {
             {tag: 'span', cls: ['neo-button-ripple']}
         ]}
     }}
+
+    /**
+     * Triggered after the badgeText config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetBadgeText(value, oldValue) {
+
+    }
 
     /**
      * Triggered after the handler config got changed
