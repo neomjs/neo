@@ -22,6 +22,11 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module    :  TextField,
+            labelText : 'badgeText',
+            listeners : {change: me.onConfigChange.bind(me, 'badgeText')},
+            value     : me.exampleComponent.badgeText
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'height',
@@ -49,7 +54,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
             name          : 'iconPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'Top'
+            valueLabelText: 'top'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'right',
@@ -57,7 +62,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
             name          : 'iconPosition',
-            valueLabelText: 'Right'
+            valueLabelText: 'right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'bottom',
@@ -65,7 +70,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'bottom')},
             name          : 'iconPosition',
-            valueLabelText: 'Bottom'
+            valueLabelText: 'bottom'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'left',
@@ -73,7 +78,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'left')},
             name          : 'iconPosition',
-            valueLabelText: 'Left'
+            valueLabelText: 'left'
         }, {
             module    :  NumberField,
             clearable : true,
@@ -113,7 +118,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module         : Button,
-            badgeText      : 'Hello',
+            badgeText      : 'Badge',
             height         : 50,
             iconCls        : 'fa fa-home',
             text           : 'Hello World',
