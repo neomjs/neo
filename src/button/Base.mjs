@@ -118,6 +118,7 @@ class Base extends Component {
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
+            {tag: 'span', cls: ['neo-button-badge']},
             {tag: 'span', cls: ['neo-button-ripple']}
         ]}
     }}
@@ -129,7 +130,14 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgeText(value, oldValue) {
+        let me      = this,
+            vdom    = me.vdom,
+            badgeEl = vdom.cn[2];
 
+        badgeEl.html      = value;
+        badgeEl.removeDom = !Boolean(value);
+
+        me.vdom = vdom;
     }
 
     /**
@@ -385,7 +393,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getRippleEl() {
-        return this.vdom.cn[2];
+        return this.vdom.cn[3];
     }
 
     /**
