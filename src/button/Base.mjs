@@ -313,7 +313,7 @@ class Base extends Component {
         }
 
         // setting the config to false should end running ripple animations
-        //rippleWrapper.removeDom = true;
+        rippleWrapper.removeDom = true;
         me.vdom = vdom;
     }
 
@@ -434,7 +434,7 @@ class Base extends Component {
             if (me.#rippleTimeoutId === rippleTimeoutId) {
                 me.#rippleTimeoutId = null;
 
-                //rippleWrapper.removeDom = true;
+                rippleWrapper.removeDom = true;
                 me.vdom = vdom;
             }
         }, rippleEffectDuration);
