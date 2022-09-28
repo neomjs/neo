@@ -67,7 +67,7 @@
     }
 
     .neo-button-ripple {
-        background-color: red;
+        background-color: v(button-ripple-background-color);
         border-radius   : 50%;
         opacity         : 0;
         pointer-events  : none;
