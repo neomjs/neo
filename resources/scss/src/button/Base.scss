@@ -66,6 +66,7 @@
         position        : absolute;
         right           : -10px;
         top             : -10px;
+        z-index         : 2;
     }
 
     .neo-button-glyph {
@@ -73,6 +74,7 @@
         font-size     : 12px;
         margin        : 0 6px 0 0;
         pointer-events: none;
+        z-index       : 2;
     }
 
     .neo-button-ripple {
@@ -99,6 +101,7 @@
         line-height   : v(button-text-line-height);
         pointer-events: none;
         text-transform: v(button-text-transform);
+        z-index       : 2;
     }
 
     &:focus {
