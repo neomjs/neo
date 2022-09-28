@@ -150,13 +150,12 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module         : Button,
-            badgeText      : 'Badge',
-            height         : 50,
-            iconCls        : 'fa fa-home',
-            text           : 'Hello World',
-            useRippleEffect: true,
-            width          : 150,
+            module   : Button,
+            badgeText: 'Badge',
+            height   : 50,
+            iconCls  : 'fa fa-home',
+            text     : 'Hello World',
+            width    : 150,
 
             handler: (data) => {
                 console.log('button click =>', data.component.id);

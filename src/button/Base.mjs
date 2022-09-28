@@ -119,9 +119,9 @@ class Base extends Component {
         urlTarget_: '_blank',
         /**
          * True adds an expanding circle on click
-         * @member {Boolean} useRippleEffect_=false
+         * @member {Boolean} useRippleEffect_=true
          */
-        useRippleEffect_: false,
+        useRippleEffect_: true,
         /**
          * @member {Object} _vdom
          */
