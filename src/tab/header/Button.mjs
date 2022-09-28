@@ -50,6 +50,13 @@ class Button extends BaseButton {
     }
 
     /**
+     * @param {Object} data
+     */
+    showRipple(data) {
+        !this.pressed && super.showRipple(data);
+    }
+
+    /**
      * @param {Boolean} [silent=false]
      */
     updateUseActiveTabIndicator(silent=false) {
