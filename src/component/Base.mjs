@@ -76,6 +76,11 @@ class Base extends CoreBase {
          */
         bind: null,
         /**
+         * CSS selectors to apply to the root level node of this component
+         * @member {String[]} cls_=null
+         */
+        cls_: null,
+        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
@@ -284,27 +289,25 @@ class Base extends CoreBase {
     }}
 
     /**
-     * CSS selectors to apply to the top level node of this component
-     * @member {String[]} cls=[]
+     * Triggered when accessing the cls config
+     * @param {String[]|null} value
+     * @protected
      */
-    get cls() {
-        return this._cls ? Neo.clone(this._cls) : [];
+    beforeGetCls(value) {
+        return value ? [...value]: [];
     }
-    set cls(value) {
+
+    /**
+     * Triggered after the cls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetCls(value, oldValue) {
         value = value ? value : [];
 
         let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot(),
-            oldCls;
-
-        if (typeof value === 'string') {
-            value = value.split(',');
-        }
-
-        if (me.mounted) {
-            oldCls = [...me._cls];
-        }
+            vdomRoot = me.getVdomRoot();
 
         me._cls = value;
 
@@ -312,12 +315,10 @@ class Base extends CoreBase {
             vdomRoot.cls = [...value];
         }
 
-        me._vdom = vdom; // silent update
-
         if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
         } else if (me.mounted) {
-            me.updateCls(value, oldCls);
+            me.updateCls(value, oldValue);
         }
     }
 
@@ -1198,13 +1199,11 @@ class Base extends CoreBase {
         // avoid any interference on prototype level
         // does not clone existing Neo instances
         me._vdom = Neo.clone(vdom, true, true);
-        me.cls   = config.cls;
 
         me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 
-        delete config.cls;
         delete config.style;
         delete config._vdom;
         delete config.vdom;
