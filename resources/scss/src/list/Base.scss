@@ -1,17 +1,24 @@
-.neo-list-container {
+.neo-list-wrapper {
     background-color: v(list-container-background-color);
     border          : v(list-container-border);
-    overflow        : auto;
+    height          : 100%;
+    overflow        : hidden;
+    position        : relative;
+    width           : 100%;
 }
 
 .neo-list {
     color               : v(list-container-list-color);
+    height              : 100%;
     list-style-type     : none;
     margin-block-start  : 0;
     margin-block-end    : 0;
     margin-inline-start : 0;
     margin-inline-end   : 0;
     padding-inline-start: 0;
+    overflow            : auto;
+    position            : absolute;
+    width               : 100%;
 
     &.neo-use-checkicons {
         .neo-list-item:before {

@@ -30,9 +30,9 @@ class Base extends Component {
          */
         autoDestroyStore: true,
         /**
-         * @member {String[]} cls=['neo-list-container','neo-list']
+         * @member {String[]} cls=['neo-list']
          */
-        cls: ['neo-list-container', 'neo-list'],
+        cls: ['neo-list'],
         /**
          * @member {Boolean} disableSelection_=false
          */
@@ -109,7 +109,9 @@ class Base extends Component {
          * @member {Object} _vdom={tag:'ul',cn:[]}
          */
         _vdom:
-        {tag: 'ul', cn: []}
+        {cls: 'neo-list-wrapper', cn: [
+            {tag: 'ul', cn: []}
+        ]}
     }}
 
     /**
@@ -341,7 +343,7 @@ class Base extends Component {
      */
     createItems(silent=false) {
         let me   = this,
-            vdom = me.vdom,
+            vdom = me.getVdomRoot(),
             listItem;
 
         if (!(me.animate && !me.getPlugin('animate'))) {
@@ -419,6 +421,29 @@ class Base extends Component {
      */
     getKeyProperty() {
         return this.store.keyProperty || this.store.model.keyProperty;
+    }
+
+    /**
+     * @override
+     * @returns {*}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Object[]} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @override
+     * @returns {Neo.vdom.VNode}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 
     /**
