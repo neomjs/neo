@@ -6,6 +6,8 @@ $neoMap: map-merge($neoMap, (
     'button-background-image'         : none,
     'button-background-gradient-end'  : #323536,
     'button-background-gradient-start': #434749,
+    'button-badge-background-color'   : #1c60a0,
+    'button-badge-color'              : #fff,
     'button-border'                   : 1px solid #ddd,
     'button-border-radius'            : 3px,
     'button-glyph-color'              : #1c60a0,
@@ -34,6 +36,8 @@ $neoMap: map-merge($neoMap, (
         --button-background-image         : #{neo(button-background-image)};
         --button-background-gradient-end  : #{neo(button-background-gradient-end)};
         --button-background-gradient-start: #{neo(button-background-gradient-start)};
+        --button-badge-background-color   : #{neo(button-badge-background-color)};
+        --button-badge-color              : #{neo(button-badge-color)};
         --button-border                   : #{neo(button-border)};
         --button-border-radius            : #{neo(button-border-radius)};
         --button-glyph-color              : #{neo(button-glyph-color)};

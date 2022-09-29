@@ -59,9 +59,9 @@
     }
 
     .neo-button-badge {
-        background-color: red;
+        background-color: v(button-badge-background-color);
         border-radius   : 5px;
-        color           : white;
+        color           : v(button-badge-color);
         margin-left     : auto;
         padding         : 3px;
         position        : absolute;
