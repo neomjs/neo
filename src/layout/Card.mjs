@@ -9,16 +9,16 @@ class Card extends Base {
     static getStaticConfig() {return {
         /*
          * The name of the CSS class for an active item inside the card layout
-         * @member activeItemCls
+         * @member {String} activeItemCls='neo-active-item'
          * @static
          */
-        activeItemCls: 'active-item',
+        activeItemCls: 'neo-active-item',
         /*
          * The name of the CSS class for an inactive item inside the card layout
-         * @member inactiveItemCls
+         * @member {String} inactiveItemCls='neo-inactive-item'
          * @static
          */
-        inactiveItemCls: 'inactive-item',
+        inactiveItemCls: 'neo-inactive-item',
         /*
          * The name of the CSS class for an item inside the card layout
          * @member itemCls
@@ -107,9 +107,7 @@ class Card extends Base {
 
                     items[i] = item = Neo.create(item);
 
-                    container.fire('cardLoaded', {
-                        item: item
-                    });
+                    container.fire('cardLoaded', {item});
 
                     vdom.cn[i] = item.vdom;
                 }

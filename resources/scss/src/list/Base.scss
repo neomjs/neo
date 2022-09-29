@@ -1,10 +1,8 @@
 .neo-list-wrapper {
     background-color: v(list-container-background-color);
     border          : v(list-container-border);
-    height          : 100%;
     overflow        : hidden;
     position        : relative;
-    width           : 100%;
 }
 
 .neo-list {
