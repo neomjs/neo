@@ -261,6 +261,7 @@ if (programOpts.info) {
             default: 'Custom',
             choices: [
                 'Custom',
+                'Boolean',
                 'Object',
                 'Object[]',
                 'Number',
