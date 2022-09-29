@@ -31,9 +31,9 @@ class Button extends BaseButton {
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
-            {tag: 'span', cls: ['neo-button-badge']},
-            {tag: 'span', cls: ['neo-button-ripple-wrapper'], cn: [
-                    {tag: 'span', cls: ['neo-button-ripple']}
+            {cls: ['neo-button-badge']},
+            {cls: ['neo-button-ripple-wrapper'], cn: [
+                    {cls: ['neo-button-ripple']}
                 ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
