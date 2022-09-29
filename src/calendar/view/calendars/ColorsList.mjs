@@ -31,7 +31,9 @@ class ColorsList extends List {
          * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
-        {tag: 'ul', cn: [], tabIndex: '0'}
+        {cls: 'neo-list-wrapper', cn: [
+            {tag: 'ul', cn: [], tabIndex: '0'}
+        ]}
     }}
 
     /**
