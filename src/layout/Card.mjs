@@ -100,7 +100,7 @@ class Card extends Base {
                     cls    = item.cls || proto.constructor.config.cls || [];
 
                     item.className = proto.className;
-                    item.cls       = [...cls, sCfg.itemCls]
+                    item.cls       = [...cls, sCfg.itemCls];
                     item.module    = module;
 
                     delete item.vdom;
@@ -120,7 +120,7 @@ class Card extends Base {
 
                     if (removeInactiveCards || needsUpdate) {
                         item._cls = cls; // silent update
-                        item.getVdomRoot().cls = cls;
+                        item.getVdomRoot().cls = [...cls];
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;

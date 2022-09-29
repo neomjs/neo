@@ -291,7 +291,7 @@ class Base extends Component {
 
         item = {
             tag     : me.itemTagName,
-            cls     : cls,
+            cls,
             id      : itemId,
             tabIndex: -1
         };

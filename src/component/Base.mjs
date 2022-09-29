@@ -299,11 +299,11 @@ class Base extends CoreBase {
             oldCls;
 
         if (typeof value === 'string') {
-            value = value.split('');
+            value = value.split(',');
         }
 
         if (me.mounted) {
-            oldCls = Neo.clone(me._cls);
+            oldCls = [...me._cls];
         }
 
         me._cls = value;
@@ -1654,7 +1654,7 @@ class Base extends CoreBase {
      */
     updateCls(cls, oldCls) {
         let me    = this,
-            vnode = me.vnode,
+            vnode = me.getVnodeRoot(),
             opts;
 
         if (!Neo.isEqual(cls, oldCls)) {
