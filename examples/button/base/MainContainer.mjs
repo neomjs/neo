@@ -1,4 +1,5 @@
 import Button                from '../../../src/button/Base.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
@@ -12,8 +13,8 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.button.base.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 110,
-        configItemWidth     : 230,
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -21,6 +22,50 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'bottom-left',
+            hideValueLabel: false,
+            labelText     : 'badgePosition',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-left'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'bottom-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-right'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'top-left',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-left'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.badgePosition === 'top-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-right'
+        }, {
+            module    :  TextField,
+            labelText : 'badgeText',
+            listeners : {change: me.onConfigChange.bind(me, 'badgeText')},
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.badgeText
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.disabled,
+            labelText: 'disabled',
+            listeners: {change: me.onConfigChange.bind(me, 'disabled')},
+            style    : {marginTop: '10px'}
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'height',
@@ -28,6 +73,7 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 300,
             minValue  : 30,
             stepSize  : 5,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
         }, {
             module    :  TextField, // todo: selectField with options
@@ -48,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
             name          : 'iconPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'Top'
+            valueLabelText: 'top'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'right',
@@ -56,7 +102,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
             name          : 'iconPosition',
-            valueLabelText: 'Right'
+            valueLabelText: 'right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'bottom',
@@ -64,7 +110,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'bottom')},
             name          : 'iconPosition',
-            valueLabelText: 'Bottom'
+            valueLabelText: 'bottom'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'left',
@@ -72,7 +118,17 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'left')},
             name          : 'iconPosition',
-            valueLabelText: 'Left'
+            valueLabelText: 'left'
+        }, {
+            module    :  NumberField,
+            clearable : true,
+            labelText : 'rippleEffectDuration',
+            listeners : {change: me.onConfigChange.bind(me, 'rippleEffectDuration')},
+            maxValue  : 5000,
+            minValue  : 100,
+            stepSize  : 100,
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.rippleEffectDuration
         }, {
             module    :  TextField,
             clearable : true,
@@ -81,6 +137,12 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.useRippleEffect,
+            labelText: 'useRippleEffect',
+            listeners: {change: me.onConfigChange.bind(me, 'useRippleEffect')},
+            style    : {marginTop: '10px'}
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'width',
@@ -88,18 +150,19 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 300,
             minValue  : 100,
             stepSize  : 5,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.width
         }];
     }
 
     createExampleComponent() {
         return Neo.create({
-            height         : 50,
-            iconCls        : 'fa fa-home',
-            module         : Button,
-            text           : 'Hello World',
-            useRippleEffect: true,
-            width          : 150,
+            module   : Button,
+            badgeText: 'Badge',
+            height   : 50,
+            iconCls  : 'fa fa-home',
+            text     : 'Hello World',
+            width    : 150,
 
             handler: (data) => {
                 console.log('button click =>', data.component.id);

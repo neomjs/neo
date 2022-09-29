@@ -32,18 +32,15 @@ class DragZone extends BaseDragZone {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            owner        = me.owner,
-            domListeners = owner.domListeners,
-            opts         = {delegate: '.neo-draggable', scope: me},
-            store        = owner.store;
+        let me    = this,
+            owner = me.owner,
+            opts  = {delegate: '.neo-draggable', scope: me},
+            store = owner.store;
 
-        domListeners.push(
+        owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,   ...opts},
             {'drag:start': me.onDragStart, ...opts}
-        );
-
-        owner.domListeners = domListeners;
+        ]);
 
         store.on({
             load : me.onStoreLoad,

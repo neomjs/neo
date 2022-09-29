@@ -95,15 +95,12 @@ class HomeComponent extends Component {
             cls : 'prevent-click'
         });
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onNavLinkClick,     delegate: '.nav-link',  scope: me}},
             {click: {fn: me.onPageNavLinkClick, delegate: '.page-link', scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,

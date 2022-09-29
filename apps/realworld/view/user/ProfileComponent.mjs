@@ -105,15 +105,12 @@ class ProfileComponent extends Component {
             cls : 'prevent-click'
         });
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onFollowButtonClick, delegate: '.follow-button', scope: me}},
             {click: {fn: me.onNavLinkClick,      delegate: '.nav-link',      scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,

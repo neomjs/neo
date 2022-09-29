@@ -178,15 +178,12 @@ class YearComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
             {wheel: me.onWheel, scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             me.createMonths(true); // silent update

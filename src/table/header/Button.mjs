@@ -88,13 +88,17 @@ class Button extends BaseButton {
          */
         showHeaderFilter_: false,
         /**
-         * @member {String} _vdom
+         * @member {Object} _vdom
          */
         _vdom:
         {tag: 'th', cn: [
             {tag: 'button', cn: [
                 {tag: 'span', cls: ['neo-button-glyph']},
-                {tag: 'span', cls: ['neo-button-text']}
+                {tag: 'span', cls: ['neo-button-text']},
+                {tag: 'span', cls: ['neo-button-badge']},
+                {tag: 'span', cls: ['neo-button-ripple-wrapper'], cn: [
+                    {tag: 'span', cls: ['neo-button-ripple']}
+                ]}
             ]}
         ]}
     }}
@@ -122,7 +126,7 @@ class Button extends BaseButton {
             });
         }
 
-        me.domListeners = listeners;
+        me.addDomListeners(listeners);
     }
 
     /**
@@ -146,8 +150,8 @@ class Button extends BaseButton {
 
     /**
      * Triggered after the isSorted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetIsSorted(value, oldValue) {

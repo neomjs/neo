@@ -144,17 +144,14 @@ class Component extends BaseComponent {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onDeleteButtonClick,   delegate: '.delete-button',   scope: me}},
             {click: {fn: me.onEditButtonClick,     delegate: '.edit-button',     scope: me}},
             {click: {fn: me.onFavoriteButtonClick, delegate: '.favorite-button', scope: me}},
-            {click: {fn: me.onFollowButtonClick,   delegate: '.follow-button',   scope: me}
-        });
-
-        me.domListeners = domListeners;
+            {click: {fn: me.onFollowButtonClick,   delegate: '.follow-button',   scope: me}}
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,

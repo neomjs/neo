@@ -6,7 +6,27 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
+    /**
+     * Time in ms for the ripple effect when clicking on the button.
+     * Only active if useRippleEffect is set to true.
+     * @member {Number} rippleEffectDuration=400
+     */
+    rippleEffectDuration = 400
+    /**
+     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
+     * @member {Number} #rippleTimeoutId=null
+     * @private
+     */
+    #rippleTimeoutId = null
+
     static getStaticConfig() {return {
+        /**
+         * Valid values for badgePosition
+         * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
+         * @protected
+         * @static
+         */
+        badgePositions: ['bottom-left', 'bottom-right', 'top-left', 'top-right'],
         /**
          * Valid values for iconPosition
          * @member {String[]} iconPositions=['top','right','bottom','left']
@@ -27,6 +47,14 @@ class Base extends Component {
          * @protected
          */
         ntype: 'button',
+        /**
+         * @member {String} badgePosition_='top-right'
+         */
+        badgePosition_: 'top-right',
+        /**
+         * @member {String|null} badgeText_=null
+         */
+        badgeText_: null,
         /**
          * @member {String[]} cls=['neo-button']
          */
@@ -91,9 +119,9 @@ class Base extends Component {
         urlTarget_: '_blank',
         /**
          * True adds an expanding circle on click
-         * @member {Boolean} useRippleEffect_=false
+         * @member {Boolean} useRippleEffect_=true
          */
-        useRippleEffect_: false,
+        useRippleEffect_: true,
         /**
          * @member {Object} _vdom
          */
@@ -101,9 +129,48 @@ class Base extends Component {
         {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
-            {tag: 'span', cls: ['neo-button-ripple'], removeDom: true}
+            {cls: ['neo-button-badge']},
+            {cls: ['neo-button-ripple-wrapper'], cn: [
+                {cls: ['neo-button-ripple']}
+            ]}
         ]}
     }}
+
+    /**
+     * Triggered after the badgePosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBadgePosition(value, oldValue) {
+        let me      = this,
+            badgeEl = me.getBadgeNode(),
+            cls     = badgeEl.cls || [],
+            vdom    = me.vdom;
+
+        NeoArray.remove(cls, 'neo-' + oldValue);
+        NeoArray.add(cls, 'neo-' + value);
+
+        badgeEl.cls = cls;
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the badgeText config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetBadgeText(value, oldValue) {
+        let me        = this,
+            badgeNode = me.getBadgeNode(),
+            vdom      = me.vdom;
+
+        badgeNode.html      = value;
+        badgeNode.removeDom = !Boolean(value);
+
+        me.vdom = vdom;
+    }
 
     /**
      * Triggered after the handler config got changed
@@ -112,17 +179,12 @@ class Base extends Component {
      * @protected
      */
     afterSetHandler(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me = this;
 
-            domListeners.push({
-                click: value,
-                scope: me.handlerScope || me
-            });
-
-            me.domListeners = domListeners;
-        }
+        value && me.addDomListeners({
+            click: value,
+            scope: me.handlerScope || me
+        });
     }
 
     /**
@@ -134,7 +196,7 @@ class Base extends Component {
     afterSetIconCls(value, oldValue) {
         let me       = this,
             vdom     = me.vdom,
-            iconNode = me.getVdomRoot().cn[0];
+            iconNode = me.getIconNode();
 
         NeoArray.remove(iconNode.cls, oldValue);
 
@@ -157,7 +219,7 @@ class Base extends Component {
     afterSetIconColor(value, oldValue) {
         let me       = this,
             vdom     = me.vdom,
-            iconNode = me.getVdomRoot().cn[0];
+            iconNode = me.getIconNode();
 
         if (!iconNode.style) {
             iconNode.style = {};
@@ -206,17 +268,12 @@ class Base extends Component {
      * @protected
      */
     afterSetRoute(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me = this;
 
-            domListeners.push({
-                click: me.changeRoute,
-                scope: me
-            });
-
-            me.domListeners = domListeners;
-        }
+        value && me.addDomListeners({
+            click: me.changeRoute,
+            scope: me
+        });
     }
 
     /**
@@ -274,17 +331,20 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
+        let me            = this,
+            listener      = {click: me.showRipple, scope: me},
+            rippleWrapper = me.getRippleWrapper(),
+            vdom          = me.vdom;
 
-            domListeners.push({
-                click: me.showRipple,
-                scope: me
-            });
-
-            me.domListeners = domListeners;
+        if (!value && oldValue) {
+            me.removeDomListeners(listener);
+        } else if (value) {
+            me.addDomListeners(listener);
         }
+
+        // setting the config to false should end running ripple animations
+        rippleWrapper.removeDom = true;
+        me.vdom = vdom;
     }
 
     /**
@@ -320,6 +380,17 @@ class Base extends Component {
         }
 
         return iconCls;
+    }
+
+    /**
+     * Triggered before the badgePosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetBadgePosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'badgePosition');
     }
 
     /**
@@ -361,15 +432,42 @@ class Base extends Component {
     }
 
     /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getBadgeNode() {
+        return this.getVdomRoot().cn[2];
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getIconNode() {
+        return this.getVdomRoot().cn[0];
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getRippleWrapper() {
+        return this.getVdomRoot().cn[3];
+    }
+
+    /**
      * @param {Object} data
      */
     async showRipple(data) {
-        let me         = this,
-            buttonRect = data.path[0].rect,
-            diameter   = Math.max(buttonRect.height, buttonRect.width),
-            radius     = diameter / 2,
-            vdom       = me.vdom,
-            rippleEl   = vdom.cn[2];
+        let me                   = this,
+            buttonRect           = data.path[0].rect,
+            diameter             = Math.max(buttonRect.height, buttonRect.width),
+            radius               = diameter / 2,
+            vdom                 = me.vdom,
+            rippleEffectDuration = me.rippleEffectDuration,
+            rippleWrapper        = me.getRippleWrapper(),
+            rippleEl             = rippleWrapper.cn[0],
+            rippleTimeoutId;
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
@@ -379,14 +477,24 @@ class Base extends Component {
             width    : `${diameter}px`
         });
 
-        delete rippleEl.removeDom;
+        delete rippleWrapper.removeDom;
 
         me.vdom = vdom;
 
         await Neo.timeout(1);
 
-        rippleEl.style.animation = 'ripple 400ms linear';
+        rippleEl.style.animation = `ripple ${rippleEffectDuration}ms linear`;
         me.vdom = vdom;
+
+        me.#rippleTimeoutId = rippleTimeoutId = setTimeout(() => {
+            // we do not want to break animations when clicking multiple times
+            if (me.#rippleTimeoutId === rippleTimeoutId) {
+                me.#rippleTimeoutId = null;
+
+                rippleWrapper.removeDom = true;
+                me.vdom = vdom;
+            }
+        }, rippleEffectDuration);
     }
 }
 

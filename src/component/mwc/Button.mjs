@@ -99,13 +99,10 @@ class Button extends Component {
      * @protected
      */
     afterSetHandler(value, oldValue) {
-        if (value) {
-            let me           = this,
-                domListeners = me.domListeners;
-
-            domListeners.push({click: value, scope: me});
-            me.domListeners = domListeners;
-        }
+        value && this.addDomListeners({
+            click: value,
+            scope: this
+        });
     }
 
     /**

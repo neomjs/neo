@@ -27,7 +27,6 @@
     flex-direction     : row;
     justify-content    : center;
     margin             : v(button-margin);
-    overflow           : hidden;
     padding            : v(button-padding);
     position           : relative;
     text-decoration    : none; // for url buttons => links
@@ -59,20 +58,58 @@
         border-color: v(button-pressed-border-color);
     }
 
+    .neo-button-badge {
+        background-color: v(button-badge-background-color);
+        border-radius   : 5px;
+        color           : v(button-badge-color);
+        margin-left     : auto;
+        padding         : 3px;
+        position        : absolute;
+        z-index         : 2;
+
+        &.neo-bottom-left {
+            bottom: -10px;
+            left  : -10px;
+        }
+
+        &.neo-bottom-right {
+            bottom: -10px;
+            right : -10px;
+        }
+
+        &.neo-top-left {
+            left: -10px;
+            top : -10px;
+        }
+
+        &.neo-top-right {
+            right: -10px;
+            top  : -10px;
+        }
+    }
+
     .neo-button-glyph {
         color         : v(button-glyph-color);
         font-size     : 12px;
         margin        : 0 6px 0 0;
         pointer-events: none;
+        z-index       : 2;
     }
 
     .neo-button-ripple {
-        background-color: red;
+        background-color: v(button-ripple-background-color);
         border-radius   : 50%;
         opacity         : 0;
-        pointer-events  : none;
         position        : absolute;
         transform       : scale(4);
+    }
+
+    .neo-button-ripple-wrapper {
+        height        : 100%;
+        overflow      : hidden;
+        pointer-events: none;
+        position      : absolute;
+        width         : 100%;
     }
 
     .neo-button-text {
@@ -83,6 +120,7 @@
         line-height   : v(button-text-line-height);
         pointer-events: none;
         text-transform: v(button-text-transform);
+        z-index       : 2;
     }
 
     &:focus {

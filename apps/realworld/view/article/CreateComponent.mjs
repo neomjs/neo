@@ -82,16 +82,13 @@ class CreateComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click  : {fn: me.onSubmitButtonClick, delegate: '.btn-primary',     scope: me}},
             {click  : {fn: me.onTagClose,          delegate: '.ion-close-round', scope: me}},
             {keydown: {fn: me.onFieldTagsKeyDown,  delegate: '.field-tags',      scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
     }
 
     /**

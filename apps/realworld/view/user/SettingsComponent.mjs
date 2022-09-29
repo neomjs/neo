@@ -80,15 +80,12 @@ class SettingsComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onLogoutButtonClick, delegate: '.btn-outline-danger', scope: me}},
             {click: {fn: me.onSubmitButtonClick, delegate: '.btn-primary',        scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,

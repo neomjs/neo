@@ -97,18 +97,15 @@ class PreviewComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onFavoriteButtonClick,
                 delegate: '.pull-xs-right',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
     }
 
     /**

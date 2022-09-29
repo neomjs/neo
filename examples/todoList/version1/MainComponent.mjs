@@ -43,16 +43,13 @@ class MainComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners || [];
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: me.onAddButtonClick,   delegate: 'todo-add-button'},
             {click: me.onCheckIconClick,   delegate: 'todo-item'},
             {input: me.onInputFieldChange, delegate: 'todo-input'}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.createItems(me.data || []);
     }

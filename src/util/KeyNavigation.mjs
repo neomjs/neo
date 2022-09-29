@@ -141,23 +141,18 @@ class KeyNavigation extends Base {
      * @param {Neo.component.Base} component
      */
     register(component) {
-        let me           = this,
-            domListeners = component.domListeners;
+        let me = this;
 
         me.component = component;
         me.keys      = me.parseKeys(me.keys);
 
-        if (domListeners) {
-            domListeners.push({
-                keydown: {
-                    fn    : me.onKeyDown,
-                    bubble: me.keyDownEventBubble,
-                    scope : me
-                }
-            });
-
-            component.domListeners = domListeners;
-        }
+        component.addDomListeners({
+            keydown: {
+                bubble: me.keyDownEventBubble,
+                fn    : me.onKeyDown,
+                scope : me
+            }
+        });
     }
 
     /**
