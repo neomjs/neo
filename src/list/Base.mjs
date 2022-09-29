@@ -106,6 +106,10 @@ class Base extends Component {
          */
         useCheckBoxes_: false,
         /**
+         * @member {Boolean} useWrapperNode_=true
+         */
+        useWrapperNode_: true,
+        /**
          * @member {Object} _vdom={tag:'ul',cn:[]}
          */
         _vdom:
@@ -223,6 +227,20 @@ class Base extends Component {
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
         me.cls = cls;
+    }
+
+    /**
+     * Triggered after the useWrapperNode config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseWrapperNode(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
+        me.cls = cls;console.log(me);
     }
 
     /**
@@ -424,26 +442,27 @@ class Base extends Component {
     }
 
     /**
-     * @override
      * @returns {*}
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        let me = this;
+        return me.useWrapperNode ? me.vdom.cn[0] : me.vdom;
     }
 
     /**
      * @returns {Object[]} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.vdom.cn[0];
+        let me = this;
+        return me.useWrapperNode ? me.vdom.cn[0] : me.vdom;
     }
 
     /**
-     * @override
      * @returns {Neo.vdom.VNode}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        let me = this;
+        return me.useWrapperNode ? me.vnode.childNodes[0] : me.vnode;
     }
 
     /**

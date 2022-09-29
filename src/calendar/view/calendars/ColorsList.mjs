@@ -22,6 +22,10 @@ class ColorsList extends List {
          */
         cls: ['neo-calendars-colors-list', 'neo-list'],
         /**
+         * @member {Boolean} useWrapperNode=false
+         */
+        useWrapperNode: false,
+        /**
          * The list gets used as a form field, so we are adjusting the selection based on this config
          * @member {String} value_=null
          */
@@ -31,9 +35,7 @@ class ColorsList extends List {
          * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
-        {cls: 'neo-list-wrapper', cn: [
-            {tag: 'ul', cn: [], tabIndex: '0'}
-        ]}
+        {tag: 'ul', cn: [], tabIndex: '0'}
     }}
 
     /**

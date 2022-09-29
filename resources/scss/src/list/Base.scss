@@ -7,7 +7,6 @@
 
 .neo-list {
     color               : v(list-container-list-color);
-    height              : 100%;
     list-style-type     : none;
     margin-block-start  : 0;
     margin-block-end    : 0;
@@ -15,8 +14,6 @@
     margin-inline-end   : 0;
     padding-inline-start: 0;
     overflow            : auto;
-    position            : absolute;
-    width               : 100%;
 
     &.neo-use-checkicons {
         .neo-list-item:before {
@@ -31,6 +28,12 @@
             content    : "\f00c";
             font-weight: 900;
         }
+    }
+
+    &.neo-use-wrapper-node {
+        height  : 100%;
+        position: absolute;
+        width   : 100%;
     }
 
     .neo-list-item {
