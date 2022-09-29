@@ -60,6 +60,12 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.badgeText
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.disabled,
+            labelText: 'disabled',
+            listeners: {change: me.onConfigChange.bind(me, 'disabled')},
+            style    : {marginTop: '10px'}
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'height',
@@ -67,6 +73,7 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 300,
             minValue  : 30,
             stepSize  : 5,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
         }, {
             module    :  TextField, // todo: selectField with options
