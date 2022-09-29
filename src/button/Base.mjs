@@ -130,8 +130,8 @@ class Base extends Component {
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
             {tag: 'span', cls: ['neo-button-badge']},
-            {tag: 'span', cls: ['neo-button-ripple-wrapper'], cn: [
-                {tag: 'span', cls: ['neo-button-ripple']}
+            {cls: ['neo-button-ripple-wrapper'], cn: [
+                {cls: ['neo-button-ripple']}
             ]}
         ]}
     }}
