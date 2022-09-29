@@ -140,13 +140,13 @@ class MainContainer extends ConfigurationViewport {
             },
 
             items: [{
-                tabButtonConfig: {iconCls: 'fa fa-home',        text     : 'Tab 1'},
+                tabButtonConfig: {iconCls: 'fa fa-home',        text: 'Tab 1'},
                 vdom           : {innerHTML: 'Tab 1 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-play-circle', text     : 'Tab 2'},
+                tabButtonConfig: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
                 vdom           : {innerHTML: 'Tab 2 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-user',        text     : 'Tab 3'},
+                tabButtonConfig: {iconCls: 'fa fa-user',        text: 'Tab 3', badgeText: 'hello'},
                 vdom           : {innerHTML: 'Tab 3 Content'}
             }],
 
