@@ -67,7 +67,7 @@ class Card extends Base {
             sCfg                = me.getStaticConfig(),
             needsUpdate         = false,
             removeInactiveCards = me.removeInactiveCards,
-            cls, i, isActiveIndex, item, items, len, module, proto, vdom;
+            i, isActiveIndex, item, items, len, module, proto, vdom, wrapperCls;
 
         if (Neo.isNumber(value) && container) {
             items = container.items;
@@ -94,14 +94,14 @@ class Card extends Base {
                 module        = item.module;
 
                 if (isActiveIndex && !module?.isClass && Neo.isFunction(module)) {
-                    module = await module();
-                    module = module.default;
-                    proto  = module.prototype;
-                    cls    = item.wrapperCls || proto.constructor.config.wrapperCls || [];
+                    module     = await module();
+                    module     = module.default;
+                    proto      = module.prototype;
+                    wrapperCls = item.wrapperCls || proto.constructor.config.wrapperCls || [];
 
-                    item.className = proto.className;
-                    item.cls       = [...cls, sCfg.itemCls];
-                    item.module    = module;
+                    item.className  = proto.className;
+                    item.wrapperCls = [...wrapperCls, sCfg.itemCls];
+                    item.module     = module;
 
                     delete item.vdom;
 
@@ -113,14 +113,14 @@ class Card extends Base {
                 }
 
                 if (item instanceof Neo.core.Base) {
-                    cls = item.wrapperCls;
+                    wrapperCls = item.wrapperCls;
 
-                    NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                    NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                    NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                    NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
                     if (removeInactiveCards || needsUpdate) {
-                        item._wrapperCls = cls; // silent update
-                        item.vdom.cls = [...cls];
+                        item._wrapperCls = wrapperCls; // silent update
+                        item.vdom.cls = [...wrapperCls];
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
@@ -130,7 +130,7 @@ class Card extends Base {
                             item.vdom.removeDom = true;
                         }
                     } else {
-                        item.wrapperCls = cls;
+                        item.wrapperCls = wrapperCls;
                     }
                 }
             }
@@ -170,17 +170,17 @@ class Card extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            cls       = container?.wrapperCls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls, 'neo-layout-card');
+        NeoArray.add(wrapperCls, 'neo-layout-card');
 
-        container.wrapperCls = cls;
+        container.wrapperCls = wrapperCls;
     }
 
     /**
@@ -188,17 +188,17 @@ class Card extends Base {
      * Gets called when switching to a different layout.
      */
     removeRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            cls       = container?.wrapperCls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.remove(cls, 'neo-layout-card');
+        NeoArray.remove(wrapperCls, 'neo-layout-card');
 
-        container.wrapperCls = cls;
+        container.wrapperCls = wrapperCls;
     }
 }
 
