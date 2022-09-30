@@ -466,8 +466,8 @@ class Base extends CoreBase {
         } else {
             // we need to merge changes
             cls = vdom.cls || [];
-            NeoArray.remove(cls, Neo.util.Array.difference(oldValue, value));
-            NeoArray.add(   cls, Neo.util.Array.difference(value, oldValue));
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            NeoArray.add(   cls, NeoArray.difference(value, oldValue));
             vdom.cls = cls;
         }
 
@@ -1717,8 +1717,8 @@ class Base extends CoreBase {
                 deltas: [{
                     id,
                     cls: {
-                        add   : Neo.util.Array.difference(cls, oldCls),
-                        remove: Neo.util.Array.difference(oldCls, cls)
+                        add   : NeoArray.difference(cls, oldCls),
+                        remove: NeoArray.difference(oldCls, cls)
                     }
                 }]
             };
