@@ -26,7 +26,7 @@ class Fit extends Base {
      */
     applyChildAttributes(child, index) {
         if (!child.ignoreLayout) {
-            child.cls = NeoArray.union(child.cls, 'neo-layout-fit-item');
+            child.wrapperCls = NeoArray.union(child.wrapperCls, 'neo-layout-fit-item');
         }
     }
 
@@ -34,17 +34,17 @@ class Fit extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            cls       = container?.cls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls, 'neo-layout-fit');
+        NeoArray.add(wrapperCls, 'neo-layout-fit');
 
-        container.cls = cls;
+        container.wrapperCls = wrapperCls;
     }
 
     /**
@@ -52,17 +52,17 @@ class Fit extends Base {
      * Gets called when switching to a different layout.
      */
     removeRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            cls       = container?.cls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.remove(cls, 'neo-layout-fit');
+        NeoArray.remove(wrapperCls, 'neo-layout-fit');
 
-        container.cls = cls;
+        container.wrapperCls = wrapperCls;
     }
 }
 
