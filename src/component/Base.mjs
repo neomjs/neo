@@ -289,40 +289,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     * Triggered when accessing the cls config
-     * @param {String[]|null} value
-     * @protected
-     */
-    beforeGetCls(value) {
-        return value ? [...value]: [];
-    }
-
-    /**
-     * Triggered after the cls config got changed
-     * @param {String[]|null} value
-     * @param {String[]|null} oldValue
-     * @protected
-     */
-    afterSetCls(value, oldValue) {
-        value = value ? value : [];
-
-        let me       = this,
-            vdomRoot = me.getVdomRoot();
-
-        me._cls = value;
-
-        if (vdomRoot) {
-            vdomRoot.cls = [...value];
-        }
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else if (me.mounted) {
-            me.updateCls(value, oldValue);
-        }
-    }
-
-    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -473,6 +439,31 @@ class Base extends CoreBase {
      */
     afterSetAppName(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+    }
+
+    /**
+     * Triggered after the cls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetCls(value, oldValue) {
+        value = value ? value : [];
+
+        let me       = this,
+            vdomRoot = me.getVdomRoot();
+
+        me._cls = value;
+
+        if (vdomRoot) {
+            vdomRoot.cls = [...value];
+        }
+
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue);
+        }
     }
 
     /**
@@ -728,6 +719,15 @@ class Base extends CoreBase {
                 me.updateStyle(value, oldValue, me.vdom.id);
             }
         }
+    }
+
+    /**
+     * Triggered when accessing the cls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetCls(value) {
+        return value ? [...value]: [];
     }
 
     /**
