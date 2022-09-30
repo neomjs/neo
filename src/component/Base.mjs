@@ -715,7 +715,7 @@ class Base extends CoreBase {
         let me  = this,
             cls = me.vdom.cls || [];
 
-        NeoArray.remove(cls, oldValue);
+        oldValue && NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
         me.vdom.cls = cls;
