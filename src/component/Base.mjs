@@ -346,15 +346,10 @@ class Base extends CoreBase {
         return this._vdom;
     }
     set vdom(value) {
-        let me       = this,
-            app      = Neo.apps[me.appName],
-            vdom     = value,
-            vdomRoot = me.getVdomRoot(),
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            vdom = value,
             listenerId;
-
-        if (vdomRoot && me.cls) {
-            vdomRoot.cls = me.cls;
-        }
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
         // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
@@ -465,9 +460,8 @@ class Base extends CoreBase {
             vdomRoot.cls = [...value];
         } else {
             // we need to merge changes
-            cls = vdom.cls || [];
+            cls = [...me.wrapperCls, ...value];
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
-            NeoArray.add(   cls, NeoArray.difference(value, oldValue));
             vdom.cls = cls;
         }
 
@@ -720,23 +714,29 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
-        value = value ? value : [];
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls      = me.vdom?.cls || [];
 
-        let me   = this,
-            vdom = me.vdom,
-            cls  = me.vdom?.cls || [];
+        if (vdom === vdomRoot) {
+            // we are not using a wrapper => cls & wrapperCls share the same node
+            me.afterSetCls(me._cls, me._cls);
+        } else {
+            value = value ? value : [];
 
-        oldValue && NeoArray.remove(cls, oldValue);
-        NeoArray.add(cls, value);
+            oldValue && NeoArray.remove(cls, oldValue);
+            NeoArray.add(cls, value);
 
-        if (vdom) {
-            vdom.cls = cls;
-        }
+            if (vdom) {
+                vdom.cls = cls;
+            }
 
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else if (me.mounted) {
-            me.updateCls(value, oldValue);
+            if (me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+            } else if (me.mounted) {
+                me.updateCls(value, oldValue);
+            }
         }
     }
 
