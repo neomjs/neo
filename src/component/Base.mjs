@@ -773,6 +773,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered when accessing the wrapperCls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetWrapperCls(value) {
+        return value ? [...value]: [];
+    }
+
+    /**
      * Triggered when accessing the wrapperStyle config
      * @param {Object} value
      * @protected
@@ -1684,13 +1693,14 @@ class Base extends CoreBase {
      * @protected
      */
     updateCls(cls, oldCls, id=this.id) {
-        let me    = this,
-            vnode = me.getVnodeRoot(),
+        let me          = this,
+            vnode       = me.vnode,
+            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode,
             opts;
 
         if (!Neo.isEqual(cls, oldCls)) {
-            if (vnode) {
-                vnode.className = cls; // keep the vnode in sync
+            if (vnodeTarget) {
+                vnodeTarget.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
             }
 

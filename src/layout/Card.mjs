@@ -100,7 +100,7 @@ class Card extends Base {
                     cls    = item.wrapperCls || proto.constructor.config.wrapperCls || [];
 
                     item.className = proto.className;
-                    item.cls       = [...wrapperCls, sCfg.itemCls];
+                    item.cls       = [...cls, sCfg.itemCls];
                     item.module    = module;
 
                     delete item.vdom;
