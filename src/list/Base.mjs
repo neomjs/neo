@@ -225,7 +225,7 @@ class Base extends Component {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetUseCheckBoxes(value, oldValue) {console.log(this.cls);
+    afterSetUseCheckBoxes(value, oldValue) {
         let me  = this,
             cls = me.cls;
 
@@ -244,7 +244,7 @@ class Base extends Component {
             cls = me.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
-        me.cls = cls; console.log(cls);
+        me.cls = cls;
     }
 
     /**

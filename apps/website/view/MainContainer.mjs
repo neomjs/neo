@@ -65,6 +65,7 @@ class MainContainer extends Viewport {
                     tabButtonConfig: {
                         editRoute: false,
                         iconCls  : 'fa fa-rss',
+                        reference: 'blog-header-button',
                         route    : 'mainview=blog',
                         text     : 'Blog'
                     }

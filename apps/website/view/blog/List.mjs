@@ -34,6 +34,19 @@ class List extends BaseList {
     }}
 
     /**
+     * @param {Neo.data.Store} value
+     * @param {Neo.data.Store} oldValue
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+
+        value.on({
+            load : 'onBlogPostStoreLoad',
+            scope: this.getController()
+        });
+    }
+
+    /**
      * @param {Object} record
      */
     createItemContent(record) {
