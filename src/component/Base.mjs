@@ -466,7 +466,7 @@ class Base extends CoreBase {
         if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
         } else if (me.mounted) {
-            me.updateCls(value, oldValue);
+            me.updateCls(value, oldValue, vdomRoot.id);
         }
     }
 
@@ -712,14 +712,24 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
-        let me  = this,
-            cls = me.vdom.cls || [];
+        value = value ? value : [];
+
+        let me   = this,
+            vdom = me.vdom,
+            cls  = me.vdom?.cls || [];
 
         oldValue && NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
-        me.vdom.cls = cls;
-        me.vdom = vdom;
+        if (vdom) {
+            vdom.cls = cls;
+        }
+
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue);
+        }
     }
 
     /**
@@ -1668,11 +1678,12 @@ class Base extends CoreBase {
 
     /**
      * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
-     * @param {Array} cls
-     * @param {Array} oldCls
+     * @param {String[]} cls
+     * @param {String[]} oldCls
+     * @param {String} id=this.id
      * @protected
      */
-    updateCls(cls, oldCls) {
+    updateCls(cls, oldCls, id=this.id) {
         let me    = this,
             vnode = me.getVnodeRoot(),
             opts;
@@ -1686,7 +1697,7 @@ class Base extends CoreBase {
             opts = {
                 action: 'updateDom',
                 deltas: [{
-                    id : me.id,
+                    id,
                     cls: {
                         add   : Neo.util.Array.difference(cls, oldCls),
                         remove: Neo.util.Array.difference(oldCls, cls)
