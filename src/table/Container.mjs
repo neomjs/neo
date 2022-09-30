@@ -135,7 +135,7 @@ class Container extends BaseContainer {
             ...me.viewConfig
         }];
 
-        me.vdom.id = me.id + 'wrapper';
+        me.vdom.id = me.getWrapperId();
 
         me.createColumns(me.columns);
     }
@@ -179,14 +179,15 @@ class Container extends BaseContainer {
      */
     applyCustomScrollbarsCss() {
         let me       = this,
+            id       = me.getWrapperId(),
             cssRules = [];
 
         if (me.dockLeftMargin) {
-            cssRules.push('#' + me.id + 'wrapper' + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}');
         }
 
         if (me.dockRightMargin) {
-            cssRules.push('#' + me.id + 'wrapper' + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
         }
         if (cssRules.length > 0) {
             Css.insertRules(cssRules);
@@ -366,6 +367,13 @@ class Container extends BaseContainer {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0];
+    }
+
+    /**
+     * @returns {String}
+     */
+    getWrapperId() {
+        return `${this.id}__wrapper`;
     }
 
     /**

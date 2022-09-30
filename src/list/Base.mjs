@@ -446,14 +446,7 @@ class Base extends Component {
      */
     getVdomRoot() {
         let me = this;
-        return me.useWrapperNode ? me.vdom.cn[0] : me.vdom;
-    }
-
-    /**
-     * @returns {Object[]} The new vdom items root
-     */
-    getVdomItemsRoot() {
-        let me = this;
+        console.log(me.id, me.useWrapperNode, me.useWrapperNode ? me.vdom.cn[0] : me.vdom);
         return me.useWrapperNode ? me.vdom.cn[0] : me.vdom;
     }
 
