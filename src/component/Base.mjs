@@ -277,6 +277,10 @@ class Base extends CoreBase {
          */
         width_: null,
         /**
+         * @member {String[]|null} wrapperCls_=null
+         */
+        wrapperCls_: null,
+        /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_=null
          */
@@ -699,6 +703,23 @@ class Base extends CoreBase {
      */
     afterSetWidth(value, oldValue) {
         this.changeVdomRootKey('width', value);
+    }
+
+    /**
+     * Triggered after the wrapperCls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetWrapperCls(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cls || [];
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.vdom.cls = cls;
+        me.vdom = vdom;
     }
 
     /**
