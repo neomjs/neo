@@ -68,6 +68,20 @@ class ColorsList extends List {
     }
 
     /**
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom;
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode;
+    }
+
+    /**
      *
      */
     onConstructed() {

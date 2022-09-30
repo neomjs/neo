@@ -110,10 +110,14 @@ class Base extends Component {
          */
         useWrapperNode_: true,
         /**
-         * @member {Object} _vdom={tag:'ul',cn:[]}
+         * @member {String[]} cls=['neo-list-wrapper']
+         */
+        wrapperCls: ['neo-list-wrapper'],
+        /**
+         * @member {Object} _vdom
          */
         _vdom:
-        {cls: 'neo-list-wrapper', cn: [
+        {cn: [
             {tag: 'ul', cn: []}
         ]}
     }}
@@ -240,7 +244,7 @@ class Base extends Component {
             cls = me.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
-        me.cls = cls;
+        me.cls = cls; console.log(cls);
     }
 
     /**
@@ -442,20 +446,17 @@ class Base extends Component {
     }
 
     /**
-     * @returns {*}
+     * @returns {Object}
      */
     getVdomRoot() {
-        let me = this;
-        console.log(me.id, me.useWrapperNode, me.useWrapperNode ? me.vdom.cn[0] : me.vdom);
-        return me.useWrapperNode ? me.vdom.cn[0] : me.vdom;
+        return this.vdom.cn[0];
     }
 
     /**
-     * @returns {Neo.vdom.VNode}
+     * @returns {Object}
      */
     getVnodeRoot() {
-        let me = this;
-        return me.useWrapperNode ? me.vnode.childNodes[0] : me.vnode;
+        return this.vnode.childNodes[0];
     }
 
     /**
