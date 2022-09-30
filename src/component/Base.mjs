@@ -452,13 +452,23 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetCls(value, oldValue) {
-        value = value ? value : [];
+        oldValue = oldValue ? oldValue : [];
+        value    = value    ? value    : [];
 
         let me       = this,
-            vdomRoot = me.getVdomRoot();
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls;
 
-        if (vdomRoot) {
+        if (vdom !== vdomRoot) {
+            // we are using a wrapper node
             vdomRoot.cls = [...value];
+        } else {
+            // we need to merge changes
+            cls = vdom.cls || [];
+            NeoArray.remove(cls, Neo.util.Array.difference(oldValue, value));
+            NeoArray.add(   cls, Neo.util.Array.difference(value, oldValue));
+            vdom.cls = cls;
         }
 
         if (me.silentVdomUpdate) {
