@@ -25,7 +25,7 @@ class HBox extends Flexbox {
 
     /**
      * Applies the flex value to an item of the container this layout is bound to
-     * @param {Object} item
+     * @param {Neo.component.Base} item
      */
     applyChildAttributes(item) {
         // Do not apply flex if fixed width
