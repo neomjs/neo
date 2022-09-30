@@ -457,8 +457,6 @@ class Base extends CoreBase {
         let me       = this,
             vdomRoot = me.getVdomRoot();
 
-        me._cls = value;
-
         if (vdomRoot) {
             vdomRoot.cls = [...value];
         }
