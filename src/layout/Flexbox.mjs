@@ -130,31 +130,31 @@ class Flexbox extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            prefix    = me.prefix,
-            cls       = container?.cls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            prefix     = me.prefix,
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls, prefix + 'container');
+        NeoArray.add(wrapperCls, prefix + 'container');
 
         if (me.align) {
-            NeoArray.add(cls, prefix + 'align-' + me.align);
+            NeoArray.add(wrapperCls, prefix + 'align-' + me.align);
         }
         if (me.direction) {
-            NeoArray.add(cls, prefix + 'direction-' + me.direction);
+            NeoArray.add(wrapperCls, prefix + 'direction-' + me.direction);
         }
         if (me.pack) {
-            NeoArray.add(cls, prefix + 'pack-' + me.pack);
+            NeoArray.add(wrapperCls, prefix + 'pack-' + me.pack);
         }
         if (me.wrap) {
-            NeoArray.add(cls, prefix + 'wrap-' + me.wrap);
+            NeoArray.add(wrapperCls, prefix + 'wrap-' + me.wrap);
         }
 
-        container.cls = cls;
+        container.wrapperCls = wrapperCls;
     }
 
     /**
@@ -220,31 +220,31 @@ class Flexbox extends Base {
      * @protected
      */
     removeRenderAttributes() {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            prefix    = me.prefix,
-            cls       = container?.cls || [];
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            prefix     = me.prefix,
+            wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
             Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.remove(cls, prefix + 'container');
+        NeoArray.remove(wrapperCls, prefix + 'container');
 
         if (me.align) {
-            NeoArray.remove(cls, prefix + 'align-' + me.align);
+            NeoArray.remove(wrapperCls, prefix + 'align-' + me.align);
         }
         if (me.direction) {
-            NeoArray.remove(cls, prefix + 'direction-' + me.direction);
+            NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
         }
         if (me.pack) {
-            NeoArray.remove(cls, prefix + 'pack-' + me.pack);
+            NeoArray.remove(wrapperCls, prefix + 'pack-' + me.pack);
         }
         if (me.wrap) {
-            NeoArray.remove(cls, prefix + 'wrap-' + me.wrap);
+            NeoArray.remove(wrapperCls, prefix + 'wrap-' + me.wrap);
         }
 
-        container.cls = cls;
+        container.wrapperCls = wrapperCls;
     }
 
     /**
@@ -275,19 +275,19 @@ class Flexbox extends Base {
      * @protected
      */
     updateInputValue(value, oldValue, propertyName) {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            prefix    = me.prefix,
-            cls       = container?.cls;
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            prefix     = me.prefix,
+            wrapperCls = container?.cls;
 
         if (container?.rendered) {
-            NeoArray.remove(cls, prefix + propertyName + '-' + oldValue);
+            NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
 
             if (value !== null) {
-                NeoArray.add(cls, prefix + propertyName + '-' + value);
+                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value);
             }
 
-            container.cls = cls;
+            container.wrapperCls = wrapperCls;
         }
     }
 }
