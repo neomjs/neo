@@ -120,7 +120,6 @@ class Card extends Base {
 
                     if (removeInactiveCards || needsUpdate) {
                         item._wrapperCls = wrapperCls; // silent update
-                        item.vdom.cls = [...wrapperCls];
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
