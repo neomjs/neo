@@ -4,6 +4,16 @@
     display : flex;
     position: relative;
 
+    .neo-list {
+        overflow: visible;
+    }
+
+    .neo-list-container {
+        background-color: v(list-container-background-color);
+        border          : v(list-container-border);
+        overflow        : auto;
+    }
+
     .neo-list-folder {
         + .neo-list {
             display: none;

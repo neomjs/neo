@@ -48,6 +48,10 @@ class Tree extends Base {
          */
         sortZoneConfig: null,
         /**
+         * @member {String[]} wrapperCls=[]
+         */
+        wrapperCls: [],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
