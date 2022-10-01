@@ -141,18 +141,10 @@ class Flexbox extends Base {
 
         NeoArray.add(wrapperCls, prefix + 'container');
 
-        if (me.align) {
-            NeoArray.add(wrapperCls, prefix + 'align-' + me.align);
-        }
-        if (me.direction) {
-            NeoArray.add(wrapperCls, prefix + 'direction-' + me.direction);
-        }
-        if (me.pack) {
-            NeoArray.add(wrapperCls, prefix + 'pack-' + me.pack);
-        }
-        if (me.wrap) {
-            NeoArray.add(wrapperCls, prefix + 'wrap-' + me.wrap);
-        }
+        me.align     && NeoArray.add(wrapperCls, prefix + 'align-'     + me.align);
+        me.direction && NeoArray.add(wrapperCls, prefix + 'direction-' + me.direction);
+        me.pack      && NeoArray.add(wrapperCls, prefix + 'pack-'      + me.pack);
+        me.wrap      && NeoArray.add(wrapperCls, prefix + 'wrap-'      + me.wrap);
 
         container.wrapperCls = wrapperCls;
     }
@@ -268,7 +260,7 @@ class Flexbox extends Base {
     }
 
     /**
-     * Updates the Container CSS cls
+     * Updates the Container CSS wrapperCls
      * @param {String|null} value
      * @param {String|null} oldValue
      * @param {String} propertyName
@@ -278,7 +270,7 @@ class Flexbox extends Base {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
             prefix     = me.prefix,
-            wrapperCls = container?.cls;
+            wrapperCls = container?.wrapperCls;
 
         if (container?.rendered) {
             NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
