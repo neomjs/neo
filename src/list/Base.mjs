@@ -106,20 +106,18 @@ class Base extends Component {
          */
         useCheckBoxes_: false,
         /**
-         * @member {Boolean} useWrapperNode_=true
+         * @member {Boolean} useWrapperNode_=false
          */
-        useWrapperNode_: true,
+        useWrapperNode_: false,
         /**
-         * @member {String[]} cls=['neo-list-wrapper']
+         * @member {String[]} wrapperCls=['neo-list-wrapper']
          */
         wrapperCls: ['neo-list-wrapper'],
         /**
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'ul', cn: []}
-        ]}
+        {tag: 'ul', cn: []}
     }}
 
     /**
@@ -443,20 +441,6 @@ class Base extends Component {
      */
     getKeyProperty() {
         return this.store.keyProperty || this.store.model.keyProperty;
-    }
-
-    /**
-     * @returns {Object}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     * @returns {Object}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
     }
 
     /**

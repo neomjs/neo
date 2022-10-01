@@ -30,7 +30,18 @@ class List extends BaseList {
         /**
          * @member {Neo.data.Store} store=BlogPosts
          */
-        store: BlogPosts
+        store: BlogPosts,
+        /**
+         * @member {Boolean} useWrapperNode=true
+         */
+        useWrapperNode: true,
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {cn: [
+            {tag: 'ul', cn: []}
+        ]}
     }}
 
     /**
@@ -143,6 +154,20 @@ class List extends BaseList {
         });
 
         me.vdom = vdom;
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 }
 
