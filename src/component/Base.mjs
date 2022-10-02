@@ -719,15 +719,22 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
+        oldValue = oldValue ? oldValue : [];
+        value    = value    ? value    : [];
+
         let me       = this,
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot(),
             cls      = me.vdom?.cls || [];
 
         if (vdom === vdomRoot) {
-            // we are not using a wrapper => cls & wrapperCls share the same node
-            me.afterSetCls(me._cls, me._cls);
+            // we need to merge changes
+            cls = [...cls, ...value];
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            vdom.cls = cls;
+
         } else {
+            // we are not using a wrapper => cls & wrapperCls share the same node
             value = value ? value : [];
 
             oldValue && NeoArray.remove(cls, oldValue);
@@ -736,12 +743,12 @@ class Base extends CoreBase {
             if (vdom) {
                 vdom.cls = cls;
             }
+        }
 
-            if (me.isVdomUpdating || me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
-            } else if (me.mounted) {
-                me.updateCls(value, oldValue);
-            }
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue);
         }
     }
 
