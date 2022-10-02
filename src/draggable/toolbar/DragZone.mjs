@@ -47,15 +47,14 @@ class DragZone extends BaseDragZone {
     adjustToolbarItemCls(draggable) {
         let me    = this,
             owner = me.owner,
-            vdom  = owner.vdom;
+            wrapperCls;
 
-        vdom.cn.forEach(item => {
-            item.cls = item.cls || [];
+        owner.items.forEach(item => {
+            wrapperCls = item.wrapperCls || [];
 
-            NeoArray[draggable ? 'add' : 'remove'](item.cls, 'neo-draggable');
+            NeoArray[draggable ? 'add' : 'remove'](wrapperCls, 'neo-draggable');
+            item.wrapperCls = wrapperCls;
         });
-
-        owner.vdom = vdom;
     }
 
     /**

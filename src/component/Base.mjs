@@ -255,10 +255,10 @@ class Base extends CoreBase {
          */
         silentVdomUpdate: false,
         /**
-         * Top level style attributes
-         * @member {Object} style={}
+         * Style attributes added to this vdom root. see: getVdomRoot()
+         * @member {Object} style_=null
          */
-        style: {},
+        style_: null,
         /**
          * Add tooltip config objects
          * See tooltip/Base.mjs
@@ -322,23 +322,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Top level style attributes
-     * @member {Object} style={}
-     */
-    get style() {
-        // we need to "clone" the object, otherwise changes will get applied directly and there are no deltas
-        // this only affects non vdom related style to DOM deltas
-        return Neo.clone(this._style || {});
-    }
-    set style(value) {
-        let me       = this,
-            oldStyle = me.style; // cloned => getter
-
-        me._style = value;
-        me.updateStyle(value, oldStyle);
-    }
-
-    /**
      * The setter will handle vdom updates automatically
      * @member {Object} vdom=this._vdom
      */
@@ -346,45 +329,7 @@ class Base extends CoreBase {
         return this._vdom;
     }
     set vdom(value) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
-            vdom = value,
-            listenerId;
-
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
-            });
-
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
-        }
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
-
-                listenerId = app.on('mounted', () => {
-                    app.un('mounted', listenerId);
-
-                    setTimeout(() => {
-                        me.vnode && me.updateVdom(me.vdom, me.vnode);
-                    }, 50);
-                });
-            } else if (me.mounted) {
-                me.vnode && me.updateVdom(vdom, me.vnode);
-            }
-
-            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
-        }
+        this.afterSetVdom(value, value);
     }
 
     /**
@@ -666,6 +611,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the style config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetStyle(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this.updateStyle(value, oldValue);
+        }
+    }
+
+    /**
      * Triggered after the tooltips config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -682,6 +639,54 @@ class Base extends CoreBase {
                     me.createTooltips(value);
                 });
             }
+        }
+    }
+
+    /**
+     * Triggered after the vdom config got changed
+     * @param {Object} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetVdom(value, oldValue) {
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            vdom = value,
+            listenerId;
+
+        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
+        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
+        // the content over seems to be the best strategy
+        if (me._vdom !== vdom) {
+            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
+
+            Object.keys(me._vdom).forEach(key => {
+                delete me._vdom[key];
+            });
+
+            Object.assign(me._vdom, vdom);
+        } else {
+            me._vdom = vdom;
+        }
+
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else {
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                me.hasRenderingListener = true;
+
+                listenerId = app.on('mounted', () => {
+                    app.un('mounted', listenerId);
+
+                    setTimeout(() => {
+                        me.vnode && me.updateVdom(me.vdom, me.vnode);
+                    }, 50);
+                });
+            } else if (me.mounted) {
+                me.vnode && me.updateVdom(vdom, me.vnode);
+            }
+
+            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
     }
 
@@ -714,15 +719,22 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
+        oldValue = oldValue ? oldValue : [];
+        value    = value    ? value    : [];
+
         let me       = this,
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot(),
             cls      = me.vdom?.cls || [];
 
         if (vdom === vdomRoot) {
-            // we are not using a wrapper => cls & wrapperCls share the same node
-            me.afterSetCls(me._cls, me._cls);
+            // we need to merge changes
+            cls = [...cls, ...value];
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            vdom.cls = cls;
+
         } else {
+            // we are not using a wrapper => cls & wrapperCls share the same node
             value = value ? value : [];
 
             oldValue && NeoArray.remove(cls, oldValue);
@@ -731,12 +743,12 @@ class Base extends CoreBase {
             if (vdom) {
                 vdom.cls = cls;
             }
+        }
 
-            if (me.isVdomUpdating || me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
-            } else if (me.mounted) {
-                me.updateCls(value, oldValue);
-            }
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue);
         }
     }
 
@@ -778,6 +790,15 @@ class Base extends CoreBase {
      */
     beforeGetData(value) {
         return this.getModel().getHierarchyData();
+    }
+
+    /**
+     * Triggered when accessing the style config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetStyle(value) {
+        return {...value};
     }
 
     /**

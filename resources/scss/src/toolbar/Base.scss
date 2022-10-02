@@ -24,12 +24,45 @@
             }
         }
 
+        .neo-button-badge {
+            transform   : rotate(180deg);
+            writing-mode: vertical-rl;
+
+            &.neo-bottom-left {
+                bottom: v(button-badge-margin-top);
+                left  : unset;
+                right : v(button-badge-margin-left);
+                top   : unset;
+            }
+
+            &.neo-bottom-right {
+                bottom: unset;
+                left  : unset;
+                right : v(button-badge-margin-left);
+                top   : v(button-badge-margin-top);
+            }
+
+            &.neo-top-left {
+                bottom: v(button-badge-margin-top);
+                left  : v(button-badge-margin-left);
+                right : unset;
+                top   : unset;
+            }
+
+            &.neo-top-right {
+                bottom: unset;
+                left  : v(button-badge-margin-left);
+                right : unset;
+                top   : v(button-badge-margin-top);
+            }
+        }
+
         .neo-button-glyph {
             transform: rotate(-90deg);
         }
 
         .neo-button-text {
-            transform: rotate(180deg);
+            transform   : rotate(180deg);
             writing-mode: vertical-rl;
         }
 
@@ -58,6 +91,38 @@
             }
         }
 
+        .neo-button-badge {
+            writing-mode: vertical-lr;
+
+            &.neo-bottom-left {
+                bottom: unset;
+                left  : v(button-badge-margin-left);
+                right : unset;
+                top   : v(button-badge-margin-top);
+            }
+
+            &.neo-bottom-right {
+                bottom: v(button-badge-margin-top);
+                left  : v(button-badge-margin-left);
+                right : unset;
+                top   : unset;
+            }
+
+            &.neo-top-left {
+                bottom: unset;
+                left  : unset;
+                right : v(button-badge-margin-left);
+                top   : v(button-badge-margin-top);
+            }
+
+            &.neo-top-right {
+                bottom: v(button-badge-margin-top);
+                left  : unset;
+                right : v(button-badge-margin-left);
+                top   : unset;
+            }
+        }
+
         .neo-button-glyph {
             transform: rotate(90deg);
         }
@@ -73,7 +138,8 @@
         }
     }
 
-    &.neo-dock-bottom, &.neo-dock-top {
+    &.neo-dock-bottom,
+    &.neo-dock-top {
         .neo-button {
             &.icon-left {
                 .neo-button-glyph {

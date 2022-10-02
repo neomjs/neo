@@ -64,27 +64,29 @@
         color           : v(button-badge-color);
         margin-left     : auto;
         padding         : 3px;
+        pointer-events  : none;
         position        : absolute;
+        user-select     : none;
         z-index         : 2;
 
         &.neo-bottom-left {
-            bottom: -10px;
-            left  : -10px;
+            bottom: v(button-badge-margin-top);
+            left  : v(button-badge-margin-left);
         }
 
         &.neo-bottom-right {
-            bottom: -10px;
-            right : -10px;
+            bottom: v(button-badge-margin-top);
+            right : v(button-badge-margin-left);
         }
 
         &.neo-top-left {
-            left: -10px;
-            top : -10px;
+            left: v(button-badge-margin-left);
+            top : v(button-badge-margin-top);
         }
 
         &.neo-top-right {
-            right: -10px;
-            top  : -10px;
+            right: v(button-badge-margin-left);
+            top  : v(button-badge-margin-top);
         }
     }
 

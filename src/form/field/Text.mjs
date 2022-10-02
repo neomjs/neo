@@ -893,11 +893,13 @@ class Text extends Base {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
+            cls            = me.cls,
             vdom           = me.vdom;
 
         me.validate(); // silent
 
-        NeoArray.remove(me._cls, 'neo-focus');
+        NeoArray.remove(cls, 'neo-focus');
+        me.cls = cls;
 
         if (centerBorderEl && me.isEmpty()) {
             delete centerBorderEl.width;

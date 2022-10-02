@@ -82,7 +82,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetAlign(value, oldValue) {
-        this.updateInputValue(value, oldValue, 'align');
+        oldValue && this.updateInputValue(value, oldValue, 'align');
     }
 
     /**
@@ -92,7 +92,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetDirection(value, oldValue) {
-        this.updateInputValue(value, oldValue, 'direction');
+        oldValue && this.updateInputValue(value, oldValue, 'direction');
     }
 
     /**
@@ -102,7 +102,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetPack(value, oldValue) {
-        this.updateInputValue(value, oldValue, 'pack');
+        oldValue && this.updateInputValue(value, oldValue, 'pack');
     }
 
     /**
@@ -112,7 +112,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetWrap(value, oldValue) {
-        this.updateInputValue(value, oldValue, 'wrap');
+        oldValue && this.updateInputValue(value, oldValue, 'wrap');
     }
 
     /**

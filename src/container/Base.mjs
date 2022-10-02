@@ -171,10 +171,11 @@ class Base extends Component {
 
     /**
      * @param {Object|String} value
+     * @param {Object|String|Neo.layout.Base} oldValue
      * @returns {Neo.layout.Base}
      * @protected
      */
-    beforeSetLayout(value) {
+    beforeSetLayout(value, oldValue) {
         return this.createLayout(value);
     }
 
@@ -458,8 +459,7 @@ class Base extends Component {
             if (config.ntype.indexOf('layout-') < 0) {
                 config.ntype = 'layout-' + config.ntype;
             }
-        }
-        else if (config.indexOf('layout-') < 0) {
+        } else if (config.indexOf('layout-') < 0) {
             config = {
                 ntype: 'layout-' + config
             };

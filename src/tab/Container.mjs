@@ -12,7 +12,7 @@ class Container extends BaseContainer {
     static getStaticConfig() {return {
         /**
          * Valid values for tabBarPosition
-         * @member {String[]} tabBarPositions=['top', 'right', 'bottom', 'left']
+         * @member {String[]} tabBarPositions=['top','right','bottom','left']
          * @protected
          * @static
          */
@@ -45,7 +45,7 @@ class Container extends BaseContainer {
          */
         baseCls: 'neo-tab-container',
         /**
-         * @member {String|null} [cardContainerId]=null
+         * @member {String|null} cardContainerId=null
          */
         cardContainerId: null,
         /**
@@ -56,12 +56,12 @@ class Container extends BaseContainer {
         cls: ['neo-tab-container'],
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} [contentContainerDefaults]=null
+         * @member {Object|null} contentContainerDefaults=null
          */
         contentContainerDefaults: null,
         /**
          * Default configs for the tab.HeaderToolbar
-         * @member {Object|null} [headerToolbarDefaults]=null
+         * @member {Object|null} headerToolbarDefaults=null
          */
         headerToolbarDefaults: null,
         /**
@@ -87,11 +87,11 @@ class Container extends BaseContainer {
         tabBarId: null,
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} [tabStripDefaults]=null
+         * @member {Object|null} tabStripDefaults=null
          */
         tabStripDefaults: null,
         /**
-         * @member {String|null} [tabStripId]=null
+         * @member {String|null} tabStripId=null
          */
         tabStripId: null,
         /**
@@ -117,8 +117,8 @@ class Container extends BaseContainer {
 
     /**
      * Triggered after the activeIndex config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
      async afterSetActiveIndex(value, oldValue) {
@@ -196,8 +196,8 @@ class Container extends BaseContainer {
 
             me.fire('tabBarPositionChange', {
                 component: me,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }
