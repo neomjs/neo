@@ -17,10 +17,15 @@ class TabContainer extends Container {
          */
         activeIndex: 2,
         /**
-         * @member {Array} items
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module: List
+        },
+        /**
+         * @member {Object[]} items
          */
         items: [{
-            module         : List,
             reference      : 'examples-devmode-list',
             storeUrl       : '../../apps/website/data/examples_devmode.json',
             tabButtonConfig: {
@@ -29,7 +34,6 @@ class TabContainer extends Container {
                 text   : 'DevMode'
             }
         }, {
-            module         : List,
             reference      : 'examples-dist-dev-list',
             storeUrl       : '../../apps/website/data/examples_dist_dev.json',
             tabButtonConfig: {
@@ -38,7 +42,6 @@ class TabContainer extends Container {
                 text   : 'dist/dev'
             }
         }, {
-            module         : List,
             reference      : 'examples-dist-prod-list',
             storeUrl       : '../../apps/website/data/examples_dist_prod.json',
             tabButtonConfig: {

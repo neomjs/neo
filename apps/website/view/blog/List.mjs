@@ -24,14 +24,38 @@ class List extends BaseList {
          */
         className: 'Website.view.blog.List',
         /**
-         * @member {String[]} cls=['website-blog-list','neo-list-container','neo-list']
+         * @member {String[]} cls=['website-blog-list','neo-list']
          */
-        cls: ['website-blog-list', 'neo-list-container', 'neo-list'],
+        cls: ['website-blog-list', 'neo-list'],
         /**
          * @member {Neo.data.Store} store=BlogPosts
          */
-        store: BlogPosts
+        store: BlogPosts,
+        /**
+         * @member {Boolean} useWrapperNode=true
+         */
+        useWrapperNode: true,
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {cn: [
+            {tag: 'ul', cn: []}
+        ]}
     }}
+
+    /**
+     * @param {Neo.data.Store} value
+     * @param {Neo.data.Store} oldValue
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+
+        value.on({
+            load : 'onBlogPostStoreLoad',
+            scope: this.getController()
+        });
+    }
 
     /**
      * @param {Object} record
@@ -130,6 +154,20 @@ class List extends BaseList {
         });
 
         me.vdom = vdom;
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 }
 

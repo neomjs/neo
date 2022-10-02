@@ -43,6 +43,13 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {Object[]} records
+     */
+    onBlogPostStoreLoad(records) {
+        this.getReference('blog-header-button').badgeText = records.length + ''
+    }
+
+    /**
      *
      */
     onComponentConstructed() {

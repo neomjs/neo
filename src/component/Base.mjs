@@ -76,6 +76,11 @@ class Base extends CoreBase {
          */
         bind: null,
         /**
+         * CSS selectors to apply to the root level node of this component
+         * @member {String[]} cls_=null
+         */
+        cls_: null,
+        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
@@ -272,6 +277,10 @@ class Base extends CoreBase {
          */
         width_: null,
         /**
+         * @member {String[]|null} wrapperCls_=null
+         */
+        wrapperCls_: null,
+        /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_=null
          */
@@ -282,44 +291,6 @@ class Base extends CoreBase {
          */
         _vdom: {}
     }}
-
-    /**
-     * CSS selectors to apply to the top level node of this component
-     * @member {String[]} cls=[]
-     */
-    get cls() {
-        return this._cls ? Neo.clone(this._cls) : [];
-    }
-    set cls(value) {
-        value = value ? value : [];
-
-        let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot(),
-            oldCls;
-
-        if (typeof value === 'string') {
-            value = value.split('');
-        }
-
-        if (me.mounted) {
-            oldCls = Neo.clone(me._cls);
-        }
-
-        me._cls = value;
-
-        if (vdomRoot) {
-            vdomRoot.cls = [...value];
-        }
-
-        me._vdom = vdom; // silent update
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else if (me.mounted) {
-            me.updateCls(value, oldCls);
-        }
-    }
 
     /**
      * Apply component based listeners
@@ -375,15 +346,10 @@ class Base extends CoreBase {
         return this._vdom;
     }
     set vdom(value) {
-        let me       = this,
-            app      = Neo.apps[me.appName],
-            vdom     = value,
-            vdomRoot = me.getVdomRoot(),
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            vdom = value,
             listenerId;
-
-        if (vdomRoot && me.cls) {
-            vdomRoot.cls = me.cls;
-        }
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
         // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
@@ -472,6 +438,38 @@ class Base extends CoreBase {
      */
     afterSetAppName(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+    }
+
+    /**
+     * Triggered after the cls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetCls(value, oldValue) {
+        oldValue = oldValue ? oldValue : [];
+        value    = value    ? value    : [];
+
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls;
+
+        if (vdom !== vdomRoot) {
+            // we are using a wrapper node
+            vdomRoot.cls = [...value];
+        } else {
+            // we need to merge changes
+            cls = [...me.wrapperCls, ...value];
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            vdom.cls = cls;
+        }
+
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue, vdomRoot.id);
+        }
     }
 
     /**
@@ -710,6 +708,39 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the wrapperCls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetWrapperCls(value, oldValue) {
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls      = me.vdom?.cls || [];
+
+        if (vdom === vdomRoot) {
+            // we are not using a wrapper => cls & wrapperCls share the same node
+            me.afterSetCls(me._cls, me._cls);
+        } else {
+            value = value ? value : [];
+
+            oldValue && NeoArray.remove(cls, oldValue);
+            NeoArray.add(cls, value);
+
+            if (vdom) {
+                vdom.cls = cls;
+            }
+
+            if (me.isVdomUpdating || me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+            } else if (me.mounted) {
+                me.updateCls(value, oldValue);
+            }
+        }
+    }
+
+    /**
      * Triggered after the wrapperStyle config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -730,6 +761,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered when accessing the cls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetCls(value) {
+        return value ? [...value]: [];
+    }
+
+    /**
      * Triggered when accessing the data config
      * Convenience shortcut which is expensive to use,
      * since it will generate a merged parent model data map.
@@ -738,6 +778,15 @@ class Base extends CoreBase {
      */
     beforeGetData(value) {
         return this.getModel().getHierarchyData();
+    }
+
+    /**
+     * Triggered when accessing the wrapperCls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetWrapperCls(value) {
+        return value ? [...value]: [];
     }
 
     /**
@@ -1198,13 +1247,11 @@ class Base extends CoreBase {
         // avoid any interference on prototype level
         // does not clone existing Neo instances
         me._vdom = Neo.clone(vdom, true, true);
-        me.cls   = config.cls;
 
         me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 
-        delete config.cls;
         delete config.style;
         delete config._vdom;
         delete config.vdom;
@@ -1648,28 +1695,30 @@ class Base extends CoreBase {
 
     /**
      * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
-     * @param {Array} cls
-     * @param {Array} oldCls
+     * @param {String[]} cls
+     * @param {String[]} oldCls
+     * @param {String} id=this.id
      * @protected
      */
-    updateCls(cls, oldCls) {
-        let me    = this,
-            vnode = me.vnode,
+    updateCls(cls, oldCls, id=this.id) {
+        let me          = this,
+            vnode       = me.vnode,
+            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode,
             opts;
 
         if (!Neo.isEqual(cls, oldCls)) {
-            if (vnode) {
-                vnode.className = cls; // keep the vnode in sync
+            if (vnodeTarget) {
+                vnodeTarget.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
             }
 
             opts = {
                 action: 'updateDom',
                 deltas: [{
-                    id : me.id,
+                    id,
                     cls: {
-                        add   : Neo.util.Array.difference(cls, oldCls),
-                        remove: Neo.util.Array.difference(oldCls, cls)
+                        add   : NeoArray.difference(cls, oldCls),
+                        remove: NeoArray.difference(oldCls, cls)
                     }
                 }]
             };

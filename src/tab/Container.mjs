@@ -157,7 +157,7 @@ class Container extends BaseContainer {
     afterSetPlain(value, oldValue) {
         let me      = this,
             baseCls = me.baseCls,
-            cls     = me.cls || [];
+            cls     = me.cls;
 
         NeoArray[value ? 'unshift' : 'remove'](cls, baseCls + '-plain');
         me.cls = cls;

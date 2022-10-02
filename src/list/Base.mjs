@@ -30,9 +30,9 @@ class Base extends Component {
          */
         autoDestroyStore: true,
         /**
-         * @member {String[]} cls=['neo-list-container','neo-list']
+         * @member {String[]} cls=['neo-list']
          */
-        cls: ['neo-list-container', 'neo-list'],
+        cls: ['neo-list'],
         /**
          * @member {Boolean} disableSelection_=false
          */
@@ -106,7 +106,11 @@ class Base extends Component {
          */
         useCheckBoxes_: false,
         /**
-         * @member {Object} _vdom={tag:'ul',cn:[]}
+         * @member {Boolean} useWrapperNode_=false
+         */
+        useWrapperNode_: false,
+        /**
+         * @member {Object} _vdom
          */
         _vdom:
         {tag: 'ul', cn: []}
@@ -224,6 +228,24 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the useWrapperNode config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseWrapperNode(value, oldValue) {
+        let me         = this,
+            cls        = me.cls,
+            wrapperCls = me.wrapperCls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
+        NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
+
+        me.wrapperCls = wrapperCls;
+        me.cls        = cls;
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -271,7 +293,7 @@ class Base extends Component {
 
         item = {
             tag     : me.itemTagName,
-            cls     : cls,
+            cls,
             id      : itemId,
             tabIndex: -1
         };
@@ -341,7 +363,7 @@ class Base extends Component {
      */
     createItems(silent=false) {
         let me   = this,
-            vdom = me.vdom,
+            vdom = me.getVdomRoot(),
             listItem;
 
         if (!(me.animate && !me.getPlugin('animate'))) {
