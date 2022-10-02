@@ -146,7 +146,6 @@ class Flexbox extends Base {
         me.pack      && NeoArray.add(wrapperCls, prefix + 'pack-'      + me.pack);
         me.wrap      && NeoArray.add(wrapperCls, prefix + 'wrap-'      + me.wrap);
 
-        console.log('applyRenderAttributes', container.id);
         container.wrapperCls = wrapperCls;
     }
 
@@ -218,7 +217,6 @@ class Flexbox extends Base {
             prefix     = me.prefix,
             wrapperCls = container?.wrapperCls || [];
 
-        console.log('removeRenderAttributes', container.id);
         if (!container) {
             Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId);
         }
