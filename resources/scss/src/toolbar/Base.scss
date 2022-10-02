@@ -30,14 +30,14 @@
 
             &.neo-bottom-left {
                 bottom: -10px;
-                left  : inherit;
+                left  : unset;
                 right : -10px;
-                top   : inherit;
+                top   : unset;
             }
 
             &.neo-bottom-right {
-                bottom: inherit;
-                left  : inherit;
+                bottom: unset;
+                left  : unset;
                 right : -10px;
                 top   : -10px;
             }
@@ -45,14 +45,14 @@
             &.neo-top-left {
                 bottom: -10px;
                 left  : -10px;
-                right : inherit;
-                top   : inherit;
+                right : unset;
+                top   : unset;
             }
 
             &.neo-top-right {
-                bottom: inherit;
+                bottom: unset;
                 left  : -10px;
-                right : inherit;
+                right : unset;
                 top   : -10px;
             }
         }
@@ -95,31 +95,31 @@
             writing-mode: vertical-lr;
 
             &.neo-bottom-left {
-                bottom: inherit;
+                bottom: unset;
                 left  : -10px;
-                right : inherit;
+                right : unset;
                 top   : -10px;
             }
 
             &.neo-bottom-right {
                 bottom: -10px;
                 left  : -10px;
-                right : inherit;
-                top   : inherit;
+                right : unset;
+                top   : unset;
             }
 
             &.neo-top-left {
-                bottom: inherit;
-                left  : inherit;
+                bottom: unset;
+                left  : unset;
                 right : -10px;
                 top   : -10px;
             }
 
             &.neo-top-right {
                 bottom: -10px;
-                left  : inherit;
+                left  : unset;
                 right : -10px;
-                top   : inherit;
+                top   : unset;
             }
         }
 
