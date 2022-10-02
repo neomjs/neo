@@ -17,7 +17,7 @@ class Button extends BaseButton {
          */
         ntype: 'tab-header-button',
         /**
-         * @member {Array} cls=['neo-button', 'neo-tab-button']
+         * @member {Array} cls=['neo-button','neo-tab-button']
          */
         cls: ['neo-tab-header-button', 'neo-button'],
         /**
@@ -57,7 +57,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateUseActiveTabIndicator(silent=false) {
         let me   = this,
