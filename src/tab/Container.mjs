@@ -196,8 +196,8 @@ class Container extends BaseContainer {
 
             me.fire('tabBarPositionChange', {
                 component: me,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }
