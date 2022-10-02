@@ -172,7 +172,7 @@ class EditContainer extends FormContainer {
     /**
      * @param {Object} [data]
      */
-    onFocusLeave(data) {return;
+    onFocusLeave(data) {
         let me = this;
 
         // we need a short delay to get record-changes (clicking on another edit icon)
