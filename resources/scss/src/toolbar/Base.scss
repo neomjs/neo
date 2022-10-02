@@ -29,7 +29,7 @@
             writing-mode: vertical-rl;
 
             &.neo-bottom-left {
-                bottom: -10px;
+                bottom: v(button-badge-margin-top);
                 left  : unset;
                 right : -10px;
                 top   : unset;
@@ -39,11 +39,11 @@
                 bottom: unset;
                 left  : unset;
                 right : -10px;
-                top   : -10px;
+                top   : v(button-badge-margin-top);
             }
 
             &.neo-top-left {
-                bottom: -10px;
+                bottom: v(button-badge-margin-top);
                 left  : -10px;
                 right : unset;
                 top   : unset;
@@ -53,7 +53,7 @@
                 bottom: unset;
                 left  : -10px;
                 right : unset;
-                top   : -10px;
+                top   : v(button-badge-margin-top);
             }
         }
 
@@ -98,11 +98,11 @@
                 bottom: unset;
                 left  : -10px;
                 right : unset;
-                top   : -10px;
+                top   : v(button-badge-margin-top);
             }
 
             &.neo-bottom-right {
-                bottom: -10px;
+                bottom: v(button-badge-margin-top);
                 left  : -10px;
                 right : unset;
                 top   : unset;
@@ -112,11 +112,11 @@
                 bottom: unset;
                 left  : unset;
                 right : -10px;
-                top   : -10px;
+                top   : v(button-badge-margin-top);
             }
 
             &.neo-top-right {
-                bottom: -10px;
+                bottom: v(button-badge-margin-top);
                 left  : unset;
                 right : -10px;
                 top   : unset;

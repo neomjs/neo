@@ -70,23 +70,23 @@
         z-index         : 2;
 
         &.neo-bottom-left {
-            bottom: -10px;
+            bottom: v(button-badge-margin-top);
             left  : -10px;
         }
 
         &.neo-bottom-right {
-            bottom: -10px;
+            bottom: v(button-badge-margin-top);
             right : -10px;
         }
 
         &.neo-top-left {
             left: -10px;
-            top : -10px;
+            top : v(button-badge-margin-top);
         }
 
         &.neo-top-right {
             right: -10px;
-            top  : -10px;
+            top  : v(button-badge-margin-top);
         }
     }
 
