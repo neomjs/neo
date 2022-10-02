@@ -13,7 +13,8 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.tab.container.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 130,
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -121,6 +122,45 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'Tab 1 text',
             listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'text')},
             value    : me.getFirstTabHeader().text
+        }, {
+            module   : TextField,
+            labelText: 'Tab 3 badgeText',
+            listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
+            style    : {marginTop: '10px'},
+            value    : me.getLastTabHeader().badgeText
+        }, {
+            module        : Radio,
+            checked       : me.getLastTabHeader().badgePosition === 'bottom-left',
+            hideValueLabel: false,
+            labelText     : 'Tab 3 badgePosition',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
+            name          : 'badgePosition',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'bottom-left'
+        }, {
+            module        : Radio,
+            checked       : me.getLastTabHeader().badgePosition === 'bottom-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-right'
+        }, {
+            module        : Radio,
+            checked       : me.getLastTabHeader().badgePosition === 'top-left',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-left'
+        }, {
+            module        : Radio,
+            checked       : me.getLastTabHeader().badgePosition === 'top-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-right'
         }];
     }
 
@@ -161,6 +201,25 @@ class MainContainer extends ConfigurationViewport {
      * @param {String} config
      * @param {Object} opts
      */
+    onBadgeConfigChange(config, opts) {
+        this.exampleComponent.getTabBar().items[2][config] = opts.value;
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onBadgeRadioChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.getLastTabHeader()[config] = value;
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
     onFirstTabHeaderConfigChange(config, opts) {
         this.exampleComponent.getTabBar().items[0][config] = opts.value;
     }
@@ -170,6 +229,13 @@ class MainContainer extends ConfigurationViewport {
      */
     getFirstTabHeader() {
         return this.exampleComponent.getTabBar().items[0];
+    }
+
+    /**
+     * @returns {Neo.tab.header.Button}
+     */
+    getLastTabHeader() {
+        return this.exampleComponent.getTabBar().items[2];
     }
 
     /**
