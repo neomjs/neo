@@ -85,7 +85,7 @@
         }
 
         &.neo-top-right {
-            right: -10px;
+            right: v(button-badge-margin-left);
             top  : v(button-badge-margin-top);
         }
     }
