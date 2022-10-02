@@ -232,8 +232,9 @@
     }
 
     .neo-textfield-label {
-        color  : v(textfield-label-color);
-        display: inline-block;
-        flex   : 0 0 auto;
+        color      : v(textfield-label-color);
+        display    : inline-block;
+        flex       : 0 0 auto;
+        user-select: none;
     }
 }
