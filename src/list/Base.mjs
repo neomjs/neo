@@ -110,10 +110,6 @@ class Base extends Component {
          */
         useWrapperNode_: false,
         /**
-         * @member {String[]} wrapperCls=['neo-list-wrapper']
-         */
-        wrapperCls: ['neo-list-wrapper'],
-        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -238,11 +234,15 @@ class Base extends Component {
      * @protected
      */
     afterSetUseWrapperNode(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me         = this,
+            cls        = me.cls,
+            wrapperCls = me.wrapperCls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
-        me.cls = cls;
+        NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
+
+        me.wrapperCls = wrapperCls;
+        me.cls        = cls;
     }
 
     /**
