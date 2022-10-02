@@ -58,6 +58,38 @@
             }
         }
 
+        .neo-button-badge {
+            writing-mode: vertical-lr;
+
+            &.neo-bottom-left {
+                bottom: 0;
+                left  : -10px;
+                right : 0;
+                top   : -10px;
+            }
+
+            &.neo-bottom-right {
+                bottom: -10px;
+                left  : -10px;
+                right : 0;
+                top   : 0;
+            }
+
+            &.neo-top-left {
+                bottom: 0;
+                left  : 0;
+                right : -10px;
+                top   : -10px;
+            }
+
+            &.neo-top-right {
+                bottom: -10px;
+                left  : inherit;
+                right : -10px;
+                top   : inherit;
+            }
+        }
+
         .neo-button-glyph {
             transform: rotate(90deg);
         }
