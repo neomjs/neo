@@ -249,7 +249,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onFirstTabHeaderConfigChange(config, opts) {
-        this.exampleComponent.getTabBar().items[0][config] = opts.value;
+        this.getFirstTabHeader()[config] = opts.value;
     }
 
     /**
