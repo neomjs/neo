@@ -24,12 +24,45 @@
             }
         }
 
+        .neo-button-badge {
+            transform   : rotate(180deg);
+            writing-mode: vertical-rl;
+
+            &.neo-bottom-left {
+                bottom: -10px;
+                left  : inherit;
+                right : -10px;
+                top   : inherit;
+            }
+
+            &.neo-bottom-right {
+                bottom: inherit;
+                left  : inherit;
+                right : -10px;
+                top   : -10px;
+            }
+
+            &.neo-top-left {
+                bottom: -10px;
+                left  : -10px;
+                right : inherit;
+                top   : inherit;
+            }
+
+            &.neo-top-right {
+                bottom: inherit;
+                left  : -10px;
+                right : inherit;
+                top   : -10px;
+            }
+        }
+
         .neo-button-glyph {
             transform: rotate(-90deg);
         }
 
         .neo-button-text {
-            transform: rotate(180deg);
+            transform   : rotate(180deg);
             writing-mode: vertical-rl;
         }
 
@@ -62,22 +95,22 @@
             writing-mode: vertical-lr;
 
             &.neo-bottom-left {
-                bottom: 0;
+                bottom: inherit;
                 left  : -10px;
-                right : 0;
+                right : inherit;
                 top   : -10px;
             }
 
             &.neo-bottom-right {
                 bottom: -10px;
                 left  : -10px;
-                right : 0;
-                top   : 0;
+                right : inherit;
+                top   : inherit;
             }
 
             &.neo-top-left {
-                bottom: 0;
-                left  : 0;
+                bottom: inherit;
+                left  : inherit;
                 right : -10px;
                 top   : -10px;
             }
