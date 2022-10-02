@@ -199,13 +199,9 @@ class Base extends Component {
             iconNode = me.getIconNode();
 
         NeoArray.remove(iconNode.cls, oldValue);
+        NeoArray.add(   iconNode.cls, value);
 
-        if (!value || value === '') {
-            iconNode.removeDom = true;
-        } else {
-            iconNode.removeDom = false;
-            NeoArray.add(iconNode.cls, value);
-        }
+        iconNode.removeDom = !value || value === '';
 
         me.vdom = vdom;
     }
@@ -403,6 +399,7 @@ class Base extends Component {
     beforeSetIconCls(value, oldValue) {
         if (value && !Array.isArray(value)) {
             value = value.split(' ');
+            value = value.filter(Boolean);
         }
 
         return value;
