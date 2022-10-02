@@ -39,7 +39,7 @@ No need to take care of a workers setup, and the cross channel communication on 
 14. <a href="#jobs">Jobs</a>
 
 </br></br>
-<h2 id="slack-channel">1. Slack Channel for questions & feedback</h2>
+<h2 id="slack-channel">1. Slack Channel for questions, ideas & feedback</h2>
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
