@@ -123,19 +123,13 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'text')},
             value    : me.getFirstTabHeader().text
         }, {
-            module   : TextField,
-            labelText: 'Tab 3 badgeText',
-            listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
-            style    : {marginTop: '10px'},
-            value    : me.getLastTabHeader().badgeText
-        }, {
             module        : Radio,
             checked       : me.getLastTabHeader().badgePosition === 'bottom-left',
             hideValueLabel: false,
-            labelText     : 'Tab 3 badgePosition',
+            labelText     : 'badgePosition',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
             name          : 'badgePosition',
-            style         : {marginTop: '10px'},
+            style         : {marginTop: '50px'},
             valueLabelText: 'bottom-left'
         }, {
             module        : Radio,
@@ -161,6 +155,12 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
             name          : 'badgePosition',
             valueLabelText: 'top-right'
+        }, {
+            module   : TextField,
+            labelText: 'badgeText',
+            listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
+            style    : {marginTop: '10px'},
+            value    : me.getLastTabHeader().badgeText
         }];
     }
 
