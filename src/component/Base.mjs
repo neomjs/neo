@@ -346,45 +346,7 @@ class Base extends CoreBase {
         return this._vdom;
     }
     set vdom(value) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
-            vdom = value,
-            listenerId;
-
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
-            });
-
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
-        }
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
-
-                listenerId = app.on('mounted', () => {
-                    app.un('mounted', listenerId);
-
-                    setTimeout(() => {
-                        me.vnode && me.updateVdom(me.vdom, me.vnode);
-                    }, 50);
-                });
-            } else if (me.mounted) {
-                me.vnode && me.updateVdom(vdom, me.vnode);
-            }
-
-            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
-        }
+        this.afterSetVdom(value, value);
     }
 
     /**
@@ -682,6 +644,54 @@ class Base extends CoreBase {
                     me.createTooltips(value);
                 });
             }
+        }
+    }
+
+    /**
+     * Triggered after the vdom config got changed
+     * @param {Object} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetVdom(value, oldValue) {
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            vdom = value,
+            listenerId;
+
+        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
+        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
+        // the content over seems to be the best strategy
+        if (me._vdom !== vdom) {
+            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
+
+            Object.keys(me._vdom).forEach(key => {
+                delete me._vdom[key];
+            });
+
+            Object.assign(me._vdom, vdom);
+        } else {
+            me._vdom = vdom;
+        }
+
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else {
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                me.hasRenderingListener = true;
+
+                listenerId = app.on('mounted', () => {
+                    app.un('mounted', listenerId);
+
+                    setTimeout(() => {
+                        me.vnode && me.updateVdom(me.vdom, me.vnode);
+                    }, 50);
+                });
+            } else if (me.mounted) {
+                me.vnode && me.updateVdom(vdom, me.vnode);
+            }
+
+            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
     }
 
