@@ -119,7 +119,7 @@ class Card extends Base {
                     NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
                     if (removeInactiveCards || needsUpdate) {
-                        item._wrapperCls = wrapperCls; // silent update
+                        item.wrapperCls = wrapperCls;
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
@@ -157,8 +157,8 @@ class Card extends Base {
         NeoArray.add(childCls, isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls);
 
         if (!keepInDom && me.removeInactiveCards) {
-            item._wrapperCls = childCls; // silent update
-            vdom.removeDom = !isActiveIndex;
+            item.wrapperCls = childCls;
+            vdom.removeDom  = !isActiveIndex;
             item.vdom = vdom;
         } else {
             item.wrapperCls = childCls;
