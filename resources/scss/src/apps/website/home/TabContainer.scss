@@ -8,7 +8,12 @@
         flex       : auto !important;
         font-weight: 400;
         overflow-y : auto;
+        position   : relative;
         word-break : break-word;
+
+        .neo-absolute {
+            position: absolute;
+        }
 
         a {
             color: #1c60a0;
