@@ -255,10 +255,10 @@ class Base extends CoreBase {
          */
         silentVdomUpdate: false,
         /**
-         * Top level style attributes
-         * @member {Object} style={}
+         * Style attributes added to this vdom root. see: getVdomRoot()
+         * @member {Object} style_=null
          */
-        style: {},
+        style_: null,
         /**
          * Add tooltip config objects
          * See tooltip/Base.mjs
@@ -319,23 +319,6 @@ class Base extends CoreBase {
         if (value === true) {
             me.fire('rendered', me.id);
         }
-    }
-
-    /**
-     * Top level style attributes
-     * @member {Object} style={}
-     */
-    get style() {
-        // we need to "clone" the object, otherwise changes will get applied directly and there are no deltas
-        // this only affects non vdom related style to DOM deltas
-        return Neo.clone(this._style || {});
-    }
-    set style(value) {
-        let me       = this,
-            oldStyle = me.style; // cloned => getter
-
-        me._style = value;
-        me.updateStyle(value, oldStyle);
     }
 
     /**
@@ -628,6 +611,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the style config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetStyle(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this.updateStyle(value, oldValue);
+        }
+    }
+
+    /**
      * Triggered after the tooltips config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -788,6 +783,15 @@ class Base extends CoreBase {
      */
     beforeGetData(value) {
         return this.getModel().getHierarchyData();
+    }
+
+    /**
+     * Triggered when accessing the style config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetStyle(value) {
+        return {...value};
     }
 
     /**
