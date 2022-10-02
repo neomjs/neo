@@ -124,7 +124,7 @@ class MainContainer extends ConfigurationViewport {
             value    : me.getFirstTabHeader().text
         }, {
             module        : Radio,
-            checked       : me.getLastTabHeader().badgePosition === 'bottom-left',
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-left',
             hideValueLabel: false,
             labelText     : 'badgePosition',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
@@ -133,7 +133,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'bottom-left'
         }, {
             module        : Radio,
-            checked       : me.getLastTabHeader().badgePosition === 'bottom-right',
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-right',
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right')},
@@ -141,7 +141,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'bottom-right'
         }, {
             module        : Radio,
-            checked       : me.getLastTabHeader().badgePosition === 'top-left',
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-left',
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left')},
@@ -149,7 +149,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'top-left'
         }, {
             module        : Radio,
-            checked       : me.getLastTabHeader().badgePosition === 'top-right',
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-right',
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
@@ -160,7 +160,7 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'badgeText',
             listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
             style    : {marginTop: '10px'},
-            value    : me.getLastTabHeader().badgeText
+            value    : me.getBadgeTabHeader().badgeText
         }];
     }
 
@@ -198,30 +198,17 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {String} config
-     * @param {Object} opts
+     * @returns {Neo.tab.header.Button}
      */
-    onBadgeConfigChange(config, opts) {
-        this.exampleComponent.getTabBar().items[2][config] = opts.value;
-    }
+    getBadgeTabHeader() {
+        let tabHeaders = this.exampleComponent.getTabBar().items,
+            item
 
-    /**
-     * @param {String} config
-     * @param {String} value
-     * @param {Object} opts
-     */
-    onBadgeRadioChange(config, value, opts) {
-        if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.getLastTabHeader()[config] = value;
+        for (item of tabHeaders) {
+            if (item.text === 'Tab 3') {
+                return item;
+            }
         }
-    }
-
-    /**
-     * @param {String} config
-     * @param {Object} opts
-     */
-    onFirstTabHeaderConfigChange(config, opts) {
-        this.exampleComponent.getTabBar().items[0][config] = opts.value;
     }
 
     /**
@@ -232,10 +219,30 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.tab.header.Button}
+     * @param {String} config
+     * @param {Object} opts
      */
-    getLastTabHeader() {
-        return this.exampleComponent.getTabBar().items[2];
+    onBadgeConfigChange(config, opts) {
+        this.getBadgeTabHeader()[config] = opts.value;
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onBadgeRadioChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.getBadgeTabHeader()[config] = value;
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onFirstTabHeaderConfigChange(config, opts) {
+        this.exampleComponent.getTabBar().items[0][config] = opts.value;
     }
 
     /**
