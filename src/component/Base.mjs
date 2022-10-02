@@ -465,7 +465,7 @@ class Base extends CoreBase {
             vdom.cls = cls;
         }
 
-        if (me.silentVdomUpdate) {
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
         } else if (me.mounted) {
             me.updateCls(value, oldValue, vdomRoot.id);
@@ -732,7 +732,7 @@ class Base extends CoreBase {
                 vdom.cls = cls;
             }
 
-            if (me.silentVdomUpdate) {
+            if (me.isVdomUpdating || me.silentVdomUpdate) {
                 me.needsVdomUpdate = true;
             } else if (me.mounted) {
                 me.updateCls(value, oldValue);
