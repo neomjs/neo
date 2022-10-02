@@ -398,8 +398,7 @@ class Base extends Component {
      */
     beforeSetIconCls(value, oldValue) {
         if (value && !Array.isArray(value)) {
-            value = value.split(' ');
-            value = value.filter(Boolean);
+            value = value.split(' ').filter(Boolean);
         }
 
         return value;
