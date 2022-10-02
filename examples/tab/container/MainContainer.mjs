@@ -180,7 +180,7 @@ class MainContainer extends ConfigurationViewport {
             },
 
             items: [{
-                tabButtonConfig: {iconCls: 'fa fa-home',        text: 'Tab 1'},
+                tabButtonConfig: {iconCls: 'fa fa-home',        text: 'Tab 1', flag: 'tab1',},
                 vdom           : {innerHTML: 'Tab 1 Content'}
             }, {
                 tabButtonConfig: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
@@ -215,7 +215,14 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
-        return this.exampleComponent.getTabBar().items[0];
+        let tabHeaders = this.exampleComponent.getTabBar().items,
+            item
+
+        for (item of tabHeaders) {
+            if (item.flag === 'tab1') {
+                return item;
+            }
+        }
     }
 
     /**
