@@ -80,7 +80,7 @@ class DragZone extends BaseDragZone {
 
                 setTimeout(() => {
                     me.dragEnd();
-                }, 300);
+                }, 100);
             }, 30);
         }
     }
