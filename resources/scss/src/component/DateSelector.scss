@@ -152,7 +152,7 @@
         min-height      : 30px;
 
         .neo-center-region {
-            align-items    : center;
+            align-items    : stretch;
             display        : flex;
             flex           : 1 1 auto;
             justify-content: center;
@@ -163,14 +163,14 @@
                 display        : flex;
                 flex           : 1;
                 font-weight    : bold;
-                height         : 1em;
                 justify-content: end;
             }
 
             .neo-year-text {
+                align-items: center;
                 color      : v(dateselector-header-year-text-color);
+                display    : flex;
                 flex       : 1;
-                height     : 1em;
                 margin-left: .25em;
             }
         }
