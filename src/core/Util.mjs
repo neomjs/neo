@@ -142,6 +142,10 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isEmpty(value) {
+        if (value === null || value === undefined) {
+            return true;
+        }
+
         if (Array.isArray(value)) {
             return value.length === 0;
         }
