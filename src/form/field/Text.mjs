@@ -305,7 +305,7 @@ class Text extends Base {
 
         NeoArray.remove(cls, 'label-' + oldValue);
         NeoArray.add(cls, 'label-' + value);
-        me[oldValue === 'inline' || value === 'inline' ? '_cls' : 'cls'] = cls; // silent update if needed
+        me.cls = cls; // todo: silent update if needed
 
         if (oldValue === 'inline') {
             vdom = me.vdom;
@@ -558,17 +558,19 @@ class Text extends Base {
      */
     afterSetValue(value, oldValue) {
         let me   = this,
+            cls  = me.cls,
             vdom = me.vdom;
 
         me.getInputEl().value = value;
 
         if (!!value !== !!oldValue) { // change from empty to non-empty
-            NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](me._cls, 'neo-has-content');
+            NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
         }
 
-        NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
+        NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
         me.validate(); // silent
 
+        me.cls  = cls;
         me.vdom = vdom;
 
         super.afterSetValue(value, oldValue); // fires the change event
