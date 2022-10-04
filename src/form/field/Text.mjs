@@ -563,8 +563,8 @@ class Text extends Base {
 
         me.getInputEl().value = value;
 
-        if (!!value !== !!oldValue) { // change from empty to non-empty
-            NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
+        if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
+            NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
