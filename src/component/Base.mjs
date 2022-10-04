@@ -405,7 +405,7 @@ class Base extends CoreBase {
             vdomRoot.cls = [...value];
         } else {
             // we need to merge changes
-            cls = [...me.wrapperCls, ...value];
+            cls = NeoArray.union(me.wrapperCls, value);
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
             vdom.cls = cls;
         }
@@ -729,7 +729,7 @@ class Base extends CoreBase {
 
         if (vdom === vdomRoot) {
             // we need to merge changes
-            cls = [...cls, ...value];
+            cls = NeoArray.union(cls, value);
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
             vdom.cls = cls;
 
