@@ -45,8 +45,9 @@
     }
 
     &.label-bottom {
-        align-items   : start;
-        flex-direction: column-reverse;
+        align-items    : stretch;
+        flex-direction : column-reverse;
+        justify-content: start;
 
         .neo-textfield-label {
             margin-top: 3px;
@@ -164,7 +165,7 @@
     }
 
     &.label-top {
-        align-items   : start;
+        align-items   : stretch;
         flex-direction: column;
 
         .neo-textfield-label {

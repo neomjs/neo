@@ -347,6 +347,9 @@ class Text extends Base {
                     me.updateCenterBorderElWidth(false);
                 }, 20);
             }
+        } else {
+            // changes from e.g. left to top
+            me.updateInputWidth();
         }
     }
 
@@ -972,8 +975,12 @@ class Text extends Base {
     reset(value=null) {
         let me = this;
 
-        if (value && me.clearToOriginalValue) {
-            me.originalConfig.value = value;
+        if (me.clearToOriginalValue) {
+            if (value) {
+                me.originalConfig.value = value;
+            } else {
+                value = me.originalConfig.value
+            }
         }
 
         super.reset(value);
