@@ -439,7 +439,7 @@ class Helper extends Base {
 
                                 Object.entries(value).forEach(([key, value]) => {
                                     if (!(oldVnode.attributes.hasOwnProperty(key) && oldVnode.attributes[key] === value)) {
-                                        if (!Neo.isString(value) && Neo.isEmpty(value)) {
+                                        if (value !== null && !Neo.isString(value) && Neo.isEmpty(value)) {
                                             // ignore empty arrays & objects
                                         } else {
                                             attributes[key] = value;
