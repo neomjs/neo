@@ -347,6 +347,9 @@ class Text extends Base {
                     me.updateCenterBorderElWidth(false);
                 }, 20);
             }
+        } else {
+            // changes from e.g. left to top
+            me.updateInputWidth();
         }
     }
 
