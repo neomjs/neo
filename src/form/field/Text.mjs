@@ -975,8 +975,12 @@ class Text extends Base {
     reset(value=null) {
         let me = this;
 
-        if (value && me.clearToOriginalValue) {
-            me.originalConfig.value = value;
+        if (me.clearToOriginalValue) {
+            if (value) {
+                me.originalConfig.value = value;
+            } else {
+                value = me.originalConfig.value
+            }
         }
 
         super.reset(value);
