@@ -51,8 +51,7 @@ class Color extends Select {
         super.construct(config);
 
         let me           = this,
-            vdom         = me.vdom,
-            inputWrapper = VDomUtil.findVdomChild(vdom, {id: me.getInputWrapperId()});
+            inputWrapper = VDomUtil.findVdomChild(me.vdom, {id: me.getInputWrapperId()});
 
         inputWrapper.vdom.cn.unshift({
             cls  : 'neo-color',
@@ -62,7 +61,7 @@ class Color extends Select {
             }
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
