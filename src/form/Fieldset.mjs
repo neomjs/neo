@@ -80,8 +80,7 @@ class Fieldset extends Container {
      * @protected
      */
     afterSetCollapsed(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         NeoArray[value ? 'add' : 'remove'](me._cls, 'neo-collapsed');
 
@@ -116,7 +115,7 @@ class Fieldset extends Container {
             }
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -206,8 +205,7 @@ class Fieldset extends Container {
     updateLegend() {
         let me      = this,
             iconCls = me.collapsed ? me.iconClsUnchecked : me.iconClsChecked,
-            title   = me.title,
-            vdom    = me.vdom;
+            title   = me.title;
 
         if (iconCls === '' && title === '') {
             if (me.legend) {
@@ -231,7 +229,7 @@ class Fieldset extends Container {
             }
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 }
 
