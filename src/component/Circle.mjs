@@ -132,8 +132,7 @@ class Circle extends Component {
             cls : ['neo-circle', 'neo-circle-back']
         });
 
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (!me.backsideIconPath) {
             me.backsideIconPath = Neo.config.resourcesPath + 'images/circle/';
@@ -177,7 +176,7 @@ class Circle extends Component {
         me.updateOuterCircle(true);
         me.updateTitle(true);
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -205,8 +204,7 @@ class Circle extends Component {
     afterSetMaxItems(value, oldValue) {
         if (oldValue && this.rendered) {
             let me      = this,
-                frontEl = me.getFrontEl(),
-                vdom    = me.vdom;
+                frontEl = me.getFrontEl();
 
             if (value < oldValue) {
                 if (me.collapsed) {
@@ -216,12 +214,12 @@ class Circle extends Component {
 
                     setTimeout(() => {
                         frontEl.cn.splice(value + 2);
-                        me.vdom = vdom;
+                        me.update();
                     }, 300);
                 }
 
                 me.updateItemPositions(true);
-                me.vdom = vdom;
+                me.update();
             } else {
                 me.createItems(oldValue, true);
                 me.updateItemPositions(true);
@@ -229,7 +227,7 @@ class Circle extends Component {
                 me.promiseVdomUpdate().then(() => {
                     if (!me.collapsed) {
                         me.updateItemOpacity(1, true, oldValue);
-                        me.vdom = vdom;
+                        me.update();
                     }
                 });
             }
@@ -372,8 +370,7 @@ class Circle extends Component {
     collapseItem(data) {
         let me    = this,
             item  = me.getItemEl(data.path[0].id),
-            style = item.cn[0].style,
-            vdom  = me.vdom;
+            style = item.cn[0].style;
 
         delete style.marginLeft;
         delete style.marginTop;
@@ -382,7 +379,7 @@ class Circle extends Component {
         style.height = me.itemSize + 'px';
         style.width  = me.itemSize + 'px';
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -470,8 +467,7 @@ class Circle extends Component {
      */
     expandItem(data) {
         let me   = this,
-            item = me.getItemEl(data.path[0].id),
-            vdom = me.vdom;
+            item = me.getItemEl(data.path[0].id);
 
         item.cn[0].style = {
             height    : (me.itemSize + 20) + 'px',
@@ -481,17 +477,16 @@ class Circle extends Component {
             zIndex    : 40
         };
 
-        me.vdom = vdom;
+        me.update();
     }
 
     flipCircle() {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        NeoArray[me.isFlipped ? 'remove': 'add'](vdom.cn[0].cls, 'neo-flipped');
+        NeoArray[me.isFlipped ? 'remove': 'add'](me.vdom.cn[0].cls, 'neo-flipped');
 
         me.isFlipped = !me.isFlipped;
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -644,8 +639,7 @@ class Circle extends Component {
      */
     rotate() {
         let me             = this,
-            vdom           = me.vdom,
-            circleCenterEl = vdom.cn[0],
+            circleCenterEl = me.vdom.cn[0],
             transform = [
                 `rotateX(${me.rotateX}deg)`,
                 `rotateY(${me.rotateY}deg)`,
@@ -660,12 +654,12 @@ class Circle extends Component {
             me.promiseVdomUpdate().then(() => {
                 me.updateItemAngle(true);
                 circleCenterEl.style.transform = transform;
-                me.vdom = vdom;
+                me.update();
             });
         } else {
             me.updateItemAngle(true);
             circleCenterEl.style.transform = transform;
-            me.vdom = vdom;
+            me.update();
         }
     }
 
