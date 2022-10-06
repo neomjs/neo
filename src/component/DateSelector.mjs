@@ -231,14 +231,13 @@ class DateSelector extends Component {
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
             let me   = this,
-                dt   = new Intl.DateTimeFormat(me.locale, {month: 'short'}),
-                vdom = me.vdom;
+                dt   = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
             me.updateHeaderDays(me.dayNameFormat, '', true);
 
             me.getHeaderMonthEl().html = dt.format(me.currentDate);
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -423,7 +422,7 @@ class DateSelector extends Component {
                     me.promiseVdomUpdate().then(() => {
                         me.changeMonthTransitionCallback({data: data[0], slideDirection: slideDirection});
                         me.updateHeaderMonthTransitionCallback(headerMonthOpts);
-                        me.vdom = vdom;
+                        me.update();
 
                         setTimeout(() => {
                             me.changeMonthWrapperCallback(slideDirection);
@@ -453,7 +452,6 @@ class DateSelector extends Component {
 
         x = slideDirection === 'right' ? -data.width : 0;
         vdom.cn[1].cn[0].style.transform = `translateX(${x}px)`;
-        me._vdom = vdom; // silent update
     }
 
     /**
@@ -466,7 +464,6 @@ class DateSelector extends Component {
             vdom = me.vdom;
 
         vdom.cn[1] = vdom.cn[1].cn[0].cn[slideDirection === 'right' ? 1 : 0];
-        me._vdom = vdom; // silent update
     }
 
     /**
@@ -511,7 +508,7 @@ class DateSelector extends Component {
                     me.promiseVdomUpdate(vdom).then(() => {
                         y = scrollFromTop ? -data.height : 0;
                         vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
-                        me.vdom = vdom;
+                        me.update();
 
                         setTimeout(() => {
                             vdom.cn[1] = vdom.cn[1].cn[0].cn[scrollFromTop ? 1 : 0];
@@ -926,7 +923,6 @@ class DateSelector extends Component {
 
         y = slideDirection === 'top' ? -data.height : 0;
         headerCenterEl.cn[0].cn[0].style.transform = `translateY(${y}px)`;
-        me._vdom = vdom; // silent update
     }
 
     /**
@@ -944,7 +940,6 @@ class DateSelector extends Component {
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom';
 
         headerCenterEl.cn[0] = headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 1 : 0];
-        me._vdom = vdom; // silent update
     }
 
     /**
