@@ -374,13 +374,9 @@ class Base extends Component {
                 listItem && vdom.cn.push(listItem);
             });
 
-            if (silent) {
-                me._vdom = vdom;
-            } else {
-                me.promiseVdomUpdate().then(() => {
-                    me.fire('createItems');
-                });
-            }
+            !silent && me.promiseVdomUpdate().then(() => {
+                me.fire('createItems');
+            });
         }
     }
 
@@ -538,13 +534,12 @@ class Base extends Component {
      */
     onStoreRecordChange(data) {
         let me    = this,
-            index = data.index,
-            vdom  = me.vdom;
+            index = data.index;
 
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {
-            vdom.cn[index] = me.createItem(data.record, index);
-            me.vdom = vdom;
+            me.vdom.cn[index] = me.createItem(data.record, index);
+            me.update();
         }
     }
 
