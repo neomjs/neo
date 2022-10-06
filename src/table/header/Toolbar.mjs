@@ -51,8 +51,7 @@ class Toolbar extends BaseToolbar {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                vdom = me.vdom;
+            let me = this;
 
             me.items.forEach(item => {
                 item.setSilent({
@@ -60,7 +59,7 @@ class Toolbar extends BaseToolbar {
                 });
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -78,7 +77,6 @@ class Toolbar extends BaseToolbar {
             dockRightWidth = 0,
             items          = me.items,
             len            = items.length,
-            vdom           = me.vdom,
             style;
 
         items.forEach((item, index) => {
@@ -116,7 +114,7 @@ class Toolbar extends BaseToolbar {
             }
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
