@@ -115,8 +115,7 @@ class Carousel extends Component {
      */
     afterSetAutoRun(value, oldValue) {
         if (value) {
-            let me   = this,
-                vdom = me._vdom;
+            let me = this;
 
             TaskManager.start({
                 id      : me.id,
@@ -126,9 +125,8 @@ class Carousel extends Component {
                 }
             });
 
-            vdom.cn[0].cn[0].removeDom = true;
-
-            me._vdom = vdom;
+            me.vdom.cn[0].cn[0].removeDom = true;
+            me.update();
         }
     }
 
@@ -166,7 +164,6 @@ class Carousel extends Component {
      */
     createBaseItems() {
         let me       = this,
-            vdom     = me._vdom,
             itemRoot = me.#getItemRoot(),
             items    = [],
             i        = 0;
@@ -176,7 +173,7 @@ class Carousel extends Component {
         }
 
         itemRoot.cn = items;
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -216,7 +213,6 @@ class Carousel extends Component {
             action        = (typeof event === 'string') ? event : event.target.data.carouselaction,
             store         = me.store,
             countItems    = store.getCount(),
-            vdom          = me.vdom,
             index         = me.itemIndex,
             positionArray = me.positionArray,
             root          = me.#getItemRoot(),
@@ -256,7 +252,7 @@ class Carousel extends Component {
             return cn;
         })
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
