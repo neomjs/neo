@@ -258,8 +258,7 @@ class Base extends Component {
         let me        = this,
             items     = me._items,
             itemsRoot = me.getVdomItemsRoot(),
-            layout    = me.layout,
-            vdom      = me.vdom;
+            layout    = me.layout;
 
         itemsRoot.cn = [];
 
@@ -273,7 +272,7 @@ class Base extends Component {
             itemsRoot.cn.push(item.vdom);
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -381,9 +380,7 @@ class Base extends Component {
             me.getVdomItemsRoot().cn.splice(index, 0, item.vdom);
         }
 
-        if (silent) {
-            me._vdom = vdom;
-        } else {
+        if (!silent) {
             me.promiseVdomUpdate().then(() => {
                 me.fire('insert', {
                     index,
@@ -539,13 +536,12 @@ class Base extends Component {
     switchItems(item1id, item2id) {
         let me         = this,
             item1Index = Neo.isNumber(item1id) ? item1id : me.indexOf(item1id),
-            item2Index = Neo.isNumber(item2id) ? item2id : me.indexOf(item2id),
-            vdom       = me.vdom;
+            item2Index = Neo.isNumber(item2id) ? item2id : me.indexOf(item2id);
 
         NeoArray.move(me.items,                 item2Index, item1Index);
         NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
 
-        me.vdom = vdom;
+        me.update();
     }
 }
 
