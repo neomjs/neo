@@ -97,11 +97,10 @@ class TextArea extends Text {
      */
     afterSetResizable(value, oldValue) {
         let me    = this,
-            style = this.getInputEl().style,
-            vdom  = me.vdom;
+            style = this.getInputEl().style;
 
         style.resize = value ? null : 'none';
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
