@@ -119,11 +119,10 @@ class Base extends Component {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let vdom  = this.vdom,
-            style = vdom.style || {};
+        let style = this.style;
 
         style.display = value ? 'none' : 'inline-block';
-        this.vdom = vdom;
+        this.style = style;
     }
 
     /**
