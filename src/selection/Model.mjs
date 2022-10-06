@@ -98,7 +98,6 @@ class Model extends Base {
     deselect(item, silent, itemCollection, selectedCls) {
         let me   = this,
             view = me.view,
-            vdom = view.vdom,
             node = view.getVdomChild(item), // todo: support for nodes (right now limited to ids)
             cls;
 
@@ -110,9 +109,7 @@ class Model extends Base {
 
         NeoArray.remove(itemCollection || me.items, item);
 
-        if (!silent) {
-            view.vdom = vdom;
-        }
+        !silent && view.update();
     }
 
     /**
@@ -121,15 +118,14 @@ class Model extends Base {
     deselectAll(silent) {
         let me    = this,
             items = [...me.items],
-            view  = me.view,
-            vdom  = view.vdom;
+            view  = me.view;
 
         items.forEach(item => {
             me.deselect(item, true);
         });
 
         if (!silent && items.length > 0) {
-            view.vdom = vdom;
+            view.update();
         }
     }
 
