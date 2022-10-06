@@ -136,8 +136,7 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (value === true) {
             me.getVdomRoot().draggable = true;
@@ -145,7 +144,7 @@ class Button extends BaseButton {
             delete me.getVdomRoot().draggable;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -195,8 +194,7 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetShowHeaderFilter(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (value) {
             if (!me.filterField) {
@@ -228,7 +226,7 @@ class Button extends BaseButton {
             me.filterField.vdom.removeDom = true;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
