@@ -60,7 +60,6 @@ class DragZone extends BaseDragZone {
         let me    = this,
             owner = me.owner,
             store = owner.store,
-            vdom  = owner.vdom,
             node;
 
         store.items.forEach((record, index) => {
@@ -72,7 +71,7 @@ class DragZone extends BaseDragZone {
             }
         });
 
-        owner.vdom = vdom;
+        owner.update();
     }
 
     /**

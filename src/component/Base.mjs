@@ -664,9 +664,7 @@ class Base extends CoreBase {
                 delete me._vdom[key];
             });
 
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
+            vdom = Object.assign(me._vdom, vdom);
         }
 
         if (me.silentVdomUpdate) {
@@ -1428,13 +1426,10 @@ class Base extends CoreBase {
                 delete _vdom[key];
             });
 
-            Object.assign(_vdom, vdom);
-        } else {
-            me._vdom = vdom;
+            vdom = Object.assign(me._vdom, vdom);
         }
 
         if (me.silentVdomUpdate) {
-            me._vdom = vdom;
             return Promise.resolve();
         }
 

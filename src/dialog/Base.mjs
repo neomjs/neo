@@ -215,11 +215,10 @@ class Base extends Panel {
      */
     afterSetMaximized(value, oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            cls  = vdom.cls;
+            cls  = me.vdom.cls; // todo: using wrapperCls
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
