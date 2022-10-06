@@ -41,15 +41,14 @@ class SpinUpDown extends Base {
      *
      */
     onConstructed() {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn = [
+        me.vdom.cn = [
             {cls: ['neo-spin-button', 'neo-up',   me.spinButtonUpIconCls]},
             {cls: ['neo-spin-button', 'neo-down', me.spinButtonDownIconCls]}
         ];
 
-        me.vdom = vdom;
+        me.update();
 
         super.onConstructed();
     }
