@@ -50,16 +50,13 @@ class CellColumnModel extends CellModel {
     deselectAllCells(silent) {
         let me      = this,
             cellIds = [...me.selectedColumnCellIds],
-            view    = me.view,
-            vdom    = view.vdom;
+            view    = me.view;
 
         cellIds.forEach(cellId => {
             me.deselect(cellId, true, me.selectedColumnCellIds, me.selectedColumnCellCls);
         });
 
-        if (!silent) {
-            view.vdom = vdom;
-        }
+        !silent && view.update();
     }
 
     /**
