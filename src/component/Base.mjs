@@ -1715,6 +1715,13 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     */
+    update() {
+        this.afterSetVdom(this.vdom, null);
+    }
+
+    /**
      * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
      * @param {String[]} cls
      * @param {String[]} oldCls
