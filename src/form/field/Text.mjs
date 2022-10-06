@@ -243,12 +243,9 @@ class Text extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[0].removeDom = value;
-        me._vdom = vdom; // silent update
-
+        me.vdom.cn[0].removeDom = value;
         me.updateInputWidth();
     }
 
@@ -313,8 +310,6 @@ class Text extends Base {
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
             vdom.cn[0].width = me.labelWidth;
-
-            me._vdom = vdom; // silent update
             me.updateInputWidth();
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
@@ -339,14 +334,11 @@ class Text extends Base {
                 }]
             };
 
-            me._vdom = vdom; // silent update
             me.updateInputWidth();
 
-            if (!isEmpty) {
-                setTimeout(() => {
-                    me.updateCenterBorderElWidth(false);
-                }, 20);
-            }
+            !isEmpty && setTimeout(() => {
+                me.updateCenterBorderElWidth(false);
+            }, 20);
         } else {
             // changes from e.g. left to top
             me.updateInputWidth();
@@ -361,24 +353,21 @@ class Text extends Base {
      */
     afterSetLabelText(value, oldValue) {
         let me      = this,
-            isEmpty = me.isEmpty(),
-            vdom    = me.vdom;
+            isEmpty = me.isEmpty();
 
         me.getLabelEl().innerHTML = value;
 
-        if (me.hideLabel) {
-            me._vdom = vdom; // silent update
-        } else {
+        if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {
                 if (!isEmpty) {
                     delete me.getCenterBorderEl().width;
                 }
 
-                me.promiseVdomUpdate(vdom).then(() => {
+                me.promiseVdomUpdate().then(() => {
                     me.updateCenterBorderElWidth(isEmpty);
                 });
             } else {
-                me.vdom = vdom;
+                me.update();
             }
         }
     }
@@ -396,9 +385,6 @@ class Text extends Base {
                 label = vdom.cn[0];
 
             label.width = value;
-
-            me._vdom = vdom; // silent update
-
             !me.hideLabel && me.updateInputWidth();
         }
     }
@@ -560,9 +546,8 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me   = this,
-            cls  = me.cls,
-            vdom = me.vdom;
+        let me  = this,
+            cls = me.cls;
 
         me.getInputEl().value = value;
 
@@ -574,7 +559,7 @@ class Text extends Base {
         me.validate(); // silent
 
         me.cls  = cls;
-        me.vdom = vdom;
+        me.update();
 
         super.afterSetValue(value, oldValue); // fires the change event
     }
@@ -676,8 +661,7 @@ class Text extends Base {
      * @param {Array|Number|Object|String|null} value
      */
     changeInputElKey(key, value) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (value || Neo.isBoolean(value) || value === 0) {
             me.getInputEl()[key] = value;
@@ -685,7 +669,7 @@ class Text extends Base {
             delete me.getInputEl()[key];
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -873,17 +857,15 @@ class Text extends Base {
      */
     onFocusEnter(data) {
         let me  = this,
-            cls = me.cls,
-            vdom;
+            cls = me.cls;
 
         NeoArray.add(cls, 'neo-focus');
         me.cls = cls;
 
         if (me.labelPosition === 'inline') {
             if (me.centerBorderElWidth) {
-                vdom = me.vdom;
                 me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.vdom = vdom;
+                me.update();
             } else {
                 me.updateCenterBorderElWidth(false);
             }
@@ -898,8 +880,7 @@ class Text extends Base {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            cls            = me.cls,
-            vdom           = me.vdom;
+            cls            = me.cls;
 
         me.validate(); // silent
 
@@ -910,7 +891,7 @@ class Text extends Base {
             delete centerBorderEl.width;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -1002,10 +983,8 @@ class Text extends Base {
             me.centerBorderElWidth = Math.round(data.width * .7) + 8;
 
             if (!silent) {
-                let vdom = me.vdom;
-
                 me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.vdom = vdom;
+                me.update();
             }
         });
     }
@@ -1015,8 +994,7 @@ class Text extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent=false) {
-        let me   = this,
-            vdom = me.vdom,
+        let me = this,
             errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
@@ -1036,9 +1014,7 @@ class Text extends Base {
 
             errorNode.removeDom = isValid;
 
-            if (!silent) {
-                me.vdom = vdom;
-            }
+            !silent && me.update();
         }
     }
 
@@ -1048,16 +1024,15 @@ class Text extends Base {
      */
     updateInputWidth() {
         let me         = this,
-            inputWidth = me.getInputWidth(),
-            vdom       = me.vdom;
+            inputWidth = me.getInputWidth();
 
         if (inputWidth !== null && inputWidth !== me.width) {
-            vdom.cn[1].width = inputWidth;
+            me.vdom.cn[1].width = inputWidth;
         } else {
-            delete vdom.cn[1].width;
+            delete me.vdom.cn[1].width;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
