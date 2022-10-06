@@ -135,7 +135,7 @@ class Card extends Base {
             }
 
             if (removeInactiveCards || needsUpdate) {
-                container.vdom = vdom;
+                container.update();
             }
         }
     }
@@ -159,7 +159,7 @@ class Card extends Base {
         if (!keepInDom && me.removeInactiveCards) {
             item.wrapperCls = childCls;
             vdom.removeDom  = !isActiveIndex;
-            item.vdom = vdom;
+            item.update();
         } else {
             item.wrapperCls = childCls;
         }
