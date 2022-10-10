@@ -327,13 +327,11 @@ class MembersList extends Base {
             vdom.cn.push(itemConfig);
         });
 
-        me.vdom = vdom;
+        me.update();
 
-        if (hasExamples) {
-            setTimeout(() => {
-                Neo.main.addon.HighlightJS.syntaxHighlightInit();
-            }, 100);
-        }
+        hasExamples && setTimeout(() => {
+            Neo.main.addon.HighlightJS.syntaxHighlightInit();
+        }, 100);
     }
 
     /**

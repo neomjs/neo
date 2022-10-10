@@ -100,14 +100,13 @@ class HierarchyTreeList extends TreeList {
     onLeafItemClick(record) {
         let me       = this,
             vnodeId  = me.getItemId(record.id),
-            vdom     = me.vdom,
             vdomNode = me.getVdomChild(vnodeId);
 
         NeoArray[record.checked ? 'add' : 'remove'](vdomNode.cls, 'unchecked');
 
         record.checked = !record.checked;
 
-        me.vdom = vdom;
+        me.update();
 
         me.fire('refreshClassMembers');
     }
