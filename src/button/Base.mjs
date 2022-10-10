@@ -143,14 +143,15 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgePosition(value, oldValue) {
-        let me      = this,
-            badgeEl = me.getBadgeNode(),
-            cls     = badgeEl.cls || [];
+        let me        = this,
+            badgeNode = me.getBadgeNode(),
+            cls       = badgeNode.cls || [];
 
         NeoArray.remove(cls, 'neo-' + oldValue);
         NeoArray.add(cls, 'neo-' + value);
 
-        badgeEl.cls = cls;
+        badgeNode.cls = cls;
+
         me.update();
     }
 
