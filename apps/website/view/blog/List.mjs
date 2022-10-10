@@ -125,10 +125,9 @@ class List extends BaseList {
             emptyValue = !data.value || data.value === '',
             store      = me.store,
             valueRegEx = new RegExp(data.value, 'gi'),
-            vdom       = me.vdom,
             hasMatch, itemName, name, record;
 
-        vdom.cn.forEach((item, index) => {
+        me.vdom.cn.forEach((item, index) => {
             hasMatch = false;
             itemName = VDomUtil.getByFlag(item, 'name');
             record   = store.getAt(index);
@@ -153,7 +152,7 @@ class List extends BaseList {
             }
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

@@ -190,12 +190,12 @@ class MainContainerController extends ComponentController {
      * @param {String} slug
      */
     getProfile(slug) {
-        const me = this;
+        let me = this;
 
         ProfileApi.get({
-            slug: slug
+            slug
         }).then(data => {
-            me.profileComponent.update({
+            me.profileComponent.updateContent({
                 ...data.json.profile,
                 myProfile: data.json.profile.username === (me.currentUser?.username)
             });

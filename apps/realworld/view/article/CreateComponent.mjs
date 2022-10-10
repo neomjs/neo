@@ -98,10 +98,8 @@ class CreateComponent extends Component {
      * @protected
      */
     afterSetBody(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'body').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'body').value = value;
+        this.update();
     }
 
     /**
@@ -111,10 +109,8 @@ class CreateComponent extends Component {
      * @protected
      */
     afterSetDescription(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'description').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'description').value = value;
+        this.update();
     }
 
     /**
@@ -125,8 +121,7 @@ class CreateComponent extends Component {
      */
     afterSetErrors(value, oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            list = VDomUtil.getByFlag(vdom, 'errors');
+            list = VDomUtil.getByFlag(me.vdom, 'errors');
 
         list.cn = [];
 
@@ -137,7 +132,7 @@ class CreateComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -148,9 +143,8 @@ class CreateComponent extends Component {
      */
     afterSetTagList(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
-            list     = VDomUtil.getByFlag(vdom, 'tag-list'),
-            tagField = VDomUtil.getByFlag(vdom, 'tags');
+            list     = VDomUtil.getByFlag(me.vdom, 'tag-list'),
+            tagField = VDomUtil.getByFlag(me.vdom, 'tags');
 
         list.cn        = [];
         tagField.value = null; // TODO Reset tag field value properly
@@ -170,7 +164,7 @@ class CreateComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -180,10 +174,8 @@ class CreateComponent extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'title').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'title').value = value;
+        this.update();
     }
 
     /**
@@ -191,7 +183,7 @@ class CreateComponent extends Component {
      * @param event
      */
     onFieldTagsKeyDown(event) {
-        const me = this;
+        let me = this;
 
         if (event.key === 'Enter') {
             Neo.main.DomAccess.getAttributes({
