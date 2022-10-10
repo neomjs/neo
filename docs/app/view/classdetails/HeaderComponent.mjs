@@ -50,7 +50,6 @@ class HeaderComponent extends Component {
         super.onConstructed();
 
         let me         = this,
-            vdom      = me.vdom,
             className = me.record.className,
             store     = me.up('main-container').store,
             record    = store.find({$kind: className === 'Neo' ? 'module' : 'class', neoClassName: className})[0],
@@ -65,16 +64,16 @@ class HeaderComponent extends Component {
             }
         }
 
-        vdom.cn[0].innerHTML = singleton ? (className + ' → Singleton') : className;
+        me.vdom.cn[0].innerHTML = singleton ? (className + ' → Singleton') : className;
 
         if (record.description) {
-            vdom.cn.push({
+            me.vdom.cn.push({
                 cls      : ['neo-docs-header-description'],
                 innerHTML: record.description
             });
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 }
 

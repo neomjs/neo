@@ -54,8 +54,7 @@ class Split extends Button {
     construct(config) {
         super.construct(config);
 
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.triggerButton = Neo.create({
             module  : Button,
@@ -68,8 +67,8 @@ class Split extends Button {
             ...me.triggerButtonConfig
         });
 
-        vdom.cn.push(me.triggerButton.vdom);
-        me.vdom = vdom;
+        me.vdom.cn.push(me.triggerButton.vdom);
+        me.update();
     }
 
     /**

@@ -27,11 +27,10 @@ class PreviewList extends List {
      * @param {Boolean} [silent=false]
      */
     createItems(silent=false) {
-        let me   = this,
-            vdom = me.vdom,
+        let me = this,
             listItem;
 
-        vdom.cn = [];
+        me.vdom.cn = [];
 
         me.store.items.forEach(item => {
             listItem = Neo.create({
@@ -42,12 +41,10 @@ class PreviewList extends List {
                 userImage: item.author.image
             });
 
-            vdom.cn.push(listItem.vdom);
+            me.vdom.cn.push(listItem.vdom);
         });
 
-        if (silent) {
-            me._vdom = vdom;
-        } else {
+        if (!silent) {
             me.promiseVdomUpdate().then(() => {
                 me.fire('createItems');
             });

@@ -130,15 +130,12 @@ class SourceViewComponent extends Component {
      */
     applySourceCode(data) {
         let me   = this,
-            vdom = me.vdom,
-            node = vdom.cn[0]; // pre tag
+            node = me.vdom.cn[0]; // pre tag
 
         node.cn[0].innerHTML = data; // code tag
-        me.vdom = vdom;
+        me.update();
 
-        if (me.mounted) {
-            me.syntaxHighlight();
-        }
+        me.mounted && me.syntaxHighlight();
     }
 
     /**

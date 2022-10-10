@@ -103,7 +103,7 @@ class SettingsComponent extends Component {
         let vdom = this.vdom;
 
         VDomUtil.getByFlag(vdom, 'bio').value = value;
-        this.vdom = vdom;
+        this.update();
     }
 
     /**
@@ -113,10 +113,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetEmail(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'email').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'email').value = value;
+        this.update();
     }
 
     /**
@@ -127,8 +125,7 @@ class SettingsComponent extends Component {
      */
     afterSetErrors(value=[], oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            list = VDomUtil.getByFlag(vdom, 'errors');
+            list = VDomUtil.getByFlag(me.vdom, 'errors');
 
         list.cn        = [];
         list.removeDom = value.length === 0;
@@ -140,7 +137,7 @@ class SettingsComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -150,10 +147,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetImage(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'image').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'image').value = value;
+        this.update();
     }
 
     /**
@@ -163,10 +158,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetUserName(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'userName').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'userName').value = value;
+        this.update();
     }
 
     /**

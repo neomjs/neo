@@ -258,8 +258,7 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me      = this,
                 sideBar = me.items[1].items[0],
-                style   = sideBar.style || {},
-                vdom;
+                style   = sideBar.style || {};
 
             if (value) {
                 delete sideBar.vdom.removeDom;
@@ -279,9 +278,8 @@ class MainContainer extends Container {
 
                 me.promiseVdomUpdate().then(() => {
                     setTimeout(() => {
-                        vdom = sideBar.vdom;
-                        vdom.removeDom = true;
-                        sideBar.vdom = vdom;
+                        sideBar.vdom.removeDom = true;
+                        sideBar.update();
 
                         sideBar.mounted = false;
                     }, 400);

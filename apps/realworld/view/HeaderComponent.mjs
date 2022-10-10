@@ -88,7 +88,7 @@ class HeaderComponent extends Component {
 
         NeoArray.add(vdom.cn[0].cn[1].cn[me.getActiveIndex(value)].cn[0].cls, 'active');
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -100,8 +100,7 @@ class HeaderComponent extends Component {
     afterSetLoggedIn(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
             let me   = this,
-                vdom = me.vdom,
-                list = vdom.cn[0].cn[1];
+                list = me.vdom.cn[0].cn[1];
 
             list.cn[1].removeDom = !value; // editor
             list.cn[2].removeDom = !value; // settings
@@ -109,7 +108,7 @@ class HeaderComponent extends Component {
             list.cn[4].removeDom = value;  // login
             list.cn[5].removeDom = value;  // register
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -121,13 +120,12 @@ class HeaderComponent extends Component {
      */
     afterSetUserImage(value, oldValue) {
         let me          = this,
-            vdom        = me.vdom,
-            profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+            profileLink = me.vdom.cn[0].cn[1].cn[3].cn[0];
 
         profileLink.cn[0].removeDom = !value;
         profileLink.cn[0].src       = value;
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -139,13 +137,12 @@ class HeaderComponent extends Component {
     afterSetUserName(value, oldValue) {
         if (value) {
             let me          = this,
-                vdom        = me.vdom,
-                profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+                profileLink = me.vdom.cn[0].cn[1].cn[3].cn[0];
 
             profileLink.href = '#/profile/' + value;
             profileLink.cn[1].html = '&nbsp;' + value;
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 

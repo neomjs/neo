@@ -115,8 +115,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetAuthor(value, oldValue) {
-        let vdom = this.vdom,
-            node = VDomUtil.getByFlag(vdom, 'author'),
+        let node = VDomUtil.getByFlag(this.vdom, 'author'),
             href = '#/profile/' + value;
 
         // todo: disabled until the new profile view is ready
@@ -125,7 +124,7 @@ class PreviewComponent extends Component {
 
         //VDomUtil.getByFlag(vdom, 'userImageLink').href = href;
 
-        this.vdom = vdom;
+        this.update();
     }
 
     /**
@@ -135,15 +134,13 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetCreatedAt(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
+        VDomUtil.getByFlag(this.vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
             day  : 'numeric',
             month: 'long',
             year : 'numeric'
         }).format(new Date(value));
 
-        this.vdom = vdom;
+        this.update();
     }
 
     /**
@@ -153,10 +150,8 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetDescription(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'description').html = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'description').html = value;
+        this.update();
     }
 
     /**
@@ -167,13 +162,12 @@ class PreviewComponent extends Component {
      */
     afterSetFavorited(value, oldValue) {
         let me     = this,
-            vdom   = me.vdom,
-            button = vdom.cn[0].cn[2];
+            button = me.vdom.cn[0].cn[2];
 
         NeoArray.add(button.cls, value ? 'btn-primary' : 'btn-outline-primary');
         NeoArray.remove(button.cls, value ? 'btn-outline-primary' : 'btn-primary');
 
-        me.vdom = vdom;
+        me.update();
 
         // ignore the initial setter call
         if (Neo.isBoolean(oldValue)) {
@@ -188,10 +182,8 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetFavoritesCount(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'favoritesCount').html = ' ' + value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'favoritesCount').html = ' ' + value;
+        this.update();
     }
 
     /**
@@ -201,11 +193,9 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetSlug(value, oldValue) {
-        let vdom = this.vdom;
-
         // todo: re-add once the new details view is in place
-        //VDomUtil.getByFlag(vdom, 'preview-link').href = '#/article/' + value;
-        this.vdom = vdom;
+        // VDomUtil.getByFlag(this.vdom, 'preview-link').href = '#/article/' + value;
+        // this.update();
     }
 
     /**
@@ -241,7 +231,7 @@ class PreviewComponent extends Component {
 
             vdom.cn[1].cn.push(tagList);
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -252,10 +242,8 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'title').html = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'title').html = value;
+        this.update();
     }
 
     /**
@@ -265,10 +253,8 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetUserImage(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'userImageLink').cn[0].src = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'userImageLink').cn[0].src = value;
+        this.update();
     }
 
     /**

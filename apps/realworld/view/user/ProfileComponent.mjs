@@ -126,8 +126,7 @@ class ProfileComponent extends Component {
      */
     afterSetArticlePreviews(value, oldValue) {
         let me        = this,
-            vdom      = me.vdom,
-            container = VDomUtil.getByFlag(vdom, 'feed-container'),
+            container = VDomUtil.getByFlag(me.vdom, 'feed-container'),
             config;
 
         container.cn = [container.cn.shift()];
@@ -160,7 +159,7 @@ class ProfileComponent extends Component {
             });
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -171,10 +170,8 @@ class ProfileComponent extends Component {
      */
     afterSetBio(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            VDomUtil.getByFlag(vdom, 'bio').html = value;
-            this.vdom = vdom;
+            VDomUtil.getByFlag(this.vdom, 'bio').html = value;
+            this.update();
         }
     }
 
@@ -186,8 +183,7 @@ class ProfileComponent extends Component {
      */
     afterSetFollowing(value, oldValue) {
         if (Neo.isBoolean(value)) {
-            let vdom = this.vdom,
-                node = VDomUtil.getByFlag(vdom, 'following');
+            let node = VDomUtil.getByFlag(this.vdom, 'following');
 
             // tobiu: did not see this one in the specs, but the react & vue app do it
             NeoArray.remove(node.cls, value ? 'btn-outline-secondary' : 'btn-secondary');
@@ -195,7 +191,7 @@ class ProfileComponent extends Component {
 
             node.cn[0].cls  = [value ? 'ion-minus-round' : 'ion-plus-round'];
             node.cn[1].html = value ? ' Unfollow ' : ' Follow ';
-            this.vdom = vdom;
+            this.update();
         }
     }
 
@@ -206,10 +202,8 @@ class ProfileComponent extends Component {
      * @protected
      */
     afterSetImage(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'image').src = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'image').src = value;
+        this.update();
     }
 
     /**
@@ -224,7 +218,7 @@ class ProfileComponent extends Component {
 
             VDomUtil.getByFlag(vdom, 'edit-profile').removeDom = !value;
             VDomUtil.getByFlag(vdom, 'following')   .removeDom = value;
-            this.vdom = vdom;
+            this.update();
         }
     }
 
@@ -239,7 +233,7 @@ class ProfileComponent extends Component {
 
         VDomUtil.getByFlag(vdom, 'following').cn[2].html = value;
         VDomUtil.getByFlag(vdom, 'username').html = value;
-        this.vdom = vdom;
+        this.update();
     }
 
     /**
@@ -274,9 +268,8 @@ class ProfileComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
-            vdom       = me.vdom,
-            el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
-            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            el         = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            feedHeader = VDomUtil.getByFlag(me.vdom, 'feed-header'),
             params     = {};
 
         if (!el.vdom.cls.includes('disabled')) {
@@ -297,7 +290,7 @@ class ProfileComponent extends Component {
                 NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
             });
 
-            me.vdom = vdom;
+            me.update();
 
             me.getArticles({
                 ...params,
@@ -310,7 +303,7 @@ class ProfileComponent extends Component {
     /**
      * @param {Object} configs
      */
-    update(configs) {
+    updateContent(configs) {
         let me       = this,
             username = configs.username;
 

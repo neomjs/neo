@@ -211,8 +211,7 @@ class Gallery extends Component {
         super.afterSetId(value, oldValue);
 
         let me     = this,
-            vdom   = me.vdom,
-            origin = vdom.cn[0],
+            origin = me.vdom.cn[0],
             camera = origin.cn[0],
             dolly  = camera.cn[0],
             view   = dolly.cn[0],
@@ -223,7 +222,7 @@ class Gallery extends Component {
         origin.id = prefix + 'origin';
         view  .id = prefix + 'view';
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -297,7 +296,6 @@ class Gallery extends Component {
             let me   = this,
                 i    = 0,
                 len  = Math.min(me.maxItems, me.store.items.length),
-                vdom = me.vdom,
                 view = me.getItemsRoot();
 
             if (me.rendered) {
@@ -308,7 +306,7 @@ class Gallery extends Component {
                         view.cn[i].style.transform = me.getItemTransform(i);
                     }
 
-                    me.vdom = vdom;
+                    me.update();
 
                     setTimeout(() => {
                         let sm = me.selectionModel;
@@ -453,12 +451,11 @@ class Gallery extends Component {
      */
     destroyItems(startIndex, amountItems) {
         let me           = this,
-            vdom         = me.vdom,
             countItems   = amountItems || me.store.getCount(),
             selectedItem = me.selectionModel.items[0];
 
         me.getItemsRoot().cn.splice(startIndex || 0, countItems);
-        me.vdom = vdom;
+        me.update();
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
             me.afterSetMounted(true, false);
@@ -546,12 +543,10 @@ class Gallery extends Component {
      *
      */
     moveOrigin() {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[0].style.transform = me.translate3d(me.translateX, me.translateY, me.translateZ);
-
-        me.vdom = vdom;
+        me.vdom.cn[0].style.transform = me.translate3d(me.translateX, me.translateY, me.translateZ);
+        me.update();
     }
 
     /**
@@ -595,7 +590,7 @@ class Gallery extends Component {
             itemHeight     = me.itemHeight,
             itemWidth      = me.itemWidth,
             vdom           = me.vdom,
-            camera         = vdom.cn[0].cn[0],
+            camera         = me.vdom.cn[0].cn[0],
             cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
             height         = me.offsetHeight / (me.amountRows + 2),
@@ -651,17 +646,15 @@ class Gallery extends Component {
                 cameraStyle.transform          = `rotateY(${angle}deg)`;
                 cameraStyle.transitionDuration = '330ms';
 
-                me.vdom = vdom;
+                me.update();
 
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
-                    vdom = me.vdom;
-
                     cameraStyle.transform          = 'rotateY(0deg)';
                     cameraStyle.transitionDuration = '5000ms';
 
-                    me.vdom = vdom;
+                    me.update();
                 }, 330);
 
                 me.transitionTimeouts.push(timeoutId);
@@ -678,7 +671,6 @@ class Gallery extends Component {
                 hasChange = false,
                 items     = [...me.store.items || []],
                 newCn     = [],
-                vdom      = me.vdom,
                 view      = me.getItemsRoot(),
                 vdomMap   = view.cn.map(e => e.id),
                 fromIndex, vdomId;
@@ -699,7 +691,7 @@ class Gallery extends Component {
 
                 if (hasChange) {
                     view.cn = newCn;
-                    me.vdom = vdom;
+                    me.update();
 
                     setTimeout(() => {
                         me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
@@ -725,7 +717,6 @@ class Gallery extends Component {
             amountRows       = me.amountRows,
             orderByRow       = me.orderByRow,
             secondLastColumn = amountRows - 1,
-            vdom             = me.vdom,
             view             = me.getItemsRoot(),
             amountColumns;
 
@@ -741,7 +732,7 @@ class Gallery extends Component {
             }
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

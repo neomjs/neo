@@ -88,14 +88,13 @@ class TagListComponent extends Component {
      * @protected
      */
     afterSetTags(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[0].cn[1].cn = [];
+        me.vdom.cn[0].cn[1].cn = [];
 
         if (Array.isArray(value)) {
             value.forEach(item => {
-                vdom.cn[0].cn[1].cn.push({
+                me.vdom.cn[0].cn[1].cn.push({
                     tag : 'a',
                     cls : ['tag-pill', 'tag-default'],
                     href: '',
@@ -104,7 +103,7 @@ class TagListComponent extends Component {
                 });
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 

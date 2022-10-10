@@ -61,16 +61,15 @@ class TutorialComponent extends Component {
      * @param {Object} data
      */
     applySourceCode(data) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (me.fileType === 'json') {
-            vdom.cn = data;
+            me.vdom.cn = data;
         } else {
-            vdom.innerHTML = data;
+            me.vdom.innerHTML = data;
         }
 
-        me.vdom = vdom;
+        me.update();
 
         setTimeout(() => {
             TutorialComponent.syntaxHighlight();

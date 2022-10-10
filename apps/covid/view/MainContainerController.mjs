@@ -128,7 +128,7 @@ class MainContainerController extends ComponentController {
         vdom.cn[2].cn[1].html = Util.formatNumber({value: data.recovered});
         vdom.cn[3].cn[1].html = Util.formatNumber({value: data.deaths});
 
-        container.vdom = vdom;
+        container.update();
 
         container = me.getReference('last-update');
         vdom      = container.vdom;
@@ -139,7 +139,7 @@ class MainContainerController extends ComponentController {
             second: 'numeric'
         }).format(new Date(data.updated));
 
-        container.vdom = vdom;
+        container.update();
     }
 
     /**
@@ -306,10 +306,9 @@ class MainContainerController extends ComponentController {
      *
      */
     onLoadSummaryDataFail() {
-        let table = this.getReference('table'),
-            vdom  = table.vdom;
+        let table = this.getReference('table');
 
-        vdom.cn[0].cn[1].cn.push({
+        table.vdom.cn[0].cn[1].cn.push({
             tag : 'div',
             cls : ['neo-box-label', 'neo-label'],
             html: [
@@ -323,7 +322,7 @@ class MainContainerController extends ComponentController {
             }
         });
 
-        table.vdom = vdom;
+        table.update();
     }
 
     /**
@@ -374,7 +373,6 @@ class MainContainerController extends ComponentController {
             logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
             mapView    = me.getReference('mapboxglmap'),
             themeLight = button.text === 'Theme Light',
-            vdom       = logo.vdom,
             buttonText, cls, href, iconCls, mapViewStyle, theme;
 
         if (themeLight) {
@@ -391,8 +389,8 @@ class MainContainerController extends ComponentController {
             theme        = 'neo-theme-dark';
         }
 
-        vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
-        logo.vdom = vdom;
+        logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
+        logo.update();
 
 
         if (Neo.config.useCssVars) {
@@ -408,8 +406,8 @@ class MainContainerController extends ComponentController {
             component.cls = cls;
 
             button.set({
-                iconCls: iconCls,
-                text   : buttonText
+                iconCls,
+                text: buttonText
             });
         } else {
             Neo.main.addon.Stylesheet.swapStyleSheet({

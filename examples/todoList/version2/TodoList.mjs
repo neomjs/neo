@@ -18,8 +18,7 @@ class TodoList extends List {
     }
 
     /*createItems(data) {
-        let me   = this,
-            vdom = me.vdom,
+        let me = this,
             cls;
 
         data.forEach(item => {
@@ -31,11 +30,11 @@ class TodoList extends List {
                 cls.push('far', 'fa-square');
             }
 
-            vdom.cn.push({
+            me.vdom.cn.push({
                 tag: 'li',
                 cn : [{
                     tag  : 'span',
-                    cls  : cls,
+                    cls,
                     style: {cursor: 'pointer', width: '20px'}
                 }, {
                     vtype: 'text',
@@ -44,7 +43,7 @@ class TodoList extends List {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }*/
 }
 

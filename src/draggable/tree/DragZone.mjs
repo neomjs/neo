@@ -42,7 +42,6 @@ class DragZone extends BaseDragZone {
         if (oldValue !== undefined) { // we only need to react to dynamic changes
             let owner = this.owner,
                 store = owner.store,
-                vdom  = owner.vdom,
                 node;
 
             store.items.forEach(record => {
@@ -53,7 +52,7 @@ class DragZone extends BaseDragZone {
                 }
             });
 
-            owner.vdom = vdom;
+            owner.update();
         }
     }
 

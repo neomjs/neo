@@ -51,9 +51,8 @@ class Legend extends Component {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        let vdom = this.vdom;
-        vdom.cn[0].html = `<i class="neo-legend-icon ${value}"></i>`;
-        this.vdom = vdom;
+        this.vdom.cn[0].html = `<i class="neo-legend-icon ${value}"></i>`;
+        this.update();
     }
 
     /**
@@ -63,9 +62,8 @@ class Legend extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        let vdom = this.vdom;
-        vdom.cn[1].html = value;
-        this.vdom = vdom;
+        this.vdom.cn[1].html = value;
+        this.update();
     }
 
     /**
@@ -75,9 +73,8 @@ class Legend extends Component {
      * @protected
      */
     afterSetUseIcon(value, oldValue) {
-        let vdom = this.vdom;
-        vdom.cn[0].removeDom = !value;
-        this.vdom = vdom;
+        this.vdom.cn[0].removeDom = !value;
+        this.update();
     }
 }
 

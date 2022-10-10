@@ -664,9 +664,7 @@ class Base extends CoreBase {
                 delete me._vdom[key];
             });
 
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
+            vdom = Object.assign(me._vdom, vdom);
         }
 
         if (me.silentVdomUpdate) {
@@ -763,11 +761,11 @@ class Base extends CoreBase {
             let me   = this,
                 vdom = me.vdom;
 
-            if (!me.vdom.id) {
+            if (!vdom.id) {
                 vdom.style = value;
-                me.vdom = vdom;
+                me.update();
             } else {
-                me.updateStyle(value, oldValue, me.vdom.id);
+                me.updateStyle(value, oldValue, vdom.id);
             }
         }
     }
@@ -932,8 +930,7 @@ class Base extends CoreBase {
      */
     changeVdomRootKey(key, value) {
         let me   = this,
-            root = me.getVdomRoot(),
-            vdom = me.vdom;
+            root = me.getVdomRoot();
 
         if (value) {
             root[key] = value;
@@ -941,7 +938,7 @@ class Base extends CoreBase {
             delete root[key];
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -1211,9 +1208,8 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             let removeFn = function() {
-                let vdom = me.vdom;
-                vdom.removeDom = true;
-                me.vdom = vdom;
+                me.vdom.removeDom = true;
+                me.update();
             }
 
             if (timeout) {
@@ -1416,26 +1412,24 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
-        let me = this;
+        let me    = this,
+            _vdom = me.vdom;
 
         // todo: updateVdom() should handle this
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
         // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
         // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
+        if (_vdom !== vdom) {
             Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
 
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
+            Object.keys(_vdom).forEach(key => {
+                delete _vdom[key];
             });
 
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
+            vdom = Object.assign(me._vdom, vdom);
         }
 
         if (me.silentVdomUpdate) {
-            me._vdom = vdom;
             return Promise.resolve();
         }
 
@@ -1443,7 +1437,7 @@ class Base extends CoreBase {
             if (me.mounted) {
                 me.updateVdom(vdom, vnode, resolve, reject);
             } else {
-                me.vdom = vdom;
+                me.update();
                 resolve();
             }
         });
@@ -1567,7 +1561,6 @@ class Base extends CoreBase {
         me.silentVdomUpdate = false;
 
         if (silent || !me.needsVdomUpdate) {
-            me._vdom = vdom;
             return Promise.resolve();
         } else {
             return me.promiseVdomUpdate();
@@ -1591,9 +1584,8 @@ class Base extends CoreBase {
         let me = this;
 
         if (me.hideMode !== 'visibility') {
-            let vdom = me.vdom;
-            vdom.removeDom = false;
-            me.vdom = vdom;
+            me.vdom.removeDom = false;
+            me.update();
         } else {
             let style = me.style;
             style.visibility = 'visible';
@@ -1712,6 +1704,13 @@ class Base extends CoreBase {
      */
     up(config) {
         return ComponentManager.up(this.id, config);
+    }
+
+    /**
+     *
+     */
+    update() {
+        this.afterSetVdom(this.vdom, null);
     }
 
     /**

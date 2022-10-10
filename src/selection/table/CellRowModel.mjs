@@ -46,16 +46,13 @@ class CellRowModel extends CellModel {
     deselectAllRows(silent) {
         let me     = this,
             rowIds = [...me.selectedRowIds],
-            view   = me.view,
-            vdom   = view.vdom;
+            view   = me.view;
 
         rowIds.forEach(rowId => {
             me.deselectRow(rowId, true);
         });
 
-        if (!silent) {
-            view.vdom = vdom;
-        }
+        !silent && view.update();
     }
 
     /**
@@ -65,7 +62,6 @@ class CellRowModel extends CellModel {
     deselectRow(rowId, silent) {
         let me   = this,
             view = me.view,
-            vdom = view.vdom,
             node = view.getVdomChild(rowId),
             cls;
 
@@ -77,9 +73,7 @@ class CellRowModel extends CellModel {
 
         NeoArray.remove(me.selectedRowIds, rowId);
 
-        if (!silent) {
-            view.vdom = vdom;
-        }
+        !silent && view.update();
     }
 
     /**
@@ -133,7 +127,6 @@ class CellRowModel extends CellModel {
     selectRow(id, silent) {
         let me       = this,
             view     = me.view,
-            vdom     = view.vdom,
             vdomNode = id && view.getVdomChild(id),
             cls;
 
@@ -145,9 +138,7 @@ class CellRowModel extends CellModel {
             me.selectedRowIds.push(id);
         }
 
-        if (!silent) {
-            view.vdom = vdom;
-        }
+        !silent && view.update();
     }
 
     /**

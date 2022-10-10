@@ -499,9 +499,7 @@ class Resizable extends Base {
                 else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
                 else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
 
-                if (h) {
-                    owner.vdom = vdom;
-                }
+                h && owner.update();
             }
         }
     }
@@ -533,12 +531,11 @@ class Resizable extends Base {
      * see: /issues/1139
      */
     removeAllNodes() {
-        let me   = this,
-            vdom = me.owner.vdom;
+        let me = this;
 
         if (me.currentNodeName) {
             me.removeNode(me.currentNodeName);
-            me.owner.vdom = vdom;
+            me.owner.update();
 
             me.currentNodeName = null;
             me.targetNode      = null;

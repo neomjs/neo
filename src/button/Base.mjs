@@ -145,14 +145,13 @@ class Base extends Component {
     afterSetBadgePosition(value, oldValue) {
         let me      = this,
             badgeEl = me.getBadgeNode(),
-            cls     = badgeEl.cls || [],
-            vdom    = me.vdom;
+            cls     = badgeEl.cls || [];
 
         NeoArray.remove(cls, 'neo-' + oldValue);
         NeoArray.add(cls, 'neo-' + value);
 
         badgeEl.cls = cls;
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -163,13 +162,12 @@ class Base extends Component {
      */
     afterSetBadgeText(value, oldValue) {
         let me        = this,
-            badgeNode = me.getBadgeNode(),
-            vdom      = me.vdom;
+            badgeNode = me.getBadgeNode();
 
         badgeNode.html      = value;
         badgeNode.removeDom = !Boolean(value);
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -195,7 +193,6 @@ class Base extends Component {
      */
     afterSetIconCls(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
             iconNode = me.getIconNode();
 
         NeoArray.remove(iconNode.cls, oldValue);
@@ -203,7 +200,7 @@ class Base extends Component {
 
         iconNode.removeDom = !value || value === '';
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -214,7 +211,6 @@ class Base extends Component {
      */
     afterSetIconColor(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
             iconNode = me.getIconNode();
 
         if (!iconNode.style) {
@@ -226,7 +222,7 @@ class Base extends Component {
         }
 
         iconNode.style.color = value;
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -280,7 +276,6 @@ class Base extends Component {
      */
     afterSetText(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
             vdomRoot = me.getVdomRoot(),
             textNode = vdomRoot.cn[1];
 
@@ -295,7 +290,7 @@ class Base extends Component {
             textNode.innerHTML = value;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -306,7 +301,6 @@ class Base extends Component {
      */
     afterSetUrl(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
             vdomRoot = me.getVdomRoot();
 
         if (value) {
@@ -317,7 +311,7 @@ class Base extends Component {
             vdomRoot.tag = 'button';
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -329,8 +323,7 @@ class Base extends Component {
     afterSetUseRippleEffect(value, oldValue) {
         let me            = this,
             listener      = {click: me.showRipple, scope: me},
-            rippleWrapper = me.getRippleWrapper(),
-            vdom          = me.vdom;
+            rippleWrapper = me.getRippleWrapper();
 
         if (!value && oldValue) {
             me.removeDomListeners(listener);
@@ -340,7 +333,7 @@ class Base extends Component {
 
         // setting the config to false should end running ripple animations
         rippleWrapper.removeDom = true;
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -351,7 +344,6 @@ class Base extends Component {
      */
     afterSetUrlTarget(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
             vdomRoot = me.getVdomRoot();
 
         if (me.url) {
@@ -360,7 +352,7 @@ class Base extends Component {
             delete vdomRoot.target;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -459,7 +451,6 @@ class Base extends Component {
             buttonRect           = data.path[0].rect,
             diameter             = Math.max(buttonRect.height, buttonRect.width),
             radius               = diameter / 2,
-            vdom                 = me.vdom,
             rippleEffectDuration = me.rippleEffectDuration,
             rippleWrapper        = me.getRippleWrapper(),
             rippleEl             = rippleWrapper.cn[0],
@@ -474,13 +465,12 @@ class Base extends Component {
         });
 
         delete rippleWrapper.removeDom;
-
-        me.vdom = vdom;
+        me.update();
 
         await Neo.timeout(1);
 
         rippleEl.style.animation = `ripple ${rippleEffectDuration}ms linear`;
-        me.vdom = vdom;
+        me.update();
 
         me.#rippleTimeoutId = rippleTimeoutId = setTimeout(() => {
             // we do not want to break animations when clicking multiple times
@@ -488,7 +478,7 @@ class Base extends Component {
                 me.#rippleTimeoutId = null;
 
                 rippleWrapper.removeDom = true;
-                me.vdom = vdom;
+                me.update();
             }
         }, rippleEffectDuration);
     }

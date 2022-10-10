@@ -79,7 +79,6 @@ class Number extends Text {
      */
     afterSetInputEditable(value, oldValue) {
         let me      = this,
-            vdom    = me.vdom,
             inputEl = me.getInputEl(),
             style   = inputEl.style || {};
 
@@ -89,7 +88,7 @@ class Number extends Text {
             style.pointerEvents = 'none';
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

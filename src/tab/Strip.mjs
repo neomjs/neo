@@ -45,16 +45,14 @@ class Strip extends Component {
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                vdom = me.vdom;
+            let me = this;
 
-            vdom.cn[0].removeDom = !value;
+            me.vdom.cn[0].removeDom = !value;
 
             if (me.mounted && value) {
-                me._vdom = vdom; // silent update
                 me.getActiveTabRectThenMove();
             } else {
-                me.vdom = vdom;
+                me.update();
             }
         }
     }
@@ -109,11 +107,10 @@ class Strip extends Component {
     moveActiveIndicator(rects) {
         let me   = this,
             rect = rects[1] || rects[0],
-            activeTabIndicator, tabContainer, vdom;
+            activeTabIndicator, tabContainer;
 
         if (me.useActiveTabIndicator) {
-            vdom               = me.vdom;
-            activeTabIndicator = vdom.cn[0];
+            activeTabIndicator = me.vdom.cn[0];
             tabContainer       = me.getTabContainer();
 
             switch (tabContainer.tabBarPosition) {
@@ -140,18 +137,18 @@ class Strip extends Component {
             // in case there is a dynamic change (oldValue), call this method again
             if (rects[1]) {
                 activeTabIndicator.style.opacity = 0;
-                me.vdom = vdom;
+                me.update();
 
                 setTimeout(() => {
                     me.moveActiveIndicator([rects[0]]);
                 }, 50)
             } else {
                 activeTabIndicator.style.opacity = 1;
-                me.vdom = vdom;
+                me.update();
 
                 setTimeout(() => {
                     activeTabIndicator.style.opacity = 0;
-                    me.vdom = vdom;
+                    me.update();
                 }, 300);
             }
         }

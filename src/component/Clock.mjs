@@ -113,7 +113,7 @@ class Clock extends Component {
         vdom.cn[0].style.transform = `rotate(${minutesAngle}deg)`;
         vdom.cn[1].style.transform = `rotate(${hoursAngle}deg)`;
 
-        this.vdom = vdom;
+        this.update();
     }
 }
 

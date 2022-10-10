@@ -104,8 +104,7 @@ class MainComponent extends Base {
      *
      */
     createTable() {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.table = Neo.create({
             module   : TableComponent,
@@ -114,9 +113,9 @@ class MainComponent extends Base {
             reference: 'table'
         });
 
-        vdom.cn.splice(1, 0, me.table.vdom);
+        me.vdom.cn.splice(1, 0, me.table.vdom);
 
-        me.vdom = vdom;
+        me.update();
     }
 }
 

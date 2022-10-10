@@ -376,11 +376,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetUseScrollBoxShadows(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
-
-        NeoArray[value ? 'add' : 'remove'](me.vdom.cn[1].cls, 'neo-scroll-shadows');
-        me.vdom = vdom;
+        NeoArray[value ? 'add' : 'remove'](this.vdom.cn[1].cls, 'neo-scroll-shadows');
+        this.update();
     }
 
     /**
@@ -635,8 +632,7 @@ class Component extends BaseComponent {
     onWheel(data) {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
             let me        = this,
-                vdom      = me.vdom,
-                container = vdom.cn[1],
+                container = me.vdom.cn[1],
                 i         = 0,
                 date, len, week;
 
@@ -663,7 +659,7 @@ class Component extends BaseComponent {
                     container.cn.push(week.row);
                 }
 
-                me.vdom = vdom;
+                me.update();
             }
 
             else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
@@ -706,7 +702,7 @@ class Component extends BaseComponent {
                 me.isScrolling = true;
                 NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');
                 me.vdom.cn[0].cn[0].style.opacity = 0;
-                me.vdom = vdom;
+                me.update();
             }
 
             me.scrollTaskId && clearTimeout(me.scrollTaskId);
@@ -741,8 +737,7 @@ class Component extends BaseComponent {
 
         NeoArray.remove(vdom.cn[1].cls, 'neo-is-scrolling');
         header.style.opacity = 1;
-
-        me.vdom = vdom;
+        me.update();
 
         // todo: #990 => scroll the view to the closest row
     }
@@ -792,7 +787,7 @@ class Component extends BaseComponent {
             date.setDate(date.getDate() + 1);
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

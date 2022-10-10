@@ -165,7 +165,7 @@ class Component extends Base {
             column.cn.push(item);
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

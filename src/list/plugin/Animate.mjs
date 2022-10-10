@@ -265,15 +265,10 @@ class Animate extends Base {
             }
         });
 
-        if (hasAddedItems) {
-            owner.vdom = vdom;
-        }
+        hasAddedItems && owner.update();
 
         // ensure to get into the next animation frame
         setTimeout(() => {
-            // get the latest version of the vdom, since this is a delayed callback
-            vdom = owner.vdom;
-
             // new items are already added into the vdom, while old items are not yet removed
             // => we need a map to ensure getting the correct index
             map = vdom.cn.map(e => e.id);
@@ -309,8 +304,7 @@ class Animate extends Base {
                 }
             });
 
-            owner.vdom = vdom;
-
+            owner.update();
             me.triggerTransitionCallback();
         }, 50);
     }
@@ -359,9 +353,8 @@ class Animate extends Base {
             });
 
             if (hasChange) {
-                owner.vdom.cn = newVdomCn;
-
-                owner.vdom = vdom;
+                vdom.cn = newVdomCn;
+                owner.update();
 
                 // we need to ensure to get this call into the next animation frame
                 setTimeout(() => {
@@ -398,7 +391,7 @@ class Animate extends Base {
                 item.style.transform = `translate(${position.x}px, ${position.y}px)`;
             });
 
-            owner.vdom = vdom;
+            owner.update();
         }
     }
 

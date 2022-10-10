@@ -164,8 +164,7 @@ class Component extends BaseComponent {
      */
     onConstructed() {
         let me          = this,
-            currentUser = me.getController().currentUser,
-            vdom        = me.vdom;
+            currentUser = me.getController().currentUser;
 
         me.createCommentComponent = Neo.create({
             module   : CreateCommentComponent,
@@ -173,9 +172,8 @@ class Component extends BaseComponent {
             userImage: currentUser?.image || null
         });
 
-        VDomUtil.getByFlag(vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);
-
-        me.vdom = vdom;
+        VDomUtil.getByFlag(me.vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);
+        me.update();
 
         super.onConstructed();
     }
@@ -209,8 +207,7 @@ class Component extends BaseComponent {
                 node.html = value.username;
             });
 
-            me.vdom = vdom;
-
+            me.update();
             me.onCurrentUserChange();
         }
     }
@@ -222,20 +219,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetBody(value, oldValue) {
-        const me = this;
-
         if (value) {
             Neo.main.addon.Markdown.markdownToHtml(value).then(html => {
-                let vdom = me.vdom;
-
-                VDomUtil.getByFlag(vdom, 'body').cn[0] = {
+                VDomUtil.getByFlag(this.vdom, 'body').cn[0] = {
                     cn: [{
                         tag: 'p',
                         html
                     }]
                 };
 
-                me.vdom = vdom;
+                this.update();
             });
         }
     }
@@ -249,8 +242,7 @@ class Component extends BaseComponent {
     async afterSetComments(value, oldValue) {
         if (Array.isArray(value)) {
             let me        = this,
-                vdom      = me.vdom,
-                container = VDomUtil.getByFlag(vdom, 'comments-section'),
+                container = VDomUtil.getByFlag(me.vdom, 'comments-section'),
                 config, module;
 
             if (!me.commentComponent) {
@@ -282,7 +274,7 @@ class Component extends BaseComponent {
                 container.cn.push(me.commentComponents[index].vdom);
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -294,15 +286,13 @@ class Component extends BaseComponent {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            VDomUtil.getByFlag(vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
+            VDomUtil.getByFlag(this.vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
             }).format(new Date(value));
 
-            this.vdom = vdom;
+            this.update();
         }
     }
 
@@ -313,17 +303,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetFavorited(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        VDomUtil.getFlags(vdom, 'favorited').forEach(node => {
+        VDomUtil.getFlags(me.vdom, 'favorited').forEach(node => {
             node.cn[2].html = value ? 'Unfavorite' : 'Favorite';
 
             NeoArray.add(node.cls, value ? 'btn-primary' : 'btn-outline-primary');
             NeoArray.remove(node.cls, value ? 'btn-outline-primary' : 'btn-primary');
         });
 
-        me.vdom = vdom;
+        me.update();
 
         // ignore the initial setter call
         if (Neo.isBoolean(oldValue)) {
@@ -341,13 +330,11 @@ class Component extends BaseComponent {
      */
     afterSetFavoritesCount(value, oldValue) {
         if (Neo.isNumber(value)) {
-            let vdom = this.vdom;
-
-            VDomUtil.getFlags(vdom, 'favoritesCount').forEach(node => {
+            VDomUtil.getFlags(this.vdom, 'favoritesCount').forEach(node => {
                 node.html = `(${value})`;
             });
 
-            this.vdom = vdom;
+            this.update();
         }
     }
 
@@ -359,8 +346,7 @@ class Component extends BaseComponent {
      */
     afterSetTagList(value, oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            body = VDomUtil.getByFlag(vdom, 'body'),
+            body = VDomUtil.getByFlag(me.vdom, 'body'),
             tagList;
 
         if (Array.isArray(value) && value.length > 0) {
@@ -385,7 +371,7 @@ class Component extends BaseComponent {
             }
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -395,10 +381,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'title').html = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'title').html = value;
+        this.update();
     }
 
     /**
@@ -420,7 +404,7 @@ class Component extends BaseComponent {
             VDomUtil.getByFlag(vdom, 'delete-button')  .removeDom = !isCurrentUser;
             VDomUtil.getByFlag(vdom, 'edit-button')    .removeDom = !isCurrentUser;
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 

@@ -507,7 +507,6 @@ class Component extends BaseComponent {
     afterSetTimeAxisPosition(value, oldValue) {
         let me                = this,
             cls               = me.cls,
-            vdom              = me.vdom,
             timeAxisContainer = me.getColumnTimeAxisContainer();
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls, 'neo-timeaxis-end');
@@ -516,8 +515,8 @@ class Component extends BaseComponent {
             timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()); // switch the order of the 2 items
         }
 
-        me._cls = cls; // silent update
-        me.vdom = vdom;
+        me.cls = cls; // silent update
+        me.update();
     }
 
     /**

@@ -39,9 +39,8 @@ class Label extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        let vdom = this.vdom;
-        vdom.html = value;
-        this.vdom = vdom;
+        this.vdom.html = value;
+        this.update();
     }
 }
 
