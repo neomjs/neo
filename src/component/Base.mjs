@@ -695,9 +695,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.syncVnodeTree();
-        }
+        oldValue !== undefined && this.syncVnodeTree();
     }
 
     /**
