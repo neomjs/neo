@@ -550,6 +550,8 @@ class Text extends Base {
         let me  = this,
             cls = me.cls;
 
+        me.silentVdomUpdate = true;
+
         me.getInputEl().value = value;
 
         if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
@@ -560,6 +562,8 @@ class Text extends Base {
         me.cls = cls;
 
         me.validate(); // silent
+
+        me.silentVdomUpdate = false;
 
         me.update();
 
