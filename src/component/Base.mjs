@@ -392,8 +392,8 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetCls(value, oldValue) {
-        oldValue = oldValue ? oldValue : [];
-        value    = value    ? value    : [];
+        oldValue = oldValue || [];
+        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -715,8 +715,8 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
-        oldValue = oldValue ? oldValue : [];
-        value    = value    ? value    : [];
+        oldValue = oldValue || [];
+        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -1549,8 +1549,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.silentVdomUpdate = true;
 
