@@ -243,9 +243,10 @@ class Text extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        let me = this;
+        let me   = this,
+            node = me.labelPosition === 'inline' ? me.getCenterBorderEl() : me.vdom.cn[0];
 
-        me.vdom.cn[0].removeDom = value;
+        node.removeDom = value;
         me.updateInputWidth();
     }
 
@@ -316,9 +317,7 @@ class Text extends Base {
             isEmpty           = me.isEmpty();
             vdom              = me.vdom;
 
-            if (!isEmpty) {
-                centerBorderElCls.push('neo-float-above');
-            }
+            !isEmpty && centerBorderElCls.push('neo-float-above');
 
             delete vdom.cn[0].width;
 
