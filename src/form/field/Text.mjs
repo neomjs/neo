@@ -557,9 +557,10 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        me.cls = cls;
+
         me.validate(); // silent
 
-        me.cls  = cls;
         me.update();
 
         super.afterSetValue(value, oldValue); // fires the change event
@@ -995,7 +996,8 @@ class Text extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent=false) {
-        let me = this,
+        let me  = this,
+            cls = me.cls,
             errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
@@ -1003,7 +1005,8 @@ class Text extends Base {
 
             isValid = !value || value === '';
 
-            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+            NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
+            me.cls = cls; // todo: silent update
 
             errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
 
