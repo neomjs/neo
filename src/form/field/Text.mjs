@@ -310,7 +310,8 @@ class Text extends Base {
 
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
-            vdom.cn[0].width = me.labelWidth;
+            vdom.cn[0].removeDom = me.hideLabel;
+            vdom.cn[0].width     = me.labelWidth;
             me.updateInputWidth();
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
@@ -326,8 +327,9 @@ class Text extends Base {
                 cn : [{
                     cls: ['neo-left-border']
                 }, {
-                    cls: centerBorderElCls,
-                    cn : [vdom.cn[0]]
+                    cls      : centerBorderElCls,
+                    cn       : [vdom.cn[0]],
+                    removeDom: me.hideLabel
                 }, {
                     cls: ['neo-right-border']
                 }]
