@@ -12,7 +12,7 @@
 </p>
 
 # Welcome to neo.mjs!
-neo.mjs enables you to create scalable & high performant Apps using more than just one CPU.
+neo.mjs enables you to create scalable & high performant Apps using more than just one CPU core.
 No need to take care of a workers setup, and the cross channel communication on your own.
 
 <p align="center">
