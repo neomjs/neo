@@ -32,43 +32,6 @@ class CountryGallery extends Gallery {
          */
         itemHeight: 280,
         /**
-         * @member {Object} itemTpl_
-         */
-        itemTpl:
-        {cls: ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'], tabIndex: '-1', cn: [
-            {cls: ['neo-item-wrapper'], style: {}, cn: [
-                {tag: 'div', cls: ['neo-country-gallery-item'], style: {}, cn: [
-                    {cls: ['neo-item-header'], cn: [
-                        {tag: 'img', cls: ['neo-flag']},
-                        {}
-                    ]},
-                    {tag: 'table', cls: ['neo-content-table'], cn: [
-                        {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Cases'},
-                            {tag: 'td', cls: ['neo-align-right']},
-                            {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Cases today'},
-                            {tag: 'td', cls: ['neo-align-right']}
-                        ]},
-                        {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Deaths'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']},
-                            {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Deaths today'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
-                        ]},
-                        {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Recovered'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']},
-                            {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Critical'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-critical']}
-                        ]}
-                    ]}
-                ]}
-            ]}
-        ]},
-        /**
          * The item width of the gallery
          * @member {Number} itemWidth=320
          */
@@ -97,29 +60,43 @@ class CountryGallery extends Gallery {
      * @returns {Object} vdomItem
      */
     createItem(vdomItem, record, index) {
-        let me         = this,
-            firstChild = vdomItem.cn[0].cn[0],
-            table      = firstChild.cn[1];
+        let me    = this,
+            cls   = ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
+            style = {height: (me.itemHeight - 70) + 'px', width: me.itemWidth  + 'px'};
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
-
-        vdomItem.cn[0].style.height = me.itemHeight + 'px';
-
-        firstChild.style.height = (me.itemHeight - 70) + 'px';
-        firstChild.style.width  = me.itemWidth  + 'px';
-
-        firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
-        firstChild.cn[0].cn[1].html = record.country;
-
-        table.cn[0].cn[1].html = record.cases;
-        table.cn[1].cn[1].html = record.deaths;
-        table.cn[2].cn[1].html = record.recovered;
-
-        table.cn[0].cn[4].html = record.todayCases;
-        table.cn[1].cn[4].html = record.todayDeaths;
-        table.cn[2].cn[4].html = record.critical;
-
-        return vdomItem;
+        return {cls, id: me.getItemVnodeId(record[me.keyProperty]), tabIndex: '-1', cn: [
+            {cls: ['neo-item-wrapper'], style: {height: me.itemHeight + 'px'}, cn: [
+                {tag: 'div', cls: ['neo-country-gallery-item'], style, cn: [
+                    {cls: ['neo-item-header'], cn: [
+                        {tag: 'img', cls: ['neo-flag'], src: me.getCountryFlagUrl(record.country)},
+                        {html: record.country}
+                    ]},
+                    {tag: 'table', cls: ['neo-content-table'], cn: [
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Cases'},
+                            {tag: 'td', cls: ['neo-align-right'], html: record.cases},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Cases today'},
+                            {tag: 'td', cls: ['neo-align-right'], html: record.todayCases}
+                        ]},
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Deaths'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths'], html: record.deaths},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Deaths today'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths'], html: record.todayDeaths}
+                        ]},
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Recovered'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered'], html: record.recovered},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Critical'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-critical'], html: record.critical}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]};
     }
 
     /**
