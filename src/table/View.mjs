@@ -70,7 +70,7 @@ class View extends Component {
 
         for (; i < amountRows; i++) {
             record = inputData[i];
-            id = me.getRowId(record, i);
+            id     = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
