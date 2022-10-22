@@ -52,6 +52,10 @@ class Base extends Panel {
          */
         boundaryContainerId: 'document.body',
         /**
+         * @member {Boolean} closeable_=true
+         */
+        closeable_: true,
+        /**
          * Define what happens in case you click on the close button
          * close will destroy the instance, hide will keep it for later re-use.
          * Valid values: close, hide
@@ -167,6 +171,16 @@ class Base extends Panel {
         }
 
         super.afterSetAppName(value, oldValue);
+    }
+
+    /**
+     * Triggered after the closeable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCloseable(value, oldValue) {
+
     }
 
     /**
@@ -416,8 +430,9 @@ class Base extends Panel {
                 iconCls: 'far fa-window-maximize',
                 handler: me.maximize.bind(me)
             }, {
-                iconCls: 'far fa-window-close',
-                handler: me.closeOrHide.bind(me)
+                iconCls  : 'far fa-window-close',
+                handler  : me.closeOrHide.bind(me),
+                reference: 'close-button'
             }]
         });
 
