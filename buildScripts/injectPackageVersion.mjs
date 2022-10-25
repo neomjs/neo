@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 
-import chalk       from 'chalk';
-import { Command } from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
-import {spawnSync} from "child_process";
+import chalk   from 'chalk';
+import envinfo from 'envinfo';
+import fs      from 'fs-extra';
+import os      from 'os';
+import path    from 'path';
 
 const
     __dirname   = path.resolve(),
@@ -16,42 +13,31 @@ const
     packageJson = requireJson(path.join(__dirname, 'package.json')),
     insideNeo   = packageJson.name === 'neo.mjs',
     neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
-    program     = new Command(),
-    programName = `${packageJson.name} add-config`,
-    questions   = [];
+    programName = `${packageJson.name} inject-package-version`;
 
-program
-    .name(programName)
-    .version(packageJson.version)
-    .option('-e, --env <value>', '"all", "dev", "prod"')
-    .option('-i, --info', 'print environment debug info')
-    .option('-n, --noquestions')
-    .option('-t, --threads <value>', '"all", "app", "data", "main", "vdom"')
-    .allowUnknownOption()
-    .on('--help', () => {
-        console.log('\nIn case you have any issues, please create a ticket here:');
-        console.log(chalk.cyan(process.env.npm_package_bugs_url));
-    })
-    .parse(process.argv);
+let startDate    = new Date(),
+    configPath   = path.join(__dirname, 'src/DefaultConfig.mjs'),
+    contentArray = fs.readFileSync(configPath).toString().split(os.EOL),
+    i            = 0,
+    len          = contentArray.length,
+    versionString = `'${packageJson.version}'`;
 
-const programOpts = program.opts();
-
-if (!programOpts.noquestions && !programOpts.env) {
-    questions.push({
-        type   : 'list',
-        name   : 'env',
-        message: 'Please choose the environment:',
-        choices: ['all', 'dev', 'prod'],
-        default: 'all'
-    });
+if (!insideNeo) {
+    // todo
 }
 
-inquirer.prompt(questions).then(answers => {
-    const env       = answers.env || programOpts.env || 'all',
-          startDate = new Date();
+for (; i < len; i++) {
+    if (contentArray[i].includes('version:')) {
+        // we want to update the comment inside the DefaultConfig.mjs as well
+        contentArray[i - 5] = contentArray[i - 5].replace(/'\d.+'/, versionString);
+        contentArray[i]     = contentArray[i]    .replace(/'\d.+'/, versionString);
+        break;
+    }
+}
 
-    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`\nTotal time for ${programName}: ${processTime}s`);
+fs.writeFileSync(configPath, contentArray.join(os.EOL));
 
-    process.exit();
-});
+const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+console.log(`\nTotal time for ${programName}: ${processTime}s`);
+
+process.exit(0);
