@@ -247,14 +247,10 @@ class Base extends Panel {
         let me = this;
 
         if (value && me.animateTargetId) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : [{
-                    action: 'removeNode',
-                    id    : me.getAnimateTargetId()
-                }]
-            });
+            Neo.applyDeltas(me.appName, {
+                action: 'removeNode',
+                id    : me.getAnimateTargetId()
+            })
         }
     }
 
