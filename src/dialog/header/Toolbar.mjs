@@ -1,8 +1,8 @@
-import Base from '../../container/Base.mjs';
+import Base from '../../toolbar/Base.mjs';
 
 /**
  * @class Neo.dialog.header.Toolbar
- * @extends Neo.container.Base
+ * @extends Neo.toolbar.Base
  */
 class Toolbar extends Base {
     static getConfig() {return {
@@ -10,11 +10,7 @@ class Toolbar extends Base {
          * @member {String} className='Neo.dialog.header.Toolbar'
          * @protected
          */
-        className: 'Neo.dialog.header.Toolbar',
-        /**
-         * @member {Object[]} items
-         */
-        items: []
+        className: 'Neo.dialog.header.Toolbar'
     }}
 }
 

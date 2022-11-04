@@ -1,5 +1,6 @@
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
+import Toolbar  from './header/Toolbar.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
 let DragZone;
@@ -414,6 +415,7 @@ class Base extends Panel {
 
         items = [{
             ntype: 'label',
+            cls  : ['neo-panel-header-text', 'neo-label'],
             flag : 'title-label',
             text : me.title
         }, '->', {
@@ -431,12 +433,16 @@ class Base extends Panel {
 
         me.draggable && cls.push('neo-draggable');
 
-        headers.unshift({
+        me.headerToolbar = Neo.create({
+            module : Toolbar,
+            appName: me.appName,
             cls,
-            dock: 'top',
-            id  : me.getHeaderToolbarId(),
+            dock   : 'top',
+            id     : me.getHeaderToolbarId(),
             items
         });
+
+        headers.unshift(me.headerToolbar);
 
         me.headers = headers;
     }
