@@ -416,17 +416,25 @@ class Base extends Panel {
         me.draggable && cls.push('neo-draggable');
 
         me.headerToolbar = Neo.create({
-            module : Toolbar,
-            appName: me.appName,
+            module   : Toolbar,
+            appName  : me.appName,
             cls,
-            dock   : 'top',
-            id     : me.getHeaderToolbarId(),
-            title  : me.title
+            dock     : 'top',
+            id       : me.getHeaderToolbarId(),
+            listeners: {headerAction: me.executeHeaderAction},
+            title    : me.title
         });
 
         headers.unshift(me.headerToolbar);
 
         me.headers = headers;
+    }
+
+    /**
+     * {Object} data
+     */
+    executeHeaderAction(data) {
+        console.log('executeHeaderAction', data);
     }
 
     /**
