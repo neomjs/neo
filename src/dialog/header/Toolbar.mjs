@@ -9,13 +9,13 @@ class Toolbar extends Base {
      * @member {Object} actionMap
      */
     actionMap = {
-        close   : () => {return {action: 'close',    iconCls: 'far fa-window-close'}},
-        maximize: () => {return {action: 'maximize', iconCls: 'far fa-window-maximize'}}
+        close   : () => ({action: 'close',    iconCls: 'far fa-window-close'}),
+        maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
     }
     /**
-     * @member {String[]|null} actions=['close','maximize']
+     * @member {String[]|null} actions=['maximize','close']
      */
-    actions = ['close', 'maximize']
+    actions = ['maximize', 'close']
 
     static getConfig() {return {
         /**
