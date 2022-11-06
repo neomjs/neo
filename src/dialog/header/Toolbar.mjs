@@ -43,6 +43,13 @@ class Toolbar extends Base {
             default : () => me.createCustomAction()
         };
 
+        me.title && items.push({
+            ntype: 'label',
+            cls  : ['neo-panel-header-text', 'neo-label'],
+            flag : 'title-label',
+            text : me.title
+        });
+
         if (me.actions) {
             items.push('->');
 

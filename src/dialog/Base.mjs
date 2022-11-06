@@ -411,25 +411,7 @@ class Base extends Panel {
     createHeader() {
         let me      = this,
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
-            headers = me.headers || [],
-
-        items = [{
-            ntype: 'label',
-            cls  : ['neo-panel-header-text', 'neo-label'],
-            flag : 'title-label',
-            text : me.title
-        }, '->', {
-            iconCls: 'far fa-window-maximize',
-            handler: me.maximize.bind(me)
-        }];
-
-        if (me.closeable) {
-            items.push({
-                flag   : 'close-button',
-                iconCls: 'far fa-window-close',
-                handler: me.closeOrHide.bind(me)
-            });
-        }
+            headers = me.headers || [];
 
         me.draggable && cls.push('neo-draggable');
 
@@ -439,7 +421,7 @@ class Base extends Panel {
             cls,
             dock   : 'top',
             id     : me.getHeaderToolbarId(),
-            items
+            title  : me.title
         });
 
         headers.unshift(me.headerToolbar);
