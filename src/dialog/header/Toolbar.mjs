@@ -13,7 +13,18 @@ class Toolbar extends Base {
         maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
     }
     /**
-     * @member {String[]|null} actions=['maximize','close']
+     * You can define the action order and directly add custom actions.
+     * @example
+     * {
+     *     actions: [
+     *         'close',
+     *         'maximize',
+     *         {action: 'help', iconCls: 'far fa-circle-question'}
+     *     ]
+     * }
+     *
+     * You can also extend the actionMap if needed.
+     * @member {Object[]|String[]|null} actions=['maximize','close']
      */
     actions = ['maximize', 'close']
 
@@ -60,10 +71,11 @@ class Toolbar extends Base {
             items.push('->');
 
             me.actions.forEach(action => {
-                items.push({
-                    handler,
-                    ...me.actionMap[action]()
-                })
+                if (Neo.typeOf(action) !== 'Object') {
+                    action = me.actionMap[action]()
+                }
+
+                items.push({handler, ...action})
             })
         }
 
