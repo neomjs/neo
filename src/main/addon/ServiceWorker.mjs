@@ -42,10 +42,19 @@ class ServiceWorker extends Base {
                     serviceWorker.ready.then(() => {
                         serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
 
+                        if (!WorkerManager.getWorker('service')) {
+                            /*
+                             * navigator.serviceWorker.controller can be null in case we load a page for the first time
+                             * or in case of a force refresh.
+                             * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
+                             */
+                            WorkerManager.serviceWorker = registration.active;
+                        }
+
                         WorkerManager.sendMessage('service', {
                             action: 'registerNeoConfig',
                             data  : config
-                        });
+                        })
                     });
                 })
         }
