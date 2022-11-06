@@ -86,6 +86,10 @@ class Base extends Panel {
          */
         dragZoneConfig: null,
         /**
+         * @member {Object} headerConfig=null
+         */
+        headerConfig: null,
+        /**
          * @member {Neo.toolbar.Base|null} headerToolbar=null
          */
         headerToolbar: null,
@@ -410,7 +414,8 @@ class Base extends Panel {
             dock     : 'top',
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
-            title    : me.title
+            title    : me.title,
+            ...me.headerConfig
         });
 
         headers.unshift(me.headerToolbar);
