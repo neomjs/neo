@@ -14,7 +14,7 @@ class Toolbar extends Base {
         /**
          * @member {String[]|null} actions=['close','maximize']
          */
-        actions: ['close', 'maximize', 'foo']
+        actions: ['close', 'maximize']
     }}
 
     /**
@@ -22,19 +22,20 @@ class Toolbar extends Base {
      */
     createCustomAction() {
         // todo
-        return {flag: 'info-button', iconCls: 'fa-regular fa-circle-question'};
+        return {action: 'info', handler: this.fireAction, iconCls: 'fa-regular fa-circle-question'};
     }
 
     /**
      *
      */
     createItems() {
-        let me    = this,
-            items = me.items || [],
+        let me      = this,
+            handler = me.fireAction.bind(me),
+            items   = me.items || [],
 
         map = {
-            close   : () => {return {flag: 'close-button',    iconCls: 'far fa-window-close'}},
-            maximize: () => {return {flag: 'maximize-button', iconCls: 'far fa-window-maximize'}},
+            close   : () => {return {action: 'close',    handler, iconCls: 'far fa-window-close'}},
+            maximize: () => {return {action: 'maximize', handler, iconCls: 'far fa-window-maximize'}},
             default : () => me.createCustomAction()
         };
 
@@ -48,9 +49,21 @@ class Toolbar extends Base {
         }
 
         me.items = items;
-        console.log(me.actions, me.items);
 
         super.createItems();
+    }
+
+    /**
+     * @param {Object} data
+     */
+    fireAction(data) {
+        let button = data.component;
+
+        this.fire('headerAction', {
+            action: button.action,
+            button,
+            scope : this
+        })
     }
 }
 
