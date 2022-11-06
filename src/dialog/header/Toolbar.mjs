@@ -12,29 +12,38 @@ class Toolbar extends Base {
          */
         className: 'Neo.dialog.header.Toolbar',
         /**
-         * @member {String[]|null} actions=['close','maximise']
+         * @member {String[]|null} actions=['close','maximize']
          */
-        actions: ['close', 'maximise']
+        actions: ['close', 'maximize', 'foo']
     }}
 
+    /**
+     *
+     */
+    createCustomAction() {
+        // todo
+        return {flag: 'info-button', iconCls: 'fa-regular fa-circle-question'};
+    }
+
+    /**
+     *
+     */
     createItems() {
         let me    = this,
-            items = me.items || [];
+            items = me.items || [],
+
+        map = {
+            close   : () => {return {flag: 'close-button',    iconCls: 'far fa-window-close'}},
+            maximize: () => {return {flag: 'maximize-button', iconCls: 'far fa-window-maximize'}},
+            default : () => me.createCustomAction()
+        };
 
         if (me.actions) {
             items.push('->');
 
             me.actions.forEach(action => {
-                switch(action) {
-                    case 'close': {
-                        items.push({
-                            flag   : 'close-button',
-                            iconCls: 'far fa-window-close'
-                            //handler: me.closeOrHide.bind(me)
-                        });
-                        break;
-                    }
-                }
+                action = map[action] || map['default'];
+                items.push(action());
             })
         }
 
