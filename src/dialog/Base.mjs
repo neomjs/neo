@@ -13,11 +13,11 @@ class Base extends Panel {
     static getStaticConfig() {return {
         /**
          * Valid values for closeAction
-         * @member {String[]} closeActions=['close', 'hide']
+         * @member {String[]} closeActions=['close','hide']
          * @protected
          * @static
          */
-        iconPositions: ['top', 'right', 'bottom', 'left']
+        closeActions: ['close', 'hide']
     }}
 
     static getConfig() {return {
@@ -421,7 +421,7 @@ class Base extends Panel {
             cls,
             dock     : 'top',
             id       : me.getHeaderToolbarId(),
-            listeners: {headerAction: me.executeHeaderAction},
+            listeners: {headerAction: me.executeHeaderAction, scope: me},
             title    : me.title
         });
 
@@ -434,7 +434,16 @@ class Base extends Panel {
      * {Object} data
      */
     executeHeaderAction(data) {
-        console.log('executeHeaderAction', data);
+        let me = this,
+
+        map = {
+            close   : me.closeOrHide,
+            maximize: me.maximize
+        };
+
+        map[data.action].call(me, {
+            component: data.button
+        });
     }
 
     /**
@@ -503,7 +512,7 @@ class Base extends Panel {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} [data]
      */
     maximize(data) {
         let me = this;
