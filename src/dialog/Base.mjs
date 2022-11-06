@@ -429,9 +429,7 @@ class Base extends Panel {
             maximize: me.maximize
         };
 
-        map[data.action].call(me, {
-            component: data.button
-        });
+        map[data.action].call(me, data);
     }
 
     /**

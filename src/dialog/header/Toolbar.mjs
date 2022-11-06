@@ -76,11 +76,11 @@ class Toolbar extends Base {
      * @param {Object} data
      */
     fireAction(data) {
-        let button = data.component;
+        let component = data.component;
 
         this.fire('headerAction', {
-            action: button.action,
-            button,
+            action: component.action,
+            component,
             scope : this
         })
     }
