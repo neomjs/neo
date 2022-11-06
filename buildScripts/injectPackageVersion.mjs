@@ -15,17 +15,19 @@ const
     neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
     programName = `${packageJson.name} inject-package-version`;
 
-let startDate           = new Date(),
-    configPath          = path.join(__dirname, 'src/DefaultConfig.mjs'),
-    contentArray        = fs.readFileSync(configPath).toString().split(os.EOL),
-    i                   = 0,
-    len                 = contentArray.length,
-    serviceWorkerPath   = path.join(__dirname, 'apps/ServiceWorker.mjs'),
-    serviceContentArray = fs.readFileSync(serviceWorkerPath).toString().split(os.EOL),
-    versionString       = `'${packageJson.version}'`;
+let startDate            = new Date(),
+    configPath           = path.join(__dirname, 'src/DefaultConfig.mjs'),
+    contentArray         = fs.readFileSync(configPath).toString().split(os.EOL),
+    i                    = 0,
+    len                  = contentArray.length,
+    serviceWorkerFolders = ['apps'],
+    versionString        = `'${packageJson.version}'`,
+    serviceContentArray, serviceWorkerPath
 
 if (!insideNeo) {
     // todo
+} else {
+    serviceWorkerFolders.push('examples');
 }
 
 for (; i < len; i++) {
@@ -39,19 +41,24 @@ for (; i < len; i++) {
 
 fs.writeFileSync(configPath, contentArray.join(os.EOL));
 
-i   = 0;
-len = serviceContentArray.length;
+serviceWorkerFolders.forEach(folder => {
+    serviceWorkerPath    = path.join(__dirname, folder, 'ServiceWorker.mjs');
+    serviceContentArray  = fs.readFileSync(serviceWorkerPath).toString().split(os.EOL);
 
-for (; i < len; i++) {
-    if (serviceContentArray[i].includes('version_:')) {
-        // we want to update the comment inside the DefaultConfig.mjs as well
-        serviceContentArray[i - 2] = serviceContentArray[i - 2].replace(/'\d.+'/, versionString);
-        serviceContentArray[i]     = serviceContentArray[i]    .replace(/'\d.+'/, versionString);
-        break;
+    i   = 0;
+    len = serviceContentArray.length;
+
+    for (; i < len; i++) {
+        if (serviceContentArray[i].includes('version:')) {
+            // we want to update the comment inside ServiceWorker.mjs as well
+            serviceContentArray[i - 2] = serviceContentArray[i - 2].replace(/'\d.+'/, versionString);
+            serviceContentArray[i]     = serviceContentArray[i]    .replace(/'\d.+'/, versionString);
+            break;
+        }
     }
-}
 
-fs.writeFileSync(serviceWorkerPath, serviceContentArray.join(os.EOL));
+    fs.writeFileSync(serviceWorkerPath, serviceContentArray.join(os.EOL));
+});
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);

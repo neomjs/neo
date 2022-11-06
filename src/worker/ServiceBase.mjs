@@ -255,6 +255,8 @@ class ServiceBase extends Base {
         Object.assign(Neo.config, msg.data);
 
         this.onConnect(event.source);
+
+        console.log(this.version, Neo.config.version, this);
     }
 
     /**
