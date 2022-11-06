@@ -35,9 +35,9 @@ class Toolbar extends Base {
          */
         className: 'Neo.dialog.header.Toolbar',
         /**
-         * @member {String} title='Dialog Title'
+         * @member {String|null} title=null
          */
-        title_: 'Dialog Title'
+        title_: null
     }}
 
     /**
@@ -47,9 +47,10 @@ class Toolbar extends Base {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        if (oldValue) {
-            this.down({flag: 'title-label'}).text = value;
-        }
+        oldValue && this.down({flag: 'title-label'})?.set({
+            removeDom: !value,
+            text     : value
+        })
     }
 
     /**
@@ -60,11 +61,12 @@ class Toolbar extends Base {
             handler = me.fireAction.bind(me),
             items   = me.items || [];
 
-        me.title && items.push({
-            ntype: 'label',
-            cls  : ['neo-panel-header-text', 'neo-label'],
-            flag : 'title-label',
-            text : me.title
+        items.push({
+            ntype    : 'label',
+            cls      : ['neo-panel-header-text', 'neo-label'],
+            flag     : 'title-label',
+            removeDom: !me.title,
+            text     : me.title
         });
 
         if (me.actions) {
