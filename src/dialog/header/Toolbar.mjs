@@ -14,7 +14,11 @@ class Toolbar extends Base {
         /**
          * @member {String[]|null} actions=['close','maximize']
          */
-        actions: ['close', 'maximize']
+        actions: ['close', 'maximize'],
+        /**
+         * @member {String} title='Dialog Title'
+         */
+        title_: 'Dialog Title'
     }}
 
     /**
