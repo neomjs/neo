@@ -250,13 +250,17 @@ class ServiceBase extends Base {
      * @param {Object} msg
      * @param {ExtendableMessageEvent} event
      */
-    onRegisterNeoConfig(msg, event) {
+    async onRegisterNeoConfig(msg, event) {
+        let me = this;
+
         Neo.config = Neo.config || {};
         Object.assign(Neo.config, msg.data);
 
-        this.onConnect(event.source);
+        if (me.version !== Neo.config.version) {
+            await me.clearCaches()
+        }
 
-        console.log(this.version, Neo.config.version, this);
+        me.onConnect(event.source);
     }
 
     /**
