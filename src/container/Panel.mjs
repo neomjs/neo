@@ -68,6 +68,10 @@ class Panel extends Container {
      * @returns {Object}
      */
     static createHeaderConfig(header) {
+        if (Neo.typeOf(header) === 'NeoInstance') {
+            return header;
+        }
+
         let config = {
             ntype: 'toolbar',
             cls  : ['neo-panel-header-toolbar', 'neo-toolbar'],

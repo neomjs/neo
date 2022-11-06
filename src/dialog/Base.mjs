@@ -1,5 +1,6 @@
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
+import Toolbar  from './header/Toolbar.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
 let DragZone;
@@ -12,11 +13,11 @@ class Base extends Panel {
     static getStaticConfig() {return {
         /**
          * Valid values for closeAction
-         * @member {String[]} closeActions=['close', 'hide']
+         * @member {String[]} closeActions=['close','hide']
          * @protected
          * @static
          */
-        iconPositions: ['top', 'right', 'bottom', 'left']
+        closeActions: ['close', 'hide']
     }}
 
     static getConfig() {return {
@@ -81,6 +82,10 @@ class Base extends Panel {
          */
         dragZoneConfig: null,
         /**
+         * @member {Object} headerConfig=null
+         */
+        headerConfig: null,
+        /**
          * @member {Neo.toolbar.Base|null} headerToolbar=null
          */
         headerToolbar: null,
@@ -112,7 +117,7 @@ class Base extends Panel {
         /**
          * @member {String} title='Dialog Title'
          */
-        title_: 'Dialog Title',
+        title: 'Dialog Title',
         /**
          * @member {Object} _vdom
          */
@@ -233,14 +238,10 @@ class Base extends Panel {
         let me = this;
 
         if (value && me.animateTargetId) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : [{
-                    action: 'removeNode',
-                    id    : me.getAnimateTargetId()
-                }]
-            });
+            Neo.applyDeltas(me.appName, {
+                action: 'removeNode',
+                id    : me.getAnimateTargetId()
+            })
         }
     }
 
@@ -267,18 +268,6 @@ class Base extends Panel {
                 me.plugins = plugins;
             }
         });
-    }
-
-    /**
-     * Triggered after the title config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetTitle(value, oldValue) {
-        if (oldValue) {
-            this.down({flag: 'title-label'}).text = value;
-        }
     }
 
     /**
@@ -404,24 +393,34 @@ class Base extends Panel {
 
         me.draggable && cls.push('neo-draggable');
 
-        headers.unshift({
-            cls  : cls,
-            dock : 'top',
-            id   : me.getHeaderToolbarId(),
-            items: [{
-                ntype: 'label',
-                flag : 'title-label',
-                text : me.title
-            }, '->', {
-                iconCls: 'far fa-window-maximize',
-                handler: me.maximize.bind(me)
-            }, {
-                iconCls: 'far fa-window-close',
-                handler: me.closeOrHide.bind(me)
-            }]
+        me.headerToolbar = Neo.create({
+            module   : Toolbar,
+            appName  : me.appName,
+            cls,
+            dock     : 'top',
+            id       : me.getHeaderToolbarId(),
+            listeners: {headerAction: me.executeHeaderAction, scope: me},
+            title    : me.title,
+            ...me.headerConfig
         });
 
+        headers.unshift(me.headerToolbar);
+
         me.headers = headers;
+    }
+
+    /**
+     * {Object} data
+     */
+    executeHeaderAction(data) {
+        let me = this,
+
+        map = {
+            close   : me.closeOrHide,
+            maximize: me.maximize
+        };
+
+        map[data.action].call(me, data);
     }
 
     /**
@@ -490,7 +489,7 @@ class Base extends Panel {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} [data]
      */
     maximize(data) {
         let me = this;

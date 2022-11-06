@@ -70,7 +70,7 @@ class View extends Component {
 
         for (; i < amountRows; i++) {
             record = inputData[i];
-            id = me.getRowId(record, i);
+            id     = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
@@ -125,7 +125,7 @@ class View extends Component {
                     };
                 }
 
-                // todo: remove the if part as soon as all tables use stores (examples table)
+                // todo: remove the else part as soon as all tables use stores (examples table)
                 if (hasStore) {
                     cellId = me.getCellId(record, column.dataField);
                 } else {
@@ -135,7 +135,7 @@ class View extends Component {
                 config = {
                     tag      : 'td',
                     id       : cellId,
-                    cls      : rendererOutput.cls   || ['neo-table-cell'],
+                    cls      : cellCls,
                     innerHTML: rendererOutput.html  || '',
                     style    : rendererOutput.style || {},
                     tabIndex : '-1'

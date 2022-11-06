@@ -392,8 +392,8 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetCls(value, oldValue) {
-        oldValue = oldValue ? oldValue : [];
-        value    = value    ? value    : [];
+        oldValue = oldValue || [];
+        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -695,9 +695,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.syncVnodeTree();
-        }
+        oldValue !== undefined && this.syncVnodeTree();
     }
 
     /**
@@ -717,8 +715,8 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
-        oldValue = oldValue ? oldValue : [];
-        value    = value    ? value    : [];
+        oldValue = oldValue || [];
+        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -1551,8 +1549,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.silentVdomUpdate = true;
 
@@ -1723,8 +1720,7 @@ class Base extends CoreBase {
     updateCls(cls, oldCls, id=this.id) {
         let me          = this,
             vnode       = me.vnode,
-            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode,
-            opts;
+            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
 
         if (!Neo.isEqual(cls, oldCls)) {
             if (vnodeTarget) {
@@ -1732,25 +1728,12 @@ class Base extends CoreBase {
                 me.vnode = vnode;
             }
 
-            opts = {
-                action: 'updateDom',
-                deltas: [{
-                    id,
-                    cls: {
-                        add   : NeoArray.difference(cls, oldCls),
-                        remove: NeoArray.difference(oldCls, cls)
-                    }
-                }]
-            };
-
-            if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName;
-            }
-
-            Neo.currentWorker.promiseMessage('main', opts).then(() => {
-                //console.log(me.vnode);
-            }).catch(err => {
-                console.log('Error attempting to update Component cls', err, me);
+            Neo.applyDeltas(me.appName, {
+                id,
+                cls: {
+                    add   : NeoArray.difference(cls, oldCls),
+                    remove: NeoArray.difference(oldCls, cls)
+                }
             });
         }
     }

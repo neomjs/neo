@@ -47,7 +47,7 @@ class View extends Component {
 
         for (; i < amountRows; i++) {
             record = inputData[i];
-            id = me.getRowId(record, i);
+            id     = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
@@ -109,7 +109,7 @@ class View extends Component {
 
                 config = {
                     id       : me.getCellId(record, column.field),
-                    cls      : rendererOutput.cls   || ['neo-grid-cell'],
+                    cls      : cellCls,
                     innerHTML: rendererOutput.html  || '',
                     style    : cellStyle,
                     tabIndex : '-1'

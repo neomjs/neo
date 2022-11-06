@@ -243,9 +243,10 @@ class Text extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        let me = this;
+        let me   = this,
+            node = me.labelPosition === 'inline' ? me.getCenterBorderEl() : me.vdom.cn[0];
 
-        me.vdom.cn[0].removeDom = value;
+        node.removeDom = value;
         me.updateInputWidth();
     }
 
@@ -309,16 +310,15 @@ class Text extends Base {
 
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
-            vdom.cn[0].width = me.labelWidth;
+            vdom.cn[0].removeDom = me.hideLabel;
+            vdom.cn[0].width     = me.labelWidth;
             me.updateInputWidth();
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
             isEmpty           = me.isEmpty();
             vdom              = me.vdom;
 
-            if (!isEmpty) {
-                centerBorderElCls.push('neo-float-above');
-            }
+            !isEmpty && centerBorderElCls.push('neo-float-above');
 
             delete vdom.cn[0].width;
 
@@ -327,8 +327,9 @@ class Text extends Base {
                 cn : [{
                     cls: ['neo-left-border']
                 }, {
-                    cls: centerBorderElCls,
-                    cn : [vdom.cn[0]]
+                    cls      : centerBorderElCls,
+                    cn       : [vdom.cn[0]],
+                    removeDom: me.hideLabel
                 }, {
                     cls: ['neo-right-border']
                 }]
@@ -549,6 +550,8 @@ class Text extends Base {
         let me  = this,
             cls = me.cls;
 
+        me.silentVdomUpdate = true;
+
         me.getInputEl().value = value;
 
         if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
@@ -556,9 +559,12 @@ class Text extends Base {
         }
 
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        me.cls = cls;
+
         me.validate(); // silent
 
-        me.cls  = cls;
+        me.silentVdomUpdate = false;
+
         me.update();
 
         super.afterSetValue(value, oldValue); // fires the change event
@@ -994,7 +1000,8 @@ class Text extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent=false) {
-        let me = this,
+        let me  = this,
+            cls = me.cls,
             errorNode, isValid;
 
         if (!(me.validBeforeMount && !me.mounted)) {
@@ -1002,7 +1009,8 @@ class Text extends Base {
 
             isValid = !value || value === '';
 
-            NeoArray[!isValid ? 'add' : 'remove'](me._cls, 'neo-invalid');
+            NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
+            me.cls = cls; // todo: silent update
 
             errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
 
