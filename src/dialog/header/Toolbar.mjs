@@ -30,6 +30,18 @@ class Toolbar extends Base {
     }}
 
     /**
+     * Triggered after the title config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        if (oldValue) {
+            this.down({flag: 'title-label'}).text = value;
+        }
+    }
+
+    /**
      *
      */
     createItems() {
