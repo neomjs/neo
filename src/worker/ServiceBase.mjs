@@ -69,7 +69,11 @@ class ServiceBase extends Base {
                 'preloadAssets',
                 'removeAssets'
             ]
-        }
+        },
+        /**
+         * @member {String} version_=null
+         */
+        version_: '1.0.0'
     }}
 
     /**
