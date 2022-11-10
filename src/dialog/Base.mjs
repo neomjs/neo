@@ -398,6 +398,7 @@ class Base extends Panel {
             appName  : me.appName,
             cls,
             dock     : 'top',
+            flex     : 'none',
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
