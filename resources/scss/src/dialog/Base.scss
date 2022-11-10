@@ -44,9 +44,11 @@
 }
 
 .neo-dialog {
-    border  : 1px solid v(dialog-border-color);
-    flex    : 1 0 auto;
-    position: relative;
+    border        : 1px solid v(dialog-border-color);
+    display       : flex;
+    flex          : 1 0 auto;
+    flex-direction: column;
+    position      : relative;
 
     &.neo-panel {
         .neo-footer-toolbar {
