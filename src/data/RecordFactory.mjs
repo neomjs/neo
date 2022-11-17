@@ -306,6 +306,7 @@ class RecordFactory extends Base {
 
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
+                record._isModified = true;
                 changedFields.push({name: key, oldValue, value});
             }
         });
