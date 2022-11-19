@@ -184,17 +184,24 @@ class Container extends BaseContainer {
     createColumns(columns) {
         let me             = this,
             columnDefaults = me.columnDefaults,
-            sorters        = me.store?.sorters;
+            sorters        = me.store?.sorters,
+            renderer;
 
         if (!columns || !columns.length) {
             Neo.logError('Attempting to create a grid.Container without defined columns', me.id);
         }
 
         columns.forEach(column => {
+            renderer = column.renderer;
+
             columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
             if (column.dock && !column.width) {
                 Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
+            }
+
+            if (renderer && Neo.isString(renderer) && me[renderer]) {
+                column.renderer = me[renderer];
             }
 
             if (sorters?.[0]) {
