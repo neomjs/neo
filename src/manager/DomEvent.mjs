@@ -406,34 +406,6 @@ class DomEvent extends Base {
     }
 
     /**
-     * Intended for Neo.controller.Component to replace listener placeholders provided as a string
-     * @param {Object} config
-     * @param {String} config.componentId
-     * @param {Function} config.eventHandlerMethod
-     * @param {String} config.eventHandlerName
-     * @param {String} config.eventName
-     * @param {Neo.core.Base} config.scope
-     */
-    updateListenerPlaceholder(config) {
-        let me             = this,
-            items          = me.items[config.componentId] || {},
-            eventListeners = items[config.eventName] || [],
-            i              = 0,
-            len            = eventListeners.length,
-            listener;
-
-        for (; i < len; i++) {
-            listener = eventListeners[i];
-
-            if (listener.fn === config.eventHandlerName) {
-                listener.fn    = config.eventHandlerMethod;
-                listener.scope = config.scope;
-                break;
-            }
-        }
-    }
-
-    /**
      * @param {Object} listener
      * @param {Array} path
      * @returns {Boolean|String} true in case the delegation string matches the event path

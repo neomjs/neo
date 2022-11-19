@@ -185,7 +185,7 @@ class Component extends Base {
     parseDomListeners(component=this.component) {
         let me           = this,
             domListeners = component.domListeners,
-            eventHandler, fn, scope;
+            eventHandler, scope;
 
         if (domListeners) {
             domListeners.forEach(domListener => {
@@ -205,16 +205,7 @@ class Component extends Base {
                             if (!scope) {
                                 Logger.logError('Unknown domEvent handler for', eventHandler, component);
                             } else {
-                                fn               = scope[eventHandler].bind(scope);
-                                domListener[key] = fn;
-
-                                DomEventManager.updateListenerPlaceholder({
-                                    componentId       : component.id,
-                                    eventHandlerMethod: fn,
-                                    eventHandlerName  : eventHandler,
-                                    eventName         : key,
-                                    scope
-                                });
+                                domListener[key] = scope[eventHandler].bind(scope);
                             }
                         }
                     }
