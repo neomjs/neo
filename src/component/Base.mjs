@@ -452,7 +452,14 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetDomListeners(value, oldValue) {
-        DomEventManager.updateDomListeners(this, value, oldValue);
+        let me = this;
+
+        if (oldValue) {
+            // todo: this call is too expensive => we need a separate parseDomListeners() logic
+            me.getController()?.parseConfig(me);
+        }
+
+        DomEventManager.updateDomListeners(me, value, oldValue);
     }
 
     /**
