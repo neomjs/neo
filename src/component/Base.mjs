@@ -447,12 +447,16 @@ class Base extends CoreBase {
 
     /**
      * Registers the domListeners inside the Neo.manager.DomEvent
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     afterSetDomListeners(value, oldValue) {
-        DomEventManager.updateDomListeners(this, value, oldValue);
+        let me = this;
+
+        me.getController()?.parseDomListeners(me);
+
+        DomEventManager.updateDomListeners(me, value, oldValue);
     }
 
     /**

@@ -20,7 +20,7 @@ class Component extends Base {
          */
         ntype: 'component-controller',
         /**
-         * @member {Object} component=null
+         * @member {Neo.component.Base|null} component=null
          * @protected
          */
         component: null,
@@ -135,49 +135,13 @@ class Component extends Base {
     onComponentConstructed() {}
 
     /**
-     * @param {Neo.component.Base} [component=this.component]
+     * @param {Neo.component.Base} component=this.component
      */
     parseConfig(component=this.component) {
-        let me           = this,
-            domListeners = component.domListeners,
-            listeners    = component.listeners,
-            reference    = component.reference,
-            eventHandler, fn, handlerScope, parentController;
-
-        if (domListeners) {
-            domListeners.forEach(domListener => {
-                Object.entries(domListener).forEach(([key, value]) => {
-                    eventHandler = null;
-
-                    if (key !== 'scope' && key !== 'delegate') {
-                        if (Neo.isString(value)) {
-                            eventHandler = value;
-                        } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
-                            eventHandler = value.fn;
-                        }
-
-                        if (eventHandler) {
-                            handlerScope = me.getHandlerScope(eventHandler);
-
-                            if (!handlerScope) {
-                                Logger.logError('Unknown domEvent handler for', eventHandler, component);
-                            } else {
-                                fn               = handlerScope[eventHandler].bind(handlerScope);
-                                domListener[key] = fn;
-
-                                DomEventManager.updateListenerPlaceholder({
-                                    componentId       : component.id,
-                                    eventHandlerMethod: fn,
-                                    eventHandlerName  : eventHandler,
-                                    eventName         : key,
-                                    scope             : parentController
-                                });
-                            }
-                        }
-                    }
-                });
-            });
-        }
+        let me        = this,
+            listeners = component.listeners,
+            reference = component.reference,
+            eventHandler, handlerScope;
 
         if (listeners) {
             Object.entries(listeners).forEach(([key, value]) => {
@@ -212,6 +176,41 @@ class Component extends Base {
 
         if (reference) {
             me.references[reference] = component;
+        }
+    }
+
+    /**
+     * @param {Neo.component.Base} component=this.component
+     */
+    parseDomListeners(component=this.component) {
+        let me           = this,
+            domListeners = component.domListeners,
+            eventHandler, scope;
+
+        if (domListeners) {
+            domListeners.forEach(domListener => {
+                Object.entries(domListener).forEach(([key, value]) => {
+                    eventHandler = null;
+
+                    if (key !== 'scope' && key !== 'delegate') {
+                        if (Neo.isString(value)) {
+                            eventHandler = value;
+                        } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
+                            eventHandler = value.fn;
+                        }
+
+                        if (eventHandler) {
+                            scope = me.getHandlerScope(eventHandler);
+
+                            if (!scope) {
+                                Logger.logError('Unknown domEvent handler for', eventHandler, component);
+                            } else {
+                                domListener[key] = scope[eventHandler].bind(scope);
+                            }
+                        }
+                    }
+                });
+            });
         }
     }
 
