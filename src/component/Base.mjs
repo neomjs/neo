@@ -454,10 +454,7 @@ class Base extends CoreBase {
     afterSetDomListeners(value, oldValue) {
         let me = this;
 
-        if (oldValue) {
-            // todo: this call is too expensive => we need a separate parseDomListeners() logic
-            me.getController()?.parseConfig(me);
-        }
+        me.getController()?.parseDomListeners(me);
 
         DomEventManager.updateDomListeners(me, value, oldValue);
     }
