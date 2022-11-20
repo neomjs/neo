@@ -244,10 +244,7 @@ class Circle extends Component {
         let me = this;
 
         if (oldValue && me.rendered) {
-            if (!me.collapsed) {
-                me.updateOuterCircle(true);
-            }
-
+            !me.collapsed && me.updateOuterCircle(true);
             me.updateItemPositions();
         }
     }
@@ -365,7 +362,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     collapseItem(data) {
         let me    = this,
@@ -383,7 +380,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     createBacksideItems(silent=false) {
         let me         = this,
@@ -411,8 +408,8 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Number} [startIndex=0]
-     * @param {Boolean} [silent=false]
+     * @param {Number} startIndex=0
+     * @param {Boolean} silent=false
      */
     createItems(startIndex=0, silent=false) {
         let me            = this,
@@ -664,7 +661,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateInnerCircle(silent=false) {
         let me           = this,
@@ -684,7 +681,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateItemAngle(silent=false) {
         let me      = this,
@@ -702,8 +699,8 @@ class Circle extends Component {
 
     /**
      * @param {Number} value
-     * @param {Boolean} [silent=false]
-     * @param {Number} [startIndex=0]
+     * @param {Boolean} silent=false
+     * @param {Number} startIndex=0
      */
     updateItemOpacity(value, silent=false, startIndex=0) {
         let me      = this,
@@ -720,7 +717,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateItemPositions(silent=false) {
         let me            = this,
@@ -749,7 +746,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateOuterCircle(silent=false) {
         let me           = this,
@@ -782,7 +779,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateTitle(silent=false) {
         let me          = this,
