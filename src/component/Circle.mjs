@@ -5,6 +5,8 @@ import Component       from './Base.mjs';
 import NeoArray        from '../util/Array.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
+let DragZone;
+
 /**
  * @class Neo.component.Circle
  * @extends Neo.component.Base
@@ -190,7 +192,22 @@ class Circle extends Component {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        
+        let me           = this,
+            domListeners = [];
+
+        value && import('../draggable/DragZone.mjs').then(module => {
+            DragZone = module.default;
+
+            if (!me.dragListenersAdded) {
+                domListeners.push(
+                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: 'neo-circle-item'},
+                    {'drag:start': me.onDragStart, scope: me, delegate: 'neo-circle-item'}
+                );
+
+                me.addDomListeners(domListeners);
+                me.dragListenersAdded = true;
+            }
+        });
     }
 
     /**
@@ -428,16 +445,19 @@ class Circle extends Component {
     createItems(startIndex=0, silent=false) {
         let me            = this,
             frontEl       = me.getFrontEl(),
+            itemCls       = ['neo-circle-item'],
             itemPositions = me.calculateItemPositions(),
             itemSize      = me.itemSize,
             countItems    = Math.min(me.store.getCount(), me.maxItems),
             i             = startIndex,
             vdom          = me.vdom;
 
+        me.draggable && itemCls.push('neo-draggable');
+
         for (; i < countItems; i++) {
             frontEl.cn.push({
                 id      : me.getItemId(i),
-                cls     : ['neo-circle-item'],
+                cls     : itemCls,
                 tabIndex: -1,
                 style: {
                     height: itemSize              + 'px',
@@ -615,6 +635,20 @@ class Circle extends Component {
      */
     onContextMenu(data) {
         this.flipCircle();
+    }
+
+    /**
+     * @param data
+     */
+    onDragEnd(data) {
+        console.log('onDragEnd', data);
+    }
+
+    /**
+     * @param data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
     }
 
     /**
