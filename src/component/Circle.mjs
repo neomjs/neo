@@ -40,6 +40,10 @@ class Circle extends Component {
          */
         collapsed: true,
         /**
+         * @member {Boolean} draggable_=true
+         */
+        draggable_: true,
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys={}
          */
@@ -177,6 +181,16 @@ class Circle extends Component {
         me.updateTitle(true);
 
         me.update();
+    }
+
+    /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        
     }
 
     /**
