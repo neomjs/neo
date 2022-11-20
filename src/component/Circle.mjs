@@ -649,6 +649,30 @@ class Circle extends Component {
      */
     onDragStart(data) {
         console.log('onDragStart', data);
+
+        let me           = this,
+            wrapperStyle = me.wrapperStyle || {};
+
+        me.isDragging = true;
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module         : DragZone,
+                appName        : me.appName,
+                bodyCursorStyle: 'move !important',
+                dragElement    : me.vdom,
+                dragProxyConfig: {vdom: me.getProxyVdom()},
+                owner          : me,
+                useProxyWrapper: false,
+                ...me.dragZoneConfig
+            });
+        }
+
+        me.dragZone.dragStart(data);
+
+        wrapperStyle.opacity = 0.7;
+
+        me.wrapperStyle = wrapperStyle;
     }
 
     /**
