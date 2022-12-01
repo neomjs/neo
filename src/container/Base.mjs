@@ -1,78 +1,80 @@
-import Component  from '../component/Base.mjs';
+import Component from '../component/Base.mjs';
 import LayoutBase from '../layout/Base.mjs';
 import LayoutCard from '../layout/Card.mjs';
-import LayoutFit  from '../layout/Fit.mjs';
+import LayoutFit from '../layout/Fit.mjs';
 import LayoutHbox from '../layout/HBox.mjs';
 import LayoutVBox from '../layout/VBox.mjs';
-import Logger     from '../util/Logger.mjs';
-import NeoArray   from '../util/Array.mjs';
+import Logger from '../util/Logger.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Base
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static getConfig() {return {
-        /**
-         * @member {String} className='Neo.container.Base'
-         * @protected
-         */
-        className: 'Neo.container.Base',
-        /**
-         * @member {String} ntype='container'
-         * @protected
-         */
-        ntype: 'container',
-        /**
-         * @member {String[]} cls=['neo-container']
-         */
-        cls: ['neo-container'],
-        /**
-         * @member {Object} itemDefaults_=null
-         */
-        itemDefaults_: null,
-        /**
-         * An array of config objects|instances|modules for each child component
-         * @member {Object[]} items_=[]
-         * @example
-         * import Button      from '../button/Base.mjs';
-         * import MyRedButton from 'myapp/MyRedButton.mjs';
-         * import Toolbar     from '../toolbar/Base.mjs';
-         *
-         * let myButton = Neo.create(Button, {
-         *     text: 'Button1'
-         * });
-         *
-         * Neo.create(Toolbar, {
-         *     //...
-         *     items: [
-         *         myButton,              // passed instance
-         *         {
-         *             ntype: 'button',   // by ntype
-         *             text : 'Button 2'
-         *         },
-         *         {
-         *             module: Button,    // by imported module
-         *             text  : 'Button 3'
-         *         },
-         *         MyRedButton            // you can drop imported modules directly into the items array
-         *     ]
-         * });
-         */
-        items_: [],
-        /**
-         * @member {Object} layout_={ntype: 'vbox', align: 'stretch'}
-         */
-        layout_: {
-            ntype: 'vbox',
-            align: 'stretch'
-        },
-        /**
-         * @member {Object} _vdom={cn: []}
-         */
-        _vdom:
-        {cn: []}
-    }}
+    static getConfig() {
+        return {
+            /**
+             * @member {String} className='Neo.container.Base'
+             * @protected
+             */
+            className: 'Neo.container.Base',
+            /**
+             * @member {String} ntype='container'
+             * @protected
+             */
+            ntype: 'container',
+            /**
+             * @member {String[]} cls=['neo-container']
+             */
+            cls: ['neo-container'],
+            /**
+             * @member {Object} itemDefaults_=null
+             */
+            itemDefaults_: null,
+            /**
+             * An array of config objects|instances|modules for each child component
+             * @member {Object[]} items_=[]
+             * @example
+             * import Button      from '../button/Base.mjs';
+             * import MyRedButton from 'myapp/MyRedButton.mjs';
+             * import Toolbar     from '../toolbar/Base.mjs';
+             *
+             * let myButton = Neo.create(Button, {
+             *     text: 'Button1'
+             * });
+             *
+             * Neo.create(Toolbar, {
+             *     //...
+             *     items: [
+             *         myButton,              // passed instance
+             *         {
+             *             ntype: 'button',   // by ntype
+             *             text : 'Button 2'
+             *         },
+             *         {
+             *             module: Button,    // by imported module
+             *             text  : 'Button 3'
+             *         },
+             *         MyRedButton            // you can drop imported modules directly into the items array
+             *     ]
+             * });
+             */
+            items_: [],
+            /**
+             * @member {Object} layout_={ntype: 'vbox', align: 'stretch'}
+             */
+            layout_: {
+                ntype: 'vbox',
+                align: 'stretch'
+            },
+            /**
+             * @member {Object} _vdom={cn: []}
+             */
+            _vdom:
+                {cn: []}
+        }
+    }
 
     /**
      * Inserts an item or array of items at the last index
@@ -138,8 +140,8 @@ class Base extends Component {
 
         if (oldValue !== undefined) {
             let items = this.items,
-                i     = 0,
-                len   = items.length;
+                i = 0,
+                len = items.length;
 
             for (; i < len; i++) {
                 if (!items[i].vdom.removeDom) {
@@ -158,8 +160,8 @@ class Base extends Component {
     afterSetRendering(value, oldValue) {
         if (oldValue !== undefined) {
             let items = this.items,
-                i     = 0,
-                len   = items.length;
+                i = 0,
+                len = items.length;
 
             for (; i < len; i++) {
                 if (!items[i].vdom.removeDom) {
@@ -185,8 +187,8 @@ class Base extends Component {
      * @returns {Neo.component.Base|Object} Object for lazy loaded items
      */
     createItem(item, index) {
-        let me       = this,
-            config   = {appName: me.appName, parentId: me.id, parentIndex: index},
+        let me = this,
+            config = {appName: me.appName, parentId: me.id, parentIndex: index},
             defaults = me.itemDefaults,
             lazyLoadItem, module;
 
@@ -240,7 +242,7 @@ class Base extends Component {
             case 'String': {
                 item = Neo.create({
                     module: Component,
-                    vdom  : {innerHTML: item},
+                    vdom: {innerHTML: item},
                     ...config
                 });
 
@@ -255,10 +257,10 @@ class Base extends Component {
      * @protected
      */
     createItems() {
-        let me        = this,
-            items     = me._items,
+        let me = this,
+            items = me._items,
             itemsRoot = me.getVdomItemsRoot(),
-            layout    = me.layout;
+            layout = me.layout;
 
         itemsRoot.cn = [];
 
@@ -285,11 +287,11 @@ class Base extends Component {
 
         if (value) {
             if (value instanceof LayoutBase && value.isLayout) {
-                value.appName     = me.appName;
+                value.appName = me.appName;
                 value.containerId = me.id;
             } else {
                 value = me.parseLayoutClass(value);
-                value.appName     = me.appName;
+                value.appName = me.appName;
                 value.containerId = me.id;
                 value = Neo.ntype(value);
             }
@@ -303,7 +305,7 @@ class Base extends Component {
      * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
      */
-    destroy(updateParentVdom=false, silent=false) {
+    destroy(updateParentVdom = false, silent = false) {
         this.items.forEach(item => {
             item.destroy?.(false, true);
         });
@@ -325,8 +327,8 @@ class Base extends Component {
      * @returns {Number} -1 in case no match was found
      */
     indexOf(itemId) {
-        let me  = this,
-            i   = 0,
+        let me = this,
+            i = 0,
             len = me.items?.length || 0;
 
         if (!Neo.isString(itemId)) {
@@ -349,15 +351,15 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {
-        let me    = this,
+    insert(index, item, silent = false) {
+        let me = this,
             items = me.items,
-            vdom  = me.vdom,
+            vdom = me.vdom,
             i, len, returnArray;
 
         if (Neo.typeOf(item) === 'Array') {
-            i           = 0;
-            len         = item.length;
+            i = 0;
+            len = item.length;
             returnArray = [];
 
             for (; i < len; i++) {
@@ -396,7 +398,7 @@ class Base extends Component {
      *
      */
     mergeConfig(...args) {
-        let me     = this,
+        let me = this,
             config = super.mergeConfig(...args);
 
         // avoid any interference on prototype level
@@ -422,7 +424,7 @@ class Base extends Component {
      * @returns {Neo.component.Base}
      */
     moveTo(fromIndex, toIndex) {
-        let me   = this,
+        let me = this,
             item = me.items[fromIndex];
 
         fromIndex !== toIndex && me.switchItems(toIndex, fromIndex);
@@ -475,10 +477,10 @@ class Base extends Component {
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem = true, silent = false) {
         let items = [...this.items],
-            i     = 0,
-            len   = items.length;
+            i = 0,
+            len = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
@@ -493,10 +495,10 @@ class Base extends Component {
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
      */
-    removeAt(index, destroyItem=true, silent=false) {
-        let me    = this,
+    removeAt(index, destroyItem = true, silent = false) {
+        let me = this,
             items = me.items,
-            vdom  = me.vdom,
+            vdom = me.vdom,
             item;
 
         if (index >= items.length) {
@@ -519,11 +521,28 @@ class Base extends Component {
     }
 
     /**
+     * Clears the item array
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    removeAll(destroyItem = true, silent = false) {
+        let me = this;
+
+        me.items = [];
+
+        me.getVdomItemsRoot().cn = [];
+
+        if(!silent || destroyItem){
+            me.update();
+        }
+    }
+
+    /**
      * Removes the container item at the last index
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
      */
-    removeLast(destroyItem=true, silent=false) {
+    removeLast(destroyItem = true, silent = false) {
         this.removeAt(this.items.length - 1, destroyItem, silent);
     }
 
@@ -534,11 +553,11 @@ class Base extends Component {
      * @param {Number|String} item2id
      */
     switchItems(item1id, item2id) {
-        let me         = this,
+        let me = this,
             item1Index = Neo.isNumber(item1id) ? item1id : me.indexOf(item1id),
             item2Index = Neo.isNumber(item2id) ? item2id : me.indexOf(item2id);
 
-        NeoArray.move(me.items,                 item2Index, item1Index);
+        NeoArray.move(me.items, item2Index, item1Index);
         NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
 
         me.update();
