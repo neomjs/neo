@@ -79,7 +79,6 @@ class Number extends Text {
      */
     afterSetInputEditable(value, oldValue) {
         let me      = this,
-            vdom    = me.vdom,
             inputEl = me.getInputEl(),
             style   = inputEl.style || {};
 
@@ -89,7 +88,7 @@ class Number extends Text {
             style.pointerEvents = 'none';
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -99,6 +98,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMaxValue(value, oldValue) {
+        this.validate(); // silent
         this.changeInputElKey('max', value);
     }
 
@@ -109,6 +109,7 @@ class Number extends Text {
      * @protected
      */
     afterSetMinValue(value, oldValue) {
+        this.validate(); // silent
         this.changeInputElKey('min', value);
     }
 
@@ -175,6 +176,31 @@ class Number extends Text {
     }
 
     /**
+     * @returns {Boolean}
+     */
+    isValid() {
+        let me       = this,
+            maxValue = me.maxValue,
+            minValue = me.minValue,
+            value    = me.value,
+            isNumber = Neo.isNumber(value);
+
+        if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
+            return false;
+        }
+
+        if (Neo.isNumber(minValue) && isNumber && value < minValue) {
+            return false;
+        }
+
+        if (value % me.stepSize !== 0) {
+            return false;
+        }
+
+        return super.isValid();
+    }
+
+    /**
      *
      */
     onConstructed() {
@@ -215,12 +241,13 @@ class Number extends Text {
      */
     onSpinButtonDownClick() {
         let me       = this,
-            oldValue = me.value || (me.maxValue + me.stepSize),
-            value    = Math.max(me.minValue, oldValue - me.stepSize);
+            stepSize = me.stepSize,
+            oldValue = Neo.isNumber(me.value) ? me.value : me.minValue,
+            value    = (oldValue - stepSize) < me.minValue ? me.maxValue : (oldValue - stepSize);
 
         if (me.excludedValues) {
             while(me.excludedValues.includes(value)) {
-                value = Math.max(me.minValue, value - me.stepSize);
+                value = Math.max(me.minValue, value - stepSize);
             }
         }
 
@@ -234,12 +261,13 @@ class Number extends Text {
      */
     onSpinButtonUpClick() {
         let me       = this,
-            oldValue = me.value || (me.minValue - me.stepSize),
-            value    = Math.min(me.maxValue, oldValue + me.stepSize);
+            stepSize = me.stepSize,
+            oldValue = Neo.isNumber(me.value) ? me.value : me.maxValue,
+            value    = (oldValue + stepSize) > me.maxValue ? me.minValue : (oldValue + stepSize);
 
         if (me.excludedValues) {
             while(me.excludedValues.includes(value)) {
-                value = Math.min(me.maxValue, value + me.stepSize);
+                value = Math.min(me.maxValue, value + stepSize);
             }
         }
 

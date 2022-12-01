@@ -90,21 +90,14 @@ class Base extends Container {
         }
 
         if (value) {
-            let me           = this,
-                component    = Neo.getComponent(value),
-                domListeners = component.domListeners || [];
+            let me = this;
 
-            domListeners.push({
+            Neo.getComponent(value).addDomListeners({
                 mouseenter: me.showDelayed,
-                delegate  : me.delegate,
-                scope     : me
-            }, {
                 mouseleave: me.hideDelayed,
                 delegate  : me.delegate,
                 scope     : me
             });
-
-            component.domListeners = domListeners;
         }
     }
 
@@ -120,15 +113,12 @@ class Base extends Container {
         }
 
         if (value) {
-            let me           = this,
-                domListeners = me.domListeners || [];
+            let me = this;
 
-            domListeners.push(
+            me.addDomListeners([
                 {mouseenter: me.onMouseEnter, scope: me},
                 {mouseleave: me.onMouseLeave, scope: me}
-            );
-
-            me.domListeners = domListeners;
+            ]);
         }
     }
 

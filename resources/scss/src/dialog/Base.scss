@@ -18,12 +18,9 @@
 }
 
 .neo-dialog-wrapper {
-    display  : flex;
-    left     : 50%;
-    position : absolute;
-    top      : 50%;
-    transform: translate(-50%, -50%);
-    z-index  : 20; // ensure to be on top of table headers
+    display : flex;
+    position: absolute;
+    z-index : 20; // ensure to be on top of table headers
 
     transition-duration       : 200ms;
     transition-property       : height, left, top, transform, width;
@@ -47,9 +44,11 @@
 }
 
 .neo-dialog {
-    border  : 1px solid v(dialog-border-color);
-    flex    : 1 0 auto;
-    position: relative;
+    border        : 1px solid v(dialog-border-color);
+    display       : flex;
+    flex          : 1 0 auto;
+    flex-direction: column;
+    position      : relative;
 
     &.neo-panel {
         .neo-footer-toolbar {

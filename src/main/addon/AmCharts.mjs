@@ -230,7 +230,7 @@ class AmCharts extends Base {
             this.setProperty({
                 id   : data.id,
                 path : key,
-                value: value
+                value
             })
         });
     }

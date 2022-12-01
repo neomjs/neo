@@ -17,7 +17,7 @@ class Button extends BaseButton {
          */
         ntype: 'tab-header-button',
         /**
-         * @member {Array} cls=['neo-button', 'neo-tab-button']
+         * @member {Array} cls=['neo-button','neo-tab-button']
          */
         cls: ['neo-tab-header-button', 'neo-button'],
         /**
@@ -28,9 +28,13 @@ class Button extends BaseButton {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'button', cn: [
+        {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
+            {cls: ['neo-button-badge']},
+            {cls: ['neo-button-ripple-wrapper'], cn: [
+                    {cls: ['neo-button-ripple']}
+                ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
     }}
@@ -46,13 +50,20 @@ class Button extends BaseButton {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Object} data
+     */
+    showRipple(data) {
+        !this.pressed && super.showRipple(data);
+    }
+
+    /**
+     * @param {Boolean} silent=false
      */
     updateUseActiveTabIndicator(silent=false) {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[2].removeDom = !me.useActiveTabIndicator;
+        vdom.cn[4].removeDom = !me.useActiveTabIndicator;
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
     }

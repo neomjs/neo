@@ -251,4 +251,28 @@ StartTest(t => {
         t.isStrict(collection3.getCount(), 5, 'collection3 count is 5');
         t.isStrict(collection3.allItems.getCount(), 9, 'collection3 allItems count is 9');
     });
+
+    t.it('Add & remove at same time', t => {
+        collection = Neo.create(Collection, {
+            items: [
+                {id: 'a'},
+                {id: 'b'},
+                {id: 'c'},
+                {id: 'd'},
+                {id: 'e'},
+                {id: 'f'}
+            ]
+        });
+
+        collection.splice(2, [{id: 'a'}, {id: 'd'}, {id: 'f'}], [{id: 'x'}, {id: 'y'}, {id: 'z'}]);
+
+        t.isDeeplyStrict(collection.getRange(), [
+            {id: 'b'},
+            {id: 'c'},
+            {id: 'x'},
+            {id: 'y'},
+            {id: 'z'},
+            {id: 'e'}
+        ], 'collection.getRange()');
+    });
 });

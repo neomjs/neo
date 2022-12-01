@@ -53,6 +53,17 @@ class Base extends CoreBase {
     onHashChange(value, oldValue) {
 
     }
+
+    /**
+     *
+     */
+    onConstructed() {
+        let currentHash = HashHistory.first();
+
+        currentHash && this.onHashChange(currentHash, null);
+
+        super.onConstructed();
+    }
 }
 
 Neo.applyClassConfig(Base);

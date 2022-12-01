@@ -23,11 +23,6 @@ class HashHistory extends Base {
          */
         className: 'Neo.util.HashHistory',
         /**
-         * @member {String} ntype='hash-history'
-         * @protected
-         */
-        ntype: 'hash-history',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -65,15 +60,16 @@ class HashHistory extends Base {
      * @param {String} data.hashString
      */
     push(data) {
-        let me = this;
+        let me    = this,
+            stack = me.stack;
 
-        me.stack.unshift(data);
+        stack.unshift(data);
 
-        if (me.stack.length > me.maxItems) {
-            me.stack.length = me.maxItems;
+        if (stack.length > me.maxItems) {
+            stack.pop();
         }
 
-        me.fire('change', data, me.stack[1]);
+        me.fire('change', data, stack[1] || null);
     }
 }
 

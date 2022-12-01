@@ -28,17 +28,13 @@ class DropZone extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            owner        = me.owner,
-            domListeners = owner.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.owner.addDomListeners([
             {'drop'      : me.onDrop,      scope: me},
             {'drop:enter': me.onDropEnter, scope: me},
             {'drop:leave': me.onDropLeave, scope: me}
-        );
-
-        owner.domListeners = domListeners;
+        ]);
     }
 
     /**

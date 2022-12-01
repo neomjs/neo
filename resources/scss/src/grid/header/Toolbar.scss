@@ -1,3 +1,7 @@
 .neo-grid-header-toolbar {
-
+    border-bottom: 2px solid v(grid-container-border-color);
+    border-top   : 1px solid v(grid-container-border-color);
+    padding      : 0;
+    position     : sticky;
+    top          : 0;
 }

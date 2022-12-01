@@ -22,6 +22,10 @@ class ColorsList extends List {
          */
         cls: ['neo-calendars-colors-list', 'neo-list'],
         /**
+         * @member {Boolean} useWrapperNode=false
+         */
+        useWrapperNode: false,
+        /**
          * The list gets used as a form field, so we are adjusting the selection based on this config
          * @member {String} value_=null
          */
@@ -61,6 +65,20 @@ class ColorsList extends List {
             backgroundColor: `var(--event-${record.name}-color)`,
             color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
         }};
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom;
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode;
     }
 
     /**

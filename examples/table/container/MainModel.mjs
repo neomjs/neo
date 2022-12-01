@@ -10,16 +10,16 @@ class MainModel extends Model {
 
         fields: [{
             name: 'country',
-            type: 'string'
+            type: 'String'
         }, {
             name: 'firstname',
-            type: 'string'
+            type: 'String'
         }, {
             name: 'githubId',
-            type: 'string'
+            type: 'String'
         }, {
             name: 'lastname',
-            type: 'string'
+            type: 'String'
         }]
     }}
 }

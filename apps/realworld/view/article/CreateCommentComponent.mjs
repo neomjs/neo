@@ -46,11 +46,9 @@ class CreateCommentComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners,
-            vdom         = me.vdom;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onSubmitButtonClick,
                 delegate: '.btn-primary',
@@ -58,10 +56,8 @@ class CreateCommentComponent extends Component {
             }
         });
 
-        me.domListeners = domListeners;
-
-        vdom.cn[0].cn[0].id = me.getInputElId();
-        me.vdom = vdom;
+        me.vdom.cn[0].cn[0].id = me.getInputElId();
+        me.update();
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,
@@ -77,10 +73,8 @@ class CreateCommentComponent extends Component {
      */
     afterSetUserImage(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            vdom.cn[1].cn[0].src = value;
-            this.vdom = vdom;
+            this.vdom.cn[1].cn[0].src = value;
+            this.update();
         }
     }
 
@@ -92,10 +86,8 @@ class CreateCommentComponent extends Component {
      */
     afterSetUserName(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            vdom.cn[1].cn[2].html = value;
-            this.vdom = vdom;
+            this.vdom.cn[1].cn[2].html = value;
+            this.update();
         }
     }
 
@@ -135,10 +127,8 @@ class CreateCommentComponent extends Component {
                     }
                 })
             }).then(data => {
-                let vdom = me.vdom;
-
-                vdom.cn[0].cn[0].value = ''; // reset the textarea value
-                me.vdom = vdom;
+                me.vdom.cn[0].cn[0].value = ''; // reset the textarea value
+                me.update();
             });
         });
     }

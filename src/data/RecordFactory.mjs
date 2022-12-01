@@ -28,9 +28,9 @@ class RecordFactory extends Base {
          */
         ovPrefix: 'ov_',
         /**
-         * @member {String} recordNamespace='Neo.data.record.'
+         * @member {String} recordNamespace='Neo.data.record'
          */
-        recordNamespace: 'Neo.data.record.'
+        recordNamespace: 'Neo.data.record'
     }}
 
     /**
@@ -39,7 +39,7 @@ class RecordFactory extends Base {
      * @returns {Object}
      */
     createRecord(model, config) {
-        let recordClass = Neo.ns(this.recordNamespace + model.className);
+        let recordClass = Neo.ns(`${this.recordNamespace}.${model.className}.${model.id}`);
 
         if (!recordClass) {
             recordClass = this.createRecordClass(model);
@@ -54,7 +54,7 @@ class RecordFactory extends Base {
      */
     createRecordClass(model) {
         if (model instanceof Model) {
-            let className = this.recordNamespace + model.className,
+            let className = `${this.recordNamespace}.${model.className}.${model.id}`,
                 ns        = Neo.ns(className),
                 key, nsArray;
 
@@ -76,8 +76,15 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let parsedValue = instance.parseRecordValue(field, config[field.name]),
-                                    symbol      = Symbol.for(field.name);
+                                let value  = config[field.name],
+                                    symbol = Symbol.for(field.name),
+                                    parsedValue;
+
+                                if (!Object.hasOwn(config, field.name) && Object.hasOwn(field, 'defaultValue')) {
+                                    value = field.defaultValue;
+                                }
+
+                                parsedValue = instance.parseRecordValue(me, field, value, config);
 
                                 properties = {
                                     [Symbol.for('isRecord')]: {
@@ -97,9 +104,9 @@ class RecordFactory extends Base {
                                             let me       = this,
                                                 oldValue = me[symbol];
 
-                                            if (!Neo.isEqual(value, oldValue)) {
-                                                value = instance.parseRecordValue(field, value);
+                                            value = instance.parseRecordValue(me, field, value);
 
+                                            if (!Neo.isEqual(value, oldValue)) {
                                                 me[symbol] = value;
 
                                                 me._isModified = true;
@@ -221,15 +228,63 @@ class RecordFactory extends Base {
 
     /**
      * todo: parse value for more field types
+     * @param {Object} record
      * @param {Object} field
      * @param {*} value
+     * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(field, value) {
-        const type = field?.type.toLowerCase();
+    parseRecordValue(record, field, value, recordConfig=null) {
+        let fieldName = field.name,
+            mapping   = field.mapping,
+            maxLength = field.maxLength,
+            minLength = field.minLength,
+            nullable  = field.nullable,
+            oldValue  = recordConfig?.[fieldName] || record[fieldName],
+            type      = field.type?.toLowerCase();
 
-        if (type === 'date') {
+        // only trigger mappings for initial values
+        // dynamic changes of a field will not pass the recordConfig
+        if (mapping && recordConfig) {
+            let ns  = mapping.split('.'),
+                key = ns.pop();
+
+            ns    = Neo.ns(ns, true, recordConfig);
+            value = ns[key];
+        }
+
+        if (Object.hasOwn(field, 'maxLength')) {
+            if (value?.toString().length > maxLength) {
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with maxLength: ${maxLength}`);
+                return oldValue;
+            }
+        }
+
+        if (Object.hasOwn(field, 'minLength')) {
+            if (value?.toString().length < minLength) {
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with minLength: ${minLength}`);
+                return oldValue;
+            }
+        }
+
+        if (Object.hasOwn(field, 'nullable')) {
+            if (nullable === false && value === null) {
+                console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with nullable: ${nullable}`);
+                return oldValue;
+            }
+        }
+
+        if (type === 'date' && Neo.typeOf(value) !== 'Date') {
             return new Date(value);
+        }
+
+        if (type === 'html' && value) {
+            value = value + '';
+        }
+
+        if (type === 'string' && value) {
+            value = value + '';
+            value =  value.replace(/(<([^>]+)>)/ig, '');
         }
 
         return value;
@@ -247,9 +302,11 @@ class RecordFactory extends Base {
 
         Object.entries(fields).forEach(([key, value]) => {
             oldValue = record[key];
+            value    = instance.parseRecordValue(record, model.getField(key), value);
 
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
+                record._isModified = true;
                 changedFields.push({name: key, oldValue, value});
             }
         });

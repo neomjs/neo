@@ -59,8 +59,8 @@ class NumberContainer extends Container {
         if (oldValue !== undefined) {
             this.fire('operatorChange', {
                 component: this,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }
@@ -74,8 +74,8 @@ class NumberContainer extends Container {
         if (oldValue !== undefined) {
             this.fire('change', {
                 component: this,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }

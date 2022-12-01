@@ -13,13 +13,15 @@ class Mouse extends Base {
          */
         className: 'Neo.main.draggable.sensor.Mouse',
         /**
-         * @member {Number} delay=0
+         * Delay in ms before a drag OP starts.
+         * Useful to avoid drag OPs on double-clicks.
+         * @member {Number} delay=100
          */
-        delay: 0,
+        delay: 100,
         /**
-         * @member {Number} minDistance=1
+         * @member {Number} minDistance=5
          */
-        minDistance: 1,
+        minDistance: 5,
         /**
          * @member {Number} mouseDownTime=0
          */

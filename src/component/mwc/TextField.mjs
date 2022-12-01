@@ -77,14 +77,11 @@ class TextField extends Component {
             Neo.main.addon.Mwc.loadTextFieldModule();
         }
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {input: me.onInputValueChange, scope: me}
         );
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -191,8 +188,8 @@ class TextField extends Component {
 
         me.fire('change', {
             component: me,
-            oldValue : oldValue,
-            value    : value
+            oldValue,
+            value
         });
     }
 

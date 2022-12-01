@@ -67,18 +67,15 @@ class SignUpComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onSubmitButtonClick,
                 delegate: '.btn-primary',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -89,8 +86,7 @@ class SignUpComponent extends Component {
      */
     afterSetErrors(value, oldValue) {
         let me   = this,
-            list = me.getErrorMessagesList(),
-            vdom = me.vdom;
+            list = me.getErrorMessagesList();
 
         list.cn = [];
 
@@ -101,7 +97,7 @@ class SignUpComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -112,8 +108,7 @@ class SignUpComponent extends Component {
      */
     afterSetFieldsets(value, oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            form = vdom.cn[0].cn[0].cn[0].cn[3];
+            form = me.vdom.cn[0].cn[0].cn[0].cn[3];
 
         // slice().reverse() => iterate backwards
         value.slice().reverse().forEach(item => {
@@ -131,7 +126,7 @@ class SignUpComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -143,8 +138,7 @@ class SignUpComponent extends Component {
     afterSetMode(value, oldValue) {
         let me         = this,
             isSignup   = value === 'signup',
-            vdom       = me.vdom,
-            contentDiv = vdom.cn[0].cn[0].cn[0];
+            contentDiv = me.vdom.cn[0].cn[0].cn[0];
 
         // vdom bulk update
         contentDiv.cn[0].html = isSignup ? 'Sign up' : 'Sign in';
@@ -158,7 +152,7 @@ class SignUpComponent extends Component {
         // submit button text
         contentDiv.cn[3].cn[0].cn[3].html = isSignup ? 'Sign up' : 'Sign in';
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

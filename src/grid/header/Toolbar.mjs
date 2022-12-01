@@ -17,81 +17,68 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'grid-header-toolbar',
         /**
-         * @member {Array} cls=['neo-grid-header-toolbar']
+         * @member {Array} cls=['neo-grid-header-toolbar','neo-toolbar']
          */
-        cls: ['grid-header-toolbar'],
-        /**
-         * @member {String} _layout='base'
-         * @protected
-         */
-        _layout  : 'base',
+        cls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Object} itemDefaults={ntype:'grid-header-button'}
          * @protected
          */
         itemDefaults: {
             ntype: 'grid-header-button'
-        },
-        /**
-         * @member {Object} _vdom
-         * @protected
-         */
-        _vdom:
-        {cn: [
-            {cls: ['neo-grid-row'], cn: []}
-        ]}
+        }
     }}
 
     /**
-     * @param {Array} items
+     *
      */
-    createItems(items) {
-        let me = this,
-            cn = [],
-            i  = 0,
-            len, vdom;
+    createItems() {
+        let me = this;
+
+        me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
         super.createItems();
 
-        items = me.items;
-        len   = items.length;
-        vdom  = me.vdom;
+        let dockLeftWidth  = 0,
+            dockRightWidth = 0,
+            items          = me.items,
+            len            = items.length,
+            style;
 
-        for (; i < len; i++) {
-            cn.push(items[i]._vdom = {
-                cls: ['neo-grid-header-cell'],
-                cn : items[i].vdom
-            });
+        items.forEach((item, index) => {
+            style = item.wrapperStyle;
 
-            //items[i].vdom.cls = []; // remove the button cls from the th tag
-        }
+            // todo: only add px if number
+            if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
+            if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
+            if (item.width)    {style.width    = item.width    + 'px'}
 
-        vdom.cn[0].cn = cn;
+            if (item.dock) {
+                item.vdom.cls.push('neo-locked');
 
-        me.vdom = vdom;
-    }
+                if (item.dock === 'left') {
+                    style.left = dockLeftWidth + 'px';
+                }
 
-    /**
-     * @param dock
-     * @returns {String} layoutConfig
-     * @override
-     */
-    getLayoutConfig(dock) {
-        return 'base';
-    }
+                dockLeftWidth += (item.width + 1); // todo: borders fix
+            }
 
-    /**
-     * @returns {Object}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
+            item.wrapperStyle = style;
 
-    /**
-     * @returns {Object}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
+            // inverse loop direction
+            item = items[len - index -1];
+
+            if (item.dock === 'right') {
+                style = item.wrapperStyle;
+                style.right = dockRightWidth + 'px';
+
+                item.wrapperStyle = style;
+
+                dockRightWidth += (item.width + 1); // todo: borders fix
+            }
+        });
+
+        me.update();
     }
 }
 

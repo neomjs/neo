@@ -10,6 +10,12 @@ import VNodeUtil    from '../../util/VNode.mjs';
  * @extends Neo.form.field.Base
  */
 class Text extends Base {
+    /**
+     * Set this value to false, in case a field should display errors up front
+     * @member {Boolean} validBeforeMount=true
+     */
+    validBeforeMount = true
+
     static getStaticConfig() {return {
         /**
          * Valid values for autoCapitalize
@@ -72,9 +78,17 @@ class Text extends Base {
          */
         cls: ['neo-textfield'],
         /**
+         * @member {String|null} error_=null
+         */
+        error_: null,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
+        /**
+         * @member {RegExp|null} inputPattern=null
+         */
+        inputPattern_: null,
         /**
          * @member {String} inputType_='text'
          */
@@ -93,6 +107,16 @@ class Text extends Base {
          * @member {Number|String} labelWidth_=150
          */
         labelWidth_: 150,
+        /**
+         * The maximum amount of chars which you can enter into this field
+         * @member {Number|null} maxLength_=null
+         */
+        maxLength_: null,
+        /**
+         * The minimum amount of chars which you can enter into this field
+         * @member {Number|null} minLength_=null
+         */
+        minLength_: null,
         /**
          * @member {String|null} placeholderText_=null
          */
@@ -116,7 +140,8 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: ['neo-textfield-label'], style: {}},
-            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}}
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
+            {cls: ['neo-textfield-error'], removeDom: true}
         ]}
     }}
 
@@ -126,14 +151,11 @@ class Text extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {input: me.onInputValueChange, scope: me}
         );
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -205,6 +227,16 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the error config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetError(value, oldValue) {
+        this.updateError(value);
+    }
+
+    /**
      * Triggered after the hideLabel config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -212,11 +244,9 @@ class Text extends Base {
      */
     afterSetHideLabel(value, oldValue) {
         let me   = this,
-            vdom = me.vdom;
+            node = me.labelPosition === 'inline' ? me.getCenterBorderEl() : me.vdom.cn[0];
 
-        vdom.cn[0].removeDom = value;
-        me._vdom = vdom; // silent update
-
+        node.removeDom = value;
         me.updateInputWidth();
     }
 
@@ -238,6 +268,16 @@ class Text extends Base {
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId(value, oldValue);
+    }
+
+    /**
+     * Triggered after the inputPattern config got changed
+     * @param {RegExp|null} value
+     * @param {RegExp|null} oldValue
+     * @protected
+     */
+    afterSetInputPattern(value, oldValue) {
+
     }
 
     /**
@@ -263,25 +303,22 @@ class Text extends Base {
 
         NeoArray.remove(cls, 'label-' + oldValue);
         NeoArray.add(cls, 'label-' + value);
-        me[oldValue === 'inline' || value === 'inline' ? '_cls' : 'cls'] = cls; // silent update if needed
+        me.cls = cls; // todo: silent update if needed
 
         if (oldValue === 'inline') {
             vdom = me.vdom;
 
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
-            vdom.cn[0].width = me.labelWidth;
-
-            me._vdom = vdom; // silent update
+            vdom.cn[0].removeDom = me.hideLabel;
+            vdom.cn[0].width     = me.labelWidth;
             me.updateInputWidth();
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
             isEmpty           = me.isEmpty();
             vdom              = me.vdom;
 
-            if (!isEmpty) {
-                centerBorderElCls.push('neo-float-above');
-            }
+            !isEmpty && centerBorderElCls.push('neo-float-above');
 
             delete vdom.cn[0].width;
 
@@ -290,21 +327,22 @@ class Text extends Base {
                 cn : [{
                     cls: ['neo-left-border']
                 }, {
-                    cls: centerBorderElCls,
-                    cn : [vdom.cn[0]]
+                    cls      : centerBorderElCls,
+                    cn       : [vdom.cn[0]],
+                    removeDom: me.hideLabel
                 }, {
                     cls: ['neo-right-border']
                 }]
             };
 
-            me._vdom = vdom; // silent update
             me.updateInputWidth();
 
-            if (!isEmpty) {
-                setTimeout(() => {
-                    me.updateCenterBorderElWidth(false);
-                }, 20);
-            }
+            !isEmpty && setTimeout(() => {
+                me.updateCenterBorderElWidth(false);
+            }, 20);
+        } else {
+            // changes from e.g. left to top
+            me.updateInputWidth();
         }
     }
 
@@ -316,24 +354,21 @@ class Text extends Base {
      */
     afterSetLabelText(value, oldValue) {
         let me      = this,
-            isEmpty = me.isEmpty(),
-            vdom    = me.vdom;
+            isEmpty = me.isEmpty();
 
         me.getLabelEl().innerHTML = value;
 
-        if (me.hideLabel) {
-            me._vdom = vdom; // silent update
-        } else {
+        if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {
                 if (!isEmpty) {
                     delete me.getCenterBorderEl().width;
                 }
 
-                me.promiseVdomUpdate(vdom).then(() => {
+                me.promiseVdomUpdate().then(() => {
                     me.updateCenterBorderElWidth(isEmpty);
                 });
             } else {
-                me.vdom = vdom;
+                me.update();
             }
         }
     }
@@ -351,11 +386,30 @@ class Text extends Base {
                 label = vdom.cn[0];
 
             label.width = value;
-
-            me._vdom = vdom; // silent update
-
             !me.hideLabel && me.updateInputWidth();
         }
+    }
+
+    /**
+     * Triggered after the maxLength config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetMaxLength(value, oldValue) {
+        this.validate(); // silent
+        this.changeInputElKey('maxlength', value);
+    }
+
+    /**
+     * Triggered after the minLength config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetMinLength(value, oldValue) {
+        this.validate(); // silent
+        this.changeInputElKey('minlength', value);
     }
 
     /**
@@ -407,6 +461,7 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
+        this.validate(); // silent
         this.changeInputElKey('required', value ? value : null);
     }
 
@@ -492,18 +547,25 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me  = this,
+            cls = me.cls;
+
+        me.silentVdomUpdate = true;
 
         me.getInputEl().value = value;
 
-        if (!!value !== !!oldValue) { // change from empty to non empty
-            NeoArray[value && value.toString().length > 0 ? 'add' : 'remove'](me._cls, 'neo-has-content');
+        if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
+            NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
         }
 
-        NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
+        NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        me.cls = cls;
 
-        me.vdom = vdom;
+        me.validate(); // silent
+
+        me.silentVdomUpdate = false;
+
+        me.update();
 
         super.afterSetValue(value, oldValue); // fires the change event
     }
@@ -605,8 +667,7 @@ class Text extends Base {
      * @param {Array|Number|Object|String|null} value
      */
     changeInputElKey(key, value) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (value || Neo.isBoolean(value) || value === 0) {
             me.getInputEl()[key] = value;
@@ -614,7 +675,7 @@ class Text extends Base {
             delete me.getInputEl()[key];
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -776,13 +837,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
-        let me = this;
-
-        if (me.required && (!me.value || me.value?.length < 1)) {
-            return false;
-        }
-
-        return super.isValid();
+        return this.error?.length > 0 ? false : super.isValid();
     }
 
     /**
@@ -808,17 +863,15 @@ class Text extends Base {
      */
     onFocusEnter(data) {
         let me  = this,
-            cls = me.cls,
-            vdom;
+            cls = me.cls;
 
         NeoArray.add(cls, 'neo-focus');
         me.cls = cls;
 
         if (me.labelPosition === 'inline') {
             if (me.centerBorderElWidth) {
-                vdom = me.vdom;
                 me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.vdom = vdom;
+                me.update();
             } else {
                 me.updateCenterBorderElWidth(false);
             }
@@ -833,19 +886,18 @@ class Text extends Base {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            cls            = me.cls,
-            vdom;
+            cls            = me.cls;
+
+        me.validate(); // silent
 
         NeoArray.remove(cls, 'neo-focus');
+        me.cls = cls;
 
         if (centerBorderEl && me.isEmpty()) {
-            me._cls = cls; // silent update
-            vdom = me.vdom;
             delete centerBorderEl.width;
-            me.vdom = vdom;
-        } else {
-            me.cls = cls;
         }
+
+        me.update();
     }
 
     /**
@@ -863,7 +915,9 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        if (value !== oldValue) {
+        if (me.inputPattern && !me.inputPattern.test(value) ) {
+            me.afterSetValue(oldValue, value);
+        } else if (value !== oldValue) {
             me.value = value;
         }
     }
@@ -906,11 +960,21 @@ class Text extends Base {
      * @param {String|null} [value=null]
      */
     reset(value=null) {
-        if (value && this.clearToOriginalValue) {
-            this.originalConfig.value = value;
+        let me = this;
+
+        if (me.clearToOriginalValue) {
+            if (value) {
+                me.originalConfig.value = value;
+            } else {
+                value = me.originalConfig.value
+            }
         }
 
         super.reset(value);
+
+        if (value === null && me.validBeforeMount) {
+            me.updateError(null);
+        }
     }
 
     /**
@@ -925,12 +989,41 @@ class Text extends Base {
             me.centerBorderElWidth = Math.round(data.width * .7) + 8;
 
             if (!silent) {
-                let vdom = me.vdom;
-
                 me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.vdom = vdom;
+                me.update();
             }
         });
+    }
+
+    /**
+     @param {String|null} value
+     @param {Boolean} silent=false
+     */
+    updateError(value, silent=false) {
+        let me  = this,
+            cls = me.cls,
+            errorNode, isValid;
+
+        if (!(me.validBeforeMount && !me.mounted)) {
+            me._error = value;
+
+            isValid = !value || value === '';
+
+            NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
+            me.cls = cls; // todo: silent update
+
+            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+
+            if (!isValid) {
+                errorNode.html = me.error;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = isValid;
+
+            !silent && me.update();
+        }
     }
 
     /**
@@ -939,16 +1032,15 @@ class Text extends Base {
      */
     updateInputWidth() {
         let me         = this,
-            inputWidth = me.getInputWidth(),
-            vdom       = me.vdom;
+            inputWidth = me.getInputWidth();
 
         if (inputWidth !== null && inputWidth !== me.width) {
-            vdom.cn[1].width = inputWidth;
+            me.vdom.cn[1].width = inputWidth;
         } else {
-            delete vdom.cn[1].width;
+            delete me.vdom.cn[1].width;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -970,6 +1062,46 @@ class Text extends Base {
                 _mounted : true
             });
         });
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            errorField  = silent ? '_error' : 'error',
+            maxLength   = me.maxLength,
+            minLength   = me.minLength,
+            required    = me.required,
+            returnValue = true,
+            value       = me.value,
+            valueLength = value?.toString().length,
+            isEmpty     = !value || valueLength < 1;
+
+        if (required && isEmpty) {
+            me[errorField] = 'Required';
+            returnValue = false;
+        } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            if (required || !isEmpty) {
+                me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
+                returnValue = false;
+            }
+        } else if (Neo.isNumber(minLength) && valueLength < minLength) {
+            if (required || !isEmpty) {
+                me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+                returnValue = false;
+            }
+        }
+
+        if (returnValue) {
+            me[errorField] = null;
+        }
+
+        silent && me.updateError(me[errorField], true);
+
+        return !returnValue ? false : super.validate(silent);
     }
 }
 

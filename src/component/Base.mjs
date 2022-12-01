@@ -18,6 +18,13 @@ import VNodeUtil        from '../util/VNode.mjs';
 class Base extends CoreBase {
     static getStaticConfig() {return {
         /**
+         * Valid values for hideMode
+         * @member {String[]} hideModes=['removeDom','visibility']
+         * @protected
+         * @static
+         */
+        hideModes: ['removeDom', 'visibility'],
+        /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
@@ -69,6 +76,11 @@ class Base extends CoreBase {
          */
         bind: null,
         /**
+         * CSS selectors to apply to the root level node of this component
+         * @member {String[]} cls_=null
+         */
+        cls_: null,
+        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
@@ -98,7 +110,7 @@ class Base extends CoreBase {
          * afterSetStayOnHover(value, oldValue) {
          *     if (value) {
          *         let me           = this,
-         *             domListeners = me.domListeners || [];
+         *             domListeners = me.domListeners;
          *
          *         domListeners.push(
          *             {mouseenter: me.onMouseEnter, scope: me},
@@ -147,6 +159,18 @@ class Base extends CoreBase {
          * @member {Number|String|null} height_=null
          */
         height_: null,
+        /**
+         * Initial setting to hide or show the component and
+         * you can use either hide()/show() or change this config directly to change the hidden state
+         * @member {Boolean} hidden_=false
+         */
+        hidden_: false,
+        /**
+         * Used for hide and show and defines if the component
+         * should use css visibility:'hidden' or vdom:removeDom
+         * @member {String} hideMode_='removeDom'
+         */
+        hideMode_: 'removeDom',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
@@ -231,10 +255,10 @@ class Base extends CoreBase {
          */
         silentVdomUpdate: false,
         /**
-         * Top level style attributes
-         * @member {Object} style={}
+         * Style attributes added to this vdom root. see: getVdomRoot()
+         * @member {Object} style_=null
          */
-        style: {},
+        style_: null,
         /**
          * Add tooltip config objects
          * See tooltip/Base.mjs
@@ -253,6 +277,10 @@ class Base extends CoreBase {
          */
         width_: null,
         /**
+         * @member {String[]|null} wrapperCls_=null
+         */
+        wrapperCls_: null,
+        /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_=null
          */
@@ -263,44 +291,6 @@ class Base extends CoreBase {
          */
         _vdom: {}
     }}
-
-    /**
-     * CSS selectors to apply to the top level node of this component
-     * @member {String[]} cls=[]
-     */
-    get cls() {
-        return this._cls ? Neo.clone(this._cls) : [];
-    }
-    set cls(value) {
-        value = value ? value : [];
-
-        let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot(),
-            oldCls;
-
-        if (typeof value === 'string') {
-            value = value.split('');
-        }
-
-        if (me.mounted) {
-            oldCls = Neo.clone(me._cls);
-        }
-
-        me._cls = value;
-
-        if (vdomRoot) {
-            vdomRoot.cls = [...value];
-        }
-
-        me._vdom = vdom; // silent update
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else if (me.mounted) {
-            me.updateCls(value, oldCls);
-        }
-    }
 
     /**
      * Apply component based listeners
@@ -332,23 +322,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Top level style attributes
-     * @member {Object} style={}
-     */
-    get style() {
-        // we need to "clone" the object, otherwise changes will get applied directly and there are no deltas
-        // this only affects non vdom related style to DOM deltas
-        return Neo.clone(this._style || {});
-    }
-    set style(value) {
-        let me       = this,
-            oldStyle = me.style; // cloned => getter
-
-        me._style = value;
-        me.updateStyle(value, oldStyle);
-    }
-
-    /**
      * The setter will handle vdom updates automatically
      * @member {Object} vdom=this._vdom
      */
@@ -356,50 +329,34 @@ class Base extends CoreBase {
         return this._vdom;
     }
     set vdom(value) {
-        let me       = this,
-            app      = Neo.apps[me.appName],
-            vdom     = value,
-            vdomRoot = me.getVdomRoot(),
-            listenerId;
+        this.afterSetVdom(value, value);
+    }
 
-        if (vdomRoot && me.cls) {
-            vdomRoot.cls = me.cls;
+    /**
+     * Add a new cls to the vdomRoot
+     * @param {String} value
+     */
+    addCls(value) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, value);
+        this.cls = cls;
+    }
+
+    /**
+     * Convenience shortcut to add additional dom listeners
+     * @param {Object|Object[]} value
+     */
+    addDomListeners(value) {
+        if (!Array.isArray(value)) {
+            value = [value];
         }
 
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
+        let domListeners = this.domListeners;
 
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
-            });
+        domListeners.push(...value);
 
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
-        }
-
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
-
-                listenerId = app.on('mounted', () => {
-                    app.un('mounted', listenerId);
-
-                    setTimeout(() => {
-                        me.updateVdom(me.vdom, me.vnode);
-                    }, 50);
-                });
-            } else if (me.mounted) {
-                me.updateVdom(vdom, me.vnode);
-            }
-
-            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
-        }
+        this.domListeners = domListeners;
     }
 
     /**
@@ -426,6 +383,38 @@ class Base extends CoreBase {
      */
     afterSetAppName(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+    }
+
+    /**
+     * Triggered after the cls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetCls(value, oldValue) {
+        oldValue = oldValue || [];
+        value    = value    || [];
+
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls;
+
+        if (vdom !== vdomRoot) {
+            // we are using a wrapper node
+            vdomRoot.cls = [...value];
+        } else {
+            // we need to merge changes
+            cls = NeoArray.union(me.wrapperCls, value);
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            vdom.cls = cls;
+        }
+
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue, vdomRoot.id);
+        }
     }
 
     /**
@@ -458,12 +447,16 @@ class Base extends CoreBase {
 
     /**
      * Registers the domListeners inside the Neo.manager.DomEvent
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     afterSetDomListeners(value, oldValue) {
-        DomEventManager.updateDomListeners(this, value, oldValue);
+        let me = this;
+
+        me.getController()?.parseDomListeners(me);
+
+        DomEventManager.updateDomListeners(me, value, oldValue);
     }
 
     /**
@@ -518,6 +511,18 @@ class Base extends CoreBase {
      */
     afterSetHeight(value, oldValue) {
         this.changeVdomRootKey('height', value);
+    }
+
+    /**
+     * Triggered after the hidden config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHidden(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this[value ? 'hide' : 'show']();
+        }
     }
 
     /**
@@ -610,6 +615,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the style config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetStyle(value, oldValue) {
+        if (!(!value && oldValue === undefined)) {
+            this.updateStyle(value, oldValue);
+        }
+    }
+
+    /**
      * Triggered after the tooltips config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -630,15 +647,59 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the vdom config got changed
+     * @param {Object} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetVdom(value, oldValue) {
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            vdom = value,
+            listenerId;
+
+        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
+        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
+        // the content over seems to be the best strategy
+        if (me._vdom !== vdom) {
+            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
+
+            Object.keys(me._vdom).forEach(key => {
+                delete me._vdom[key];
+            });
+
+            vdom = Object.assign(me._vdom, vdom);
+        }
+
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else {
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                me.hasRenderingListener = true;
+
+                listenerId = app.on('mounted', () => {
+                    app.un('mounted', listenerId);
+
+                    setTimeout(() => {
+                        me.vnode && me.updateVdom(me.vdom, me.vnode);
+                    }, 50);
+                });
+            } else if (me.mounted) {
+                me.vnode && me.updateVdom(vdom, me.vnode);
+            }
+
+            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
+        }
+    }
+
+    /**
      * Triggered after the vnode config got changed
      * @param {Object} value
      * @param {Object|null} oldValue
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.syncVnodeTree();
-        }
+        oldValue !== undefined && this.syncVnodeTree();
     }
 
     /**
@@ -652,6 +713,46 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the wrapperCls config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetWrapperCls(value, oldValue) {
+        oldValue = oldValue || [];
+        value    = value    || [];
+
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot(),
+            cls      = me.vdom?.cls || [];
+
+        if (vdom === vdomRoot) {
+            // we need to merge changes
+            cls = NeoArray.union(cls, value);
+            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            vdom.cls = cls;
+
+        } else {
+            // we are not using a wrapper => cls & wrapperCls share the same node
+            value = value ? value : [];
+
+            oldValue && NeoArray.remove(cls, oldValue);
+            NeoArray.add(cls, value);
+
+            if (vdom) {
+                vdom.cls = cls;
+            }
+        }
+
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
+            me.updateCls(value, oldValue);
+        }
+    }
+
+    /**
      * Triggered after the wrapperStyle config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -662,13 +763,22 @@ class Base extends CoreBase {
             let me   = this,
                 vdom = me.vdom;
 
-            if (!me.vdom.id) {
+            if (!vdom.id) {
                 vdom.style = value;
-                me.vdom = vdom;
+                me.update();
             } else {
-                me.updateStyle(value, oldValue, me.vdom.id);
+                me.updateStyle(value, oldValue, vdom.id);
             }
         }
+    }
+
+    /**
+     * Triggered when accessing the cls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetCls(value) {
+        return value ? [...value]: [];
     }
 
     /**
@@ -680,6 +790,24 @@ class Base extends CoreBase {
      */
     beforeGetData(value) {
         return this.getModel().getHierarchyData();
+    }
+
+    /**
+     * Triggered when accessing the style config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetStyle(value) {
+        return {...value};
+    }
+
+    /**
+     * Triggered when accessing the wrapperCls config
+     * @param {String[]|null} value
+     * @protected
+     */
+    beforeGetWrapperCls(value) {
+        return value ? [...value]: [];
     }
 
     /**
@@ -723,6 +851,16 @@ class Base extends CoreBase {
         }
 
         return value || [];
+    }
+
+    /**
+     * Triggered before the hideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+     beforeSetHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode');
     }
 
     /**
@@ -794,8 +932,7 @@ class Base extends CoreBase {
      */
     changeVdomRootKey(key, value) {
         let me   = this,
-            root = me.getVdomRoot(),
-            vdom = me.vdom;
+            root = me.getVdomRoot();
 
         if (value) {
             root[key] = value;
@@ -803,7 +940,7 @@ class Base extends CoreBase {
             delete root[key];
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -955,7 +1092,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({ appName, id });
+        return Neo.main.DomAccess.getBoundingClientRect({appName, id});
     }
 
     /**
@@ -1062,6 +1199,36 @@ class Base extends CoreBase {
     }
 
     /**
+     * Hide the component.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     * If hideMode === 'removeDom' you can pass a timeout for custom css class hiding.
+     * @param {Number} timeout
+     */
+    hide(timeout) {
+        let me = this;
+
+        if (me.hideMode !== 'visibility') {
+            let removeFn = function() {
+                me.vdom.removeDom = true;
+                me.update();
+            }
+
+            if (timeout) {
+                setTimeout(removeFn, timeout);
+            } else {
+                removeFn();
+            }
+        } else {
+            let style = me.style;
+            style.visibility = 'hidden';
+            me.style = style;
+        }
+
+        me._hidden = true;
+    }
+
+    /**
      *
      */
     init() {
@@ -1099,13 +1266,11 @@ class Base extends CoreBase {
         // avoid any interference on prototype level
         // does not clone existing Neo instances
         me._vdom = Neo.clone(vdom, true, true);
-        me.cls   = config.cls;
 
         me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 
-        delete config.cls;
         delete config.style;
         delete config._vdom;
         delete config.vdom;
@@ -1249,26 +1414,24 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
-        let me = this;
+        let me    = this,
+            _vdom = me.vdom;
 
         // todo: updateVdom() should handle this
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
         // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
         // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
+        if (_vdom !== vdom) {
             Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
 
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
+            Object.keys(_vdom).forEach(key => {
+                delete _vdom[key];
             });
 
-            Object.assign(me._vdom, vdom);
-        } else {
-            me._vdom = vdom;
+            vdom = Object.assign(me._vdom, vdom);
         }
 
         if (me.silentVdomUpdate) {
-            me._vdom = vdom;
             return Promise.resolve();
         }
 
@@ -1276,10 +1439,21 @@ class Base extends CoreBase {
             if (me.mounted) {
                 me.updateVdom(vdom, vnode, resolve, reject);
             } else {
-                me.vdom = vdom;
+                me.update();
                 resolve();
             }
         });
+    }
+
+    /**
+     * Remove a cls from the vdomRoot
+     * @param {String} value
+     */
+    removeCls(value) {
+        let cls = this.cls;
+
+        NeoArray.remove(cls, value);
+        this.cls = cls;
     }
 
     /**
@@ -1379,8 +1553,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.silentVdomUpdate = true;
 
@@ -1389,7 +1562,6 @@ class Base extends CoreBase {
         me.silentVdomUpdate = false;
 
         if (silent || !me.needsVdomUpdate) {
-            me._vdom = vdom;
             return Promise.resolve();
         } else {
             return me.promiseVdomUpdate();
@@ -1402,6 +1574,26 @@ class Base extends CoreBase {
      */
     setSilent(values={}) {
         return this.set(values, true);
+    }
+
+    /**
+     * Show the component.
+     * hideMode: 'removeDom'  uses vdom removeDom.
+     * hideMode: 'visibility' uses css visibility.
+     */
+    show() {
+        let me = this;
+
+        if (me.hideMode !== 'visibility') {
+            me.vdom.removeDom = false;
+            me.update();
+        } else {
+            let style = me.style;
+            style.visibility = 'visible';
+            me.style = style;
+        }
+
+        me._hidden = false;
     }
 
     /**
@@ -1473,7 +1665,17 @@ class Base extends CoreBase {
             let end = performance.now();
             console.log('syncVnodeTree', me.id, end - start);
         }
+    }
 
+    /**
+     * Toggle a cls inside the vdomRoot of the component
+     * @param {String} value
+     */
+    toggleCls(value) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, value);
+        this.cls = cls;
     }
 
     /**
@@ -1506,41 +1708,36 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     */
+    update() {
+        this.afterSetVdom(this.vdom, null);
+    }
+
+    /**
      * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
-     * @param {Array} cls
-     * @param {Array} oldCls
+     * @param {String[]} cls
+     * @param {String[]} oldCls
+     * @param {String} id=this.id
      * @protected
      */
-    updateCls(cls, oldCls) {
-        let me    = this,
-            vnode = me.vnode,
-            opts;
+    updateCls(cls, oldCls, id=this.id) {
+        let me          = this,
+            vnode       = me.vnode,
+            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
 
         if (!Neo.isEqual(cls, oldCls)) {
-            if (vnode) {
-                vnode.className = cls; // keep the vnode in sync
+            if (vnodeTarget) {
+                vnodeTarget.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
             }
 
-            opts = {
-                action: 'updateDom',
-                deltas: [{
-                    id : me.id,
-                    cls: {
-                        add   : Neo.util.Array.difference(cls, oldCls),
-                        remove: Neo.util.Array.difference(oldCls, cls)
-                    }
-                }]
-            };
-
-            if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName;
-            }
-
-            Neo.currentWorker.promiseMessage('main', opts).then(() => {
-                //console.log(me.vnode);
-            }).catch(err => {
-                console.log('Error attempting to update Component cls', err, me);
+            Neo.applyDeltas(me.appName, {
+                id,
+                cls: {
+                    add   : NeoArray.difference(cls, oldCls),
+                    remove: NeoArray.difference(oldCls, cls)
+                }
             });
         }
     }

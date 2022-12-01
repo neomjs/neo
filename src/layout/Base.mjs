@@ -44,33 +44,31 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
-        }
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
     }
 
     /**
-     * Placeholder Method
+     * Placeholder method
      * @param {Neo.component.Base} item
      * @protected
      */
     applyChildAttributes(item) {}
 
     /**
-     * Placeholder Method
+     * Placeholder method
      * @protected
      */
     applyRenderAttributes() {}
 
     /**
-     * Placeholder Method
+     * Placeholder method
      * @param {Neo.component.Base} item
      * @protected
      */
     removeChildAttributes(item) {}
 
     /**
-     * Placeholder Method
+     * Placeholder method
      * @protected
      */
     removeRenderAttributes() {}

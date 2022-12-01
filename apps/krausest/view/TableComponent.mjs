@@ -62,7 +62,6 @@ class TableComponent extends Base {
     add() {
         let me    = this,
             store = me.store,
-            vdom  = me.vdom,
             items = store.buildData();
 
         store.add(items);
@@ -75,10 +74,10 @@ class TableComponent extends Base {
 
         // this works pretty fast as well
         /*items.forEach(item => {
-            vdom.cn[0].cn.push(me.createTableRow(item));
+            me.vdom.cn[0].cn.push(me.createTableRow(item));
         });
 
-        me.vdom = vdom;*/
+        me.update();*/
     }
 
     /**

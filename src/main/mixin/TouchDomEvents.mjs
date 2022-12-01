@@ -54,7 +54,6 @@ class TouchDomEvents extends Base {
      * @param {Object} event
      */
     onTouchStart(event) {
-        console.log('onTouchStart', event);
         this.sendMessageToApp(this.getEventData(event));
     }
 }

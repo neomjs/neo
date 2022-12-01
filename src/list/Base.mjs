@@ -30,9 +30,9 @@ class Base extends Component {
          */
         autoDestroyStore: true,
         /**
-         * @member {String[]} cls=['neo-list-container','neo-list']
+         * @member {String[]} cls=['neo-list']
          */
-        cls: ['neo-list-container', 'neo-list'],
+        cls: ['neo-list'],
         /**
          * @member {Boolean} disableSelection_=false
          */
@@ -106,7 +106,11 @@ class Base extends Component {
          */
         useCheckBoxes_: false,
         /**
-         * @member {Object} _vdom={tag:'ul',cn:[]}
+         * @member {Boolean} useWrapperNode_=false
+         */
+        useWrapperNode_: false,
+        /**
+         * @member {Object} _vdom
          */
         _vdom:
         {tag: 'ul', cn: []}
@@ -118,14 +122,12 @@ class Base extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
-            click: {fn: me.onClick, scope: me}
+        me.addDomListeners({
+            click: me.onClick,
+            scope: me
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -226,6 +228,24 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the useWrapperNode config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseWrapperNode(value, oldValue) {
+        let me         = this,
+            cls        = me.cls,
+            wrapperCls = me.wrapperCls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
+        NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
+
+        me.wrapperCls = wrapperCls;
+        me.cls        = cls;
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -273,7 +293,7 @@ class Base extends Component {
 
         item = {
             tag     : me.itemTagName,
-            cls     : cls,
+            cls,
             id      : itemId,
             tabIndex: -1
         };
@@ -343,7 +363,7 @@ class Base extends Component {
      */
     createItems(silent=false) {
         let me   = this,
-            vdom = me.vdom,
+            vdom = me.getVdomRoot(),
             listItem;
 
         if (!(me.animate && !me.getPlugin('animate'))) {
@@ -354,13 +374,9 @@ class Base extends Component {
                 listItem && vdom.cn.push(listItem);
             });
 
-            if (silent) {
-                me._vdom = vdom;
-            } else {
-                me.promiseVdomUpdate().then(() => {
-                    me.fire('createItems');
-                });
-            }
+            !silent && me.promiseVdomUpdate().then(() => {
+                me.fire('createItems');
+            });
         }
     }
 
@@ -405,9 +421,10 @@ class Base extends Component {
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
             model    = this.store.model,
-            keyField = model?.getField(model.keyProperty);
+            keyField = model?.getField(model.keyProperty),
+            keyType  = keyField?.type.toLowerCase();
 
-        if (keyField?.type.toLowerCase() === 'integer' || keyField?.type.toLowerCase() === 'number') {
+        if (keyType === 'integer' || keyType === 'number') {
             itemId = parseInt(itemId);
         }
 
@@ -517,13 +534,12 @@ class Base extends Component {
      */
     onStoreRecordChange(data) {
         let me    = this,
-            index = data.index,
-            vdom  = me.vdom;
+            index = data.index;
 
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {
-            vdom.cn[index] = me.createItem(data.record, index);
-            me.vdom = vdom;
+            me.vdom.cn[index] = me.createItem(data.record, index);
+            me.update();
         }
     }
 

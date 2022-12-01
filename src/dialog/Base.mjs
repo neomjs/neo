@@ -1,5 +1,6 @@
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
+import Toolbar  from './header/Toolbar.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
 let DragZone;
@@ -12,11 +13,11 @@ class Base extends Panel {
     static getStaticConfig() {return {
         /**
          * Valid values for closeAction
-         * @member {String[]} closeActions=['close', 'hide']
+         * @member {String[]} closeActions=['close','hide']
          * @protected
          * @static
          */
-        iconPositions: ['top', 'right', 'bottom', 'left']
+        closeActions: ['close', 'hide']
     }}
 
     static getConfig() {return {
@@ -80,6 +81,10 @@ class Base extends Panel {
          * @member {Object} dragZoneConfig=null
          */
         dragZoneConfig: null,
+        /**
+         * @member {Object} headerConfig=null
+         */
+        headerConfig: null,
         /**
          * @member {Neo.toolbar.Base|null} headerToolbar=null
          */
@@ -215,11 +220,10 @@ class Base extends Panel {
      */
     afterSetMaximized(value, oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            cls  = vdom.cls;
+            cls  = me.vdom.cls; // todo: using wrapperCls
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -234,14 +238,10 @@ class Base extends Panel {
         let me = this;
 
         if (value && me.animateTargetId) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : [{
-                    action: 'removeNode',
-                    id    : me.getAnimateTargetId()
-                }]
-            });
+            Neo.applyDeltas(me.appName, {
+                action: 'removeNode',
+                id    : me.getAnimateTargetId()
+            })
         }
     }
 
@@ -391,27 +391,37 @@ class Base extends Panel {
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
             headers = me.headers || [];
 
-        if (me.draggable) {
-            cls.push('neo-draggable');
-        }
+        me.draggable && cls.push('neo-draggable');
 
-        headers.unshift({
-            cls  : cls,
-            dock : 'top',
-            id   : me.getHeaderToolbarId(),
-            items: [{
-                ntype: 'label',
-                text : me.title
-            }, '->', {
-                iconCls: 'far fa-window-maximize',
-                handler: me.maximize.bind(me)
-            }, {
-                iconCls: 'far fa-window-close',
-                handler: me.closeOrHide.bind(me)
-            }]
+        me.headerToolbar = Neo.create({
+            module   : Toolbar,
+            appName  : me.appName,
+            cls,
+            dock     : 'top',
+            flex     : 'none',
+            id       : me.getHeaderToolbarId(),
+            listeners: {headerAction: me.executeHeaderAction, scope: me},
+            title    : me.title,
+            ...me.headerConfig
         });
 
+        headers.unshift(me.headerToolbar);
+
         me.headers = headers;
+    }
+
+    /**
+     * {Object} data
+     */
+    executeHeaderAction(data) {
+        let me = this,
+
+        map = {
+            close   : me.closeOrHide,
+            maximize: me.maximize
+        };
+
+        map[data.action].call(me, data);
     }
 
     /**
@@ -480,7 +490,7 @@ class Base extends Panel {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} [data]
      */
     maximize(data) {
         let me = this;

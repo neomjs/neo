@@ -26,18 +26,15 @@ class DragZone extends BaseDragZone {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            owner        = me.owner,
-            domListeners = owner.domListeners,
-            opts         = {delegate: '.neo-draggable', scope: me};
+        let me    = this,
+            owner = me.owner,
+            opts  = {delegate: '.neo-draggable', scope: me};
 
-        domListeners.push(
+        owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,   ...opts},
             {'drag:move' : me.onDragMove,  ...opts},
             {'drag:start': me.onDragStart, ...opts}
-        );
-
-        owner.domListeners = domListeners;
+        ]);
 
         owner.on('insert', me.onItemInsert, me);
 
@@ -50,15 +47,14 @@ class DragZone extends BaseDragZone {
     adjustToolbarItemCls(draggable) {
         let me    = this,
             owner = me.owner,
-            vdom  = owner.vdom;
+            wrapperCls;
 
-        vdom.cn.forEach(item => {
-            item.cls = item.cls || [];
+        owner.items.forEach(item => {
+            wrapperCls = item.wrapperCls || [];
 
-            NeoArray[draggable ? 'add' : 'remove'](item.cls, 'neo-draggable');
+            NeoArray[draggable ? 'add' : 'remove'](wrapperCls, 'neo-draggable');
+            item.wrapperCls = wrapperCls;
         });
-
-        owner.vdom = vdom;
     }
 
     /**
@@ -84,7 +80,7 @@ class DragZone extends BaseDragZone {
 
                 setTimeout(() => {
                     me.dragEnd();
-                }, 300);
+                }, 100);
             }, 30);
         }
     }

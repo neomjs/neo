@@ -252,8 +252,7 @@ class Helix extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = Neo.clone(me.domListeners, true);
+        let me = this;
 
         me[itemsMounted] = false;
         me[lockWheel]    = false;
@@ -262,13 +261,11 @@ class Helix extends Component {
             me.imageSource = Neo.config.resourcesPath + 'examples/';
         }
 
-        domListeners.push({
+        me.addDomListeners({
             click: me.onClick,
             wheel: me.onMouseWheel,
             scope: me
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -640,11 +637,10 @@ class Helix extends Component {
      * @param {Number} [amountItems]
      */
     destroyItems(startIndex, amountItems) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.getItemsRoot().cn.splice(startIndex || 0, amountItems || me.store.getCount());
-        me.vdom = vdom;
+        me.update();
     }
 
     /**

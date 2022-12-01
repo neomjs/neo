@@ -41,10 +41,6 @@ class Base extends Component {
          */
         field: null,
         /**
-         * @member {Boolean} hidden_=false
-         */
-        hidden_: false,
-        /**
          * @member {String|null} iconCls_=null
          */
         iconCls_: null,
@@ -85,28 +81,20 @@ class Base extends Component {
     construct(config) {
         super.construct(config);
 
-        let me             = this,
-            domListeners   = me.domListeners || [],
-            fieldListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {click: me.onTriggerClick, scope: me}
         );
-
-        me.domListeners = domListeners;
 
         if (me.showOnHover) {
             me.hidden = true;
 
             me.field.on('constructed', () => {
-                fieldListeners = me.field.domListeners || [];
-
-                fieldListeners.push(
+                me.field.addDomListeners([
                     {mouseenter: me.onMouseEnter, scope: me},
                     {mouseleave: me.onMouseLeave, scope: me}
-                );
-
-                me.field.domListeners = fieldListeners;
+                ]);
             }, me);
         }
     }
@@ -131,11 +119,10 @@ class Base extends Component {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let vdom  = this.vdom,
-            style = vdom.style || {};
+        let style = this.style;
 
         style.display = value ? 'none' : 'inline-block';
-        this.vdom = vdom;
+        this.style = style;
     }
 
     /**

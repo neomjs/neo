@@ -56,8 +56,7 @@ class Toolbar extends BaseToolbar {
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                vdom = me.vdom;
+            let me = this;
 
             me.items.forEach(item => {
                 // silent updates
@@ -65,7 +64,7 @@ class Toolbar extends BaseToolbar {
                 item.updateUseActiveTabIndicator(true);
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 

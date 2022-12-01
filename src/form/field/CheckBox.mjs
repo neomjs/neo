@@ -75,14 +75,11 @@ class CheckBox extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners(
             {change: me.onInputValueChange, scope: me}
         );
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -91,11 +88,10 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetChecked(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[1].checked = value;
-        me.vdom = vdom;
+        me.vdom.cn[1].checked = value;
+        me.update();
 
         if (oldValue !== undefined) {
             me.fire('change', {
@@ -114,8 +110,7 @@ class CheckBox extends Base {
      */
     afterSetEnableLabelClicks(value, oldValue) {
         let me    = this,
-            vdom  = me.vdom,
-            label = vdom.cn[2];
+            label = me.vdom.cn[2];
 
         if (value) {
             label.for = me.getInputElId();
@@ -123,7 +118,7 @@ class CheckBox extends Base {
             delete label.for;
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -133,10 +128,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        let vdom = this.vdom;
-
-        vdom.cn[0].removeDom = value;
-        this.vdom = vdom;
+        this.vdom.cn[0].removeDom = value;
+        this.update();
     }
 
     /**
@@ -146,10 +139,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetHideValueLabel(value, oldValue) {
-        let vdom = this.vdom;
-
-        vdom.cn[2].removeDom = value;
-        this.vdom = vdom;
+        this.vdom.cn[2].removeDom = value;
+        this.update();
     }
 
     /**
@@ -177,10 +168,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        let vdom = this.vdom;
-
-        vdom.cn[1].type = value;
-        this.vdom = vdom;
+        this.vdom.cn[1].type = value;
+        this.update();
     }
 
     /**
@@ -190,10 +179,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetLabelText(value, oldValue) {
-        let vdom = this.vdom;
-
-        vdom.cn[0].innerHTML = value;
-        this.vdom = vdom;
+        this.vdom.cn[0].innerHTML = value;
+        this.update();
     }
 
     /**
@@ -203,12 +190,11 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetLabelWidth(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (!me.hideLabel) {
-            vdom.cn[0].width = value;
-            me.vdom = vdom;
+            me.vdom.cn[0].width = value;
+            me.update();
         }
     }
 
@@ -219,10 +205,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetName(value, oldValue) {
-        let vdom = this.vdom;
-
-        vdom.cn[1].name = value;
-        this.vdom = vdom;
+        this.vdom.cn[1].name = value;
+        this.update();
     }
 
     /**
@@ -233,10 +217,8 @@ class CheckBox extends Base {
      */
     afterSetValue(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            vdom.cn[1].value = value;
-            this.vdom = vdom;
+            this.vdom.cn[1].value = value;
+            this.update();
         }
 
         super.afterSetValue(value, oldValue);
@@ -249,12 +231,11 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetValueLabelText(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (!me.hideValueLabel) {
-            vdom.cn[2].innerHTML = value;
-            me.vdom = vdom;
+            me.vdom.cn[2].innerHTML = value;
+            me.update();
         }
     }
 

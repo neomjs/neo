@@ -16,6 +16,15 @@ const NeoConfig = Neo.config,
  * @singleton
  */
 class Manager extends Base {
+    /**
+     * navigator.serviceWorker.controller can be null in case we load a page for the first time
+     * or in case of a force refresh.
+     * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
+     * Only in this case main.addon.ServiceWorker will store the active registration once ready here.
+     * @member {ServiceWorker|null} serviceWorker=null
+     */
+    serviceWorker = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Manager'
@@ -204,6 +213,7 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
+        NeoConfig.hasMouseEvents = matchMedia('(pointer:fine)').matches;
         NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (window.Worker) {
@@ -223,7 +233,7 @@ class Manager extends Base {
      */
     getWorker(name) {
         if (name === 'service') {
-            return navigator.serviceWorker?.controller;
+            return navigator.serviceWorker?.controller || this.serviceWorker;
         }
 
         return name instanceof Worker ? name : this.workers[name].worker;
@@ -251,7 +261,7 @@ class Manager extends Base {
         if (me.constructedThreads === me.activeWorkers) {
             NeoConfig.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
                 me.loadApplication(NeoConfig.appPath);
-            }, 20);
+            }, NeoConfig.loadApplicationDelay);
         }
     }
 

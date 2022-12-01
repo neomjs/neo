@@ -1,0 +1,45 @@
+.neo-sitemap {
+    border : 1px solid v(panel-border-color);
+    display: flex;
+    padding: 30px 100px 60px;
+
+    .neo-action {
+        color          : inherit;
+        display        : block;
+        margin         : 1.1em 0;
+        text-decoration: none;
+    }
+
+    .neo-action[href],
+    .neo-action-handler {
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .neo-level-0 {
+        font-size  : 16px/22px;
+        font-weight: 600;
+    }
+
+    .neo-level-1 {
+        margin-left: 1em;
+    }
+
+    .neo-level-2 {
+        margin-left: 2em;
+    }
+
+    .neo-level-3 {
+        margin-left: 3em;
+    }
+
+    .neo-sitemap-column {
+        flex: 1;
+
+        &:not(:last-child) {
+            border-right: 1px solid v(panel-border-color);
+            margin-right: 25px;
+        }
+    }
+}

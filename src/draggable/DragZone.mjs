@@ -77,7 +77,7 @@ class DragZone extends Base {
          */
         dragProxy: null,
         /**
-         * @member {Object|null} dragProxyConfig=null
+         * @member {Object|null} dragProxyConfig_=null
          */
         dragProxyConfig_: null,
         /**
@@ -325,8 +325,8 @@ class DragZone extends Base {
 
         Object.assign(me, {
             dragElementRect: rect,
-            offsetX        : offsetX,
-            offsetY        : offsetY
+            offsetX,
+            offsetY
         });
 
         me.createDragProxy(rect);
@@ -337,8 +337,8 @@ class DragZone extends Base {
             dragElementRect: rect,
             eventData      : data,
             id             : me.id,
-            offsetX        : offsetX,
-            offsetY        : offsetY
+            offsetX,
+            offsetY
         });
     }
 

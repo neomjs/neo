@@ -5,7 +5,7 @@ import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/table/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
-import * as header from './header/_export.mjs';
+import * as header     from './header/_export.mjs';
 
 /**
  * @class Neo.table.Container
@@ -39,11 +39,11 @@ class Container extends BaseContainer {
          */
         createRandomData: false,
         /**
-         * @member {Array} cls=['neo-table-container']
+         * @member {String[]} cls=['neo-table-container']
          */
         cls: ['neo-table-container'],
         /**
-         * @member {Array} columns_=[]
+         * @member {Object[]} columns_=[]
          */
         columns_: [],
         /**
@@ -135,7 +135,7 @@ class Container extends BaseContainer {
             ...me.viewConfig
         }];
 
-        me.vdom.id = me.id + 'wrapper';
+        me.vdom.id = me.getWrapperId();
 
         me.createColumns(me.columns);
     }
@@ -147,9 +147,7 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -181,14 +179,15 @@ class Container extends BaseContainer {
      */
     applyCustomScrollbarsCss() {
         let me       = this,
+            id       = me.getWrapperId(),
             cssRules = [];
 
         if (me.dockLeftMargin) {
-            cssRules.push('#' + me.id + 'wrapper' + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}');
         }
 
         if (me.dockRightMargin) {
-            cssRules.push('#' + me.id + 'wrapper' + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
         }
         if (cssRules.length > 0) {
             Css.insertRules(cssRules);
@@ -199,8 +198,8 @@ class Container extends BaseContainer {
 
     /**
      * Triggered before the columns config gets changed.
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     beforeSetColumns(value, oldValue) {
@@ -228,9 +227,7 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, RowModel);
     }
@@ -242,14 +239,12 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         if (value) {
-            let me = this;
+            let me = this,
 
-            const listeners = {
+            listeners = {
                 filter      : me.onStoreFilter,
                 load        : me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
@@ -258,13 +253,10 @@ class Container extends BaseContainer {
 
             if (value instanceof Store) {
                 value.on(listeners);
-
-                if (value.getCount() > 0) {
-                    me.onStoreLoad(value.items);
-                }
+                value.getCount() > 0 && me.onStoreLoad(value.items);
             } else {
                 value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                    listeners: listeners
+                    listeners
                 });
             }
 
@@ -288,25 +280,30 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param columns
+     * @param {Object[]} columns
      * @returns {*}
      */
     createColumns(columns) {
         let me             = this,
             columnDefaults = me.columnDefaults,
-            sorters        = me.store?.sorters;
+            sorters        = me.store?.sorters,
+            renderer;
 
         if (!columns || !columns.length) {
             Neo.logError('Attempting to create a table.Container without defined columns', me.id);
         }
 
         columns.forEach(column => {
+            renderer = column.renderer;
+
+            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+
             if (column.dock && !column.width) {
                 Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
 
-            if (columnDefaults) {
-                Neo.assignDefaults(column, columnDefaults);
+            if (renderer && Neo.isString(renderer) && me[renderer]) {
+                column.renderer = me[renderer];
             }
 
             if (sorters?.[0]) {
@@ -358,6 +355,13 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @returns {Object[]} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
      * @returns {Neo.table.View}
      */
     getView() {
@@ -370,6 +374,13 @@ class Container extends BaseContainer {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0];
+    }
+
+    /**
+     * @returns {String}
+     */
+    getWrapperId() {
+        return `${this.id}__wrapper`;
     }
 
     /**
@@ -393,9 +404,7 @@ class Container extends BaseContainer {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        me.selectionModel?.register(me);
 
         if (me.createRandomData) {
             // todo: if mounting apply after mount
@@ -427,7 +436,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Array} data
+     * @param {Object[]} data
      * @protected
      */
     onStoreLoad(data) {

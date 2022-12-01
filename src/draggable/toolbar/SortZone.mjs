@@ -81,7 +81,9 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    onDragEnd(data) {
+    async onDragEnd(data) {
+        await Neo.timeout(10);
+
         let me         = this,
             owner      = me.owner,
             itemStyles = me.itemStyles,
@@ -124,6 +126,8 @@ class SortZone extends DragZone {
                 ownerRect   : null,
                 startIndex  : -1
             });
+
+            await Neo.timeout(30);
 
             me.dragEnd(data); // we do not want to trigger the super class call here
         }
@@ -235,7 +239,7 @@ class SortZone extends DragZone {
                     itemStyle = button.style || {};
                     itemStyle.visibility = 'hidden';
                     button.style = itemStyle;
-                }, 30);
+                }, 5);
             });
         }
     }

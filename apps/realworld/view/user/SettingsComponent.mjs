@@ -80,15 +80,12 @@ class SettingsComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onLogoutButtonClick, delegate: '.btn-outline-danger', scope: me}},
             {click: {fn: me.onSubmitButtonClick, delegate: '.btn-primary',        scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,
@@ -106,7 +103,7 @@ class SettingsComponent extends Component {
         let vdom = this.vdom;
 
         VDomUtil.getByFlag(vdom, 'bio').value = value;
-        this.vdom = vdom;
+        this.update();
     }
 
     /**
@@ -116,10 +113,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetEmail(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'email').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'email').value = value;
+        this.update();
     }
 
     /**
@@ -130,8 +125,7 @@ class SettingsComponent extends Component {
      */
     afterSetErrors(value=[], oldValue) {
         let me   = this,
-            vdom = me.vdom,
-            list = VDomUtil.getByFlag(vdom, 'errors');
+            list = VDomUtil.getByFlag(me.vdom, 'errors');
 
         list.cn        = [];
         list.removeDom = value.length === 0;
@@ -143,7 +137,7 @@ class SettingsComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -153,10 +147,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetImage(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'image').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'image').value = value;
+        this.update();
     }
 
     /**
@@ -166,10 +158,8 @@ class SettingsComponent extends Component {
      * @protected
      */
     afterSetUserName(value, oldValue) {
-        let vdom = this.vdom;
-
-        VDomUtil.getByFlag(vdom, 'userName').value = value;
-        this.vdom = vdom;
+        VDomUtil.getByFlag(this.vdom, 'userName').value = value;
+        this.update();
     }
 
     /**

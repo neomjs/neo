@@ -23,9 +23,9 @@ class List extends BaseList {
          */
         className: 'Website.view.examples.List',
         /**
-         * @member {String[]} cls=['website-examples-list','neo-list-container','neo-list']
+         * @member {String[]} cls=['website-examples-list','neo-list']
          */
-        cls: ['website-examples-list', 'neo-list-container', 'neo-list'],
+        cls: ['website-examples-list', 'neo-list'],
         /**
          * @member {Neo.data.Store} store=Examples
          */
@@ -33,7 +33,18 @@ class List extends BaseList {
         /**
          * @member {String|null} storeUrl_=null
          */
-        storeUrl_: null
+        storeUrl_: null,
+        /**
+         * @member {Boolean} useWrapperNode=true
+         */
+        useWrapperNode: true,
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {cn: [
+            {tag: 'ul', cn: []}
+        ]}
     }}
 
     /**
@@ -95,6 +106,20 @@ class List extends BaseList {
                 ]}
             ]}
         ];
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 }
 

@@ -146,9 +146,6 @@ class TimeAxisComponent extends Component {
                 vdom.cn[i].removeDom = (i < startTime || i - 1 >= endTime);
             }
 
-            // silent update: the view containing this component will trigger the vdom update
-            me._vdom = vdom;
-
             me.fire('change', {
                 component: me,
                 rowHeight,

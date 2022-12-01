@@ -51,8 +51,7 @@ class SettingsContainer extends Container {
      */
     collapse(width) {
         let me    = this,
-            style = me.style || {},
-            vdom;
+            style = me.style || {};
 
         style.marginRight = `-${width}px`;
         me._style      = style; // silent update
@@ -62,9 +61,8 @@ class SettingsContainer extends Container {
             setTimeout(() => {
                 me.collapsed = true;
 
-                vdom = me.vdom;
-                vdom.removeDom = true;
-                me.vdom = vdom;
+                me.vdom.removeDom = true;
+                me.update();
 
                 me.mounted = false;
             }, 400);

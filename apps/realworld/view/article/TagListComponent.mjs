@@ -55,18 +55,15 @@ class TagListComponent extends Component {
             cls : 'tag-pill'
         });
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
+        me.addDomListeners({
             click: {
                 fn      : me.onTagLinkClick,
                 delegate: '.tag-pill',
                 scope   : me
             }
         });
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -78,8 +75,8 @@ class TagListComponent extends Component {
     afterSetActiveTag(value, oldValue) {
         if (oldValue !== undefined) {
             this.fire('tagChange', {
-                oldValue: oldValue,
-                value   : value
+                oldValue,
+                value
             });
         }
     }
@@ -91,14 +88,13 @@ class TagListComponent extends Component {
      * @protected
      */
     afterSetTags(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[0].cn[1].cn = [];
+        me.vdom.cn[0].cn[1].cn = [];
 
         if (Array.isArray(value)) {
             value.forEach(item => {
-                vdom.cn[0].cn[1].cn.push({
+                me.vdom.cn[0].cn[1].cn.push({
                     tag : 'a',
                     cls : ['tag-pill', 'tag-default'],
                     href: '',
@@ -107,7 +103,7 @@ class TagListComponent extends Component {
                 });
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 

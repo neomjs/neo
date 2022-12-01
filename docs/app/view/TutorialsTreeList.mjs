@@ -44,13 +44,9 @@ class TutorialsTreeList extends TreeList {
         Neo.Xhr.promiseJson({
             url: '../../docs/tutorials/tutorials.json'
         }).then(data => {
-            let vdom     = me.vdom,
-                itemRoot = me.getListItemsRoot();
-
             me.store.data = data.json;
-            itemRoot = me.createItems(null, itemRoot, 0);
-
-            me.vdom = vdom;
+            me.createItems(null, me.getListItemsRoot(), 0);
+            me.update();
         });
     }
 }

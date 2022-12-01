@@ -38,6 +38,19 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.disabled,
+            labelText: 'disabled',
+            listeners: {change: me.onConfigChange.bind(me, 'disabled')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'error',
+            listeners: {change: me.onConfigChange.bind(me, 'error')},
+            reference: 'error-field',
+            value    : me.exampleComponent.error
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
             labelText: 'hideLabel',
             listeners: {change: me.onConfigChange.bind(me, 'hideLabel')},
@@ -98,6 +111,22 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             value    : me.exampleComponent.labelWidth
         }, {
+            module   : NumberField,
+            labelText: 'maxLength',
+            listeners: {change: me.onConfigChange.bind(me, 'maxLength')},
+            maxValue : 50,
+            minValue : 1,
+            stepSize : 1,
+            value    : me.exampleComponent.maxLength
+        }, {
+            module   : NumberField,
+            labelText: 'minLength',
+            listeners: {change: me.onConfigChange.bind(me, 'minLength')},
+            maxValue : 50,
+            minValue : 1,
+            stepSize : 1,
+            value    : me.exampleComponent.minLength
+        }, {
             module   : TextField,
             clearable: true,
             labelText: 'placeholderText',
@@ -124,16 +153,30 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            ntype  : 'button',
+            handler: (() => {me.exampleComponent.reset()}),
+            style  : {marginTop: '10px', width: '50%'},
+            text   : 'reset()'
         }];
     }
 
     createExampleComponent() {
         return Neo.create(TextField, {
-            clearable : true,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'Hello World',
-            width     : 200
+            clearable    : true,
+            labelPosition: 'inline',
+            labelText    : 'Label',
+            labelWidth   : 70,
+            minLength    : 3,
+            value        : 'Hello World',
+            width        : 200,
+
+            listeners: {
+                change(value) {
+                    this.down({reference: 'error-field'}).clear();
+                },
+                scope: this
+            }
         });
     }
 }

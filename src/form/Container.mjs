@@ -24,7 +24,7 @@ class Container extends BaseContainer {
          */
         cls: ['neo-form-container'],
         /**
-         * @member {Object} vdom={tag: 'form',cn: [],onsubmit:'return false;'}
+         * @member {Object} vdom={tag: 'form',cn:[],onsubmit:'return false;'}
          */
         vdom:
         {tag: 'form', cn: [], onsubmit: 'return false;'}
@@ -36,9 +36,10 @@ class Container extends BaseContainer {
      * @returns {Neo.form.field.Base|null} fields
      */
     getField(name) {
-        let fields = ComponentManager.getChildren(this);
+        let fields = ComponentManager.getChildren(this),
+            field;
 
-        for (let field of fields) {
+        for (field of fields) {
             if (field instanceof BaseField) {
                 if (field.id === name || field.name === name) {
                     return field;
@@ -53,26 +54,35 @@ class Container extends BaseContainer {
      * @returns {Neo.form.field.Base[]} fields
      */
     getFields() {
-        let children = ComponentManager.getChildren(this),
-            fields   = [];
+        let fields = [];
 
-        children.forEach(item => {
-            if (item instanceof BaseField) {
-                fields.push(item);
-            }
+        ComponentManager.getChildren(this).forEach(item => {
+            item instanceof BaseField && fields.push(item);
         });
 
         return fields;
     }
 
     /**
-     * @returns {Object} values
+     * @returns {Object}
+     */
+    getSubmitValues() {
+        let values = {};
+
+        this.getFields().forEach(item => {
+            values[item.name || item.id] = item.getSubmitValue();
+        });
+
+        return values;
+    }
+
+    /**
+     * @returns {Object}
      */
     getValues() {
-        let fields = this.getFields(),
-            values = {};
+        let values = {};
 
-        fields.forEach(item => {
+        this.getFields().forEach(item => {
             values[item.name || item.id] = item.value;
         });
 
@@ -103,11 +113,10 @@ class Container extends BaseContainer {
      * @param {Object} [values]
      */
     reset(values={}) {
-        let fields = this.getFields(),
-            keys   = values ? Object.keys(values) : [],
+        let keys = values ? Object.keys(values) : [],
             index;
 
-        fields.forEach(item => {
+        this.getFields().forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -123,11 +132,10 @@ class Container extends BaseContainer {
      * @param {Object} values={}
      */
     setValues(values={}) {
-        let fields = this.getFields(),
-            keys   = Object.keys(values),
+        let keys = Object.keys(values),
             index;
 
-        fields.forEach(item => {
+        this.getFields().forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -137,6 +145,16 @@ class Container extends BaseContainer {
             if (index > -1) {
                 item.value = values[keys[index]];
             }
+        });
+    }
+
+    /**
+     * Updates the invalid state for all fields, which have updateValidationIndicators() implemented.
+     * This can be useful for create entity forms which show up "clean", when pressing a submit button.
+     */
+    validate() {
+        this.getFields().forEach(item => {
+            item.validate?.(false);
         });
     }
 }

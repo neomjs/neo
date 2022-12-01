@@ -183,7 +183,6 @@ class Picker extends Text {
         me.pickerIsMounted = false;
 
         if (silent) {
-            me._vdom = vdom;
             picker.mounted = false;
         } else {
             me.promiseVdomUpdate().then(data => {

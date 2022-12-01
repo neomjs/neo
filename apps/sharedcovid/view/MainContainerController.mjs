@@ -136,18 +136,17 @@ class MainContainerController extends ComponentController {
         vdom.cn[2].cn[1].html = Util.formatNumber({value: data.recovered});
         vdom.cn[3].cn[1].html = Util.formatNumber({value: data.deaths});
 
-        container.vdom = vdom;
+        container.update();
 
         container = me.getReference('last-update');
-        vdom      = container.vdom;
 
-        vdom.html = 'Last Update: ' + new Intl.DateTimeFormat('default', {
+        container.vdom.html = 'Last Update: ' + new Intl.DateTimeFormat('default', {
             hour  : 'numeric',
             minute: 'numeric',
             second: 'numeric'
         }).format(new Date(data.updated));
 
-        container.vdom = vdom;
+        container.update();
     }
 
     /**
@@ -360,6 +359,8 @@ class MainContainerController extends ComponentController {
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
             }
+
+            Neo.apps[name].destroy();
         }
     }
 
@@ -490,10 +491,9 @@ class MainContainerController extends ComponentController {
      *
      */
     onLoadSummaryDataFail() {
-        const table = this.getReference('table'),
-              vdom = table.vdom;
+        const table = this.getReference('table');
 
-        vdom.cn[0].cn[1].cn.push({
+        table.vdom.cn[0].cn[1].cn.push({
             tag  : 'div',
             cls  : ['neo-box-label', 'neo-label'],
             html : [
@@ -507,7 +507,7 @@ class MainContainerController extends ComponentController {
             }
         });
 
-        table.vdom = vdom;
+        table.update();
     }
 
     /**
@@ -557,7 +557,6 @@ class MainContainerController extends ComponentController {
             logo       = me.getReference('logo'),
             logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
             themeLight = button.text === 'Theme Light',
-            vdom       = logo.vdom,
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
         if (me.connectedApps.includes('SharedCovidMap')) {
@@ -580,8 +579,8 @@ class MainContainerController extends ComponentController {
             theme        = 'neo-theme-dark';
         }
 
-        vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
-        logo.vdom = vdom;
+        logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
+        logo.update();
 
 
         if (Neo.config.useCssVars) {
@@ -601,8 +600,8 @@ class MainContainerController extends ComponentController {
             });
 
             button.set({
-                iconCls: iconCls,
-                text   : buttonText
+                iconCls,
+                text: buttonText
             });
         } else {
             [component.appName, ...me.connectedApps].forEach(appName => {

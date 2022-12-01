@@ -74,7 +74,7 @@ class ConfigurationViewport extends Viewport {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
             flex  : me.configPanelFlex,
-            style : {margin: '20px'},
+            style : {margin: '20px', minWidth: '350px'},
 
             containerConfig: {
                 style: {overflowY: 'scroll'}

@@ -53,8 +53,8 @@ class ToggleOperatorsButton extends Button {
 
             me.fire('change', {
                 component: me,
-                oldValue : oldValue,
-                value    : value
+                oldValue,
+                value
             });
         }
     }

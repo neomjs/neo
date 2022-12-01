@@ -63,19 +63,14 @@ class Chip extends Component {
     construct(config) {
         super.construct(config);
 
-        let me = this,
-            domListeners;
+        let me = this;
 
         if (me.useDomListeners) {
-            domListeners = me.domListeners;
-
-            domListeners.push({
+            me.addDomListeners({
                 click   : me.onCloseButtonClick,
                 delegate: 'neo-chip-close-button',
                 scope   : me
             });
-
-            me.domListeners = domListeners;
         }
     }
 
@@ -86,11 +81,8 @@ class Chip extends Component {
      * @protected
      */
     afterSetClosable(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
-
-        vdom.cn[2].removeDom = !value;
-        me.vdom = vdom;
+        this.vdom.cn[2].removeDom = !value;
+        this.update();
     }
 
     /**
@@ -113,8 +105,7 @@ class Chip extends Component {
      */
     afterSetIconCls(value, oldValue) {
         let me       = this,
-            vdom     = me.vdom,
-            iconNode = vdom.cn[0];
+            iconNode = me.vdom.cn[0];
 
         NeoArray.remove(iconNode.cls, oldValue);
 
@@ -125,7 +116,7 @@ class Chip extends Component {
             NeoArray.add(iconNode.cls, value);
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -135,9 +126,7 @@ class Chip extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        let me       = this,
-            vdom     = me.vdom,
-            textNode = vdom.cn[1];
+        let textNode = this.vdom.cn[1];
 
         if (!value || value === '') {
             textNode.removeDom = true;
@@ -146,7 +135,7 @@ class Chip extends Component {
             textNode.innerHTML = value;
         }
 
-        me.vdom = vdom;
+        this.update();
     }
 
     /**

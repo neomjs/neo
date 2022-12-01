@@ -78,8 +78,7 @@ class MainContainer extends TabContainer {
                     handler: function () {
                         let field = Neo.getComponent('firstNameField'),
                             label = field.getLabelEl(),
-                            style = label.style,
-                            vdom  = field.vdom;
+                            style = label.style;
 
                         if (!style) {
                             style = {};
@@ -92,15 +91,14 @@ class MainContainer extends TabContainer {
                         }
 
                         label.style = style;
-                        field.vdom = vdom;
+                        field.update();
                     }
                 }, {
                     text   : 'Move Fields',
                     handler: function () {
                         let field  = Neo.getComponent('firstNameField'),
                             parent = Neo.getComponent(field.parentId),
-                            vdom   = parent.vdom,
-                            cn     = vdom.cn,
+                            cn     = parent.vdom.cn,
                             tmp    = cn[1];
 
                         cn[1] = cn[3];
@@ -109,7 +107,7 @@ class MainContainer extends TabContainer {
                         cn[1].cn[0].style.color = 'steelblue';
                         cn[3].cn[0].style.color = 'green';
 
-                        parent.vdom = vdom;
+                        parent.update();
                     }
                 }, {
                     iconCls: 'fa fa-plus',

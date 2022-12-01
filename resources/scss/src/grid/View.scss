@@ -1,3 +1,75 @@
 .neo-grid-view {
+    .neo-center {
+        justify-content: center;
+    }
 
+    .neo-right {
+        justify-content: right;
+    }
+
+    .neo-grid-row {
+             &:hover {
+                 .neo-grid-cell {
+                     background-color: v(grid-cell-background-color-hover);
+                 }
+             }
+
+             // selection.RowModel
+             &.neo-selected {
+                 .neo-grid-cell {
+                     background-color: v(grid-rowmodel-selected-cell-background-color);
+                     color           : v(grid-rowmodel-selected-cell-color);
+                 }
+             }
+
+             // selection.CellModel
+             .neo-grid-cell {
+                 &.neo-selected {
+                     background-color: v(grid-cellmodel-selected-cell-background-color) !important;
+                     color           : v(grid-cellmodel-selected-cell-color) !important;
+                 }
+
+                 &.selected-column-cell {
+                     background-color: v(grid-cellmodel-selected-column-cell-background-color);
+                     color           : v(grid-cellmodel-selected-column-cell-color);
+                 }
+             }
+         }
+}
+
+.neo-selection-cellrowmodel,
+.neo-selection-cellcolumnrowmodel{
+    .neo-grid-row {
+        &.neo-selected {
+            .neo-grid-cell {
+                background-color: v(grid-cellrowmodel-selected-row-cell-background-color);
+                color           : v(grid-cellrowmodel-selected-row-cell-color);
+            }
+        }
+
+        .neo-grid-cell {
+            &.neo-selected {
+                background-color: v(grid-cellrowmodel-selected-cell-background-color);
+                color           : v(grid-cellrowmodel-selected-cell-color);
+            }
+        }
+    }
+}
+
+.neo-selection-cellcolumnmodel,
+.neo-selection-cellcolumnrowmodel,
+.neo-selection-cellmodel,
+.neo-selection-cellrowmodel,
+.neo-selection-columnmodel,
+.neo-selection-rowmodel {
+    .neo-grid-row {
+        &:focus {
+            outline: 0;
+        }
+        .neo-grid-cell {
+            &:focus {
+                outline: 0;
+            }
+        }
+    }
 }

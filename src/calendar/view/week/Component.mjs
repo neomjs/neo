@@ -219,15 +219,12 @@ class Component extends BaseComponent {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
             {wheel   : me.onWheel,            scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             appName  : me.appName,
@@ -510,7 +507,6 @@ class Component extends BaseComponent {
     afterSetTimeAxisPosition(value, oldValue) {
         let me                = this,
             cls               = me.cls,
-            vdom              = me.vdom,
             timeAxisContainer = me.getColumnTimeAxisContainer();
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls, 'neo-timeaxis-end');
@@ -519,8 +515,8 @@ class Component extends BaseComponent {
             timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()); // switch the order of the 2 items
         }
 
-        me._cls = cls; // silent update
-        me.vdom = vdom;
+        me.cls = cls; // silent update
+        me.update();
     }
 
     /**

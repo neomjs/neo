@@ -42,8 +42,8 @@ class Base extends Component {
     fireChangeEvent(value, oldValue) {
         this.fire('change', {
             component: this,
-            oldValue : oldValue,
-            value    : value
+            oldValue,
+            value
         });
     }
 
@@ -67,6 +67,15 @@ class Base extends Component {
      */
     reset(value) {
         this.value = value;
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        return true;
     }
 }
 

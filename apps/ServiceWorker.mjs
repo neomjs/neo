@@ -24,7 +24,11 @@ class ServiceWorker extends ServiceBase {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String} version='4.3.11'
+         */
+        version: '4.3.11'
     }}
 }
 

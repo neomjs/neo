@@ -1,5 +1,6 @@
 .neo-table-wrapper {
     overflow: auto;
+    position: relative;
     height  : 100%;
 }
 
@@ -12,6 +13,7 @@
     font-weight     : 400;
     line-height     : 19px;
     overflow        : auto;
+    position        : absolute;
 
     tr {
         height    : 32px !important;

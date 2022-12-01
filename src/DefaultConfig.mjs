@@ -79,6 +79,14 @@ const DefaultConfig = {
      */
     isInsideSiesta: false,
     /**
+     * delay in ms for the worker.Manager:loadApplication() call
+     * @default 20
+     * @memberOf! module:Neo
+     * @name config.loadApplicationDelay
+     * @type Number
+     */
+    loadApplicationDelay: 20,
+    /**
      * Used by Intl.DateTimeFormat, for details take a look at:
      * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
      * @default 'default'
@@ -98,7 +106,10 @@ const DefaultConfig = {
     /**
      * Add addons for the main thread
      * Possible values: AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet, WindowPosition
-     * (src/main/addon)
+     * (src/main/addon) contains all framework related options.
+     * You can also create your own addons within your workspace scope. Make sure to put them inside 'src/main/addon/'
+     * and prefix them with 'WS/' inside your neo-config.json file.
+     * Example: ['DragDrop', 'Stylesheet', 'WS/MyAddon']
      * @default ['DragDrop','Stylesheet']
      * @memberOf! module:Neo
      * @name config.mainThreadAddons
@@ -215,7 +226,15 @@ const DefaultConfig = {
      * @name config.useVdomWorker
      * @type Boolean
      */
-    useVdomWorker: true
+    useVdomWorker: true,
+    /**
+     * buildScripts/injectPackageVersion.mjs will update this value
+     * @default '4.3.11'
+     * @memberOf! module:Neo
+     * @name config.version
+     * @type String
+     */
+    version: '4.3.11'
 };
 
 Object.assign(DefaultConfig, {

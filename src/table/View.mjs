@@ -70,7 +70,7 @@ class View extends Component {
 
         for (; i < amountRows; i++) {
             record = inputData[i];
-            id = me.getRowId(record, i);
+            id     = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
@@ -80,13 +80,13 @@ class View extends Component {
                 trCls.push('neo-selected');
 
                 Neo.getComponent(me.containerId).fire('select', {
-                    record: record
+                    record
                 });
             }
 
             data.push({
                 tag     : 'tr',
-                id      : id,
+                id,
                 cls     : trCls,
                 cn      : [],
                 tabIndex: '-1'
@@ -108,7 +108,7 @@ class View extends Component {
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
                     dataField: column.dataField,
                     index    : i,
-                    record   : record,
+                    record,
                     value    : rendererValue
                 });
 
@@ -125,7 +125,7 @@ class View extends Component {
                     };
                 }
 
-                // todo: remove the if part as soon as all tables use stores (examples table)
+                // todo: remove the else part as soon as all tables use stores (examples table)
                 if (hasStore) {
                     cellId = me.getCellId(record, column.dataField);
                 } else {
@@ -135,7 +135,7 @@ class View extends Component {
                 config = {
                     tag      : 'td',
                     id       : cellId,
-                    cls      : rendererOutput.cls   || ['neo-table-cell'],
+                    cls      : cellCls,
                     innerHTML: rendererOutput.html  || '',
                     style    : rendererOutput.style || {},
                     tabIndex : '-1'

@@ -13,7 +13,8 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.tab.container.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 130,
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -121,6 +122,45 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'Tab 1 text',
             listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'text')},
             value    : me.getFirstTabHeader().text
+        }, {
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-left',
+            hideValueLabel: false,
+            labelText     : 'badgePosition',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
+            name          : 'badgePosition',
+            style         : {marginTop: '50px'},
+            valueLabelText: 'bottom-left'
+        }, {
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'bottom-right'
+        }, {
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-left',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-left'
+        }, {
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-right',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
+            name          : 'badgePosition',
+            valueLabelText: 'top-right'
+        }, {
+            module   : TextField,
+            labelText: 'badgeText',
+            listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
+            style    : {marginTop: '10px'},
+            value    : me.getBadgeTabHeader().badgeText
         }];
     }
 
@@ -140,13 +180,13 @@ class MainContainer extends ConfigurationViewport {
             },
 
             items: [{
-                tabButtonConfig: {iconCls: 'fa fa-home',        text     : 'Tab 1'},
+                tabButtonConfig: {iconCls: 'fa fa-home',        text: 'Tab 1', flag: 'tab1',},
                 vdom           : {innerHTML: 'Tab 1 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-play-circle', text     : 'Tab 2'},
+                tabButtonConfig: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
                 vdom           : {innerHTML: 'Tab 2 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-user',        text     : 'Tab 3'},
+                tabButtonConfig: {iconCls: 'fa fa-user',        text: 'Tab 3', badgeText: 'hello'},
                 vdom           : {innerHTML: 'Tab 3 Content'}
             }],
 
@@ -158,18 +198,58 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {String} config
-     * @param {Object} opts
+     * @returns {Neo.tab.header.Button}
      */
-    onFirstTabHeaderConfigChange(config, opts) {
-        this.exampleComponent.getTabBar().items[0][config] = opts.value;
+    getBadgeTabHeader() {
+        let tabHeaders = this.exampleComponent.getTabBar().items,
+            item
+
+        for (item of tabHeaders) {
+            if (item.text === 'Tab 3') {
+                return item;
+            }
+        }
     }
 
     /**
      * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
-        return this.exampleComponent.getTabBar().items[0];
+        let tabHeaders = this.exampleComponent.getTabBar().items,
+            item
+
+        for (item of tabHeaders) {
+            if (item.flag === 'tab1') {
+                return item;
+            }
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onBadgeConfigChange(config, opts) {
+        this.getBadgeTabHeader()[config] = opts.value;
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onBadgeRadioChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.getBadgeTabHeader()[config] = value;
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onFirstTabHeaderConfigChange(config, opts) {
+        this.getFirstTabHeader()[config] = opts.value;
     }
 
     /**

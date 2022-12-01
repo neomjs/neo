@@ -121,7 +121,7 @@ class MainContainer extends ConfigurationViewport {
             labelText           : 'Label',
             labelWidth          : 70,
             value               : DateUtil.convertToyyyymmdd(new Date()),
-            width               : 250
+            width               : 270
         });
     }
 }

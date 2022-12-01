@@ -29,22 +29,19 @@ class DragDrop extends Base {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts    = {scope: me, delegate: '.neo-event'},
-            owner        = me.owner,
-            domListeners = owner.domListeners;
+        let me         = this,
+            columnOpts = {scope: me, delegate: '.neo-c-w-column'},
+            eventOpts  = {scope: me, delegate: '.neo-event'},
+            owner      = me.owner;
 
-        domListeners.push(
+        owner.addDomListeners([
             {'drag:end'  : me.onColumnDragEnd,   ...columnOpts},
             {'drag:end'  : me.onEventDragEnd,    ...eventOpts},
             {'drag:move' : me.onColumnDragMove,  ...columnOpts},
             {'drag:move' : me.onEventDragMove,   ...eventOpts},
             {'drag:start': me.onColumnDragStart, ...columnOpts},
             {'drag:start': me.onEventDragStart,  ...eventOpts}
-        );
-
-        owner.domListeners = domListeners;
+        ]);
     }
 
     /**

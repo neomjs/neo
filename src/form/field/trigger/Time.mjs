@@ -53,8 +53,7 @@ class Time extends Picker {
     construct(config) {
         super.construct(config);
 
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.clock = Neo.create({
             module  : Clock,
@@ -66,8 +65,8 @@ class Time extends Picker {
             ...me.clockConfig
         });
 
-        vdom.cn = [me.clock.vdom];
-        me.vdom = vdom;
+        me.vdom.cn = [me.clock.vdom];
+        me.update();
     }
 
     /**

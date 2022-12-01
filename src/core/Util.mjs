@@ -40,11 +40,11 @@ class Util extends Base {
 
     /**
      * Makes the first character of a string uppercase
-     * @param {String} string
+     * @param {String} value
      * @returns {Boolean|String} Returns false for non string inputs
      */
-    static capitalize(string) {
-        return Util.isString(string) && string[0].toUpperCase() + string.slice(1);
+    static capitalize(value) {
+        return Util.isString(value) && value[0].toUpperCase() + value.slice(1);
     }
 
     /**
@@ -100,7 +100,7 @@ class Util extends Base {
     }
 
     /**
-     * Transforms all uppercase characters of a string into lowercase.
+     * Transforms all uppercase characters of a string into -lowercase.
      * Does not touch special characters.
      * @param {String} value The input containing uppercase characters
      * @returns {String} The lowercase output
@@ -142,6 +142,10 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isEmpty(value) {
+        if (value === null || value === undefined) {
+            return true;
+        }
+
         if (Array.isArray(value)) {
             return value.length === 0;
         }

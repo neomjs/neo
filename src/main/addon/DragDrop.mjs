@@ -149,14 +149,16 @@ class DragDrop extends Base {
 
         me.addGlobalEventListeners();
 
-        if (Neo.config.hasTouchEvents) {
-            imports.push(import('../draggable/sensor/Touch.mjs'));
-        } else {
+        if (Neo.config.hasMouseEvents) {
             imports.push(import('../draggable/sensor/Mouse.mjs'));
         }
 
+        if (Neo.config.hasTouchEvents) {
+            imports.push(import('../draggable/sensor/Touch.mjs'));
+        }
+
         Promise.all(imports).then(modules => {
-            // create the Touch or MouseSensor
+            // create the Mouse- and / or TouchSensor
             Neo.create({
                 module: modules[0].default
             });
@@ -179,16 +181,17 @@ class DragDrop extends Base {
      * @returns {Object}
      */
     getEventData(event) {
-        const path = event.path || event.composedPath();
+        let path   = event.path || event.composedPath(),
+            detail = event.detail,
 
-        const e = {
+        e = {
             ...DomEvents.getEventData(event.detail.originalEvent),
-            clientX: event.detail.clientX,
-            clientY: event.detail.clientY
+            clientX: detail.clientX,
+            clientY: detail.clientY
         };
 
-        if (event.detail.eventPath) {
-            e.targetPath = event.detail.eventPath.map(e => DomEvents.getTargetData(e));
+        if (detail.eventPath) {
+            e.targetPath = detail.eventPath.map(e => DomEvents.getTargetData(e));
         } else {
             e.targetPath = e.path;
         }

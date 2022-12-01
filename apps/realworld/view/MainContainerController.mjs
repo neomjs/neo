@@ -144,7 +144,7 @@ class MainContainerController extends ComponentController {
      */
     getArticle(slug) {
         return ArticleApi.get({
-            slug: slug
+            slug
         });
     }
 
@@ -190,12 +190,12 @@ class MainContainerController extends ComponentController {
      * @param {String} slug
      */
     getProfile(slug) {
-        const me = this;
+        let me = this;
 
         ProfileApi.get({
-            slug: slug
+            slug
         }).then(data => {
-            me.profileComponent.update({
+            me.profileComponent.updateContent({
                 ...data.json.profile,
                 myProfile: data.json.profile.username === (me.currentUser?.username)
             });
@@ -406,9 +406,9 @@ class MainContainerController extends ComponentController {
             module = await module();
 
             me[key] = Neo.create({
-                module   : module.default,
-                parentId : me.component.id,
-                reference: reference
+                module  : module.default,
+                parentId: me.component.id,
+                reference
             });
         }
 

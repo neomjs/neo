@@ -20,7 +20,7 @@ class Component extends Base {
          */
         ntype: 'component-controller',
         /**
-         * @member {Object} component=null
+         * @member {Neo.component.Base|null} component=null
          * @protected
          */
         component: null,
@@ -135,14 +135,57 @@ class Component extends Base {
     onComponentConstructed() {}
 
     /**
-     * @param {Neo.component.Base} [component=this.component]
+     * @param {Neo.component.Base} component=this.component
      */
     parseConfig(component=this.component) {
+        let me        = this,
+            listeners = component.listeners,
+            reference = component.reference,
+            eventHandler, handlerScope;
+
+        if (listeners) {
+            Object.entries(listeners).forEach(([key, value]) => {
+                if (key !== 'scope' && key !== 'delegate') {
+                    if (Neo.isString(value)) {
+                        eventHandler = value;
+                        handlerScope = me.getHandlerScope(eventHandler);
+
+                        if (!handlerScope) {
+                            Logger.logError('Unknown event handler for', eventHandler, component);
+                        } else {
+                            listeners[key] = {};
+                            listeners[key].fn = handlerScope[eventHandler].bind(handlerScope);
+                        }
+                    } else {
+                        value.forEach(listener => {
+                            if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
+                                eventHandler = listener.fn;
+                                handlerScope = me.getHandlerScope(eventHandler);
+
+                                if (!handlerScope) {
+                                    Logger.logError('Unknown event handler for', eventHandler, component);
+                                } else {
+                                    listener.fn = handlerScope[eventHandler].bind(handlerScope);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        }
+
+        if (reference) {
+            me.references[reference] = component;
+        }
+    }
+
+    /**
+     * @param {Neo.component.Base} component=this.component
+     */
+    parseDomListeners(component=this.component) {
         let me           = this,
             domListeners = component.domListeners,
-            listeners    = component.listeners,
-            reference    = component.reference,
-            eventHandler, fn, handlerScope, parentController;
+            eventHandler, scope;
 
         if (domListeners) {
             domListeners.forEach(domListener => {
@@ -157,49 +200,17 @@ class Component extends Base {
                         }
 
                         if (eventHandler) {
-                            handlerScope = me.getHandlerScope(eventHandler);
+                            scope = me.getHandlerScope(eventHandler);
 
-                            if (!handlerScope) {
+                            if (!scope) {
                                 Logger.logError('Unknown domEvent handler for', eventHandler, component);
                             } else {
-                                fn               = handlerScope[eventHandler].bind(handlerScope);
-                                domListener[key] = fn;
-
-                                DomEventManager.updateListenerPlaceholder({
-                                    componentId       : component.id,
-                                    eventHandlerMethod: fn,
-                                    eventHandlerName  : eventHandler,
-                                    eventName         : key,
-                                    scope             : parentController
-                                });
+                                domListener[key] = scope[eventHandler].bind(scope);
                             }
                         }
                     }
                 });
             });
-        }
-
-        if (listeners) {
-            Object.entries(listeners).forEach(([key, value]) => {
-                if (key !== 'scope' && key !== 'delegate') {
-                    value.forEach(listener => {
-                        if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
-                            eventHandler = listener.fn;
-                            handlerScope = me.getHandlerScope(eventHandler);
-
-                            if (!handlerScope) {
-                                Logger.logError('Unknown event handler for', eventHandler, component);
-                            } else {
-                                listener.fn = handlerScope[eventHandler].bind(handlerScope);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        if (reference) {
-            me.references[reference] = component;
         }
     }
 

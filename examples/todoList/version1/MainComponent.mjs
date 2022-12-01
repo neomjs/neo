@@ -43,23 +43,19 @@ class MainComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners || [];
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: me.onAddButtonClick,   delegate: 'todo-add-button'},
             {click: me.onCheckIconClick,   delegate: 'todo-item'},
             {input: me.onInputFieldChange, delegate: 'todo-input'}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.createItems(me.data || []);
     }
 
     createItems(data) {
-        let me   = this,
-            vdom = me.vdom,
+        let me = this,
             cls;
 
         data.forEach(item => {
@@ -71,11 +67,11 @@ class MainComponent extends Component {
                 cls.push('far', 'fa-square');
             }
 
-            vdom.cn[0].cn.push({
+            me.vdom.cn[0].cn.push({
                 tag: 'li',
                 cn : [{
                     tag  : 'span',
-                    cls  : cls,
+                    cls,
                     style: {cursor: 'pointer', width: '20px'}
                 }, {
                     vtype: 'text',
@@ -84,7 +80,7 @@ class MainComponent extends Component {
             });
         });
 
-        me.vdom = vdom;
+        me.update();
     }
 
     onAddButtonClick() {
@@ -103,7 +99,6 @@ class MainComponent extends Component {
         let me     = this,
             cls    = ['far', 'fa-square'],
             oldCls = ['fa',  'fa-check'],
-            vdom   = me.vdom,
             node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
 
         if (data.path[0].cls.includes('fa-square')) {
@@ -114,7 +109,7 @@ class MainComponent extends Component {
         NeoArray.remove(node.cls, oldCls);
         NeoArray.add(node.cls, cls);
 
-        me.vdom = vdom;
+        me.update();
     }
 
     onInputFieldChange(data) {

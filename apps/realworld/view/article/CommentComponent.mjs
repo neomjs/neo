@@ -66,15 +66,12 @@ class CommentComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onDeleteButtonClick, delegate: '.ion-trash-a', scope: me}}
             /*{click: {fn: me.onEditButtonClick,   delegate: '.ion-edit',    scope: me}*/
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,
@@ -90,14 +87,12 @@ class CommentComponent extends Component {
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
-            let me   = this,
-                vdom = me.vdom;
+            let me = this;
 
-            vdom.cn[1].cn[0].cn[0].src = value.image;
-            vdom.cn[1].cn[2].html      = value.username;
+            me.vdom.cn[1].cn[0].cn[0].src = value.image;
+            me.vdom.cn[1].cn[2].html      = value.username;
 
-            me.vdom = vdom;
-
+            me.update();
             me.onCurrentUserChange();
         }
     }
@@ -110,10 +105,8 @@ class CommentComponent extends Component {
      */
     afterSetBody(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            vdom.cn[0].cn[0].html = value;
-            this.vdom = vdom;
+            this.vdom.cn[0].cn[0].html = value;
+            this.update();
         }
     }
 
@@ -125,15 +118,13 @@ class CommentComponent extends Component {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            vdom.cn[1].cn[3].html = new Intl.DateTimeFormat('en-US', {
+            this.vdom.cn[1].cn[3].html = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
             }).format(new Date(value));
 
-            this.vdom = vdom;
+            this.update();
         }
     }
 
@@ -142,13 +133,11 @@ class CommentComponent extends Component {
      */
     onCurrentUserChange() {
         let me          = this,
-            currentUser = me.getController().currentUser,
-            vdom        = me.vdom;
+            currentUser = me.getController().currentUser;
 
         if (currentUser) {
-            VDomUtil.getByFlag(vdom, 'mod-options').removeDom = me.author.username !== currentUser.username;
-
-            me.vdom = vdom;
+            VDomUtil.getByFlag(me.vdom, 'mod-options').removeDom = me.author.username !== currentUser.username;
+            me.update();
         }
     }
 

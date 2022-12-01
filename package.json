@@ -1,22 +1,29 @@
 {
     "name": "neo.mjs",
-    "version": "4.0.38",
+    "version": "4.3.17",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
     },
+    "bin": {
+        "neo-cc": "./buildScripts/createClass.mjs"
+    },
     "scripts": {
+        "add-config": "node ./buildScripts/addConfig.mjs",
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.mjs -f",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
+        "create-class": "node ./buildScripts/createClass.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
+        "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "watch-themes": "node ./buildScripts/watchThemes.mjs"
     },
     "keywords": [
         "javascript",
@@ -34,30 +41,31 @@
     },
     "homepage": "https://neomjs.github.io/pages/",
     "dependencies": {
-        "@fortawesome/fontawesome-free": "^6.1.1",
-        "@material/mwc-button": "^0.26.1",
-        "@material/mwc-textfield": "^0.26.1",
-        "autoprefixer": "^10.4.7",
-        "chalk": "^5.0.1",
+        "@fortawesome/fontawesome-free": "^6.2.1",
+        "@material/mwc-button": "^0.27.0",
+        "@material/mwc-textfield": "^0.27.0",
+        "autoprefixer": "^10.4.13",
+        "chalk": "^5.1.2",
         "clean-webpack-plugin": "^4.0.0",
-        "commander": "^9.3.0",
-        "cssnano": "^5.1.10",
+        "commander": "^9.4.1",
+        "cssnano": "^5.1.14",
         "envinfo": "^7.8.1",
         "fs-extra": "^10.1.0",
         "highlightjs-line-numbers.js": "^2.8.0",
-        "inquirer": "^8.2.4",
+        "inquirer": "^9.1.4",
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
-        "postcss": "^8.4.14",
-        "sass": "^1.52.0",
-        "webpack": "^5.72.1",
-        "webpack-cli": "^4.9.2",
-        "webpack-dev-server": "4.9.0",
+        "postcss": "^8.4.19",
+        "sass": "^1.56.1",
+        "webpack": "^5.75.0",
+        "webpack-cli": "^5.0.0",
+        "webpack-dev-server": "4.11.1",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^3.0.0"
     },
     "devDependencies": {
-        "siesta-lite": "^5.5.2"
+        "siesta-lite": "5.5.2",
+        "url": "^0.11.0"
     },
     "funding": {
         "type": "GitHub Sponsors",

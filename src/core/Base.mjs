@@ -299,7 +299,8 @@ class Base {
      * @param {Object|Object[]} items
      */
     parseItemConfigs(items) {
-        let me = this;
+        let me = this,
+            ns, nsArray, nsKey, symbolNs;
 
         if (items) {
             if (!Array.isArray(items)) {
@@ -311,14 +312,22 @@ class Base {
                     if (Array.isArray(value)) {
                         me.parseItemConfigs(value);
                     } else if (typeof value === 'string' && value.startsWith('@config:')) {
-                        value = value.substr(8).trim();
+                        nsArray = value.substring(8).trim().split('.');
+                        nsKey   = nsArray.pop();
+                        ns      = Neo.ns(nsArray, false, me);
 
-                        if (!me[value] && !me.hasOwnProperty(value)) {
-                            console.error('The used @config does not exist:', value, me);
+                        if (!Object.hasOwn(ns, nsKey)) {
+                            console.error('The used @config does not exist:', nsKey, nsArray.join('.'));
                         } else {
+                            symbolNs = Neo.ns(nsArray, false, me[configSymbol]);
+
                             // The config might not be processed yet, especially for configs
                             // not ending with an underscore, so we need to check the configSymbol first.
-                            item[key] = me[configSymbol][value] || me[value];
+                            if (symbolNs && Object.hasOwn(symbolNs, nsKey)) {
+                                item[key] = symbolNs[nsKey];
+                            } else {
+                                item[key] = ns[nsKey];
+                            }
                         }
                     }
                 });

@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Sep 07, 2022",
+        "id"          : 53,
+        "image"       : "the-secret-of-successfully-using-multi-window-webgl-canvas.png",
+        "name"        : "The secret of successfully using multi window WebGL Canvas",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/the-secret-of-successfully-using-multi-window-webgl-canvas-5a2d05555ad1?source=friends_link&sk=d24ec0ec25aa6678d5fd1f59aaf09007"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 13, 2022",
         "id"          : 52,
         "image"       : "safari-now-fully-supports-sharedworkers.png",
@@ -361,7 +374,7 @@
         "publisher"   : "ITNEXT",
         "selectedInto": [],
         "type"        : "Blog Post",
-        "url"         : "https://tobiasuhlig.medium.com/enhance-your-frontend-state-management-with-view-models-7bf49e1a0991?source=friends_link&sk=ac04c44c7cd7af4c34068a87b1207c7e"
+        "url"         : "https://itnext.io/enhance-your-frontend-state-management-with-view-models-7bf49e1a0991?source=friends_link&sk=ac04c44c7cd7af4c34068a87b1207c7e"
     },
     {
         "author"      : "Tobias Uhlig",

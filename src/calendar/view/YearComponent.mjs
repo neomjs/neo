@@ -178,15 +178,12 @@ class YearComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
             {wheel: me.onWheel, scope: me}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             me.createMonths(true); // silent update
@@ -393,13 +390,12 @@ class YearComponent extends Component {
      */
     afterSetShowWeekNumbers(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                vdom = me.vdom,
-                i    = 0,
+            let me = this,
+                i  = 0,
                 itemCn, j, len;
 
             for (; i < 12; i++) {
-                itemCn = vdom.cn[0].cn[1].cn[i].cn;
+                itemCn = me.vdom.cn[0].cn[1].cn[i].cn;
                 len    = itemCn.length;
 
                 for (j = 1; j < len; j++) {
@@ -407,7 +403,7 @@ class YearComponent extends Component {
                 }
             }
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -420,7 +416,6 @@ class YearComponent extends Component {
     afterSetSixWeeksPerMonth(value, oldValue) {
         if (oldValue !== undefined) {
             let me   = this,
-                vdom = me.vdom,
                 date = me.currentDate, // cloned
                 i    = 0;
 
@@ -428,11 +423,11 @@ class YearComponent extends Component {
             date.setDate(1);
 
             for (; i < 12; i++) {
-                vdom.cn[0].cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
+                me.vdom.cn[0].cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
                 date.setMonth(date.getMonth() + 1);
             }
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -520,7 +515,7 @@ class YearComponent extends Component {
                     me.promiseVdomUpdate(vdom).then(() => {
                         y = scrollFromTop ? -data.height : 0;
                         vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
-                        me.vdom = vdom;
+                        me.update();
 
                         setTimeout(() => {
                             vdom.cn[0] = vdom.cn[0].cn[0].cn[scrollFromTop ? 1 : 0];

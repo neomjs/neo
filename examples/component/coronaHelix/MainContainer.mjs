@@ -411,8 +411,8 @@ class MainContainer extends Viewport {
     construct(config) {
         super.construct(config);
 
-        const me  = this,
-              url = 'https://corona.lmao.ninja/v3/covid-19/countries';
+        let me  = this,
+            url = 'https://disease.sh/v3/covid-19/countries';
 
         me.helix = Neo.create({
             module: CountryHelix,

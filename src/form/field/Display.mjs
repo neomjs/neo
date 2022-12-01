@@ -35,13 +35,12 @@ class Display extends Text {
         super.construct(config);
 
         let me      = this,
-            vdom    = me.vdom,
             inputEl = me.getInputEl();
 
         inputEl.readonly = 'readonly';
         inputEl.tabindex = '-1';
 
-        me.vdom = vdom;
+        me.update();
     }
 }
 

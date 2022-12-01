@@ -5,7 +5,7 @@ import Store           from '../../data/Store.mjs';
 import VDomUtil        from '../../util/VDom.mjs';
 
 /**
- * Provides a drop down list to select one or multiple items
+ * Provides a dropdown list to select one or multiple items
  * @class Neo.form.field.Select
  * @extends Neo.form.field.Picker
  */
@@ -109,7 +109,13 @@ class Select extends Picker {
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
          */
-        typeAhead_: true
+        typeAhead_: true,
+        /**
+         * This config should point to the store keyProperty or a different model field,
+         * which you want to submit instead
+         * @member {Number|String} valueField='id'
+         */
+        valueField: 'id'
     }}
 
     /**
@@ -255,7 +261,7 @@ class Select extends Picker {
 
             if (record) {
                 me.record = record;
-                return record[me.displayField];
+                return record[displayField];
             }
         }
 
@@ -336,6 +342,15 @@ class Select extends Picker {
             recordKey = list.selectionModel.getSelection()[0];
 
         return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null;
+    }
+
+    /**
+     * @returns {Number|String}
+     */
+    getSubmitValue() {
+        let me = this;
+
+        return me.record?.[me.valueField] || me.value;
     }
 
     /**
@@ -448,24 +463,8 @@ class Select extends Picker {
      * @protected
      */
     onListItemClick(record) {
-        let me           = this,
-            displayField = me.displayField,
-            oldValue     = me.value,
-            value        = record[displayField];
-
-        if (me.value !== value) {
-            me.hintRecordId = null;
-            me.record       = record;
-            me._value       = value;
-            me.getInputHintEl().value = null;
-
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
-
-            me.fire('select', {
-                record,
-                value : record[displayField]
-            });
-        }
+        this.onListItemChange(record);
+        this.hidePicker();
     }
 
     /**
@@ -503,12 +502,38 @@ class Select extends Picker {
         this.focusInputEl();
     }
 
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
+    onListItemChange(record) {
+        let me           = this,
+            displayField = me.displayField,
+            oldValue     = me.value,
+            value        = record[displayField];
+
+        if (me.value !== value) {
+            me.hintRecordId = null;
+            me.record       = record;
+            me._value       = value;
+            me.getInputHintEl().value = null;
+
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+
+            me.fire('select', {
+                record,
+                value: record[displayField]
+            });
+        }
+    }
+
     /**
      * @param {Object} record
      * @protected
      */
     onListItemNavigate(record) {
-        this.onListItemClick(record);
+        this.onListItemChange(record);
     }
 
     /**

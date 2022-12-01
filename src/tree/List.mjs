@@ -48,6 +48,10 @@ class Tree extends Base {
          */
         sortZoneConfig: null,
         /**
+         * @member {String[]} wrapperCls=[]
+         */
+        wrapperCls: [],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -261,7 +265,6 @@ class Tree extends Base {
         let me         = this,
             isFiltered = true,
             valueRegEx = new RegExp(value, 'gi'),
-            vdom       = me.vdom,
             childReturnValue, directMatch, node;
 
         if (!value) {
@@ -271,7 +274,7 @@ class Tree extends Base {
         me.store.items.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
-                node        = me.getVdomChild(me.getItemId(item.id), vdom);
+                node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
                     directMatch = true;
@@ -294,7 +297,7 @@ class Tree extends Base {
 
         if (parentId === null) {
             me.expandAll(true);
-            me.vdom = vdom;
+            me.update();
         }
 
         return isFiltered;
@@ -324,11 +327,10 @@ class Tree extends Base {
     onConstructed() {
         super.onConstructed();
 
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         if (me.showCollapseExpandAllIcons) {
-            vdom.cn.unshift({
+            me.vdom.cn.unshift({
                 cls: ['neo-treelist-menu-item', 'neo-treelist-collapse-all-icon'],
                 cn : [{
                     tag: 'span',
@@ -342,7 +344,7 @@ class Tree extends Base {
                 }]
             });
 
-            me.vdom = vdom;
+            me.update();
         }
     }
 
@@ -352,7 +354,6 @@ class Tree extends Base {
      */
     onItemClick(node, data) {
         let me    = this,
-            vdom  = me.vdom,
             items = me.store.items,
             i     = 0,
             len   = items.length,
@@ -373,7 +374,7 @@ class Tree extends Base {
         if (item) {
             if (item.cls?.includes('neo-list-folder')) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
-                me.vdom = vdom;
+                me.update();
             } else {
                 me.onLeafItemClick(record);
 

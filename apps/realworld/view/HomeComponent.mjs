@@ -95,15 +95,12 @@ class HomeComponent extends Component {
             cls : 'prevent-click'
         });
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push(
+        me.addDomListeners([
             {click: {fn: me.onNavLinkClick,     delegate: '.nav-link',  scope: me}},
             {click: {fn: me.onPageNavLinkClick, delegate: '.page-link', scope: me}}
-        );
-
-        me.domListeners = domListeners;
+        ]);
 
         me.getController().on({
             afterSetCurrentUser: me.onCurrentUserChange,
@@ -117,8 +114,7 @@ class HomeComponent extends Component {
     onConstructed() {
         super.onConstructed();
 
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.tagList = Neo.create({
             module  : TagListComponent,
@@ -130,9 +126,8 @@ class HomeComponent extends Component {
             }
         });
 
-        vdom.cn[1].cn[0].cn.push(me.tagList.vdom);
-
-        me.vdom = vdom;
+        me.vdom.cn[1].cn[0].cn.push(me.tagList.vdom);
+        me.update();
     }
 
     /**
@@ -145,7 +140,6 @@ class HomeComponent extends Component {
         let me        = this,
             container = me.getContainer(),
             footer    = container.cn.pop(),
-            vdom      = me.vdom,
             config;
 
         container.cn = [container.cn.shift()];
@@ -179,8 +173,7 @@ class HomeComponent extends Component {
         }
 
         container.cn.push(footer);
-
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -191,8 +184,7 @@ class HomeComponent extends Component {
      */
     afterSetCountArticles(value, oldValue) {
         let me          = this,
-            vdom        = me.vdom,
-            pagination  = VDomUtil.getByFlag(vdom, 'pagination'),
+            pagination  = VDomUtil.getByFlag(me.vdom, 'pagination'),
             pageSize    = me.pageSize,
             countPages  = Math.ceil(value / pageSize),
             currentPage = me.currentPage,
@@ -213,7 +205,7 @@ class HomeComponent extends Component {
 
                 pagination.cn.push({
                     tag: 'li',
-                    cls: cls,
+                    cls,
                     cn : [{
                         tag : 'a',
                         cls : ['page-link', 'prevent-click'],
@@ -225,7 +217,7 @@ class HomeComponent extends Component {
             }
         }
 
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -235,18 +227,17 @@ class HomeComponent extends Component {
      * @protected
      */
     afterSetCurrentPage(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom,
+        let me = this,
             node, oldNode;
 
         if (me.mounted) {
-            node    = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(value)).parentNode;
-            oldNode = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(oldValue)).parentNode;
+            node    = VDomUtil.findVdomChild(me.vdom, me.getNavLinkVdomId(value)).parentNode;
+            oldNode = VDomUtil.findVdomChild(me.vdom, me.getNavLinkVdomId(oldValue)).parentNode;
 
             NeoArray.add(node.cls, 'active');
             NeoArray.remove(oldNode.cls, 'active');
 
-            me.vdom = vdom;
+            me.update();
 
             me.getController()._articlesOffset = (value - 1) * me.pageSize; // silent update
             me.getArticles();
@@ -280,8 +271,8 @@ class HomeComponent extends Component {
                 cls: ['nav-item'],
                 id : me.id + '__nav-item_' + index,
                 cn : [{
-                    tag: 'a',
-                    cls: cls,
+                    tag : 'a',
+                    cls : cls,
                     href: '',
                     html: item.name,
                     id  : me.id + '__nav-item-link_' + index,
@@ -298,11 +289,10 @@ class HomeComponent extends Component {
      */
     afterSetLoggedIn(value, oldValue) {
         let me      = this,
-            vdom    = me.vdom,
-            navItem = VDomUtil.findVdomChild(vdom, me.id + '__nav-item-link_0').vdom;
+            navItem = VDomUtil.findVdomChild(me.vdom, me.id + '__nav-item-link_0').vdom;
 
         NeoArray[value ? 'remove' : 'add'](navItem.cls, 'disabled');
-        me.vdom = vdom;
+        me.update();
     }
 
     /**
@@ -382,9 +372,8 @@ class HomeComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
-            vdom       = me.vdom,
-            el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
-            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            el         = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            feedHeader = VDomUtil.getByFlag(me.vdom, 'feed-header'),
             opts       = {};
 
         if (!el.vdom.cls.includes('disabled')) {
@@ -409,7 +398,7 @@ class HomeComponent extends Component {
 
 
             me._currentPage = 1; // silent update
-            me.vdom = vdom;
+            me.update();
 
             me.getController()._articlesOffset = 0; // silent update
             me.getArticles({}, opts);
@@ -447,12 +436,12 @@ class HomeComponent extends Component {
         if (feeds.length < 3) {
             feeds.push({
                 active: true,
-                name  : name
+                name
             });
         } else {
             Object.assign(feeds[2], {
                 active: true,
-                name  : name
+                name
             });
         }
 
