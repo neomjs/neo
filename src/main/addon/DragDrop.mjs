@@ -181,16 +181,17 @@ class DragDrop extends Base {
      * @returns {Object}
      */
     getEventData(event) {
-        const path = event.path || event.composedPath();
+        let path   = event.path || event.composedPath(),
+            detail = event.detail,
 
-        const e = {
+        e = {
             ...DomEvents.getEventData(event.detail.originalEvent),
-            clientX: event.detail.clientX,
-            clientY: event.detail.clientY
+            clientX: detail.clientX,
+            clientY: detail.clientY
         };
 
-        if (event.detail.eventPath) {
-            e.targetPath = event.detail.eventPath.map(e => DomEvents.getTargetData(e));
+        if (detail.eventPath) {
+            e.targetPath = detail.eventPath.map(e => DomEvents.getTargetData(e));
         } else {
             e.targetPath = e.path;
         }

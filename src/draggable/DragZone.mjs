@@ -77,7 +77,7 @@ class DragZone extends Base {
          */
         dragProxy: null,
         /**
-         * @member {Object|null} dragProxyConfig=null
+         * @member {Object|null} dragProxyConfig_=null
          */
         dragProxyConfig_: null,
         /**

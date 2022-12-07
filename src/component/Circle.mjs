@@ -5,6 +5,8 @@ import Component       from './Base.mjs';
 import NeoArray        from '../util/Array.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
+let DragZone;
+
 /**
  * @class Neo.component.Circle
  * @extends Neo.component.Base
@@ -39,6 +41,10 @@ class Circle extends Component {
          * @member {Boolean} collapsed=true
          */
         collapsed: true,
+        /**
+         * @member {Boolean} draggable_=true
+         */
+        draggable_: true,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys={}
@@ -180,6 +186,31 @@ class Circle extends Component {
     }
 
     /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        let me           = this,
+            domListeners = [];
+
+        value && import('../draggable/DragZone.mjs').then(module => {
+            DragZone = module.default;
+
+            if (!me.dragListenersAdded) {
+                domListeners.push(
+                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: 'neo-circle-item'},
+                    {'drag:start': me.onDragStart, scope: me, delegate: 'neo-circle-item'}
+                );
+
+                me.addDomListeners(domListeners);
+                me.dragListenersAdded = true;
+            }
+        });
+    }
+
+    /**
      * Triggered after the innerRadius config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -244,10 +275,7 @@ class Circle extends Component {
         let me = this;
 
         if (oldValue && me.rendered) {
-            if (!me.collapsed) {
-                me.updateOuterCircle(true);
-            }
-
+            !me.collapsed && me.updateOuterCircle(true);
             me.updateItemPositions();
         }
     }
@@ -365,7 +393,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     collapseItem(data) {
         let me    = this,
@@ -383,7 +411,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     createBacksideItems(silent=false) {
         let me         = this,
@@ -411,22 +439,25 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Number} [startIndex=0]
-     * @param {Boolean} [silent=false]
+     * @param {Number} startIndex=0
+     * @param {Boolean} silent=false
      */
     createItems(startIndex=0, silent=false) {
         let me            = this,
             frontEl       = me.getFrontEl(),
+            itemCls       = ['neo-circle-item'],
             itemPositions = me.calculateItemPositions(),
             itemSize      = me.itemSize,
             countItems    = Math.min(me.store.getCount(), me.maxItems),
             i             = startIndex,
             vdom          = me.vdom;
 
+        me.draggable && itemCls.push('neo-draggable');
+
         for (; i < countItems; i++) {
             frontEl.cn.push({
                 id      : me.getItemId(i),
-                cls     : ['neo-circle-item'],
+                cls     : itemCls,
                 tabIndex: -1,
                 style: {
                     height: itemSize              + 'px',
@@ -607,6 +638,44 @@ class Circle extends Component {
     }
 
     /**
+     * @param data
+     */
+    onDragEnd(data) {
+        console.log('onDragEnd', data);
+    }
+
+    /**
+     * @param data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
+
+        let me           = this,
+            wrapperStyle = me.wrapperStyle || {};
+
+        me.isDragging = true;
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module         : DragZone,
+                appName        : me.appName,
+                bodyCursorStyle: 'move !important',
+                dragElement    : me.vdom,
+                dragProxyConfig: {vdom: me.getProxyVdom()},
+                owner          : me,
+                useProxyWrapper: false,
+                ...me.dragZoneConfig
+            });
+        }
+
+        me.dragZone.dragStart(data);
+
+        wrapperStyle.opacity = 0.7;
+
+        me.wrapperStyle = wrapperStyle;
+    }
+
+    /**
      * @param {Object} data
      */
     onMouseWheel(data) {
@@ -664,7 +733,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateInnerCircle(silent=false) {
         let me           = this,
@@ -684,7 +753,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateItemAngle(silent=false) {
         let me      = this,
@@ -702,8 +771,8 @@ class Circle extends Component {
 
     /**
      * @param {Number} value
-     * @param {Boolean} [silent=false]
-     * @param {Number} [startIndex=0]
+     * @param {Boolean} silent=false
+     * @param {Number} startIndex=0
      */
     updateItemOpacity(value, silent=false, startIndex=0) {
         let me      = this,
@@ -720,7 +789,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateItemPositions(silent=false) {
         let me            = this,
@@ -749,7 +818,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateOuterCircle(silent=false) {
         let me           = this,
@@ -782,7 +851,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     updateTitle(silent=false) {
         let me          = this,

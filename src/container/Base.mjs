@@ -488,6 +488,23 @@ class Base extends Component {
     }
 
     /**
+     * Clears the item array
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    removeAll(destroyItem = true, silent = false) {
+        let me = this;
+
+        me.items = [];
+
+        me.getVdomItemsRoot().cn = [];
+
+        if(!silent || destroyItem){
+            me.update();
+        }
+    }
+
+    /**
      * Removes a container item at a given index
      * @param {Number} index
      * @param {Boolean} [destroyItem=true]

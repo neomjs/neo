@@ -25,7 +25,7 @@ class Circle extends Component {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module : CircleComponent
+            module: CircleComponent
         },
         /**
          * Defaults to px
