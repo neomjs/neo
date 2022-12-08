@@ -13,7 +13,8 @@ const __dirname          = path.resolve(),
       cwd                = process.cwd(),
       requireJson        = path => JSON.parse(fs.readFileSync((path))),
       packageJson        = requireJson(path.resolve(cwd, 'package.json')),
-      neoPath            = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      neoPath            = path.resolve(packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/'),
+      insideNeo          = packageJson.name === 'neo.mjs',
       programName        = `${packageJson.name} buildThemes`,
       program            = new Command(),
       regexComments      = /\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm,
@@ -325,7 +326,7 @@ if (programOpts.info) {
 
                 fs.readFile(file.path).then(content => {
                     let result = sass.renderSync({
-                        data          : data + scssCombine(content.toString(), path.resolve(neoPath, scssPath, target, file.relativePath)),
+                        data          : data + scssCombine(content.toString(), path.join(neoPath, scssPath, target, file.relativePath)),
                         outFile       : destPath,
                         sourceMap     : devMode,
                         sourceMapEmbed: false
@@ -399,8 +400,12 @@ if (programOpts.info) {
         function scssCombine (content, baseDir) {
             if (regexSassImport.test(content)) {
                 content = content.replace(regexSassImport, (m, capture) => {
-                    let parse = path.parse(path.resolve(baseDir, capture)),
-                        file  = path.resolve(`${parse.dir}/${parse.name}.scss`);
+                    if (!insideNeo && capture.startsWith('../')) {
+                        capture = '../../' + capture;
+                    }
+
+                    let parse = path.parse(path.join(baseDir, capture)),
+                        file  = path.join(`${parse.dir}/${parse.name}.scss`);
 
                     if (!fs.existsSync(file)) {
                         file = path.resolve(`${parse.dir}/_${parse.name}.scss`);
