@@ -20,8 +20,8 @@ const __dirname          = path.resolve(),
       regexComments      = /\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm,
       regexLineBreak     = /(\r\n|\n|\r)/gm,
       regexSassImport    = /@import[^'"]+?['"](.+?)['"];?/g,
-      scssFolders        = fs.readdirSync(path.join(neoPath, '/resources/scss')),
       scssPath           = 'resources/scss/',
+      scssFolders        = fs.readdirSync(path.resolve(scssPath)),
       themeMapFile       = 'resources/theme-map.json',
       themeMapFileNoVars = 'resources/theme-map-no-vars.json',
       themeFolders       = [],
@@ -166,10 +166,19 @@ if (programOpts.info) {
          * @returns {Object[]}
          */
         function getAllScssFiles(dirPath) {
-            const files = getScssFiles(path.resolve(neoPath, dirPath));
+            let files    = [],
+                scssPath = path.resolve(neoPath, dirPath);
+
+            if (fs.existsSync(scssPath)) {
+                files.push(...getScssFiles(scssPath));
+            }
 
             if (!insideNeo) {
-                files.push(...getScssFiles(path.resolve(cwd, dirPath)));
+                scssPath = path.resolve(cwd, dirPath);
+
+                if (fs.existsSync(scssPath)) {
+                    files.push(...getScssFiles(scssPath));
+                }
             }
 
             return files;
@@ -267,12 +276,13 @@ if (programOpts.info) {
          * @param {Boolean} useCssVars
          */
         function parseScssFiles(files, mode, target, useCssVars) {
-            let data      = '',
-                devMode   = mode === 'development',
-                mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
-                suffix    = useCssVars ? ''     : '-no-vars',
-                varsFlag  = useCssVars ? 'vars' : 'noVars',
-                map, neoThemePath, themeBuffer, themePath, workspaceThemePath;
+            let data        = '',
+                devMode     = mode === 'development',
+                mixinPath   = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
+                suffix      = useCssVars ? ''     : '-no-vars',
+                themeBuffer = '',
+                varsFlag    = useCssVars ? 'vars' : 'noVars',
+                dirName, map, neoThemePath, themePath, workspaceThemePath;
 
             totalFiles[mode][varsFlag] += files.length;
 
@@ -285,7 +295,11 @@ if (programOpts.info) {
                 neoThemePath = path.resolve(neoPath, themePath);
 
                 if (!sassThemes[target]) {
-                    themeBuffer = scssCombine(fs.readFileSync(neoThemePath).toString(), path.dirname(neoThemePath));
+                    dirName = path.dirname(neoThemePath);
+
+                    if (fs.existsSync(dirName)) {
+                        themeBuffer += scssCombine(fs.readFileSync(neoThemePath).toString(), dirName);
+                    }
 
                     if (!insideNeo) {
                         workspaceThemePath = path.resolve(cwd, themePath);
