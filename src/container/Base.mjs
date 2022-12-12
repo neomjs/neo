@@ -525,10 +525,10 @@ class Base extends Component {
 
             me.getVdomItemsRoot().cn.splice(index, 1);
 
-            me[silent && !destroyItem ? '_vdom' : 'vdom'] = vdom;
+            me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy(true);
+                item.destroy(false, true);
             } else {
                 item.mounted = false;
             }
