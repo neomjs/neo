@@ -499,7 +499,7 @@ class Base extends Component {
 
         me.getVdomItemsRoot().cn = [];
 
-        if(!silent || destroyItem){
+        if (!silent || destroyItem) {
             me.update();
         }
     }
