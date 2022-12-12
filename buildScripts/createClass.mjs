@@ -710,6 +710,10 @@ if (programOpts.info) {
             return 'data.Store';
         }
 
+        if (className.endsWith('component')) {
+            return 'component.Base';
+        }
+
         if (className.endsWith('controller')) {
             return 'controller.Component';
         }
