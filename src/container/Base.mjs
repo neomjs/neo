@@ -210,6 +210,10 @@ class Base extends Component {
                     Neo.assignDefaults(item, defaults);
                 }
 
+                if (!item.module && !item.ntype && !item.className) {
+                    item.module = Component;
+                }
+
                 module = item.module;
 
                 lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
