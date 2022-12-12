@@ -352,7 +352,6 @@ class Base extends Component {
     insert(index, item, silent=false) {
         let me    = this,
             items = me.items,
-            vdom  = me.vdom,
             i, len, returnArray;
 
         if (Neo.typeOf(item) === 'Array') {
@@ -382,10 +381,7 @@ class Base extends Component {
 
         if (!silent) {
             me.promiseVdomUpdate().then(() => {
-                me.fire('insert', {
-                    index,
-                    item
-                });
+                me.fire('insert', { index, item });
             });
         }
 
@@ -507,8 +503,8 @@ class Base extends Component {
     /**
      * Removes a container item at a given index
      * @param {Number} index
-     * @param {Boolean} [destroyItem=true]
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} destroyItem=true
+     * @param {Boolean} silent=false
      */
     removeAt(index, destroyItem=true, silent=false) {
         let me    = this,
