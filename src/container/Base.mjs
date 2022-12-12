@@ -545,6 +545,18 @@ class Base extends Component {
     }
 
     /**
+     * Replaces a container item at a given index
+     * @param {Number} index
+     * @param {Neo.component.Base} item
+     * @param {Boolean} destroyItem=true
+     * @param {Boolean} silent=false
+     */
+    replaceAt(index, item, destroyItem=true, silent=false) {
+        this.removeAt(index, destroyItem, true);
+        this.insert(index, item, silent);
+    }
+
+    /**
      * Switches the position of 2 direct child items
      * You can either pass an index (Number) or id (String)
      * @param {Number|String} item1id
