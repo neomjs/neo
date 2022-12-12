@@ -210,6 +210,10 @@ class Base extends Component {
                     Neo.assignDefaults(item, defaults);
                 }
 
+                if (!item.module && !item.ntype && !item.className) {
+                    item.module = Component;
+                }
+
                 module = item.module;
 
                 lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
@@ -352,7 +356,6 @@ class Base extends Component {
     insert(index, item, silent=false) {
         let me    = this,
             items = me.items,
-            vdom  = me.vdom,
             i, len, returnArray;
 
         if (Neo.typeOf(item) === 'Array') {
@@ -382,10 +385,7 @@ class Base extends Component {
 
         if (!silent) {
             me.promiseVdomUpdate().then(() => {
-                me.fire('insert', {
-                    index,
-                    item
-                });
+                me.fire('insert', { index, item });
             });
         }
 
@@ -499,7 +499,7 @@ class Base extends Component {
 
         me.getVdomItemsRoot().cn = [];
 
-        if(!silent || destroyItem){
+        if (!silent || destroyItem) {
             me.update();
         }
     }
@@ -507,8 +507,8 @@ class Base extends Component {
     /**
      * Removes a container item at a given index
      * @param {Number} index
-     * @param {Boolean} [destroyItem=true]
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} destroyItem=true
+     * @param {Boolean} silent=false
      */
     removeAt(index, destroyItem=true, silent=false) {
         let me    = this,
@@ -525,10 +525,10 @@ class Base extends Component {
 
             me.getVdomItemsRoot().cn.splice(index, 1);
 
-            me[silent && !destroyItem ? '_vdom' : 'vdom'] = vdom;
+            me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy(true);
+                item.destroy(false, true);
             } else {
                 item.mounted = false;
             }
@@ -542,6 +542,18 @@ class Base extends Component {
      */
     removeLast(destroyItem=true, silent=false) {
         this.removeAt(this.items.length - 1, destroyItem, silent);
+    }
+
+    /**
+     * Replaces a container item at a given index
+     * @param {Number} index
+     * @param {Neo.component.Base} item
+     * @param {Boolean} destroyItem=true
+     * @param {Boolean} silent=false
+     */
+    replaceAt(index, item, destroyItem=true, silent=false) {
+        this.removeAt(index, destroyItem, true);
+        this.insert(index, item, silent);
     }
 
     /**
