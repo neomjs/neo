@@ -99,6 +99,10 @@ class ListModel extends Model {
             } else if (index >= maxItems) {
                 if (me.stayInList) {
                     index = 0;
+
+                    while (store.getAt(index)?.isHeader === true) {
+                        index++;
+                    }
                 } else {
                     preventSelection = true;
                     me.deselectAll();
