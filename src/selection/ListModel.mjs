@@ -84,6 +84,10 @@ class ListModel extends Model {
             recordId = view.getItemRecordId(item);
             index    = store.indexOf(recordId) + step;
 
+            while (store.getAt(index)?.isHeader === true) {
+                index += step;
+            }
+
             if (index < 0) {
                 if (me.stayInList) {
                     index = maxItems - 1;
