@@ -106,6 +106,12 @@ class Base extends Component {
          */
         useCheckBoxes_: false,
         /**
+         * Setting this config to true will switch to dl, dt & dd tags instead of using ul & li.
+         * Use the {Boolean} model field isHeader.
+         * @member {Boolean} useHeaders_=false
+         */
+        useHeaders_: false,
+        /**
          * @member {Boolean} useWrapperNode_=false
          */
         useWrapperNode_: false,
@@ -225,6 +231,19 @@ class Base extends Component {
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
         me.cls = cls;
+    }
+
+    /**
+     * Triggered after the useHeaders config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseHeaders(value, oldValue) {
+        let me = this;
+
+        me.vdom.tag = 'dl';
+        me.itemTagName = 'dd';
     }
 
     /**
