@@ -311,7 +311,7 @@ class Base extends Component {
         }
 
         item = {
-            tag     : me.itemTagName,
+            tag     : me.useHeaders && record.isHeader ? 'dt' : me.itemTagName,
             cls,
             id      : itemId,
             tabIndex: -1
