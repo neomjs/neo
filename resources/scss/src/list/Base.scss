@@ -36,6 +36,11 @@
         width   : 100%;
     }
 
+    .neo-list-header {
+        position: sticky;
+        top     : 0;
+    }
+
     .neo-list-item {
         background-color: v(list-item-background-color);
         cursor          : pointer;

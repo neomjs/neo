@@ -299,10 +299,13 @@ class Base extends Component {
             cls            = [me.itemCls],
             hasItemHeight  = me.itemHeight !== null,
             hasItemWidth   = me.itemWidth  !== null,
+            isHeader       = me.useHeaders && record.isHeader,
             itemContent    = me.createItemContent(record, index),
             itemId         = me.getItemId(record[me.getKeyProperty()]),
             selectionModel = me.selectionModel,
             item;
+
+        isHeader && cls.push('neo-header');
 
         if (!me.disableSelection && selectionModel) {
             if (selectionModel.isSelected(itemId)) {
@@ -311,7 +314,7 @@ class Base extends Component {
         }
 
         item = {
-            tag     : me.useHeaders && record.isHeader ? 'dt' : me.itemTagName,
+            tag     : isHeader ? 'dt' : me.itemTagName,
             cls,
             id      : itemId,
             tabIndex: -1
