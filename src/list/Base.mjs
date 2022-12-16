@@ -305,7 +305,7 @@ class Base extends Component {
             selectionModel = me.selectionModel,
             item;
 
-        isHeader && cls.push('neo-header');
+        isHeader && cls.push('neo-list-header');
 
         if (!me.disableSelection && selectionModel) {
             if (selectionModel.isSelected(itemId)) {
