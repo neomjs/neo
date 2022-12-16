@@ -2,6 +2,7 @@
     border  : none;
     color   : v(tree-list-color);
     display : flex;
+    overflow: hidden;
     position: relative;
 
     .neo-list {
