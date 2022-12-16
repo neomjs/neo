@@ -2,6 +2,7 @@ import Component  from '../component/Base.mjs';
 import LayoutBase from '../layout/Base.mjs';
 import LayoutCard from '../layout/Card.mjs';
 import LayoutFit  from '../layout/Fit.mjs';
+import LayoutGrid from '../layout/Grid.mjs';
 import LayoutHbox from '../layout/HBox.mjs';
 import LayoutVBox from '../layout/VBox.mjs';
 import Logger     from '../util/Logger.mjs';
