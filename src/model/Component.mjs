@@ -438,7 +438,7 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`store '${key}' found inside this model or parents.`, originModel);
+            console.error(`store '${key}' not found inside this model or parents.`, originModel);
         }
 
         return parentModel.getStore(key, originModel);
