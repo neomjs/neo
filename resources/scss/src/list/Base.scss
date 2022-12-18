@@ -43,7 +43,6 @@
 
     .neo-list-item {
         background-color: v(list-item-background-color);
-        cursor          : pointer;
         padding         : v(list-item-padding);
         white-space     : nowrap;
 
@@ -52,8 +51,11 @@
         }
 
         &:not(.neo-list-header) {
+            cursor: pointer;
+
             &:hover {
                 background-color: v(list-item-background-color-hover);
+                color           : v(list-container-list-color);
             }
         }
 
