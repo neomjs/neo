@@ -47,7 +47,10 @@ class FooterContainer extends Container {
         }, {
             flex: 1
         }, {
-            html : 'Country Flag Icons made by <a target="_blank" href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a target="_blank" href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.'
+            html : [
+                'Country Flag Icons made by <a target="_blank" href="https://www.flaticon.com/authors/freepik" title="Freepik">',
+                'Freepik</a> from <a target="_blank" href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.'
+            ].join('')
         }, {
             ntype  : 'button',
             cls    : ['neo-button'],

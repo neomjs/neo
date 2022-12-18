@@ -529,7 +529,7 @@ class Base extends Component {
             me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy(false, true);
+                item.destroy(true, silent);
             } else {
                 item.mounted = false;
             }

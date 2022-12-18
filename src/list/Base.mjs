@@ -509,9 +509,12 @@ class Base extends Component {
      * @param {Object} data
      */
     onItemClick(node, data) {
-        let me = this;
+        let me     = this,
+            record = me.store.get(me.getItemRecordId(node.id));
 
-        !me.disableSelection && me.selectionModel?.select(node.id);
+        if (!me.disableSelection && (!me.useHeaders || !record.isHeader)) {
+            me.selectionModel?.select(node.id);
+        }
 
         /**
          * The itemClick event fires when a click occurs on a list item
@@ -519,7 +522,7 @@ class Base extends Component {
          * @param {String} id the record matching the list item
          * @returns {Object}
          */
-        me.fire('itemClick', me.store.get(me.getItemRecordId(node.id)));
+        me.fire('itemClick', record);
     }
 
     /**
