@@ -94,6 +94,10 @@ class Text extends Base {
          */
         inputType_: 'text',
         /**
+         * @member {String[]} labelCls_=['neo-textfield-label']
+         */
+        labelCls_: ['neo-textfield-label'],
+        /**
          * Valid values: 'bottom', 'inline', 'left', 'right', 'top'
          * @member {String} labelPosition_='left'
          */
@@ -139,7 +143,7 @@ class Text extends Base {
          */
         _vdom:
         {cn: [
-            {tag: 'label', cls: ['neo-textfield-label'], style: {}},
+            {tag: 'label', cls: [], style: {}},
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
             {cls: ['neo-textfield-error'], removeDom: true}
         ]}
@@ -288,6 +292,22 @@ class Text extends Base {
      */
     afterSetInputType(value, oldValue) {
         this.changeInputElKey('type', value);
+    }
+
+    /**
+     * Triggered after the labelCls config got changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    afterSetLabelCls(value, oldValue) {
+        let me  = this,
+            cls = me.getLabelEl().cls;
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.update();
     }
 
     /**
