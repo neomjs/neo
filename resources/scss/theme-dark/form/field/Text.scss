@@ -7,7 +7,8 @@ $neoMap: map-merge($neoMap, (
     'textfield-input-color'              : #ccc,
     'textfield-input-placeholder-color'  : #ccc,
     'textfield-input-placeholder-opacity': 0.6,
-    'textfield-label-color'              : #bbb
+    'textfield-label-color'              : #bbb,
+    'textfield-label-top-margin'         : 0 0 3px 0
 ));
 
 @if $useCssVars == true {
@@ -21,5 +22,6 @@ $neoMap: map-merge($neoMap, (
         --textfield-input-placeholder-color  : #{neo(textfield-input-placeholder-color)};
         --textfield-input-placeholder-opacity: #{neo(textfield-input-placeholder-opacity)};
         --textfield-label-color              : #{neo(textfield-label-color)};
+        --textfield-label-top-margin         : #{neo(textfield-label-top-margin)};
     }
 }

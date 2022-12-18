@@ -169,7 +169,7 @@
         flex-direction: column;
 
         .neo-textfield-label {
-            margin-bottom: 3px;
+            margin: v(textfield-label-top-margin);
         }
     }
 
