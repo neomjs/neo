@@ -8,7 +8,7 @@ $neoMap: map-merge($neoMap, (
     'textfield-input-placeholder-color'  : #ccc,
     'textfield-input-placeholder-opacity': 0.6,
     'textfield-label-color'              : #bbb,
-    'textfield-label-top-margin'         : 0 0 3px 0
+    'textfield-label-top-margin'         : 0 0 3px
 ));
 
 @if $useCssVars == true {
