@@ -51,8 +51,10 @@
             outline: 0;
         }
 
-        &:hover {
-            background-color: v(list-item-background-color-hover);
+        &:not(.neo-list-header) {
+            &:hover {
+                background-color: v(list-item-background-color-hover);
+            }
         }
 
         &.neo-selected {
