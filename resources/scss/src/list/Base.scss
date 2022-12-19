@@ -62,6 +62,7 @@
         &.neo-selected {
             background-color: v(list-item-background-color-selected) !important;
             color           : v(list-item-color-selected) !important;
+            cursor          : default !important;
         }
 
         .neo-highlight-search {
