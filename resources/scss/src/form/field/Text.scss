@@ -210,7 +210,7 @@
         color           : v(textfield-input-color);
         font            : v(textfield-input-font);
         min-height      : 27px;
-        padding         : 3px 6px 2px;
+        padding         : v(textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
 
