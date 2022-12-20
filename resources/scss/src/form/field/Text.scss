@@ -1,7 +1,7 @@
 .neo-textfield {
     align-items  : center;
     display      : flex;
-    height       : 27px;
+    height       : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
     margin-bottom: 5px;
     margin-top   : 5px;
     white-space  : nowrap;
@@ -181,7 +181,7 @@
         border-radius   : v(textfield-border-radius);
         display         : flex;
         flex            : 1 1 100px;
-        min-height      : 25px;
+        min-height      : v(textfield-input-height);
         overflow        : hidden;
 
         .neo-textfield-input {
