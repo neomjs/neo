@@ -147,7 +147,13 @@ class Base extends Component {
      * @protected
      */
     afterSetActiveIndex(value, oldValue) {
-        console.log('afterSetActiveIndex', value);
+        let selectionModel = this.selectionModel;
+
+        if (Neo.isNumber(value)) {
+            selectionModel?.selectAt(value);
+        } else if (Neo.isNumber(oldValue)) {
+            selectionModel.deselectAll();
+        }
     }
 
     /**
