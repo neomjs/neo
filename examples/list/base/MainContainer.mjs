@@ -21,10 +21,20 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module   : NumberField,
+            clearable: true,
+            labelText: 'activeIndex',
+            listeners: {change: me.onConfigChange.bind(me, 'activeIndex')},
+            maxValue : 5,
+            minValue : 0,
+            stepSize : 1,
+            value    : me.exampleComponent.activeIndex
+        }, {
             module   : CheckBox,
             checked  : me.exampleComponent.disableSelection,
             labelText: 'disableSelection',
-            listeners: {change: me.onConfigChange.bind(me, 'disableSelection')}
+            listeners: {change: me.onConfigChange.bind(me, 'disableSelection')},
+            style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.draggable,
