@@ -9,6 +9,7 @@
     &.neo-focus {
         .neo-input-wrapper {
             border-color: v(textfield-border-color-active) !important;
+            outline     : v(textfield-outline-active);
         }
     }
 
