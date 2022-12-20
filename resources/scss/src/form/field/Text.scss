@@ -1,7 +1,7 @@
 .neo-textfield {
     align-items  : center;
     display      : flex;
-    height       : 27px;
+    height       : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
     margin-bottom: 5px;
     margin-top   : 5px;
     white-space  : nowrap;
@@ -181,7 +181,7 @@
         border-radius   : v(textfield-border-radius);
         display         : flex;
         flex            : 1 1 100px;
-        min-height      : 25px;
+        min-height      : v(textfield-input-height);
         overflow        : hidden;
 
         .neo-textfield-input {
@@ -208,9 +208,9 @@
         border          : 1px solid v(textfield-border-color);
         border-radius   : v(textfield-border-radius);
         color           : v(textfield-input-color);
-        font            : 400 13px/17px #{neo(neo-font-family)};
+        font            : v(textfield-input-font);
         min-height      : 27px;
-        padding         : 3px 6px 2px;
+        padding         : v(textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
 

@@ -26,15 +26,17 @@
     }
 
     .neo-spin-button {
-        border-left: 1px solid v(textfield-border-color);
-        color      : v(trigger-color);
-        cursor     : pointer;
-        display    : block;
-        font-size  : 10px;
-        height     : 50%;
-        line-height: 11px;
-        text-align : center;
-        width      : 22px;
+        align-items    : center;
+        border-left    : 1px solid v(textfield-border-color);
+        color          : v(trigger-color);
+        cursor         : pointer;
+        display        : flex;
+        font-size      : 10px;
+        height         : 50%;
+        justify-content: center;
+        line-height    : 11px;
+        text-align     : center;
+        width          : 22px;
 
         &.neo-up {
             border-bottom: 1px solid v(textfield-border-color);
