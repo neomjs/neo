@@ -61,6 +61,39 @@ class Base extends CoreBase {
     applyRenderAttributes() {}
 
     /**
+     *
+     */
+    destroy() {
+        let me = this;
+
+        me.bind && Neo.getComponent(me.containerId).getModel()?.removeBindings(me.id);
+
+        super.destroy();
+    }
+
+    /**
+     * Returns the container model or its closest parent model
+     * @param {String} [ntype]
+     * @returns {Neo.model.Component|null}
+     */
+    getModel(ntype) {
+        return Neo.getComponent(this.containerId).getModel();
+    }
+
+    /**
+     * Applies all class configs to this instance
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     */
+    initConfig(config, preventOriginalConfig) {
+        super.initConfig(config, preventOriginalConfig);
+
+        let me = this;
+
+        me.bind && Neo.getComponent(me.containerId).getModel()?.parseConfig(me);
+    }
+
+    /**
      * Placeholder method
      * @param {Neo.component.Base} item
      * @protected
