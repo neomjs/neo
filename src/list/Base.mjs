@@ -21,6 +21,10 @@ class Base extends Component {
          */
         ntype: 'list',
         /**
+         * @member {Number|null} activeIndex_=null
+         */
+        activeIndex_: null,
+        /**
          * @member {Boolean} animate_=false
          */
         animate_: false,
@@ -134,6 +138,22 @@ class Base extends Component {
             click: me.onClick,
             scope: me
         });
+    }
+
+    /**
+     * Triggered after the activeIndex config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetActiveIndex(value, oldValue) {
+        let selectionModel = this.selectionModel;
+
+        if (Neo.isNumber(value)) {
+            selectionModel?.selectAt(value);
+        } else if (Neo.isNumber(oldValue)) {
+            selectionModel.deselectAll();
+        }
     }
 
     /**

@@ -3,12 +3,14 @@ $neoMap: map-merge($neoMap, (
     'textfield-border-color-active'      : #5d83a7,
     'textfield-border-color-invalid'     : brown,
     'textfield-border-radius'            : 0,
+    'textfield-border-width'             : 1px,
     'textfield-input-background-color'   : #2b2b2b,
     'textfield-input-color'              : #ccc,
     'textfield-input-placeholder-color'  : #ccc,
     'textfield-input-placeholder-opacity': 0.6,
     'textfield-label-color'              : #bbb,
-    'textfield-label-top-margin'         : 0 0 3px
+    'textfield-label-top-margin'         : 0 0 3px,
+    'textfield-outline-active'           : none
 ));
 
 @if $useCssVars == true {
@@ -17,11 +19,13 @@ $neoMap: map-merge($neoMap, (
         --textfield-border-color-active      : #{neo(textfield-border-color-active)};
         --textfield-border-color-invalid     : #{neo(textfield-border-color-invalid)};
         --textfield-border-radius            : #{neo(textfield-border-radius)};
+        --textfield-border-width             : #{neo(textfield-border-width)};
         --textfield-input-background-color   : #{neo(textfield-input-background-color)};
         --textfield-input-color              : #{neo(textfield-input-color)};
         --textfield-input-placeholder-color  : #{neo(textfield-input-placeholder-color)};
         --textfield-input-placeholder-opacity: #{neo(textfield-input-placeholder-opacity)};
         --textfield-label-color              : #{neo(textfield-label-color)};
         --textfield-label-top-margin         : #{neo(textfield-label-top-margin)};
+        --textfield-outline-active           : #{neo(textfield-outline-active)};
     }
 }
