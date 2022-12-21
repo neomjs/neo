@@ -157,9 +157,11 @@ class Text extends Base {
 
         let me = this;
 
-        me.addDomListeners(
-            {input: me.onInputValueChange, scope: me}
-        );
+        me.addDomListeners([
+            {input     : me.onInputValueChange, scope: me},
+            {mouseenter: me.onMouseEnter,       scope: me},
+            {mouseleave: me.onMouseLeave,       scope: me}
+        ]);
     }
 
     /**
@@ -940,6 +942,26 @@ class Text extends Base {
         } else if (value !== oldValue) {
             me.value = value;
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseEnter(data) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, 'neo-hovered');
+        this.cls = cls;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        let cls = this.cls;
+
+        NeoArray.remove(cls, 'neo-hovered');
+        this.cls = cls;
     }
 
     /**

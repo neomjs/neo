@@ -147,7 +147,7 @@ class ListModel extends Model {
      */
     selectAt(index) {
         let view      = this.view,
-            recordKey = view.store.getKeyAt(index),
+            recordKey = view?.store.getKeyAt(index),
             itemId    = recordKey && view.getItemId(recordKey);
 
         if (itemId) {

@@ -1,6 +1,7 @@
 $neoMap: map-merge($neoMap, (
     'textfield-border-color'             : #ddd,
     'textfield-border-color-active'      : #1c60a0,
+    'textfield-border-color-hovered'     : #ddd,
     'textfield-border-color-invalid'     : brown,
     'textfield-border-radius'            : 3px,
     'textfield-border-width'             : 1px,
@@ -13,13 +14,15 @@ $neoMap: map-merge($neoMap, (
     'textfield-input-placeholder-opacity': 0.6,
     'textfield-label-color'              : #666,
     'textfield-label-top-margin'         : 0 0 3px,
-    'textfield-outline-active'           : none
+    'textfield-outline-active'           : none,
+    'textfield-outline-hovered'          : none
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-textfield
         --textfield-border-color             : #{neo(textfield-border-color)};
         --textfield-border-color-active      : #{neo(textfield-border-color-active)};
+        --textfield-border-color-hovered     : #{neo(textfield-border-color-hovered)};
         --textfield-border-color-invalid     : #{neo(textfield-border-color-invalid)};
         --textfield-border-radius            : #{neo(textfield-border-radius)};
         --textfield-border-width             : #{neo(textfield-border-width)};
@@ -33,5 +36,6 @@ $neoMap: map-merge($neoMap, (
         --textfield-label-color              : #{neo(textfield-label-color)};
         --textfield-label-top-margin         : #{neo(textfield-label-top-margin)};
         --textfield-outline-active           : #{neo(textfield-outline-active)};
+        --textfield-outline-hovered          : #{neo(textfield-outline-hovered)};
     }
 }

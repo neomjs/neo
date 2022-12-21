@@ -13,6 +13,15 @@
         }
     }
 
+    &.neo-hovered {
+        &:not(&.neo-focus) {
+            .neo-input-wrapper {
+                border-color: v(textfield-border-color-hovered) !important;
+                outline     : v(textfield-outline-hovered);
+            }
+        }
+    }
+
     &.neo-invalid:not(.neo-disabled) {
         .neo-input-wrapper {
             border-color: v(textfield-border-color-invalid);
