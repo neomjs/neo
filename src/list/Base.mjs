@@ -519,7 +519,7 @@ class Base extends Component {
                 headerlessIndex++;
 
                 if (headerlessIndex === index) {
-                    return i;
+                    return i - 1;
                 }
             }
         }
