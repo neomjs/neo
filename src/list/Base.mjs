@@ -432,9 +432,16 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      */
     createItems(silent=false) {
-        let me   = this,
-            vdom = me.getVdomRoot(),
+        let me                    = this,
+            headerlessActiveIndex = me.headerlessActiveIndex,
+            vdom                  = me.getVdomRoot(),
             listItem;
+
+        // in case we set headerlessActiveIndex before the store was loaded, activeIndex can be null
+        // and the wanted selection is not initially there
+        if (Neo.isNumber(headerlessActiveIndex) && !Neo.isNumber(me.activeIndex)) {
+            me.afterSetHeaderlessActiveIndex(headerlessActiveIndex, null);
+        }
 
         if (!(me.animate && !me.getPlugin('animate'))) {
             vdom.cn = [];
@@ -484,11 +491,17 @@ class Base extends Component {
     getActiveIndex(headerlessIndex) {
         let delta   = 0,
             i       = 0,
-            records = this.store.items;
+            records = this.store.items,
+            len     = headerlessIndex;
 
-        for (; i <= headerlessIndex; i++) {
+        if (records.length < 1) {
+            return null;
+        }
+
+        for (; i <= len; i++) {
             if (records[i].isHeader) {
                 delta++;
+                len++;
             }
         }
 
@@ -511,18 +524,15 @@ class Base extends Component {
     getHeaderlessIndex(index) {
         let headerlessIndex = 0,
             i               = 0,
-            records         = this.store.items,
-            len             = records.length;
+            records         = this.store.items;
 
-        for (; i < len; i++) {
+        for (; i < index; i++) {
             if (!records[i].isHeader) {
                 headerlessIndex++;
-
-                if (headerlessIndex === index) {
-                    return i;
-                }
             }
         }
+
+        return headerlessIndex;
     }
 
     /**
