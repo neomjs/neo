@@ -288,10 +288,12 @@ class Base extends Component {
      * @protected
      */
     afterSetUseHeaders(value, oldValue) {
-        let me = this;
+        if (value) {
+            let me = this;
 
-        me.vdom.tag = 'dl';
-        me.itemTagName = 'dd';
+            me.vdom.tag = 'dl';
+            me.itemTagName = 'dd';
+        }
     }
 
     /**
