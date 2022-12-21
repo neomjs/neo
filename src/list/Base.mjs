@@ -517,18 +517,15 @@ class Base extends Component {
     getHeaderlessIndex(index) {
         let headerlessIndex = 0,
             i               = 0,
-            records         = this.store.items,
-            len             = records.length;
+            records         = this.store.items;
 
-        for (; i < len; i++) {
+        for (; i < index; i++) {
             if (!records[i].isHeader) {
                 headerlessIndex++;
-
-                if (headerlessIndex === index) {
-                    return i - 1;
-                }
             }
         }
+
+        return headerlessIndex;
     }
 
     /**
