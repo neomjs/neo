@@ -58,6 +58,12 @@ class Base extends Component {
          */
         dragZoneConfig: null,
         /**
+         * In case we are using list item headers and want to bind list item indexes to e.g. a card layout
+         * for e.g. a sidenav, this config comes in handy.
+         * @member {Number|null} headerlessActiveIndex_=null
+         */
+        headerlessActiveIndex_: null,
+        /**
          * @member {Boolean} highlightFilterValue=true
          */
         highlightFilterValue: true,
@@ -147,12 +153,15 @@ class Base extends Component {
      * @protected
      */
     afterSetActiveIndex(value, oldValue) {
-        let selectionModel = this.selectionModel;
+        let me             = this,
+            selectionModel = me.selectionModel;
 
         if (Neo.isNumber(value)) {
             selectionModel?.selectAt(value);
+            me.headerlessActiveIndex = me.getHeaderlessIndex(value);
         } else if (Neo.isNumber(oldValue)) {
             selectionModel.deselectAll();
+            me.headerlessActiveIndex = null;
         }
     }
 
@@ -206,6 +215,25 @@ class Base extends Component {
                     ...me.dragZoneConfig
                 });
             });
+        }
+    }
+
+    /**
+     * Triggered after the headerlessActiveIndex config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetHeaderlessActiveIndex(value, oldValue) {
+        let me = this,
+            activeIndex;
+
+        if (Neo.isNumber(value)) {
+            activeIndex = me.getActiveIndex(value);
+
+            me.activeIndex = activeIndex;
+        } else if (Neo.isNumber(oldValue)) {
+            me.activeIndex = null;
         }
     }
 
@@ -449,11 +477,52 @@ class Base extends Component {
     }
 
     /**
+     * Transforms an index excluding list item headers into the real store index
+     * @param {Number} headerlessIndex
+     * @returns {Number}
+     */
+    getActiveIndex(headerlessIndex) {
+        let delta   = 0,
+            i       = 0,
+            records = this.store.items;
+
+        for (; i <= headerlessIndex; i++) {
+            if (records[i].isHeader) {
+                delta++;
+            }
+        }
+
+        return headerlessIndex + delta;
+    }
+
+    /**
      * @param {Number|String} recordId
      * @returns {String}
      */
     getItemId(recordId) {
         return `${this.id}__${recordId}`;
+    }
+
+    /**
+     * Returns the index of a list item excluding item headers
+     * @param {Number} index
+     * @returns {Number}
+     */
+    getHeaderlessIndex(index) {
+        let headerlessIndex = 0,
+            i               = 0,
+            records         = this.store.items,
+            len             = records.length;
+
+        for (; i < len; i++) {
+            if (!records[i].isHeader) {
+                headerlessIndex++;
+
+                if (headerlessIndex === index) {
+                    return i;
+                }
+            }
+        }
     }
 
     /**
