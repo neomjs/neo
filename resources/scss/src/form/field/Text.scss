@@ -191,7 +191,9 @@
         display         : flex;
         flex            : 1 1 100px;
         min-height      : v(textfield-input-height);
+        outline         : 0 solid v(textfield-outline-active);
         overflow        : hidden;
+        transition      : outline-width .1s ease-out;
 
         .neo-textfield-input {
             border       : none;
