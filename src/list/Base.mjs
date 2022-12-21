@@ -432,9 +432,16 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      */
     createItems(silent=false) {
-        let me   = this,
-            vdom = me.getVdomRoot(),
+        let me                    = this,
+            headerlessActiveIndex = me.headerlessActiveIndex,
+            vdom                  = me.getVdomRoot(),
             listItem;
+
+        // in case we set headerlessActiveIndex before the store was loaded, activeIndex can be null
+        // and the wanted selection is not initially there
+        if (Neo.isNumber(headerlessActiveIndex) && !Neo.isNumber(me.activeIndex)) {
+            me.afterSetHeaderlessActiveIndex(headerlessActiveIndex, null);
+        }
 
         if (!(me.animate && !me.getPlugin('animate'))) {
             vdom.cn = [];
