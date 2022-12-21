@@ -484,11 +484,17 @@ class Base extends Component {
     getActiveIndex(headerlessIndex) {
         let delta   = 0,
             i       = 0,
-            records = this.store.items;
+            records = this.store.items,
+            len     = headerlessIndex;
 
-        for (; i <= headerlessIndex; i++) {
+        if (records.length < 1) {
+            return null;
+        }
+
+        for (; i <= len; i++) {
             if (records[i].isHeader) {
                 delta++;
+                len++;
             }
         }
 
