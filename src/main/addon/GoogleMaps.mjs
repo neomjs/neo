@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * @class Neo.main.addon.GoogleMaps
@@ -13,11 +14,52 @@ class GoogleMaps extends Base {
          */
         className: 'Neo.main.addon.GoogleMaps',
         /**
+         * @member {Object} maps={}
+         */
+        maps: {},
+        /**
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'create'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true
     }}
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.loadApi();
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    create(data) {
+        this.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
+            center: { lat: -34.397, lng: 150.644 },
+            zoom: 8,
+        });
+    }
+
+    /**
+     * @protected
+     */
+    loadApi() {
+        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&v=weekly').then(() => {
+            console.log('GoogleMaps API loaded');
+        });
+    }
 }
 
 Neo.applyClassConfig(GoogleMaps);
