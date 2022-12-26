@@ -56,7 +56,7 @@ class GoogleMaps extends Base {
      * @protected
      */
     loadApi() {
-        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&v=weekly').then(() => {
+        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA&v=weekly').then(() => {
             console.log('GoogleMaps API loaded');
         });
     }
