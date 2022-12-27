@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/component/wrapper/googleMaps/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["GoogleMaps", "Stylesheet"]
+}
