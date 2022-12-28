@@ -18,6 +18,10 @@ class GoogleMaps extends Base {
          */
         maps: {},
         /**
+         * @member {Object} markers={}
+         */
+        markers: {},
+        /**
          * @member {Object} remote
          * @protected
          */
@@ -39,6 +43,25 @@ class GoogleMaps extends Base {
     construct(config) {
         super.construct(config);
         this.loadApi();
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     * @param {Object} data.position
+     * @param {String} [data.title]
+     */
+    addMarker(data) {
+        let me = this;
+
+        Neo.ns(`${data.mapId}`, true, me.markers);
+
+        me.markers[data.mapId][data.id] = new google.maps.Marker({
+            position: data.position,
+            map     : me.maps[data.mapId],
+            title   : data.title,
+        });
     }
 
     /**
