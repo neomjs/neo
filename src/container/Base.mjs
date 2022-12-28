@@ -191,8 +191,14 @@ class Base extends Component {
             defaults = me.itemDefaults,
             lazyLoadItem, module;
 
-        if (defaults && item.module) {
-            delete defaults.ntype;
+        if (defaults) {
+            if (item.module) {
+                delete defaults.ntype;
+            }
+
+            if (item.ntype) {
+                delete defaults.module;
+            }
         }
 
         switch (Neo.typeOf(item)) {
