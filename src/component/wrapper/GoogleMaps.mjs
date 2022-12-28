@@ -106,6 +106,21 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * Triggered after the zoom config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetZoom(value, oldValue) {
+        if (oldValue !== undefined) {
+            Neo.main.addon.GoogleMaps.setZoom({
+                id: this.id,
+                value
+            })
+        }
+    }
+
+    /**
      * Triggered before the markerStore config gets changed.
      * @param {Object} value
      * @param {Object} oldValue

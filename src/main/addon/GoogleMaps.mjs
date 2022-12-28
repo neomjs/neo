@@ -34,7 +34,8 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
-                'removeMap'
+                'removeMap',
+                'setZoom'
             ]
         },
         /**
@@ -97,6 +98,15 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @protected
+     */
+    loadApi() {
+        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA&v=weekly').then(() => {
+            console.log('GoogleMaps API loaded');
+        })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.mapId
      */
@@ -106,12 +116,12 @@ class GoogleMaps extends Base {
     }
 
     /**
-     * @protected
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.value
      */
-    loadApi() {
-        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA&v=weekly').then(() => {
-            console.log('GoogleMaps API loaded');
-        })
+    setZoom(data) {
+        this.maps[data.id].setZoom(data.value);
     }
 }
 
