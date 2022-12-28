@@ -1,5 +1,6 @@
 import Base       from '../../core/Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
+import DomEvents  from '../DomEvents.mjs';
 import Observable from '../../core/Observable.mjs';
 
 /**
@@ -67,10 +68,11 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        let me = this;
+        let me = this,
+            listenerId, marker;
 
         if (!me.maps[data.mapId]) {
-            let listenerId = me.on('mapCreated', mapId => {
+            listenerId = me.on('mapCreated', mapId => {
                 if (data.mapId === mapId) {
                     me.un(listenerId);
                     me.addMarker(data);
@@ -79,11 +81,15 @@ class GoogleMaps extends Base {
         } else {
             Neo.ns(`${data.mapId}`, true, me.markers);
 
-            me.markers[data.mapId][data.id] = new google.maps.Marker({
-                position: data.position,
+            me.markers[data.mapId][data.id] = marker = new google.maps.Marker({
                 map     : me.maps[data.mapId],
+                neoId   : data.id,    // custom property
+                neoMapId: data.mapId, // custom property
+                position: data.position,
                 title   : data.title,
             });
+
+            marker.addListener('click', me.onMarkerClick.bind(me, marker));
         }
     }
 
@@ -131,6 +137,22 @@ class GoogleMaps extends Base {
 
         DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
             console.log('GoogleMaps API loaded');
+        })
+    }
+
+    /**
+     * @param {google.maps.Marker} marker
+     * @param {Object} event
+     * @param {Object} event.domEvent
+     */
+    onMarkerClick(marker, event) {
+        // in theory, we could parse and pass the entire DOM event.
+        // feel free to open a feature request ticket, in case you need more data into the app worker.
+
+        DomEvents.sendMessageToApp({
+            id  : marker.neoId,
+            path: [{cls: [], id: marker.neoMapId}],
+            type: 'googleMarkerClick'
         })
     }
 

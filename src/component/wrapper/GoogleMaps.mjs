@@ -74,6 +74,21 @@ class GoogleMaps extends Base {
     }}
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            googleMarkerClick: me.parseMarkerClick,
+            local            : false,
+            scope            : me
+        })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.mapId
@@ -212,6 +227,13 @@ class GoogleMaps extends Base {
     onComponentMounted() {}
 
     /**
+     * @param {Object} record
+     */
+    onMarkerClick(record) {
+        console.log('onMarkerClick', record);
+    }
+
+    /**
      *
      */
     onMarkerStoreLoad() {
@@ -236,6 +258,23 @@ class GoogleMaps extends Base {
             appName: this.appName,
             mapId  : this.id,
             position
+        })
+    }
+
+    /**
+     * Internal function. Use onMarkerClick() or the markerClick event instead
+     * @param {Object} data
+     * @protected
+     */
+    parseMarkerClick(data) {
+        let me     = this,
+            record = me.markerStore.get(data.id);
+
+        me.onMarkerClick(record);
+
+        me.fire('markerClick', {
+            id: me.id,
+            record
         })
     }
 
