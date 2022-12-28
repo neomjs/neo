@@ -97,9 +97,9 @@ class GoogleMaps extends Base {
         let me = this;
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.GoogleMaps.destroy({
+            Neo.main.addon.GoogleMaps.removeMap({
                 appName: me.appName,
-                id     : me.id
+                mapId  : me.id
             });
         }
 
