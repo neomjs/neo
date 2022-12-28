@@ -70,7 +70,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: data => `${data.button1Text}`
+                        text: data => data.button1Text
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -91,12 +91,12 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: data => `${data.button1Text}`
-                },
+                    value: {twoWay: true, value: data => data.button1Text}
+                }/*,
 
                 listeners: {
                     change: 'onTextField1Change'
-                }
+                }*/
             }, {
                 module    : TextField,
                 flex      : 'none',

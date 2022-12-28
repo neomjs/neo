@@ -104,9 +104,9 @@ class Base extends Component {
         route_: null,
         /**
          * The text displayed on the button [optional]
-         * @member {String} text_=''
+         * @member {String|null} text_=null
          */
-        text_: '',
+        text_: null,
         /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null
@@ -271,8 +271,8 @@ class Base extends Component {
 
     /**
      * Triggered after the text config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetText(value, oldValue) {
@@ -280,7 +280,7 @@ class Base extends Component {
             vdomRoot = me.getVdomRoot(),
             textNode = vdomRoot.cn[1];
 
-        if (value === '') {
+        if (!value || value === '') {
             NeoArray.add(me._cls,      'no-text');
             NeoArray.add(vdomRoot.cls, 'no-text');
             textNode.removeDom = true;
