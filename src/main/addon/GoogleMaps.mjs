@@ -33,7 +33,8 @@ class GoogleMaps extends Base {
         remote: {
             app: [
                 'addMarker',
-                'create'
+                'create',
+                'removeMap'
             ]
         },
         /**
@@ -92,6 +93,15 @@ class GoogleMaps extends Base {
         });
 
         me.fire('mapCreated', data.id);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.mapId
+     */
+    removeMap(data) {
+        delete this.maps[data.mapId];
+        delete this.markers[data.mapId];
     }
 
     /**

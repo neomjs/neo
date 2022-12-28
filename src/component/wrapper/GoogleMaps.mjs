@@ -118,6 +118,18 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @param {Boolean} updateParentVdom=false
+     * @param {Boolean} silent=false
+     */
+    destroy(updateParentVdom=false, silent=false) {
+        Neo.main.addon.GoogleMaps.removeMap({
+            mapId: this.id
+        });
+
+        super.destroy(updateParentVdom, silent);
+    }
+
+    /**
      *
      */
     onComponentMounted() {
