@@ -35,6 +35,7 @@ class GoogleMaps extends Base {
                 'addMarker',
                 'create',
                 'hideMarker',
+                'panTo',
                 'removeMap',
                 'removeMarker',
                 'setCenter',
@@ -126,6 +127,15 @@ class GoogleMaps extends Base {
         DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
             console.log('GoogleMaps API loaded');
         })
+    }
+
+    /**
+     * @param data
+     * @param {String} data.mapId
+     * @param {Object} data.position
+     */
+    panTo(data) {
+        this.maps[data.mapId].panTo(data.position);
     }
 
     /**

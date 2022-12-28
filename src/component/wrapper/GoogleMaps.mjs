@@ -190,7 +190,7 @@ class GoogleMaps extends Base {
             appName: this.appName,
             id,
             mapId  : this.id
-        });
+        })
     }
 
     /**
@@ -214,6 +214,19 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @param {Object} position
+     * @param {Number} position.lat
+     * @param {Number} position.lng
+     */
+    panTo(position) {
+        Neo.main.addon.GoogleMaps.panTo({
+            appName: this.appName,
+            mapId  : this.id,
+            position
+        })
+    }
+
+    /**
      *
      */
     removeMap() {
@@ -231,7 +244,7 @@ class GoogleMaps extends Base {
             appName: this.appName,
             id,
             mapId  : this.id
-        });
+        })
     }
 
     /**
@@ -242,7 +255,7 @@ class GoogleMaps extends Base {
             appName: this.appName,
             id,
             mapId  : this.id
-        });
+        })
     }
 }
 

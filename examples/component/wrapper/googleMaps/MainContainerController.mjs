@@ -17,12 +17,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onFlyToButtonClick(data) {
-        // todo
-        /*this.getReference('google-maps-component').flyTo({
-            destination: [-122.4175, 37.655, 400],
-            heading    : 0.0,
-            pitch      : -15.0
-        });*/
+        this.getReference('google-maps-component').panTo({lat: 37.655, lng: -122.4175})
     }
 
     /**
@@ -39,7 +34,7 @@ class MainContainerController extends ComponentController {
                 text   : 'Show marker'
             });
 
-            map.hideMarker('1');
+            map.hideMarker('1')
         } else {
             button.set({
                 iconCls: 'fa-solid fa-trash',
@@ -47,7 +42,7 @@ class MainContainerController extends ComponentController {
                 text   : 'Hide marker'
             });
 
-            map.showMarker('1');
+            map.showMarker('1')
         }
     }
 
