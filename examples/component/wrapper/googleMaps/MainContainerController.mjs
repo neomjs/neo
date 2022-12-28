@@ -17,12 +17,40 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onFlyToButtonClick(data) {
-        // todo
-        /*this.getReference('google-maps-component').flyTo({
-            destination: [-122.4175, 37.655, 400],
-            heading    : 0.0,
-            pitch      : -15.0
-        });*/
+        this.getReference('google-maps-component').panTo({lat: 37.655, lng: -122.4175})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRemoveMarkerButtonClick(data) {
+        let button = data.component,
+            map    = this.getReference('google-maps-component');
+
+        if (button.mode === 'hide') {
+            button.set({
+                iconCls: 'fa fa-location-dot',
+                mode   : 'show',
+                text   : 'Show marker'
+            });
+
+            map.hideMarker('1')
+        } else {
+            button.set({
+                iconCls: 'fa-solid fa-trash',
+                mode   : 'hide',
+                text   : 'Hide marker'
+            });
+
+            map.showMarker('1')
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onZoomFieldChange(data) {
+        this.getReference('google-maps-component').zoom = data.value;
     }
 }
 

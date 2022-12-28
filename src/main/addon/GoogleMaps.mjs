@@ -34,7 +34,13 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
-                'removeMap'
+                'hideMarker',
+                'panTo',
+                'removeMap',
+                'removeMarker',
+                'setCenter',
+                'setZoom',
+                'showMarker'
             ]
         },
         /**
@@ -82,17 +88,56 @@ class GoogleMaps extends Base {
 
     /**
      * @param {Object} data
+     * @param {Object} data.center
+     * @param {Boolean} data.fullscreenControl
      * @param {String} data.id
+     * @param {Number} data.maxZoom
+     * @param {Number} data.minZoom
+     * @param {Number} data.zoom
+     * @param {Boolean} data.zoomControl
      */
     create(data) {
         let me = this;
 
         me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
-            center: { lat: -34.397, lng: 150.644 },
-            zoom: 8,
+            center           : data.center,
+            fullscreenControl: data.fullscreenControl,
+            maxZoom          : data.maxZoom,
+            minZoom          : data.minZoom,
+            zoom             : data.zoom,
+            zoomControl      : data.zoomControl
         });
 
         me.fire('mapCreated', data.id);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     */
+    hideMarker(data) {
+        this.markers[data.mapId][data.id].setMap(null);
+    }
+
+    /**
+     * @protected
+     */
+    loadApi() {
+        let key = Neo.config.googleMapsApiKey;
+
+        DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
+            console.log('GoogleMaps API loaded');
+        })
+    }
+
+    /**
+     * @param data
+     * @param {String} data.mapId
+     * @param {Object} data.position
+     */
+    panTo(data) {
+        this.maps[data.mapId].panTo(data.position);
     }
 
     /**
@@ -105,12 +150,42 @@ class GoogleMaps extends Base {
     }
 
     /**
-     * @protected
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
      */
-    loadApi() {
-        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA&v=weekly').then(() => {
-            console.log('GoogleMaps API loaded');
-        })
+    removeMarker(data) {
+        let markers = this.markers[data.mapId];
+
+        markers[data.id].setMap(null);
+        delete markers[data.id];
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.value
+     */
+    setCenter(data) {
+        this.maps[data.id].setCenter(data.value);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.value
+     */
+    setZoom(data) {
+        this.maps[data.id].setZoom(data.value);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     */
+    showMarker(data) {
+        this.markers[data.mapId][data.id].setMap(this.maps[data.mapId]);
     }
 }
 
