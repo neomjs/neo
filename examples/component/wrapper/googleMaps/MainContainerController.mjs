@@ -24,6 +24,13 @@ class MainContainerController extends ComponentController {
             pitch      : -15.0
         });*/
     }
+
+    /**
+     * @param {Object} data
+     */
+    onZoomFieldChange(data) {
+        this.getReference('google-maps-component').zoom = data.value;
+    }
 }
 
 Neo.applyClassConfig(MainContainerController);

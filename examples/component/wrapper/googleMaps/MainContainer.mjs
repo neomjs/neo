@@ -1,6 +1,7 @@
 import Button                  from '../../../../src/button/Base.mjs';
 import GoogleMapsComponent     from '../../../../src/component/wrapper/GoogleMaps.mjs';
 import MainContainerController from './MainContainerController.mjs';
+import NumberField             from '../../../../src/form/field/Number.mjs';
 import Toolbar                 from '../../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../../src/container/Viewport.mjs';
 
@@ -34,8 +35,20 @@ class MainContainer extends Viewport {
             items : [{
                 module : Button,
                 handler: 'onFlyToButtonClick',
+                height : 27,
                 iconCls: 'fa-solid fa-plane',
                 text   : 'Fly to San Fran'
+            }, {
+                module              : NumberField,
+                clearToOriginalValue: true,
+                labelPosition       : 'inline',
+                labelText           : 'zoom',
+                listeners           : {change: 'onZoomFieldChange'},
+                minValue            : 0,
+                maxValue            : 10,
+                style               : {marginLeft: '10px'},
+                value               : 8,
+                width               : 100
             }]
         }]
     }}
