@@ -68,23 +68,24 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        let me = this,
+        let me    = this,
+            mapId = data.mapId,
             listenerId, marker;
 
-        if (!me.maps[data.mapId]) {
-            listenerId = me.on('mapCreated', mapId => {
-                if (data.mapId === mapId) {
+        if (!me.maps[mapId]) {
+            listenerId = me.on('mapCreated', id => {
+                if (mapId === id) {
                     me.un(listenerId);
                     me.addMarker(data);
                 }
             })
         } else {
-            Neo.ns(`${data.mapId}`, true, me.markers);
+            Neo.ns(`${mapId}`, true, me.markers);
 
-            me.markers[data.mapId][data.id] = marker = new google.maps.Marker({
-                map     : me.maps[data.mapId],
-                neoId   : data.id,    // custom property
-                neoMapId: data.mapId, // custom property
+            me.markers[mapId][data.id] = marker = new google.maps.Marker({
+                map     : me.maps[mapId],
+                neoId   : data.id, // custom property
+                neoMapId: mapId,   // custom property
                 position: data.position,
                 title   : data.title,
             });
@@ -105,9 +106,11 @@ class GoogleMaps extends Base {
      * @param {Boolean} data.zoomControl
      */
     create(data) {
-        let me = this;
+        let me = this,
+            id = data.id,
+            map;
 
-        me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
+        me.maps[id] = map = new google.maps.Map(DomAccess.getElement(id), {
             center           : data.center,
             fullscreenControl: data.fullscreenControl,
             maxZoom          : data.maxZoom,
@@ -117,7 +120,9 @@ class GoogleMaps extends Base {
             ...data.mapOptions
         });
 
-        me.fire('mapCreated', data.id);
+        map.addListener('zoom_changed', me.onMapZoomChange.bind(me, map, id));
+
+        me.fire('mapCreated', id);
     }
 
     /**
@@ -137,6 +142,19 @@ class GoogleMaps extends Base {
 
         DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
             console.log('GoogleMaps API loaded');
+        })
+    }
+
+    /**
+     * @param {google.maps.Map} map
+     * @param {String} mapId
+     */
+    onMapZoomChange(map, mapId){
+        DomEvents.sendMessageToApp({
+            id   : mapId,
+            path : [{cls: [], id: mapId}],
+            type : 'googleMapZoomChange',
+            value: map.zoom
         })
     }
 

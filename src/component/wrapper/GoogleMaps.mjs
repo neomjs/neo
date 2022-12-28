@@ -82,9 +82,10 @@ class GoogleMaps extends Base {
         let me = this;
 
         me.addDomListeners({
-            googleMarkerClick: me.parseMarkerClick,
-            local            : false,
-            scope            : me
+            googleMapZoomChange: me.onMapZoomChange,
+            googleMarkerClick  : me.parseMarkerClick,
+            local              : false,
+            scope              : me
         })
     }
 
@@ -181,9 +182,16 @@ class GoogleMaps extends Base {
      */
     afterSetZoom(value, oldValue) {
         if (oldValue !== undefined) {
+            let me = this;
+
             Neo.main.addon.GoogleMaps.setZoom({
-                appName: this.appName,
-                id     : this.id,
+                appName: me.appName,
+                id     : me.id,
+                value
+            });
+
+            me.fire('zoomChange', {
+                id: me.id,
                 value
             })
         }
@@ -225,6 +233,13 @@ class GoogleMaps extends Base {
      * Hook to use once the map instance got rendered
      */
     onComponentMounted() {}
+
+    /**
+     * @param {Object} data
+     */
+    onMapZoomChange(data) {
+        this.zoom = data.value;
+    }
 
     /**
      * @param {Object} record
