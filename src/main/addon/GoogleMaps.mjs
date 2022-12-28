@@ -83,13 +83,14 @@ class GoogleMaps extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
+     * @param {Number} data.zoom
      */
     create(data) {
         let me = this;
 
         me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
             center: { lat: -34.397, lng: 150.644 },
-            zoom: 8,
+            zoom  : data.zoom,
         });
 
         me.fire('mapCreated', data.id);

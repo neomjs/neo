@@ -37,10 +37,9 @@ class GoogleMaps extends Base {
          */
         markerStoreConfig: null,
         /**
-         * @member {Object} _vdom
+         * @member {Number} zoom_=8
          */
-        _vdom:
-        {}
+        zoom_: 8
     }}
 
     /**
@@ -94,7 +93,8 @@ class GoogleMaps extends Base {
         if (value) {
             let opts = {
                 appName: me.appName,
-                id     : me.id
+                id     : me.id,
+                zoom   : me.zoom
             };
 
             setTimeout(() => {
