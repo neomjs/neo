@@ -107,9 +107,10 @@ class GoogleMaps extends Base {
      */
     create(data) {
         let me = this,
-            id = data.id;
+            id = data.id,
+            map;
 
-        me.maps[id] = new google.maps.Map(DomAccess.getElement(id), {
+        me.maps[id] = map = new google.maps.Map(DomAccess.getElement(id), {
             center           : data.center,
             fullscreenControl: data.fullscreenControl,
             maxZoom          : data.maxZoom,
@@ -118,6 +119,8 @@ class GoogleMaps extends Base {
             zoomControl      : data.zoomControl,
             ...data.mapOptions
         });
+
+        map.addListener('zoom_changed', me.onMapZoomChange.bind(me, map, id));
 
         me.fire('mapCreated', id);
     }
@@ -139,6 +142,19 @@ class GoogleMaps extends Base {
 
         DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
             console.log('GoogleMaps API loaded');
+        })
+    }
+
+    /**
+     * @param {google.maps.Map} map
+     * @param {String} mapId
+     */
+    onMapZoomChange(map, mapId){
+        DomEvents.sendMessageToApp({
+            id   : mapId,
+            path : [{cls: [], id: mapId}],
+            type : 'googleMapZoomChange',
+            value: map.zoom
         })
     }
 

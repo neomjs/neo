@@ -21,6 +21,10 @@ class MainContainer extends Viewport {
             flex     : 1,
             reference: 'google-maps-component',
 
+            listeners: {
+                zoomChange: 'onMapZoomChance'
+            },
+
             markerStoreConfig: {
                 data: [{
                     id      : '1',
@@ -50,6 +54,7 @@ class MainContainer extends Viewport {
                 listeners           : {change: 'onZoomFieldChange'},
                 minValue            : 0,
                 maxValue            : 10,
+                reference           : 'zoom-field',
                 style               : {marginLeft: '10px'},
                 value               : 8,
                 width               : 100
