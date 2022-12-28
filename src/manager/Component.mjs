@@ -184,11 +184,15 @@ class Component extends Base {
     }
 
     /**
-     * Returns an Array containing all parent components for a given component
-     * @param {Neo.component.Base} component
+     * Returns an Array containing all parent components for a given component or component id
+     * @param {Neo.component.Base|String} component
      * @returns {Neo.component.Base[]} parents
      */
     getParents(component) {
+        if (Neo.isString(component)) {
+            component = this.getById(component);
+        }
+
         let parents = [];
 
         while (component?.parentId) {

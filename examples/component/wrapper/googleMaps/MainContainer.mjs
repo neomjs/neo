@@ -18,7 +18,15 @@ class MainContainer extends Viewport {
         items: [{
             module   : GoogleMapsComponent,
             flex     : 1,
-            reference: 'google-maps-component'
+            reference: 'google-maps-component',
+
+            markerStoreConfig: {
+                data: [{
+                    id      : '1',
+                    position: {lat: -34.397, lng: 150.644},
+                    title   : 'Hello neo'
+                }]
+            }
         }, {
             module: Toolbar,
             flex  : 'none',

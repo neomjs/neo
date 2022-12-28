@@ -169,7 +169,7 @@ class Splitter extends Component {
                 if (resizeNext) {
                     newSize = parentRect.width - newSize;
                 } else {
-                    newSize -= size;
+                    newSize += size;
                 }
 
                 newSize = Math.min(Math.max(newSize, 0), parentRect.width - size);

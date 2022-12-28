@@ -974,8 +974,8 @@ class Base extends CoreBase {
 
     /**
      * Unregisters this instance from the ComponentManager
-     * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
-     * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
+     * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
+     * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
