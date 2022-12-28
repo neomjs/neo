@@ -68,23 +68,24 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        let me = this,
+        let me    = this,
+            mapId = data.mapId,
             listenerId, marker;
 
-        if (!me.maps[data.mapId]) {
-            listenerId = me.on('mapCreated', mapId => {
-                if (data.mapId === mapId) {
+        if (!me.maps[mapId]) {
+            listenerId = me.on('mapCreated', id => {
+                if (mapId === id) {
                     me.un(listenerId);
                     me.addMarker(data);
                 }
             })
         } else {
-            Neo.ns(`${data.mapId}`, true, me.markers);
+            Neo.ns(`${mapId}`, true, me.markers);
 
-            me.markers[data.mapId][data.id] = marker = new google.maps.Marker({
-                map     : me.maps[data.mapId],
-                neoId   : data.id,    // custom property
-                neoMapId: data.mapId, // custom property
+            me.markers[mapId][data.id] = marker = new google.maps.Marker({
+                map     : me.maps[mapId],
+                neoId   : data.id, // custom property
+                neoMapId: mapId,   // custom property
                 position: data.position,
                 title   : data.title,
             });
