@@ -49,7 +49,12 @@ class GoogleMaps extends Base {
         /**
          * @member {Number} zoom_=8
          */
-        zoom_: 8
+        zoom_: 8,
+        /**
+         * false hides the default zoom control
+         * @member {Boolean} zoomControl=true
+         */
+        zoomControl: true
     }}
 
     /**
@@ -102,11 +107,12 @@ class GoogleMaps extends Base {
 
         if (value) {
             let opts = {
-                appName: me.appName,
-                id     : me.id,
-                maxZoom: me.maxZoom,
-                minZoom: me.minZoom,
-                zoom   : me.zoom
+                appName    : me.appName,
+                id         : me.id,
+                maxZoom    : me.maxZoom,
+                minZoom    : me.minZoom,
+                zoom       : me.zoom,
+                zoomControl: me.zoomControl
             };
 
             setTimeout(() => {
