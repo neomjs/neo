@@ -89,6 +89,7 @@ class GoogleMaps extends Base {
     /**
      * @param {Object} data
      * @param {Object} data.center
+     * @param {Boolean} data.fullscreenControl
      * @param {String} data.id
      * @param {Number} data.maxZoom
      * @param {Number} data.minZoom
@@ -99,11 +100,12 @@ class GoogleMaps extends Base {
         let me = this;
 
         me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
-            center     : data.center,
-            maxZoom    : data.maxZoom,
-            minZoom    : data.minZoom,
-            zoom       : data.zoom,
-            zoomControl: data.zoomControl
+            center           : data.center,
+            fullscreenControl: data.fullscreenControl,
+            maxZoom          : data.maxZoom,
+            minZoom          : data.minZoom,
+            zoom             : data.zoom,
+            zoomControl      : data.zoomControl
         });
 
         me.fire('mapCreated', data.id);

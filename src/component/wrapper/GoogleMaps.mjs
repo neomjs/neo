@@ -19,6 +19,11 @@ class GoogleMaps extends Base {
          */
         center_: {lat: -34.397, lng: 150.644},
         /**
+         * false hides the default fullscreen control
+         * @member {Boolean} fullscreenControl=true
+         */
+        fullscreenControl: true,
+        /**
          * Prefer to use markerStoreConfig instead.
          * @member {Neo.data.Store|Object} markerStore_
          * @protected
@@ -128,13 +133,14 @@ class GoogleMaps extends Base {
 
         if (value) {
             let opts = {
-                appName    : me.appName,
-                center     : me.center,
-                id         : me.id,
-                maxZoom    : me.maxZoom,
-                minZoom    : me.minZoom,
-                zoom       : me.zoom,
-                zoomControl: me.zoomControl
+                appName          : me.appName,
+                center           : me.center,
+                fullscreenControl: me.fullscreenControl,
+                id               : me.id,
+                maxZoom          : me.maxZoom,
+                minZoom          : me.minZoom,
+                zoom             : me.zoom,
+                zoomControl      : me.zoomControl
             };
 
             setTimeout(() => {
