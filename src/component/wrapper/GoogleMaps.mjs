@@ -61,7 +61,16 @@ class GoogleMaps extends Base {
      * @protected
      */
     afterSetMarkerStore(value, oldValue) {
-        console.log('afterSetMarkerStore', value);
+        let me = this;
+
+        value.on({
+            load : me.onMarkerStoreLoad,
+            scope: me
+        });
+
+        if (value.items.length > 0) {
+            me.onMarkerStoreLoad();
+        }
     }
 
     /**
@@ -113,6 +122,20 @@ class GoogleMaps extends Base {
      */
     onComponentMounted() {
         console.log('onComponentMounted', this.id);
+    }
+
+    /**
+     *
+     */
+    onMarkerStoreLoad() {
+        let me = this;
+
+        me.markerStore.items.forEach(item => {
+            Neo.main.addon.GoogleMaps.addMarker({
+                mapId: me.id,
+                ...item
+            })
+        })
     }
 }
 
