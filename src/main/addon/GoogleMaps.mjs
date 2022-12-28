@@ -35,6 +35,7 @@ class GoogleMaps extends Base {
                 'addMarker',
                 'create',
                 'removeMap',
+                'setCenter',
                 'setZoom'
             ]
         },
@@ -83,6 +84,7 @@ class GoogleMaps extends Base {
 
     /**
      * @param {Object} data
+     * @param {Object} data.center
      * @param {String} data.id
      * @param {Number} data.maxZoom
      * @param {Number} data.minZoom
@@ -93,7 +95,7 @@ class GoogleMaps extends Base {
         let me = this;
 
         me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
-            center     : {lat: -34.397, lng: 150.644},
+            center     : data.center,
             maxZoom    : data.maxZoom,
             minZoom    : data.minZoom,
             zoom       : data.zoom,
@@ -119,6 +121,15 @@ class GoogleMaps extends Base {
     removeMap(data) {
         delete this.maps[data.mapId];
         delete this.markers[data.mapId];
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.value
+     */
+    setCenter(data) {
+        this.maps[data.id].setCenter(data.value);
     }
 
     /**

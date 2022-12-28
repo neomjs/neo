@@ -14,6 +14,11 @@ class GoogleMaps extends Base {
          */
         className: 'Neo.component.wrapper.GoogleMaps',
         /**
+         * Specify lat & lng for the current focus position
+         * @member {Object} center_={lat: -34.397, lng: 150.644}
+         */
+        center_: {lat: -34.397, lng: 150.644},
+        /**
          * Prefer to use markerStoreConfig instead.
          * @member {Neo.data.Store|Object} markerStore_
          * @protected
@@ -69,6 +74,21 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * Triggered after the center config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetCenter(value, oldValue) {
+        if (oldValue !== undefined) {
+            Neo.main.addon.GoogleMaps.setCenter({
+                id: this.id,
+                value
+            })
+        }
+    }
+
+    /**
      * Triggered after the markerStore config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -105,6 +125,7 @@ class GoogleMaps extends Base {
         if (value) {
             let opts = {
                 appName    : me.appName,
+                center     : me.center,
                 id         : me.id,
                 maxZoom    : me.maxZoom,
                 minZoom    : me.minZoom,
