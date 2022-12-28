@@ -37,6 +37,16 @@ class GoogleMaps extends Base {
          */
         markerStoreConfig: null,
         /**
+         * null => the maximum zoom from the current map type is used instead
+         * @member {Number|null} maxZoom=null
+         */
+        maxZoom: null,
+        /**
+         null => the minimum zoom from the current map type is used instead
+         * @member {Number|null} minZoom=null
+         */
+        minZoom: null,
+        /**
          * @member {Number} zoom_=8
          */
         zoom_: 8
@@ -94,6 +104,8 @@ class GoogleMaps extends Base {
             let opts = {
                 appName: me.appName,
                 id     : me.id,
+                maxZoom: me.maxZoom,
+                minZoom: me.minZoom,
                 zoom   : me.zoom
             };
 
