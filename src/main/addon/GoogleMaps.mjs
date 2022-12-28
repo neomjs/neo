@@ -8,20 +8,21 @@ import Observable from '../../core/Observable.mjs';
  * @singleton
  */
 class GoogleMaps extends Base {
+    /**
+     * @member {Object} maps={}
+     */
+    maps = {}
+    /**
+     * @member {Object} markers={}
+     */
+    markers = {}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.GoogleMaps'
          * @protected
          */
         className: 'Neo.main.addon.GoogleMaps',
-        /**
-         * @member {Object} maps={}
-         */
-        maps: {},
-        /**
-         * @member {Object} markers={}
-         */
-        markers: {},
         /**
          * @member {Neo.core.Base[]} mixins=[Observable]
          */
@@ -54,7 +55,7 @@ class GoogleMaps extends Base {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);
+        super.construct(config);console.log(this);
         this.loadApi();
     }
 
