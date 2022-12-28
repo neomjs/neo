@@ -24,8 +24,12 @@ class MainContainer extends Viewport {
             markerStoreConfig: {
                 data: [{
                     id      : '1',
-                    position: {lat: -34.397, lng: 150.644},
+                    position: {lat: -33.397, lng: 150.644},
                     title   : 'Hello neo'
+                }, {
+                    id      : '2',
+                    position: {lat: -34.397, lng: 150.644},
+                    title   : 'Hello Max'
                 }]
             }
         }, {
@@ -56,7 +60,7 @@ class MainContainer extends Viewport {
                 iconCls: 'fa-solid fa-trash',
                 mode   : 'hide',
                 style  : {marginLeft: '10px'},
-                text   : 'Hide marker'
+                text   : 'Hide marker 1'
             }]
         }]
     }}
