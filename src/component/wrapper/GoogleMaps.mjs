@@ -7,6 +7,31 @@ import Store           from '../../data/Store.mjs';
  * @extends Neo.component.Base
  */
 class GoogleMaps extends Base {
+    /**
+     * false hides the default fullscreen control
+     * @member {Boolean} fullscreenControl=true
+     */
+    fullscreenControl = true
+    /**
+     * @member {Object} markerStoreConfig=null
+     */
+    markerStoreConfig = null
+    /**
+     * null => the maximum zoom from the current map type is used instead
+     * @member {Number|null} maxZoom=null
+     */
+    maxZoom = null
+    /**
+     null => the minimum zoom from the current map type is used instead
+     * @member {Number|null} minZoom=null
+     */
+    minZoom = null
+    /**
+     * false hides the default zoom control
+     * @member {Boolean} zoomControl=true
+     */
+    zoomControl = true
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.wrapper.GoogleMaps'
@@ -18,11 +43,6 @@ class GoogleMaps extends Base {
          * @member {Object} center_={lat: -34.397, lng: 150.644}
          */
         center_: {lat: -34.397, lng: 150.644},
-        /**
-         * false hides the default fullscreen control
-         * @member {Boolean} fullscreenControl=true
-         */
-        fullscreenControl: true,
         /**
          * Prefer to use markerStoreConfig instead.
          * @member {Neo.data.Store|Object} markerStore_
@@ -43,28 +63,9 @@ class GoogleMaps extends Base {
             }
         },
         /**
-         * @member {Object} markerStoreConfig: null
-         */
-        markerStoreConfig: null,
-        /**
-         * null => the maximum zoom from the current map type is used instead
-         * @member {Number|null} maxZoom=null
-         */
-        maxZoom: null,
-        /**
-         null => the minimum zoom from the current map type is used instead
-         * @member {Number|null} minZoom=null
-         */
-        minZoom: null,
-        /**
          * @member {Number} zoom_=8
          */
-        zoom_: 8,
-        /**
-         * false hides the default zoom control
-         * @member {Boolean} zoomControl=true
-         */
-        zoomControl: true
+        zoom_: 8
     }}
 
     /**
