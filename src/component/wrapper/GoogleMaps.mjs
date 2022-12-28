@@ -1,4 +1,6 @@
-import Base from '../../component/Base.mjs';
+import Base            from '../../component/Base.mjs';
+import ClassSystemUtil from '../../util/ClassSystem.mjs';
+import Store           from '../../data/Store.mjs';
 
 /**
  * @class Neo.component.wrapper.GoogleMaps
@@ -11,6 +13,29 @@ class GoogleMaps extends Base {
          * @protected
          */
         className: 'Neo.component.wrapper.GoogleMaps',
+        /**
+         * Prefer to use markerStoreConfig instead.
+         * @member {Neo.data.Store|Object} markerStore_
+         * @protected
+         */
+        markerStore_: {
+            model: {
+                fields: [{
+                    name: 'id',
+                    type: 'String'
+                }, {
+                    name: 'position',
+                    type: 'Object'
+                }, {
+                    name: 'title',
+                    type: 'String'
+                }]
+            }
+        },
+        /**
+         * @member {Object} markerStoreConfig: null
+         */
+        markerStoreConfig: null,
         /**
          * @member {Object} _vdom
          */
@@ -27,6 +52,16 @@ class GoogleMaps extends Base {
      */
     addMarker(data) {
         Neo.main.addon.GoogleMaps.addMarker(data);
+    }
+
+    /**
+     * Triggered after the markerStore config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetMarkerStore(value, oldValue) {
+        console.log('afterSetMarkerStore', value);
     }
 
     /**
@@ -59,6 +94,18 @@ class GoogleMaps extends Base {
                 });
             }, 50);
         }
+    }
+
+    /**
+     * Triggered before the markerStore config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    beforeSetMarkerStore(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, Store, this.markerStoreConfig);
     }
 
     /**
