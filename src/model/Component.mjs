@@ -564,6 +564,7 @@ class Component extends Base {
 
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (Neo.isObject(value)) {
+                    value.key = me.getFormatterVariables(value.value)[0];
                     value = value.value;
                 }
 

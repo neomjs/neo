@@ -425,9 +425,11 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetConfig(key, value, oldValue) {
-        if (Neo.currentWorker.isUsingViewModels) {
-            if (this.bind?.[key]?.twoWay) {
-                this.getModel()?.setData(key, value);
+        if (Neo.currentWorker.isUsingViewModels && oldValue !== undefined) {
+            let binding = this.bind?.[key];
+
+            if (binding?.twoWay) {
+                this.getModel()?.setData(binding.key, value);
             }
         }
     }
