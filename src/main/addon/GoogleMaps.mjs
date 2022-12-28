@@ -106,9 +106,10 @@ class GoogleMaps extends Base {
      * @param {Boolean} data.zoomControl
      */
     create(data) {
-        let me = this;
+        let me = this,
+            id = data.id;
 
-        me.maps[data.id] = new google.maps.Map(DomAccess.getElement(data.id), {
+        me.maps[id] = new google.maps.Map(DomAccess.getElement(id), {
             center           : data.center,
             fullscreenControl: data.fullscreenControl,
             maxZoom          : data.maxZoom,
@@ -118,7 +119,7 @@ class GoogleMaps extends Base {
             ...data.mapOptions
         });
 
-        me.fire('mapCreated', data.id);
+        me.fire('mapCreated', id);
     }
 
     /**
