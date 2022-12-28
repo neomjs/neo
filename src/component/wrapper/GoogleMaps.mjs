@@ -19,6 +19,17 @@ class GoogleMaps extends Base {
     }}
 
     /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     * @param {Object} data.position
+     * @param {String} [data.title]
+     */
+    addMarker(data) {
+        Neo.main.addon.GoogleMaps.addMarker(data);
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
