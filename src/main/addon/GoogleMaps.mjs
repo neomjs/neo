@@ -55,7 +55,7 @@ class GoogleMaps extends Base {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);console.log(this);
+        super.construct(config);
         this.loadApi();
     }
 
