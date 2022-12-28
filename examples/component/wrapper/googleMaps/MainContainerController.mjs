@@ -31,7 +31,7 @@ class MainContainerController extends ComponentController {
             button.set({
                 iconCls: 'fa fa-location-dot',
                 mode   : 'show',
-                text   : 'Show marker'
+                text   : 'Show marker 1'
             });
 
             map.hideMarker('1')
@@ -39,7 +39,7 @@ class MainContainerController extends ComponentController {
             button.set({
                 iconCls: 'fa-solid fa-trash',
                 mode   : 'hide',
-                text   : 'Hide marker'
+                text   : 'Hide marker 1'
             });
 
             map.showMarker('1')
