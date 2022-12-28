@@ -92,6 +92,7 @@ class GoogleMaps extends Base {
      * @param {Object} data.center
      * @param {Boolean} data.fullscreenControl
      * @param {String} data.id
+     * @param {Object} data.mapOptions // Pass any options which are not explicitly defined here
      * @param {Number} data.maxZoom
      * @param {Number} data.minZoom
      * @param {Number} data.zoom
@@ -106,7 +107,8 @@ class GoogleMaps extends Base {
             maxZoom          : data.maxZoom,
             minZoom          : data.minZoom,
             zoom             : data.zoom,
-            zoomControl      : data.zoomControl
+            zoomControl      : data.zoomControl,
+            ...data.mapOptions
         });
 
         me.fire('mapCreated', data.id);

@@ -17,6 +17,11 @@ class GoogleMaps extends Base {
      */
     markerStoreConfig = null
     /**
+     * Pass any options to the map instance which are not explicitly defined here
+     * @member {Object} mapOptions={}
+     */
+    mapOptions = {}
+    /**
      * null => the maximum zoom from the current map type is used instead
      * @member {Number|null} maxZoom=null
      */
@@ -138,6 +143,7 @@ class GoogleMaps extends Base {
                 center           : me.center,
                 fullscreenControl: me.fullscreenControl,
                 id               : me.id,
+                mapOptions       : me.mapOptions,
                 maxZoom          : me.maxZoom,
                 minZoom          : me.minZoom,
                 zoom             : me.zoom,
