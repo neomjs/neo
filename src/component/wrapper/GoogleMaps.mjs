@@ -211,6 +211,17 @@ class GoogleMaps extends Base {
             mapId  : this.id
         })
     }
+
+    /**
+     * @param {String} id
+     */
+    removeMarker(id) {
+        Neo.main.addon.GoogleMaps.removeMarker({
+            appName: this.appName,
+            id,
+            mapId  : this.id
+        });
+    }
 }
 
 Neo.applyClassConfig(GoogleMaps);

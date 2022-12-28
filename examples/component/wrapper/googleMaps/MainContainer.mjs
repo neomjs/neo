@@ -49,6 +49,13 @@ class MainContainer extends Viewport {
                 style               : {marginLeft: '10px'},
                 value               : 8,
                 width               : 100
+            }, {
+                module : Button,
+                handler: 'onRemoveMarkerButtonClick',
+                height : 27,
+                iconCls: 'fa-solid fa-trash',
+                style  : {marginLeft: '10px'},
+                text   : 'Remove Marker'
             }]
         }]
     }}

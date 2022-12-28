@@ -28,6 +28,13 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
+    onRemoveMarkerButtonClick(data) {
+        this.getReference('google-maps-component').removeMarker('1');
+    }
+
+    /**
+     * @param {Object} data
+     */
     onZoomFieldChange(data) {
         this.getReference('google-maps-component').zoom = data.value;
     }

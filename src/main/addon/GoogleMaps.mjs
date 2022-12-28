@@ -35,6 +35,7 @@ class GoogleMaps extends Base {
                 'addMarker',
                 'create',
                 'removeMap',
+                'removeMarker',
                 'setCenter',
                 'setZoom'
             ]
@@ -123,6 +124,18 @@ class GoogleMaps extends Base {
     removeMap(data) {
         delete this.maps[data.mapId];
         delete this.markers[data.mapId];
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     */
+    removeMarker(data) {
+        let markers = this.markers[data.mapId];
+
+        markers[data.id].setMap(null);
+        delete markers[data.id];
     }
 
     /**
