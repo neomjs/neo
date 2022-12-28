@@ -53,6 +53,14 @@ const DefaultConfig = {
      */
     environment: 'dist/production',
     /**
+     * In case you are using the GoogleMaps main thread addon, you can pass the API key here.
+     * @default ''
+     * @memberOf! module:Neo
+     * @name config.googleMapsApiKey
+     * @type String
+     */
+    googleMapsApiKey: '',
+    /**
      * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
      * @default 'UA-153734404-1'

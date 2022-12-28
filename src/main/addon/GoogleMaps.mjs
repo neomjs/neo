@@ -109,7 +109,9 @@ class GoogleMaps extends Base {
      * @protected
      */
     loadApi() {
-        DomAccess.loadScript('https://maps.googleapis.com/maps/api/js?key=AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA&v=weekly').then(() => {
+        let key = Neo.config.googleMapsApiKey;
+
+        DomAccess.loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`).then(() => {
             console.log('GoogleMaps API loaded');
         })
     }
