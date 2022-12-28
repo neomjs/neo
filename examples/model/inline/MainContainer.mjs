@@ -92,11 +92,7 @@ class MainContainer extends Viewport {
 
                 bind: {
                     value: {twoWay: true, value: data => data.button1Text}
-                }/*,
-
-                listeners: {
-                    change: 'onTextField1Change'
-                }*/
+                }
             }, {
                 module    : TextField,
                 flex      : 'none',
