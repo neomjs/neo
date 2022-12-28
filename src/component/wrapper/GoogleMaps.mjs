@@ -70,7 +70,10 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        Neo.main.addon.GoogleMaps.addMarker(data);
+        Neo.main.addon.GoogleMaps.addMarker({
+            appName: this.appName,
+            ...data
+        });
     }
 
     /**
@@ -82,7 +85,8 @@ class GoogleMaps extends Base {
     afterSetCenter(value, oldValue) {
         if (oldValue !== undefined) {
             Neo.main.addon.GoogleMaps.setCenter({
-                id: this.id,
+                appName: this.appName,
+                id     : this.id,
                 value
             })
         }
@@ -150,7 +154,8 @@ class GoogleMaps extends Base {
     afterSetZoom(value, oldValue) {
         if (oldValue !== undefined) {
             Neo.main.addon.GoogleMaps.setZoom({
-                id: this.id,
+                appName: this.appName,
+                id     : this.id,
                 value
             })
         }
@@ -178,11 +183,9 @@ class GoogleMaps extends Base {
     }
 
     /**
-     *
+     * Hook to use once the map instance got rendered
      */
-    onComponentMounted() {
-        console.log('onComponentMounted', this.id);
-    }
+    onComponentMounted() {}
 
     /**
      *
@@ -192,7 +195,8 @@ class GoogleMaps extends Base {
 
         me.markerStore.items.forEach(item => {
             Neo.main.addon.GoogleMaps.addMarker({
-                mapId: me.id,
+                appName: me.appName,
+                mapId  : me.id,
                 ...item
             })
         })
