@@ -97,10 +97,7 @@ class GoogleMaps extends Base {
         let me = this;
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.GoogleMaps.removeMap({
-                appName: me.appName,
-                mapId  : me.id
-            });
+            me.removeMap();
         }
 
         super.afterSetMounted(value, oldValue);
@@ -155,10 +152,7 @@ class GoogleMaps extends Base {
      * @param {Boolean} silent=false
      */
     destroy(updateParentVdom=false, silent=false) {
-        Neo.main.addon.GoogleMaps.removeMap({
-            mapId: this.id
-        });
-
+        this.removeMap();
         super.destroy(updateParentVdom, silent);
     }
 
@@ -180,6 +174,16 @@ class GoogleMaps extends Base {
                 mapId: me.id,
                 ...item
             })
+        })
+    }
+
+    /**
+     *
+     */
+    removeMap() {
+        Neo.main.addon.GoogleMaps.removeMap({
+            appName: this.appName,
+            mapId  : this.id
         })
     }
 }
