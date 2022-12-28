@@ -29,7 +29,26 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveMarkerButtonClick(data) {
-        this.getReference('google-maps-component').removeMarker('1');
+        let button = data.component,
+            map    = this.getReference('google-maps-component');
+
+        if (button.mode === 'hide') {
+            button.set({
+                iconCls: 'fa fa-location-dot',
+                mode   : 'show',
+                text   : 'Show marker'
+            });
+
+            map.hideMarker('1');
+        } else {
+            button.set({
+                iconCls: 'fa-solid fa-trash',
+                mode   : 'hide',
+                text   : 'Hide marker'
+            });
+
+            map.showMarker('1');
+        }
     }
 
     /**

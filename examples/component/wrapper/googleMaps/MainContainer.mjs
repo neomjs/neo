@@ -54,8 +54,9 @@ class MainContainer extends Viewport {
                 handler: 'onRemoveMarkerButtonClick',
                 height : 27,
                 iconCls: 'fa-solid fa-trash',
+                mode   : 'hide',
                 style  : {marginLeft: '10px'},
-                text   : 'Remove Marker'
+                text   : 'Hide marker'
             }]
         }]
     }}

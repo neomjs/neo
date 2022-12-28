@@ -183,6 +183,17 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @param {String} id
+     */
+    hideMarker(id) {
+        Neo.main.addon.GoogleMaps.hideMarker({
+            appName: this.appName,
+            id,
+            mapId  : this.id
+        });
+    }
+
+    /**
      * Hook to use once the map instance got rendered
      */
     onComponentMounted() {}
@@ -217,6 +228,17 @@ class GoogleMaps extends Base {
      */
     removeMarker(id) {
         Neo.main.addon.GoogleMaps.removeMarker({
+            appName: this.appName,
+            id,
+            mapId  : this.id
+        });
+    }
+
+    /**
+     * @param {String} id
+     */
+    showMarker(id) {
+        Neo.main.addon.GoogleMaps.showMarker({
             appName: this.appName,
             id,
             mapId  : this.id

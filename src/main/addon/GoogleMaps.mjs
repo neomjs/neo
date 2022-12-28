@@ -34,10 +34,12 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
+                'hideMarker',
                 'removeMap',
                 'removeMarker',
                 'setCenter',
-                'setZoom'
+                'setZoom',
+                'showMarker'
             ]
         },
         /**
@@ -107,6 +109,15 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     */
+    hideMarker(data) {
+        this.markers[data.mapId][data.id].setMap(null);
+    }
+
+    /**
      * @protected
      */
     loadApi() {
@@ -154,6 +165,15 @@ class GoogleMaps extends Base {
      */
     setZoom(data) {
         this.maps[data.id].setZoom(data.value);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     */
+    showMarker(data) {
+        this.markers[data.mapId][data.id].setMap(this.maps[data.mapId]);
     }
 }
 
