@@ -44,7 +44,7 @@ class GoogleMaps extends Base {
          */
         className: 'Neo.component.wrapper.GoogleMaps',
         /**
-         * @member {String} ntype='mapboxgl'
+         * @member {String} ntype='googlemaps'
          * @protected
          */
         ntype: 'googlemaps',
