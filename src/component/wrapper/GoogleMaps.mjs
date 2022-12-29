@@ -8,6 +8,16 @@ import Store           from '../../data/Store.mjs';
  */
 class GoogleMaps extends Base {
     /**
+     * @member {String} className='Neo.component.wrapper.GoogleMaps'
+     * @protected
+     */
+    className: 'Neo.component.wrapper.GoogleMaps',
+    /**
+     * @member {String} ntype='mapboxgl'
+     * @protected
+     */
+    ntype: 'googlemaps',
+    /**
      * false hides the default fullscreen control
      * @member {Boolean} fullscreenControl=true
      */
