@@ -8,16 +8,6 @@ import Store           from '../../data/Store.mjs';
  */
 class GoogleMaps extends Base {
     /**
-     * @member {String} className='Neo.component.wrapper.GoogleMaps'
-     * @protected
-     */
-    className: 'Neo.component.wrapper.GoogleMaps',
-    /**
-     * @member {String} ntype='mapboxgl'
-     * @protected
-     */
-    ntype: 'googlemaps',
-    /**
      * false hides the default fullscreen control
      * @member {Boolean} fullscreenControl=true
      */
@@ -54,6 +44,11 @@ class GoogleMaps extends Base {
          */
         className: 'Neo.component.wrapper.GoogleMaps',
         /**
+         * @member {String} ntype='mapboxgl'
+         * @protected
+         */
+        ntype: 'googlemaps',
+            /**
          * Specify lat & lng for the current focus position
          * @member {Object} center_={lat: -34.397, lng: 150.644}
          */
