@@ -64,6 +64,9 @@ class GoogleMaps extends Base {
                     name: 'id',
                     type: 'String'
                 }, {
+                    name: 'icon',
+                    type: 'Object'
+                }, {
                     name: 'position',
                     type: 'Object'
                 }, {
@@ -290,11 +293,13 @@ class GoogleMaps extends Base {
         let me     = this,
             record = me.markerStore.get(data.id);
 
-        me.onMarkerClick(record);
+        data.record = record;
+
+        me.onMarkerClick(data);
 
         me.fire('markerClick', {
             id: me.id,
-            record
+            data
         })
     }
 
