@@ -164,13 +164,14 @@ class GoogleMaps extends Base {
      * @param {Object} event.domEvent
      */
     onMarkerClick(marker, event) {
-        // in theory, we could parse and pass the entire DOM event.
-        // feel free to open a feature request ticket, in case you need more data into the app worker.
-
         DomEvents.sendMessageToApp({
             id  : marker.neoId,
             path: [{cls: [], id: marker.neoMapId}],
-            type: 'googleMarkerClick'
+            type: 'googleMarkerClick',
+            pos : {
+                x: event.domEvent.x,
+                y: event.domEvent.y
+            }
         })
     }
 
