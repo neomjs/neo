@@ -164,14 +164,13 @@ class GoogleMaps extends Base {
      * @param {Object} event.domEvent
      */
     onMarkerClick(marker, event) {
+        let transformedEvent = DomEvents.getMouseEventData(event.domEvent);
+
         DomEvents.sendMessageToApp({
             id  : marker.neoId,
             path: [{cls: [], id: marker.neoMapId}],
             type: 'googleMarkerClick',
-            pos : {
-                x: event.domEvent.x,
-                y: event.domEvent.y
-            }
+            domEvent: transformedEvent
         })
     }
 
