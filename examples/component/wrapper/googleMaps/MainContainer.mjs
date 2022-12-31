@@ -1,9 +1,9 @@
-import Button                  from '../../../../src/button/Base.mjs';
-import GoogleMapsComponent     from '../../../../src/component/wrapper/GoogleMaps.mjs';
+import Button                  from '../../../../node_modules/neo.mjs/src/button/Base.mjs';
+import NumberField             from '../../../../node_modules/neo.mjs/src/form/field/Number.mjs';
+import Toolbar                 from '../../../../node_modules/neo.mjs/src/toolbar/Base.mjs';
+import Viewport                from '../../../../node_modules/neo.mjs/src/container/Viewport.mjs';
+import MapComponent            from "./MapComponent.mjs";
 import MainContainerController from './MainContainerController.mjs';
-import NumberField             from '../../../../src/form/field/Number.mjs';
-import Toolbar                 from '../../../../src/toolbar/Base.mjs';
-import Viewport                from '../../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MainContainer
@@ -17,25 +17,9 @@ class MainContainer extends Viewport {
         layout    : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            module   : GoogleMapsComponent,
+            module   : MapComponent,
             flex     : 1,
-            reference: 'google-maps-component',
-
-            listeners: {
-                zoomChange: 'onMapZoomChance'
-            },
-
-            markerStoreConfig: {
-                data: [{
-                    id      : '1',
-                    position: {lat: -33.397, lng: 150.644},
-                    title   : 'Hello neo'
-                }, {
-                    id      : '2',
-                    position: {lat: -34.397, lng: 150.644},
-                    title   : 'Hello Max'
-                }]
-            }
+            reference: 'google-maps-component'
         }, {
             module: Toolbar,
             flex  : 'none',
@@ -47,6 +31,12 @@ class MainContainer extends Viewport {
                 iconCls: 'fa-solid fa-plane',
                 text   : 'Fly to San Fran'
             }, {
+                module : Button,
+                handler: 'onFlyToIslandButtonClick',
+                height : 27,
+                iconCls: 'fa-solid fa-plane',
+                text   : 'Fly to Island'
+            }, {
                 module              : NumberField,
                 clearToOriginalValue: true,
                 labelPosition       : 'inline',
@@ -56,7 +46,7 @@ class MainContainer extends Viewport {
                 maxValue            : 10,
                 reference           : 'zoom-field',
                 style               : {marginLeft: '10px'},
-                value               : 8,
+                value               : 6,
                 width               : 100
             }, {
                 module : Button,
@@ -65,7 +55,7 @@ class MainContainer extends Viewport {
                 iconCls: 'fa-solid fa-trash',
                 mode   : 'hide',
                 style  : {marginLeft: '10px'},
-                text   : 'Hide marker 1'
+                text   : 'Hide marker'
             }]
         }]
     }}

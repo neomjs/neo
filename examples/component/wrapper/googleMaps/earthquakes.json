@@ -1,0 +1,463 @@
+{
+   "results":[
+      {
+         "timestamp":"2017-10-13T12:07:24.000Z",
+         "latitude":63.976,
+         "longitude":-21.949,
+         "depth":1.1,
+         "size":0.6,
+         "quality":58.73,
+         "humanReadableLocation":"6,1 km SV af Helgafelli"
+      },
+      {
+         "timestamp":"2017-10-13T09:50:50.000Z",
+         "latitude":65.124,
+         "longitude":-16.288,
+         "depth":7.2,
+         "size":0.9,
+         "quality":78.51,
+         "humanReadableLocation":"6,1 km NA af Herðubreiðartöglum"
+      },
+      {
+         "timestamp":"2017-10-13T09:41:09.000Z",
+         "latitude":63.945,
+         "longitude":-21.143,
+         "depth":7.4,
+         "size":0.2,
+         "quality":33.12,
+         "humanReadableLocation":"6,5 km SSA af Hveragerði"
+      },
+      {
+         "timestamp":"2017-10-13T09:37:45.000Z",
+         "latitude":65.114,
+         "longitude":-16.3,
+         "depth":6.3,
+         "size":1.2,
+         "quality":90.01,
+         "humanReadableLocation":"5,0 km NA af Herðubreiðartöglum"
+      },
+      {
+         "timestamp":"2017-10-13T09:37:21.000Z",
+         "latitude":65.113,
+         "longitude":-16.301,
+         "depth":5.9,
+         "size":1.4,
+         "quality":90.01,
+         "humanReadableLocation":"4,9 km NA af Herðubreiðartöglum"
+      },
+      {
+         "timestamp":"2017-10-13T07:51:29.000Z",
+         "latitude":65.182,
+         "longitude":-16.358,
+         "depth":5,
+         "size":0.7,
+         "quality":39.63,
+         "humanReadableLocation":"1,0 km NNV af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-13T07:49:40.000Z",
+         "latitude":65.165,
+         "longitude":-16.354,
+         "depth":13.7,
+         "size":1.2,
+         "quality":90.01,
+         "humanReadableLocation":"1,0 km SSV af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-13T07:22:49.000Z",
+         "latitude":64.012,
+         "longitude":-20.58,
+         "depth":6,
+         "size":0.3,
+         "quality":63.77,
+         "humanReadableLocation":"4,6 km A af Hestfjalli"
+      },
+      {
+         "timestamp":"2017-10-13T07:05:44.000Z",
+         "latitude":66.534,
+         "longitude":-18.013,
+         "depth":6.3,
+         "size":1.2,
+         "quality":42.6,
+         "humanReadableLocation":"0,8 km S af Grímsey"
+      },
+      {
+         "timestamp":"2017-10-13T06:41:34.000Z",
+         "latitude":63.954,
+         "longitude":-21.255,
+         "depth":7.4,
+         "size":0.9,
+         "quality":57.5,
+         "humanReadableLocation":"5,4 km SA af Skálafelli á Hellisheiði"
+      },
+      {
+         "timestamp":"2017-10-13T06:23:10.000Z",
+         "latitude":64.659,
+         "longitude":-17.533,
+         "depth":4.3,
+         "size":1.2,
+         "quality":90.01,
+         "humanReadableLocation":"2,1 km N af Bárðarbungu"
+      },
+      {
+         "timestamp":"2017-10-13T05:33:43.000Z",
+         "latitude":64.022,
+         "longitude":-16.613,
+         "depth":1.1,
+         "size":1.1,
+         "quality":48.2,
+         "humanReadableLocation":"3,4 km ANA af Hvannadalshnjúk"
+      },
+      {
+         "timestamp":"2017-10-13T05:18:22.000Z",
+         "latitude":64.621,
+         "longitude":-17.348,
+         "depth":1.1,
+         "size":2.4,
+         "quality":90.15,
+         "humanReadableLocation":"8,8 km ASA af Bárðarbungu"
+      },
+      {
+         "timestamp":"2017-10-13T04:05:44.000Z",
+         "latitude":65.708,
+         "longitude":-16.833,
+         "depth":2.9,
+         "size":0.3,
+         "quality":38.43,
+         "humanReadableLocation":"3,6 km V af Kröfluvirkjun"
+      },
+      {
+         "timestamp":"2017-10-13T03:46:36.000Z",
+         "latitude":65.712,
+         "longitude":-16.817,
+         "depth":2.9,
+         "size":1.1,
+         "quality":90.01,
+         "humanReadableLocation":"2,8 km V af Kröfluvirkjun"
+      },
+      {
+         "timestamp":"2017-10-13T02:56:40.000Z",
+         "latitude":63.972,
+         "longitude":-21.56,
+         "depth":10.1,
+         "size":0.5,
+         "quality":64.38,
+         "humanReadableLocation":"4,5 km ASA af Bláfjallaskála"
+      },
+      {
+         "timestamp":"2017-10-13T02:12:22.000Z",
+         "latitude":65.215,
+         "longitude":-16.363,
+         "depth":10.2,
+         "size":1.4,
+         "quality":90.02,
+         "humanReadableLocation":"4,6 km N af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-13T01:39:43.000Z",
+         "latitude":65.216,
+         "longitude":-16.349,
+         "depth":5.8,
+         "size":1.1,
+         "quality":90.01,
+         "humanReadableLocation":"4,6 km N af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-13T01:38:32.000Z",
+         "latitude":65.215,
+         "longitude":-16.358,
+         "depth":6.3,
+         "size":1.1,
+         "quality":90.02,
+         "humanReadableLocation":"4,6 km N af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-13T00:22:11.000Z",
+         "latitude":64.669,
+         "longitude":-17.38,
+         "depth":1.1,
+         "size":2.7,
+         "quality":90.14,
+         "humanReadableLocation":"7,7 km ANA af Bárðarbungu"
+      },
+      {
+         "timestamp":"2017-10-13T00:01:12.000Z",
+         "latitude":64.632,
+         "longitude":-20.636,
+         "depth":1.7,
+         "size":1.5,
+         "quality":64.89,
+         "humanReadableLocation":"13,4 km ASA af Húsafelli"
+      },
+      {
+         "timestamp":"2017-10-12T20:08:36.000Z",
+         "latitude":64.673,
+         "longitude":-17.541,
+         "depth":3.1,
+         "size":0.9,
+         "quality":30.43,
+         "humanReadableLocation":"3,7 km N af Bárðarbungu"
+      },
+      {
+         "timestamp":"2017-10-12T20:01:04.000Z",
+         "latitude":63.925,
+         "longitude":-20.163,
+         "depth":8.2,
+         "size":1.1,
+         "quality":90.01,
+         "humanReadableLocation":"13,7 km SSA af Árnesi"
+      },
+      {
+         "timestamp":"2017-10-12T17:49:38.000Z",
+         "latitude":63.613,
+         "longitude":-19.308,
+         "depth":4.9,
+         "size":0.8,
+         "quality":30.83,
+         "humanReadableLocation":"4,1 km SV af Goðabungu"
+      },
+      {
+         "timestamp":"2017-10-12T14:48:47.000Z",
+         "latitude":63.818,
+         "longitude":-20.659,
+         "depth":8.1,
+         "size":1.8,
+         "quality":49.76,
+         "humanReadableLocation":"12,6 km S af Þjórsárbrú"
+      },
+      {
+         "timestamp":"2017-10-12T14:47:07.000Z",
+         "latitude":63.672,
+         "longitude":-19.674,
+         "depth":1.3,
+         "size":2,
+         "quality":45.93,
+         "humanReadableLocation":"9,5 km V af Básum"
+      },
+      {
+         "timestamp":"2017-10-12T14:27:55.000Z",
+         "latitude":64.354,
+         "longitude":-20.674,
+         "depth":3.3,
+         "size":1.2,
+         "quality":90.01,
+         "humanReadableLocation":"6,8 km SSA af Skjaldbreið"
+      },
+      {
+         "timestamp":"2017-10-12T13:27:11.000Z",
+         "latitude":65.229,
+         "longitude":-16.357,
+         "depth":12.8,
+         "size":0.5,
+         "quality":32.22,
+         "humanReadableLocation":"6,1 km N af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-12T12:48:05.000Z",
+         "latitude":65.024,
+         "longitude":-16.677,
+         "depth":5.2,
+         "size":1.5,
+         "quality":41.19,
+         "humanReadableLocation":"3,7 km VSV af Dreka"
+      },
+      {
+         "timestamp":"2017-10-12T12:47:38.000Z",
+         "latitude":65.018,
+         "longitude":-16.672,
+         "depth":4.4,
+         "size":1,
+         "quality":44.51,
+         "humanReadableLocation":"3,9 km SV af Dreka"
+      },
+      {
+         "timestamp":"2017-10-12T12:46:20.000Z",
+         "latitude":65.036,
+         "longitude":-16.691,
+         "depth":2.3,
+         "size":0.6,
+         "quality":47.96,
+         "humanReadableLocation":"4,1 km V af Dreka"
+      },
+      {
+         "timestamp":"2017-10-12T11:45:39.000Z",
+         "latitude":63.513,
+         "longitude":-19.268,
+         "depth":1.1,
+         "size":1.3,
+         "quality":90.01,
+         "humanReadableLocation":"11,2 km SV af Hábungu"
+      },
+      {
+         "timestamp":"2017-10-12T11:40:49.000Z",
+         "latitude":63.628,
+         "longitude":-19.072,
+         "depth":1.1,
+         "size":-0.1,
+         "quality":44.18,
+         "humanReadableLocation":"5,5 km NNA af Hábungu"
+      },
+      {
+         "timestamp":"2017-10-12T08:25:28.000Z",
+         "latitude":63.618,
+         "longitude":-19.102,
+         "depth":0.6,
+         "size":0,
+         "quality":79.03,
+         "humanReadableLocation":"4,2 km N af Hábungu"
+      },
+      {
+         "timestamp":"2017-10-12T08:21:54.000Z",
+         "latitude":63.618,
+         "longitude":-19.094,
+         "depth":1.1,
+         "size":-0.5,
+         "quality":48.38,
+         "humanReadableLocation":"4,2 km N af Hábungu"
+      },
+      {
+         "timestamp":"2017-10-12T06:38:38.000Z",
+         "latitude":65.168,
+         "longitude":-16.417,
+         "depth":7.6,
+         "size":1.2,
+         "quality":68.29,
+         "humanReadableLocation":"3,3 km VSV af Herðubreið"
+      },
+      {
+         "timestamp":"2017-10-12T04:17:38.000Z",
+         "latitude":64.033,
+         "longitude":-21.221,
+         "depth":6.4,
+         "size":0.4,
+         "quality":85.02,
+         "humanReadableLocation":"4,0 km NNV af Hveragerði"
+      },
+      {
+         "timestamp":"2017-10-12T04:00:31.000Z",
+         "latitude":63.804,
+         "longitude":-22.793,
+         "depth":6.7,
+         "size":2.2,
+         "quality":90.02,
+         "humanReadableLocation":"4,3 km V af Reykjanestá"
+      },
+      {
+         "timestamp":"2017-10-12T03:19:07.000Z",
+         "latitude":64.014,
+         "longitude":-16.603,
+         "depth":1.2,
+         "size":0.9,
+         "quality":43.19,
+         "humanReadableLocation":"3,8 km A af Hvannadalshnjúk"
+      },
+      {
+         "timestamp":"2017-10-12T02:05:45.000Z",
+         "latitude":63.919,
+         "longitude":-21.719,
+         "depth":2.9,
+         "size":1,
+         "quality":90.01,
+         "humanReadableLocation":"8,0 km SSV af Bláfjallaskála"
+      },
+      {
+         "timestamp":"2017-10-12T01:50:54.000Z",
+         "latitude":63.798,
+         "longitude":-22.793,
+         "depth":6.6,
+         "size":1.4,
+         "quality":90.01,
+         "humanReadableLocation":"4,3 km V af Reykjanestá"
+      },
+      {
+         "timestamp":"2017-10-12T01:15:10.000Z",
+         "latitude":63.635,
+         "longitude":-19.142,
+         "depth":1.1,
+         "size":2,
+         "quality":90.01,
+         "humanReadableLocation":"5,4 km A af Goðabungu"
+      },
+      {
+         "timestamp":"2017-10-12T00:14:48.000Z",
+         "latitude":63.674,
+         "longitude":-19.125,
+         "depth":4.1,
+         "size":0.2,
+         "quality":34.25,
+         "humanReadableLocation":"7,2 km ANA af Goðabungu"
+      },
+      {
+         "timestamp":"2017-10-11T22:40:01.000Z",
+         "latitude":66.251,
+         "longitude":-16.709,
+         "depth":4.4,
+         "size":1,
+         "quality":34.97,
+         "humanReadableLocation":"12,8 km VSV af Kópaskeri"
+      },
+      {
+         "timestamp":"2017-10-11T21:09:29.000Z",
+         "latitude":66.283,
+         "longitude":-16.751,
+         "depth":5.6,
+         "size":1.1,
+         "quality":55.62,
+         "humanReadableLocation":"13,5 km V af Kópaskeri"
+      },
+      {
+         "timestamp":"2017-10-11T21:08:48.000Z",
+         "latitude":66.282,
+         "longitude":-16.743,
+         "depth":4.5,
+         "size":1.1,
+         "quality":80.86,
+         "humanReadableLocation":"13,2 km V af Kópaskeri"
+      },
+      {
+         "timestamp":"2017-10-11T19:21:13.000Z",
+         "latitude":66.559,
+         "longitude":-18.052,
+         "depth":9.1,
+         "size":2.8,
+         "quality":90.03,
+         "humanReadableLocation":"2,7 km NV af Grímsey"
+      },
+      {
+         "timestamp":"2017-10-11T18:34:56.000Z",
+         "latitude":64.35,
+         "longitude":-19.173,
+         "depth":11.9,
+         "size":0.9,
+         "quality":53.79,
+         "humanReadableLocation":"19,9 km N af Sigöldustöð"
+      },
+      {
+         "timestamp":"2017-10-11T17:28:01.000Z",
+         "latitude":64.794,
+         "longitude":-16.906,
+         "depth":2.8,
+         "size":0.9,
+         "quality":36.64,
+         "humanReadableLocation":"14,4 km A af Kistufelli"
+      },
+      {
+         "timestamp":"2017-10-11T14:34:29.000Z",
+         "latitude":65.234,
+         "longitude":-16.33,
+         "depth":6.2,
+         "size":0.9,
+         "quality":42.59,
+         "humanReadableLocation":"6,6 km NV af Herðubreiðarlindum"
+      },
+      {
+         "timestamp":"2017-10-11T14:16:22.000Z",
+         "latitude":64.662,
+         "longitude":-17.082,
+         "depth":2.3,
+         "size":0.7,
+         "quality":39.3,
+         "humanReadableLocation":"14,5 km SSA af Kistufelli"
+      }
+   ]
+}

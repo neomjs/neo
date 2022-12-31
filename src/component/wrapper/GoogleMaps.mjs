@@ -44,6 +44,11 @@ class GoogleMaps extends Base {
          */
         className: 'Neo.component.wrapper.GoogleMaps',
         /**
+         * @member {String} ntype='googlemaps'
+         * @protected
+         */
+        ntype: 'googlemaps',
+            /**
          * Specify lat & lng for the current focus position
          * @member {Object} center_={lat: -34.397, lng: 150.644}
          */
@@ -58,6 +63,9 @@ class GoogleMaps extends Base {
                 fields: [{
                     name: 'id',
                     type: 'String'
+                }, {
+                    name: 'icon',
+                    type: 'Object'
                 }, {
                     name: 'position',
                     type: 'Object'
@@ -285,11 +293,13 @@ class GoogleMaps extends Base {
         let me     = this,
             record = me.markerStore.get(data.id);
 
-        me.onMarkerClick(record);
+        data.record = record;
+
+        me.onMarkerClick(data);
 
         me.fire('markerClick', {
             id: me.id,
-            record
+            data
         })
     }
 
