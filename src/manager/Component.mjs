@@ -26,6 +26,7 @@ class Component extends Base {
     construct(config) {
         super.construct(config);
         Neo.getComponent = this.getById.bind(this); // alias
+        Neo.first = this.getFirst.bind(this); // alias
     }
 
     /**
@@ -143,6 +144,81 @@ class Component extends Base {
         });
 
         return childComponents;
+    }
+    
+    /**
+     * !! For debugging purposes only !!
+     *
+     * Get the first component based on the nytpe or other properties
+     *
+     * @param {String|Object|Array} componentDescription
+     * @returns {Neo.component.Base|null}
+     *
+     * @example
+            // as String: ntype[comma separated propterties]
+            Neo.first('toolbar button[text=Try me,icon=people]')
+            // as Object: Add properties. ntype is optional
+            Neo.first({
+                icon: 'people'
+            })
+            // as Array: An Array of Objects. No Strings allowed
+            Neo.first([{
+                ntype: 'toolbar'
+            },{
+                ntype: 'button', text: 'Try me', icon: 'people
+            }])
+     */
+    getFirst(componentDescription) {
+        let objects = [],
+            root = Neo.getComponent('neo-viewport-1');
+
+        /* create an array of objects from string */
+        if(Neo.isString(compeontentDescription)) {
+            const regex = /(\w*)(\[[^\]]*\])|(\w*)/g;
+            let match;
+
+            /* generate objects which contain the information */
+            while (match = regex.exec(componentDescription)) {
+                let [, ntype, pairs, ntypeOnly] = match, obj;
+
+                ntype = ntype || ntypeOnly;
+                obj = {ntype};
+
+                if(pairs) {
+                    const pairsRegex = /\[(.*?)\]/,
+                        pairsMatch = pairs.match(pairsRegex);
+
+                    if(pairsMatch) {
+                        const pairs = pairsMatch[1].split(',');
+                        pairs.forEach((pair) => {
+                            const [key, value] = pair.split('=');
+                            obj[key] = value.replace(/"/g, '');
+                        });
+                    }
+                }
+                objects.push(obj);
+
+                regex.lastIndex++;
+            }
+        } else if (Neo.isObject(componentDescription)){
+            objects.push(componentDescription);
+        } else if (Neo.isArray(componentDescription)) {
+            objects = componentDescription;
+        }
+
+        /* find the correct child using down() */
+        const result = objects.reduce((acc, key) => {
+            if(acc) {
+                let child = acc.down(key);
+
+                if(!!child) {
+                    return child;
+                }
+            }
+            return null;
+        }, root);
+
+        return result
     }
 
     /**
