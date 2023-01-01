@@ -152,7 +152,7 @@ class Component extends Base {
      * Get the first component based on the nytpe or other properties
      *
      * @param {String|Object|Array} componentDescription
-     * @returns {Neo.component.Base|null}
+     * @returns {Neo.component.Base|null|Neo.component.Base[]}
      *
      * @example
             // as String: ntype[comma separated propterties]
@@ -167,8 +167,14 @@ class Component extends Base {
             },{
                 ntype: 'button', text: 'Try me', icon: 'people
             }])
+
+     * The returnFirstMatch flag allows to return all items and
+     * not stop after the first result.
+     *
+     * @example
+            Neo.first('button', false) // => [Button, Button, Button]
      */
-    getFirst(componentDescription) {
+    getFirst(componentDescription, returnFirstMatch = true) {
         let objects = [],
             root = Neo.getComponent('neo-viewport-1');
 
@@ -209,7 +215,7 @@ class Component extends Base {
         /* find the correct child using down() */
         const result = objects.reduce((acc, key) => {
             if(acc) {
-                let child = acc.down(key);
+                let child = acc.down(key, returnFirstMatch);
 
                 if(!!child) {
                     return child;
