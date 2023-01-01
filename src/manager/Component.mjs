@@ -62,7 +62,7 @@ class Component extends Base {
         configLength = configArray.length;
 
         configArray.forEach(([key, value]) => {
-            if (component[key] === value) {
+            if ((component[key] === value) || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value))) {
                 matchArray.push(true);
             }
         });
@@ -286,6 +286,25 @@ class Component extends Base {
         }
 
         return parents;
+    }
+    
+    /**
+     * Check if the component had a property of any value somewhere in the Prototype chain
+     * 
+     * @param {Neo.component.Base} component
+     * @param {String} property
+     * @param {*} value
+     * @returns {boolean}
+     */
+    hasPrototypePropertyValue(component, property, value) {
+        while (component !== null) {
+            if (component.hasOwnProperty(property) && component[property] === value) {
+                return true;
+            }
+            component = component.__proto__;
+        }
+
+        return false;
     }
 
     /**
