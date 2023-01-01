@@ -62,7 +62,9 @@ class Component extends Base {
         configLength = configArray.length;
 
         configArray.forEach(([key, value]) => {
-            if ((component[key] === value) || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value))) {
+            if ((component[key] === value)
+                || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
+            {
                 matchArray.push(true);
             }
         });
@@ -176,7 +178,8 @@ class Component extends Base {
      */
     getFirst(componentDescription, returnFirstMatch = true) {
         let objects = [],
-            root = Neo.getComponent('neo-viewport-1');
+            app = Neo.apps[Object.keys(Neo.apps)[0]],
+            root = app.mainView;
 
         /* create an array of objects from string */
         if(Neo.isString(componentDescription)) {
