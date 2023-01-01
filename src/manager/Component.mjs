@@ -173,7 +173,7 @@ class Component extends Base {
             root = Neo.getComponent('neo-viewport-1');
 
         /* create an array of objects from string */
-        if(Neo.isString(compeontentDescription)) {
+        if(Neo.isString(componentDescription)) {
             const regex = /(\w*)(\[[^\]]*\])|(\w*)/g;
             let match;
 
