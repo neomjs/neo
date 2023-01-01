@@ -1,4 +1,4 @@
-import ComponentController from '../../../../src/controller/Component.mjs';
+import ComponentController from '../../../../node_modules/neo.mjs/src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MainContainerController
@@ -23,6 +23,13 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
+    onFlyToIslandButtonClick(data) {
+        this.getReference('google-maps-component').panTo({ lat: 64.963051,lng: -19.020835})
+    }
+
+    /**
+     * @param {Object} data
+     */
     onMapZoomChance(data) {
         this.getReference('zoom-field').value = data.value;
     }
@@ -38,18 +45,18 @@ class MainContainerController extends ComponentController {
             button.set({
                 iconCls: 'fa fa-location-dot',
                 mode   : 'show',
-                text   : 'Show marker 1'
+                text   : 'Show marker'
             });
 
-            map.hideMarker('1')
+            map.hideMarker('-13')
         } else {
             button.set({
                 iconCls: 'fa-solid fa-trash',
                 mode   : 'hide',
-                text   : 'Hide marker 1'
+                text   : 'Hide marker'
             });
 
-            map.showMarker('1')
+            map.showMarker('-13')
         }
     }
 
