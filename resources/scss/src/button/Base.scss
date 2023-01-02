@@ -153,3 +153,35 @@
         }
     }
 }
+
+/*
+ * ui: alert
+ */
+.neo-button-alert {
+    background-color   : v(button-alert-background-color);
+    border             : v(button-alert-border);
+
+    .neo-button-text {
+        color: v(button-alert-text-color) !important;
+    }
+
+    .neo-button-ripple {
+        background-color: v(button-alert-pressed-border-color);
+    }
+
+    &:active {
+        background-color: v(button-alert-active-background-color) !important;
+        border-color    : v(button-alert-active-border-color);
+        color           : v(button-alert-text-color) !important;
+    }
+
+    &:hover {
+        background-color: v(button-alert-hover-background-color);
+        border-color    : v(button-alert-hover-border-color);
+        color           : v(button-alert-hover-color);
+    }
+
+    &.pressed {
+        border-color: v(button-alert-pressed-border-color);
+    }
+}
