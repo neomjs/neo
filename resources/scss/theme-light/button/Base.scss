@@ -26,7 +26,18 @@ $neoMap: map-merge($neoMap, (
     'button-text-font-weight'         : 600,
     'button-text-line-height'         : 11px,
     'button-text-transform'           : uppercase,
-    'button-use-gradients'            : false
+    'button-use-gradients'            : false,
+    
+    'button-alert-background-color'         : #f70845,
+    'button-alert-border'                   : 1px solid #f82359,
+    'button-alert-active-background-color'  : #f82359,
+    'button-alert-active-border-color'      : #f82359,
+    'button-alert-active-color'             : #fff,
+    'button-alert-hover-background-color'   : #f93e6e,
+    'button-alert-hover-border-color'       : #f93e6e,
+    'button-alert-hover-color'              : #fff,
+    'button-alert-pressed-border-color'     : #fb91ac,
+    'button-alert-text-color'               : #fff
 ));
 
 @if $useCssVars == true {
@@ -59,5 +70,16 @@ $neoMap: map-merge($neoMap, (
         --button-text-line-height         : #{neo(button-text-line-height)};
         --button-text-transform           : #{neo(button-text-transform)};
         --button-use-gradients            : #{neo(button-use-gradients)};
+        
+        --button-alert-background-color         : #{neo(button-alert-background-color)};
+        --button-alert-border                   : #{neo(button-alert-border)};
+        --button-alert-active-background-color  : #{neo(button-alert-active-background-color)};
+        --button-alert-active-border-color      : #{neo(button-alert-active-border-color)};
+        --button-alert-active-color             : #{neo(button-alert-active-color)};
+        --button-alert-hover-background-color   : #{neo(button-alert-hover-background-color)};
+        --button-alert-hover-border-color       : #{neo(button-alert-hover-border-color)};
+        --button-alert-hover-color              : #{neo(button-alert-hover-color)};
+        --button-alert-pressed-border-color     : #{neo(button-alert-pressed-border-color)};
+        --button-alert-text-color               : #{neo(button-alert-text-color)};
     }
 }
