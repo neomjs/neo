@@ -1111,6 +1111,14 @@ class Base extends CoreBase {
     }
 
     /**
+     * Get the parent components as an array
+     * @returns {Neo.component.Base[]}
+     */
+    getParents() {
+        return ComponentManager.getParents(this);
+    }
+
+    /**
      * @param {Object|String} opts
      * @returns {Neo.plugin.Base|null}
      */
