@@ -98,7 +98,6 @@ class Store extends Base {
         /**
          * Add a path to the root of your data.
          * If the responseRoot is 'data' this is optional.
-         * 
          * @member {String} responseRoot='data'
          */
         responseRoot: 'data',
@@ -349,6 +348,7 @@ class Store extends Base {
             }).then(data => {
                 me.data = Neo.ns(me.responseRoot, false, data.json) || data.json;
                 // we do not need to fire a load event => onCollectionMutate()
+            })
         }
     }
 
