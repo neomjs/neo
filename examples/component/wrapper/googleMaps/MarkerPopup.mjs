@@ -1,4 +1,4 @@
-import DialogBase from '../../../../node_modules/neo.mjs/src/dialog/Base.mjs';
+import DialogBase from '../../../../src/dialog/Base.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MarkerPopup

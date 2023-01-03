@@ -1,4 +1,4 @@
-import ComponentController from '../../../../node_modules/neo.mjs/src/controller/Component.mjs';
+import ComponentController from '../../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MainContainerController

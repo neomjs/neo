@@ -1,4 +1,4 @@
-import GoogleMapsComponent      from '../../../../node_modules/neo.mjs/src/component/wrapper/GoogleMaps.mjs';
+import GoogleMapsComponent      from '../../../../src/component/wrapper/GoogleMaps.mjs';
 import MapComponentController   from "./MapComponentController.mjs";
 import MarkerPopup             from "./MarkerPopup.mjs";
 

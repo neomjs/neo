@@ -1,7 +1,7 @@
-import Button                  from '../../../../node_modules/neo.mjs/src/button/Base.mjs';
-import NumberField             from '../../../../node_modules/neo.mjs/src/form/field/Number.mjs';
-import Toolbar                 from '../../../../node_modules/neo.mjs/src/toolbar/Base.mjs';
-import Viewport                from '../../../../node_modules/neo.mjs/src/container/Viewport.mjs';
+import Button                  from '../../../../src/button/Base.mjs';
+import NumberField             from '../../../../src/form/field/Number.mjs';
+import Toolbar                 from '../../../../src/toolbar/Base.mjs';
+import Viewport                from '../../../../src/container/Viewport.mjs';
 import MapComponent            from "./MapComponent.mjs";
 import MainContainerController from './MainContainerController.mjs';
 
