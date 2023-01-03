@@ -38,7 +38,7 @@ class Base extends Container {
          */
         dock_: 'top',
         /**
-         * @member {Object} itemDefaults={ntype: 'button'}
+         * @member {Object} itemDefaults={ntype:'button'}
          */
         itemDefaults: {
             ntype: 'button'

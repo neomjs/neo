@@ -188,7 +188,7 @@ class Base extends Component {
     createItem(item, index) {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index},
-            defaults = me.itemDefaults,
+            defaults = {...me.itemDefaults},
             lazyLoadItem, module;
 
         if (defaults) {
