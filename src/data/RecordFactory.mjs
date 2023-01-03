@@ -235,8 +235,13 @@ class RecordFactory extends Base {
      * @returns {*}
      */
     parseRecordValue(record, field, value, recordConfig=null) {
-        if(field.calculate) return field.calculate(record, field, recordConfig);
-        if(field.convert) value = field.convert(value);
+        if (field.calculate) {
+            return field.calculate(record, field, recordConfig);
+        }
+
+        if (field.convert) {
+            value = field.convert(value);
+        }
 
         let fieldName = field.name,
             mapping   = field.mapping,
