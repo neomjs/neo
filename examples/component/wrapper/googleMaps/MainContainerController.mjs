@@ -1,4 +1,4 @@
-import ComponentController from '../../../../node_modules/neo.mjs/src/controller/Component.mjs';
+import ComponentController from '../../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MainContainerController
@@ -23,14 +23,14 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
-    onFlyToIslandButtonClick(data) {
+    onFlyToIcelandButtonClick(data) {
         this.getReference('google-maps-component').panTo({ lat: 64.963051,lng: -19.020835})
     }
 
     /**
      * @param {Object} data
      */
-    onMapZoomChance(data) {
+    onMapZoomChange(data) {
         this.getReference('zoom-field').value = data.value;
     }
 

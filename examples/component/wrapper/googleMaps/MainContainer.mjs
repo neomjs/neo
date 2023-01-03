@@ -1,7 +1,7 @@
-import Button                  from '../../../../node_modules/neo.mjs/src/button/Base.mjs';
-import NumberField             from '../../../../node_modules/neo.mjs/src/form/field/Number.mjs';
-import Toolbar                 from '../../../../node_modules/neo.mjs/src/toolbar/Base.mjs';
-import Viewport                from '../../../../node_modules/neo.mjs/src/container/Viewport.mjs';
+import Button                  from '../../../../src/button/Base.mjs';
+import NumberField             from '../../../../src/form/field/Number.mjs';
+import Toolbar                 from '../../../../src/toolbar/Base.mjs';
+import Viewport                from '../../../../src/container/Viewport.mjs';
 import MapComponent            from "./MapComponent.mjs";
 import MainContainerController from './MainContainerController.mjs';
 
@@ -19,6 +19,7 @@ class MainContainer extends Viewport {
         items: [{
             module   : MapComponent,
             flex     : 1,
+            listeners: {zoomChange: 'onMapZoomChange'},
             reference: 'google-maps-component'
         }, {
             module: Toolbar,
@@ -32,10 +33,11 @@ class MainContainer extends Viewport {
                 text   : 'Fly to San Fran'
             }, {
                 module : Button,
-                handler: 'onFlyToIslandButtonClick',
+                handler: 'onFlyToIcelandButtonClick',
                 height : 27,
                 iconCls: 'fa-solid fa-plane',
-                text   : 'Fly to Island'
+                style  : {marginLeft: '10px'},
+                text   : 'Fly to Iceland'
             }, {
                 module              : NumberField,
                 clearToOriginalValue: true,

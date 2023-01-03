@@ -1,6 +1,5 @@
-import GoogleMapsComponent      from '../../../../node_modules/neo.mjs/src/component/wrapper/GoogleMaps.mjs';
-import MapComponentController   from "./MapComponentController.mjs";
-import MarkerPopup             from "./MarkerPopup.mjs";
+import GoogleMapsComponent from '../../../../src/component/wrapper/GoogleMaps.mjs';
+import MarkerDialog        from './MarkerDialog.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MapComponent
@@ -10,8 +9,6 @@ class MapComponent extends GoogleMapsComponent {
     static getConfig() {return {
         className: 'Neo.examples.component.wrapper.googleMaps.MapComponent',
         ntype: 'worldmap',
-
-        controller: MapComponentController,
 
         // Center the map initially to Island
         center: {
@@ -51,18 +48,13 @@ class MapComponent extends GoogleMapsComponent {
 
             me.disabled = true;
 
-            me.dialog = Neo.create(MarkerPopup, {
+            me.dialog = Neo.create(MarkerDialog, {
                 appName             : me.appName,
                 record              : record,
                 domEvent            : data.domEvent,
                 boundaryContainerId : me.id
             });
-        },
-
-        // todo Not working
-        // listeners: {
-        //     zoomChange: 'onMapZoomChance'
-        // }
+        }
     }}
 
     construct(config) {
