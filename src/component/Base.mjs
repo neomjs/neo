@@ -268,7 +268,7 @@ class Base extends CoreBase {
         /**
          * Add 'primary' and other attributes to make it
          * an outstanding design
-         * @member {String} ui_=null
+         * @member {String|null} ui_=null
          */
         ui_: null,
         /**
@@ -657,21 +657,21 @@ class Base extends CoreBase {
     /**
      * For styling purposes only.
      * To define button styles or component styles,
-     * this will add a css class:
-     *     neo-ntype-value
-     * 
-     * @param {String} value
-     * @param {String} oldValue
+     * this will add a css class: neo-ntype-value
+     * @param {String|null} value
+     * @param {String|null} oldValue
      */
     afterSetUi(value, oldValue) {
-        let me = this;
+        let me  = this,
+            cls = me.cls;
 
-        if (oldValue) {
-            me.removeCls(`neo-${me.ntype}-${oldValue}`);
+        NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`);
+
+        if (value && value !== '') {
+            NeoArray.add(cls, `neo-${me.ntype}-${value}`);
         }
-        if (value) {
-            me.addCls(`neo-${me.ntype}-${value}`);
-        }
+
+        me.cls = cls;
     }
 
     /**
