@@ -96,6 +96,13 @@ class Store extends Base {
          */
         remoteSort: false,
         /**
+         * Add a path to the root of your data.
+         * If the responseRoot is 'data' this is optional.
+         * 
+         * @member {String} responseRoot='data'
+         */
+        responseRoot: 'data',
+        /**
          * @member {Number} totalCount=0
          */
         totalCount: 0,
@@ -340,9 +347,8 @@ class Store extends Base {
             }).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
             }).then(data => {
-                me.data = Array.isArray(data.json) ? data.json : data.json.data;
+                me.data = Neo.ns(me.responseRoot, false, data.json) || data.json;
                 // we do not need to fire a load event => onCollectionMutate()
-            });
         }
     }
 
