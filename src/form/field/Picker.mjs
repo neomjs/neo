@@ -93,15 +93,14 @@ class Picker extends Text {
             inputRect   = rects[1],
             triggerRect = rects[0],
             vdom        = me.picker.vdom,
-            width       = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
+            width       = me.matchPickerWidth ? inputRect.width : me.pickerWidth;
 
         me.pickerWidth = width;
 
         vdom.style = vdom.style || {};
 
         Object.assign(vdom.style, {
-            left : `${triggerRect.left + triggerRect.width - width}px`,
-            top  : `${triggerRect.top + triggerRect.height + 1}px`,
+            top  : `${inputRect.bottom + 1}px`,
             width: `${width}px`
         });
 
@@ -141,9 +140,10 @@ class Picker extends Text {
      * @param {Function} [callbackScope]
      */
     getClientRectsThenShow(callback, callbackScope) {
-        let me = this;
+        let me        = this,
+            triggerId = me.getTriggerId('picker');
 
-        me.getDomRect([me.id, me.getInputWrapperId(), 'body']).then(data => {
+        me.getDomRect([triggerId, me.getInputWrapperId(), 'body']).then(data => {
             me.clientRects = data;
             me.showPicker(callback, callbackScope);
         });

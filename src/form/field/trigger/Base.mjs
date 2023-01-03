@@ -121,7 +121,7 @@ class Base extends Component {
     afterSetHidden(value, oldValue) {
         let style = this.style;
 
-        style.display = value ? 'none' : 'inline-block';
+        style.display = value ? 'none' : 'inherit';
         this.style = style;
     }
 
