@@ -6,7 +6,7 @@ import ToastManager from '../manager/Toast.mjs';
  * @extends Neo.dialog.Base
  *
  * @example
- Neo.toast({
+        Neo.toast({
             // obligatory
             appName         : this.component.appName,
             msg             : 'Alarm was set to 11:30 for journey into Neo development',
