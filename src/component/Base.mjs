@@ -266,6 +266,12 @@ class Base extends CoreBase {
          */
         tooltips_: null,
         /**
+         * Add 'primary' and other attributes to make it
+         * an outstanding design
+         * @member {String} ui_=null
+         */
+        ui_: null,
+        /**
          * The component vnode tree. Available after the component got rendered.
          * @member {Object} vnode_=null
          * @protected
@@ -645,6 +651,26 @@ class Base extends CoreBase {
                     me.createTooltips(value);
                 });
             }
+        }
+    }
+
+    /**
+     * For styling purposes only.
+     * To define button styles or component styles,
+     * this will add a css class:
+     *     neo-ntype-value
+     * 
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetUi(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            me.removeCls(`neo-${me.ntype}-${oldValue}`);
+        }
+        if (value) {
+            me.addCls(`neo-${me.ntype}-${value}`);
         }
     }
 
