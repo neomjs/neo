@@ -19,6 +19,7 @@ class MainContainer extends Viewport {
         items: [{
             module   : MapComponent,
             flex     : 1,
+            listeners: {zoomChange: 'onMapZoomChange'},
             reference: 'google-maps-component'
         }, {
             module: Toolbar,

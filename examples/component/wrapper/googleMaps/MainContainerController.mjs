@@ -30,7 +30,7 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
-    onMapZoomChance(data) {
+    onMapZoomChange(data) {
         this.getReference('zoom-field').value = data.value;
     }
 
