@@ -23,7 +23,7 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
-    onFlyToIslandButtonClick(data) {
+    onFlyToIcelandButtonClick(data) {
         this.getReference('google-maps-component').panTo({ lat: 64.963051,lng: -19.020835})
     }
 

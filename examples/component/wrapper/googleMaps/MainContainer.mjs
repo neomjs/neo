@@ -33,10 +33,11 @@ class MainContainer extends Viewport {
                 text   : 'Fly to San Fran'
             }, {
                 module : Button,
-                handler: 'onFlyToIslandButtonClick',
+                handler: 'onFlyToIcelandButtonClick',
                 height : 27,
                 iconCls: 'fa-solid fa-plane',
-                text   : 'Fly to Island'
+                style  : {marginLeft: '10px'},
+                text   : 'Fly to Iceland'
             }, {
                 module              : NumberField,
                 clearToOriginalValue: true,
