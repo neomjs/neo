@@ -1,5 +1,5 @@
 import GoogleMapsComponent from '../../../../src/component/wrapper/GoogleMaps.mjs';
-import MarkerPopup         from "./MarkerPopup.mjs";
+import MarkerDialog        from './MarkerDialog.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.googleMaps.MapComponent
@@ -48,7 +48,7 @@ class MapComponent extends GoogleMapsComponent {
 
             me.disabled = true;
 
-            me.dialog = Neo.create(MarkerPopup, {
+            me.dialog = Neo.create(MarkerDialog, {
                 appName             : me.appName,
                 record              : record,
                 domEvent            : data.domEvent,

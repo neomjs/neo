@@ -1,12 +1,12 @@
 import DialogBase from '../../../../src/dialog/Base.mjs';
 
 /**
- * @class Neo.examples.component.wrapper.googleMaps.MarkerPopup
- * @extends Neo.container.Base
+ * @class Neo.examples.component.wrapper.googleMaps.MarkerDialog
+ * @extends Neo.dialog.Base
  */
-class MarkerPopup extends DialogBase {
+class MarkerDialog extends DialogBase {
     static getConfig() {return {
-        className: 'Neo.examples.component.wrapper.googleMaps.MarkerPopup',
+        className: 'Neo.examples.component.wrapper.googleMaps.MarkerDialog',
 
         // turn off dragging and resizing
         draggable           : false,
@@ -108,6 +108,6 @@ class MarkerPopup extends DialogBase {
     }
 }
 
-Neo.applyClassConfig(MarkerPopup);
+Neo.applyClassConfig(MarkerDialog);
 
-export default MarkerPopup;
+export default MarkerDialog;
