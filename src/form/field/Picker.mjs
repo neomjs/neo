@@ -100,7 +100,8 @@ class Picker extends Text {
         vdom.style = vdom.style || {};
 
         Object.assign(vdom.style, {
-            top  : `${parentRect.top - inputRect.bottom + 1}px`,
+            left : `${inputRect.left}px`,
+            top  : `${inputRect.bottom + 1}px`,
             width: `${width}px`
         });
 
@@ -123,7 +124,25 @@ class Picker extends Text {
             maxHeight: me.pickerMaxHeight,
             vdom     : {cn: [], tabIndex: -1},
             width    : me.pickerWidth,
-            ...me.pickerConfig
+            ...me.pickerConfig,
+
+            // scoped to the field instance
+            onFocusLeave: data => {
+                let insideField = false,
+                    item;
+
+                for (item of data.oldPath) {
+                    if (item.id === me.id) {
+                        insideField = true;
+                        break;
+                    }
+                }
+
+                if (!insideField) {
+                    me.hidePicker();
+                    super.onFocusLeave(data);
+                }
+            }
         });
     }
 
@@ -137,7 +156,7 @@ class Picker extends Text {
 
     /**
      * @param {Function} [callback]
-     * @param {Function} [callbackScope]
+     * @param {Object} [callbackScope]
      */
     getClientRectsThenShow(callback, callbackScope) {
         let me        = this,
@@ -171,24 +190,18 @@ class Picker extends Text {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     *
      */
-    hidePicker(silent=false) {return;
+    async hidePicker() {
         let me     = this,
-            picker = me.getPicker(),
-            vdom   = me.vdom;
+            picker = me.getPicker();
 
-        me.pickerIsMounted && VDomUtil.removeVdomChild(vdom, me.getPickerId());
+        // avoid breaking selection model cls updates
+        await Neo.timeout(30);
+
+        me.pickerIsMounted && picker.unmount();
 
         me.pickerIsMounted = false;
-
-        if (silent) {
-            picker.mounted = false;
-        } else {
-            me.promiseVdomUpdate().then(data => {
-                picker.mounted = me.pickerIsMounted;
-            });
-        }
     }
 
     /**
@@ -196,22 +209,27 @@ class Picker extends Text {
      * @protected
      */
     onFocusLeave(data) {
-        let me = this;
+        let me           = this,
+            insidePicker = false,
+            item;
 
-        // inline will trigger an vdom update, so hide picker should be silent
-        if (me.labelPosition === 'inline' && (me.value === '' || me.value === null)) {
-            me.hidePicker(true);
-        } else {
-            me.hidePicker();
+        for (item of data.oldPath) {
+            if (item.id === me.getPickerId()) {
+                insidePicker = true;
+                break;
+            }
         }
 
-        super.onFocusLeave(data);
+        if (!insidePicker) {
+            me.hidePicker();
+            super.onFocusLeave(data);
+        }
     }
 
     /**
      * @param {Object} data
      * @param {Function} [callback]
-     * @param {Function} [callbackScope]
+     * @param {Object} [callbackScope]
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
@@ -242,23 +260,23 @@ class Picker extends Text {
 
     /**
      * @param {Function} [callback]
-     * @param {Function} [callbackScope]
+     * @param {Object} [callbackScope]
      */
     showPicker(callback, callbackScope) {
         let me     = this,
             picker = me.getPicker(),
-            vdom   = me.vdom;
+            listenerId;
 
         me.applyClientRects(true);
-        vdom.cn.push(picker.vdom);
 
-        me.promiseVdomUpdate().then(data => {
+        listenerId = picker.on('mounted', () => {
+            picker.un('mounted', listenerId);
+
             me.pickerIsMounted = true;
-
-            picker.mounted = me.pickerIsMounted;
-
             callback?.apply(callbackScope || me);
         });
+
+        picker.render(true);
     }
 }
 

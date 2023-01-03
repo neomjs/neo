@@ -132,7 +132,6 @@ class Select extends Picker {
             displayField  : me.displayField,
             parentId      : me.id,
             selectionModel: {stayInList: false},
-            silentSelect  : true,
             store         : me.store,
             ...me.listConfig
         });
