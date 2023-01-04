@@ -226,6 +226,17 @@ class Select extends Picker {
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
 
+        // to reduce boilerplate code, a store config object without a defined model should default
+        // to displayField & valueField defaults
+        if (Neo.typeOf(value) === 'Object' && !value.model) {
+            value.model = {
+                fields: [
+                    {name: 'id',   type: 'String'},
+                    {name: 'name', type: 'String'}
+                ]
+            }
+        }
+
         return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
