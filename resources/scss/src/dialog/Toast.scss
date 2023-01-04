@@ -1,13 +1,9 @@
 .neo-toast {
-    // todo: theming
-    --toast-background-color: lightblue;
-    --toast-color           : #083741;
-
     align-items     : center;
-    background-color: var(--toast-background-color);
+    background-color: v(toast-background-color);
     border-radius   : 0.5rem;
-    box-shadow      : 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
-    color           : var(--toast-color);
+    box-shadow      : 0 0.25rem 0.5rem v(toast-shadow-color);
+    color           : v(toast-color);
     display         : flex;
     position        : fixed;
 
@@ -29,7 +25,7 @@
             }
 
             .neo-toast-icon {
-                border-right: 2px solid var(--toast-color);
+                border-right: 2px solid v(toast-color);
                 flex        : 1;
                 font-size   : 1.5em;
             }
@@ -55,6 +51,36 @@
                 font-size  : 1.5rem;
                 line-height: 1.5;
                 margin-left: auto;
+            }
+        }
+    }
+}
+// ui: danger
+.neo-toast-danger {
+    background-color: v(toast-danger-background-color);
+    color           : v(toast-danger-color);
+
+    & > div {
+
+        .neo-toast-inner {
+
+            .neo-toast-icon {
+                border-right: 2px solid v(toast-danger-color);
+            }
+        }
+    }
+}
+// ui: success
+.neo-toast-success {
+    background-color: v(toast-success-background-color);
+    color           : v(toast-success-color);
+
+    & > div {
+
+        .neo-toast-inner {
+
+            .neo-toast-icon {
+                border-right: 2px solid v(toast-success-color);
             }
         }
     }
