@@ -69,9 +69,9 @@ class MainContainerController extends Component {
                 /* webpackIgnore: true */
                 record.path).then((module) => {
                     contentTabContainer.add({
-                        module         : module.default,
-                        id             : name,
-                        tabButtonConfig: tabButtonConfig
+                        module: module.default,
+                        id    : name,
+                        tabButtonConfig
                     });
                 }
             );
@@ -86,15 +86,15 @@ class MainContainerController extends Component {
                 modules.forEach(module => {
                     items.push({
                         module: module.default
-                    });
+                    })
                 });
 
                 contentTabContainer.add({
-                    ntype          : 'container',
-                    id             : name,
-                    items          : items,
-                    style          : {padding: '10px'},
-                    tabButtonConfig: tabButtonConfig
+                    ntype: 'container',
+                    id   : name,
+                    items,
+                    style: {padding: '10px'},
+                    tabButtonConfig
                 });
             })
         }
@@ -164,8 +164,9 @@ class MainContainerController extends Component {
         }
 
         Neo.main.addon.Stylesheet.swapStyleSheet({
-            href: href,
-            id  : 'hljs-theme'
+            appName: me.component.appName,
+            href,
+            id     : 'hljs-theme'
         }).then(data => {
             button.text = buttonText;
         });
