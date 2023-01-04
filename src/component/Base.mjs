@@ -16,6 +16,13 @@ import VNodeUtil        from '../util/VNode.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
+    /**
+     * Internal flag to prevent multiple CSS merges
+     * @member {Boolean} baseClsApplied=false
+     * @protected
+     */
+    baseClsApplied = false
+
     static getStaticConfig() {return {
         /**
          * Valid values for hideMode
@@ -64,6 +71,11 @@ class Base extends CoreBase {
          */
         autoRender: false,
         /**
+         * CSS selectors to apply to the root level node of this component
+         * @member {String[]} baseCls=[]
+         */
+        baseCls: [],
+        /**
          * Bind configs to model.Component data properties.
          * Example for a button.Base:
          * @example
@@ -76,7 +88,8 @@ class Base extends CoreBase {
          */
         bind: null,
         /**
-         * CSS selectors to apply to the root level node of this component
+         * Custom CSS selectors to apply to the root level node of this component
+         * You can override baseCls to remove default selectors.
          * @member {String[]} cls_=null
          */
         cls_: null,
@@ -399,7 +412,6 @@ class Base extends CoreBase {
      */
     afterSetCls(value, oldValue) {
         oldValue = oldValue || [];
-        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -845,6 +857,25 @@ class Base extends CoreBase {
      */
     beforeGetWrapperStyle(value) {
         return {...Object.assign(this.vdom.style || {}, value)};
+    }
+
+    /**
+     * Triggered before the cls config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetCls(value, oldValue) {
+        value = value || [];
+
+        let me = this;
+
+        if (!me.baseClsApplied) {
+            value = NeoArray.union(value, me.baseCls);
+            me.baseClsApplied = true;
+        }
+
+        return value;
     }
 
     /**
