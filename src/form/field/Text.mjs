@@ -567,18 +567,21 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me            = this,
+            cls           = me.cls,
+            emptyValue    = Neo.isEmpty(value),
+            originalValue = me.originalConfig.value,
+            isDirty       = value !== originalValue && emptyValue !== Neo.isEmpty(originalValue);
 
         me.silentVdomUpdate = true;
 
         me.getInputEl().value = value;
 
-        if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
+        if (emptyValue !== Neo.isEmpty(oldValue)) {
             NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
         }
 
-        NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');
         me.cls = cls;
 
         me.validate(); // silent
