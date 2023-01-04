@@ -160,7 +160,9 @@ class Base extends Component {
     destroy(updateParentVdom, silent) {
         let me = this;
 
-        me.removeDomListeners({click: {fn: me.onTriggerClick, scope: me}});
+        me.removeDomListeners(
+            {click: me.onTriggerClick, scope: me}
+        );
 
         delete me.field;
 
