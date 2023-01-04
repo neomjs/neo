@@ -34,6 +34,7 @@ class HighlightJS extends Base {
             app: [
                 'scrollIntoView',
                 'syntaxHighlight',
+                'switchTheme',
                 'syntaxHighlightInit',
                 'syntaxHighlightLine'
             ]
@@ -97,6 +98,22 @@ class HighlightJS extends Base {
         } else {
             console.error('highlight.js is not included inside the main thread.');
         }
+    }
+
+    /**
+     * You can pass in 'light', 'dark', or a path for a custom theme
+     * @param {String} theme
+     */
+    switchTheme(theme) {
+        let definedThemes = {
+                dark: './resources/highlightjs-custom-dark-theme.css',
+                light: './resources/highlightjs-custom-github-theme.css'
+            },
+            switchToTheme = definedThemes[theme];
+
+        switchToTheme ??= theme;
+        this.themePath = switchToTheme;
+        Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
     }
 
     /**
