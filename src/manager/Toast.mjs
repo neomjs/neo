@@ -31,8 +31,8 @@ class Toast extends Base {
      * @member {Object} running
      */
     running = {
-        tr: 0, tc: 0, tl: 0,
-        br: 0, bc: 0, bl: 0
+        bc: 0, bl: 0, br: 0,
+        tc: 0, tl: 0, tr: 0
     }
     /**
      * If you prefer your own class to open, override here
@@ -86,8 +86,8 @@ class Toast extends Base {
             id;
 
         if (!toast.msg || !toast.appName) {
-            Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
-            Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
+            !toast.msg     && Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
+            !toast.appName && Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
             return null;
         }
 
