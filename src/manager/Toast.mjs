@@ -1,32 +1,26 @@
 import Base from './Base.mjs';
 
 /**
- * See Neo.dialog.Toast for example
- *
+ * See Neo.dialog.Toast for examples
  * @class Neo.manager.Toast
  * @extends Neo.manager.Base
  * @singleton
  */
-class ToastManager extends Base {
+class Toast extends Base {
     /**
      * This is the default config for the Neo.dialog.Toast
-     * @member {{running: boolean, closable: boolean, slideDirection: string, cls: [string], position: string, title: null, timeout: number, maxWidth: number}}
+     * @member {Object}
      */
     defaultToastConfig = {
-        closable: false,
-        cls: ['neo-toast'],
-        maxWidth: 250,
-        position: 'tr',
-        running: false,
+        closable      : false,
+        cls           : ['neo-toast'],
+        maxWidth      : 250,
+        position      : 'tr',
+        running       : false,
         slideDirection: 'down',
-        timeout: 3000,
-        title: null
+        timeout       : 3000,
+        title         : null
     }
-    /**
-     * If you prefer your own class to open, override here
-     * @member {String} toastClass='Neo.dialog.Toast'
-     */
-    toastClass = 'Neo.dialog.Toast'
     /**
      * Currently only 1 is supported, because they would overlap
      * @member {1} maxToasts=1
@@ -40,13 +34,18 @@ class ToastManager extends Base {
         tr: 0, tc: 0, tl: 0,
         br: 0, bc: 0, bl: 0
     }
+    /**
+     * If you prefer your own class to open, override here
+     * @member {String} toastClass='Neo.dialog.Toast'
+     */
+    toastClass = 'Neo.dialog.Toast'
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.ToastManager'
+         * @member {String} className='Neo.manager.Toast'
          * @protected
          */
-        className: 'Neo.manager.ToastManager',
+        className: 'Neo.manager.Toast',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -64,8 +63,7 @@ class ToastManager extends Base {
      */
     register(item) {
         super.register(item);
-
-        this.runQue();
+        this.runQueue();
     }
 
     /**
@@ -74,8 +72,7 @@ class ToastManager extends Base {
      */
     unregister(item) {
         super.unregister(item);
-
-        this.runQue();
+        this.runQueue();
     }
 
     /**
@@ -85,19 +82,20 @@ class ToastManager extends Base {
      * @returns {Object}
      */
     createToast(toast) {
-        let me = this;
+        let me = this,
+            id;
 
-        if(!toast.msg || !toast.appName) {
-            Neo.logError('[Neo.util.ToastManager] Toast has to define a msg');
-            Neo.logError('[Neo.util.ToastManager] Toast has to define an appName. Typically me.appName.');
-            return;
+        if (!toast.msg || !toast.appName) {
+            Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
+            Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
+            return null;
         }
 
-        let id = Neo.core.IdGenerator.getId('toastmanager-toast');
+        id = Neo.core.IdGenerator.getId('toastmanager-toast');
 
         toast = {
-            id: id,
-            toastManagerId : id,
+            id,
+            toastManagerId: id,
             ...me.defaultToastConfig,
             ...toast
         };
@@ -112,23 +110,24 @@ class ToastManager extends Base {
      * @param {String} toastId
      */
     removeToast(toastId) {
+        let me = this;
+
         // decrease total of displayed toasts for a position
-        this.running[this.map.get(toastId).position]--;
-        this.unregister(toastId);
+        me.running[me.map.get(toastId).position]--;
+        me.unregister(toastId);
     }
 
     /**
      * Runs a ToastManager to show an item from collection.
      */
-    runQue() {
-        const me = this;
+    runQueue() {
+        let me = this,
+            toast;
 
-        if(me.getCount === 0) return;
+        if (me.getCount > 0) {
+            toast = me.findFirstToast();
 
-        let toast = me.findFirstToast();
-
-        if(toast) {
-            me.showToast(toast);
+            toast && me.showToast(toast)
         }
     }
 
@@ -146,14 +145,14 @@ class ToastManager extends Base {
      * @returns {*}
      */
     findFirstToast() {
-        const me = this;
-        let firstToast;
+        let me = this,
+            firstToast, item;
 
         me.filters = [{property: 'running', value: false}];
         me.filter();
 
-        for (let item of me.map.values()){
-            if(me.running[item.position] < me.maxToasts) {
+        for (item of me.map.values()) {
+            if (me.running[item.position] < me.maxToasts) {
                 firstToast = item;
                 break;
             }
@@ -165,9 +164,9 @@ class ToastManager extends Base {
     }
 }
 
-Neo.applyClassConfig(ToastManager);
+Neo.applyClassConfig(Toast);
 
-let instance = Neo.create(ToastManager);
+let instance = Neo.create(Toast);
 
 Neo.applyToGlobalNs(instance);
 
