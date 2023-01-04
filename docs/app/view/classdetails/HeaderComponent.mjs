@@ -18,9 +18,9 @@ class HeaderComponent extends Component {
          */
         ntype: 'classdetails-headercomponent',
         /**
-         * @member {String[]} cls=['neo-docs-classdetails-headercomponent']
+         * @member {String[]} baseCls=['neo-docs-classdetails-headercomponent']
          */
-        cls: ['neo-docs-classdetails-headercomponent'],
+        baseCls: ['neo-docs-classdetails-headercomponent'],
         /**
          * @member {Object|null} record_=null
          */

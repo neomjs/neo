@@ -12,10 +12,10 @@ class AttributionComponent extends Component {
          */
         className: 'SharedCovid.view.AttributionComponent',
         /**
-         * @member {String[]} cls=['covid-attribution-component']
+         * @member {String[]} baseCls=['covid-attribution-component']
          * @protected
          */
-        cls: ['covid-attribution-component'],
+        baseCls: ['covid-attribution-component'],
         /**
          * @member {Object} vdom
          */

@@ -19,9 +19,9 @@ class Base extends Container {
          */
         ntype: 'tooltip',
         /**
-         * @member {String[]} cls=['neo-tooltip']
+         * @member {String[]} baseCls=['neo-tooltip']
          */
-        cls: ['neo-tooltip'],
+        baseCls: ['neo-tooltip'],
         /**
          * A reference to the target component which is supposed to show this tooltip on mouseenter
          * @member {String|null} componentId_=null

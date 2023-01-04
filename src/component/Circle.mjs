@@ -29,14 +29,14 @@ class Circle extends Component {
          */
         backsideIconPath: null,
         /**
+         * @member {String[]} baseCls=['neo-circle-component']
+         */
+        baseCls: ['neo-circle-component'],
+        /**
          * @member {Boolean} circleCenterHasTransitionCls=true
          * @protected
          */
         circleCenterHasTransitionCls: true,
-        /**
-         * @member {String[]} cls=['neo-circle-component']
-         */
-        cls: ['neo-circle-component'],
         /**
          * @member {Boolean} collapsed=true
          */

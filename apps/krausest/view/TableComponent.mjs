@@ -18,9 +18,9 @@ class TableComponent extends Base {
          */
         className: 'NeoApp.view.TableComponent',
         /**
-         * @member {String[]} cls=['table','table-hover','table-striped','test-data']
+         * @member {String[]} baseCls=['table','table-hover','table-striped','test-data']
          */
-        cls: ['table', 'table-hover', 'table-striped', 'test-data'],
+        baseCls: ['table', 'table-hover', 'table-striped', 'test-data'],
         /**
          * @member {NeoApp.TableCollection|null} store_=TableCollection
          */

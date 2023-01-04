@@ -12,9 +12,9 @@ class FooterComponent extends Component {
          */
         className: 'RealWorld2.view.FooterComponent',
         /**
-         * @member {String[]} cls=['rw2-footer-component']
+         * @member {String[]} baseCls=['rw2-footer-component']
          */
-        cls: ['rw2-footer-component'],
+        baseCls: ['rw2-footer-component'],
         /**
          * @member {Number} height=40
          */

@@ -19,9 +19,9 @@ class CopyToClipboard extends Base {
          */
         ntype: 'trigger-copytoclipboard',
         /**
-         * @member {String[]} cls=['neo-field-trigger', 'neo-trigger-clipboard']
+         * @member {String[]} baseCls=['neo-field-trigger','neo-trigger-clipboard']
          */
-        cls: ['neo-field-trigger', 'neo-trigger-clipboard'],
+        baseCls: ['neo-field-trigger', 'neo-trigger-clipboard'],
         /**
          * @member {String|null} iconCls='fa fa-clipboard'
          */
@@ -32,7 +32,7 @@ class CopyToClipboard extends Base {
         showOnHover: true,
         /**
          * Internal flag used by field.getTrigger()
-         * @member {String} type='copytoclipboard'
+         * @member {String} type='copyToClipboard'
          * @protected
          */
         type: 'copyToClipboard',

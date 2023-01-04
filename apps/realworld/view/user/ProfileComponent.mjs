@@ -19,13 +19,13 @@ class ProfileComponent extends Component {
          */
         articlePreviews_: null,
         /**
+         * @member {String[]} baseCls=['profile-page']
+         */
+        baseCls: ['profile-page'],
+        /**
          * @member {String|null} bio_=null
          */
         bio_: null,
-        /**
-         * @member {String[]} cls=['profile-page']
-         */
-        cls: ['profile-page'],
         /**
          * @member {Number} countArticles_=5
          */

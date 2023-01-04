@@ -19,9 +19,9 @@ class Clock extends Component {
          */
         ntype: 'clock',
         /**
-         * @member {String[]} cls=['neo-clock']
+         * @member {String[]} baseCls=['neo-clock']
          */
-        cls: ['neo-clock'],
+        baseCls: ['neo-clock'],
         /**
          * Value in px
          * @member {Number} fontSize_=20

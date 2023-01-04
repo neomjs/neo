@@ -14,15 +14,15 @@ class Table extends Container {
          */
         className: 'SharedCovid.view.country.Table',
         /**
+         * @member {String[]} baseCls=['covid-country-table','neo-table-container']
+         */
+        baseCls: ['covid-country-table', 'neo-table-container'],
+        /**
          * @member {Object} bind
          */
         bind: {
             country: {twoWay: true, value: data => data.country}
         },
-        /**
-         * @member {String[]} cls=['covid-country-table', 'neo-table-container']
-         */
-        cls: ['covid-country-table', 'neo-table-container'],
         /**
          * Default configs for each column
          * @member {Object} columnDefaults

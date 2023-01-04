@@ -17,9 +17,9 @@ class HelixContainer extends Container {
          */
         className: 'Covid.view.HelixContainer',
         /**
-         * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
+         * @member {String[]} baseCls=['neo-helix-maincontainer','neo-viewport']
          */
-        cls: ['neo-helix-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-helix-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component|null} controller=HelixContainerController
          */

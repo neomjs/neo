@@ -24,9 +24,9 @@ class Color extends Base {
          */
         ntype: 'colorlist',
         /**
-         * @member {String[]} cls=['neo-color-list','neo-list']
+         * @member {String[]} baseCls=['neo-color-list','neo-list']
          */
-        cls: ['neo-color-list', 'neo-list'],
+        baseCls: ['neo-color-list', 'neo-list'],
         /**
          * The data.Model field which contains the color value
          * @member {String} colorField='name'

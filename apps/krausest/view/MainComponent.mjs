@@ -20,9 +20,9 @@ class MainComponent extends Base {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['container']
+         * @member {String[]} baseCls=['container']
          */
-        cls: ['container'],
+        baseCls: ['container'],
         /**
          * @member {Neo.controller.Component} controller=MainComponentController
          */

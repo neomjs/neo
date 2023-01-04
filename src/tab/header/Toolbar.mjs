@@ -17,9 +17,9 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'tab-header-toolbar',
         /**
-         * @member {Array} cls=['neo-tab-header-toolbar','neo-toolbar']
+         * @member {String[]} baseCls=['neo-tab-header-toolbar','neo-toolbar']
          */
-        cls: ['neo-tab-header-toolbar', 'neo-toolbar'],
+        baseCls: ['neo-tab-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Boolean} useActiveTabIndicator_=true
          */

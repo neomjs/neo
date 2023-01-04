@@ -19,9 +19,9 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
+         * @member {String[]} baseCls=['neo-gallery-maincontainer','neo-viewport']
          */
-        cls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-gallery-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */

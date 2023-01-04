@@ -14,9 +14,9 @@ class HistoricalDataTable extends Container {
          */
         className: 'Covid.view.country.HistoricalDataTable',
         /**
-         * @member {String[]} cls=['covid-historical-data-table', 'neo-table-container']
+         * @member {String[]} baseCls=['covid-historical-data-table','neo-table-container']
          */
-        cls: ['covid-historical-data-table', 'neo-table-container'],
+        baseCls: ['covid-historical-data-table', 'neo-table-container'],
         /**
          * Default configs for each column
          * @member {Object} columnDefaults

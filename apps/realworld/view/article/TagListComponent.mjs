@@ -25,9 +25,9 @@ class TagListComponent extends Component {
          */
         activeTag_: null,
         /**
-         * @member {String[]} cls=['col-md-3']
+         * @member {String[]} baseCls=['col-md-3']
          */
-        cls: ['col-md-3'],
+        baseCls: ['col-md-3'],
         /**
          * @member {String[]} tags_=[]
          */

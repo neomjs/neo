@@ -22,24 +22,16 @@ class ContentTabContainer extends Container {
          */
         activateInsertedTabs: true,
         /**
-         * @member {Object} contentContainerDefaults={cls:[//...]}
+         * @member {Object} contentContainerDefaults
          */
         contentContainerDefaults: {
-            cls: [
-                'neo-docs-tab-content-container',
-                'neo-tab-content-container',
-                'neo-container'
-            ]
+            cls: ['neo-docs-tab-content-container']
         },
         /**
-         * @member {Object} headerToolbarDefaults={cls:[//...]}
+         * @member {Object} headerToolbarDefaults
          */
         headerToolbarDefaults: {
-            cls: [
-                'docs-tab-header-toolbar',
-                'neo-tab-header-toolbar',
-                'neo-toolbar'
-            ]
+            cls: ['docs-tab-header-toolbar']
         },
         /**
          * @member {Array} items=[//...]]

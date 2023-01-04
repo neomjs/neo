@@ -34,9 +34,9 @@ class Button extends BaseButton {
          */
         align_: 'left',
         /**
-         * @member {Array} cls=['neo-table-header-button']
+         * @member {String[]} baseCls=['neo-table-header-button']
          */
-        cls: ['neo-table-header-button'],
+        baseCls: ['neo-table-header-button'],
         /**
          * @member {String|null} dataField=null
          */

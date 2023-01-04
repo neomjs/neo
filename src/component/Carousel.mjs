@@ -46,9 +46,9 @@ class Carousel extends Component {
          */
         autoRun_: 0,
         /**
-         * @member {String[]} cls=['neo-carousel']
+         * @member {String[]} baseCls=['neo-carousel']
          */
-        cls : ['neo-carousel'],
+        baseCls: ['neo-carousel'],
         /**
          * Custom cls added to each item
          * This is only a single string

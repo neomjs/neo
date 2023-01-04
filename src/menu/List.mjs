@@ -25,9 +25,9 @@ class List extends BaseList {
          */
         activeSubMenu: null,
         /**
-         * @member {String[]} cls=['neo-menu-list','neo-list']
+         * @member {String[]} baseCls=['neo-menu-list','neo-list']
          */
-        cls: ['neo-menu-list', 'neo-list'],
+        baseCls: ['neo-menu-list', 'neo-list'],
         /**
          * True will add 'neo-floating' to the instance cls list.
          * @member {Boolean} floating_=false

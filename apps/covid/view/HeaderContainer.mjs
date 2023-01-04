@@ -14,9 +14,9 @@ class HeaderContainer extends Container {
          */
         className: 'Covid.view.HeaderContainer',
         /**
-         * @member {String[]} cls=['covid-header-container']
+         * @member {String[]} baseCls=['covid-header-container']
          */
-        cls: ['covid-header-container'],
+        baseCls: ['covid-header-container'],
         /**
          * @member {Number} height=70
          */

@@ -13,13 +13,13 @@ class SettingsComponent extends Component {
          */
         className: 'RealWorld.view.user.SettingsComponent',
         /**
+         * @member {String[]} baseCls=['settings-page']
+         */
+        baseCls: ['settings-page'],
+        /**
          * @member {String} bio_=null
          */
         bio_: null,
-        /**
-         * @member {String[]} cls=['settings-page']
-         */
-        cls: ['settings-page'],
         /**
          * @member {String} email_=null
          */

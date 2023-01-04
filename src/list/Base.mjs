@@ -34,9 +34,9 @@ class Base extends Component {
          */
         autoDestroyStore: true,
         /**
-         * @member {String[]} cls=['neo-list']
+         * @member {String[]} baseCls=['neo-list']
          */
-        cls: ['neo-list'],
+        baseCls: ['neo-list'],
         /**
          * @member {Boolean} disableSelection_=false
          */

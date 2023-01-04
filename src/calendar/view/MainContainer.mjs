@@ -41,6 +41,10 @@ class MainContainer extends Container {
          */
         activeView_: 'week',
         /**
+         * @member {String[]} baseCls=['neo-calendar-maincontainer','neo-container']
+         */
+        baseCls: ['neo-calendar-maincontainer', 'neo-container'],
+        /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
          */
@@ -53,10 +57,6 @@ class MainContainer extends Container {
          * @member {Object|null} calendarStoreConfig_=null
          */
         calendarStoreConfig_: null,
-        /**
-         * @member {String[]} cls=['neo-container']
-         */
-        cls: ['neo-calendar-maincontainer', 'neo-container'],
         /**
          * @member {Object|null} colorStoreConfig_=null
          */

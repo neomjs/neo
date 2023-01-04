@@ -22,9 +22,9 @@ class Viewport extends Container {
          */
         applyBodyCls: true,
         /**
-         * @member {String[]} cls=['neo-viewport']
+         * @member {String[]} baseCls=['neo-viewport']
          */
-        cls: ['neo-viewport']
+        baseCls: ['neo-viewport']
     }}
 
     /**
@@ -36,7 +36,7 @@ class Viewport extends Container {
         this.applyBodyCls && Neo.main.DomAccess.applyBodyCls({
             appName: this.appName,
             cls    : ['neo-body-viewport']
-        });
+        })
     }
 }
 

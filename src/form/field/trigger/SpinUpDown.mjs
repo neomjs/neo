@@ -18,9 +18,9 @@ class SpinUpDown extends Base {
          */
         ntype: 'trigger-spinupdown',
         /**
-         * @member {String[]} cls=['neo-field-trigger', 'neo-spin-buttons']
+         * @member {String[]} baseCls=['neo-field-trigger','neo-spin-buttons']
          */
-        cls: ['neo-field-trigger', 'neo-spin-buttons'],
+        baseCls: ['neo-field-trigger', 'neo-spin-buttons'],
         /**
          * @member {String} spinButtonDownIconCls='fa fa-chevron-down'
          */

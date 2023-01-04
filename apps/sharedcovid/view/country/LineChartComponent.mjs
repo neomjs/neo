@@ -12,9 +12,9 @@ class LineChartComponent extends AmChartComponent {
          */
         className: 'SharedCovid.view.country.LineChartComponent',
         /**
-         * @member {String[]} cls=['covid-line-chart']
+         * @member {String[]} baseCls=['covid-line-chart']
          */
-        cls: ['covid-line-chart'],
+        baseCls: ['covid-line-chart'],
         /**
          * @member {Object} chartConfig
          */

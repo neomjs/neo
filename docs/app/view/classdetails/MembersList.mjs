@@ -18,9 +18,9 @@ class MembersList extends Base {
          */
         ntype: 'classdetails-memberslist',
         /**
-         * @member {String[]} cls=['docs-classhierarchy-memberslist']
+         * @member {String[]} baseCls=['docs-classhierarchy-memberslist']
          */
-        cls: ['docs-classhierarchy-memberslist'],
+        baseCls: ['docs-classhierarchy-memberslist'],
         /**
          * @member {String} filterMembersQuery_=''
          * @protected

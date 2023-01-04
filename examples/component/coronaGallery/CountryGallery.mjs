@@ -23,9 +23,9 @@ class CountryGallery extends Gallery {
          */
         className: 'Neo.examples.component.coronaGallery.CountryGallery',
         /**
-         * @member {String[]} cls=['neo-country-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} cls=['neo-country-gallery']
          */
-        cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
+        cls: ['neo-country-gallery'],
         /**
          * The item height of the gallery
          * @member {Number} itemHeight=240

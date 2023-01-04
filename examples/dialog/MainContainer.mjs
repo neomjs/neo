@@ -119,8 +119,8 @@ class MainContainer extends Viewport {
         });
 
         button.set({
-            iconCls: iconCls,
-            text   : buttonText
+            iconCls,
+            text: buttonText
         });
 
         if (dialog) {

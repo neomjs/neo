@@ -22,23 +22,16 @@ class MarkerDialog extends DialogBase {
 
         items: [{
             ntype: 'component',
-            cls: ['detail-container'],
-            vdom: {/* here goes the itemTpl */}
+            cls  : ['detail-container'],
+            vdom : {/* here goes the itemTpl */}
         }],
 
-        itemTpl: data => [{
-            cls: 'detail-depth',
-            innerHTML: `Depth: ${data.depth}`
-        }, {
-            cls: 'detail-date',
-            innerHTML: `${data.visualDate}`
-        }, {
-            cls: 'detail-quality',
-            innerHTML: `Quality: ${data.quality}`
-        }, {
-            cls: 'detail-quality',
-            innerHTML: `Size: ${data.size}`
-        }]
+        itemTpl: data => [
+            {cls: ['detail-depth'],   innerHTML: `Depth: ${data.depth}`},
+            {cls: ['detail-date'],    innerHTML: `${data.visualDate}`},
+            {cls: ['detail-quality'], innerHTML: `Quality: ${data.quality}`},
+            {cls: ['detail-quality'], innerHTML: `Size: ${data.size}`}
+        ]
     }}
 
     /**
@@ -56,14 +49,14 @@ class MarkerDialog extends DialogBase {
      *      timestamp: "2017-10-11T18:34:56.000Z"
      */
     afterSetRecord(value, oldValue) {
-        let me = this,
+        let me              = this,
             outputContainer = me.items[0],
-            vdom = outputContainer.vdom;
+            vdom            = outputContainer.vdom;
 
         value.visualDate = me.calcVisualDate(value.timestamp);
 
         me.title = `${value.humanReadableLocation}$ | ${value.size}`;
-        vdom.cn = me.itemTpl(value);
+        vdom.cn  = me.itemTpl(value);
     }
 
     calcVisualDate(dateString) {

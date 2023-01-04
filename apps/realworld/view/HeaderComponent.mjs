@@ -17,9 +17,9 @@ class HeaderComponent extends Component {
          */
         activeItem_: 'home',
         /**
-         * @member {String[]} cls=['navbar', 'navbar-light']
+         * @member {String[]} baseCls=['navbar','navbar-light']
          */
-        cls: ['navbar', 'navbar-light'],
+        baseCls: ['navbar', 'navbar-light'],
         /**
          * @member {Boolean} loggedIn_=false
          */

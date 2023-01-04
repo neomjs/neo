@@ -13,9 +13,9 @@ class Gallery extends BaseGallery {
          */
         className: 'RealWorld2.view.article.Gallery',
         /**
-         * @member {String[]} cls=['rw2-article-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} baseCls=['rw2-article-gallery','neo-gallery','page','view']
          */
-        cls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view'],
+        baseCls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view'],
         /**
          * The item height of the gallery
          * @member {Number} itemHeight=240

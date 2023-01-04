@@ -31,9 +31,9 @@ class Number extends Text {
          */
         ntype: 'numberfield',
         /**
-         * @member {Array} cls=['neo-numberfield', 'neo-textfield']
+         * @member {String[]} baseCls=['neo-numberfield','neo-textfield']
          */
-        cls: ['neo-numberfield', 'neo-textfield'],
+        baseCls: ['neo-numberfield', 'neo-textfield'],
         /**
          * @member {Number[]|null} excluded=null
          */
@@ -148,9 +148,7 @@ class Number extends Text {
      * @protected
      */
     afterSetTriggerPosition(value, oldValue) {
-        if (oldValue) {
-            this.updateTriggers();
-        }
+        oldValue && this.updateTriggers();
     }
 
     /**

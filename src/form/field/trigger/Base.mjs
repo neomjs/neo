@@ -33,9 +33,9 @@ class Base extends Component {
          */
         align_: 'end',
         /**
-         * @member {String[]} cls=['neo-field-trigger']
+         * @member {String[]} baseCls=['neo-field-trigger']
          */
-        cls: ['neo-field-trigger'],
+        baseCls: ['neo-field-trigger'],
         /**
          * @member {Neo.form.field.Base|null} field=null
          */
@@ -160,7 +160,9 @@ class Base extends Component {
     destroy(updateParentVdom, silent) {
         let me = this;
 
-        me.removeDomListeners({click: {fn: me.onTriggerClick, scope: me}});
+        me.removeDomListeners(
+            {click: me.onTriggerClick, scope: me}
+        );
 
         delete me.field;
 

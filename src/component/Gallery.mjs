@@ -33,9 +33,9 @@ class Gallery extends Component {
          */
         backgroundColor_: '#000000',
         /**
-         * @member {String[]} cls=['neo-gallery', 'page', 'view']
+         * @member {String[]} baseCls=['neo-gallery', 'page', 'view']
          */
-        cls: ['neo-gallery', 'page', 'view'],
+        baseCls: ['neo-gallery', 'page', 'view'],
         /**
          * True disables selection of gallery items
          * @member {Boolean} disableSelection=false

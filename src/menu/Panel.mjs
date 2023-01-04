@@ -19,9 +19,9 @@ class Panel extends BasePanel {
          */
         ntype: 'menu',
         /**
-         * @member {String[]} cls=['neo-menu','neo-panel','neo-container']
+         * @member {String[]} baseCls=['neo-menu','neo-panel','neo-container']
          */
-        cls: ['neo-menu', 'neo-panel', 'neo-container'],
+        baseCls: ['neo-menu', 'neo-panel', 'neo-container'],
         /**
          * @member {Neo.menu.List} list_=List
          * @protected

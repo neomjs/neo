@@ -41,19 +41,14 @@ class Container extends BaseContainer {
          */
         activateInsertedTabs: false,
         /**
-         * @member {String} baseCls='neo-tab-container'
+         * @member {String[]} baseCls=['neo-tab-container'],
+         * @protected
          */
-        baseCls: 'neo-tab-container',
+        baseCls: ['neo-tab-container'],
         /**
          * @member {String|null} cardContainerId=null
          */
         cardContainerId: null,
-        /**
-         * adds baseCls + '-plain' is case plain is set to true
-         * @member {String[]} cls=['neo-tab-container'],
-         * @protected
-         */
-        cls: ['neo-tab-container'],
         /**
          * Default configs for the tab.Strip
          * @member {Object|null} contentContainerDefaults=null
@@ -100,6 +95,11 @@ class Container extends BaseContainer {
          * @member {String} tabBarPosition_='top'
          */
         tabBarPosition_: 'top',
+        /**
+         * adds tabContainerCls + '-plain' is case plain is set to true
+         * @member {String} tabContainerCls='neo-tab-container'
+         */
+        tabContainerCls: 'neo-tab-container',
         /**
          * @member {Boolean} useActiveTabIndicator_=true
          */
@@ -155,11 +155,10 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetPlain(value, oldValue) {
-        let me      = this,
-            baseCls = me.baseCls,
-            cls     = me.cls;
+        let me  = this,
+            cls = me.cls;
 
-        NeoArray[value ? 'unshift' : 'remove'](cls, baseCls + '-plain');
+        NeoArray[value ? 'unshift' : 'remove'](cls, me.tabContainerCls + '-plain');
         me.cls = cls;
     }
 

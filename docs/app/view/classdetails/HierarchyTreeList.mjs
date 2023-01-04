@@ -18,9 +18,9 @@ class HierarchyTreeList extends TreeList {
          */
         ntype: 'classhierarchy-treelist',
         /**
-         * @member {String[]} cls=['docs-classhierarchy-treelist', 'neo-list-container', 'neo-list']
+         * @member {String[]} baseCls=['docs-classhierarchy-treelist','neo-list-container','neo-tree-list','neo-list']
          */
-        cls: [
+        baseCls: [
             'docs-classhierarchy-treelist',
             'neo-list-container',
             'neo-tree-list',

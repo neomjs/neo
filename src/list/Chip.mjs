@@ -18,9 +18,9 @@ class Chip extends ComponentList {
          */
         ntype: 'chip-list',
         /**
-         * @member {String[]} cls=['neo-chip-list','neo-list']
+         * @member {String[]} baseCls=['neo-chip-list','neo-list']
          */
-        cls: ['neo-chip-list', 'neo-list'],
+        baseCls: ['neo-chip-list', 'neo-list'],
         /**
          * @member {Object} itemDefaults
          */

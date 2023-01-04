@@ -20,9 +20,9 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
+         * @member {String[]} baseCls=['neo-helix-maincontainer','neo-viewport']
          */
-        cls: ['neo-helix-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-helix-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.component.Helix|null} helix=null
          */

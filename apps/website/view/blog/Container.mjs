@@ -14,9 +14,9 @@ class Container extends BaseContainer {
          */
         className: 'Website.view.blog.Container',
         /**
-         * @member {String[]} cls=['website-blog-container', 'neo-container']
+         * @member {String[]} baseCls=['website-blog-container','neo-container']
          */
-        cls: ['website-blog-container', 'neo-container'],
+        baseCls: ['website-blog-container', 'neo-container'],
         /**
          * @member {Array} items
          */

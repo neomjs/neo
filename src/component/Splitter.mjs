@@ -37,9 +37,9 @@ class Splitter extends Component {
          */
         ntype: 'splitter',
         /**
-         * @member {String[]} cls=['neo-splitter','neo-draggable']
+         * @member {String[]} baseCls=['neo-splitter','neo-draggable']
          */
-        cls: ['neo-splitter', 'neo-draggable'],
+        baseCls: ['neo-splitter', 'neo-draggable'],
         /**
          * Either 'horizontal' or 'vertical'
          * @member {String} direction_='vertical'

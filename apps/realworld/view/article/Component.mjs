@@ -19,6 +19,10 @@ class Component extends BaseComponent {
          */
         author_: null,
         /**
+         * @member {String[]} baseCls=['article-page']
+         */
+        baseCls: ['article-page'],
+        /**
          * @member {String|null} body_=null
          */
         body_: null,
@@ -44,10 +48,6 @@ class Component extends BaseComponent {
          * @member {String|null} createdAt_=null
          */
         createdAt_: null,
-        /**
-         * @member {String[]} cls=['article-page']
-         */
-        cls: ['article-page'],
         /**
          * @member {Boolean} favorited_=false
          */

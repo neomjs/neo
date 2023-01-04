@@ -18,9 +18,9 @@ class Circle extends Component {
          */
         ntype: 'circle-list',
         /**
-         * @member {String[]} cls=['neo-circle-list','neo-list']
+         * @member {String[]} baseCls=['neo-circle-list','neo-list']
          */
-        cls: ['neo-circle-list', 'neo-list'],
+        baseCls: ['neo-circle-list', 'neo-list'],
         /**
          * @member {Object} itemDefaults
          */

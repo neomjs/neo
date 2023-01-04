@@ -19,9 +19,9 @@ class Fieldset extends Container {
          */
         ntype: 'fieldset',
         /**
-         * @member {String[]} cls=['neo-fieldset'],
+         * @member {String[]} baseCls=['neo-fieldset'],
          */
-        cls: ['neo-fieldset'],
+        baseCls: ['neo-fieldset'],
         /**
          * @member {Boolean} collapsed_=false,
          */

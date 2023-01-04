@@ -25,9 +25,9 @@ class TagListComponent extends Component {
          */
         activeTag_: null,
         /**
-         * @member {String[]} cls=['rw2-taglist-component']
+         * @member {String[]} baseCls=['rw2-taglist-component']
          */
-        cls: ['rw2-taglist-component'],
+        baseCls: ['rw2-taglist-component'],
         /**
          * @member {String[]} tags_=[]
          */

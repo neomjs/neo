@@ -42,9 +42,9 @@ class Select extends Picker {
          */
         ntype: 'selectfield',
         /**
-         * @member {String[]} cls=['neo-selectfield','neo-pickerfield','neo-textfield']
+         * @member {String[]} baseCls=['neo-selectfield','neo-pickerfield','neo-textfield']
          */
-        cls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {String} displayField='name'
          */
@@ -228,7 +228,7 @@ class Select extends Picker {
 
         // to reduce boilerplate code, a store config object without a defined model should default
         // to displayField & valueField defaults
-        if (Neo.typeOf(value) === 'Object' && !value.model) {
+        if (Neo.typeOf(value) === 'Object' && !value.model && !value.module && !value.ntype) {
             value.model = {
                 fields: [
                     {name: 'id',   type: 'String'},
@@ -626,6 +626,11 @@ class Select extends Picker {
         if (!me.record && value && value.length > 0) {
             for (; i < len; i++) {
                 storeValue = store.items[i][me.displayField];
+
+                if (!Neo.isString(storeValue)) {
+                    console.log(store);
+                    return;
+                }
 
                 if (storeValue.toLowerCase().indexOf(value.toLowerCase()) === 0) {
                     hasMatch = true;

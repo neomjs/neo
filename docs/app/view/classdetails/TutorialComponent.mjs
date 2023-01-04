@@ -17,9 +17,9 @@ class TutorialComponent extends Component {
          */
         ntype: 'classdetails-tutorialcomponent',
         /**
-         * @member {String[]} cls=['neo-classdetails-tutorialcomponent']
+         * @member {String[]} baseCls=['neo-classdetails-tutorialcomponent']
          */
-        cls: ['neo-classdetails-tutorialcomponent'],
+        baseCls: ['neo-classdetails-tutorialcomponent'],
         /**
          * @member {String|null} fileName=null
          */

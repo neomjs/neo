@@ -48,8 +48,8 @@ class MainContainerController extends ComponentController {
         component.cls = cls;
 
         button.set({
-            iconCls: iconCls,
-            text   : buttonText
+            iconCls,
+            text: buttonText
         });
 
         style = headerToolbar.style || {};

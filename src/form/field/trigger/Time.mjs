@@ -19,9 +19,9 @@ class Time extends Picker {
          */
         ntype: 'trigger-time',
         /**
-         * @member {String[]} cls=['neo-timefield-trigger','neo-field-trigger']
+         * @member {String[]} baseCls=['neo-timefield-trigger','neo-field-trigger']
          */
-        cls: ['neo-timefield-trigger', 'neo-field-trigger'],
+        baseCls: ['neo-timefield-trigger', 'neo-field-trigger'],
         /**
          * @member {Neo.component.Clock|null} clock=null
          * @protected

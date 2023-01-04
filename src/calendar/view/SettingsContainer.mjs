@@ -13,9 +13,9 @@ class SettingsContainer extends Container {
          */
         className: 'Neo.calendar.view.SettingsContainer',
         /**
-         * @member {String[]} cls=['neo-calendar-settingscontainer', 'neo-container']
+         * @member {String[]} baseCls=['neo-calendar-settingscontainer', 'neo-container']
          */
-        cls: ['neo-calendar-settingscontainer', 'neo-container'],
+        baseCls: ['neo-calendar-settingscontainer', 'neo-container'],
         /**
          * Read only
          * @member {Boolean} collapsed=false

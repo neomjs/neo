@@ -15,9 +15,9 @@ class GridContainer extends BaseGridContainer {
          */
         className: 'Neo.examples.grid.covid.GridContainer',
         /**
-         * @member {String[]} cls=['covid-country-grid', 'neo-grid-container']
+         * @member {String[]} cls=['covid-country-grid']
          */
-        cls: ['covid-country-grid', 'neo-grid-container'],
+        cls: ['covid-country-grid'],
         /**
          * Default configs for each column
          * @member {Object} columnDefaults
@@ -32,7 +32,7 @@ class GridContainer extends BaseGridContainer {
          * @member {Object[]} columns
          */
         columns: [{
-            cls     : ['neo-index-column', 'neo-grid-header-button'],
+            cls     : ['neo-index-column'],
             dock    : 'left',
             field   : 'index',
             minWidth: 40,

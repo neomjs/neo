@@ -13,9 +13,9 @@ class HeaderToolbar extends Toolbar {
          */
         className: 'RealWorld2.view.HeaderToolbar',
         /**
-         * @member {String[]} cls=['rw2-header-toolbar', 'neo-toolbar']
+         * @member {String[]} baseCls=['rw2-header-toolbar','neo-toolbar']
          */
-        cls: ['rw2-header-toolbar', 'neo-toolbar'],
+        baseCls: ['rw2-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Neo.controller.Component} controller=HeaderToolbarController
          */

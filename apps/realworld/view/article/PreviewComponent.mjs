@@ -18,9 +18,9 @@ class PreviewComponent extends Component {
          */
         author_: null,
         /**
-         * @member {String[]} cls=['article-preview']
+         * @member {String[]} baseCls=['article-preview']
          */
-        cls: ['article-preview'],
+        baseCls: ['article-preview'],
         /**
          * ISO 8601 timestamp
          * @member {String|null} createdAt_=null

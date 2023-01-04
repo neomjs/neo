@@ -17,13 +17,13 @@ class CommentComponent extends Component {
          */
         author_: null,
         /**
+         * @member {String[]} baseCls=['card']
+         */
+        baseCls: ['card'],
+        /**
          * @member {String|null} body_=null
          */
         body_: null,
-        /**
-         * @member {String[]} cls=['card']
-         */
-        cls: ['card'],
         /**
          * @member {Number|null} commentId=null
          */

@@ -18,9 +18,9 @@ class PreviewComponent extends Component {
          */
         author_: null,
         /**
-         * @member {String[]} cls=['rw2-preview-component']
+         * @member {String[]} baseCls=['rw2-preview-component']
          */
-        cls: ['rw2-preview-component'],
+        baseCls: ['rw2-preview-component'],
         /**
          * ISO 8601 timestamp
          * @member {String|null} createdAt_=null

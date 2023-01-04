@@ -14,15 +14,15 @@ class CountryGallery extends Gallery {
          */
         className: 'SharedCovid.view.country.Gallery',
         /**
+         * @member {String[]} baseCls=['covid-country-gallery','neo-gallery','page','view']
+         */
+        baseCls: ['covid-country-gallery', 'neo-gallery', 'page', 'view'],
+        /**
          * @member {Object} bind
          */
         bind: {
             country: {twoWay: true, value: data => data.country}
         },
-        /**
-         * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
-         */
-        cls: ['covid-country-gallery', 'neo-gallery', 'page', 'view'],
         /**
          * @member {String|null} country_=null
          */

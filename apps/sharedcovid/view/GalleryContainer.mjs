@@ -21,9 +21,9 @@ class GalleryContainer extends Container {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
+         * @member {String[]} baseCls=['neo-gallery-maincontainer','neo-viewport']
          */
-        cls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-gallery-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component|null} controller=GalleryContainerController
          */

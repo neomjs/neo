@@ -17,9 +17,9 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'table-header-toolbar',
         /**
-         * @member {Array} cls=['table-header-toolbar']
+         * @member {String[]} baseCls=['table-header-toolbar']
          */
-        cls: ['table-header-toolbar'],
+        baseCls: ['table-header-toolbar'],
         /**
          * @member {String} layout='base'
          */

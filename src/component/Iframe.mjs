@@ -12,9 +12,9 @@ class Iframe extends Base {
          */
         className: 'Neo.component.Iframe',
         /*
-         * @member {String[]} cls=['neo-iframe']
+         * @member {String[]} baseCls=['neo-iframe']
          */
-        cls: ['neo-iframe'],
+        baseCls: ['neo-iframe'],
         /*
          * @member {String|null} src_=null
          */

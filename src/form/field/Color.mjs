@@ -19,9 +19,9 @@ class Color extends Select {
          */
         ntype: 'colorfield',
         /**
-         * @member {String[]} cls=['neo-colorfield','neo-selectfield','neo-pickerfield','neo-textfield']
+         * @member {String[]} baseCls=['neo-colorfield','neo-selectfield','neo-pickerfield','neo-textfield']
          */
-        cls: ['neo-colorfield', 'neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-colorfield', 'neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * The data.Model field which contains the color value
          * @member {String} colorField='name'

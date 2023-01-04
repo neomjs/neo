@@ -48,6 +48,11 @@ class Base extends Panel {
          */
         autoRender: true,
         /**
+         * @member {String[]} baseCls=['neo-dialog','neo-panel','neo-container']
+         * @protected
+         */
+        baseCls: ['neo-dialog', 'neo-panel', 'neo-container'],
+        /**
          * Either a dom node id, 'document.body' or null
          * @member {String|null} boundaryContainerId='document.body'
          */
@@ -59,11 +64,6 @@ class Base extends Panel {
          * @member {String} closeAction='close'
          */
         closeAction: 'close',
-        /**
-         * @member {String[]} cls=['neo-dialog','neo-panel','neo-container']
-         * @protected
-         */
-        cls: ['neo-dialog', 'neo-panel', 'neo-container'],
         /**
          * @member {Boolean} draggable_=true
          */

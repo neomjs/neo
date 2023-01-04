@@ -18,9 +18,9 @@ class Label extends Component {
          */
         ntype: 'label',
         /**
-         * @member {String[]} cls=['neo-label']
+         * @member {String[]} baseCls=['neo-label']
          */
-        cls: ['neo-label'],
+        baseCls: ['neo-label'],
         /**
          * @member {String} text_=''
          */

@@ -22,6 +22,10 @@ class YearComponent extends Component {
          */
         className: 'Neo.calendar.view.YearComponent',
         /**
+         * @member {String[]} baseCls=['neo-calendar-yearcomponent']
+         */
+        baseCls: ['neo-calendar-yearcomponent'],
+        /**
          * @member {Object} bind
          */
         bind: {
@@ -44,10 +48,6 @@ class YearComponent extends Component {
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
-        /**
-         * @member {String[]} cls=['neo-calendar-yearcomponent']
-         */
-        cls: ['neo-calendar-yearcomponent'],
         /**
          * Will get passed from the MainContainer
          * @member {Date|null} currentDate_=null

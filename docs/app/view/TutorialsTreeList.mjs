@@ -18,14 +18,9 @@ class TutorialsTreeList extends TreeList {
          */
         ntype: 'tutorials-treelist',
         /**
-         * @member {String[]} cls=['docs-tutorials-treelist', 'neo-tree-list', 'neo-list-container', 'neo-list']
+         * @member {String[]} cls=['docs-tutorials-treelist']
          */
-        cls: [
-            'docs-tutorials-treelist',
-            'neo-tree-list',
-            'neo-list-container',
-            'neo-list'
-        ],
+        cls: ['docs-tutorials-treelist'],
         /**
          * @member {Neo.data.Store|null} store=TutorialsStore
          * @protected

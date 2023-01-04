@@ -12,10 +12,10 @@ class DeveloperIntroComponent extends Component {
          */
         className: 'Website.view.home.DeveloperIntroComponent',
         /**
-         * @member {String[]} cls=['website-intro-component']
+         * @member {String[]} baseCls=['website-intro-component']
          * @protected
          */
-        cls: ['website-intro-component'],
+        baseCls: ['website-intro-component'],
         /**
          * @member {Object[]} domListeners
          * @protected

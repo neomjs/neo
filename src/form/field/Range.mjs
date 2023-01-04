@@ -17,14 +17,14 @@ class Range extends Number {
          */
         ntype: 'rangefield',
         /**
+         * @member {String[]} baseCls=['neo-rangefield','neo-textfield']
+         */
+        baseCls: ['neo-rangefield', 'neo-textfield'],
+        /**
          * True shows a clear trigger in case the field has a non empty value.
          * @member {Boolean} clearable=false
          */
         clearable: false,
-        /**
-         * @member {String[]} cls=['neo-rangefield','neo-textfield']
-         */
-        cls: ['neo-rangefield', 'neo-textfield'],
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='range'

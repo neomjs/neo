@@ -24,9 +24,9 @@ class List extends BaseList {
          */
         className: 'Website.view.blog.List',
         /**
-         * @member {String[]} cls=['website-blog-list','neo-list']
+         * @member {String[]} baseCls=['website-blog-list','neo-list']
          */
-        cls: ['website-blog-list', 'neo-list'],
+        baseCls: ['website-blog-list', 'neo-list'],
         /**
          * @member {Neo.data.Store} store=BlogPosts
          */

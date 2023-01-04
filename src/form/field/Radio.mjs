@@ -18,9 +18,9 @@ class Radio extends CheckBox {
          */
         ntype: 'radiofield',
         /**
-         * @member {Array} cls=['neo-radiofield']
+         * @member {String[]} baseCls=['neo-radiofield']
          */
-        cls: ['neo-radiofield'],
+        baseCls: ['neo-radiofield'],
         /**
          * @member {String} inputType='radio'
          */

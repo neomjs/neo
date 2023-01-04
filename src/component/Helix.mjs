@@ -35,15 +35,15 @@ class Helix extends Component {
          */
         backgroundImage_: '',
         /**
+         * @member {String[]} baseCls=['neo-helix']
+         */
+        baseCls: ['neo-helix'],
+        /**
          * The ids of expanded items will get stored here
          * @member {Array} clonedItems=[]
          * @protected
          */
         clonedItems: [],
-        /**
-         * @member {String[]} cls=['neo-helix']
-         */
-        cls: ['neo-helix'],
         /**
          * The vertical delta between each helix item (increasing this value will create a spiral)
          * @member {Number} deltaY_=1.5

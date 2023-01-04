@@ -30,15 +30,15 @@ class DateSelector extends Component {
          */
         ntype: 'dateselector',
         /**
+         * @member {String[]} baseCls=['neo-dateselector']
+         */
+        baseCls: ['neo-dateselector'],
+        /**
          * Stores the last date change which got triggered while a month / year transition was running
          * @member {Date|null} cachedUpdate=null
          * @protected
          */
         cachedUpdate: null,
-        /**
-         * @member {String[]} cls=['neo-dateselector']
-         */
-        cls: ['neo-dateselector'],
         /**
          * Date object created on the value config
          * @member {Date|null} currentDate_=null

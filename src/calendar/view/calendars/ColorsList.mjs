@@ -12,15 +12,15 @@ class ColorsList extends List {
          */
         className: 'Neo.calendar.view.calendars.ColorsList',
         /**
+         * @member {String[]} baseCls=['neo-calendars-colors-list','neo-list']
+         */
+        baseCls: ['neo-calendars-colors-list', 'neo-list'],
+        /**
          * @member {Object} bind
          */
         bind: {
             store: 'stores.colors'
         },
-        /**
-         * @member {String[]} cls=['neo-calendars-colors-list','neo-list']
-         */
-        cls: ['neo-calendars-colors-list', 'neo-list'],
         /**
          * @member {Boolean} useWrapperNode=false
          */
