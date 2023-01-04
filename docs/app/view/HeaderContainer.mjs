@@ -19,9 +19,9 @@ class HeaderContainer extends Container {
          */
         ntype: 'neo-docs-header-container',
         /**
-         * @member {String[]} cls=['neo-docs-header-container']
+         * @member {String[]} baseCls=['neo-docs-header-container']
          */
-        cls: ['neo-docs-header-container'],
+        baseCls: ['neo-docs-header-container'],
         /**
          * @member {Number} height=55
          */

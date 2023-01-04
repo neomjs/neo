@@ -23,9 +23,9 @@ class MainContainer extends Container {
          */
         ntype: 'classdetails-maincontainer',
         /**
-         * @member {String[]} cls=['neo-docs-classdetails-maincontainer', 'neo-container']
+         * @member {String[]} baseCls=['neo-docs-classdetails-maincontainer','neo-container']
          */
-        cls: ['neo-docs-classdetails-maincontainer', 'neo-container'],
+        baseCls: ['neo-docs-classdetails-maincontainer', 'neo-container'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
