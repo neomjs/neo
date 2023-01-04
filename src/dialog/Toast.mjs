@@ -143,12 +143,13 @@ class Toast extends Base {
      */
     afterSetMsg(value, oldValue) {
         let me       = this,
-            data     = {closable: me.closable, cls: me.toastCls, iconCls: me.iconCls, msg: me.msg, title: me.title},
-            titleCls = (me.title && me.iconCls) ? `${me.toastCls}has-title` : '',
+            toastCls = me.toastCls,
+            data     = {closable: me.closable, cls: toastCls, iconCls: me.iconCls, msg: me.msg, title: me.title},
+            titleCls = (me.title && me.iconCls) ? `${toastCls}has-title` : '',
             vdom     = {cn: me.itemTpl(data)};
 
         me.add({
-            cls: [`${me.toastCls}inner`, titleCls],
+            cls: [`${toastCls}inner`, titleCls],
             vdom
         });
 
