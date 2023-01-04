@@ -15,9 +15,9 @@ class TableContainer extends BaseTableContainer {
          */
         className: 'Neo.examples.table.covid.TableContainer',
         /**
-         * @member {String[]} cls=['covid-country-table', 'neo-table-container']
+         * @member {String[]} cls=['covid-country-table']
          */
-        cls: ['covid-country-table', 'neo-table-container'],
+        cls: ['covid-country-table'],
         /**
          * Default configs for each column
          * @member {Object} columnDefaults

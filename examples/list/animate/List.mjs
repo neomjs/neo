@@ -16,9 +16,9 @@ class List extends BaseList {
          */
         animate: true,
         /**
-         * @member {String[]} cls=['neo-examples-list-animate','neo-list-container','neo-list']
+         * @member {String[]} cls=['neo-examples-list-animate']
          */
-        cls: ['neo-examples-list-animate', 'neo-list-container', 'neo-list'],
+        cls: ['neo-examples-list-animate'],
         /**
          * Value in px
          * @member {Number} itemHeight=200
