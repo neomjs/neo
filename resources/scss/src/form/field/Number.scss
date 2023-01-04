@@ -15,7 +15,8 @@
     .neo-input-wrapper {
         .neo-field-trigger {
             &.neo-spin-buttons {
-                border-left: 0;
+                border-left   : 0;
+                flex-direction: column;
 
                 &:hover {
                     background-color: inherit;
