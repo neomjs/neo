@@ -1,0 +1,89 @@
+import ComponentController from '../../src/controller/Component.mjs';
+import Toast               from '../../src/dialog/Toast.mjs';
+
+/**
+ * @class Neo.examples.toast.MainContainerController
+ * @extends Neo.controller.Component
+ */
+class MainContainerController extends ComponentController {
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.toast.MainContainerController'
+         * @protected
+         */
+        className: 'Neo.examples.toast.MainContainerController'
+    }}
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        Neo.main.addon.HighlightJS.switchTheme('dark');
+    }
+
+    /**
+     * Whenever any field changes we update the output
+     * @param {Object} data
+     * @returns {Promise<void>}
+     */
+    async onChange(data) {
+        const me   = this,
+            form   = me.getReference('form'),
+            output = me.getReference('output'),
+            button = me.getReference('creation-button'),
+            oVdom  = output.vdom.cn[0].cn[0],
+            isValid = form.isValid();
+
+        if(Neo.isBoolean(data.value)) {
+            me.getReference('closable').value = data.value;
+        }
+
+        let values = form.getValues();
+
+        values.appName = me.component.appName;
+        button.disabled = !isValid;
+        if (!form.validate()) return;
+        oVdom.cn = output.itemTpl(values);
+
+        output.update();
+
+        await Neo.timeout(20)
+        me.syntaxHighlight();
+    }
+
+    /**
+     * Cleanup the values and show the toast
+     */
+    createToast() {
+        const me   = this,
+            form   = me.getReference('form'),
+            values = form.getValues(),
+            clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable'];
+
+        // use the defaults from toast if not set
+        clear.forEach(item => {
+            if(values[item] === null) delete values[item];
+        })
+
+        values.appName = me.component.appName;
+        Neo.toast(values);
+    }
+
+    /**
+     * 3rd party tool to highlight the code
+     */
+    syntaxHighlight() {
+        let me = this,
+            output = me.getReference('output'),
+            oVdom  = output.vdom;
+
+        Neo.main.addon.HighlightJS.syntaxHighlight({
+            vnodeId: oVdom.cn[0].id
+        });
+    }
+}
+
+Neo.applyClassConfig(MainContainerController);
+
+export default MainContainerController;

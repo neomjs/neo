@@ -1,0 +1,8 @@
+{
+    "appPath": "../../../examples/toast/app.mjs",
+    "basePath": "../../../../",
+    "environment": "development",
+    "mainPath": "../node_modules/neo.mjs/src/Main.mjs",
+    "mainThreadAddons": ["Stylesheet", "HighlightJS"],
+    "workerBasePath": "../../../../node_modules/neo.mjs/src/worker/"
+}
