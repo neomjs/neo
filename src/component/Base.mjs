@@ -16,13 +16,6 @@ import VNodeUtil        from '../util/VNode.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    /**
-     * Internal flag to prevent multiple CSS merges
-     * @member {Boolean} baseClsApplied=false
-     * @protected
-     */
-    baseClsApplied = false
-
     static getStaticConfig() {return {
         /**
          * Valid values for hideMode
@@ -866,16 +859,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        value = value || [];
-
-        let me = this;
-
-        if (!me.baseClsApplied) {
-            value = NeoArray.union(value, me.baseCls);
-            me.baseClsApplied = true;
-        }
-
-        return value;
+        return NeoArray.union(value || [], this.baseCls);;
     }
 
     /**
