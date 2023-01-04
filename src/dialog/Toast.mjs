@@ -7,7 +7,7 @@ import ToastManager from '../manager/Toast.mjs';
  *
  * @example
         Neo.toast({
-            // obligatory
+            // mandatory
             appName         : this.component.appName,
             msg             : 'Alarm was set to 11:30 for journey into Neo development',
             // optional                        defaults
@@ -33,7 +33,7 @@ class Toast extends Base {
     /**
      * If set, it shows this icon in front of the text
      * e.g. 'fa fa-cog'
-     * @member {String} iconCls=null
+     * @member {String|null} iconCls=null
      */
     iconCls = null
     /**
@@ -49,7 +49,7 @@ class Toast extends Base {
     toastCls = 'neo-toast-'
     /**
      * Used by the ToastManager
-     * @member {String} toastManagerId=null
+     * @member {String|null} toastManagerId=null
      * @private
      */
     toastManagerId = null
