@@ -30,9 +30,9 @@ class Base extends Container {
          */
         ntype: 'toolbar',
         /**
-         * @member {String[]} cls=['neo-toolbar']
+         * @member {String[]} baseCls=['neo-toolbar']
          */
-        cls: ['neo-toolbar'],
+        baseCls: ['neo-toolbar'],
         /**
          * @member {String} dock_='top'
          */

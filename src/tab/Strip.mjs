@@ -17,9 +17,9 @@ class Strip extends Component {
          */
         ntype: 'tab-strip',
         /**
-         * @member {Array} cls=['neo-tab-strip']
+         * @member {String[]} baseCls=['neo-tab-strip']
          */
-        cls: ['neo-tab-strip'],
+        baseCls: ['neo-tab-strip'],
         /**
          * @member {String|null} tabContainerId=null
          */

@@ -19,9 +19,9 @@ class Tree extends Base {
          */
         ntype: 'treelist',
         /**
-         * @member {String[]} cls=['neo-tree-list']
+         * @member {String[]} baseCls=['neo-tree-list']
          */
-        cls: ['neo-tree-list'],
+        baseCls: ['neo-tree-list'],
         /**
          * todo: change the default to false once selection.TreeList is in place
          * @member {Boolean} disableSelection=true

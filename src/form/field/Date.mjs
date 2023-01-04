@@ -21,11 +21,11 @@ class DateField extends Picker {
          */
         ntype: 'datefield',
         /**
-         * @member {String[]} cls=['neo-datefield', 'neo-pickerfield', 'neo-textfield']
+         * @member {String[]} baseCls=['neo-datefield','neo-pickerfield','neo-textfield']
          */
-        cls: ['neo-datefield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-datefield', 'neo-pickerfield', 'neo-textfield'],
         /**
-         * @member {Neo.component.DateSelector} dateSelector=null
+         * @member {Neo.component.DateSelector|null} dateSelector=null
          * @protected
          */
         dateSelector: null,

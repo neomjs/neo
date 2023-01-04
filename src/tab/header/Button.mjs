@@ -17,9 +17,9 @@ class Button extends BaseButton {
          */
         ntype: 'tab-header-button',
         /**
-         * @member {Array} cls=['neo-button','neo-tab-button']
+         * @member {String[]} baseCls=['neo-button','neo-tab-button']
          */
-        cls: ['neo-tab-header-button', 'neo-button'],
+        baseCls: ['neo-tab-header-button', 'neo-button'],
         /**
          * @member {Boolean} useActiveTabIndicator_=true
          */

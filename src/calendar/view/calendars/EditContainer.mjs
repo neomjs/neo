@@ -15,9 +15,9 @@ class EditContainer extends FormContainer {
          */
         className: 'Neo.calendar.view.calendars.EditContainer',
         /**
-         * @member {String[]} cls=['neo-calendar-edit-container']
+         * @member {String[]} baseCls=['neo-calendar-edit-container']
          */
-        cls: ['neo-calendar-edit-container'],
+        baseCls: ['neo-calendar-edit-container'],
         /**
          * @member {Neo.calendar.view.calendars.ColorsList|null} colorsList=null
          */
@@ -138,7 +138,7 @@ class EditContainer extends FormContainer {
             },
             me.colorsList, {
                 module : Button,
-                cls    : ['neo-button', 'neo-red'],
+                cls    : ['neo-red'],
                 handler: me.onDeleteButtonClick.bind(me),
                 iconCls: 'fas fa-trash-alt',
                 style  : {marginTop: '3em'},

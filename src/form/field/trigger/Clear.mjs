@@ -19,9 +19,9 @@ class Clear extends Base {
          */
         ntype: 'trigger-clear',
         /**
-         * @member {String[]} cls=['neo-field-trigger', 'neo-trigger-clear']
+         * @member {String[]} baseCls=['neo-field-trigger','neo-trigger-clear']
          */
-        cls: ['neo-field-trigger', 'neo-trigger-clear'],
+        baseCls: ['neo-field-trigger', 'neo-trigger-clear'],
         /**
          * @member {String|null} iconCls='fa fa-times'
          */

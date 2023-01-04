@@ -43,9 +43,9 @@ class Button extends BaseButton {
          */
         align_: 'left',
         /**
-         * @member {String[]} cls=['neo-grid-header-button']
+         * @member {String[]} baseCls=['neo-grid-header-button']
          */
-        cls: ['neo-grid-header-button'],
+        baseCls: ['neo-grid-header-button'],
         /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
          */

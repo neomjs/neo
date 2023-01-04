@@ -23,15 +23,15 @@ class Picker extends Text {
          */
         ntype: 'pickerfield',
         /**
+         * @member {String[]} baseCls=['neo-pickerfield','neo-textfield']
+         */
+        baseCls: ['neo-pickerfield', 'neo-textfield'],
+        /**
          * Stores the data from the getBoundingClientRect() call (picker & body DomRects)
          * @member {Array} clientRects=null
          * @protected
          */
         clientRects: null,
-        /**
-         * @member {String[]} cls=['neo-pickerfield', 'neo-textfield']
-         */
-        cls: ['neo-pickerfield', 'neo-textfield'],
         /**
          * Additional used keys for the selection model
          * @member {Object} keys

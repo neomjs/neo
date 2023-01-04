@@ -22,16 +22,16 @@ class TimeAxisComponent extends Component {
          */
         className: 'Neo.calendar.view.week.TimeAxisComponent',
         /**
+         * @member {String[]} baseCls=['neo-calendar-timeaxis']
+         */
+        baseCls: ['neo-calendar-timeaxis'],
+        /**
          * @member {Object} bind
          */
         bind: {
             endTime  : data => data.endTime,
             startTime: data => data.startTime
         },
-        /**
-         * @member {String[]} cls=['neo-calendar-timeaxis']
-         */
-        cls: ['neo-calendar-timeaxis'],
         /**
          * Only full hours are valid for now
          * format: 'hh:mm'

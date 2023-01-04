@@ -13,6 +13,10 @@ class Container extends BaseContainer {
          */
         className: 'Neo.calendar.view.calendars.Container',
         /**
+         * @member {String[]} baseCls=['neo-calendar-calendarscontainer','neo-container']
+         */
+        baseCls: ['neo-calendar-calendarscontainer', 'neo-container'],
+        /**
          * @member {Object} bind
          */
         bind: {
@@ -23,10 +27,6 @@ class Container extends BaseContainer {
          */
         calendarStore: null,
         /**
-         * @member {String[]} cls=['neo-calendar-calendarscontainer', 'neo-container']
-         */
-        cls: ['neo-calendar-calendarscontainer', 'neo-container'],
-        /**
          * @member {Object[]} items
          */
         items: [{
@@ -34,7 +34,7 @@ class Container extends BaseContainer {
             owner : '@config:owner' // passing the owner config downwards
         }, {
             ntype       : 'button',
-            cls         : ['neo-add-calendar-button', 'neo-button'],
+            cls         : ['neo-add-calendar-button'],
             flex        : 'none',
             handler     : 'onAddCalendarButtonClick',
             handlerScope: 'this',

@@ -29,9 +29,9 @@ class TextArea extends Text {
          */
         ntype: 'textarea',
         /**
-         * @member {String[]} cls=['neo-textarea', 'neo-textfield']
+         * @member {String[]} baseCls=['neo-textarea','neo-textfield']
          */
-        cls: ['neo-textarea', 'neo-textfield'],
+        baseCls: ['neo-textarea', 'neo-textfield'],
         /**
          * The visible width of the text control, in average character widths.
          * If it is specified, it must be a positive integer.

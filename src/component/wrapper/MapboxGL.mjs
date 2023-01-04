@@ -24,6 +24,10 @@ class MapboxGL extends Component {
          */
         accessToken: null,
         /**
+         * @member {Array|null} chartData_=null
+         */
+        chartData_: null,
+        /**
          * @member {Object} center_={lat: 0, lng: 0}
          */
         center_: {lat: 0, lng: 0},
@@ -32,10 +36,6 @@ class MapboxGL extends Component {
          * @protected
          */
         convertDataToGeoJson: true,
-        /**
-         * @member {Array|null} chartData_=null
-         */
-        chartData_: null,
         /**
          * Assuming there is just 1 source for data changes.
          * Create a ticket in case it needs to get enhanced.

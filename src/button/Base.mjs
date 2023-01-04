@@ -56,9 +56,9 @@ class Base extends Component {
          */
         badgeText_: null,
         /**
-         * @member {String[]} cls=['neo-button']
+         * @member {String[]} baseCls=['neo-button']
          */
-        cls: ['neo-button'],
+        baseCls: ['neo-button'],
         /**
          * false calls Neo.Main.setRoute()
          * @member {Boolean} editRoute=true

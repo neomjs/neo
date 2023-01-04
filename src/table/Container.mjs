@@ -29,6 +29,10 @@ class Container extends BaseContainer {
          */
         amountRows: 20,
         /**
+         * @member {String[]} baseCls=['neo-table-container']
+         */
+        baseCls: ['neo-table-container'],
+        /**
          * Default configs for each column
          * @member {Object} columnDefaults=null
          */
@@ -38,10 +42,6 @@ class Container extends BaseContainer {
          * @member {Boolean} createRandomData=false
          */
         createRandomData: false,
-        /**
-         * @member {String[]} cls=['neo-table-container']
-         */
-        cls: ['neo-table-container'],
         /**
          * @member {Object[]} columns_=[]
          */

@@ -19,14 +19,14 @@ class NumberContainer extends Container {
          */
         ntype: 'filter-numbercontainer',
         /**
+         * @member {String[]} baseCls=['neo-filter-numbercontainer']
+         */
+        baseCls: ['neo-filter-numbercontainer'],
+        /**
          * Pass config to the ToggleOperatorsButton
          * @member {Object|null} buttonConfig=null
          */
         buttonConfig: null,
-        /**
-         * @member {Array} cls=['neo-filter-numbercontainer']
-         */
-        cls: ['neo-filter-numbercontainer'],
         /**
          * @member {Neo.form.field.Base} fieldModule=Number
          */

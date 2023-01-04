@@ -18,6 +18,10 @@ class EditEventContainer extends FormContainer {
          */
         className: 'Neo.calendar.view.EditEventContainer',
         /**
+         * @member {String[]} baseCls=['neo-calendar-edit-event-container']
+         */
+        baseCls: ['neo-calendar-edit-event-container'],
+        /**
          * @member {Object} bind
          */
         bind: {
@@ -30,10 +34,6 @@ class EditEventContainer extends FormContainer {
          * @member {Object|null} calendarFieldConfig=null
          */
         calendarFieldConfig: null,
-        /**
-         * @member {String[]} cls=['neo-calendar-edit-event-container']
-         */
-        cls: ['neo-calendar-edit-event-container'],
         /**
          * Only full hours are valid for now
          * format: 'hh:mm'

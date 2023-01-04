@@ -18,14 +18,14 @@ class Display extends Text {
          */
         ntype: 'displayfield',
         /**
+         * @member {String[]} baseCls=['neo-displayfield','neo-textfield']
+         */
+        baseCls: ['neo-displayfield', 'neo-textfield'],
+        /**
          * @member {Boolean} clearable=false
          * @protected
          */
-        clearable: false,
-        /**
-         * @member {String[]} cls=['neo-displayfield','neo-textfield']
-         */
-        cls: ['neo-displayfield', 'neo-textfield']
+        clearable: false
     }}
 
     /**

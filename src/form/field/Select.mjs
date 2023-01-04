@@ -42,9 +42,9 @@ class Select extends Picker {
          */
         ntype: 'selectfield',
         /**
-         * @member {String[]} cls=['neo-selectfield','neo-pickerfield','neo-textfield']
+         * @member {String[]} baseCls=['neo-selectfield','neo-pickerfield','neo-textfield']
          */
-        cls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {String} displayField='name'
          */

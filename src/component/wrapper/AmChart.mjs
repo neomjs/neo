@@ -25,6 +25,11 @@ class AmChart extends Component {
          */
         chartConfig_: null,
         /**
+         * Stores the chart data
+         * @member {Array|null} chartData_=null
+         */
+        chartData_: null,
+        /**
          * @member {String} chartType='XYChart'
          */
         chartType: 'XYChart',
@@ -33,11 +38,6 @@ class AmChart extends Component {
          * @member {Boolean} combineSeriesTooltip=false
          */
         combineSeriesTooltip: false,
-        /**
-         * Stores the chart data
-         * @member {Array|null} chartData_=null
-         */
-        chartData_: null,
         /**
          * Charts & maps can have different targets to apply the data to. E.g.:
          * myChart.data = data; // => ''

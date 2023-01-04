@@ -17,9 +17,9 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'grid-header-toolbar',
         /**
-         * @member {Array} cls=['neo-grid-header-toolbar','neo-toolbar']
+         * @member {String[]} baseCls=['neo-grid-header-toolbar','neo-toolbar']
          */
-        cls: ['neo-grid-header-toolbar', 'neo-toolbar'],
+        baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Object} itemDefaults={ntype:'grid-header-button'}
          * @protected

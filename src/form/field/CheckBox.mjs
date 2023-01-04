@@ -17,13 +17,13 @@ class CheckBox extends Base {
          */
         ntype: 'checkboxfield',
         /**
+         * @member {String[]} baseCls=['neo-checkboxfield']
+         */
+        baseCls: ['neo-checkboxfield'],
+        /**
          * @member {Boolean} checked_=false
          */
         checked_: false,
-        /**
-         * @member {Array} cls=['neo-checkboxfield']
-         */
-        cls: ['neo-checkboxfield'],
         /**
          * True to change the checked state when clicking on the value label
          * @member {Boolean} enableLabelClicks_=true

@@ -17,9 +17,9 @@ class View extends Component {
          */
         ntype: 'grid-view',
         /**
-         * @member {Array} cls=['neo-grid-view']
+         * @member {String[]} baseCls=['neo-grid-view']
          */
-        cls: ['neo-grid-view']
+        baseCls: ['neo-grid-view']
     }}
 
     /**

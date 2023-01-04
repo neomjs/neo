@@ -13,15 +13,15 @@ class List extends ComponentList {
          */
         className: 'Neo.calendar.view.calendars.List',
         /**
+         * @member {String[]} baseCls=['neo-calendars-list','neo-list']
+         */
+        baseCls: ['neo-calendars-list', 'neo-list'],
+        /**
          * @member {Object} bind
          */
         bind: {
             store: 'stores.calendars'
         },
-        /**
-         * @member {String[]} cls=['neo-calendars-list','neo-list']
-         */
-        cls: ['neo-calendars-list', 'neo-list'],
         /**
          * @member {Object} itemDefaults
          */
@@ -53,7 +53,7 @@ class List extends ComponentList {
 
         config = {
             checked       : record.active,
-            cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
+            cls           : [`neo-color-${record.color}`],
             fieldValue    : id,
             id            : me.getComponentId(index),
             valueLabelText: record.name

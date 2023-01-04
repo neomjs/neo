@@ -18,9 +18,9 @@ class BooleanContainer extends Container {
          */
         ntype: 'filter-booleancontainer',
         /**
-         * @member {Array} cls=['neo-filter-booleancontainer']
+         * @member {String[]} baseCls=['neo-filter-booleancontainer']
          */
-        cls: ['neo-filter-booleancontainer'],
+        baseCls: ['neo-filter-booleancontainer'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'center'}
          */

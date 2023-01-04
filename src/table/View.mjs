@@ -17,9 +17,9 @@ class View extends Component {
          */
         ntype: 'table-view',
         /**
-         * @member {Array} cls=['neo-table-view']
+         * @member {String[]} baseCls=['neo-table-view']
          */
-        cls: ['neo-table-view'],
+        baseCls: ['neo-table-view'],
         /**
          * @member {String|null} containerId=null
          * @protected

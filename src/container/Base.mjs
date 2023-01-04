@@ -25,9 +25,9 @@ class Base extends Component {
          */
         ntype: 'container',
         /**
-         * @member {String[]} cls=['neo-container']
+         * @member {String[]} baseCls=['neo-container']
          */
-        cls: ['neo-container'],
+        baseCls: ['neo-container'],
         /**
          * @member {Object} itemDefaults_=null
          */

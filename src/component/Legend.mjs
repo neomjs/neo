@@ -19,9 +19,9 @@ class Legend extends Component {
          */
         ntype: 'legend',
         /**
-         * @member {String[]} cls=['neo-legend']
+         * @member {String[]} baseCls=['neo-legend']
          */
-        cls: ['neo-legend'],
+        baseCls: ['neo-legend'],
         /**
          * @member {String} iconCls_='far fa-check'
          */

@@ -33,9 +33,9 @@ class Base extends Component {
          */
         align_: 'end',
         /**
-         * @member {String[]} cls=['neo-field-trigger']
+         * @member {String[]} baseCls=['neo-field-trigger']
          */
-        cls: ['neo-field-trigger'],
+        baseCls: ['neo-field-trigger'],
         /**
          * @member {Neo.form.field.Base|null} field=null
          */

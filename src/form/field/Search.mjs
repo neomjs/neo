@@ -17,9 +17,9 @@ class Search extends Text {
          */
         ntype: 'searchfield',
         /**
-         * @member {Array} cls=['neo-searchfield', 'neo-textfield']
+         * @member {String[]} baseCls=['neo-searchfield','neo-textfield']
          */
-        cls: ['neo-searchfield', 'neo-textfield'],
+        baseCls: ['neo-searchfield', 'neo-textfield'],
         /**
          * Value for the hideLabel_ textfield config
          * @member {Boolean} hideLabel=true

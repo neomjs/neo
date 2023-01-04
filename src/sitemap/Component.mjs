@@ -29,9 +29,9 @@ class Component extends Base {
          */
         ntype: 'sitemap',
         /*
-         * @member {String[} cls=['neo-sitemap']
+         * @member {String[} baseCls=['neo-sitemap']
          */
-        cls: ['neo-sitemap'],
+        baseCls: ['neo-sitemap'],
         /**
          * Valid values: removeDom, visibility
          * Defines if the component items should use css visibility:'hidden' or vdom:removeDom

@@ -19,9 +19,9 @@ class Panel extends Container {
          */
         ntype: 'panel',
         /**
-         * @member {String[]} cls=['neo-panel','neo-container']
+         * @member {String[]} baseCls=['neo-panel','neo-container']
          */
-        cls: ['neo-panel', 'neo-container'],
+        baseCls: ['neo-panel', 'neo-container'],
         /**
          * @member {Object} containerConfig=null
          */

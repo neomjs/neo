@@ -12,9 +12,9 @@ class DayComponent extends WeekComponent {
          */
         className: 'Neo.calendar.view.DayComponent',
         /**
-         * @member {String[]} cls=['neo-calendar-daycomponent','neo-calendar-weekcomponent']
+         * @member {String[]} baseCls=['neo-calendar-daycomponent','neo-calendar-weekcomponent']
          */
-        cls: ['neo-calendar-daycomponent', 'neo-calendar-weekcomponent'],
+        baseCls: ['neo-calendar-daycomponent', 'neo-calendar-weekcomponent'],
         /**
          * Amount of hidden columns on both sides each inside this view.
          * @member {Number} columnsBuffer=1

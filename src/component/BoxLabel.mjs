@@ -18,9 +18,9 @@ class BoxLabel extends Label {
          */
         ntype: 'box-label',
         /**
-         * @member {String[]} cls=['neo-label']
+         * @member {String[]} baseCls=['neo-box-label','neo-label']
          */
-        cls: ['neo-box-label', 'neo-label']
+        baseCls: ['neo-box-label', 'neo-label']
     }}
 }
 

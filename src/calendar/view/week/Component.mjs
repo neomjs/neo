@@ -34,6 +34,10 @@ class Component extends BaseComponent {
          */
         className: 'Neo.calendar.view.week.Component',
         /**
+         * @member {String[]} baseCls=['neo-calendar-weekcomponent']
+         */
+        baseCls: ['neo-calendar-weekcomponent'],
+        /**
          * @member {Object} bind
          */
         bind: {
@@ -55,10 +59,6 @@ class Component extends BaseComponent {
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
-        /**
-         * @member {String[]} cls=['neo-calendar-weekcomponent']
-         */
-        cls: ['neo-calendar-weekcomponent'],
         /**
          * Amount of hidden columns on both sides each inside this view.
          * @member {Number} columnsBuffer_=7

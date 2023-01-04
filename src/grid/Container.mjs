@@ -42,9 +42,9 @@ class Container extends BaseContainer {
          */
         ntype: 'grid-container',
         /**
-         * @member {String[]} cls=['neo-grid-container']
+         * @member {String[]} baseCls=['neo-grid-container']
          */
-        cls: ['neo-grid-container'],
+        baseCls: ['neo-grid-container'],
         /**
          * @member {Object[]} columns_=[]
          */

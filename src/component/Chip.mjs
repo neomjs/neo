@@ -18,14 +18,14 @@ class Chip extends Component {
          */
         ntype: 'chip',
         /**
+         * @member {String[]} baseCls=['neo-chip']
+         */
+        baseCls: ['neo-chip'],
+        /**
          * True shows a close button on the right side
          * @member {Boolean} closable_=true
          */
         closable_: true,
-        /**
-         * @member {String[]} cls=['neo-chip']
-         */
-        cls: ['neo-chip'],
         /**
          * Convenience shortcut for style.display
          * @member {String} display_='inline-flex'

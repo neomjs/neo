@@ -56,6 +56,10 @@ class Text extends Base {
          */
         autoComplete_: false,
         /**
+         * @member {String[]} baseCls=['neo-textfield']
+         */
+        baseCls: ['neo-textfield'],
+        /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
          * @member {Number|null} centerBorderElWidth=null
@@ -73,10 +77,6 @@ class Text extends Base {
          * @member {Boolean} clearToOriginalValue_=false
          */
         clearToOriginalValue_: false,
-        /**
-         * @member {String[]} cls=['neo-textfield']
-         */
-        cls: ['neo-textfield'],
         /**
          * @member {String|null} error_=null
          */

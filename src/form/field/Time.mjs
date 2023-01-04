@@ -21,9 +21,9 @@ class Time extends Picker {
          */
         ntype: 'timefield',
         /**
-         * @member {String[]} cls=['neo-timefield', 'neo-pickerfield', 'neo-textfield']
+         * @member {String[]} baseCls=['neo-timefield','neo-pickerfield','neo-textfield']
          */
-        cls: ['neo-timefield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-timefield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {Neo.collection.Base|null} collection=null
          */

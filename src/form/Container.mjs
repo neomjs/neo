@@ -19,10 +19,10 @@ class Container extends BaseContainer {
          */
         ntype: 'form-container',
         /**
-         * @member {String[]} cls=['neo-form-container'],
+         * @member {String[]} baseCls=['neo-form-container'],
          * @protected
          */
-        cls: ['neo-form-container'],
+        baseCls: ['neo-form-container'],
         /**
          * @member {Object} vdom={tag: 'form',cn:[],onsubmit:'return false;'}
          */
