@@ -13,9 +13,9 @@ class SignUpComponent extends Component {
          */
         className: 'RealWorld.view.user.SignUpComponent',
         /**
-         * @member {String[]} cls=['auth-page']
+         * @member {String[]} baseCls=['auth-page']
          */
-        cls: ['auth-page'],
+        baseCls: ['auth-page'],
         /**
          * @member {Object[]} errors_=[]
          */

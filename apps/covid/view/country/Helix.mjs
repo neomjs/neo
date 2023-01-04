@@ -14,15 +14,15 @@ class CountryHelix extends Helix {
          */
         className: 'Covid.view.country.Helix',
         /**
+         * @member {String[]} baseCls=['covid-country-helix','neo-helix']
+         */
+        baseCls: ['covid-country-helix', 'neo-helix'],
+        /**
          * @member {Object} bind
          */
         bind: {
             country: {twoWay: true, value: data => data.country}
         },
-        /**
-         * @member {String[]} cls=['covid-country-helix', 'neo-helix']
-         */
-        cls: ['covid-country-helix', 'neo-helix'],
         /**
          * @member {String|null} country_=null
          */

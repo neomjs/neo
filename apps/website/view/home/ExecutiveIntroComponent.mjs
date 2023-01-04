@@ -12,10 +12,10 @@ class ExecutiveIntroComponent extends Component {
          */
         className: 'Website.view.home.ExecutiveIntroComponent',
         /**
-         * @member {String[]} cls=['website-intro-component']
+         * @member {String[]} baseCls=['website-intro-component']
          * @protected
          */
-        cls: ['website-intro-component'],
+        baseCls: ['website-intro-component'],
         /**
          * @member {Object[]} domListeners
          * @protected

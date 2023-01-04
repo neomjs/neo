@@ -15,13 +15,13 @@ class CreateComponent extends Component {
          */
         className: 'RealWorld.view.article.CreateComponent',
         /**
+         * @member {String[]} baseCls=['editor-page']
+         */
+        baseCls: ['editor-page'],
+        /**
          * @member {String} body_=''
          */
         body_: '',
-        /**
-         * @member {String[]} cls=['editor-page']
-         */
-        cls: ['editor-page'],
         /**
          * @member {Object[]} errors_=[]
          */

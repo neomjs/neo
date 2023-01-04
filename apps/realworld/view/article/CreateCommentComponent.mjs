@@ -12,9 +12,9 @@ class CreateCommentComponent extends Component {
          */
         className: 'RealWorld.view.article.CreateCommentComponent',
         /**
-         * @member {String[]} cls=['card', 'comment-form']
+         * @member {String[]} baseCls=['card','comment-form']
          */
-        cls: ['card', 'comment-form'],
+        baseCls: ['card', 'comment-form'],
         /**
          * @member {String|null} userImage_=null
          */

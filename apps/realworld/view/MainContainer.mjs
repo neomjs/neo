@@ -19,9 +19,9 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {Array} cls=[]
+         * @member {String[]} baseCls=[]
          */
-        cls: [],
+        baseCls: [],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */

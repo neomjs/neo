@@ -21,9 +21,9 @@ class HelixContainer extends Container {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
+         * @member {String[]} baseCls=['neo-helix-maincontainer','neo-viewport']
          */
-        cls: ['neo-helix-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-helix-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component|null} controller=HelixContainerController
          */

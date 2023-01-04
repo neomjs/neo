@@ -17,13 +17,13 @@ class WorldMapComponent extends AmChartComponent {
          */
         ntype: 'covid-world-map',
         /**
+         * @member {String[]} baseCls=['covid-line-chart']
+         */
+        baseCls: ['covid-world-map'],
+        /**
          * @member {String} chartType='MapChart'
          */
         chartType: 'MapChart',
-        /**
-         * @member {String[]} cls=['covid-line-chart']
-         */
-        cls: ['covid-world-map'],
         /**
          * @member {String} dataPath='data.series.values.0'
          */
@@ -60,7 +60,7 @@ class WorldMapComponent extends AmChartComponent {
                     property: 'fill',
                     target  : 'mapPolygons.template'
                 }],
-                
+
                 mapPolygons: {
                     tooltipText: '{name}: [bold]{value}[/]',
                     //fill       : '#74B266',

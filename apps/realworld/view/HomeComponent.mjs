@@ -24,9 +24,9 @@ class HomeComponent extends Component {
          */
         articlePreviews_: null,
         /**
-         * @member {String[]} cls=['home-page']
+         * @member {String[]} baseCls=['home-page']
          */
-        cls: ['home-page'],
+        baseCls: ['home-page'],
         /**
          * @member {Number} countArticles_=10
          */

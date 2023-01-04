@@ -20,9 +20,9 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['website-main-container','neo-viewport']
+         * @member {String[]} baseCls=['website-main-container','neo-viewport']
          */
-        cls: ['website-main-container', 'neo-viewport'],
+        baseCls: ['website-main-container', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */

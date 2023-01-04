@@ -13,9 +13,9 @@ class Helix extends BaseHelix {
          */
         className: 'RealWorld2.view.article.Helix',
         /**
-         * @member {String[]} cls=['rw2-article-helix', 'neo-helix']
+         * @member {String[]} baseCls=['rw2-article-helix','neo-helix']
          */
-        cls: ['rw2-article-helix', 'neo-helix'],
+        baseCls: ['rw2-article-helix', 'neo-helix'],
         /**
          * Array containing the PreviewComponent references
          * @member {Array} items=[]

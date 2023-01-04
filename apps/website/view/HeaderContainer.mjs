@@ -12,9 +12,9 @@ class HeaderContainer extends Container {
          */
         className: 'Website.view.HeaderContainer',
         /**
-         * @member {String[]} cls=['website-header-container']
+         * @member {String[]} baseCls=['website-header-container']
          */
-        cls: ['website-header-container'],
+        baseCls: ['website-header-container'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
