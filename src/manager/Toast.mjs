@@ -124,7 +124,7 @@ class Toast extends Base {
         let me = this,
             toast;
 
-        if (me.getCount > 0) {
+        if (me.getCount() > 0) {
             toast = me.findFirstToast();
 
             toast && me.showToast(toast)
