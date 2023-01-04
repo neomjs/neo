@@ -28,42 +28,47 @@ class MainContainerController extends ComponentController {
      * @returns {Promise<void>}
      */
     async onChange(data) {
-        const me   = this,
-            form   = me.getReference('form'),
-            output = me.getReference('output'),
-            button = me.getReference('creation-button'),
-            oVdom  = output.vdom.cn[0].cn[0],
-            isValid = form.isValid();
+        let me      = this,
+            form    = me.getReference('form'),
+            output  = me.getReference('output'),
+            button  = me.getReference('creation-button'),
+            oVdom   = output.vdom.cn[0].cn[0],
+            isValid = form.isValid(),
+            values;
 
-        if(Neo.isBoolean(data.value)) {
+        if (Neo.isBoolean(data.value)) {
             me.getReference('closable').value = data.value;
         }
 
-        let values = form.getValues();
+        values = form.getValues();
 
         values.appName = me.component.appName;
         button.disabled = !isValid;
-        if (!form.validate()) return;
-        oVdom.cn = output.itemTpl(values);
 
-        output.update();
+        if (form.validate()) {
+            oVdom.cn = output.itemTpl(values);
 
-        await Neo.timeout(20)
-        me.syntaxHighlight();
+            output.update();
+
+            await Neo.timeout(20)
+            me.syntaxHighlight();
+        }
     }
 
     /**
      * Cleanup the values and show the toast
      */
     createToast() {
-        const me   = this,
+        let me     = this,
             form   = me.getReference('form'),
             values = form.getValues(),
             clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable'];
 
         // use the defaults from toast if not set
         clear.forEach(item => {
-            if(values[item] === null) delete values[item];
+            if (values[item] === null) {
+                delete values[item];
+            }
         })
 
         values.appName = me.component.appName;
@@ -74,11 +79,12 @@ class MainContainerController extends ComponentController {
      * 3rd party tool to highlight the code
      */
     syntaxHighlight() {
-        let me = this,
+        let me     = this,
             output = me.getReference('output'),
             oVdom  = output.vdom;
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
+            appName: me.component.appName,
             vnodeId: oVdom.cn[0].id
         });
     }
