@@ -148,9 +148,7 @@ class Number extends Text {
      * @protected
      */
     afterSetTriggerPosition(value, oldValue) {
-        if (oldValue) {
-            this.updateTriggers();
-        }
+        oldValue && this.updateTriggers();
     }
 
     /**

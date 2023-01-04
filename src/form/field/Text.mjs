@@ -511,13 +511,11 @@ class Text extends Base {
             postTriggers = [],
             width;
 
-        if (oldValue) {
-            oldValue.forEach(item => {
-                if (!me.getTrigger(item.type)) {
-                    item.destroy();
-                }
-            });
-        }
+        oldValue?.forEach(item => {
+            if (!me.getTrigger(item.type)) {
+                item.destroy();
+            }
+        });
 
         if (value.length > 0) {
             value.forEach(item => {
