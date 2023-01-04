@@ -38,7 +38,7 @@ class Toast extends Base {
     iconCls = null
     /**
      * Used by the ToastManager
-     * @member {String} running=false
+     * @member {Boolean} running=false
      * @private
      */
     running = false
@@ -54,125 +54,108 @@ class Toast extends Base {
      */
     toastManagerId = null
 
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.dialog.Toast'
-             * @protected
-             */
-            className: 'Neo.dialog.Toast',
-            /**
-             * @member {String} ntype='toast'
-             * @protected
-             */
-            ntype: 'toast',
-            /**
-             * The Toast should not be moved
-             * @member {Boolean} draggable=false
-             */
-            draggable: false,
-            /**
-             * Header is not meant to be shown.
-             * @member {Object} headerConfig={hidden:true}
-             */
-            headerConfig: {
-                hidden: true
-            },
-            /**
-             * Limits the width of the Toast
-             * @member {Number} maxWidth=250
-             */
-            maxWidth: 250,
-            /**
-             * Sets the minimum height of the Toast
-             * @member {Number} minHeight=50
-             */
-            minHeight: 50,
-            /**
-             * Your message. You can also pass in an iconCls
-             * @member {String} msg_=null
-             */
-            msg_: null,
-            /**
-             * Describes the position of the toast, e.g. bl=bottom-left
-             * This creates a cls `toastCls + position`
-             * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
-             */
-            position_: 'tr',
-            /**
-             * @member {Boolean} resizable=false
-             */
-            resizable: false,
-            /**
-             * Describes which direction from which side the toasts slides-in
-             * This creates a cls `toastCls + slide- + direction + in`
-             * @member {'down'|'up'|'left'|'right'} slideDirection_=null
-             */
-            slideDirection_: 'down',
-            /**
-             * Timeout in ms after which the toast is removed
-             * @member {Number} timeout_=3000
-             */
-            timeout_: 3000,
-            /**
-             * @member {Boolean} title=null
-             */
-            title: null,
-            /**
-             * @member {Function} itemTpl
-             */
-            itemTpl: data => [{
-                cls: [`${data.cls}icon`, data.iconCls],
-                removeDom: !data.iconCls
-            }, {
-                cls: `${data.cls}text`,
-                cn: [{
-                    cls: `${data.cls}title`,
-                    innerHTML: `${data.title}`,
-                    removeDom: !data.title
-                }, {
-                    cls: `${data.cls}msg`,
-                    innerHTML: `${data.msg}`
-                }]
-            }, {
-                cls: `${data.cls}close fa fa-close`,
-                removeDom: !data.closable
-            }]
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.dialog.Toast'
+         * @protected
+         */
+        className: 'Neo.dialog.Toast',
+        /**
+         * @member {String} ntype='toast'
+         * @protected
+         */
+        ntype: 'toast',
+        /**
+         * The Toast should not be moved
+         * @member {Boolean} draggable=false
+         */
+        draggable: false,
+        /**
+         * Header is not meant to be shown.
+         * @member {Object} headerConfig={hidden:true}
+         */
+        headerConfig: {
+            hidden: true
+        },
+        /**
+         * Limits the width of the Toast
+         * @member {Number} maxWidth=250
+         */
+        maxWidth: 250,
+        /**
+         * Sets the minimum height of the Toast
+         * @member {Number} minHeight=50
+         */
+        minHeight: 50,
+        /**
+         * Your message. You can also pass in an iconCls
+         * @member {String|null} msg_=null
+         */
+        msg_: null,
+        /**
+         * Describes the position of the toast, e.g. bl=bottom-left
+         * This creates a cls `toastCls + position`
+         * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
+         */
+        position_: 'tr',
+        /**
+         * @member {Boolean} resizable=false
+         */
+        resizable: false,
+        /**
+         * Describes which direction from which side the toasts slides-in
+         * This creates a cls `toastCls + slide- + direction + in`
+         * @member {'down'|'up'|'left'|'right'} slideDirection_=null
+         */
+        slideDirection_: 'down',
+        /**
+         * Timeout in ms after which the toast is removed
+         * @member {Number} timeout_=3000
+         */
+        timeout_: 3000,
+        /**
+         * @member {String|null} title=null
+         */
+        title: null,
+        /**
+         * @member {Function} itemTpl
+         */
+        itemTpl: data => {
+            let cls = data.cls;
+
+            return [
+                {cls: [`${cls}icon`, data.iconCls], removeDom: !data.iconCls},
+                {cls: `${cls}text`, cn: [
+                    {cls: `${cls}title`, innerHTML: `${data.title}`, removeDom: !data.title},
+                    {cls: `${cls}msg`,   innerHTML: `${data.msg}`}
+                ]},
+                {cls: `${cls}close fa fa-close`, removeDom: !data.closable}
+        ]}
+    }}
 
     /**
      * Using the afterSetMsg to trigger the setup of the dom
      * A new container is added as an item.
      * We cannot use the vdom here.
      *
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      */
     afterSetMsg(value, oldValue) {
-        let me = this,
-            data = {
-                cls: me.toastCls,
-                iconCls: me.iconCls,
-                title: me.title,
-                msg: me.msg,
-                closable: me.closable
-            },
-            vdom = {cn: me.itemTpl(data)},
-            titleCls = (me.title && me.iconCls) ? `${me.toastCls}has-title` : '';
+        let me       = this,
+            data     = {closable: me.closable, cls: me.toastCls, iconCls: me.iconCls, msg: me.msg, title: me.title},
+            titleCls = (me.title && me.iconCls) ? `${me.toastCls}has-title` : '',
+            vdom     = {cn: me.itemTpl(data)};
 
         me.add({
-            ntype: 'component',
             cls: [`${me.toastCls}inner`, titleCls],
-            vdom: vdom
+            vdom
         });
 
         // if closable add a listener to the close-element
-        if (me.closable) {
-            me.addDomListeners([
-                {click: {fn: me.unregister, delegate: `.${me.toastCls}close`, scope: me}}
-            ]);
-        }
+        me.closable && me.addDomListeners([
+            {click: {fn: me.unregister, delegate: `.${me.toastCls}close`, scope: me}}
+        ])
     }
 
     /**
@@ -181,9 +164,7 @@ class Toast extends Base {
      * @param {String} oldValue
      */
     afterSetPosition(value, oldValue) {
-        if (value) {
-            this.addCls(`${this.toastCls}${value}`)
-        }
+        value && this.addCls(`${this.toastCls}${value}`)
     }
 
     /**
@@ -192,9 +173,7 @@ class Toast extends Base {
      * @param {String} oldValue
      */
     afterSetSlideDirection(value, oldValue) {
-        if (value) {
-            this.addCls(`${this.toastCls}slide-${value}-in`)
-        }
+        value && this.addCls(`${this.toastCls}slide-${value}-in`)
     }
 
     /**
@@ -203,10 +182,10 @@ class Toast extends Base {
      * @param {Number} oldValue
      */
     async afterSetTimeout(value, oldValue) {
-        if (this.closable || !value) return;
-
-        await Neo.timeout(value);
-        this.unregister();
+        if (!this.closable && value) {
+            await Neo.timeout(value);
+            this.unregister();
+        }
     }
 
     /**
