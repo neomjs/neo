@@ -238,16 +238,20 @@
             }
 
             .neo-left-border {
-                border      : 1px solid v(textfield-border-color);
-                border-right: 0;
-                flex        : 0 0 auto;
-                width       : 12px
+                border                   : 1px solid v(textfield-border-color);
+                border-bottom-left-radius: v(textfield-border-radius);
+                border-right             : 0;
+                border-top-left-radius   : v(textfield-border-radius);
+                flex                     : 0 0 auto;
+                width                    : 12px
             }
 
             .neo-right-border {
-                border     : 1px solid v(textfield-border-color);
-                border-left: 0;
-                flex       : 1 0 auto;
+                border                    : 1px solid v(textfield-border-color);
+                border-bottom-right-radius: v(textfield-border-radius);
+                border-left               : 0;
+                border-top-right-radius   : v(textfield-border-radius);
+                flex                      : 1 0 auto;
             }
         }
 
