@@ -126,6 +126,10 @@ class Text extends Base {
          */
         placeholderText_: null,
         /**
+         * @member {Boolean} readOnly_=false
+         */
+        readOnly_: false,
+        /**
          * @member {Boolean} required_=false
          */
         required_: false,
@@ -474,6 +478,16 @@ class Text extends Base {
      */
     afterSetPlaceholderText(value, oldValue) {
         this.changeInputElKey('placeholder', value === '' ? null : value);
+    }
+
+    /**
+     * Triggered after the readOnly config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetReadOnly(value, oldValue) {
+        this.changeInputElKey('readonly', value ? value : null);
     }
 
     /**
