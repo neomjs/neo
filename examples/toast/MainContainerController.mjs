@@ -62,7 +62,7 @@ class MainContainerController extends ComponentController {
         let me     = this,
             form   = me.getReference('form'),
             values = form.getValues(),
-            clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable'];
+            clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable', 'timeout'];
 
         // use the defaults from toast if not set
         clear.forEach(item => {

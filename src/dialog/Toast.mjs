@@ -1,5 +1,6 @@
-import Base         from './Base.mjs';
+import Base         from '../component/Base.mjs';
 import ToastManager from '../manager/Toast.mjs';
+import NeoArray     from "../util/Array.mjs";
 
 /**
  * @class Neo.dialog.Toast
@@ -21,38 +22,33 @@ import ToastManager from '../manager/Toast.mjs';
  */
 class Toast extends Base {
     /**
-     * If true makes the toast sticky and show a close icon
-     * @member {Boolean} closable=false
-     */
-    closable = false
-    /**
-     * Change to use your own fade out animation
-     * @member {String} fadeOutCls='neo-toast-fade-out'
-     */
-    fadeOutCls = 'neo-toast-fade-out'
-    /**
-     * If set, it shows this icon in front of the text
-     * e.g. 'fa fa-cog'
-     * @member {String|null} iconCls=null
-     */
-    iconCls = null
-    /**
      * Used by the ToastManager
      * @member {Boolean} running=false
      * @private
      */
     running = false
     /**
-     * Change the complete styling with custom cls
-     * @member {String} toastCls='neo-toast-'
-     */
-    toastCls = 'neo-toast-'
-    /**
      * Used by the ToastManager
      * @member {String|null} toastManagerId=null
      * @private
      */
     toastManagerId = null
+
+    static getStaticConfig() {return {
+        /**
+         * Valid values for positions
+         * @member {String[]} positions = ['tl', 'tc', 'tr', 'bl', 'bc', 'br']
+         * @protected
+         * @static
+         */
+        positions: ['tl', 'tc', 'tr', 'bl', 'bc', 'br'],
+        /**
+         * True automatically applies the core/Observable.mjs mixin
+         * @member {String[]} slideDirections = ['down', 'up', 'left', 'right']
+         * @static
+         */
+        slideDirections: ['down', 'up', 'left', 'right']
+    }}
 
     static getConfig() {return {
         /**
@@ -65,18 +61,31 @@ class Toast extends Base {
          * @protected
          */
         ntype: 'toast',
+
         /**
-         * The Toast should not be moved
-         * @member {Boolean} draggable=false
+         * @member {Boolean} autoMount=true
          */
-        draggable: false,
+        autoMount: true,
         /**
-         * Header is not meant to be shown.
-         * @member {Object} headerConfig={hidden:true}
+         * @member {Boolean} autoRender=true
          */
-        headerConfig: {
-            hidden: true
-        },
+        autoRender: true,
+        /**
+         * @member {String[]} baseCls=['neo-toast']
+         * @protected
+         */
+        baseCls: ['neo-toast'],
+        /**
+         * If true makes the toast sticky and show a close icon
+         * @member {Boolean} closable=false
+         */
+        closable_: false,
+        /**
+         * If set, it shows this icon in front of the text
+         * e.g. 'fa fa-cog'
+         * @member {String|null} iconCls=null
+         */
+        iconCls_: null,
         /**
          * Limits the width of the Toast
          * @member {Number} maxWidth=250
@@ -94,17 +103,13 @@ class Toast extends Base {
         msg_: null,
         /**
          * Describes the position of the toast, e.g. bl=bottom-left
-         * This creates a cls `toastCls + position`
+         * This creates a cls `noe-toast-position`
          * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
          */
         position_: 'tr',
         /**
-         * @member {Boolean} resizable=false
-         */
-        resizable: false,
-        /**
          * Describes which direction from which side the toasts slides-in
-         * This creates a cls `toastCls + slide- + direction + in`
+         * This creates a cls `neo-toast-slide-${direction}-in`
          * @member {'down'|'up'|'left'|'right'} slideDirection_=null
          */
         slideDirection_: 'down',
@@ -114,24 +119,60 @@ class Toast extends Base {
          */
         timeout_: 3000,
         /**
+         * Adds a title to the toast
+         * @member {Number} title_=null
+         */
+        title_: null,
+        /**
          * @member {String|null} title=null
          */
-        title: null,
-        /**
-         * @member {Function} itemTpl
-         */
-        itemTpl: data => {
-            let cls = data.cls;
-
-            return [
-                {cls: [`${cls}icon`, data.iconCls], removeDom: !data.iconCls},
-                {cls: `${cls}text`, cn: [
-                    {cls: `${cls}title`, innerHTML: `${data.title}`, removeDom: !data.title},
-                    {cls: `${cls}msg`,   innerHTML: `${data.msg}`}
-                ]},
-                {cls: `${cls}close fa fa-close`, removeDom: !data.closable}
-        ]}
+        vdom: {cn: [{
+            cls: 'neo-toast-inner', cn: [
+                {cls: ['neo-toast-icon'], removeDom: true},
+                {
+                    cls: 'neo-toast-text', cn: [
+                        {cls: ['neo-toast-title'], removeDom: true},
+                        {cls: 'neo-toast-msg'}
+                    ]
+                },
+                {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
+            ]
+        }]}
     }}
+
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        // click listener for close
+        me.addDomListeners([
+            {click: {fn: me.unregister, delegate: '.neo-toast-close', scope: me}}
+        ])
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetClosable(value, oldValue) {
+        let vdom = this.getVdomInner().cn[2];
+
+        vdom.removeDom = !value;
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetIconCls(value, oldValue) {
+        let vdom = this.getVdomInner().cn[0],
+            cls = vdom.cls,
+            clsFn = !!value ? 'add' : 'remove';
+
+        vdom.removeDom = Neo.isEmpty(value);
+        NeoArray[clsFn](cls, value);
+    }
 
     /**
      * Using the afterSetMsg to trigger the setup of the dom
@@ -142,21 +183,22 @@ class Toast extends Base {
      * @param {String|null} oldValue
      */
     afterSetMsg(value, oldValue) {
-        let me       = this,
-            toastCls = me.toastCls,
-            data     = {closable: me.closable, cls: toastCls, iconCls: me.iconCls, msg: me.msg, title: me.title},
-            titleCls = (me.title && me.iconCls) ? `${toastCls}has-title` : '',
-            vdom     = {cn: me.itemTpl(data)};
+        let vdom     = this.getTextRootVdom().cn[1];
 
-        me.add({
-            cls: [`${toastCls}inner`, titleCls],
-            vdom
-        });
+        vdom.innerHTML = value;
+    }
 
-        // if closable add a listener to the close-element
-        me.closable && me.addDomListeners([
-            {click: {fn: me.unregister, delegate: `.${me.toastCls}close`, scope: me}}
-        ])
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTitle(value, oldValue) {
+        let vdom = this.getTextRootVdom().cn[0],
+            clsFn = !!value ? 'add' : 'remove';
+
+        vdom.removeDom = Neo.isEmpty(value);
+        vdom.innerHTML = value;
+        NeoArray[clsFn](vdom.cls, 'neo-toast-has-title');
     }
 
     /**
@@ -165,7 +207,7 @@ class Toast extends Base {
      * @param {String} oldValue
      */
     afterSetPosition(value, oldValue) {
-        value && this.addCls(`${this.toastCls}${value}`)
+        value && this.addCls(`neo-toast-${value}`)
     }
 
     /**
@@ -174,7 +216,7 @@ class Toast extends Base {
      * @param {String} oldValue
      */
     afterSetSlideDirection(value, oldValue) {
-        value && this.addCls(`${this.toastCls}slide-${value}-in`)
+        value && this.addCls(`neo-toast-slide-${value}-in`)
     }
 
     /**
@@ -187,6 +229,38 @@ class Toast extends Base {
             await Neo.timeout(value);
             this.unregister();
         }
+    }
+
+    /**
+     * Triggered before the position config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'position');
+    }
+
+    /**
+     * Triggered before the slideDirection config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetSlideDirection(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'slideDirection');
+    }
+
+    /**
+     * This is a dialog, so we have to add an item to be able to
+     * @returns {vdom}
+     */
+    getVdomInner() {
+        return this.vdom.cn[0];
+    }
+
+    getTextRootVdom() {
+        return this.getVdomInner().cn[1];
     }
 
     /**
@@ -203,7 +277,7 @@ class Toast extends Base {
             }
         })
 
-        me.addCls(me.fadeOutCls);
+        me.addCls('neo-toast-fade-out');
     }
 }
 
