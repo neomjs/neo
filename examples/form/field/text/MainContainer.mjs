@@ -134,6 +134,12 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.placeholderText
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.readOnly,
+            labelText: 'readOnly',
+            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.required,
             labelText: 'required',
             listeners: {change: me.onConfigChange.bind(me, 'required')},

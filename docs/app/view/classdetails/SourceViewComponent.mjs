@@ -60,11 +60,11 @@ class SourceViewComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        let me   = this,
-            url  = '../../' + me.structureData.srcPath;
+        let me  = this,
+            url = '../../' + me.structureData.srcPath;
 
         Neo.Xhr.promiseRequest({
-            url: url
+            url
         }).then(data => {
             me.applySourceCode(data.response);
         });
@@ -79,11 +79,9 @@ class SourceViewComponent extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value) {
-            setTimeout(() => {
-                this.syntaxHighlight();
-            }, 50);
-        }
+        value && setTimeout(() => {
+            this.syntaxHighlight();
+        }, 50);
     }
 
     /**
@@ -99,10 +97,11 @@ class SourceViewComponent extends Component {
             setTimeout(() => {
                 Neo.main.addon.HighlightJS.syntaxHighlightLine({
                     addLine   : me.line,
+                    appName   : me.appName,
                     removeLine: me.previousLine,
                     vnodeId   : me.vdom.cn[0].id
                 });
-            }, 50);
+            }, 50)
         }
     }
 
@@ -120,7 +119,7 @@ class SourceViewComponent extends Component {
         }
 
         if (me.isHighlighted) {
-            me.afterSetIsHighlighted(true, false);
+            me.afterSetIsHighlighted(true, false)
         }
     }
 
@@ -135,7 +134,7 @@ class SourceViewComponent extends Component {
         node.cn[0].innerHTML = data; // code tag
         me.update();
 
-        me.mounted && me.syntaxHighlight();
+        me.mounted && me.syntaxHighlight()
     }
 
     /**
@@ -145,6 +144,7 @@ class SourceViewComponent extends Component {
         let me = this;
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
+            appName: me.appName,
             vnodeId: me.vdom.cn[0].id
         }).then(() => {
             if (!me.isHighlighted) {
@@ -152,7 +152,7 @@ class SourceViewComponent extends Component {
             } else {
                 me.afterSetIsHighlighted(true, false);
             }
-        });
+        })
     }
 }
 

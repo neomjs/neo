@@ -54,6 +54,44 @@
         }
     }
 
+    &.neo-readonly {
+        opacity: v(textfield-opacity-readonly);
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-readonly);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-readonly);
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-readonly);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-readonly);
+                }
+            }
+        }
+
+        .neo-input-wrapper {
+            background-color: v(textfield-input-background-color-readonly);
+            border-color    : v(textfield-border-color-readonly);
+        }
+
+        .neo-textfield-input {
+            background-color: v(textfield-input-background-color-readonly);
+            color           : v(textfield-input-color-readonly);
+        }
+
+        .neo-textfield-label {
+            color: v(textfield-label-color-readonly);
+        }
+    }
+
     &.label-bottom {
         align-items    : stretch;
         flex-direction : column-reverse;

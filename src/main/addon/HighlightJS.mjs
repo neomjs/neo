@@ -27,13 +27,14 @@ class HighlightJS extends Base {
         highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
         /**
          * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
+         * @member {Object} remote
          * @protected
          */
         remote: {
             app: [
                 'scrollIntoView',
                 'syntaxHighlight',
+                'switchTheme',
                 'syntaxHighlightInit',
                 'syntaxHighlightLine'
             ]
@@ -62,7 +63,7 @@ class HighlightJS extends Base {
             DomAccess.addScript({src: me.highlightJsLineNumbersPath});
         });
 
-        Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
+        Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
     }
 
     /**
@@ -75,13 +76,11 @@ class HighlightJS extends Base {
         let parentEl = DomAccess.getElement(data.vnodeId),
             el       = parentEl.querySelector('[data-list-header="' + data.text + '"]');
 
-        if (el) {
-            el.previousSibling.scrollIntoView({
-                behavior: 'smooth',
-                block   : 'start',
-                inline  : 'nearest'
-            });
-        }
+        el?.previousSibling.scrollIntoView({
+            behavior: 'smooth',
+            block   : 'start',
+            inline  : 'nearest'
+        })
     }
 
     /**
@@ -95,8 +94,24 @@ class HighlightJS extends Base {
             hljs.highlightBlock(node);
             hljs.lineNumbersBlock(node);
         } else {
-            console.error('highlight.js is not included inside the main thread.');
+            console.error('highlight.js is not included inside the main thread.')
         }
+    }
+
+    /**
+     * You can pass in 'light', 'dark', or a path for a custom theme
+     * @param {String} theme
+     */
+    switchTheme(theme) {
+        let definedThemes = {
+                dark: './resources/highlightjs-custom-dark-theme.css',
+                light: './resources/highlightjs-custom-github-theme.css'
+            },
+            switchToTheme = definedThemes[theme];
+
+        switchToTheme ??= theme;
+        this.themePath = switchToTheme;
+        Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
     }
 
     /**
@@ -107,7 +122,7 @@ class HighlightJS extends Base {
             let blocks = document.querySelectorAll('pre code:not(.hljs)');
             Array.prototype.forEach.call(blocks, hljs.highlightBlock);
         } else {
-            console.error('highlight.js is not included inside the main thread.');
+            console.error('highlight.js is not included inside the main thread.')
         }
     }
 
@@ -132,16 +147,14 @@ class HighlightJS extends Base {
                     behavior: 'smooth',
                     block   : 'start',
                     inline  : 'nearest'
-                });
+                })
             }
         }
 
         if (Neo.isNumber(data.removeLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.removeLine + '"]');
 
-            if (el) {
-                el.parentNode.classList.remove(cls);
-            }
+            el && el.parentNode.classList.remove(cls)
         }
     }
 }
