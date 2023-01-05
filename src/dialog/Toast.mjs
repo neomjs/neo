@@ -129,12 +129,10 @@ class Toast extends Base {
         vdom: {cn: [{
             cls: 'neo-toast-inner', cn: [
                 {cls: ['neo-toast-icon'], removeDom: true},
-                {
-                    cls: 'neo-toast-text', cn: [
-                        {cls: ['neo-toast-title'], removeDom: true},
-                        {cls: 'neo-toast-msg'}
-                    ]
-                },
+                {cls: 'neo-toast-text', cn: [
+                    {cls: ['neo-toast-title'], removeDom: true},
+                    {cls: 'neo-toast-msg'}
+                ]},
                 {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
             ]
         }]}
