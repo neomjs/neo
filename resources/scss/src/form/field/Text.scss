@@ -227,7 +227,7 @@
 
         .neo-label-wrapper {
             display : flex;
-            height  : 27px;
+            height  : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
             position: absolute;
             width   : 100%;
 
@@ -308,7 +308,7 @@
             flex-grow    : 1;
             flex-shrink  : 1;
             margin       : 0; // important for Safari => #1125
-            min-height   : 25px;
+            min-height   : v(textfield-input-height);
             width        : 30px;
         }
     }
