@@ -4,7 +4,7 @@ import NeoArray     from "../util/Array.mjs";
 
 /**
  * @class Neo.dialog.Toast
- * @extends Neo.dialog.Base
+ * @extends Neo.component.Base
  *
  * @example
         Neo.toast({
