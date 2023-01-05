@@ -26,9 +26,29 @@
 
     &.neo-hovered {
         &:not(&.neo-focus) {
-            .neo-input-wrapper {
-                border-color: v(textfield-border-color-hovered) !important;
-                outline     : v(textfield-outline-hovered);
+            &:not(&.label-inline) {
+                .neo-input-wrapper {
+                    border-color: v(textfield-border-color-hovered) !important;
+                    outline     : v(textfield-outline-hovered);
+                }
+            }
+
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-hovered);
+                }
             }
         }
     }
