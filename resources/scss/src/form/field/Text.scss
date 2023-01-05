@@ -54,6 +54,44 @@
         }
     }
 
+    &.neo-disabled {
+        opacity: v(textfield-opacity-disabled);
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-disabled);
+                }
+            }
+        }
+
+        .neo-input-wrapper {
+            background-color: v(textfield-input-background-color-disabled);
+            border-color    : v(textfield-border-color-disabled);
+        }
+
+        .neo-textfield-input {
+            background-color: v(textfield-input-background-color-disabled);
+            color           : v(textfield-input-color-disabled);
+        }
+
+        .neo-textfield-label {
+            color: v(textfield-label-color-disabled);
+        }
+    }
+
     &.neo-readonly {
         opacity: v(textfield-opacity-readonly);
 
