@@ -202,7 +202,7 @@
 
             .neo-textfield-label {
                 color    : v(textfield-border-color-active) !important;
-                transform: translateX(4px) translateY(-65%) scale(.7);
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
             }
         }
 
@@ -213,7 +213,7 @@
 
             .neo-textfield-label {
                 color    : #777;
-                transform: translateX(4px) translateY(-65%) scale(.7);
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
             }
         }
 
@@ -243,7 +243,7 @@
                 border-right             : 0;
                 border-top-left-radius   : v(textfield-border-radius);
                 flex                     : 0 0 auto;
-                width                    : 12px
+                width                    : calc(11px + v(textfield-border-width));
             }
 
             .neo-right-border {
