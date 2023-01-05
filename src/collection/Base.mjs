@@ -668,7 +668,6 @@ class Base extends CoreBase {
             me.clearSilent();
 
             me.items = [...me.allItems._items];
-            me.map.set(...me.allItems.map);
         } else {
             if (!me.allItems) {
                 config = {...me.originalConfig};
