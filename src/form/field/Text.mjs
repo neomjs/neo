@@ -487,7 +487,13 @@ class Text extends Base {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        this.changeInputElKey('readonly', value ? value : null);
+        let me = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-readonly');
+        me.cls = cls;
+
+        me.changeInputElKey('readonly', value ? value : null);
     }
 
     /**
