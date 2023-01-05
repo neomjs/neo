@@ -908,15 +908,17 @@ class Text extends Base {
         let me  = this,
             cls = me.cls;
 
-        NeoArray.add(cls, 'neo-focus');
-        me.cls = cls;
+        if (!me.readOnly) {
+            NeoArray.add(cls, 'neo-focus');
+            me.cls = cls;
 
-        if (me.labelPosition === 'inline') {
-            if (me.centerBorderElWidth) {
-                me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.update();
-            } else {
-                me.updateCenterBorderElWidth(false);
+            if (me.labelPosition === 'inline') {
+                if (me.centerBorderElWidth) {
+                    me.getCenterBorderEl().width = me.centerBorderElWidth;
+                    me.update();
+                } else {
+                    me.updateCenterBorderElWidth(false);
+                }
             }
         }
     }
@@ -931,16 +933,18 @@ class Text extends Base {
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
             cls            = me.cls;
 
-        me.validate(); // silent
+        if (!me.readOnly) {
+            me.validate(); // silent
 
-        NeoArray.remove(cls, 'neo-focus');
-        me.cls = cls;
+            NeoArray.remove(cls, 'neo-focus');
+            me.cls = cls;
 
-        if (centerBorderEl && me.isEmpty()) {
-            delete centerBorderEl.width;
+            if (centerBorderEl && me.isEmpty()) {
+                delete centerBorderEl.width;
+            }
+
+            me.update();
         }
-
-        me.update();
     }
 
     /**
@@ -969,20 +973,26 @@ class Text extends Base {
      * @param {Object} data
      */
     onMouseEnter(data) {
-        let cls = this.cls;
+        let me  = this,
+            cls = me.cls;
 
-        NeoArray.add(cls, 'neo-hovered');
-        this.cls = cls;
+        if (!me.readOnly) {
+            NeoArray.add(cls, 'neo-hovered');
+            me.cls = cls;
+        }
     }
 
     /**
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let cls = this.cls;
+        let me  = this,
+            cls = me.cls;
 
-        NeoArray.remove(cls, 'neo-hovered');
-        this.cls = cls;
+        if (!me.readOnly) {
+            NeoArray.remove(cls, 'neo-hovered');
+            me.cls = cls;
+        }
     }
 
     /**

@@ -308,6 +308,10 @@
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
 
+        &:focus {
+            outline: none;
+        }
+
         &::-webkit-input-placeholder {
             color  : v(textfield-input-placeholder-color) !important;
             opacity: v(textfield-input-placeholder-opacity) !important;
