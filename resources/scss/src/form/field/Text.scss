@@ -11,13 +11,44 @@
             border-color: v(textfield-border-color-active) !important;
             outline     : v(textfield-outline-active);
         }
+
+        .neo-label-wrapper { // labelPosition: inline
+            .neo-textfield-input {
+                border-color: transparent;
+            }
+        }
+
+        .neo-textfield-input {
+            border-color: v(textfield-border-color-active);
+            outline     : v(textfield-outline-active);
+        }
     }
 
     &.neo-hovered {
         &:not(&.neo-focus) {
-            .neo-input-wrapper {
-                border-color: v(textfield-border-color-hovered) !important;
-                outline     : v(textfield-outline-hovered);
+            &:not(&.label-inline) {
+                .neo-input-wrapper {
+                    border-color: v(textfield-border-color-hovered) !important;
+                    outline     : v(textfield-outline-hovered);
+                }
+            }
+
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-hovered);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-hovered);
+                }
             }
         }
     }
@@ -51,6 +82,44 @@
             .neo-center-border {
                 border-top-color: v(textfield-border-color-invalid);
             }
+        }
+    }
+
+    &.neo-disabled {
+        opacity: v(textfield-opacity-disabled);
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-disabled);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-disabled);
+                }
+            }
+        }
+
+        .neo-input-wrapper {
+            background-color: v(textfield-input-background-color-disabled);
+            border-color    : v(textfield-border-color-disabled);
+        }
+
+        .neo-textfield-input {
+            background-color: v(textfield-input-background-color-disabled);
+            color           : v(textfield-input-color-disabled);
+        }
+
+        .neo-textfield-label {
+            color: v(textfield-label-color-disabled);
         }
     }
 
@@ -133,7 +202,7 @@
 
             .neo-textfield-label {
                 color    : v(textfield-border-color-active) !important;
-                transform: translateX(4px) translateY(-65%) scale(.7);
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
             }
         }
 
@@ -144,7 +213,7 @@
 
             .neo-textfield-label {
                 color    : #777;
-                transform: translateX(4px) translateY(-65%) scale(.7);
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
             }
         }
 
@@ -158,27 +227,31 @@
 
         .neo-label-wrapper {
             display : flex;
-            height  : 27px;
+            height  : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
             position: absolute;
             width   : 100%;
 
             .neo-center-border {
-                border-bottom: 1px solid v(textfield-border-color);
-                border-top   : 1px solid v(textfield-border-color);
+                border-bottom: v(textfield-border-width) solid v(textfield-border-color);
+                border-top   : v(textfield-border-width) solid v(textfield-border-color);
                 flex         : 0 0 auto;
             }
 
             .neo-left-border {
-                border      : 1px solid v(textfield-border-color);
-                border-right: 0;
-                flex        : 0 0 auto;
-                width       : 12px
+                border                   : v(textfield-border-width) solid v(textfield-border-color);
+                border-bottom-left-radius: v(textfield-border-radius);
+                border-right             : 0;
+                border-top-left-radius   : v(textfield-border-radius);
+                flex                     : 0 0 auto;
+                width                    : calc(11px + v(textfield-border-width));
             }
 
             .neo-right-border {
-                border     : 1px solid v(textfield-border-color);
-                border-left: 0;
-                flex       : 1 0 auto;
+                border                    : v(textfield-border-width) solid v(textfield-border-color);
+                border-bottom-right-radius: v(textfield-border-radius);
+                border-left               : 0;
+                border-top-right-radius   : v(textfield-border-radius);
+                flex                      : 1 0 auto;
             }
         }
 
@@ -188,10 +261,6 @@
             margin          : 0; // important for Safari => #1125
             padding-left    : 16px;
             z-index         : 1;
-
-            &:focus{ // todo: switch to .neo-focus
-                border-color: transparent;
-            }
         }
 
         .neo-textfield-label {
@@ -239,7 +308,7 @@
             flex-grow    : 1;
             flex-shrink  : 1;
             margin       : 0; // important for Safari => #1125
-            min-height   : 25px;
+            min-height   : v(textfield-input-height);
             width        : 30px;
         }
     }
@@ -254,7 +323,7 @@
 
     .neo-textfield-input {
         background-color: v(textfield-input-background-color);
-        border          : 1px solid v(textfield-border-color);
+        border          : v(textfield-border-width) solid v(textfield-border-color);
         border-radius   : v(textfield-border-radius);
         color           : v(textfield-input-color);
         font            : v(textfield-input-font);
@@ -263,9 +332,8 @@
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
 
-        &:focus{
-            border-color: #5d83a7;
-            outline     : none;
+        &:focus {
+            outline: none;
         }
 
         &::-webkit-input-placeholder {

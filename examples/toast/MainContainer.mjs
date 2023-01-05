@@ -33,7 +33,7 @@ class MainContainer extends Viewport {
                 maxValue      : 4000,
                 style         : {marginLeft: '10px'},
                 useSpinButtons: false,
-                width         : 150
+                width         : 200
             },
 
             items: [{
@@ -52,27 +52,32 @@ class MainContainer extends Viewport {
                 name     : 'iconCls'
             }, {
                 module   : SelectField,
-                labelText: 'position',
+                labelText: 'position = tr',
                 name     : 'position',
                 store    : {data: [{name: 'tl'}, {name: 'tc'}, {name: 'tr'}, {name: 'bl'}, {name: 'bc'}, {name: 'br'}]}
             }, {
                 module   : SelectField,
-                labelText: 'slideDirection',
+                labelText: 'slideDirection = down',
                 name     : 'slideDirection',
                 store    : {data: [{name: 'down'}, {name: 'up'}, {name: 'left'}, {name: 'right'}]}
             }, {
                 module   : SelectField,
-                labelText: 'ui',
+                labelText: 'ui = info',
                 name     : 'ui',
                 store    : {data: [{name: 'info'}, {name: 'danger'}, {name: 'success'}]}
             }, {
                 module   : NumberField,
-                labelText: 'minHeight',
+                labelText: 'minHeight = 50',
                 name     : 'minHeight'
             }, {
                 module   : NumberField,
-                labelText: 'maxWidth',
+                labelText: 'maxWidth = 250',
                 name     : 'maxWidth'
+            }, {
+                module   : NumberField,
+                labelText: 'timeout = 3000',
+                name     : 'timeout',
+                maxValue : 99999
             }, {
                 module    : CheckBox,
                 labelText : 'Closable',
