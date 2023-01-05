@@ -11,6 +11,17 @@
             border-color: v(textfield-border-color-active) !important;
             outline     : v(textfield-outline-active);
         }
+
+        .neo-label-wrapper { // labelPosition: inline
+            .neo-textfield-input {
+                border-color: transparent;
+            }
+        }
+
+        .neo-textfield-input {
+            border-color: v(textfield-border-color-active);
+            outline     : v(textfield-outline-active);
+        }
     }
 
     &.neo-hovered {
@@ -226,10 +237,6 @@
             margin          : 0; // important for Safari => #1125
             padding-left    : 16px;
             z-index         : 1;
-
-            &:focus{ // todo: switch to .neo-focus
-                border-color: transparent;
-            }
         }
 
         .neo-textfield-label {
@@ -300,11 +307,6 @@
         padding         : v(textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
-
-        &:focus{
-            border-color: #5d83a7;
-            outline     : none;
-        }
 
         &::-webkit-input-placeholder {
             color  : v(textfield-input-placeholder-color) !important;
