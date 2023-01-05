@@ -232,13 +232,13 @@
             width   : 100%;
 
             .neo-center-border {
-                border-bottom: 1px solid v(textfield-border-color);
-                border-top   : 1px solid v(textfield-border-color);
+                border-bottom: v(textfield-border-width) solid v(textfield-border-color);
+                border-top   : v(textfield-border-width) solid v(textfield-border-color);
                 flex         : 0 0 auto;
             }
 
             .neo-left-border {
-                border                   : 1px solid v(textfield-border-color);
+                border                   : v(textfield-border-width) solid v(textfield-border-color);
                 border-bottom-left-radius: v(textfield-border-radius);
                 border-right             : 0;
                 border-top-left-radius   : v(textfield-border-radius);
@@ -247,7 +247,7 @@
             }
 
             .neo-right-border {
-                border                    : 1px solid v(textfield-border-color);
+                border                    : v(textfield-border-width) solid v(textfield-border-color);
                 border-bottom-right-radius: v(textfield-border-radius);
                 border-left               : 0;
                 border-top-right-radius   : v(textfield-border-radius);
@@ -323,7 +323,7 @@
 
     .neo-textfield-input {
         background-color: v(textfield-input-background-color);
-        border          : 1px solid v(textfield-border-color);
+        border          : v(textfield-border-width) solid v(textfield-border-color);
         border-radius   : v(textfield-border-radius);
         color           : v(textfield-input-color);
         font            : v(textfield-input-font);
