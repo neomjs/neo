@@ -472,9 +472,42 @@ class Select extends Picker {
      * @param {Object} record
      * @protected
      */
+    onListItemChange(record) {
+        let me           = this,
+            displayField = me.displayField,
+            oldValue     = me.value,
+            value        = record[displayField];
+
+        if (me.value !== value) {
+            me.hintRecordId = null;
+            me.record       = record;
+            me._value       = value;
+            me.getInputHintEl().value = null;
+
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+
+            me.fire('select', {
+                record,
+                value: record[displayField]
+            })
+        }
+    }
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
     onListItemClick(record) {
         this.onListItemChange(record);
         this.hidePicker()
+    }
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
+    onListItemNavigate(record) {
+        this.onListItemChange(record)
     }
 
     /**
@@ -510,40 +543,6 @@ class Select extends Picker {
     onSelectPreFirstItem() {
         this.record = null;
         this.focusInputEl()
-    }
-
-
-    /**
-     * @param {Object} record
-     * @protected
-     */
-    onListItemChange(record) {
-        let me           = this,
-            displayField = me.displayField,
-            oldValue     = me.value,
-            value        = record[displayField];
-
-        if (me.value !== value) {
-            me.hintRecordId = null;
-            me.record       = record;
-            me._value       = value;
-            me.getInputHintEl().value = null;
-
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
-
-            me.fire('select', {
-                record,
-                value: record[displayField]
-            })
-        }
-    }
-
-    /**
-     * @param {Object} record
-     * @protected
-     */
-    onListItemNavigate(record) {
-        this.onListItemChange(record)
     }
 
     /**
