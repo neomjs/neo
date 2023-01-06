@@ -3,7 +3,7 @@ import ToastManager from '../manager/Toast.mjs';
 import NeoArray     from "../util/Array.mjs";
 
 /**
- * @class Neo.dialog.Toast
+ * @class Neo.component.Toast
  * @extends Neo.component.Base
  *
  * @example
@@ -46,10 +46,10 @@ class Toast extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.dialog.Toast'
+         * @member {String} className='Neo.component.Toast'
          * @protected
          */
-        className: 'Neo.dialog.Toast',
+        className: 'Neo.component.Toast',
         /**
          * @member {String} ntype='toast'
          * @protected

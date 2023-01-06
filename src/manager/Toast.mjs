@@ -15,7 +15,7 @@ class Toast extends Base {
      */
     defaultMargin = 16
     /**
-     * This is the default config for the Neo.dialog.Toast
+     * This is the default config for the Neo.component.Toast
      * @member {Object}
      */
     defaultToastConfig = {
@@ -43,9 +43,9 @@ class Toast extends Base {
     }
     /**
      * If you prefer your own class to open, override here
-     * @member {String} toastClass='Neo.dialog.Toast'
+     * @member {String} toastClass='Neo.component.Toast'
      */
-    toastClass = 'Neo.dialog.Toast'
+    toastClass = 'Neo.component.Toast'
 
     static getConfig() {return {
         /**
