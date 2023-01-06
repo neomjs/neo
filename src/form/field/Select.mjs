@@ -102,9 +102,9 @@ class Select extends Picker {
          * Showing the list via the down trigger can either show all list items or only show items which
          * match the filter string inside the input field.
          * Valid values: all, filtered
-         * @member {String} triggerAction_='filtered'
+         * @member {String} triggerAction_='all'
          */
-        triggerAction_: 'filtered',
+        triggerAction_: 'all',
         /**
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
@@ -150,7 +150,7 @@ class Select extends Picker {
             scope             : me
         });
 
-        me.typeAhead && me.updateTypeAhead();
+        me.typeAhead && me.updateTypeAhead()
     }
 
     /**
@@ -173,7 +173,7 @@ class Select extends Picker {
                 value             : value.get(me.value)?.[me.displayField] || me.value
             });
 
-            value.filters = filters;
+            value.filters = filters
         }
     }
 
@@ -184,14 +184,14 @@ class Select extends Picker {
      * @protected
      */
     afterSetTypeAhead(value, oldValue) {
-        this.rendered && this.updateTypeAhead();
+        this.rendered && this.updateTypeAhead()
     }
 
     /**
      * Triggered after the value config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @param {Boolean} [preventFilter=false]
+     * @param {Boolean} preventFilter=false
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
@@ -201,7 +201,7 @@ class Select extends Picker {
         !preventFilter && this.updateValue(true);
         list && (list.silentVdomUpdate = false);
 
-        super.afterSetValue(value, oldValue);
+        super.afterSetValue(value, oldValue)
     }
 
     /**
@@ -213,7 +213,7 @@ class Select extends Picker {
      */
     beforeSetListConfig(value, oldValue) {
         value && this.parseItemConfigs(value);
-        return value;
+        return value
     }
 
     /**
@@ -237,7 +237,7 @@ class Select extends Picker {
             }
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, Store);
+        return ClassSystemUtil.beforeSetInstance(value, Store)
     }
 
     /**
@@ -247,7 +247,7 @@ class Select extends Picker {
      * @protected
      */
     beforeSetTriggerAction(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'triggerAction');
+        return this.beforeSetEnumValue(value, oldValue, 'triggerAction')
     }
 
     /**
@@ -277,14 +277,14 @@ class Select extends Picker {
 
         me.record = store.find(displayField, value)[0] || null;
 
-        return value;
+        return value
     }
 
     /**
      * @returns {Neo.list.Base}
      */
     createPickerComponent() {
-        return this.list;
+        return this.list
     }
 
     /**
@@ -307,7 +307,7 @@ class Select extends Picker {
                 oldValue,
                 record,
                 value
-            });
+            })
         }
     }
 
@@ -322,18 +322,18 @@ class Select extends Picker {
         me.value = lastManualInput;
 
         Neo.main.DomAccess.focus({
-            id: me.getInputElId()
+            appName: me.appName,
+            id     : me.getInputElId()
         }).then(() => {
-            callback?.apply(me);
-        });
+            callback?.apply(me)
+        })
     }
 
     /**
      * @returns {Object}
      */
     getInputHintEl() {
-        let el = VDomUtil.findVdomChild(this.vdom, this.getInputHintId());
-        return el?.vdom;
+        return VDomUtil.findVdomChild(this.vdom, this.getInputHintId())?.vdom
     }
 
     /**
@@ -351,7 +351,7 @@ class Select extends Picker {
         let list      = this.list,
             recordKey = list.selectionModel.getSelection()[0];
 
-        return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null;
+        return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null
     }
 
     /**
@@ -360,7 +360,7 @@ class Select extends Picker {
     getSubmitValue() {
         let me = this;
 
-        return me.record?.[me.valueField] || me.value;
+        return me.record?.[me.valueField] || me.value
     }
 
     /**
@@ -368,7 +368,7 @@ class Select extends Picker {
      * @protected
      */
     onContainerKeyDownEnter(data) {
-        this.hidePicker();
+        this.hidePicker()
     }
 
     /**
@@ -376,7 +376,7 @@ class Select extends Picker {
      * @protected
      */
     onContainerKeyDownEscape(data) {
-        this.focusInputEl(this.hidePicker);
+        this.focusInputEl(this.hidePicker)
     }
 
     /**
@@ -391,7 +391,7 @@ class Select extends Picker {
             me.value = me.hintRecordId;
         }
 
-        super.onFocusLeave(data);
+        super.onFocusLeave(data)
     }
 
     /**
@@ -400,7 +400,7 @@ class Select extends Picker {
      */
     onInputValueChange(data) {
         super.onInputValueChange(data);
-        this.lastManualInput = data.value;
+        this.lastManualInput = data.value
     }
 
     /**
@@ -408,7 +408,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownDown(data) {
-        this.onKeyDownEnter(data);
+        this.onKeyDownEnter(data)
     }
 
     /**
@@ -420,9 +420,9 @@ class Select extends Picker {
 
         if (me.pickerIsMounted) {
             me.selectListItem();
-            super.onKeyDownEnter(data);
+            super.onKeyDownEnter(data)
         } else {
-            super.onKeyDownEnter(data, me.selectListItem);
+            super.onKeyDownEnter(data, me.selectListItem)
         }
     }
 
@@ -441,7 +441,7 @@ class Select extends Picker {
             me.record = record;
             me._value = record[me.displayField];
 
-            me.afterSetValue(me._value, oldValue);
+            me.afterSetValue(me._value, oldValue)
         }
     }
 
@@ -454,9 +454,9 @@ class Select extends Picker {
 
         if (me.pickerIsMounted) {
             me.selectLastListItem();
-            super.onKeyDownEnter(data);
+            super.onKeyDownEnter(data)
         } else {
-            super.onKeyDownEnter(data, me.selectLastListItem);
+            super.onKeyDownEnter(data, me.selectLastListItem)
         }
     }
 
@@ -465,53 +465,8 @@ class Select extends Picker {
      */
     onListCreateItems() {
         let me = this;
-        me.typeAhead && me.picker?.mounted && me.updateTypeAheadValue();
+        me.typeAhead && me.picker?.mounted && me.updateTypeAheadValue()
     }
-
-    /**
-     * @param {Object} record
-     * @protected
-     */
-    onListItemClick(record) {
-        this.onListItemChange(record);
-        this.hidePicker();
-    }
-
-    /**
-     * Called by form.field.trigger.Picker
-     * @protected
-     */
-    onPickerTriggerClick() {
-        let me = this,
-            filter;
-
-        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
-            filter = me.store.getFilter(me.displayField);
-
-            if (filter) {
-                filter.value = null;
-            }
-        }
-
-        super.onPickerTriggerClick();
-    }
-
-    /**
-     * @protected
-     */
-    onSelectPostLastItem() {
-        this.record = null;
-        this.focusInputEl();
-    }
-
-    /**
-     * @protected
-     */
-    onSelectPreFirstItem() {
-        this.record = null;
-        this.focusInputEl();
-    }
-
 
     /**
      * @param {Object} record
@@ -534,7 +489,7 @@ class Select extends Picker {
             me.fire('select', {
                 record,
                 value: record[displayField]
-            });
+            })
         }
     }
 
@@ -542,22 +497,66 @@ class Select extends Picker {
      * @param {Object} record
      * @protected
      */
-    onListItemNavigate(record) {
+    onListItemClick(record) {
         this.onListItemChange(record);
+        this.hidePicker()
+    }
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
+    onListItemNavigate(record) {
+        this.onListItemChange(record)
+    }
+
+    /**
+     * Called by form.field.trigger.Picker
+     * @protected
+     */
+    onPickerTriggerClick() {
+        let me = this,
+            filter;
+
+        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
+            filter = me.store.getFilter(me.displayField);
+
+            if (filter) {
+                filter.value = null;
+            }
+        }
+
+        super.onPickerTriggerClick()
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPostLastItem() {
+        this.record = null;
+        this.focusInputEl()
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPreFirstItem() {
+        this.record = null;
+        this.focusInputEl()
     }
 
     /**
      *
      */
     selectFirstListItem() {
-        this.selectListItem(0);
+        this.selectListItem(0)
     }
 
     /**
      *
      */
     selectLastListItem() {
-        this.selectListItem(this.store.getCount() -1);
+        this.selectListItem(this.store.getCount() -1)
     }
 
     /**
@@ -576,7 +575,7 @@ class Select extends Picker {
         }
 
         me.list.selectItem(index);
-        me.onListItemNavigate(me.store.getAt(index));
+        me.onListItemNavigate(me.store.getAt(index))
     }
 
     /**
@@ -605,7 +604,7 @@ class Select extends Picker {
             VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom);
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -619,7 +618,6 @@ class Select extends Picker {
             store       = me.store,
             i           = 0,
             len         = store.getCount(),
-            vdom        = me.vdom,
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
@@ -628,7 +626,6 @@ class Select extends Picker {
                 storeValue = store.items[i][me.displayField];
 
                 if (!Neo.isString(storeValue)) {
-                    console.log(store);
                     return;
                 }
 
@@ -640,7 +637,7 @@ class Select extends Picker {
 
             if (hasMatch && inputHintEl) {
                 inputHintEl.value = value + storeValue.substr(value.length);
-                me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty];
+                me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty]
             }
         }
 
@@ -649,11 +646,11 @@ class Select extends Picker {
             me.hintRecordId = null;
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      * @protected
      */
     updateValue(silent=false) {
@@ -661,19 +658,18 @@ class Select extends Picker {
             displayField = me.displayField,
             store        = me.store,
             value        = me._value,
-            record       = me.record,
             filter;
 
         if (store && !Neo.isEmpty(store.filters)) {
             filter = store.getFilter(displayField);
 
             if (filter) {
-                filter.value = record?.[displayField] || value;
+                filter.value = me.record?.[displayField] || value;
             }
         }
 
         if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue(value, silent);
+            me.updateTypeAheadValue(value, silent)
         }
     }
 }

@@ -3,6 +3,7 @@ $neoMap: map-merge($neoMap, (
     'button-active-border-color'      : #282828,
     'button-active-color'             : #bbb,
     'button-background-color'         : #3c3f41,
+    'button-background-color-disabled': #3c3f41,
     'button-background-image'         : linear-gradient(#434749, #323536),
     'button-background-gradient-end'  : #323536,
     'button-background-gradient-start': #434749,
@@ -10,17 +11,23 @@ $neoMap: map-merge($neoMap, (
     'button-badge-color'              : #282828,
     'button-badge-margin-left'        : -10px,
     'button-badge-margin-top'         : -10px,
-    'button-border'                   : 1px solid #2b2b2b,
+    'button-border-color'             : #2b2b2b,
+    'button-border-color-disabled'    : #2b2b2b,
     'button-border-radius'            : 0,
+    'button-border-width'             : 1px,
     'button-glyph-color'              : #bbb,
+    'button-glyph-color-disabled'     : #bbb,
     'button-hover-background-color'   : #3a3c3e,
     'button-hover-border-color'       : #292929,
     'button-hover-color'              : #bbb,
     'button-margin'                   : 2px,
+    'button-opacity-disabled'         : #{neo(neo-disabled-opacity)},
+    'button-outline-active'           : none,
     'button-padding'                  : 5px 12px 5px 12px,
     'button-pressed-border-color'     : #5d83a7,
     'button-ripple-background-color'  : darken(#5d83a7, 10%),
     'button-text-color'               : #bbb,
+    'button-text-color-disabled'      : #bbb,
     'button-text-font-family'         : #{neo(neo-font-family)},
     'button-text-font-size'           : 11px,
     'button-text-font-weight'         : 600,
@@ -35,6 +42,7 @@ $neoMap: map-merge($neoMap, (
         --button-active-border-color      : #{neo(button-active-border-color)};
         --button-active-color             : #{neo(button-active-color)};
         --button-background-color         : #{neo(button-background-color)};
+        --button-background-color-disabled: #{neo(button-background-color-disabled)};
         --button-background-image         : #{neo(button-background-image)};
         --button-background-gradient-end  : #{neo(button-background-gradient-end)};
         --button-background-gradient-start: #{neo(button-background-gradient-start)};
@@ -42,17 +50,23 @@ $neoMap: map-merge($neoMap, (
         --button-badge-color              : #{neo(button-badge-color)};
         --button-badge-margin-left        : #{neo(button-badge-margin-left)};
         --button-badge-margin-top         : #{neo(button-badge-margin-top)};
-        --button-border                   : #{neo(button-border)};
+        --button-border-color             : #{neo(button-border-color)};
+        --button-border-color-disabled    : #{neo(button-border-color-disabled)};
         --button-border-radius            : #{neo(button-border-radius)};
+        --button-border-width             : #{neo(button-border-width)};
         --button-glyph-color              : #{neo(button-glyph-color)};
+        --button-glyph-color-disabled     : #{neo(button-glyph-color-disabled)};
         --button-hover-background-color   : #{neo(button-hover-background-color)};
         --button-hover-border-color       : #{neo(button-hover-border-color)};
         --button-hover-color              : #{neo(button-hover-color)};
         --button-margin                   : #{neo(button-margin)};
+        --button-opacity-disabled         : #{neo(button-opacity-disabled)};
+        --button-outline-active           : #{neo(button-outline-active)};
         --button-padding                  : #{neo(button-padding)};
         --button-pressed-border-color     : #{neo(button-pressed-border-color)};
         --button-ripple-background-color  : #{neo(button-ripple-background-color)};
         --button-text-color               : #{neo(button-text-color)};
+        --button-text-color-disabled      : #{neo(button-text-color-disabled)};
         --button-text-font-family         : #{neo(button-text-font-family)};
         --button-text-font-size           : #{neo(button-text-font-size)};
         --button-text-font-weight         : #{neo(button-text-font-weight)};

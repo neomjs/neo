@@ -1062,7 +1062,7 @@ class Base extends CoreBase {
      * Convenience shortcut for Neo.manager.Component.down
      * @param {Object|String} config
      * @param {Boolean} returnFirstMatch=true
-     * @returns {Neo.core.Base} The matching instance or null
+     * @returns {Neo.component.Base|null} The matching instance or null
      */
     down(config, returnFirstMatch=true) {
         return ComponentManager.down(this, config, returnFirstMatch);
@@ -1185,6 +1185,15 @@ class Base extends CoreBase {
         }
 
         return null;
+    }
+
+    /**
+     * convenience shortcut
+     * @param {String} value
+     * @returns {Neo.component.Base|null}
+     */
+    getReference(value) {
+        return this.down({reference: value})
     }
 
     /**
