@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base         from './Base.mjs';
+import NeoArray     from "../util/Array.mjs";
 
 /**
  * See Neo.dialog.Toast for examples
@@ -17,22 +18,29 @@ class Toast extends Base {
         maxWidth      : 250,
         position      : 'tr',
         running       : false,
-        slideDirection: 'down',
+        slideDirection: 'right',
         timeout       : 3000,
         title         : null
     }
     /**
-     * Currently only 1 is supported, because they would overlap
-     * @member {1} maxToasts=1
+     * Using a default margin between the item
+     * If you switch the distance to the top or bottom
+     * you have to change this value accordingly
+     * @member {Number} defaultMargin=16
      */
-    maxToasts = 1
+    defaultMargin = 16
+    /**
+     * Currently only 1 is supported, because they would overlap
+     * @member {Number} maxToasts=3
+     */
+    maxToasts = 3
     /**
      * Counts the currently running Toasts per area
      * @member {Object} running
      */
     running = {
-        bc: 0, bl: 0, br: 0,
-        tc: 0, tl: 0, tr: 0
+        bc: [], bl: [], br: [],
+        tc: [], tl: [], tr: []
     }
     /**
      * If you prefer your own class to open, override here
@@ -59,43 +67,29 @@ class Toast extends Base {
     }
 
     /**
-     * @param {Object} item
-     */
-    register(item) {
-        super.register(item);
-        this.runQueue();
-    }
-
-    /**
-     * Removes a collection item passed by reference or key
-     * @param {Object|String} item
-     */
-    unregister(item) {
-        super.unregister(item);
-        this.runQueue();
-    }
-
-    /**
      * Create the Toast definition and pass it to the Collection
      *
      * @param {Object} toast
      * @returns {Object}
      */
     createToast(toast) {
-        let me = this,
-            id;
-
+        if (toast.position && !this.running[toast.position]) {
+            Neo.logError('[Neo.manager.Toast] Supported values for slideDirection are: tl, tc, tr, bl, bc, br');
+            return null;
+        }
         if (!toast.msg || !toast.appName) {
             !toast.msg     && Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
             !toast.appName && Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
             return null;
         }
 
+        let me = this,
+            id;
+
         id = Neo.core.IdGenerator.getId('toastmanager-toast');
 
         toast = {
             id,
-            toastManagerId: id,
             ...me.defaultToastConfig,
             ...toast
         };
@@ -106,14 +100,53 @@ class Toast extends Base {
     }
 
     /**
+     * Find the first toast based on the maximum allowed toasts
+     *
+     * @returns {*}
+     * @private
+     */
+    findFirstToast() {
+        let me = this,
+            firstToast, item;
+
+        me.filters = [{property: 'running', value: false}];
+
+        for (item of me.map.values()) {
+            if (me.running[item.position].length < me.maxToasts) {
+                firstToast = item;
+                firstToast.running = true;
+                break;
+            }
+        }
+
+        me.clearFilters();
+
+        return firstToast;
+    }
+
+    /**
+     * @param {Object} item
+     */
+    register(item) {
+        super.register(item);
+        this.runQueue();
+    }
+
+    /**
      * Removes a task from collection.
+     *
      * @param {String} toastId
      */
     removeToast(toastId) {
-        let me = this;
+        let me = this,
+            mapItem = me.get(toastId),
+            position;
 
+        if (!mapItem) return;
+        position = mapItem.position;
         // decrease total of displayed toasts for a position
-        me.running[me.map.get(toastId).position]--;
+        NeoArray.remove(me.running[position], toastId);
+        me.updateItemsInPosition(toastId);
         me.unregister(toastId);
     }
 
@@ -131,36 +164,63 @@ class Toast extends Base {
         }
     }
 
+    /**
+     * Neo.create a new toast add listeners
+     * and add it to the running array
+     *
+     * @param {Object} toast
+     */
     showToast(toast) {
-        let toastConfig = Neo.clone(toast);
+        let me = this,
+            toastConfig = Neo.clone(toast),
+            position = toastConfig.position;
+
+        let newItem = Neo.create(me.toastClass, toastConfig);
+        // add a listener
+        newItem.on({
+            mounted: me.updateItemsInPosition,
+            scope: me
+        })
         // increase total of displayed toasts for a position
-        this.running[toastConfig.position]++
-        // Neo.create does not allow to pass an id
-        delete toastConfig.id;
-        Neo.create(this.toastClass, toastConfig);
+        me.running[position].push(toast.id);
     }
 
     /**
-     * Find the first toast based on the maximum allowed toasts
-     * @returns {*}
+     * Removes a collection item passed by reference or key
+     *
+     * @param {Object|String} item
      */
-    findFirstToast() {
+    unregister(item) {
+        super.unregister(item);
+        this.runQueue();
+    }
+
+    /**
+     * To handle multiple toasts we handle the exact position
+     * from the top or bottom
+     *
+     * @param {string} id
+     * @returns {Promise<void>}
+     */
+    async updateItemsInPosition(id) {
         let me = this,
-            firstToast, item;
+            position = me.get(id).position,
+            positionArray = me.running[position],
+            acc = 0,
+            margin = me.defaultMargin,
+            moveTo = position.substring(0,1) === 't' ? 'top' : 'bottom';
 
-        me.filters = [{property: 'running', value: false}];
-        me.filter();
+        for (const componentId of positionArray) {
+            let component = Neo.getComponent(componentId),
+                rect = await component.getDomRect(),
+                moveObj = {};
 
-        for (item of me.map.values()) {
-            if (me.running[item.position] < me.maxToasts) {
-                firstToast = item;
-                break;
-            }
+            acc = acc + margin
+            moveObj[moveTo] = acc + 'px';
+            component.style = moveObj;
+            component.update();
+            acc = acc + rect.height;
         }
-
-        me.clearFilters();
-
-        return firstToast;
     }
 }
 

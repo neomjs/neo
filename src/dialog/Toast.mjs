@@ -16,7 +16,7 @@ import NeoArray     from "../util/Array.mjs";
             iconCls         : 'fa fa-bell', // null
             maxWidth        : 300,          // 250
             position        : 'br',         // 'tr'
-            slideDirection  : 'right',      // 'down'
+            slideDirection  : 'right',      // 'right'
             title           : 'Alarm Clock' // null
         })
  */
@@ -27,12 +27,6 @@ class Toast extends Base {
      * @private
      */
     running = false
-    /**
-     * Used by the ToastManager
-     * @member {String|null} toastManagerId=null
-     * @private
-     */
-    toastManagerId = null
 
     static getStaticConfig() {return {
         /**
@@ -77,49 +71,58 @@ class Toast extends Base {
         baseCls: ['neo-toast'],
         /**
          * If true makes the toast sticky and show a close icon
+         *
          * @member {Boolean} closable=false
          */
         closable_: false,
         /**
          * If set, it shows this icon in front of the text
          * e.g. 'fa fa-cog'
+         *
          * @member {String|null} iconCls=null
          */
         iconCls_: null,
         /**
          * Limits the width of the Toast
+         *
          * @member {Number} maxWidth=250
          */
         maxWidth: 250,
         /**
          * Sets the minimum height of the Toast
+         *
          * @member {Number} minHeight=50
          */
         minHeight: 50,
         /**
          * Your message. You can also pass in an iconCls
+         *
          * @member {String|null} msg_=null
          */
         msg_: null,
         /**
          * Describes the position of the toast, e.g. bl=bottom-left
          * This creates a cls `noe-toast-position`
+         *
          * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
          */
         position_: 'tr',
         /**
          * Describes which direction from which side the toasts slides-in
          * This creates a cls `neo-toast-slide-${direction}-in`
-         * @member {'down'|'up'|'left'|'right'} slideDirection_=null
+         *
+         * @member {'down'|'up'|'left'|'right'} slideDirection_='right'
          */
-        slideDirection_: 'down',
+        slideDirection_: 'right',
         /**
          * Timeout in ms after which the toast is removed
+         *
          * @member {Number} timeout_=3000
          */
         timeout_: 3000,
         /**
          * Adds a title to the toast
+         *
          * @member {Number} title_=null
          */
         title_: null,
@@ -187,6 +190,39 @@ class Toast extends Base {
     }
 
     /**
+     * Apply a cls, based on the position
+     *
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetPosition(value, oldValue) {
+        value && this.addCls(`neo-toast-${value}`)
+    }
+
+    /**
+     * Apply a cls, based on the slideDirection
+     *
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetSlideDirection(value, oldValue) {
+        value && this.addCls(`neo-toast-slide-${value}-in`)
+    }
+
+    /**
+     * Close the toast after the timeout if not closable
+     *
+     * @param {Number} value
+     * @param {Number} oldValue
+     */
+    async afterSetTimeout(value, oldValue) {
+        if (!this.closable && value) {
+            await Neo.timeout(value);
+            this.unregister();
+        }
+    }
+
+    /**
      * @param {String|null} value
      * @param {String|null} oldValue
      */
@@ -200,37 +236,8 @@ class Toast extends Base {
     }
 
     /**
-     * Apply a cls, based on the position
-     * @param {String} value
-     * @param {String} oldValue
-     */
-    afterSetPosition(value, oldValue) {
-        value && this.addCls(`neo-toast-${value}`)
-    }
-
-    /**
-     * Apply a cls, based on the slideDirection
-     * @param {String} value
-     * @param {String} oldValue
-     */
-    afterSetSlideDirection(value, oldValue) {
-        value && this.addCls(`neo-toast-slide-${value}-in`)
-    }
-
-    /**
-     * Close the toast after the timeout if not closable
-     * @param {Number} value
-     * @param {Number} oldValue
-     */
-    async afterSetTimeout(value, oldValue) {
-        if (!this.closable && value) {
-            await Neo.timeout(value);
-            this.unregister();
-        }
-    }
-
-    /**
      * Triggered before the position config gets changed
+     *
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -241,6 +248,7 @@ class Toast extends Base {
 
     /**
      * Triggered before the slideDirection config gets changed
+     *
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -251,6 +259,7 @@ class Toast extends Base {
 
     /**
      * This is a dialog, so we have to add an item to be able to
+     *
      * @returns {vdom}
      */
     getVdomInner() {
@@ -270,7 +279,7 @@ class Toast extends Base {
 
         me.addDomListeners({
             animationend: function () {
-                ToastManager.removeToast(me.toastManagerId);
+                ToastManager.removeToast(me.id);
                 me.destroy(true);
             }
         })
