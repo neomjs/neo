@@ -65,6 +65,10 @@
         }
     }
 
+    &.neo-button-tertiary {
+        border-width: 0;
+    }
+
     &.no-text {
         .neo-button-glyph {
             margin: 0 !important;
