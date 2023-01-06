@@ -102,9 +102,9 @@ class Select extends Picker {
          * Showing the list via the down trigger can either show all list items or only show items which
          * match the filter string inside the input field.
          * Valid values: all, filtered
-         * @member {String} triggerAction_='filtered'
+         * @member {String} triggerAction_='all'
          */
-        triggerAction_: 'filtered',
+        triggerAction_: 'all',
         /**
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
@@ -191,7 +191,7 @@ class Select extends Picker {
      * Triggered after the value config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @param {Boolean} [preventFilter=false]
+     * @param {Boolean} preventFilter=false
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
@@ -322,18 +322,18 @@ class Select extends Picker {
         me.value = lastManualInput;
 
         Neo.main.DomAccess.focus({
-            id: me.getInputElId()
+            appName: me.appName,
+            id     : me.getInputElId()
         }).then(() => {
             callback?.apply(me)
-        });
+        })
     }
 
     /**
      * @returns {Object}
      */
     getInputHintEl() {
-        let el = VDomUtil.findVdomChild(this.vdom, this.getInputHintId())
-        return el?.vdom;
+        return VDomUtil.findVdomChild(this.vdom, this.getInputHintId())?.vdom
     }
 
     /**
@@ -604,7 +604,7 @@ class Select extends Picker {
             VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom);
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom
+        !silent && me.update()
     }
 
     /**
@@ -618,7 +618,6 @@ class Select extends Picker {
             store       = me.store,
             i           = 0,
             len         = store.getCount(),
-            vdom        = me.vdom,
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
@@ -627,7 +626,6 @@ class Select extends Picker {
                 storeValue = store.items[i][me.displayField];
 
                 if (!Neo.isString(storeValue)) {
-                    console.log(store);
                     return;
                 }
 
@@ -648,11 +646,11 @@ class Select extends Picker {
             me.hintRecordId = null;
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      * @protected
      */
     updateValue(silent=false) {
@@ -660,19 +658,18 @@ class Select extends Picker {
             displayField = me.displayField,
             store        = me.store,
             value        = me._value,
-            record       = me.record,
             filter;
 
         if (store && !Neo.isEmpty(store.filters)) {
             filter = store.getFilter(displayField);
 
             if (filter) {
-                filter.value = record?.[displayField] || value;
+                filter.value = me.record?.[displayField] || value;
             }
         }
 
         if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue(value, silent);
+            me.updateTypeAheadValue(value, silent)
         }
     }
 }

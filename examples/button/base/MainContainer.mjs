@@ -138,11 +138,12 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
-            module    :  SelectField,
-            labelText : 'ui',
-            listeners : {change: me.onConfigChange.bind(me, 'ui')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.ui,
+            module        : SelectField,
+            forceSelection: true,
+            labelText     : 'ui',
+            listeners     : {change: me.onConfigChange.bind(me, 'ui')},
+            style         : {marginTop: '10px'},
+            value         : me.exampleComponent.ui,
 
             store: {
                 data: [
