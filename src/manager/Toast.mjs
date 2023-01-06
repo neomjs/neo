@@ -57,10 +57,12 @@ class Toast extends Base {
     /**
      * Create the Toast definition and pass it to the Collection
      * @param {Object} toast
-     * @returns {Object}
+     * @returns {String|null}
      */
     createToast(toast) {
-        if (toast.position && !this.running[toast.position]) {
+        let me = this;
+
+        if (toast.position && !me.running[toast.position]) {
             Neo.logError('[Neo.manager.Toast] Supported values for slideDirection are: tl, tc, tr, bl, bc, br');
             return null;
         }
@@ -71,19 +73,18 @@ class Toast extends Base {
             return null;
         }
 
-        let me = this,
-            id;
+        toast = Neo.create(this.toastClass, {
+            autoMount: false,
+            ...toast,
+            listeners: {
+                mounted: me.updateItemsInPosition,
+                scope  : me
+            }
+        });
 
-        id = Neo.core.IdGenerator.getId('toastmanager-toast');
+        this.register(toast);
 
-        toast = {
-            id,
-            ...toast
-        };
-
-        me.register(toast);
-
-        return toast.toastManagerId;
+        return toast.id;
     }
 
     /**
@@ -153,23 +154,13 @@ class Toast extends Base {
     }
 
     /**
-     * Neo.create a new toast add listeners
-     * and add it to the running array
-     * @param {Object} toast
+     * @param {Neo.component.Toast} toast
      */
     showToast(toast) {
-        let me          = this,
-            toastConfig = Neo.clone(toast, true),
-            position    = toastConfig.position,
-            newItem     = Neo.create(me.toastClass, toastConfig);
-
-        newItem.on({
-            mounted: me.updateItemsInPosition,
-            scope  : me
-        });
+        toast.render(true);
 
         // increase total of displayed toasts for a position
-        me.running[position].push(toast.id);
+        this.running[toast.position].push(toast.id);
     }
 
     /**
