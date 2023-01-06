@@ -111,7 +111,8 @@ class Toast extends Base {
         /**
          * @member {String|null} title=null
          */
-        vdom: {cn: [{
+        vdom:
+        {cn: [{
             cls: 'neo-toast-inner', cn: [
                 {cls: ['neo-toast-icon'], removeDom: true},
                 {cls: 'neo-toast-text', cn: [
@@ -154,12 +155,11 @@ class Toast extends Base {
      * @param {String|null} oldValue
      */
     afterSetIconCls(value, oldValue) {
-        let vdom = this.getVdomInner().cn[0],
-            cls = vdom.cls,
-            clsFn = !!value ? 'add' : 'remove';
+        let vdom  = this.getVdomInner().cn[0],
+            cls   = vdom.cls;
 
         vdom.removeDom = Neo.isEmpty(value);
-        NeoArray[clsFn](cls, value);
+        NeoArray[value ? 'add' : 'remove'](cls, value);
     }
 
     /**
@@ -170,7 +170,7 @@ class Toast extends Base {
      * @param {String|null} oldValue
      */
     afterSetMsg(value, oldValue) {
-        let vdom     = this.getTextRootVdom().cn[1];
+        let vdom = this.getTextRootVdom().cn[1];
 
         vdom.innerHTML = value;
     }
@@ -215,12 +215,11 @@ class Toast extends Base {
      * @param {String|null} oldValue
      */
     afterSetTitle(value, oldValue) {
-        let vdom = this.getTextRootVdom().cn[0],
-            clsFn = !!value ? 'add' : 'remove';
+        let vdom = this.getTextRootVdom().cn[0];
 
         vdom.removeDom = Neo.isEmpty(value);
         vdom.innerHTML = value;
-        NeoArray[clsFn](vdom.cls, 'neo-toast-has-title');
+        NeoArray[value ? 'add' : 'remove'](vdom.cls, 'neo-toast-has-title');
     }
 
     /**
