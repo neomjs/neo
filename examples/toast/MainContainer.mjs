@@ -44,7 +44,7 @@ class MainContainer extends Viewport {
                 style    : {paddingBottom: '40px', marginLeft: '10px'}
             }, {
                 module   : TextField,
-                labelText: 'tile',
+                labelText: 'title',
                 name     : 'title'
             }, {
                 module   : TextField,
@@ -57,7 +57,7 @@ class MainContainer extends Viewport {
                 store    : {data: [{name: 'tl'}, {name: 'tc'}, {name: 'tr'}, {name: 'bl'}, {name: 'bc'}, {name: 'br'}]}
             }, {
                 module   : SelectField,
-                labelText: 'slideDirection = down',
+                labelText: 'slideDirection = right',
                 name     : 'slideDirection',
                 store    : {data: [{name: 'down'}, {name: 'up'}, {name: 'left'}, {name: 'right'}]}
             }, {

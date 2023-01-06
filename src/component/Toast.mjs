@@ -3,7 +3,7 @@ import ToastManager from '../manager/Toast.mjs';
 import NeoArray     from "../util/Array.mjs";
 
 /**
- * @class Neo.dialog.Toast
+ * @class Neo.component.Toast
  * @extends Neo.component.Base
  *
  * @example
@@ -16,7 +16,7 @@ import NeoArray     from "../util/Array.mjs";
             iconCls         : 'fa fa-bell', // null
             maxWidth        : 300,          // 250
             position        : 'br',         // 'tr'
-            slideDirection  : 'right',      // 'down'
+            slideDirection  : 'right',      // 'right'
             title           : 'Alarm Clock' // null
         })
  */
@@ -28,11 +28,10 @@ class Toast extends Base {
      */
     running = false
     /**
-     * Used by the ToastManager
-     * @member {String|null} toastManagerId=null
-     * @private
+     * Timeout in ms after which the toast is removed
+     * @member {Number} timeout=3000
      */
-    toastManagerId = null
+    timeout = 3000
 
     static getStaticConfig() {return {
         /**
@@ -52,24 +51,15 @@ class Toast extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.dialog.Toast'
+         * @member {String} className='Neo.component.Toast'
          * @protected
          */
-        className: 'Neo.dialog.Toast',
+        className: 'Neo.component.Toast',
         /**
          * @member {String} ntype='toast'
          * @protected
          */
         ntype: 'toast',
-
-        /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
-         * @member {Boolean} autoRender=true
-         */
-        autoRender: true,
         /**
          * @member {String[]} baseCls=['neo-toast']
          * @protected
@@ -110,14 +100,9 @@ class Toast extends Base {
         /**
          * Describes which direction from which side the toasts slides-in
          * This creates a cls `neo-toast-slide-${direction}-in`
-         * @member {'down'|'up'|'left'|'right'} slideDirection_=null
+         * @member {'down'|'up'|'left'|'right'} slideDirection_='right'
          */
-        slideDirection_: 'down',
-        /**
-         * Timeout in ms after which the toast is removed
-         * @member {Number} timeout_=3000
-         */
-        timeout_: 3000,
+        slideDirection_: 'right',
         /**
          * Adds a title to the toast
          * @member {Number} title_=null
@@ -138,6 +123,9 @@ class Toast extends Base {
         }]}
     }}
 
+    /**
+     * @param {Object} config
+     */
     construct(config) {
         super.construct(config);
 
@@ -146,7 +134,9 @@ class Toast extends Base {
         // click listener for close
         me.addDomListeners([
             {click: {fn: me.unregister, delegate: '.neo-toast-close', scope: me}}
-        ])
+        ]);
+
+        ToastManager.register(me);
     }
 
     /**
@@ -176,7 +166,6 @@ class Toast extends Base {
      * Using the afterSetMsg to trigger the setup of the dom
      * A new container is added as an item.
      * We cannot use the vdom here.
-     *
      * @param {String|null} value
      * @param {String|null} oldValue
      */
@@ -184,19 +173,6 @@ class Toast extends Base {
         let vdom     = this.getTextRootVdom().cn[1];
 
         vdom.innerHTML = value;
-    }
-
-    /**
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     */
-    afterSetTitle(value, oldValue) {
-        let vdom = this.getTextRootVdom().cn[0],
-            clsFn = !!value ? 'add' : 'remove';
-
-        vdom.removeDom = Neo.isEmpty(value);
-        vdom.innerHTML = value;
-        NeoArray[clsFn](vdom.cls, 'neo-toast-has-title');
     }
 
     /**
@@ -218,15 +194,33 @@ class Toast extends Base {
     }
 
     /**
-     * Close the toast after the timeout if not closable
-     * @param {Number} value
-     * @param {Number} oldValue
+     * Close the toast after the mounted if not closable
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      */
-    async afterSetTimeout(value, oldValue) {
-        if (!this.closable && value) {
-            await Neo.timeout(value);
-            this.unregister();
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (!me.closable && value) {
+            setTimeout(() => {
+                this.destroy(true);
+            }, me.timeout)
         }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTitle(value, oldValue) {
+        let vdom = this.getTextRootVdom().cn[0],
+            clsFn = !!value ? 'add' : 'remove';
+
+        vdom.removeDom = Neo.isEmpty(value);
+        vdom.innerHTML = value;
+        NeoArray[clsFn](vdom.cls, 'neo-toast-has-title');
     }
 
     /**
@@ -250,32 +244,36 @@ class Toast extends Base {
     }
 
     /**
-     * This is a dialog, so we have to add an item to be able to
-     * @returns {vdom}
+     *
      */
-    getVdomInner() {
-        return this.vdom.cn[0];
+    async destroy(...args) {
+        let me = this;
+
+        me.addDomListeners({
+            animationend: function () {
+                ToastManager.removeToast(me.id);
+                ToastManager.unregister(me);
+                me.destroy(true);
+            }
+        });
+
+        me.addCls('neo-toast-fade-out')
     }
 
+    /**
+     * This is a dialog, so we have to add an item to be able to
+     * @returns {Object} vdom
+     */
     getTextRootVdom() {
         return this.getVdomInner().cn[1];
     }
 
     /**
-     * After the close-click or timeout, we unregister the toast
-     * from the ToastManager
+     * This is a dialog, so we have to add an item to be able to
+     * @returns {Object} vdom
      */
-    unregister() {
-        let me = this;
-
-        me.addDomListeners({
-            animationend: function () {
-                ToastManager.removeToast(me.toastManagerId);
-                me.destroy(true);
-            }
-        })
-
-        me.addCls('neo-toast-fade-out');
+    getVdomInner() {
+        return this.vdom.cn[0];
     }
 }
 
