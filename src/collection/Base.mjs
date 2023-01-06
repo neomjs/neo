@@ -745,21 +745,24 @@ class Base extends CoreBase {
     /**
      * Returns all items which match the property and value
      * @param {Object|String} property
-     * @param {String|Number} [value] Optional, in case the first param is an object
-     * @returns {Array} Returns an empty Array in case no items are found
+     * @param {String|Number} [value] Only required in case the first param is a string
+     * @param {Boolean} returnFirstMatch=false
+     * @returns {Object|Object[]}
+     *     returnFirstMatch=false: Returns an empty Array in case no items are found
+     *     returnFirstMatch=true:  Returns the first found item or null
      */
-    find(property, value) {
+    find(property, value, returnFirstMatch=false) {
         let me               = this,
             items            = [],
             isObjectProperty = Neo.isObject(property),
-            matchArray, propertiesArray, propertiesLength;
+            item, matchArray, propertiesArray, propertiesLength;
 
         if (isObjectProperty) {
             propertiesArray  = Object.entries(property);
             propertiesLength = propertiesArray.length;
         }
 
-        me.items.forEach(item => {
+        for (item of me.items) {
             if (isObjectProperty) {
                 matchArray = [];
 
@@ -770,14 +773,18 @@ class Base extends CoreBase {
                 });
 
                 if (matchArray.length === propertiesLength) {
+                    if (returnFirstMatch) {
+                        return item;
+                    }
+
                     items.push(item);
                 }
             } else if (item[property] === value) {
                 items.push(item);
             }
-        });
+        }
 
-        return items;
+        return returnFirstMatch ? null : items;
     }
 
     /**
