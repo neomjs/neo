@@ -1,5 +1,5 @@
-import Base         from './Base.mjs';
-import NeoArray     from "../util/Array.mjs";
+import Base     from './Base.mjs';
+import NeoArray from "../util/Array.mjs";
 
 /**
  * See Neo.dialog.Toast for examples
@@ -8,6 +8,12 @@ import NeoArray     from "../util/Array.mjs";
  * @singleton
  */
 class Toast extends Base {
+    /**
+     * Using a default margin between the item
+     * If you switch the distance to the top or bottom you have to change this value accordingly
+     * @member {Number} defaultMargin=16
+     */
+    defaultMargin = 16
     /**
      * This is the default config for the Neo.dialog.Toast
      * @member {Object}
@@ -22,13 +28,6 @@ class Toast extends Base {
         timeout       : 3000,
         title         : null
     }
-    /**
-     * Using a default margin between the item
-     * If you switch the distance to the top or bottom
-     * you have to change this value accordingly
-     * @member {Number} defaultMargin=16
-     */
-    defaultMargin = 16
     /**
      * Currently only 1 is supported, because they would overlap
      * @member {Number} maxToasts=3
@@ -61,6 +60,9 @@ class Toast extends Base {
         singleton: true
     }}
 
+    /**
+     * @param {Object} config
+     */
     construct(config) {
         super.construct(config);
         Neo.toast = this.createToast.bind(this);
@@ -68,7 +70,6 @@ class Toast extends Base {
 
     /**
      * Create the Toast definition and pass it to the Collection
-     *
      * @param {Object} toast
      * @returns {Object}
      */
@@ -77,6 +78,7 @@ class Toast extends Base {
             Neo.logError('[Neo.manager.Toast] Supported values for slideDirection are: tl, tc, tr, bl, bc, br');
             return null;
         }
+
         if (!toast.msg || !toast.appName) {
             !toast.msg     && Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
             !toast.appName && Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
@@ -101,7 +103,6 @@ class Toast extends Base {
 
     /**
      * Find the first toast based on the maximum allowed toasts
-     *
      * @returns {*}
      * @private
      */
@@ -134,7 +135,6 @@ class Toast extends Base {
 
     /**
      * Removes a task from collection.
-     *
      * @param {String} toastId
      */
     removeToast(toastId) {
@@ -142,7 +142,10 @@ class Toast extends Base {
             mapItem = me.get(toastId),
             position;
 
-        if (!mapItem) return;
+        if (!mapItem) {
+            return;
+        }
+
         position = mapItem.position;
         // decrease total of displayed toasts for a position
         NeoArray.remove(me.running[position], toastId);
@@ -167,27 +170,25 @@ class Toast extends Base {
     /**
      * Neo.create a new toast add listeners
      * and add it to the running array
-     *
      * @param {Object} toast
      */
     showToast(toast) {
-        let me = this,
-            toastConfig = Neo.clone(toast),
-            position = toastConfig.position;
+        let me          = this,
+            toastConfig = Neo.clone(toast, true),
+            position    = toastConfig.position,
+            newItem     = Neo.create(me.toastClass, toastConfig);
 
-        let newItem = Neo.create(me.toastClass, toastConfig);
-        // add a listener
         newItem.on({
             mounted: me.updateItemsInPosition,
-            scope: me
-        })
+            scope  : me
+        });
+
         // increase total of displayed toasts for a position
         me.running[position].push(toast.id);
     }
 
     /**
      * Removes a collection item passed by reference or key
-     *
      * @param {Object|String} item
      */
     unregister(item) {
@@ -198,22 +199,22 @@ class Toast extends Base {
     /**
      * To handle multiple toasts we handle the exact position
      * from the top or bottom
-     *
      * @param {string} id
      * @returns {Promise<void>}
      */
     async updateItemsInPosition(id) {
-        let me = this,
-            position = me.get(id).position,
+        let me            = this,
+            position      = me.get(id).position,
             positionArray = me.running[position],
-            acc = 0,
-            margin = me.defaultMargin,
-            moveTo = position.substring(0,1) === 't' ? 'top' : 'bottom';
+            acc           = 0,
+            margin        = me.defaultMargin,
+            moveTo        = position.substring(0, 1) === 't' ? 'top' : 'bottom',
+            component, componentId, moveObj, rect;
 
-        for (const componentId of positionArray) {
-            let component = Neo.getComponent(componentId),
-                rect = await component.getDomRect(),
-                moveObj = {};
+        for (componentId of positionArray) {
+            component = Neo.getComponent(componentId);
+            moveObj   = {};
+            rect      = await component.getDomRect();
 
             acc = acc + margin
             moveObj[moveTo] = acc + 'px';
