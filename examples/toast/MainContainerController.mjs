@@ -1,5 +1,5 @@
 import ComponentController from '../../src/controller/Component.mjs';
-import Toast               from '../../src/dialog/Toast.mjs';
+import Toast               from '../../src/component/Toast.mjs';
 
 /**
  * @class Neo.examples.toast.MainContainerController

@@ -44,7 +44,7 @@ class MainContainer extends Viewport {
                 style    : {paddingBottom: '40px', marginLeft: '10px'}
             }, {
                 module   : TextField,
-                labelText: 'tile',
+                labelText: 'title',
                 name     : 'title'
             }, {
                 module   : TextField,

@@ -15,20 +15,6 @@ class Toast extends Base {
      */
     defaultMargin = 16
     /**
-     * This is the default config for the Neo.component.Toast
-     * @member {Object}
-     */
-    defaultToastConfig = {
-        closable      : false,
-        cls           : ['neo-toast'],
-        maxWidth      : 250,
-        position      : 'tr',
-        running       : false,
-        slideDirection: 'right',
-        timeout       : 3000,
-        title         : null
-    }
-    /**
      * Currently only 1 is supported, because they would overlap
      * @member {Number} maxToasts=3
      */
@@ -92,7 +78,6 @@ class Toast extends Base {
 
         toast = {
             id,
-            ...me.defaultToastConfig,
             ...toast
         };
 

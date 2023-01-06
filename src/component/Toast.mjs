@@ -55,7 +55,6 @@ class Toast extends Base {
          * @protected
          */
         ntype: 'toast',
-
         /**
          * @member {Boolean} autoMount=true
          */
@@ -71,58 +70,49 @@ class Toast extends Base {
         baseCls: ['neo-toast'],
         /**
          * If true makes the toast sticky and show a close icon
-         *
          * @member {Boolean} closable=false
          */
         closable_: false,
         /**
          * If set, it shows this icon in front of the text
          * e.g. 'fa fa-cog'
-         *
          * @member {String|null} iconCls=null
          */
         iconCls_: null,
         /**
          * Limits the width of the Toast
-         *
          * @member {Number} maxWidth=250
          */
         maxWidth: 250,
         /**
          * Sets the minimum height of the Toast
-         *
          * @member {Number} minHeight=50
          */
         minHeight: 50,
         /**
          * Your message. You can also pass in an iconCls
-         *
          * @member {String|null} msg_=null
          */
         msg_: null,
         /**
          * Describes the position of the toast, e.g. bl=bottom-left
          * This creates a cls `noe-toast-position`
-         *
          * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
          */
         position_: 'tr',
         /**
          * Describes which direction from which side the toasts slides-in
          * This creates a cls `neo-toast-slide-${direction}-in`
-         *
          * @member {'down'|'up'|'left'|'right'} slideDirection_='right'
          */
         slideDirection_: 'right',
         /**
          * Timeout in ms after which the toast is removed
-         *
          * @member {Number} timeout_=3000
          */
         timeout_: 3000,
         /**
          * Adds a title to the toast
-         *
          * @member {Number} title_=null
          */
         title_: null,
