@@ -50,6 +50,7 @@
 
     &.neo-button-secondary {
         background-color: v(button-text-color);
+        background-image: none;
 
         .neo-button-badge {
             background-color: v(button-badge-color);
@@ -66,7 +67,9 @@
     }
 
     &.neo-button-tertiary {
-        border-width: 0;
+        background-color: transparent;
+        background-image: none;
+        border-width    : 0;
     }
 
     &.no-text {
