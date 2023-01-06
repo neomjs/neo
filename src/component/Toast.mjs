@@ -27,6 +27,11 @@ class Toast extends Base {
      * @private
      */
     running = false
+    /**
+     * Timeout in ms after which the toast is removed
+     * @member {Number} timeout=3000
+     */
+    timeout = 3000
 
     static getStaticConfig() {return {
         /**
@@ -98,11 +103,6 @@ class Toast extends Base {
          * @member {'down'|'up'|'left'|'right'} slideDirection_='right'
          */
         slideDirection_: 'right',
-        /**
-         * Timeout in ms after which the toast is removed
-         * @member {Number} timeout_=3000
-         */
-        timeout_: 3000,
         /**
          * Adds a title to the toast
          * @member {Number} title_=null
@@ -194,14 +194,19 @@ class Toast extends Base {
     }
 
     /**
-     * Close the toast after the timeout if not closable
-     * @param {Number} value
-     * @param {Number} oldValue
+     * Close the toast after the mounted if not closable
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      */
-    async afterSetTimeout(value, oldValue) {
-        if (!this.closable && value) {
-            await Neo.timeout(value);
-            this.destroy(true);
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (!me.closable && value) {
+            setTimeout(() => {
+                this.destroy(true);
+            }, me.timeout)
         }
     }
 

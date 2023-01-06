@@ -73,14 +73,15 @@ class Toast extends Base {
             return null;
         }
 
-        toast = Neo.create(this.toastClass, {
-            autoMount: false,
-            ...toast,
-            listeners: {
-                mounted: me.updateItemsInPosition,
-                scope  : me
-            }
+        toast = Neo.create({
+            className: this.toastClass,
+            ...toast
         });
+
+        toast.on({
+            mounted: me.updateItemsInPosition,
+            scope  : me
+        })
 
         return toast.id;
     }
@@ -159,7 +160,12 @@ class Toast extends Base {
         toast.render(true);
 
         // increase total of displayed toasts for a position
-        this.running[toast.position].push(toast.id);
+        this.running[toast.position].unshift(toast.id);
+
+        // todo: we could use a mounted listener
+        setTimeout(() => {
+            this.updateItemsInPosition(toast.id);
+        }, 50);
     }
 
     /**
@@ -179,23 +185,26 @@ class Toast extends Base {
      */
     async updateItemsInPosition(id) {
         let me            = this,
-            position      = me.get(id).position,
+            toast         = me.get(id),
+            position      = toast.position,
             positionArray = me.running[position],
             acc           = 0,
             margin        = me.defaultMargin,
             moveTo        = position.substring(0, 1) === 't' ? 'top' : 'bottom',
-            component, componentId, moveObj, rect;
+            component, componentId, index, moveObj, rects;
 
-        for (componentId of positionArray) {
+        rects = await toast.getDomRect(positionArray);
+
+        for ([index, componentId] of positionArray.entries()) {
             component = Neo.getComponent(componentId);
             moveObj   = {};
-            rect      = await component.getDomRect();
 
-            acc = acc + margin
+            acc = acc + margin;
             moveObj[moveTo] = acc + 'px';
             component.style = moveObj;
             component.update();
-            acc = acc + rect.height;
+
+            acc = acc + rects[index].height;
         }
     }
 }
