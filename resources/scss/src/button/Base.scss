@@ -19,7 +19,7 @@
     align-items        : center;
     background-color   : v(button-background-color);
     background-image   : v(button-background-image);
-    border             : v(button-border);
+    border             : v(button-border-width) solid v(button-border-color);
     border-radius      : v(button-border-radius);
     box-sizing         : border-box;
     cursor             : pointer;
@@ -46,6 +46,23 @@
         background-image: none !important;
         border-color    : v(button-hover-border-color);
         color           : v(button-hover-color);
+    }
+
+    &.neo-button-secondary {
+        background-color: v(button-text-color);
+
+        .neo-button-badge {
+            background-color: v(button-badge-color);
+            color           : v(button-badge-background-color);
+        }
+
+        .neo-button-glyph {
+            color: v(button-background-color);
+        }
+
+        .neo-button-text {
+            color: v(button-background-color);
+        }
     }
 
     &.no-text {
