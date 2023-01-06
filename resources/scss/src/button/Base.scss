@@ -42,6 +42,7 @@
     padding           : v(button-padding);
     position          : relative;
     text-decoration   : none; // for url buttons => links
+    transition        : outline-width .1s ease-out;
     user-select       : none;
     white-space       : nowrap;
     -webkit-appearance: button;
@@ -51,6 +52,10 @@
         background-image: none !important;
         border-color    : v(button-active-border-color);
         color           : v(button-active-color) !important;
+    }
+
+    &:focus {
+        outline: v(button-outline-active);
     }
 
     &:hover {
@@ -159,10 +164,6 @@
         pointer-events: none;
         text-transform: v(button-text-transform);
         z-index       : 2;
-    }
-
-    &:focus {
-        outline : 0;
     }
 
     &.icon-bottom {
