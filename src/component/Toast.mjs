@@ -56,14 +56,6 @@ class Toast extends Base {
          */
         ntype: 'toast',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
-         * @member {Boolean} autoRender=true
-         */
-        autoRender: true,
-        /**
          * @member {String[]} baseCls=['neo-toast']
          * @protected
          */
@@ -131,6 +123,9 @@ class Toast extends Base {
         }]}
     }}
 
+    /**
+     * @param {Object} config
+     */
     construct(config) {
         super.construct(config);
 
@@ -139,7 +134,9 @@ class Toast extends Base {
         // click listener for close
         me.addDomListeners([
             {click: {fn: me.unregister, delegate: '.neo-toast-close', scope: me}}
-        ])
+        ]);
+
+        ToastManager.register(me);
     }
 
     /**
@@ -169,7 +166,6 @@ class Toast extends Base {
      * Using the afterSetMsg to trigger the setup of the dom
      * A new container is added as an item.
      * We cannot use the vdom here.
-     *
      * @param {String|null} value
      * @param {String|null} oldValue
      */
@@ -181,7 +177,6 @@ class Toast extends Base {
 
     /**
      * Apply a cls, based on the position
-     *
      * @param {String} value
      * @param {String} oldValue
      */
@@ -191,7 +186,6 @@ class Toast extends Base {
 
     /**
      * Apply a cls, based on the slideDirection
-     *
      * @param {String} value
      * @param {String} oldValue
      */
@@ -201,14 +195,13 @@ class Toast extends Base {
 
     /**
      * Close the toast after the timeout if not closable
-     *
      * @param {Number} value
      * @param {Number} oldValue
      */
     async afterSetTimeout(value, oldValue) {
         if (!this.closable && value) {
             await Neo.timeout(value);
-            this.unregister();
+            this.destroy(true);
         }
     }
 
@@ -227,7 +220,6 @@ class Toast extends Base {
 
     /**
      * Triggered before the position config gets changed
-     *
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -238,7 +230,6 @@ class Toast extends Base {
 
     /**
      * Triggered before the slideDirection config gets changed
-     *
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -248,33 +239,36 @@ class Toast extends Base {
     }
 
     /**
-     * This is a dialog, so we have to add an item to be able to
      *
-     * @returns {vdom}
      */
-    getVdomInner() {
-        return this.vdom.cn[0];
-    }
-
-    getTextRootVdom() {
-        return this.getVdomInner().cn[1];
-    }
-
-    /**
-     * After the close-click or timeout, we unregister the toast
-     * from the ToastManager
-     */
-    unregister() {
+    async destroy(...args) {
         let me = this;
 
         me.addDomListeners({
             animationend: function () {
                 ToastManager.removeToast(me.id);
+                ToastManager.unregister(me);
                 me.destroy(true);
             }
-        })
+        });
 
-        me.addCls('neo-toast-fade-out');
+        me.addCls('neo-toast-fade-out')
+    }
+
+    /**
+     * This is a dialog, so we have to add an item to be able to
+     * @returns {Object} vdom
+     */
+    getTextRootVdom() {
+        return this.getVdomInner().cn[1];
+    }
+
+    /**
+     * This is a dialog, so we have to add an item to be able to
+     * @returns {Object} vdom
+     */
+    getVdomInner() {
+        return this.vdom.cn[0];
     }
 }
 

@@ -82,8 +82,6 @@ class Toast extends Base {
             }
         });
 
-        this.register(toast);
-
         return toast.id;
     }
 
@@ -124,19 +122,20 @@ class Toast extends Base {
      * @param {String} toastId
      */
     removeToast(toastId) {
-        let me = this,
-            mapItem = me.get(toastId),
+        let me    = this,
+            toast = me.get(toastId),
             position;
 
-        if (!mapItem) {
+        if (!toast) {
             return;
         }
 
-        position = mapItem.position;
+        position = toast.position;
+
         // decrease total of displayed toasts for a position
         NeoArray.remove(me.running[position], toastId);
+
         me.updateItemsInPosition(toastId);
-        me.unregister(toastId);
     }
 
     /**
@@ -175,7 +174,7 @@ class Toast extends Base {
     /**
      * To handle multiple toasts we handle the exact position
      * from the top or bottom
-     * @param {string} id
+     * @param {String} id
      * @returns {Promise<void>}
      */
     async updateItemsInPosition(id) {
