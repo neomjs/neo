@@ -10,8 +10,15 @@
 }
 
 .neo-disabled {
-    .neo-button {
-        cursor: default;
+    .neo-button,
+    &.neo-button {
+        background-color: v(button-background-color-disabled);
+        cursor          : default;
+        opacity         : v(button-opacity-disabled);
+
+        .neo-button-text {
+            color: v(button-text-color-disabled);
+        }
     }
 }
 
