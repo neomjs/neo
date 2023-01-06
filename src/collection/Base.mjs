@@ -772,8 +772,7 @@ class Base extends CoreBase {
                 if (matchArray.length === propertiesLength) {
                     items.push(item);
                 }
-            }
-            else if (item[property] === value) {
+            } else if (item[property] === value) {
                 items.push(item);
             }
         });
@@ -785,18 +784,17 @@ class Base extends CoreBase {
      * Returns all items in the collection for which the passed function returns true
      * @param {function} fn The function to run for each item inside the start-end range. Return true for a match.
      * @param {Object} fn.item The current collection item
-     * @param {Object} [scope=this] The scope in which the passed function gets executed
-     * @param {Number} [start=0] The start index
-     * @param {Number} [end=this.getCount()] The end index (up to, last value excluded)
+     * @param {Object} scope=this The scope in which the passed function gets executed
+     * @param {Number} start=0 The start index
+     * @param {Number} end=this.getCount() The end index (up to, last value excluded)
      * @returns {Array} Returns an empty Array in case no items are found
      */
-    findBy(fn, scope=this, start, end) {
+    findBy(fn, scope=this, start=0, end=this.getCount()) {
         let me    = this,
             items = [],
-            i     = start || 0,
-            len   = end   || me.getCount();
+            i     = start;
 
-        for (; i < len; i++) {
+        for (; i < end; i++) {
             if (fn.call(scope, me.items[i])) {
                 items.push(me.items[i]);
             }
