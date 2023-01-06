@@ -16,6 +16,10 @@
         cursor          : default;
         opacity         : v(button-opacity-disabled);
 
+        .neo-button-glyph {
+            color: v(button-glyph-color-disabled);
+        }
+
         .neo-button-text {
             color: v(button-text-color-disabled);
         }
@@ -23,23 +27,23 @@
 }
 
 .neo-button {
-    align-items        : center;
-    background-color   : v(button-background-color);
-    background-image   : v(button-background-image);
-    border             : v(button-border-width) solid v(button-border-color);
-    border-radius      : v(button-border-radius);
-    box-sizing         : border-box;
-    cursor             : pointer;
-    display            : flex;
-    flex-direction     : row;
-    justify-content    : center;
-    margin             : v(button-margin);
-    padding            : v(button-padding);
-    position           : relative;
-    text-decoration    : none; // for url buttons => links
-    user-select        : none;
-    white-space        : nowrap;
-    -webkit-appearance : button;
+    align-items       : center;
+    background-color  : v(button-background-color);
+    background-image  : v(button-background-image);
+    border            : v(button-border-width) solid v(button-border-color);
+    border-radius     : v(button-border-radius);
+    box-sizing        : border-box;
+    cursor            : pointer;
+    display           : flex;
+    flex-direction    : row;
+    justify-content   : center;
+    margin            : v(button-margin);
+    padding           : v(button-padding);
+    position          : relative;
+    text-decoration   : none; // for url buttons => links
+    user-select       : none;
+    white-space       : nowrap;
+    -webkit-appearance: button;
 
     &:active {
         background-color: v(button-active-background-color) !important;
