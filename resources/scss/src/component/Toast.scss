@@ -7,6 +7,7 @@
     color           : v(toast-color);
     display         : flex;
     position        : fixed;
+    transition      : bottom .3s ease-out, top .3s ease-out;
 
     .neo-toast-inner {
         align-items: center;
