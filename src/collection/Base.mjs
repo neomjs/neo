@@ -743,23 +743,26 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns all items which match the property and value
+     * Returns items which match the property and value
      * @param {Object|String} property
-     * @param {String|Number} [value] Optional, in case the first param is an object
-     * @returns {Array} Returns an empty Array in case no items are found
+     * @param {String|Number} [value] Only required in case the first param is a string
+     * @param {Boolean} returnFirstMatch=false
+     * @returns {Object|Object[]}
+     *     returnFirstMatch=false: Returns an empty Array in case no items are found
+     *     returnFirstMatch=true:  Returns the first found item or null
      */
-    find(property, value) {
+    find(property, value, returnFirstMatch=false) {
         let me               = this,
             items            = [],
             isObjectProperty = Neo.isObject(property),
-            matchArray, propertiesArray, propertiesLength;
+            item, matchArray, propertiesArray, propertiesLength;
 
         if (isObjectProperty) {
             propertiesArray  = Object.entries(property);
             propertiesLength = propertiesArray.length;
         }
 
-        me.items.forEach(item => {
+        for (item of me.items) {
             if (isObjectProperty) {
                 matchArray = [];
 
@@ -770,39 +773,51 @@ class Base extends CoreBase {
                 });
 
                 if (matchArray.length === propertiesLength) {
+                    if (returnFirstMatch) {
+                        return item;
+                    }
+
                     items.push(item);
                 }
-            }
-            else if (item[property] === value) {
+            } else if (item[property] === value) {
                 items.push(item);
             }
-        });
+        }
 
-        return items;
+        return returnFirstMatch ? null : items;
     }
 
     /**
      * Returns all items in the collection for which the passed function returns true
      * @param {function} fn The function to run for each item inside the start-end range. Return true for a match.
      * @param {Object} fn.item The current collection item
-     * @param {Object} [scope=this] The scope in which the passed function gets executed
-     * @param {Number} [start=0] The start index
-     * @param {Number} [end=this.getCount()] The end index (up to, last value excluded)
+     * @param {Object} scope=this The scope in which the passed function gets executed
+     * @param {Number} start=0 The start index
+     * @param {Number} end=this.getCount() The end index (up to, last value excluded)
      * @returns {Array} Returns an empty Array in case no items are found
      */
-    findBy(fn, scope=this, start, end) {
+    findBy(fn, scope=this, start=0, end=this.getCount()) {
         let me    = this,
             items = [],
-            i     = start || 0,
-            len   = end   || me.getCount();
+            i     = start;
 
-        for (; i < len; i++) {
+        for (; i < end; i++) {
             if (fn.call(scope, me.items[i])) {
                 items.push(me.items[i]);
             }
         }
 
         return items;
+    }
+
+    /**
+     * Returns the first item which matches the property and value
+     * @param {Object|String} property
+     * @param {String|Number} [value] Only required in case the first param is a string
+     * @returns {Object} Returns the first found item or null
+     */
+    findFirst(property, value) {
+        return this.find(property, value, true);
     }
 
     /**
