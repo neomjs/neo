@@ -32,7 +32,9 @@ class Instance extends Base {
 
         me.consumeNeoIdMap();
 
-        Neo.get = me.get.bind(me); // alias
+        Neo.find      = me.find     .bind(me); // alias
+        Neo.findFirst = me.findFirst.bind(me); // alias
+        Neo.get       = me.get      .bind(me); // alias
     }
 
     /**

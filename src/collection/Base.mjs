@@ -743,7 +743,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns all items which match the property and value
+     * Returns items which match the property and value
      * @param {Object|String} property
      * @param {String|Number} [value] Only required in case the first param is a string
      * @param {Boolean} returnFirstMatch=false
@@ -808,6 +808,16 @@ class Base extends CoreBase {
         }
 
         return items;
+    }
+
+    /**
+     * Returns the first item which matches the property and value
+     * @param {Object|String} property
+     * @param {String|Number} [value] Only required in case the first param is a string
+     * @returns {Object} Returns the first found item or null
+     */
+    findFirst(property, value) {
+        return this.find(property, value, true);
     }
 
     /**
