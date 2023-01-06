@@ -133,7 +133,7 @@ class Toast extends Base {
 
         // click listener for close
         me.addDomListeners([
-            {click: {fn: me.unregister, delegate: '.neo-toast-close', scope: me}}
+            {click: {fn: me.destroy, delegate: '.neo-toast-close', scope: me}}
         ]);
 
         ToastManager.register(me);
