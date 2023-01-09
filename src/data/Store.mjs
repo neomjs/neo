@@ -343,9 +343,11 @@ class Store extends Base {
                 console.log('Api is not defined', this);
             } else {
                 service[fn](params).then(response => {
+                    response = Neo.ns(me.responseRoot, false, response);
+
                     if (response.success) {
                         me.totalCount = response.totalCount;
-                        me.data       = response.data; // fires the load event
+                        me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
                     }
                 });
             }
