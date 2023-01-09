@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "4.6.6",
+    "version": "4.6.7",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -47,7 +47,7 @@
         "autoprefixer": "^10.4.13",
         "chalk": "^5.2.0",
         "clean-webpack-plugin": "^4.0.0",
-        "commander": "^9.4.1",
+        "commander": "^9.5.0",
         "cssnano": "^5.1.14",
         "envinfo": "^7.8.1",
         "fs-extra": "^11.1.0",
@@ -55,7 +55,7 @@
         "inquirer": "^9.1.4",
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
-        "postcss": "^8.4.20",
+        "postcss": "^8.4.21",
         "sass": "^1.57.1",
         "webpack": "^5.75.0",
         "webpack-cli": "^5.0.1",
