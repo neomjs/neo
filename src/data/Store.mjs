@@ -311,9 +311,20 @@ class Store extends Base {
         RecordFactory.createRecord(config);
     }
 
-    load() {
-        let me = this,
-            params = {page: me.currentPage, pageSize: me.pageSize};
+    /**
+     * @param {Object} opts={}
+     * @param {Object} opts.data
+     * @param {Object} opts.headers
+     * @param {String} opts.method DELETE, GET, POST, PUT
+     * @param {Object} opts.params
+     * @param {String} opts.responseType
+     * @param {Object} opts.scope
+     * @param {String} opts.url
+     * @protected
+     */
+    load(opts={}) {
+        let me     = this,
+            params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
         if (me.remoteFilter) {
             params.filters = me.exportFilters();
@@ -339,11 +350,9 @@ class Store extends Base {
                 });
             }
         } else {
-            params.url = me.url;
+            opts.url ??= me.url;
 
-            Neo.Xhr.promiseJson({
-                url: params.url
-            }).catch(err => {
+            Neo.Xhr.promiseJson(opts).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
             }).then(data => {
                 me.data = Neo.ns(me.responseRoot, false, data.json) || data.json;
