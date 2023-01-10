@@ -859,7 +859,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        return NeoArray.union(value || [], this.baseCls);;
+        return NeoArray.union(value || [], this.baseCls);
     }
 
     /**

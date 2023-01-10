@@ -49,6 +49,14 @@ class CheckBox extends Base {
          */
         inputType_: 'checkbox',
         /**
+         * @member {String[]} labelBaseCls=['neo-checkbox-label']
+         */
+        labelBaseCls: ['neo-checkbox-label'],
+        /**
+         * @member {String[]} labelCls_=[]
+         */
+        labelCls_: [],
+        /**
          * Valid values: 'left', 'top'
          * @member {String} labelPosition_='left'
          */
@@ -75,7 +83,7 @@ class CheckBox extends Base {
          */
         _vdom:
         {cn: [
-            {tag: 'label', cls: ['neo-checkbox-label']},
+            {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-checkbox-input']},
             {tag: 'label', cls: ['neo-checkbox-value-label']}
         ]}
@@ -174,6 +182,22 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the labelCls config got changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    afterSetLabelCls(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cn[0].cls;
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.update();
+    }
+
+    /**
      * Triggered after the labelPosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -257,6 +281,16 @@ class CheckBox extends Base {
 
         valueLabel.removeDom = !showLabel;
         me.update();
+    }
+
+    /**
+     * Triggered before the labelCls config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetLabelCls(value, oldValue) {
+        return NeoArray.union(value || [], this.labelBaseCls);
     }
 
     /**
