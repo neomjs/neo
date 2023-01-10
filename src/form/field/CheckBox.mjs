@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base     from './Base.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
@@ -185,6 +186,21 @@ class CheckBox extends Base {
     afterSetInputType(value, oldValue) {
         this.vdom.cn[1].type = value;
         this.update();
+    }
+
+    /**
+     * Triggered after the labelPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLabelPosition(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray.remove(cls, 'neo-label-' + oldValue);
+        NeoArray.add(   cls, 'neo-label-' + value);
+        me.cls = cls;
     }
 
     /**
