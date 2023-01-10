@@ -94,9 +94,13 @@ class Text extends Base {
          */
         inputType_: 'text',
         /**
-         * @member {String[]} labelCls_=['neo-textfield-label']
+         * @member {String[]} labelBaseCls=['neo-textfield-label']
          */
-        labelCls_: ['neo-textfield-label'],
+        labelBaseCls: ['neo-textfield-label'],
+        /**
+         * @member {String[]} labelCls_=[]
+         */
+        labelCls_: [],
         /**
          * Valid values: 'bottom', 'inline', 'left', 'right', 'top'
          * @member {String} labelPosition_='left'
@@ -646,6 +650,16 @@ class Text extends Base {
      */
     beforeSetAutoCapitalize(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues');
+    }
+
+    /**
+     * Triggered before the labelCls config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetLabelCls(value, oldValue) {
+        return NeoArray.union(value || [], this.labelBaseCls);
     }
 
     /**
