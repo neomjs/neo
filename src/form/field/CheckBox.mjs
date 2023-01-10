@@ -51,7 +51,11 @@ class CheckBox extends Base {
         /**
          * @member {String[]} labelCls_=['neo-checkbox-label']
          */
-        labelCls_: ['neo-checkbox-label'],
+        labelBaseCls: ['neo-checkbox-label'],
+        /**
+         * @member {String[]} labelCls_=[]
+         */
+        labelCls_: [],
         /**
          * Valid values: 'left', 'top'
          * @member {String} labelPosition_='left'
@@ -277,6 +281,16 @@ class CheckBox extends Base {
 
         valueLabel.removeDom = !showLabel;
         me.update();
+    }
+
+    /**
+     * Triggered before the labelCls config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetLabelCls(value, oldValue) {
+        return NeoArray.union(value || [], this.labelBaseCls);
     }
 
     /**
