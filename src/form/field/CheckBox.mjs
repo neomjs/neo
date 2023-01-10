@@ -5,6 +5,16 @@ import Base from './Base.mjs';
  * @extends Neo.form.field.Base
  */
 class CheckBox extends Base {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for labelPosition
+         * @member {String[]} labelPositions=['left','top']
+         * @protected
+         * @static
+         */
+        labelPositions: ['left', 'top']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.CheckBox'
@@ -41,6 +51,11 @@ class CheckBox extends Base {
          * @member {String} inputType_='checkbox'
          */
         inputType_: 'checkbox',
+        /**
+         * Valid values: 'left', 'top'
+         * @member {String} labelPosition_='left'
+         */
+        labelPosition_: 'left',
         /**
          * @member {String} labelText_='LabelText'
          */
@@ -237,6 +252,17 @@ class CheckBox extends Base {
             me.vdom.cn[2].innerHTML = value;
             me.update();
         }
+    }
+
+    /**
+     * Triggered before the labelPosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetLabelPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
     }
 
     /**
