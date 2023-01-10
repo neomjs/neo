@@ -75,6 +75,12 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'required')},
             style    : {marginTop: '10px'}
         }, {
+            module   : TextField,
+            labelText: 'valueLabelText',
+            listeners: {change: me.onConfigChange.bind(me, 'valueLabelText')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.valueLabelText
+        }, {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
@@ -93,6 +99,7 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(CheckBox, {
+            hideValueLabel: false, // todo
             labelText : 'Label',
             labelWidth: 70,
             width     : 200
