@@ -1,10 +1,21 @@
-import Base from './Base.mjs';
+import Base     from './Base.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
  * @extends Neo.form.field.Base
  */
 class CheckBox extends Base {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for labelPosition
+         * @member {String[]} labelPositions=['left','top']
+         * @protected
+         * @static
+         */
+        labelPositions: ['left', 'top']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.CheckBox'
@@ -34,13 +45,14 @@ class CheckBox extends Base {
          */
         hideLabel_: false,
         /**
-         * @member {Boolean} hideValueLabel_=false
-         */
-        hideValueLabel_: true,
-        /**
          * @member {String} inputType_='checkbox'
          */
         inputType_: 'checkbox',
+        /**
+         * Valid values: 'left', 'top'
+         * @member {String} labelPosition_='left'
+         */
+        labelPosition_: 'left',
         /**
          * @member {String} labelText_='LabelText'
          */
@@ -55,9 +67,9 @@ class CheckBox extends Base {
          */
         name_: '',
         /**
-         * @member {String} valueLabelText_='ValueLabel'
+         * @member {String|null} valueLabelText_=null
          */
-        valueLabelText_: 'ValueLabel',
+        valueLabelText_: null,
         /**
          * @member {Object} _vdom
          */
@@ -133,17 +145,6 @@ class CheckBox extends Base {
     }
 
     /**
-     * Triggered after the hideLabelValue config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetHideValueLabel(value, oldValue) {
-        this.vdom.cn[2].removeDom = value;
-        this.update();
-    }
-
-    /**
      * Triggered after the id config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -170,6 +171,21 @@ class CheckBox extends Base {
     afterSetInputType(value, oldValue) {
         this.vdom.cn[1].type = value;
         this.update();
+    }
+
+    /**
+     * Triggered after the labelPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLabelPosition(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray.remove(cls, 'neo-label-' + oldValue);
+        NeoArray.add(   cls, 'neo-label-' + value);
+        me.cls = cls;
     }
 
     /**
@@ -226,17 +242,32 @@ class CheckBox extends Base {
 
     /**
      * Triggered after the valueLabel config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetValueLabelText(value, oldValue) {
-        let me = this;
+        let me         = this,
+            valueLabel = me.vdom.cn[2],
+            showLabel  = !!value; // hide the label, in case value === null || value === ''
 
-        if (!me.hideValueLabel) {
-            me.vdom.cn[2].innerHTML = value;
-            me.update();
+        if (showLabel) {
+            valueLabel.innerHTML = value;
         }
+
+        valueLabel.removeDom = !showLabel;
+        me.update();
+    }
+
+    /**
+     * Triggered before the labelPosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetLabelPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
     }
 
     /**

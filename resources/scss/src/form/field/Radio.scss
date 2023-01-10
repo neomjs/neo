@@ -35,4 +35,14 @@
         color      : v(textfield-label-color);
         user-select: none;
     }
+
+    &.neo-label-top {
+        .neo-radio-input {
+            margin-left: 0;
+        }
+
+        .neo-radio-label {
+            display: block;
+        }
+    }
 }
