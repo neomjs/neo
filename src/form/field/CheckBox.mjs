@@ -45,10 +45,6 @@ class CheckBox extends Base {
          */
         hideLabel_: false,
         /**
-         * @member {Boolean} hideValueLabel_=false
-         */
-        hideValueLabel_: true,
-        /**
          * @member {String} inputType_='checkbox'
          */
         inputType_: 'checkbox',
@@ -71,9 +67,9 @@ class CheckBox extends Base {
          */
         name_: '',
         /**
-         * @member {String} valueLabelText_='ValueLabel'
+         * @member {String|null} valueLabelText_=null
          */
-        valueLabelText_: 'ValueLabel',
+        valueLabelText_: null,
         /**
          * @member {Object} _vdom
          */
@@ -145,17 +141,6 @@ class CheckBox extends Base {
      */
     afterSetHideLabel(value, oldValue) {
         this.vdom.cn[0].removeDom = value;
-        this.update();
-    }
-
-    /**
-     * Triggered after the hideLabelValue config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetHideValueLabel(value, oldValue) {
-        this.vdom.cn[2].removeDom = value;
         this.update();
     }
 
@@ -257,17 +242,21 @@ class CheckBox extends Base {
 
     /**
      * Triggered after the valueLabel config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetValueLabelText(value, oldValue) {
-        let me = this;
+        let me         = this,
+            valueLabel = me.vdom.cn[2],
+            showLabel  = !!value; // hide the label, in case value === null || value === ''
 
-        if (!me.hideValueLabel) {
-            me.vdom.cn[2].innerHTML = value;
-            me.update();
+        if (showLabel) {
+            valueLabel.innerHTML = value;
         }
+
+        valueLabel.removeDom = !showLabel;
+        me.update();
     }
 
     /**
