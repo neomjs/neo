@@ -84,7 +84,7 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
+            maxValue : 500,
             minValue : 50,
             stepSize : 5,
             style    : {marginTop: '10px'},
@@ -99,7 +99,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(CheckBox, {
-            hideValueLabel: false, // todo
             labelText : 'Label',
             labelWidth: 70,
             width     : 200
