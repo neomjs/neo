@@ -49,7 +49,7 @@ class CheckBox extends Base {
          */
         inputType_: 'checkbox',
         /**
-         * @member {String[]} labelCls_=['neo-checkbox-label']
+         * @member {String[]} labelBaseCls=['neo-checkbox-label']
          */
         labelBaseCls: ['neo-checkbox-label'],
         /**

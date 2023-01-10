@@ -26,11 +26,15 @@ class Radio extends CheckBox {
          */
         inputType: 'radio',
         /**
+         * @member {String[]} labelBaseCls=['neo-radio-label']
+         */
+        labelBaseCls: ['neo-radio-label'],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
         {cn: [
-            {tag: 'label', cls: ['neo-radio-label']},
+            {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-radio-input']},
             {tag: 'label', cls: ['neo-radio-value-label']}
         ]}
