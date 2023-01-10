@@ -251,14 +251,12 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getEventData(event) {
-        let path = event.path || event.composedPath(); // FF does not support path
-
         return {
-            path     : path.map(e => this.getTargetData(e)),
+            path     : event.composedPath().map(e => this.getTargetData(e)),
             target   : this.getTargetData(event.target),
             timeStamp: event.timeStamp,
             type     : event.type
-        };
+        }
     }
 
     /**
@@ -277,7 +275,7 @@ class DomEvents extends Base {
             keyCode,
             metaKey,
             shiftKey
-        };
+        }
     }
 
     /**
@@ -301,7 +299,7 @@ class DomEvents extends Base {
             screenX,
             screenY,
             shiftKey
-        };
+        }
     }
 
     /**
@@ -341,7 +339,7 @@ class DomEvents extends Base {
                 width : r.width,
                 x     : r.x,
                 y     : r.y
-            });
+            })
         }
 
         return {
@@ -372,7 +370,7 @@ class DomEvents extends Base {
             style            : node.style?.cssText,
             tabIndex         : node.tabIndex,
             tagName          : node.tagName?.toLowerCase()
-        };
+        }
     }
 
     /**
@@ -686,7 +684,7 @@ class DomEvents extends Base {
             action   : 'domEvent',
             eventName: data.type,
             data
-        });
+        })
     }
 
     /**

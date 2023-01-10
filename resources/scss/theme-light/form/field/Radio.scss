@@ -1,11 +1,13 @@
 $neoMap: map-merge($neoMap, (
-    'radiofield-color'        : #aaa,
-    'radiofield-checked-color': #1c60a0
+    'radiofield-color'           : #aaa,
+    'radiofield-checked-color'   : #1c60a0,
+    'radiofield-label-top-margin': 0 0 3px
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-radiofield
-        --radiofield-color        : #{neo(radiofield-color)};
-        --radiofield-checked-color: #{neo(radiofield-checked-color)};
+        --radiofield-color           : #{neo(radiofield-color)};
+        --radiofield-checked-color   : #{neo(radiofield-checked-color)};
+        --radiofield-label-top-margin: #{neo(radiofield-label-top-margin)};
     }
 }

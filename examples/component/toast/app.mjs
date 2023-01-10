@@ -2,6 +2,6 @@ import MainContainer from './MainContainer.mjs';
 
 export const onStart = () => Neo.app({
     mainView: MainContainer,
-    name    : 'Neo.examples.toast'
+    name    : 'Neo.examples.component.toast'
 });
 
