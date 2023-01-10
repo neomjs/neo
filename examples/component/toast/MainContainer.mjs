@@ -1,20 +1,20 @@
-import Button                  from '../../src/button/Base.mjs';
-import CheckBox                from '../../src/form/field/CheckBox.mjs';
-import Component               from '../../src/component/Base.mjs';
-import FormContainer           from '../../src/form/Container.mjs';
+import Button                  from '../../../src/button/Base.mjs';
+import CheckBox                from '../../../src/form/field/CheckBox.mjs';
+import Component               from '../../../src/component/Base.mjs';
+import FormContainer           from '../../../src/form/Container.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import NumberField             from '../../src/form/field/Number.mjs';
-import SelectField             from '../../src/form/field/Select.mjs';
-import TextField               from '../../src/form/field/Text.mjs';
-import Viewport                from '../../src/container/Viewport.mjs';
+import NumberField             from '../../../src/form/field/Number.mjs';
+import SelectField             from '../../../src/form/field/Select.mjs';
+import TextField               from '../../../src/form/field/Text.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Neo.examples.toast.MainContainer
+ * @class Neo.examples.component.toast.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'Neo.examples.toast.MainContainer',
+        className : 'Neo.examples.component.toast.MainContainer',
         autoMount : true,
         controller: MainContainerController,
         layout: {ntype: 'hbox', align: 'stretch'},
@@ -79,12 +79,13 @@ class MainContainer extends Viewport {
                 name     : 'timeout',
                 maxValue : 99999
             }, {
-                module    : CheckBox,
-                labelText : 'Closable',
-                labelWidth: 70,
-                name      : 'closable',
-                reference : 'closable',
-                style     : {padding: '8px 0 10px 9px'}
+                module       : CheckBox,
+                labelPosition: 'left',
+                labelText    : 'Closable',
+                labelWidth   : 70,
+                name         : 'closable',
+                reference    : 'closable',
+                style        : {padding: '8px 0 10px 9px'}
             }, {
                 module   : Button,
                 reference: 'creation-button',
@@ -108,7 +109,7 @@ class MainContainer extends Viewport {
 
             itemTpl: data => {
                 return [
-                    {cls: 'import', innerHTML: 'import Toast from \'../../../../node_modules/neo.mjs/src/dialog/Toast.mjs\';'},
+                    {cls: 'import', innerHTML: 'import Toast from \'../../../../node_modules/neo.mjs/src/component/Toast.mjs\';'},
                     {innerHTML: 'Neo.toast({'},
                     {cls: 'tab', cn: [
                         {cls: 'grey', innerHTML: '/* mandatory */'},

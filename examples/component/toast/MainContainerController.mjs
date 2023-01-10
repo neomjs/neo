@@ -1,17 +1,17 @@
-import ComponentController from '../../src/controller/Component.mjs';
-import Toast               from '../../src/component/Toast.mjs';
+import ComponentController from '../../../src/controller/Component.mjs';
+import Toast               from '../../../src/component/Toast.mjs';
 
 /**
- * @class Neo.examples.toast.MainContainerController
+ * @class Neo.examples.component.toast.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.toast.MainContainerController'
+         * @member {String} className='Neo.examples.component.toast.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.toast.MainContainerController'
+        className: 'Neo.examples.component.toast.MainContainerController'
     }}
 
     /**
