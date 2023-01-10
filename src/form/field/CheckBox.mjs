@@ -49,6 +49,10 @@ class CheckBox extends Base {
          */
         inputType_: 'checkbox',
         /**
+         * @member {String[]} labelCls_=['neo-checkbox-label']
+         */
+        labelCls_: ['neo-checkbox-label'],
+        /**
          * Valid values: 'left', 'top'
          * @member {String} labelPosition_='left'
          */
@@ -75,7 +79,7 @@ class CheckBox extends Base {
          */
         _vdom:
         {cn: [
-            {tag: 'label', cls: ['neo-checkbox-label']},
+            {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-checkbox-input']},
             {tag: 'label', cls: ['neo-checkbox-value-label']}
         ]}
@@ -171,6 +175,22 @@ class CheckBox extends Base {
     afterSetInputType(value, oldValue) {
         this.vdom.cn[1].type = value;
         this.update();
+    }
+
+    /**
+     * Triggered after the labelCls config got changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    afterSetLabelCls(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cn[0].cls;
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.update();
     }
 
     /**
