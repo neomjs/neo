@@ -220,9 +220,9 @@ Neo = globalThis.Neo = Object.assign({
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
         let type = Neo.typeOf(obj),
-            out,
+            out;
 
-        map = {
+        return {
             Array      : () => !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))],
             Date       : () => new Date(obj.valueOf()),
             Map        : () => new Map(obj), // shallow copy
@@ -238,9 +238,7 @@ Neo = globalThis.Neo = Object.assign({
 
                 return out
             }
-        };
-
-        return map[type]?.() || obj
+        }[type]?.() || obj
     },
 
     /**
