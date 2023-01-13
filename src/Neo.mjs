@@ -214,48 +214,33 @@ Neo = globalThis.Neo = Object.assign({
     /**
      * @memberOf module:Neo
      * @param {Object|Array|*} obj
-     * @param {Boolean} [deep=false] Set this to true in case you want to clone nested objects as well
-     * @param {Boolean} [ignoreNeoInstances=false] returns existing instances if set to true
+     * @param {Boolean} deep=false Set this to true in case you want to clone nested objects as well
+     * @param {Boolean} ignoreNeoInstances=false returns existing instances if set to true
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let out;
+        let type = Neo.typeOf(obj),
+            out,
 
-        switch (Neo.typeOf(obj)) {
-            case 'Array': {
-                return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))];
-            }
+        map = {
+            Array      : () => !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))],
+            Date       : () => new Date(obj.valueOf()),
+            Map        : () => new Map(obj), // shallow copy
+            NeoInstance: () => ignoreNeoInstances ? obj : this.cloneNeoInstance(obj),
+            Set        : () => new Set(obj),
 
-            case 'Date': {
-                return new Date(obj.valueOf());
-            }
-
-            case 'Map': {
-                return new Map(obj); // shallow copy
-            }
-
-            case 'NeoInstance': {
-                return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
-            }
-
-            case 'Object': {
+            Object: () => {
                 out = {};
 
                 Object.entries(obj).forEach(([key, value]) => {
                     out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances);
                 });
 
-                return out;
+                return out
             }
+        };
 
-            case 'Set': {
-                return new Set(obj); // shallow copy
-            }
-
-            default: {
-                return obj; // return all other data types
-            }
-        }
+        return map[type]?.() || obj
     },
 
     /**
