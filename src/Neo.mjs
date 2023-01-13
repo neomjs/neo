@@ -219,8 +219,7 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let type = Neo.typeOf(obj),
-            out;
+        let out;
 
         return {
             Array      : () => !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))],
@@ -238,7 +237,7 @@ Neo = globalThis.Neo = Object.assign({
 
                 return out
             }
-        }[type]?.() || obj
+        }[Neo.typeOf(obj)]?.() || obj
     },
 
     /**
