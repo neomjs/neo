@@ -452,23 +452,18 @@ Neo = globalThis.Neo = Object.assign({
             return null;
         }
 
-        switch (typeof item) {
-            case 'function': {
+        return {
+            function: () => {
                 if (item.prototype?.constructor.isClass) {
-                    return 'NeoClass';
+                    return 'NeoClass'
                 }
-
-                break;
-            }
-
-            case 'object': {
-                if (item.constructor.isClass && item instanceof Neo.core.Base) {
-                    return 'NeoInstance';
+            },
+            object: () => {
+                if (item instanceof Neo.core?.Base) {
+                    return 'NeoInstance'
                 }
             }
-        }
-
-        return item.constructor.name;
+        }[typeof item]?.() || item.constructor.name
     }
 }, Neo);
 
