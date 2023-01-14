@@ -1842,10 +1842,7 @@ class Base extends CoreBase {
 
                 opts = {
                     action: 'updateDom',
-                    deltas: [{
-                        id   : id,
-                        style: delta
-                    }]
+                    deltas: [{id, style: delta}]
                 };
 
                 if (Neo.currentWorker.isSharedWorker) {
