@@ -4,7 +4,7 @@
 
         &:checked {
             &::after {
-                color      : v(checkboxfield-checked-color);
+                color      : v(checkboxfield-color-checked);
                 content    : v(checkboxfield-icon-checked);
                 font-weight: 900;
             }
