@@ -331,12 +331,10 @@ class CheckBox extends Base {
         let me      = this,
             checked = data.target.checked;
 
-        me._checked = checked; // silent update
-
         // keep the vdom & vnode in sync for future updates
         me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
-        me.afterSetChecked(checked, !checked);
+        me.checked = checked;
     }
 }
 
