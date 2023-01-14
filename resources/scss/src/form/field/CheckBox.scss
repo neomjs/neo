@@ -15,7 +15,7 @@
             content    : v(checkboxfield-icon);
             cursor     : pointer;
             display    : inline-block;
-            font-family: "Font Awesome 5 Free";
+            font-family: v(checkboxfield-icon-font-family);
             font-size  : v(checkboxfield-icon-font-size);
             width      : 20px;
         }
