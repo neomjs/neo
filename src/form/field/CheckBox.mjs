@@ -36,14 +36,17 @@ class CheckBox extends Base {
          */
         checked_: false,
         /**
-         * True to change the checked state when clicking on the value label
-         * @member {Boolean} enableLabelClicks_=true
-         */
-        enableLabelClicks_: true,
-        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
+        /**
+         * @member {String[]} iconCls=['far','fa-square']
+         */
+        iconCls: ['far', 'fa-square'],
+        /**
+         * @member {String[]} iconClsChecked=['fas','fa-check']
+         */
+        iconClsChecked: ['fas', 'fa-check'],
         /**
          * @member {String} inputType_='checkbox'
          */
@@ -82,10 +85,11 @@ class CheckBox extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'label', cls: []},
+        {tag: 'label', cn: [
+            {tag: 'span',  cls: []},
             {tag: 'input', cls: ['neo-checkbox-input']},
-            {tag: 'label', cls: ['neo-checkbox-value-label']}
+            {tag: 'i',     cls: ['neo-checkbox-icon']},
+            {tag: 'span',  cls: ['neo-checkbox-value-label']}
         ]}
     }}
 
@@ -108,9 +112,14 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetChecked(value, oldValue) {
-        let me = this;
+        let me      = this,
+            iconCls = me.vdom.cn[2].cls;
 
         me.vdom.cn[1].checked = value;
+
+        NeoArray.toggle(iconCls, me.iconClsChecked, value);
+        NeoArray.toggle(iconCls, me.iconCls,        !value);
+
         me.update();
 
         if (oldValue !== undefined) {
@@ -120,25 +129,6 @@ class CheckBox extends Base {
                 value
             })
         }
-    }
-
-    /**
-     * Triggered after the enableLabelClicks config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetEnableLabelClicks(value, oldValue) {
-        let me    = this,
-            label = me.vdom.cn[2];
-
-        if (value) {
-            label.for = me.getInputElId();
-        } else {
-            delete label.for;
-        }
-
-        me.update();
     }
 
     /**
@@ -164,7 +154,8 @@ class CheckBox extends Base {
 
         vdom.cn[0].id = me.getLabelId();
         vdom.cn[1].id = me.getInputElId();
-        vdom.cn[2].id = me.getValueLabelId();
+        vdom.cn[2].id = me.getIconElId();
+        vdom.cn[3].id = me.getValueLabelId();
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId(value, oldValue);
@@ -272,7 +263,7 @@ class CheckBox extends Base {
      */
     afterSetValueLabelText(value, oldValue) {
         let me         = this,
-            valueLabel = me.vdom.cn[2],
+            valueLabel = me.vdom.cn[3],
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
@@ -307,6 +298,13 @@ class CheckBox extends Base {
     /**
      * @returns {String}
      */
+    getIconElId() {
+        return `${this.id}__icon`;
+    }
+
+    /**
+     * @returns {String}
+     */
     getInputElId() {
         return `${this.id}__input`;
     }
@@ -336,14 +334,9 @@ class CheckBox extends Base {
         me._checked = checked; // silent update
 
         // keep the vdom & vnode in sync for future updates
-        me.vdom.cn[1].checked = checked;
         me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
-        me.fire('change', {
-            component: me,
-            oldValue : !checked,
-            value    : checked
-        });
+        me.afterSetChecked(checked, !checked);
     }
 }
 

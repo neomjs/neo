@@ -36,6 +36,7 @@ class Radio extends CheckBox {
         {cn: [
             {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-radio-input']},
+            {tag: 'i',     cls: ['fa', 'fa-check']},
             {tag: 'label', cls: ['neo-radio-value-label']}
         ]}
     }}
