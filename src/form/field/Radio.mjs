@@ -50,9 +50,7 @@ class Radio extends CheckBox {
         super.afterSetChecked(value, oldValue);
 
         // update radios with the same name to be unchecked
-        if (value) {
-            this.uncheckGroupItems();
-        }
+        value && this.uncheckGroupItems();
     }
 
     /**
