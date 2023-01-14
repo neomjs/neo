@@ -52,7 +52,7 @@ Neo = globalThis.Neo = Object.assign({
             baseStaticCfg = null,
             proto         = cls.prototype || cls,
             protos        = [],
-            config, ctor, staticConfig;
+            config, ctor, overrides, staticConfig;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
@@ -126,6 +126,11 @@ Neo = globalThis.Neo = Object.assign({
 
             Object.assign(config, cfg);
             Object.assign(staticConfig, staticCfg);
+
+            if (Neo.overrides) {
+                overrides = Neo.ns(config.className, false, Neo.overrides);
+                overrides && Object.assign(config, overrides);
+            }
 
             Object.assign(ctor, {
                 classConfigApplied: true,
