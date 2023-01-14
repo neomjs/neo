@@ -5,14 +5,14 @@
         &:checked {
             &::after {
                 color      : v(checkboxfield-checked-color);
-                content    : "\f00c";
+                content    : v(checkboxfield-icon-checked);
                 font-weight: 900;
             }
         }
 
         &::after {
             color      : v(checkboxfield-color);
-            content    : "\f0c8";
+            content    : v(checkboxfield-icon);
             cursor     : pointer;
             display    : inline-block;
             font-family: "Font Awesome 5 Free";
