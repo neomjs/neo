@@ -1730,11 +1730,12 @@ class Base extends CoreBase {
     /**
      * Toggle a cls inside the vdomRoot of the component
      * @param {String} value
+     * @param {Boolean} [add] Use this param to enforce an add() or remove() operation.
      */
-    toggleCls(value) {
+    toggleCls(value, add) {
         let cls = this.cls;
 
-        NeoArray.toggle(cls, value);
+        NeoArray.toggle(cls, value, add);
         this.cls = cls;
     }
 
