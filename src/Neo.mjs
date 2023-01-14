@@ -458,7 +458,7 @@ Neo = globalThis.Neo = Object.assign({
                 }
             },
             object: () => {
-                if (item instanceof Neo.core?.Base) {
+                if (item.constructor.isClass && item instanceof Neo.core.Base) {
                     return 'NeoInstance'
                 }
             }
