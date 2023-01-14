@@ -115,9 +115,20 @@ class NeoArray extends Base {
      * Removes an item from an array in case it does exist, otherwise adds it
      * @param {Array} arr
      * @param {*} item
+     * @param {Boolean} [add]
      */
-    static toggle(arr, item) {
-        this[this.hasItem(arr, item) ? 'remove' : 'add'](arr, item);
+    static toggle(arr, item, add) {
+        let operation;
+
+        if (add === true) {
+            operation = 'add';
+        } else if (add === false) {
+            operation = 'remove';
+        } else {
+            operation = this.hasItem(arr, item) ? 'remove' : 'add';
+        }
+
+        this[operation](arr, item);
     }
 
     /**
