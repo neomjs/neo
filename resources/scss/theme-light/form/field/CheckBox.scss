@@ -1,13 +1,17 @@
 $neoMap: map-merge($neoMap, (
     'checkboxfield-color'           : #aaa,
-    'checkboxfield-checked-color'   : #1c60a0,
+    'checkboxfield-color-checked'   : #1c60a0,
+    'checkboxfield-icon-font-family': '"Font Awesome 5 Free"',
+    'checkboxfield-icon-font-size'  : 14px,
     'checkboxfield-label-top-margin': 0 0 3px
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-checkboxfield
         --checkboxfield-color           : #{neo(checkboxfield-color)};
-        --checkboxfield-checked-color   : #{neo(checkboxfield-checked-color)};
+        --checkboxfield-color-checked   : #{neo(checkboxfield-color-checked)};
+        --checkboxfield-icon-font-family: #{neo(checkboxfield-icon-font-family)};
+        --checkboxfield-icon-font-size  : #{neo(checkboxfield-icon-font-size)};
         --checkboxfield-label-top-margin: #{neo(checkboxfield-label-top-margin)};
     }
 }

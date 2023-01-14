@@ -123,7 +123,7 @@ class DomEvent extends Base {
             if (eventName === 'focusin' || eventName === 'focusout') {
                 FocusManager['on' + Neo.capitalize(eventName)]({
                     componentPath: path,
-                    data         : data
+                    data
                 });
 
                 break;
@@ -303,14 +303,14 @@ class DomEvent extends Base {
         listenerConfig = {
             bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
             delegate      : config.delegate,
-            eventName     : eventName,
-            fn            : fn,
+            eventName,
+            fn,
             id            : listenerId,
             mounted       : !config.local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
             priority      : config.priority || 1,
-            scope         : scope,
+            scope,
             vnodeId       : config.vnodeId
         };
 

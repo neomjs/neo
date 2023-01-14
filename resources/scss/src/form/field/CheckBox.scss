@@ -1,28 +1,25 @@
 .neo-checkboxfield {
     .neo-checkbox-input {
-        appearance: none;
+        display: none;
 
         &:checked {
-            &::after {
-                color      : v(checkboxfield-checked-color);
-                content    : "\f00c";
-                font-weight: 900;
+            +.neo-checkbox-icon {
+                color: v(checkboxfield-color-checked);
             }
-        }
-
-        &::after {
-            color      : v(checkboxfield-color);
-            content    : "\f0c8";
-            cursor     : pointer;
-            display    : inline-block;
-            font-family: "Font Awesome 5 Free";
-            font-size  : 14px;
-            width      : 20px;
         }
 
         &:focus {
             outline : 0;
         }
+    }
+
+    .neo-checkbox-icon {
+        color      : v(checkboxfield-color);
+        cursor     : pointer;
+        display    : inline-block;
+        font-family: v(checkboxfield-icon-font-family);
+        font-size  : v(checkboxfield-icon-font-size);
+        width      : 20px;
     }
 
     .neo-checkbox-label {

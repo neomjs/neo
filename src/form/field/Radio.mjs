@@ -18,26 +18,17 @@ class Radio extends CheckBox {
          */
         ntype: 'radiofield',
         /**
-         * @member {String[]} baseCls=['neo-radiofield']
+         * @member {String[]} baseCls=['neo-radiofield','neo-checkboxfield']
          */
-        baseCls: ['neo-radiofield'],
+        baseCls: ['neo-radiofield', 'neo-checkboxfield'],
+        /**
+         * @member {String[]} iconCls=['far','fa-circle']
+         */
+        iconCls: ['far', 'fa-circle'],
         /**
          * @member {String} inputType='radio'
          */
-        inputType: 'radio',
-        /**
-         * @member {String[]} labelBaseCls=['neo-radio-label']
-         */
-        labelBaseCls: ['neo-radio-label'],
-        /**
-         * @member {Object} _vdom
-         */
-        _vdom:
-        {cn: [
-            {tag: 'label', cls: []},
-            {tag: 'input', cls: ['neo-radio-input']},
-            {tag: 'label', cls: ['neo-radio-value-label']}
-        ]}
+        inputType: 'radio'
     }}
 
     /**
@@ -50,18 +41,7 @@ class Radio extends CheckBox {
         super.afterSetChecked(value, oldValue);
 
         // update radios with the same name to be unchecked
-        if (value) {
-            this.uncheckGroupItems();
-        }
-    }
-
-    /**
-     * Gets triggered when a user checks a radio input.
-     * @param {Object} data
-     */
-    onInputValueChange(data) {
-        super.onInputValueChange(data);
-        this.uncheckGroupItems();
+        value && this.uncheckGroupItems()
     }
 
     /**
@@ -79,22 +59,9 @@ class Radio extends CheckBox {
 
         radios.forEach(item => {
             if (item.id !== me.id && item._checked) {
-                item._checked = false; // silent update
-
-                // keep the vdom & vnode in sync for future updates
-                item.vdom.cn[1].checked = false;
-
-                if (item.vnode) {
-                    item.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = 'false';
-                }
-
-                item.fire('change', {
-                    component: me,
-                    oldValue : true,
-                    value    : false
-                });
+                item.checked = false;
             }
-        });
+        })
     }
 }
 
