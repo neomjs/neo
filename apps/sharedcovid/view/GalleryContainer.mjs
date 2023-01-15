@@ -17,10 +17,6 @@ class GalleryContainer extends Container {
          */
         className: 'SharedCovid.view.GalleryContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['neo-gallery-maincontainer','neo-viewport']
          */
         baseCls: ['neo-gallery-maincontainer', 'neo-viewport'],

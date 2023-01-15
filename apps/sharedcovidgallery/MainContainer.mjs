@@ -12,10 +12,6 @@ class MainContainer extends Viewport {
          */
         className: 'SharedCovidGallery.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object} layout={ntype:'fit'}
          */
         layout: {ntype: 'fit'}

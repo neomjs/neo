@@ -14,10 +14,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.model.table.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object} layout
          */
         layout: {ntype: 'fit'},

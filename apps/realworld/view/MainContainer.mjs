@@ -15,10 +15,6 @@ class MainContainer extends Viewport {
          */
         className: 'RealWorld.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=[]
          */
         baseCls: [],

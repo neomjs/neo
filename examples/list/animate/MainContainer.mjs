@@ -19,10 +19,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.list.animate.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,

@@ -10,7 +10,6 @@ import MainContainer3 from './MainContainer3.mjs';
 class Viewport extends BaseViewport {
     static getConfig() {return {
         className: 'Neo.examples.tablePerformance.Viewport',
-        autoMount: true,
         style    : {overflow: 'hidden', padding: '10px'},
 
         layout: {

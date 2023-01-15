@@ -9,7 +9,6 @@ import SiteMapComponent      from '../../src/sitemap/Component.mjs';
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className: 'Neo.examples.sitemap.MainContainer',
-        autoMount: true,
         layout   : {ntype: 'hbox', align: 'stretch'}
     }}
 

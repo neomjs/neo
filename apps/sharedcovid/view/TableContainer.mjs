@@ -19,10 +19,6 @@ class TableContainer extends Container {
          */
         className: 'SharedCovid.view.TableContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object} bind
          */
         bind: {

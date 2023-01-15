@@ -17,10 +17,6 @@ class HelixContainer extends Container {
          */
         className: 'SharedCovid.view.HelixContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['neo-helix-maincontainer','neo-viewport']
          */
         baseCls: ['neo-helix-maincontainer', 'neo-viewport'],

@@ -23,10 +23,6 @@ class ConfigurationViewport extends Viewport {
          */
         ntype: 'configuration-viewport',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object} layout={ntype:'hbox', align:'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},

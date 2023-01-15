@@ -22,6 +22,12 @@ class Viewport extends Container {
          */
         applyBodyCls: true,
         /**
+         * Assuming that a Viewport is the top level view of your app, and you want to mount it right away.
+         * Could be without any items. Use false otherwise.
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
          * @member {String[]} baseCls=['neo-viewport']
          */
         baseCls: ['neo-viewport']

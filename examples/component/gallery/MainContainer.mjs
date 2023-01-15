@@ -13,10 +13,6 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.component.gallery.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
         gallery: null,

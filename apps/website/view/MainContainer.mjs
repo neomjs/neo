@@ -16,10 +16,6 @@ class MainContainer extends Viewport {
          */
         className: 'Website.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['website-main-container','neo-viewport']
          */
         baseCls: ['website-main-container', 'neo-viewport'],

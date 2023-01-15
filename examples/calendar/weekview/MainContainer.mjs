@@ -14,11 +14,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.calendar.weekview.MainContainer',
         /**
-         * Value for the component.Base autoMount_ config
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * Value for the container.Base layout_ config
          * @member {Object} layout={ntype: 'fit'}
          */

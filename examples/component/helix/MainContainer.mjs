@@ -14,10 +14,6 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.component.helix.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.component.Helix|null} helix=null
          */
         helix: null,

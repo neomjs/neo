@@ -16,10 +16,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.model.nestedData.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,

@@ -8,7 +8,6 @@ import Viewport     from '../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.viewport.MainContainer',
-        autoMount: true,
 
         layout: {
             ntype: 'vbox',
