@@ -73,10 +73,13 @@ class Panel extends Container {
         }
 
         let config = {
-            ntype: 'toolbar',
-            cls  : ['neo-panel-header-toolbar', 'neo-toolbar'],
-            flex : '0 1 auto'
+            flex: '0 1 auto'
         };
+
+        if (!header.module && !header.ntype) {
+            config.cls   = ['neo-panel-header-toolbar', 'neo-toolbar'];
+            config.ntype = 'toolbar';
+        }
 
         if (header.text) {
             config.items = [{
