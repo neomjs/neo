@@ -15,10 +15,6 @@ class MainContainer extends Viewport {
          */
         className: 'SharedDialog2.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,

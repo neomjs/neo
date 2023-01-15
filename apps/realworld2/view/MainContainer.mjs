@@ -18,11 +18,6 @@ class MainContainer extends Viewport {
          */
         className: 'RealWorld2.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         * @protected
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['rw2-home-container','neo-viewport']
          */
         baseCls: ['rw2-main-container', 'neo-viewport'],

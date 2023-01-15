@@ -17,10 +17,6 @@ class MainContainer extends Viewport {
          */
         className: 'SharedCovid.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['covid-viewport','neo-viewport']
          */
         baseCls: ['covid-viewport', 'neo-viewport'],
