@@ -43,10 +43,4 @@ class VDom extends Base {
     }
 }
 
-Neo.applyClassConfig(VDom);
-
-let instance = Neo.create(VDom);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(VDom);

@@ -37,6 +37,4 @@ class Iframe extends Base {
     }
 }
 
-Neo.applyClassConfig(Iframe);
-
-export default Iframe;
+export default Neo.applyClassConfig(Iframe);

@@ -33,8 +33,8 @@ class Button extends BaseButton {
             {tag: 'span', cls: ['neo-button-text']},
             {cls: ['neo-button-badge']},
             {cls: ['neo-button-ripple-wrapper'], cn: [
-                    {cls: ['neo-button-ripple']}
-                ]},
+                {cls: ['neo-button-ripple']}
+            ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
     }}
@@ -69,6 +69,4 @@ class Button extends BaseButton {
     }
 }
 
-Neo.applyClassConfig(Button);
-
-export default Button;
+export default Neo.applyClassConfig(Button);

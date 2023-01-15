@@ -224,6 +224,4 @@ class VNode extends Base {
     }
 }
 
-Neo.applyClassConfig(VNode);
-
-export default VNode;
+export default Neo.applyClassConfig(VNode);

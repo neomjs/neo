@@ -73,10 +73,4 @@ class HashHistory extends Base {
     }
 }
 
-Neo.applyClassConfig(HashHistory);
-
-let instance = Neo.create(HashHistory);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(HashHistory);

@@ -81,10 +81,4 @@ class Mwc extends Base {
     }
 }
 
-Neo.applyClassConfig(Mwc);
-
-let instance = Neo.create(Mwc);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Mwc);

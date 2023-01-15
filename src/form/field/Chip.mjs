@@ -25,6 +25,4 @@ class Chip extends Select {
     }}
 }
 
-Neo.applyClassConfig(Chip);
-
-export default Chip;
+export default Neo.applyClassConfig(Chip);

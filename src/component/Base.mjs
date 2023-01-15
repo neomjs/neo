@@ -1944,6 +1944,4 @@ class Base extends CoreBase {
  * @param {Object[]} data.oldPath dom element ids upwards
  */
 
-Neo.applyClassConfig(Base);
-
-export default Base;
+export default Neo.applyClassConfig(Base);

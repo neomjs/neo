@@ -570,10 +570,4 @@ class DomAccess extends Base {
     }
 }
 
-Neo.applyClassConfig(DomAccess);
-
-let instance = Neo.create(DomAccess);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(DomAccess);

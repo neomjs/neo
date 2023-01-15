@@ -370,6 +370,4 @@ class VDom extends Base {
     }
 }
 
-Neo.applyClassConfig(VDom);
-
-export default VDom;
+export default Neo.applyClassConfig(VDom);

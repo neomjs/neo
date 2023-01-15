@@ -93,6 +93,4 @@ class Color extends Base {
     }
 }
 
-Neo.applyClassConfig(Color);
-
-export default Color;
+export default Neo.applyClassConfig(Color);

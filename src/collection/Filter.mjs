@@ -243,6 +243,4 @@ class Filter extends Base {
     }
 }
 
-Neo.applyClassConfig(Filter);
-
-export default Filter;
+export default Neo.applyClassConfig(Filter);

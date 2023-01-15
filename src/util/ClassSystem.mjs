@@ -61,6 +61,4 @@ class ClassSystem extends Base {
     }
 }
 
-Neo.applyClassConfig(ClassSystem);
-
-export default ClassSystem;
+export default Neo.applyClassConfig(ClassSystem);

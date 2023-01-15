@@ -79,6 +79,4 @@ class NeoFunction extends Base {
     }
 }
 
-Neo.applyClassConfig(NeoFunction);
-
-export default NeoFunction;
+export default Neo.applyClassConfig(NeoFunction);

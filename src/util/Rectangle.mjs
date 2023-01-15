@@ -149,6 +149,4 @@ class Rectangle extends Base {
     }
 }
 
-Neo.applyClassConfig(Rectangle);
-
-export default Rectangle;
+export default Neo.applyClassConfig(Rectangle);

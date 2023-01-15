@@ -24,6 +24,4 @@ class Password extends Text {
     }}
 }
 
-Neo.applyClassConfig(Password);
-
-export default Password;
+export default Neo.applyClassConfig(Password);

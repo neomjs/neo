@@ -44,6 +44,7 @@ Neo = globalThis.Neo = Object.assign({
      * Internally used at the end of each class / module definition
      * @memberOf module:Neo
      * @param {Neo.core.Base} cls The Neo class to apply configs to
+     * @returns {Neo.core.Base} The class or instance in case of a singleton
      * @protected
      * @tutorial 02_ClassSystem
      */
@@ -144,6 +145,15 @@ Neo = globalThis.Neo = Object.assign({
 
             !config.singleton && this.applyToGlobalNs(cls);
         });
+
+        proto = cls.prototype || cls;
+
+        if (proto.singleton) {
+            cls = Neo.create(cls);
+            Neo.applyToGlobalNs(cls);
+        }
+
+        return cls;
     },
 
     /**

@@ -80,10 +80,4 @@ class Canvas extends Base {
     }
 }
 
-Neo.applyClassConfig(Canvas);
-
-let instance = Neo.create(Canvas);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Canvas);

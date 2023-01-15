@@ -47,10 +47,4 @@ class Siesta extends Base {
     }
 }
 
-Neo.applyClassConfig(Siesta);
-
-let instance = Neo.create(Siesta);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Siesta);

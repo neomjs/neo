@@ -37,6 +37,4 @@ class StringField extends Field {
     }
 }
 
-Neo.applyClassConfig(StringField);
-
-export default StringField;
+export default Neo.applyClassConfig(StringField);

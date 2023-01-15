@@ -34,6 +34,4 @@ class Colors extends Store {
     }}
 }
 
-Neo.applyClassConfig(Colors);
-
-export default Colors;
+export default Neo.applyClassConfig(Colors);

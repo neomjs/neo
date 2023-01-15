@@ -129,6 +129,4 @@ class DateUtil extends Base {
     }
 }
 
-Neo.applyClassConfig(DateUtil);
-
-export default DateUtil;
+export default Neo.applyClassConfig(DateUtil);

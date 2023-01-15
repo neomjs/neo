@@ -1,4 +1,4 @@
-import Date            from '../form/field/Date.mjs';
+import DateField       from '../form/field/Date.mjs';
 import NumberContainer from './NumberContainer.mjs';
 
 /**
@@ -18,12 +18,10 @@ class DateContainer extends NumberContainer {
          */
         ntype: 'filter-datecontainer',
         /**
-         * @member {Neo.form.field.Base} fieldModule=Date
+         * @member {Neo.form.field.Base} fieldModule=DateField
          */
-        fieldModule: Date
+        fieldModule: DateField
     }}
 }
 
-Neo.applyClassConfig(DateContainer);
-
-export default DateContainer;
+export default Neo.applyClassConfig(DateContainer);

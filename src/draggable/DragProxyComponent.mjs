@@ -58,6 +58,4 @@ class DragProxyComponent extends Base {
     }
 }
 
-Neo.applyClassConfig(DragProxyComponent);
-
-export default DragProxyComponent;
+export default Neo.applyClassConfig(DragProxyComponent);

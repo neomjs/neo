@@ -286,6 +286,4 @@ class GeneralContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(GeneralContainer);
-
-export default GeneralContainer;
+export default Neo.applyClassConfig(GeneralContainer);

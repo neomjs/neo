@@ -53,6 +53,4 @@ class EventResizable extends Resizable {
     }
 }
 
-Neo.applyClassConfig(EventResizable);
-
-export default EventResizable;
+export default Neo.applyClassConfig(EventResizable);

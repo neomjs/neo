@@ -117,10 +117,4 @@ class CesiumJS extends Base {
     }
 }
 
-Neo.applyClassConfig(CesiumJS);
-
-let instance = Neo.create(CesiumJS);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(CesiumJS);

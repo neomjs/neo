@@ -54,10 +54,4 @@ class AnalyticsByGoogle extends Base {
     }
 }
 
-Neo.applyClassConfig(AnalyticsByGoogle);
-
-let instance = Neo.create(AnalyticsByGoogle);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(AnalyticsByGoogle);

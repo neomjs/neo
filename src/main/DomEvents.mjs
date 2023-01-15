@@ -716,10 +716,4 @@ class DomEvents extends Base {
     }
 }
 
-Neo.applyClassConfig(DomEvents);
-
-let instance = Neo.create(DomEvents);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(DomEvents);

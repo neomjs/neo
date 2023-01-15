@@ -1192,6 +1192,4 @@ class Text extends Base {
     }
 }
 
-Neo.applyClassConfig(Text);
-
-export default Text;
+export default Neo.applyClassConfig(Text);

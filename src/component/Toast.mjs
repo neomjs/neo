@@ -276,6 +276,4 @@ class Toast extends Base {
     }
 }
 
-Neo.applyClassConfig(Toast);
-
-export default Toast;
+export default Neo.applyClassConfig(Toast);

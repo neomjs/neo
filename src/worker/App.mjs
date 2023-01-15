@@ -293,10 +293,4 @@ class App extends Base {
     }
 }
 
-Neo.applyClassConfig(App);
-
-let instance = Neo.create(App);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(App);

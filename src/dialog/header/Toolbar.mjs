@@ -100,6 +100,4 @@ class Toolbar extends Base {
     }
 }
 
-Neo.applyClassConfig(Toolbar);
-
-export default Toolbar;
+export default Neo.applyClassConfig(Toolbar);

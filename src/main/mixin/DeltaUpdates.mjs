@@ -299,6 +299,4 @@ class DeltaUpdates extends Base {
     }
 }
 
-Neo.applyClassConfig(DeltaUpdates);
-
-export default DeltaUpdates;
+export default Neo.applyClassConfig(DeltaUpdates);

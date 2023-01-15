@@ -19,6 +19,4 @@ class Container extends BaseContainer {
     }}
 }
 
-Neo.applyClassConfig(Container);
-
-export default Container;
+export default Neo.applyClassConfig(Container);

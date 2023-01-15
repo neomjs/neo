@@ -23,6 +23,4 @@ class Email extends Text {
     }}
 }
 
-Neo.applyClassConfig(Email);
-
-export default Email;
+export default Neo.applyClassConfig(Email);

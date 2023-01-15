@@ -244,6 +244,4 @@ class Observable extends Base {
     }
 }
 
-Neo.applyClassConfig(Observable);
-
-export default Observable;
+export default Neo.applyClassConfig(Observable);

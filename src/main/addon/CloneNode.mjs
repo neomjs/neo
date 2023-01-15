@@ -102,10 +102,4 @@ class CloneNode extends Base {
     }
 }
 
-Neo.applyClassConfig(CloneNode);
-
-let instance = Neo.create(CloneNode);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(CloneNode);

@@ -231,7 +231,7 @@ class Util extends Base {
     }
 }
 
-Neo.applyClassConfig(Util);
+export default Neo.applyClassConfig(Util);
 
 // aliases
 Neo.applyFromNs(Neo, Util, {
@@ -251,5 +251,3 @@ Neo.applyFromNs(Neo, Util, {
     timeout          : 'timeout',
     toArray          : 'toArray'
 }, true);
-
-export default Util;

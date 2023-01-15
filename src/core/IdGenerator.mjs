@@ -74,10 +74,4 @@ class IdGenerator {
     onConstructed() {}
 }
 
-Neo.applyClassConfig(IdGenerator);
-
-let instance = Neo.create(IdGenerator);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(IdGenerator);

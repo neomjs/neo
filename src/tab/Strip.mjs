@@ -169,6 +169,4 @@ class Strip extends Component {
     }
 }
 
-Neo.applyClassConfig(Strip);
-
-export default Strip;
+export default Neo.applyClassConfig(Strip);

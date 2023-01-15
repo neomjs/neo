@@ -114,6 +114,4 @@ class CellColumnModel extends CellModel {
     }
 }
 
-Neo.applyClassConfig(CellColumnModel);
-
-export default CellColumnModel;
+export default Neo.applyClassConfig(CellColumnModel);

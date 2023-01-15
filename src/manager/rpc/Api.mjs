@@ -38,10 +38,4 @@ class Api extends Base {
     }
 }
 
-Neo.applyClassConfig(Api);
-
-let instance = Neo.create(Api);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Api);

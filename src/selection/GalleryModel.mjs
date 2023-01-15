@@ -292,6 +292,4 @@ class GalleryModel extends Model {
     }
 }
 
-Neo.applyClassConfig(GalleryModel);
-
-export default GalleryModel;
+export default Neo.applyClassConfig(GalleryModel);

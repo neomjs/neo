@@ -536,6 +536,4 @@ class EventDragZone extends DragZone {
     }
 }
 
-Neo.applyClassConfig(EventDragZone);
-
-export default EventDragZone;
+export default Neo.applyClassConfig(EventDragZone);

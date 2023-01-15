@@ -300,6 +300,4 @@ class SortZone extends DragZone {
     }
 }
 
-Neo.applyClassConfig(SortZone);
-
-export default SortZone;
+export default Neo.applyClassConfig(SortZone);

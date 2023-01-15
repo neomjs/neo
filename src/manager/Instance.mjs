@@ -49,10 +49,4 @@ class Instance extends Base {
     }
 }
 
-Neo.applyClassConfig(Instance);
-
-let instance = Neo.create(Instance);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Instance);

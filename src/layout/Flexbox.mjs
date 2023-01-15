@@ -284,6 +284,4 @@ class Flexbox extends Base {
     }
 }
 
-Neo.applyClassConfig(Flexbox);
-
-export default Flexbox;
+export default Neo.applyClassConfig(Flexbox);

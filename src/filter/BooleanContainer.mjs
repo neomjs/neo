@@ -98,6 +98,4 @@ class BooleanContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(BooleanContainer);
-
-export default BooleanContainer;
+export default Neo.applyClassConfig(BooleanContainer);

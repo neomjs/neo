@@ -58,6 +58,4 @@ class TouchDomEvents extends Base {
     }
 }
 
-Neo.applyClassConfig(TouchDomEvents);
-
-export default TouchDomEvents;
+export default Neo.applyClassConfig(TouchDomEvents);

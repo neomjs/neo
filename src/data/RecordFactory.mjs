@@ -325,10 +325,4 @@ class RecordFactory extends Base {
     }
 }
 
-Neo.applyClassConfig(RecordFactory);
-
-instance = Neo.create(RecordFactory);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(RecordFactory);

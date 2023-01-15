@@ -176,6 +176,4 @@ class CellModel extends Model {
     }
 }
 
-Neo.applyClassConfig(CellModel);
-
-export default CellModel;
+export default Neo.applyClassConfig(CellModel);

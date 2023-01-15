@@ -682,6 +682,4 @@ class Select extends Picker {
  * @returns {Object}
  */
 
-Neo.applyClassConfig(Select);
-
-export default Select;
+export default Neo.applyClassConfig(Select);

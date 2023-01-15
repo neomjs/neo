@@ -70,10 +70,4 @@ class ServiceWorker extends Base {
     }
 }
 
-Neo.applyClassConfig(ServiceWorker);
-
-let instance = Neo.create(ServiceWorker);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(ServiceWorker);

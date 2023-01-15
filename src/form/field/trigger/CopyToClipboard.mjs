@@ -99,6 +99,4 @@ class CopyToClipboard extends Base {
     }
 }
 
-Neo.applyClassConfig(CopyToClipboard);
-
-export default CopyToClipboard;
+export default Neo.applyClassConfig(CopyToClipboard);

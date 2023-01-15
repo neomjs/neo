@@ -274,10 +274,4 @@ class Stylesheet extends Base {
     }
 }
 
-Neo.applyClassConfig(Stylesheet);
-
-let instance = Neo.create(Stylesheet);
-
-Neo.applyToGlobalNs(instance);
-
-export default instance;
+export default Neo.applyClassConfig(Stylesheet);
