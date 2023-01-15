@@ -163,10 +163,6 @@ class Message extends Base {
     }
 }
 
-Neo.applyClassConfig(Message);
-
-let instance = Neo.create(Message);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Message);
 
 export default instance;

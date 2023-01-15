@@ -801,10 +801,6 @@ class Helper extends Base {
     }
 }
 
-Neo.applyClassConfig(Helper);
-
-let instance = Neo.create(Helper);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Helper);
 
 export default instance;

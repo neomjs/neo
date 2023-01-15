@@ -193,10 +193,6 @@ class Focus extends CoreBase {
     }
 }
 
-Neo.applyClassConfig(Focus);
-
-let instance = Neo.create(Focus);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Focus);
 
 export default instance;

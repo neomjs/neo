@@ -144,6 +144,15 @@ Neo = globalThis.Neo = Object.assign({
 
             !config.singleton && this.applyToGlobalNs(cls);
         });
+
+        proto = cls.prototype || cls;
+
+        if (proto.singleton) {
+            cls = Neo.create(cls);
+            Neo.applyToGlobalNs(cls);
+        }
+
+        return cls;
     },
 
     /**
