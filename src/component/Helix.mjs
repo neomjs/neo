@@ -583,6 +583,7 @@ class Helix extends Component {
 
             me.promiseVdomUpdate(vdom).then(() => {
                 me[itemsMounted] = true;
+                me.fire('itemsMounted');
 
                 setTimeout(() => {
                     me[lockWheel] = true;
