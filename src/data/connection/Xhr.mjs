@@ -220,7 +220,7 @@ class Xhr extends Base {
 
     /**
      * Needed for remote method access
-     *
+     * 
      * @param {Object} value
      */
     setDefaultHeaders(value) {
@@ -228,4 +228,6 @@ class Xhr extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Xhr);
+Neo.applyClassConfig(Xhr);
+
+export default Xhr;

@@ -192,4 +192,6 @@ class EditContainer extends FormContainer {
     }
 }
 
-export default Neo.applyClassConfig(EditContainer);
+Neo.applyClassConfig(EditContainer);
+
+export default EditContainer;

@@ -187,4 +187,6 @@ class Panel extends Container {
     }
 }
 
-export default Neo.applyClassConfig(Panel);
+Neo.applyClassConfig(Panel);
+
+export default Panel;

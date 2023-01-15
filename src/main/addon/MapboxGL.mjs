@@ -492,4 +492,10 @@ class MapboxGL extends Base {
     }
 }
 
-export default Neo.applyClassConfig(MapboxGL);
+Neo.applyClassConfig(MapboxGL);
+
+let instance = Neo.create(MapboxGL);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

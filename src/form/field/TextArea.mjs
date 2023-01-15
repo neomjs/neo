@@ -151,4 +151,6 @@ class TextArea extends Text {
     }
 }
 
-export default Neo.applyClassConfig(TextArea);
+Neo.applyClassConfig(TextArea);
+
+export default TextArea;

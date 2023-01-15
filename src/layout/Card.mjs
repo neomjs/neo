@@ -201,4 +201,6 @@ class Card extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Card);
+Neo.applyClassConfig(Card);
+
+export default Card;

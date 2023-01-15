@@ -43,4 +43,6 @@ class Field extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Field);
+Neo.applyClassConfig(Field);
+
+export default Field;

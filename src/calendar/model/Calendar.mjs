@@ -31,4 +31,6 @@ class Calendar extends Model {
     }}
 }
 
-export default Neo.applyClassConfig(Calendar);
+Neo.applyClassConfig(Calendar);
+
+export default Calendar;

@@ -339,4 +339,6 @@ class List extends BaseList {
     }
 }
 
-export default Neo.applyClassConfig(List);
+Neo.applyClassConfig(List);
+
+export default List;

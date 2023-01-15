@@ -192,4 +192,6 @@ class KeyNavigation extends Base {
     }
 }
 
-export default Neo.applyClassConfig(KeyNavigation);
+Neo.applyClassConfig(KeyNavigation);
+
+export default KeyNavigation;

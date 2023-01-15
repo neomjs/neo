@@ -69,4 +69,6 @@ class SpinUpDown extends Base {
     }
 }
 
-export default Neo.applyClassConfig(SpinUpDown);
+Neo.applyClassConfig(SpinUpDown);
+
+export default SpinUpDown;

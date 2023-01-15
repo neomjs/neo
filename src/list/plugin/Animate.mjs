@@ -430,4 +430,6 @@ class Animate extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Animate);
+Neo.applyClassConfig(Animate);
+
+export default Animate;

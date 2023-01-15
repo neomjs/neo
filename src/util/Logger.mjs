@@ -95,4 +95,10 @@ class Logger extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Logger);
+Neo.applyClassConfig(Logger);
+
+let instance = Neo.create(Logger);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

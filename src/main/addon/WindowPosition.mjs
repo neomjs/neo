@@ -259,4 +259,10 @@ class WindowPosition extends Base {
     }
 }
 
-export default Neo.applyClassConfig(WindowPosition);
+Neo.applyClassConfig(WindowPosition);
+
+let instance = Neo.create(WindowPosition);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

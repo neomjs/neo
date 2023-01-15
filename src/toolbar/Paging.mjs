@@ -277,4 +277,6 @@ class Paging extends Toolbar {
     }
 }
 
-export default Neo.applyClassConfig(Paging);
+Neo.applyClassConfig(Paging);
+
+export default Paging;

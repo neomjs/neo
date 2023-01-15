@@ -109,4 +109,10 @@ class Data extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Data);
+Neo.applyClassConfig(Data);
+
+let instance = Neo.create(Data);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

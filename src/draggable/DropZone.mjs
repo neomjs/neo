@@ -81,4 +81,6 @@ class DropZone extends Base {
     }
 }
 
-export default Neo.applyClassConfig(DropZone);
+Neo.applyClassConfig(DropZone);
+
+export default DropZone;

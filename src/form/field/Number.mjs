@@ -310,4 +310,6 @@ class Number extends Text {
     }
 }
 
-export default Neo.applyClassConfig(Number);
+Neo.applyClassConfig(Number);
+
+export default Number;

@@ -192,4 +192,6 @@ class SettingsContainer extends Container {
     }
 }
 
-export default Neo.applyClassConfig(SettingsContainer);
+Neo.applyClassConfig(SettingsContainer);
+
+export default SettingsContainer;

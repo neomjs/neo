@@ -83,4 +83,10 @@ class Store extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Store);
+Neo.applyClassConfig(Store);
+
+let instance = Neo.create(Store);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

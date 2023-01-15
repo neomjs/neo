@@ -240,4 +240,6 @@ function preventDefault(event) {
     event.stopPropagation();
 }
 
-export default Neo.applyClassConfig(Touch);
+Neo.applyClassConfig(Touch);
+
+export default Touch;

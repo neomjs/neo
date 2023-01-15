@@ -233,4 +233,6 @@ class Fieldset extends Container {
     }
 }
 
-export default Neo.applyClassConfig(Fieldset);
+Neo.applyClassConfig(Fieldset);
+
+export default Fieldset;

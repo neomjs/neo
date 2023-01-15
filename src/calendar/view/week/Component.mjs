@@ -1010,4 +1010,6 @@ class Component extends BaseComponent {
     }
 }
 
-export default Neo.applyClassConfig(Component);
+Neo.applyClassConfig(Component);
+
+export default Component;

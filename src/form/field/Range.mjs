@@ -78,4 +78,6 @@ class Range extends Number {
     }
 }
 
-export default Neo.applyClassConfig(Range);
+Neo.applyClassConfig(Range);
+
+export default Range;

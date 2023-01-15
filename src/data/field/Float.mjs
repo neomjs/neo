@@ -37,4 +37,6 @@ class FloatField extends Field {
     }
 }
 
-export default Neo.applyClassConfig(FloatField);
+Neo.applyClassConfig(FloatField);
+
+export default FloatField;

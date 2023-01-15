@@ -154,4 +154,6 @@ class Matrix extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Matrix);
+Neo.applyClassConfig(Matrix);
+
+export default Matrix;

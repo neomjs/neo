@@ -318,4 +318,6 @@ class Carousel extends Component {
     }
 }
 
-export default Neo.applyClassConfig(Carousel);
+Neo.applyClassConfig(Carousel);
+
+export default Carousel;

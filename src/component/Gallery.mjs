@@ -746,4 +746,6 @@ class Gallery extends Component {
     }
 }
 
-export default Neo.applyClassConfig(Gallery);
+Neo.applyClassConfig(Gallery);
+
+export default Gallery;

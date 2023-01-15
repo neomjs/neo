@@ -173,4 +173,6 @@ class ColumnModel extends Model {
     }
 }
 
-export default Neo.applyClassConfig(ColumnModel);
+Neo.applyClassConfig(ColumnModel);
+
+export default ColumnModel;

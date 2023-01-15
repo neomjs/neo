@@ -27,4 +27,6 @@ class Menu extends Split {
     }
 }
 
-export default Neo.applyClassConfig(Menu);
+Neo.applyClassConfig(Menu);
+
+export default Menu;

@@ -58,4 +58,10 @@ class Cookie extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Cookie);
+Neo.applyClassConfig(Cookie);
+
+let instance = Neo.create(Cookie);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

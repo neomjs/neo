@@ -26,4 +26,6 @@ class Url extends Text {
     }}
 }
 
-export default Neo.applyClassConfig(Url);
+Neo.applyClassConfig(Url);
+
+export default Url;

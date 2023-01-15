@@ -33,4 +33,6 @@ class HBox extends Flexbox {
     }
 }
 
-export default Neo.applyClassConfig(HBox);
+Neo.applyClassConfig(HBox);
+
+export default HBox;

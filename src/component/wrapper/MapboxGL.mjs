@@ -393,4 +393,6 @@ class MapboxGL extends Component {
     }
 }
 
-export default Neo.applyClassConfig(MapboxGL);
+Neo.applyClassConfig(MapboxGL);
+
+export default MapboxGL;

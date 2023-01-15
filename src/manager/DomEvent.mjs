@@ -477,4 +477,10 @@ class DomEvent extends Base {
     }
 }
 
-export default Neo.applyClassConfig(DomEvent);
+Neo.applyClassConfig(DomEvent);
+
+let instance = Neo.create(DomEvent);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

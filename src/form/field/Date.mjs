@@ -153,4 +153,6 @@ class DateField extends Picker {
     }
 }
 
-export default Neo.applyClassConfig(DateField);
+Neo.applyClassConfig(DateField);
+
+export default DateField;

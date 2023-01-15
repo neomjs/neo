@@ -450,4 +450,10 @@ class Main extends core.Base {
     }
 }
 
-export default Neo.applyClassConfig(Main);
+Neo.applyClassConfig(Main);
+
+let instance = Neo.create(Main);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

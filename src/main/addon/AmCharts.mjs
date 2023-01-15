@@ -278,4 +278,10 @@ class AmCharts extends Base {
     }
 }
 
-export default Neo.applyClassConfig(AmCharts);
+Neo.applyClassConfig(AmCharts);
+
+let instance = Neo.create(AmCharts);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

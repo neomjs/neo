@@ -33,4 +33,6 @@ class VBox extends Flexbox {
     }
 }
 
-export default Neo.applyClassConfig(VBox);
+Neo.applyClassConfig(VBox);
+
+export default VBox;

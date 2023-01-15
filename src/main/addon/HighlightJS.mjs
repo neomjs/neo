@@ -159,4 +159,10 @@ class HighlightJS extends Base {
     }
 }
 
-export default Neo.applyClassConfig(HighlightJS);
+Neo.applyClassConfig(HighlightJS);
+
+let instance = Neo.create(HighlightJS);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

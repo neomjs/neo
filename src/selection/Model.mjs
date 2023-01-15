@@ -263,4 +263,6 @@ class Model extends Base {
     }
 }
 
-export default Neo.applyClassConfig(Model);
+Neo.applyClassConfig(Model);
+
+export default Model;

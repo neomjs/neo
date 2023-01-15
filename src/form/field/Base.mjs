@@ -87,4 +87,6 @@ class Base extends Component {
  * @returns {Object}
  */
 
-export default Neo.applyClassConfig(Base);
+Neo.applyClassConfig(Base);
+
+export default Base;

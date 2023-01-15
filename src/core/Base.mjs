@@ -466,6 +466,8 @@ class Base {
     }
 }
 
-export default Neo.applyClassConfig(Base);
+Neo.applyClassConfig(Base);
 
 Base.instanceManagerAvailable = false;
+
+export default Base;

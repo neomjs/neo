@@ -5,7 +5,7 @@ import Picker from './Picker.mjs';
  * @class Neo.form.field.trigger.Date
  * @extends Neo.form.field.trigger.Picker
  */
-class DatePicker extends Picker {
+class Date extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Date'
@@ -24,4 +24,6 @@ class DatePicker extends Picker {
     }}
 }
 
-export default Neo.applyClassConfig(DatePicker);
+Neo.applyClassConfig(Date);
+
+export default Date;
