@@ -27,10 +27,6 @@ class MainContainer extends Viewport {
          */
         ntype: 'main-container',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount : true,
-        /**
          * @member {String[]} baseCls=['neo-docs-maincontainer','neo-viewport']
          */
         baseCls: ['neo-docs-maincontainer', 'neo-viewport'],
