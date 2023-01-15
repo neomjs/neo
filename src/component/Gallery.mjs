@@ -589,7 +589,6 @@ class Gallery extends Component {
             index          = me.store.indexOf(value?.[0] || 0),
             itemHeight     = me.itemHeight,
             itemWidth      = me.itemWidth,
-            vdom           = me.vdom,
             camera         = me.vdom.cn[0].cn[0],
             cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
