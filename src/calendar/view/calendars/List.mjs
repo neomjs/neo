@@ -26,11 +26,11 @@ class List extends ComponentList {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module           : CheckBoxField,
-            enableLabelClicks: false,
-            flex             : 'none',
-            hideLabel        : true,
-            hideValueLabel   : false
+            module        : CheckBoxField,
+            flex          : 'none',
+            hideLabel     : true,
+            iconCls       : ['fas', 'fa-square'],
+            iconClsChecked: ['fas', 'fa-check-square']
         },
         /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
