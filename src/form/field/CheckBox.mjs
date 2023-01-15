@@ -113,12 +113,14 @@ class CheckBox extends Base {
      */
     afterSetChecked(value, oldValue) {
         let me      = this,
-            iconCls = me.vdom.cn[2].cls;
+            iconCls = me.vdom.cn[2].cls,
+            newCls  = value ? me.iconClsChecked : me.iconCls,
+            oldCls  = value ? me.iconCls : me.iconClsChecked;
 
         me.vdom.cn[1].checked = value;
 
-        NeoArray.toggle(iconCls, me.iconClsChecked, value);
-        NeoArray.toggle(iconCls, me.iconCls,        !value);
+        NeoArray.remove(iconCls, oldCls);
+        NeoArray.add(iconCls, newCls);
 
         me.update();
 
