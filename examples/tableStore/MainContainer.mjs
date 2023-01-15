@@ -15,7 +15,6 @@ import Viewport        from '../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.tableStore.MainContainer',
-        autoMount: true,
         layout   : {ntype: 'vbox', align: 'stretch'},
         style    : {padding: '20px'},
 

@@ -15,10 +15,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.component.coronaGallery.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['neo-gallery-maincontainer','neo-viewport']
          */
         baseCls: ['neo-gallery-maincontainer', 'neo-viewport'],

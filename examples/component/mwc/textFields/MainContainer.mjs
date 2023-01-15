@@ -9,7 +9,6 @@ import Viewport     from '../../../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.component.mwc.textFields.MainContainer',
-        autoMount: true,
         layout   : {ntype: 'fit'},
 
         items: [{

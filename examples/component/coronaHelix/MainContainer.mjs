@@ -16,10 +16,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.component.coronaHelix.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {String[]} baseCls=['neo-helix-maincontainer','neo-viewport']
          */
         baseCls: ['neo-helix-maincontainer', 'neo-viewport'],

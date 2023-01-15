@@ -13,10 +13,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.toolbar.breadcrumb.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object[]} items
          */
         items: [{

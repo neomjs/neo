@@ -13,10 +13,6 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.table.covid.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Object[]} items=[TableContainer]
          */
         items: [TableContainer],

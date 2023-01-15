@@ -12,7 +12,6 @@ import Viewport   from '../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.dialog.MainContainer',
-        autoMount: true,
         layout   : 'base',
         style    : {padding: '20px'},
         /**
