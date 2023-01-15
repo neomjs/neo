@@ -512,10 +512,6 @@ class DragDrop extends Base {
     }
 }
 
-Neo.applyClassConfig(DragDrop);
-
-let instance = Neo.create(DragDrop);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(DragDrop);
 
 export default instance;

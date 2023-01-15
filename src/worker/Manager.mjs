@@ -425,10 +425,6 @@ class Manager extends Base {
     }
 }
 
-Neo.applyClassConfig(Manager);
-
-let instance = Neo.create(Manager);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Manager);
 
 export default instance;

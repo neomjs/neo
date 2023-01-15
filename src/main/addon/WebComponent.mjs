@@ -48,10 +48,6 @@ class WebComponent extends Base {
     }
 }
 
-Neo.applyClassConfig(WebComponent);
-
-let instance = Neo.create(WebComponent);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(WebComponent);
 
 export default instance;

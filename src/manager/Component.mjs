@@ -147,7 +147,7 @@ class Component extends Base {
 
         return childComponents;
     }
-    
+
     /**
      * !! For debugging purposes only !!
      *
@@ -290,10 +290,10 @@ class Component extends Base {
 
         return parents;
     }
-    
+
     /**
      * Check if the component had a property of any value somewhere in the Prototype chain
-     * 
+     *
      * @param {Neo.component.Base} component
      * @param {String} property
      * @param {*} value
@@ -361,10 +361,6 @@ class Component extends Base {
     }
 }
 
-Neo.applyClassConfig(Component);
-
-let instance = Neo.create(Component);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Component);
 
 export default instance;

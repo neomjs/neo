@@ -76,10 +76,6 @@ class LocalStorage extends Base {
     }
 }
 
-Neo.applyClassConfig(LocalStorage);
-
-let instance = Neo.create(LocalStorage);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(LocalStorage);
 
 export default instance;

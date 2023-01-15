@@ -188,10 +188,6 @@ class Task extends Base {
     }
 }
 
-Neo.applyClassConfig(Task);
-
-let instance = Neo.create(Task);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Task);
 
 export default instance;

@@ -59,10 +59,6 @@ class Markdown extends Base {
     }
 }
 
-Neo.applyClassConfig(Markdown);
-
-let instance = Neo.create(Markdown);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Markdown);
 
 export default instance;

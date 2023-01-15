@@ -232,10 +232,6 @@ class GoogleMaps extends Base {
     }
 }
 
-Neo.applyClassConfig(GoogleMaps);
-
-let instance = Neo.create(GoogleMaps);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(GoogleMaps);
 
 export default instance;

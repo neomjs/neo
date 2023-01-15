@@ -36,10 +36,6 @@ class Xhr extends XhrConnection {
     }}
 }
 
-Neo.applyClassConfig(Xhr);
-
-let instance = Neo.create(Xhr);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(Xhr);
 
 export default instance;
