@@ -1,5 +1,5 @@
 import Container     from '../../container/Base.mjs';
-import NeoArray        from '../../util/Array.mjs';
+import NeoArray      from '../../util/Array.mjs';
 import PickerTrigger from './trigger/Picker.mjs';
 import Text          from './Text.mjs';
 import VDomUtil      from '../../util/VDom.mjs';
