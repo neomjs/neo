@@ -1,6 +1,5 @@
 import ClassSystemUtil from '../../util/ClassSystem.mjs';
 import List            from '../../list/Base.mjs';
-import NeoArray        from '../../util/Array.mjs';
 import Picker          from './Picker.mjs';
 import Store           from '../../data/Store.mjs';
 import VDomUtil        from '../../util/VDom.mjs';
@@ -50,10 +49,6 @@ class Select extends Picker {
          * @member {String} displayField='name'
          */
         displayField: 'name',
-        /**
-         * @member {Boolean} editable_=true
-         */
-        editable_: true,
         /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
@@ -156,19 +151,6 @@ class Select extends Picker {
         });
 
         me.typeAhead && me.updateTypeAhead()
-    }
-
-    /**
-     * Triggered after the editable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetEditable(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.toggle(cls, 'neo-not-editable', !value);
-        this.cls = cls;
     }
 
     /**
