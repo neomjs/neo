@@ -45,4 +45,14 @@
         border-radius: v(selectfield-picker-container-border-radius);
         font-weight  : 400;
     }
+
+    &.neo-not-editable {
+        cursor: pointer;
+
+        .neo-textfield-input {
+            cursor        : pointer;
+            pointer-events: none;
+            user-select   : none;
+        }
+    }
 }
