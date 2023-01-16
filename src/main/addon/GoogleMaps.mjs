@@ -10,6 +10,10 @@ import Observable from '../../core/Observable.mjs';
  */
 class GoogleMaps extends Base {
     /**
+     * @member {google.maps.Geocoder|null} maps=null
+     */
+    geoCoder = null
+    /**
      * @member {Object} maps={}
      */
     maps = {}
@@ -36,6 +40,7 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
+                'geocode',
                 'hideMarker',
                 'panTo',
                 'removeMap',
@@ -123,6 +128,24 @@ class GoogleMaps extends Base {
         map.addListener('zoom_changed', me.onMapZoomChange.bind(me, map, id));
 
         me.fire('mapCreated', id);
+    }
+
+    /**
+     * Use either address, location or placeId
+     * @param {Object} data
+     * @param {String} data.address
+     * @param {Object} data.location
+     * @param {String} data.placeId
+     * @returns {Object}
+     */
+    async geocode(data) {
+        let me = this;
+
+        if (!me.geoCoder) {
+            me.geoCoder = new google.maps.Geocoder();
+        }
+
+        return await me.geoCoder.geocode(data);
     }
 
     /**
