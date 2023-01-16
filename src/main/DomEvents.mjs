@@ -251,8 +251,15 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getEventData(event) {
+        let path = event.composedPath();
+
+        if (path.length < 1) {
+            // our draggable implementation will generate paths, so we do need to check for them
+            path = event.path;
+        }
+
         return {
-            path     : event.composedPath().map(e => this.getTargetData(e)),
+            path     : path.map(e => this.getTargetData(e)),
             target   : this.getTargetData(event.target),
             timeStamp: event.timeStamp,
             type     : event.type

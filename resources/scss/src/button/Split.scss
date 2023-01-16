@@ -1,5 +1,5 @@
 .neo-split-button {
-    border       : v(button-border);
+    border       : v(button-border-width) solid v(button-border-color);
     border-radius: v(button-border-radius);
     display      : flex;
     width        : fit-content;
@@ -10,7 +10,7 @@
         padding: .5em;
 
         &:last-child {
-            border-left: v(button-border);
+            border-left: v(button-border-width) solid v(button-border-color);
         }
     }
 }

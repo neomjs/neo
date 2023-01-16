@@ -1,4 +1,5 @@
 import Container     from '../../container/Base.mjs';
+import NeoArray      from '../../util/Array.mjs';
 import PickerTrigger from './trigger/Picker.mjs';
 import Text          from './Text.mjs';
 import VDomUtil      from '../../util/VDom.mjs';
@@ -32,6 +33,10 @@ class Picker extends Text {
          * @protected
          */
         clientRects: null,
+        /**
+         * @member {Boolean} editable_=true
+         */
+        editable_: true,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
@@ -82,6 +87,19 @@ class Picker extends Text {
             module: PickerTrigger
         }]
     }}
+
+    /**
+     * Triggered after the editable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEditable(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, 'neo-not-editable', !value);
+        this.cls = cls;
+    }
 
     /**
      * @param {Boolean} silent
