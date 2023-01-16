@@ -1,5 +1,6 @@
 import ClassSystemUtil from '../../util/ClassSystem.mjs';
 import List            from '../../list/Base.mjs';
+import NeoArray        from '../../util/Array.mjs';
 import Picker          from './Picker.mjs';
 import Store           from '../../data/Store.mjs';
 import VDomUtil        from '../../util/VDom.mjs';
@@ -164,7 +165,10 @@ class Select extends Picker {
      * @protected
      */
     afterSetEditable(value, oldValue) {
-        
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, 'neo-not-editable', !value);
+        this.cls = cls;
     }
 
     /**
