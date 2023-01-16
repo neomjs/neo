@@ -43,7 +43,11 @@ class Split extends Button {
         {cls: ['neo-split-button'], cn: [
             {tag: 'button', cn: [
                 {tag: 'span', cls: ['neo-button-glyph']},
-                {tag: 'span', cls: ['neo-button-text']}
+                {tag: 'span', cls: ['neo-button-text']},
+                {cls: ['neo-button-badge']},
+                {cls: ['neo-button-ripple-wrapper'], cn: [
+                    {cls: ['neo-button-ripple']}
+                ]}
             ]}
         ]}
     }}
@@ -110,10 +114,8 @@ class Split extends Button {
      * @protected
      */
     afterSetTriggerButtonIconCls(value, oldValue) {
-        let me = this;
-
-        if (me.triggerButton) {
-            me.triggerButton.iconCls = value;
+        if (this.triggerButton) {
+            this.triggerButton.iconCls = value;
         }
     }
 
