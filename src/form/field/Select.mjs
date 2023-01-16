@@ -50,6 +50,10 @@ class Select extends Picker {
          */
         displayField: 'name',
         /**
+         * @member {Boolean} editable_=true
+         */
+        editable_: true,
+        /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
          * @member {Boolean} forceSelection=false
@@ -151,6 +155,16 @@ class Select extends Picker {
         });
 
         me.typeAhead && me.updateTypeAhead()
+    }
+
+    /**
+     * Triggered after the editable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEditable(value, oldValue) {
+        
     }
 
     /**
