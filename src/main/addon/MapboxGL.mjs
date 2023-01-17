@@ -122,10 +122,9 @@ class MapboxGL extends Base {
      * @param {Object[]} data.layers
      */
     addLayers(data) {
-        const me  = this,
-              map = me.maps[data.id];
-
-        let beforeId;
+        let me  = this,
+            map = me.maps[data.id],
+            beforeId;
 
         if (map) {
             data.layers.forEach(item => {
@@ -145,10 +144,9 @@ class MapboxGL extends Base {
      * @param {Object[]} data.sources
      */
     addSources(data) {
-        const me  = this,
-              map = me.maps[data.id];
-
-        let id;
+        let me  = this,
+            map = me.maps[data.id],
+            id;
 
         if (map) {
             data.sources.forEach(item => {
@@ -170,7 +168,7 @@ class MapboxGL extends Base {
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {
-            const me = this;
+            let me = this;
 
             me.mapsToCreate.forEach(config => {
                 me.create(config);
@@ -203,13 +201,11 @@ class MapboxGL extends Base {
      * @param {String} data.id
      */
     autoResize(data) {
-        const map = this.maps[data.id];
+        let map = this.maps[data.id];
 
-        if (map) {
-            setTimeout(() => {
-                map.resize();
-            }, 100);
-        }
+        map && setTimeout(() => {
+            map.resize();
+        }, 100)
     }
 
     /**
@@ -220,8 +216,8 @@ class MapboxGL extends Base {
      * @param {Number} data.lng
      */
     center(data) {
-        const map    = this.maps[data.id],
-              center = {lat: data.lat, lng: data.lng};
+        let map    = this.maps[data.id],
+            center = {lat: data.lat, lng: data.lng};
 
         if (map) {
             if (data.animate) {
@@ -247,7 +243,7 @@ class MapboxGL extends Base {
      * @param {String}   data.zoom
      */
     create(data) {
-        const me = this;
+        let me = this;
 
         if (!me.scriptsLoaded) {
             me.mapsToCreate.push(data);
@@ -290,8 +286,8 @@ class MapboxGL extends Base {
     }
 
     insertMapboxGLScripts() {
-        const me       = this,
-              basePath = me.downloadPath + me.version + '/';
+        let me       = this,
+            basePath = me.downloadPath + me.version + '/';
 
         Promise.all([
             DomAccess.loadScript(    basePath + 'mapbox-gl.js'),
@@ -307,8 +303,8 @@ class MapboxGL extends Base {
      * @param {Object} event.target map instance
      */
     onMapLoaded(data, event) {
-        const me    = this,
-              mapId = data.id;
+        let me    = this,
+            mapId = data.id;
 
         if (data.sources) {
             me.addSources({
@@ -346,7 +342,7 @@ class MapboxGL extends Base {
      * @param {Object} event.target map instance
      */
     onMapReallyLoaded(data, event) {
-        const me = this;
+        let me = this;
 
         setTimeout(() => {
             if (data.data) {
@@ -371,7 +367,7 @@ class MapboxGL extends Base {
      * @param {Array} data.value
      */
     setFilter(data) {
-        const map = this.maps[data.id];
+        let map = this.maps[data.id];
 
         if (map) {
             map.setFilter(data.layerId, data.value, data.options || {});
@@ -391,7 +387,7 @@ class MapboxGL extends Base {
      * @param {String} data.value
      */
     setLayoutProperty(data) {
-        const map = this.maps[data.id];
+        let map = this.maps[data.id];
 
         if (map) {
             map.setLayoutProperty(data.layerId, data.key, data.value, data.options || {});
@@ -411,7 +407,7 @@ class MapboxGL extends Base {
      * @param {String} data.value
      */
     setPaintProperty(data) {
-        const map = this.maps[data.id];
+        let map = this.maps[data.id];
 
         if (map) {
             map.setPaintProperty(data.layerId, data.key, data.value, data.options || {});
@@ -427,7 +423,7 @@ class MapboxGL extends Base {
      * @param {Object|String} data.style
      */
     setStyle(data) {
-        const me = this;
+        let me = this;
 
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             // todo
@@ -459,7 +455,7 @@ class MapboxGL extends Base {
      * @param {String} data.id
      */
     updateData(data) {
-        const me = this;
+        let me = this;
 
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             me.dataMap[data.id] = data;
@@ -482,7 +478,7 @@ class MapboxGL extends Base {
      * @param {Number} data.zoom
      */
     zoom(data) {
-        const map = this.maps[data.id];
+        let map = this.maps[data.id];
 
         if (map) {
             map.setZoom(data.zoom);
