@@ -102,6 +102,10 @@ class Text extends Base {
          */
         labelCls_: [],
         /**
+         * @member {String} labelOptionalText_=' (Optional)'
+         */
+        labelOptionalText_: ' (Optional)',
+        /**
          * Valid values: 'bottom', 'inline', 'left', 'right', 'top'
          * @member {String} labelPosition_='left'
          */
@@ -137,6 +141,10 @@ class Text extends Base {
          * @member {Boolean} required_=false
          */
         required_: false,
+        /**
+         * @member {Boolean} showOptionalText_=false
+         */
+        showOptionalText_: false,
         /**
          * null => Follow the element's default behavior for spell checking
          * @member {Boolean|null} spellCheck_=false
@@ -334,6 +342,16 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the labelOptionalText config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLabelOptionalText(value, oldValue) {
+        this.labelText = this.labelText; // triggers a vdom update
+    }
+
+    /**
      * Triggered after the labelPosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -405,7 +423,7 @@ class Text extends Base {
         if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {
                 if (!isEmpty) {
-                    delete me.getCenterBorderEl().width;
+                    delete me.getCenterBorderEl()?.width;
                 }
 
                 me.promiseVdomUpdate().then(() => {
@@ -521,8 +539,21 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        this.validate(); // silent
-        this.changeInputElKey('required', value ? value : null);
+        let me = this;
+
+        me.validate(); // silent
+        me.changeInputElKey('required', value ? value : null, true); // silent update
+        me.labelText = me.labelText;
+    }
+
+    /**
+     * Triggered after the showOptionalText config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowOptionalText(value, oldValue) {
+        this.labelText = this.labelText; // triggers a vdom update
     }
 
     /**
@@ -721,6 +752,26 @@ class Text extends Base {
     }
 
     /**
+     * Triggered before the labelText config gets changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetLabelText(value, oldValue) {
+        let me                = this,
+            labelOptionalText = me.labelOptionalText;
+
+        if (me.showOptionalText && !me.required) {
+            return value + labelOptionalText;
+        } else if (value && value.endsWith(labelOptionalText)) {
+            value = value.replace(labelOptionalText, '');
+        }
+
+        return value;
+    }
+
+    /**
      * Triggered before the subLabelCls config gets changed
      * @param {String[]} value
      * @param {String[]} oldValue
@@ -780,8 +831,9 @@ class Text extends Base {
      * Changes the value of a inputEl vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value
+     * @param {Boolean} silent=false
      */
-    changeInputElKey(key, value) {
+    changeInputElKey(key, value, silent=false) {
         let me = this;
 
         if (value || Neo.isBoolean(value) || value === 0) {
@@ -790,7 +842,7 @@ class Text extends Base {
             delete me.getInputEl()[key];
         }
 
-        me.update();
+        !silent && me.update();
     }
 
     /**
