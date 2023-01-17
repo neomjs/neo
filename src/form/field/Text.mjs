@@ -143,6 +143,14 @@ class Text extends Base {
          */
         spellCheck_: false,
         /**
+         * @member {String[]} subLabelBaseCls=['neo-textfield-sublabel']
+         */
+        subLabelBaseCls: ['neo-textfield-sublabel'],
+        /**
+         * @member {String[]} subLabelCls_=[]
+         */
+        subLabelCls_: [],
+        /**
          * @member {String} subLabelText_=null
          */
         subLabelText_: null,
@@ -527,6 +535,22 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the subLabelCls config got changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    afterSetSubLabelCls(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cn[1].cls;
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.update();
+    }
+
+    /**
      * Triggered after the subLabelText config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -693,6 +717,17 @@ class Text extends Base {
      */
     beforeSetLabelPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
+    }
+
+    /**
+     * Triggered before the subLabelCls config gets changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @returns {String[]}
+     * @protected
+     */
+    beforeSetSubLabelCls(value, oldValue) {
+        return NeoArray.union(value || [], this.subLabelBaseCls);
     }
 
     /**
