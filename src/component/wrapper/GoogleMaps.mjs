@@ -17,6 +17,11 @@ class GoogleMaps extends Base {
      */
     markerStoreConfig = null
     /**
+     * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
+     * @member {Boolean} mapCreated=false
+     */
+    mapCreated = false
+    /**
      * Pass any options to the map instance which are not explicitly defined here
      * @member {Object} mapOptions={}
      */
@@ -118,10 +123,12 @@ class GoogleMaps extends Base {
      * @protected
      */
     afterSetCenter(value, oldValue) {
-        if (oldValue !== undefined) {
+        let me = this;
+
+        if (me.mapCreated) {
             Neo.main.addon.GoogleMaps.setCenter({
-                appName: this.appName,
-                id     : this.id,
+                appName: me.appName,
+                id     : me.id,
                 value
             })
         }
@@ -176,6 +183,7 @@ class GoogleMaps extends Base {
 
             setTimeout(() => {
                 Neo.main.addon.GoogleMaps.create(opts).then(() => {
+                    me.mapCreated = true;
                     me.onComponentMounted();
                 });
             }, 50);
@@ -189,9 +197,9 @@ class GoogleMaps extends Base {
      * @protected
      */
     afterSetZoom(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
+        let me = this;
 
+        if (me.mapCreated) {
             Neo.main.addon.GoogleMaps.setZoom({
                 appName: me.appName,
                 id     : me.id,
@@ -290,10 +298,9 @@ class GoogleMaps extends Base {
      * @protected
      */
     parseMarkerClick(data) {
-        let me     = this,
-            record = me.markerStore.get(data.id);
+        let me = this;
 
-        data.record = record;
+        data.record = me.markerStore.get(data.id);
 
         me.onMarkerClick(data);
 
