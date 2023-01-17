@@ -151,6 +151,12 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'spellCheck')},
             style    : {marginTop: '10px'}
         }, {
+            module   : TextField,
+            labelText: 'subLabelText',
+            listeners: {change: me.onConfigChange.bind(me, 'subLabelText')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.subLabelText
+        }, {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},

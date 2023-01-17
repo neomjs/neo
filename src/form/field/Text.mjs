@@ -580,7 +580,7 @@ class Text extends Base {
 
             if (inputEl.tag === 'input') {
                 // wrap the input tag
-                vdom.cn[1] = {
+                vdom.cn[2] = {
                     cls  : ['neo-input-wrapper'],
                     cn   : [...preTriggers, inputEl, ...postTriggers],
                     id   : me.getInputWrapperId(),
