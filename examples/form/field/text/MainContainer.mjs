@@ -146,6 +146,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.showOptionalText,
+            labelText: 'showOptionalText',
+            listeners: {change: me.onConfigChange.bind(me, 'showOptionalText')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.spellCheck,
             labelText: 'spellCheck',
             listeners: {change: me.onConfigChange.bind(me, 'spellCheck')},
