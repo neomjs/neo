@@ -52,13 +52,13 @@ class Range extends Number {
         super.construct(config);
 
         let me      = this,
-            inputEl = me.vdom.cn[1];
+            inputEl = me.vdom.cn[2];
 
         if (me.useInputEvent) {
             me.addDomListeners({
                 input: {
                     fn    : me.onInputValueChange,
-                    id    : me.vdom.cn[1].id,
+                    id    : me.vdom.cn[2].id,
                     scope : me
                 }
             });
