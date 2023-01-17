@@ -143,6 +143,10 @@ class Text extends Base {
          */
         spellCheck_: false,
         /**
+         * @member {String} subLabelText_=null
+         */
+        subLabelText_: null,
+        /**
          * @member {Object|Object[]|null} triggers_=null
          */
         triggers_: null,
@@ -152,6 +156,7 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: [], style: {}},
+            {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
             {cls: ['neo-textfield-error'], removeDom: true}
         ]}
@@ -522,6 +527,23 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the subLabelText config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSubLabelText(value, oldValue) {
+        let me        = this,
+            showLabel = me.labelPosition === 'top',
+            subLabel  = me.vdom.cn[1];
+
+        subLabel.html      = value;
+        subLabel.removeDom = !showLabel;
+
+        me.update();
+    }
+
+    /**
      * Triggered after the triggers config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -530,7 +552,7 @@ class Text extends Base {
     afterSetTriggers(value, oldValue) {
         let me           = this,
             vdom         = me.vdom,
-            inputEl      = vdom.cn[1], // inputEl or inputWrapperEl
+            inputEl      = vdom.cn[2], // inputEl or inputWrapperEl
             preTriggers  = [],
             postTriggers = [],
             width;
@@ -573,8 +595,8 @@ class Text extends Base {
             if (inputEl.tag !== 'input') {
                 // replacing the input wrapper div with the input tag
                 width = inputEl.width;
-                vdom.cn[1] = me.getInputEl();
-                vdom.cn[1].width = width;
+                vdom.cn[2] = me.getInputEl();
+                vdom.cn[2].width = width;
             }
         }
 
