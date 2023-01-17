@@ -340,17 +340,18 @@ class Text extends Base {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me  = this,
-            cls = me.cls,
-            centerBorderElCls, isEmpty, vdom;
+        let me   = this,
+            cls  = me.cls,
+            vdom = me.vdom,
+            centerBorderElCls, isEmpty;
+
+        vdom.cn[1].removeDom = value !== 'top' ? true : !Boolean(me.subLabelText);
 
         NeoArray.remove(cls, 'label-' + oldValue);
         NeoArray.add(cls, 'label-' + value);
         me.cls = cls; // todo: silent update if needed
 
         if (oldValue === 'inline') {
-            vdom = me.vdom;
-
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
             vdom.cn[0].removeDom = me.hideLabel;
