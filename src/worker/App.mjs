@@ -55,7 +55,12 @@ class App extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
+
+        let me = this;
+
+        // convenience shortcuts
+        Neo.applyDeltas    = me.applyDeltas   .bind(me);
+        Neo.setCssVariable = me.setCssVariable.bind(me);
     }
 
     /**
@@ -290,6 +295,29 @@ class App extends Base {
         });
 
         me.themeFilesCache = [];
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.key
+     * @param {String} [data.priority] optionally pass 'important'
+     * @param {String} data.theme=Neo.config.themes[0]
+     * @param {String} data.value
+     * @returns {Promise<any>}
+     */
+    setCssVariable(data) {
+        let addon = Neo.main?.addon?.Stylesheet,
+            theme = Neo.config.themes?.[0];
+
+        if (!addon) {
+            return Promise.reject('Neo.main.addon.Stylesheet not imported');
+        } else {
+            if (theme.startsWith('neo-')) {
+                theme = theme.substring(4);
+            }
+
+            return addon.setCssVariable({theme, ...data});
+        }
     }
 }
 
