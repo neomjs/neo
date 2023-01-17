@@ -842,7 +842,7 @@ class Text extends Base {
             delete me.getInputEl()[key];
         }
 
-        me.update();
+        !silent && me.update();
     }
 
     /**
