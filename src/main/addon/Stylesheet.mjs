@@ -31,6 +31,7 @@ class Stylesheet extends Base {
                 'createStyleSheet',
                 'deleteCssRules',
                 'insertCssRules',
+                'setCssVariable',
                 'swapStyleSheet'
             ]
         },
@@ -262,6 +263,37 @@ class Stylesheet extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.key
+     * @param {String} [data.priority] optionally pass 'important'
+     * @param {String} data.theme
+     * @param {String} data.value
+     */
+    setCssVariable(data) {
+        let key = data.key,
+            rule, sheet;
+
+        if (!key.startsWith('--')) {
+            key = '--' + key;
+        }
+
+        for (sheet of document.styleSheets) {
+            if (sheet.href.includes(data.theme)) {
+                for (rule of sheet.cssRules) {
+                    if (rule.type === 1) { // CSSRule.STYLE_RULE
+                        if (rule.style.getPropertyValue(key) !== '') {
+                            rule.style.setProperty(key, data.value, data.priority);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
