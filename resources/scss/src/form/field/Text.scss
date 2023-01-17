@@ -356,4 +356,13 @@
         flex       : 0 0 auto;
         user-select: none;
     }
+
+    .neo-textfield-sublabel {
+        color      : v(textfield-sublabel-color);
+        display    : inline-block;
+        flex       : 0 0 auto;
+        font-size  : v(textfield-sublabel-font-size);
+        margin     : v(textfield-sublabel-margin);
+        user-select: none;
+    }
 }

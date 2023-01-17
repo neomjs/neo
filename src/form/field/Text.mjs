@@ -143,6 +143,18 @@ class Text extends Base {
          */
         spellCheck_: false,
         /**
+         * @member {String[]} subLabelBaseCls=['neo-textfield-sublabel']
+         */
+        subLabelBaseCls: ['neo-textfield-sublabel'],
+        /**
+         * @member {String[]} subLabelCls_=[]
+         */
+        subLabelCls_: [],
+        /**
+         * @member {String} subLabelText_=null
+         */
+        subLabelText_: null,
+        /**
          * @member {Object|Object[]|null} triggers_=null
          */
         triggers_: null,
@@ -152,6 +164,7 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: [], style: {}},
+            {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
             {cls: ['neo-textfield-error'], removeDom: true}
         ]}
@@ -327,17 +340,18 @@ class Text extends Base {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me  = this,
-            cls = me.cls,
-            centerBorderElCls, isEmpty, vdom;
+        let me   = this,
+            cls  = me.cls,
+            vdom = me.vdom,
+            centerBorderElCls, isEmpty;
+
+        vdom.cn[1].removeDom = value !== 'top' ? true : !Boolean(me.subLabelText);
 
         NeoArray.remove(cls, 'label-' + oldValue);
         NeoArray.add(cls, 'label-' + value);
         me.cls = cls; // todo: silent update if needed
 
         if (oldValue === 'inline') {
-            vdom = me.vdom;
-
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
 
             vdom.cn[0].removeDom = me.hideLabel;
@@ -522,6 +536,39 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the subLabelCls config got changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    afterSetSubLabelCls(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cn[1].cls;
+
+        NeoArray.remove(cls, oldValue);
+        NeoArray.add(cls, value);
+
+        me.update();
+    }
+
+    /**
+     * Triggered after the subLabelText config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSubLabelText(value, oldValue) {
+        let me        = this,
+            showLabel = me.labelPosition === 'top',
+            subLabel  = me.vdom.cn[1];
+
+        subLabel.html      = value;
+        subLabel.removeDom = !showLabel;
+
+        me.update();
+    }
+
+    /**
      * Triggered after the triggers config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -530,7 +577,7 @@ class Text extends Base {
     afterSetTriggers(value, oldValue) {
         let me           = this,
             vdom         = me.vdom,
-            inputEl      = vdom.cn[1], // inputEl or inputWrapperEl
+            inputEl      = vdom.cn[2], // inputEl or inputWrapperEl
             preTriggers  = [],
             postTriggers = [],
             width;
@@ -558,7 +605,7 @@ class Text extends Base {
 
             if (inputEl.tag === 'input') {
                 // wrap the input tag
-                vdom.cn[1] = {
+                vdom.cn[2] = {
                     cls  : ['neo-input-wrapper'],
                     cn   : [...preTriggers, inputEl, ...postTriggers],
                     id   : me.getInputWrapperId(),
@@ -573,8 +620,8 @@ class Text extends Base {
             if (inputEl.tag !== 'input') {
                 // replacing the input wrapper div with the input tag
                 width = inputEl.width;
-                vdom.cn[1] = me.getInputEl();
-                vdom.cn[1].width = width;
+                vdom.cn[2] = me.getInputEl();
+                vdom.cn[2].width = width;
             }
         }
 
@@ -671,6 +718,17 @@ class Text extends Base {
      */
     beforeSetLabelPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
+    }
+
+    /**
+     * Triggered before the subLabelCls config gets changed
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @returns {String[]}
+     * @protected
+     */
+    beforeSetSubLabelCls(value, oldValue) {
+        return NeoArray.union(value || [], this.subLabelBaseCls);
     }
 
     /**

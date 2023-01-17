@@ -25,7 +25,10 @@ $neoMap: map-merge($neoMap, (
     'textfield-opacity-disabled'               : #{neo(neo-disabled-opacity)},
     'textfield-opacity-readonly'               : 1,
     'textfield-outline-active'                 : none,
-    'textfield-outline-hovered'                : none
+    'textfield-outline-hovered'                : none,
+    'textfield-sublabel-color'                 : #666,
+    'textfield-sublabel-font-size'             : 12px,
+    'textfield-sublabel-margin'                : 0 0 5px
 ));
 
 @if $useCssVars == true {
@@ -57,5 +60,8 @@ $neoMap: map-merge($neoMap, (
         --textfield-opacity-readonly               : #{neo(textfield-opacity-readonly)};
         --textfield-outline-active                 : #{neo(textfield-outline-active)};
         --textfield-outline-hovered                : #{neo(textfield-outline-hovered)};
+        --textfield-sublabel-color                 : #{neo(textfield-sublabel-color)};
+        --textfield-sublabel-font-size             : #{neo(textfield-sublabel-font-size)};
+        --textfield-sublabel-margin                : #{neo(textfield-sublabel-margin)};
     }
 }
