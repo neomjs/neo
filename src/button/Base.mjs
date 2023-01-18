@@ -73,7 +73,8 @@ class Base extends Component {
         /**
          * The scope (this pointer) inside the handler function.
          * Points to the button instance by default.
-         * @member {Object|null} handlerScope=null
+         * You can use 'this' as a string for convenience reasons
+         * @member {Object|String|null} handlerScope=null
          */
         handlerScope: null,
         /**
