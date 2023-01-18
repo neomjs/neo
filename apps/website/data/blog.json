@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 18, 2023",
+        "id"          : 54,
+        "image"       : "changing-scoped-css-variables-using-javascript.png",
+        "name"        : "Changing scoped CSS variables using JavaScript",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/changing-scoped-css-variables-using-javascript-96b26dfa43b1?source=friends_link&sk=2be526c9917418b21fe42bd66c40ea87"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Sep 07, 2022",
         "id"          : 53,
         "image"       : "the-secret-of-successfully-using-multi-window-webgl-canvas.png",
