@@ -643,7 +643,7 @@ class Base extends Component {
         if (!me.mounted && me.rendering) {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
-                me.onStoreLoad();
+                me.createItems();
             });
         } else {
             me.createItems();
