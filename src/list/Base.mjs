@@ -641,8 +641,8 @@ class Base extends Component {
             listenerId;
 
         if (!me.mounted && me.rendering) {
-            listenerId = me.on('rendered', () => {
-                me.un('rendered', listenerId);
+            listenerId = me.on('mounted', () => {
+                me.un('mounted', listenerId);
                 me.createItems();
             });
         } else {
