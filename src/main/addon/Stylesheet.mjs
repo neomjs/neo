@@ -283,7 +283,7 @@ class Stylesheet extends Base {
         for (sheet of document.styleSheets) {
             if (sheet.href.includes(data.theme)) {
                 for (rule of sheet.cssRules) {
-                    if (rule.type === 1) { // CSSRule.STYLE_RULE
+                    if (Neo.typeOf(rule) === 'CSSStyleRule') {
                         if (rule.style.getPropertyValue(key) !== '') {
                             rule.style.setProperty(key, data.value, data.priority);
                             return true;

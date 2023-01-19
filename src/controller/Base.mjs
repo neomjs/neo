@@ -6,14 +6,6 @@ import HashHistory from '../util/HashHistory.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         */
-        observable: true
-    }}
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.controller.Base'

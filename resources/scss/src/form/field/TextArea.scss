@@ -1,6 +1,10 @@
 .neo-textarea {
     align-items: stretch;
 
+    .neo-input-wrapper {
+        height: fit-content;
+    }
+
     .neo-field-trigger {
         border-bottom: 1px solid var(--textfield-border-color);
     }
