@@ -138,15 +138,17 @@ class Base extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (oldValue !== undefined) {
-            let items = this.items,
-                i     = 0,
-                len   = items.length;
+            setTimeout(() => {
+                let items = this.items,
+                    i     = 0,
+                    len   = items.length;
 
-            for (; i < len; i++) {
-                if (!items[i].vdom.removeDom) {
-                    items[i].mounted = value;
+                for (; i < len; i++) {
+                    if (!items[i].vdom.removeDom) {
+                        items[i].mounted = value;
+                    }
                 }
-            }
+            }, 1)
         }
     }
 
