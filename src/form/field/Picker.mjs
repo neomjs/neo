@@ -262,7 +262,15 @@ class Picker extends Text {
      * @param {Object} data
      */
     onInputClick(data) {
-        !this.editable && this.togglePicker();
+        let me = this;
+
+        if (!me.editable) {
+            me.togglePicker();
+
+            if (!me.pickerIsMounted) {
+                me.focus(); // stay in sync to the trigger-click logic
+            }
+        }
     }
 
     /**
