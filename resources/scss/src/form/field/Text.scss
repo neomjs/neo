@@ -364,5 +364,6 @@
         font-size  : v(textfield-sublabel-font-size);
         margin     : v(textfield-sublabel-margin);
         user-select: none;
+        white-space: break-spaces;
     }
 }
