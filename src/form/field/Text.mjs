@@ -11,6 +11,10 @@ import VNodeUtil    from '../../util/VNode.mjs';
  */
 class Text extends Base {
     /**
+     * @member {String} errorTextRequired='Required'
+     */
+    errorTextRequired = 'Required'
+    /**
      * Set this value to false, in case a field should display errors up front
      * @member {Boolean} validBeforeMount=true
      */
@@ -1278,7 +1282,7 @@ class Text extends Base {
             isEmpty     = !value || valueLength < 1;
 
         if (required && isEmpty) {
-            me[errorField] = 'Required';
+            me[errorField] = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
             if (required || !isEmpty) {

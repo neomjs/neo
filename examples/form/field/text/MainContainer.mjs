@@ -50,6 +50,12 @@ class MainContainer extends ConfigurationViewport {
             reference: 'error-field',
             value    : me.exampleComponent.error
         }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'errorTextRequired',
+            listeners: {change: me.onConfigChange.bind(me, 'errorTextRequired')},
+            value    : me.exampleComponent.errorTextRequired
+        }, {
             module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
             labelText: 'hideLabel',
