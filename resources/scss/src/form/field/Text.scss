@@ -327,7 +327,7 @@
         border-radius   : v(textfield-border-radius);
         color           : v(textfield-input-color);
         font            : v(textfield-input-font);
-        min-height      : 27px;
+        min-height      : v(textfield-input-height);
         padding         : v(textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 140px;
