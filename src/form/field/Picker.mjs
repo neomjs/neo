@@ -267,9 +267,8 @@ class Picker extends Text {
         if (!me.editable) {
             me.togglePicker();
 
-            if (!me.pickerIsMounted) {
-                me.focus(); // stay in sync to the trigger-click logic
-            }
+            // stay in sync to the trigger-click logic
+            !me.pickerIsMounted && me.focus()
         }
     }
 
