@@ -139,13 +139,16 @@ class GoogleMaps extends Base {
      * @returns {Object}
      */
     async geocode(data) {
-        let me = this;
+        let me = this,
+            response;
 
         if (!me.geoCoder) {
             me.geoCoder = new google.maps.Geocoder();
         }
 
-        return await me.geoCoder.geocode(data);
+        response = await me.geoCoder.geocode(data);
+
+        return JSON.parse(JSON.stringify(response));
     }
 
     /**
