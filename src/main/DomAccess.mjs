@@ -45,6 +45,7 @@ class DomAccess extends Base {
             app: [
                 'addScript',
                 'applyBodyCls',
+                'blur',
                 'execCommand',
                 'focus',
                 'getAttributes',
@@ -125,6 +126,17 @@ class DomAccess extends Base {
     }
 
     /**
+     * Calls blur() on a node for a given dom node id
+     * @param {Object} data
+     * @returns {Object} obj.id => the passed id
+     */
+    blur(data) {
+        this.getElement(data.id)?.blur();
+
+        return {id: data.id};
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.command
      * @returns {Object} data
@@ -135,7 +147,7 @@ class DomAccess extends Base {
     }
 
     /**
-     * Calls focus on a node for a given dom node id
+     * Calls focus() on a node for a given dom node id
      * @param {Object} data
      * @returns {Object} obj.id => the passed id
      */
