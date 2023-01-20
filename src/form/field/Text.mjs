@@ -11,6 +11,11 @@ import VNodeUtil    from '../../util/VNode.mjs';
  */
 class Text extends Base {
     /**
+     * data passes maxLength, minLength & valueLength properties
+     * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
+     */
+    errorTextMinLength = data => `Min length violation: ${data.valueLength} / ${data.minLength}`
+    /**
      * @member {String} errorTextRequired='Required'
      */
     errorTextRequired = 'Required'
@@ -1291,7 +1296,7 @@ class Text extends Base {
             }
         } else if (Neo.isNumber(minLength) && valueLength < minLength) {
             if (required || !isEmpty) {
-                me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+                me[errorField] = me.errorTextMinLength({maxLength, minLength, valueLength});
                 returnValue = false;
             }
         }
