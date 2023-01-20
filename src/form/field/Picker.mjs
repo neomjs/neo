@@ -89,6 +89,20 @@ class Picker extends Text {
     }}
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            click: me.onInputClick,
+            scope: me
+        });
+    }
+
+    /**
      * Triggered after the editable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -246,6 +260,20 @@ class Picker extends Text {
 
     /**
      * @param {Object} data
+     */
+    onInputClick(data) {
+        let me = this;
+
+        if (!me.editable) {
+            me.togglePicker();
+
+            // stay in sync to the trigger-click logic
+            !me.pickerIsMounted && me.focus()
+        }
+    }
+
+    /**
+     * @param {Object} data
      * @param {Function} [callback]
      * @param {Object} [callbackScope]
      * @protected
@@ -267,13 +295,7 @@ class Picker extends Text {
      * @protected
      */
     onPickerTriggerClick() {
-        let me = this;
-
-        if (me.pickerIsMounted) {
-            me.hidePicker();
-        } else {
-            me.getClientRectsThenShow();
-        }
+        this.editable && this.togglePicker();
     }
 
     /**
@@ -295,6 +317,19 @@ class Picker extends Text {
         });
 
         picker.render(true);
+    }
+
+    /**
+     *
+     */
+    togglePicker() {
+        let me = this;
+
+        if (me.pickerIsMounted) {
+            me.hidePicker();
+        } else {
+            me.getClientRectsThenShow();
+        }
     }
 }
 

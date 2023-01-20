@@ -11,6 +11,20 @@ import VNodeUtil    from '../../util/VNode.mjs';
  */
 class Text extends Base {
     /**
+     * data passes maxLength, minLength & valueLength properties
+     * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
+     */
+    errorTextMaxLength = data => `Max length violation: ${data.valueLength} / ${data.maxLength}`
+    /**
+     * data passes maxLength, minLength & valueLength properties
+     * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
+     */
+    errorTextMinLength = data => `Min length violation: ${data.valueLength} / ${data.minLength}`
+    /**
+     * @member {String} errorTextRequired='Required'
+     */
+    errorTextRequired = 'Required'
+    /**
      * Set this value to false, in case a field should display errors up front
      * @member {Boolean} validBeforeMount=true
      */
@@ -1275,19 +1289,20 @@ class Text extends Base {
             returnValue = true,
             value       = me.value,
             valueLength = value?.toString().length,
-            isEmpty     = !value || valueLength < 1;
+            isEmpty     = !value || valueLength < 1,
+            errorParam  = {maxLength, minLength, valueLength};
 
         if (required && isEmpty) {
-            me[errorField] = 'Required';
+            me[errorField] = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
             if (required || !isEmpty) {
-                me[errorField] = `Max length violation: ${valueLength} / ${maxLength}`;
+                me[errorField] = me.errorTextMaxLength(errorParam);
                 returnValue = false;
             }
         } else if (Neo.isNumber(minLength) && valueLength < minLength) {
             if (required || !isEmpty) {
-                me[errorField] = `Min length violation: ${valueLength} / ${minLength}`;
+                me[errorField] = me.errorTextMinLength(errorParam);
                 returnValue = false;
             }
         }
