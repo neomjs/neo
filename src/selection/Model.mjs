@@ -92,10 +92,10 @@ class Model extends Base {
     /**
      * @param {Object} item
      * @param {Boolean} [silent] true to prevent a vdom update
-     * @param {Array} [itemCollection]
+     * @param {Object[]|String[]} itemCollection=this.items
      * @param {String} [selectedCls]
      */
-    deselect(item, silent, itemCollection, selectedCls) {
+    deselect(item, silent, itemCollection=this.items, selectedCls) {
         let me   = this,
             view = me.view,
             node = view.getVdomChild(item), // todo: support for nodes (right now limited to ids)
@@ -107,7 +107,7 @@ class Model extends Base {
             node.cls = cls;
         }
 
-        NeoArray.remove(itemCollection || me.items, item);
+        NeoArray.remove(itemCollection, item);
 
         !silent && view.update();
     }
@@ -194,18 +194,16 @@ class Model extends Base {
 
     /**
      * @param {Object|Object[]|String[]} items
-     * @param {Array} [itemCollection]
+     * @param {Object[]|String[]} itemCollection=this.items
      * @param {String} [selectedCls]
      */
-    select(items, itemCollection, selectedCls) {
+    select(items, itemCollection=this.items, selectedCls) {
         items = Array.isArray(items) ? items : [items];
 
         let me   = this,
             view = me.view,
             vdom = view.vdom,
             cls;
-
-        itemCollection = itemCollection || me.items;
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect) {
