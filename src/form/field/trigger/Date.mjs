@@ -21,7 +21,7 @@ class Date extends Picker {
          * @member {String|null} iconCls='fa fa-calendar-alt'
          */
         iconCls: 'fa fa-calendar-alt'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Date);

@@ -31,7 +31,7 @@ class SpinDown extends Base {
          * @protected
          */
         type: 'spindown'
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -30,7 +30,7 @@ class Text extends Base {
      */
     validBeforeMount = true
 
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for autoCapitalize
          * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
@@ -45,7 +45,7 @@ class Text extends Base {
          * @static
          */
         labelPositions: ['bottom', 'inline', 'left', 'right', 'top']
-    }}
+    }
 
     static config = {
         /**
@@ -190,7 +190,7 @@ class Text extends Base {
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
             {cls: ['neo-textfield-error'], removeDom: true}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -17,7 +17,7 @@ class Api extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Registers each service & method combination into the collection

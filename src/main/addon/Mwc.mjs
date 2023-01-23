@@ -32,7 +32,7 @@ class Mwc extends Base {
                 'reportValidity'
             ]
         }
-    }}
+    }
 
     /**
      * @param {String} id

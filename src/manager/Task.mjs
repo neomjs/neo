@@ -44,7 +44,7 @@ class Task extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Adds a task to collection.

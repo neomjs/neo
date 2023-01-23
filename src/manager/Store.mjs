@@ -30,7 +30,7 @@ class Store extends Base {
         remote: {
             app: ['createRandomData', 'filter', 'load', 'sort']
         }
-    }}
+    }
 
     /**
      * Dummy method until we have a data package in place

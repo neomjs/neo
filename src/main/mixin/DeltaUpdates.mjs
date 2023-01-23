@@ -13,7 +13,7 @@ class DeltaUpdates extends Base {
          * @protected
          */
         className: 'Neo.main.mixin.DeltaUpdates'
-    }}
+    }
 
     /**
      * @param {Object} delta

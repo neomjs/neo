@@ -16,7 +16,7 @@ class Button extends BaseButton {
      */
     field = null
 
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for align
          * @member {String[]} alignValues: ['left', 'center', 'right']
@@ -24,7 +24,7 @@ class Button extends BaseButton {
          * @static
          */
         alignValues: ['left', 'center', 'right']
-    }}
+    }
 
     static config = {
         /**
@@ -60,7 +60,7 @@ class Button extends BaseButton {
          * @protected
          */
         isSorted_: null
-    }}
+    }
 
     /**
      * @param {Object} config

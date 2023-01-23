@@ -18,14 +18,14 @@ const countMutations   = Symbol('countMutations'),
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**

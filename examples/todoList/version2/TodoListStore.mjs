@@ -6,7 +6,7 @@ import TodoListModel from './TodoListModel.mjs';
  * @extends Neo.data.Store
  */
 class TodoListStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.todoList.version2.TodoListStore',
         keyProperty: 'id',
         model      : TodoListModel,
@@ -24,7 +24,7 @@ class TodoListStore extends Store {
             property : 'id',
             direction: 'ASC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(TodoListStore);

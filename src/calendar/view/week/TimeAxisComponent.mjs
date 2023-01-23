@@ -5,7 +5,7 @@ import Component from '../../../component/Base.mjs';
  * @extends Neo.container.Base
  */
 class TimeAxisComponent extends Component {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for interval
          * @member {Number[]} intervals=[15, 30, 60]
@@ -13,7 +13,7 @@ class TimeAxisComponent extends Component {
          * @static
          */
         intervals: [15, 30, 60]
-    }}
+    }
 
     static config = {
         /**

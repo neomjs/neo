@@ -16,7 +16,7 @@ class ListModel extends BaseListModel {
          * @protected
          */
         ntype: 'selection-menu-listmodel'
-    }}
+    }
 
     /**
      * @param {Object} data

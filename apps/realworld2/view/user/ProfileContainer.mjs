@@ -5,7 +5,7 @@ import Container from '../../../../src/container/Base.mjs';
  * @extends Neo.container.Base
  */
 class ProfileContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.user.ProfileContainer'
          * @protected
@@ -24,7 +24,7 @@ class ProfileContainer extends Container {
         style: {
             padding: '20px'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(ProfileContainer);

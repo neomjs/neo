@@ -11,7 +11,7 @@ function _random(max) {
  * @extends Neo.component.Base
  */
 class TableComponent extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='NeoApp.view.TableComponent'
          * @protected
@@ -32,7 +32,7 @@ class TableComponent extends Base {
         {tag: 'table', cn: [
             {tag: 'tbody', id: 'tbody', cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

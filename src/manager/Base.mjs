@@ -12,7 +12,7 @@ class Base extends CollectionBase{
          * @protected
          */
         className: 'Neo.manager.Base'
-    }}
+    }
 
     /**
      * @param {Number|String} id

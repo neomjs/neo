@@ -105,7 +105,7 @@ class MapboxGL extends Base {
          * @protected
          */
         zoomMap: {}
-    }}
+    }
 
     /**
      * @param {Object} config

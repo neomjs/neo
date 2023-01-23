@@ -5,7 +5,7 @@ import Model from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class CountryModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryModel'
          * @protected
@@ -36,7 +36,7 @@ class CountryModel extends Model {
             name: 'todayDeaths',
             type: 'int'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(CountryModel);

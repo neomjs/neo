@@ -9,7 +9,7 @@ import VDomUtil         from '../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class HomeComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.HomeComponent'
          * @protected
@@ -82,7 +82,7 @@ class HomeComponent extends Component {
                     ]}
                 ]}
             ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -17,7 +17,7 @@ class Fit extends Base {
          * @protected
          */
         ntype: 'layout-fit'
-    }}
+    }
 
     /**
      * Initially sets the CSS classes of the container items this layout is bound to.

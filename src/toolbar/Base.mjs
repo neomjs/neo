@@ -9,14 +9,14 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.container.Base
  */
 class Base extends Container {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for dock
          * @member {String[]} dockPositions=['top', 'right', 'bottom', 'left']
          * @static
          */
         dockPositions: ['top', 'right', 'bottom', 'left'],
-    }}
+    }
 
     static config = {
         /**
@@ -63,7 +63,7 @@ class Base extends Container {
          * @member {Object} sortZoneConfig=null
          */
         sortZoneConfig: null
-    }}
+    }
 
     /**
      * Triggered after the appName config got changed

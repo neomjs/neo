@@ -16,7 +16,7 @@ class Base {
      * @static
      * @tutorial 02_ClassSystem
      */
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Set this one to false in case you don't want to stick
          * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -25,7 +25,7 @@ class Base {
          * @static
          */
         registerToGlobalNs: true
-    }}
+    }
 
     /**
      * The return value will get applied to each class instance

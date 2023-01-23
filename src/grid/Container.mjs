@@ -73,7 +73,7 @@ class Container extends BaseContainer {
         {cls: ['neo-grid-wrapper'], cn: [
             {cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

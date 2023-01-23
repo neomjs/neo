@@ -48,7 +48,7 @@ class NumberContainer extends Container {
          * @member {Boolean|null} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * Triggered after the operator config got changed

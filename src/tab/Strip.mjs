@@ -35,7 +35,7 @@ class Strip extends Component {
         {cn: [
             {cls: ['neo-active-tab-indicator']}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the useActiveTabIndicator config got changed

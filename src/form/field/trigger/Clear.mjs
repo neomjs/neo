@@ -36,7 +36,7 @@ class Clear extends Base {
          * @member {Number} weight_=20
          */
         weight: 20
-    }}
+    }
 
     /**
      * Triggered after the hidden config got changed

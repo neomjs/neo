@@ -8,7 +8,7 @@ import TagListComponent from './article/TagListComponent.mjs';
  * @extends Neo.container.Base
  */
 class HomeContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.HomeContainer'
          * @protected
@@ -70,7 +70,7 @@ class HomeContainer extends Container {
                 flex  : 1
             }]
         }]
-    }}
+    }
 
     /**
      * @param {Object} [params={}]

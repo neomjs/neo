@@ -7,7 +7,7 @@ import VdomUtil  from '../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class MainComponent extends Component {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.todoList.version1.MainComponent',
         autoMount: true,
         height   : 200,
@@ -38,7 +38,7 @@ class MainComponent extends Component {
                 {tag: 'button', cls: ['todo-add-button'], html : 'Add Item', style: {marginLeft: '10px'}}
             ]}
         ]}
-    }}
+    }
 
     construct(config) {
         super.construct(config);

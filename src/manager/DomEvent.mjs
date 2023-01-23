@@ -60,7 +60,7 @@ class DomEvent extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} event

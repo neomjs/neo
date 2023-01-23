@@ -35,7 +35,7 @@ class SpinUpDown extends Base {
          * @protected
          */
         type: 'spinupdown'
-    }}
+    }
 
     /**
      *

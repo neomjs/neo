@@ -57,7 +57,7 @@ class DateField extends Picker {
         triggers: [{
             module: DateTrigger
         }]
-    }}
+    }
 
     /**
      * @param config

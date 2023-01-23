@@ -7,14 +7,14 @@ import Observable from '../core/Observable.mjs';
  * @extends Neo.core.Base
  */
 class Model extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**
@@ -52,7 +52,7 @@ class Model extends Base {
          * @protected
          */
         view_: null
-    }}
+    }
 
     /**
      * Gets triggered before getting the value of the items config

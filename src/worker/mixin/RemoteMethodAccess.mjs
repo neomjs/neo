@@ -16,7 +16,7 @@ class RemoteMethodAccess extends Base {
          * @protected
          */
         mixin: true
-    }}
+    }
 
     /**
      * @param {Object} remote

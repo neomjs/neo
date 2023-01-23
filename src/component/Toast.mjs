@@ -33,7 +33,7 @@ class Toast extends Base {
      */
     timeout = 3000
 
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for positions
          * @member {String[]} positions = ['tl', 'tc', 'tr', 'bl', 'bc', 'br']
@@ -47,7 +47,7 @@ class Toast extends Base {
          * @static
          */
         slideDirections: ['down', 'up', 'left', 'right']
-    }}
+    }
 
     static config = {
         /**

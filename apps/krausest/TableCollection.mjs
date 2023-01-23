@@ -9,7 +9,7 @@ function _random(max) {
  * @extends Neo.collection.Base
  */
 class TableCollection extends BaseCollection {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='NeoApp.TableCollection'
          * @protected
@@ -19,7 +19,7 @@ class TableCollection extends BaseCollection {
          * @member {Number} idCounter=1
          */
         idCounter: 1
-    }}
+    }
 
     /**
      * @param {Number} count

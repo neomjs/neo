@@ -18,7 +18,7 @@ class WebComponent extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

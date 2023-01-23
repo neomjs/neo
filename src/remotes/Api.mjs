@@ -17,7 +17,7 @@ class Api extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {String} service

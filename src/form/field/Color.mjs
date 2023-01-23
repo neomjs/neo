@@ -42,7 +42,7 @@ class Color extends Select {
             colorFormatter    : '@config:colorFormatter',
             silentSelectUpdate: true
         }
-    }}
+    }
 
     /**
      * @param {Object} config

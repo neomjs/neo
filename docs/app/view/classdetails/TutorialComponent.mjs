@@ -5,7 +5,7 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class TutorialComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.TutorialComponent'
          * @protected
@@ -34,7 +34,7 @@ class TutorialComponent extends Component {
         style: {
             overflow: 'auto'
         }
-    }}
+    }
 
     /**
      *

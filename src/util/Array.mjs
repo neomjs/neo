@@ -11,7 +11,7 @@ class NeoArray extends Base {
          * @protected
          */
         className: 'Neo.util.Array'
-    }}
+    }
 
     /**
      * Adds an item or Array of items to an array in case it does not already exist.

@@ -71,7 +71,7 @@ class Fieldset extends Container {
          */
         _vdom:
         {tag: 'fieldset', cn: []}
-    }}
+    }
 
     /**
      * Triggered after the collapsed config got changed

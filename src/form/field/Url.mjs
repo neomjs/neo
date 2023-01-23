@@ -23,7 +23,7 @@ class Url extends Text {
          * @member {String} inputType='url'
          */
         inputType: 'url'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Url);

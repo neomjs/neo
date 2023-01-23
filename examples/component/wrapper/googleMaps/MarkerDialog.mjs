@@ -5,7 +5,7 @@ import DialogBase from '../../../../src/dialog/Base.mjs';
  * @extends Neo.dialog.Base
  */
 class MarkerDialog extends DialogBase {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.wrapper.googleMaps.MarkerDialog',
 
         // turn off dragging and resizing
@@ -32,7 +32,7 @@ class MarkerDialog extends DialogBase {
             {cls: ['detail-quality'], innerHTML: `Quality: ${data.quality}`},
             {cls: ['detail-quality'], innerHTML: `Size: ${data.size}`}
         ]
-    }}
+    }
 
     /**
      * Update the view based on the data

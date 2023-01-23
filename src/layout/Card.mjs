@@ -6,7 +6,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Card extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /*
          * The name of the CSS class for an active item inside the card layout
          * @member {String} activeItemCls='neo-active-item'
@@ -25,7 +25,7 @@ class Card extends Base {
          * @static
          */
         itemCls: 'neo-layout-card-item'
-    }}
+    }
 
     static config = {
         /**
@@ -50,7 +50,7 @@ class Card extends Base {
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true
-    }}
+    }
 
     /**
      * Modifies the CSS classes of the container items this layout is bound to.

@@ -6,7 +6,7 @@ import UserStore from '../store/Users.mjs';
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.view.MainContainerModel'
          * @protected
@@ -21,7 +21,7 @@ class MainContainerModel extends Component {
                 pageSize: 30
             }
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainerModel);

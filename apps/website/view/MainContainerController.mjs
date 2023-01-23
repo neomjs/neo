@@ -6,7 +6,7 @@ import NeoArray            from '../../../src/util/Array.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.MainContainerController'
          * @protected
@@ -32,7 +32,7 @@ class MainContainerController extends ComponentController {
          * @protected
          */
         mainTabsListeners: []
-    }}
+    }
 
     /**
      * @param {Number} tabIndex

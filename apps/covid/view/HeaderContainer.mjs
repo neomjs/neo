@@ -7,7 +7,7 @@ import SelectField  from '../../../src/form/field/Select.mjs';
  * @extends Neo.container.Base
  */
 class HeaderContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.HeaderContainer'
          * @protected
@@ -167,7 +167,7 @@ class HeaderContainer extends Container {
                 }]
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(HeaderContainer);

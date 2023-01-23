@@ -31,7 +31,7 @@ class Canvas extends Base {
          * @protected
          */
         workerId: 'canvas'
-    }}
+    }
 
     /**
      *

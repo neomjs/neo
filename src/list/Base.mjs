@@ -130,7 +130,7 @@ class Base extends Component {
          */
         _vdom:
         {tag: 'ul', cn: []}
-    }}
+    }
 
     /**
      * @param {Object} config

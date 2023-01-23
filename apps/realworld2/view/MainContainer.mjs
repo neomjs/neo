@@ -11,7 +11,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.MainContainer'
          * @protected
@@ -46,7 +46,7 @@ class MainContainer extends Viewport {
         }, {
             module: FooterComponent
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

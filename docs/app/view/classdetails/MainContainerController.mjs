@@ -6,13 +6,13 @@ import SourceViewComponent from "./SourceViewComponent.mjs";
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.MainContainerController'
          * @protected
          */
         className: 'Docs.view.classdetails.MainContainerController'
-    }}
+    }
 
     /**
      *

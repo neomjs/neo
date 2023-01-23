@@ -6,7 +6,7 @@ import TextField from '../../../src/form/field/Text.mjs';
  * @extends Neo.dialog.Base
  */
 class DemoDialog extends Dialog {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedDialog.view.DemoDialog'
          * @protected
@@ -49,7 +49,7 @@ class DemoDialog extends Dialog {
             height: '40%',
             width : '40%'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(DemoDialog);

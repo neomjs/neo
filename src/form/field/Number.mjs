@@ -9,7 +9,7 @@ import Text              from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class Number extends Text {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for triggerPosition
          * @member {String[]} triggerPositions=['right', 'sides']
@@ -17,7 +17,7 @@ class Number extends Text {
          * @static
          */
         triggerPositions: ['right', 'sides']
-    }}
+    }
 
     static config = {
         /**
@@ -69,7 +69,7 @@ class Number extends Text {
          * @member {Boolean} useSpinButtons_=true
          */
         useSpinButtons_: true
-    }}
+    }
 
     /**
      * Triggered after the inputEditable config got changed

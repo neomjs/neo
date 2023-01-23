@@ -35,7 +35,7 @@ class Base extends CoreBase {
          * @protected
          */
         isLayout: true
-    }}
+    }
 
     /**
      * Triggered after the appName config got changed

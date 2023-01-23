@@ -64,7 +64,7 @@ class ColorsList extends List {
         return {style: {
             backgroundColor: `var(--event-${record.name}-color)`,
             color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
-        }};
+        };
     }
 
     /**

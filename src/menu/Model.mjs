@@ -31,7 +31,7 @@ class Model extends BaseModel {
             name: 'name',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Model);

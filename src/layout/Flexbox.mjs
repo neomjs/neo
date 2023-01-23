@@ -6,7 +6,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Flexbox extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for align
          * @member {String[]} alignValues=['center', 'end', 'start', 'stretch', null]
@@ -35,7 +35,7 @@ class Flexbox extends Base {
          * @static
          */
         wrapValues: ['nowrap', 'wrap', 'wrap-reverse'],
-    }}
+    }
 
     static config = {
         /**
@@ -73,7 +73,7 @@ class Flexbox extends Base {
          * @member {String} wrap_='nowrap'
          */
         wrap_: 'nowrap'
-    }}
+    }
 
     /**
      * Updates the Container CSS cls after "align" gets changed

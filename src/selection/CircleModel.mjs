@@ -16,7 +16,7 @@ class CircleModel extends Model {
          * @protected
          */
         ntype: 'selection-circlemodel'
-    }}
+    }
 
     /**
      * @param {Object} data

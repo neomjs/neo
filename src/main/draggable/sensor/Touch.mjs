@@ -52,7 +52,7 @@ class Touch extends Base {
          * @member {Number} touchStartTime=0
          */
         touchStartTime: 0
-    }}
+    }
 
     /**
      * @param config

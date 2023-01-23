@@ -41,7 +41,7 @@ class Circle extends Component {
          * @member {String} urlField='url'
          */
         urlField: 'url'
-    }}
+    }
 
     /**
      * Override this method for custom renderers

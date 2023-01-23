@@ -30,7 +30,7 @@ class Cookie extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {String} name

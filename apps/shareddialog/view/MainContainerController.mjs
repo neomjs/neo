@@ -10,7 +10,7 @@ import Rectangle           from '../../../src/util/Rectangle.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedDialog.view.MainContainerController'
          * @protected
@@ -53,7 +53,7 @@ class MainContainerController extends ComponentController {
          * @member {Number|null} targetWindowSize=0
          */
         targetWindowSize: 0
-    }}
+    }
 
     /**
      * The App worker will receive connect & disconnect events inside the SharedWorkers context

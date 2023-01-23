@@ -22,7 +22,7 @@ class ColumnModel extends Model {
          * @protected
          */
         cls: 'neo-selection-columnmodel'
-    }}
+    }
 
     /**
      *

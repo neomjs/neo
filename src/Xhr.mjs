@@ -33,7 +33,7 @@ class Xhr extends XhrConnection {
          * @protected
          */
         singleton: true
-    }}
+    }
 }
 
 let instance = Neo.applyClassConfig(Xhr);

@@ -21,7 +21,7 @@ class Breadcrumb extends Toolbar {
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
-    }}
+    }
 
     /**
      * Triggered after the store config got changed

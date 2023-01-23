@@ -18,7 +18,7 @@ class Siesta extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

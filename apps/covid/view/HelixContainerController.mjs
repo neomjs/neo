@@ -5,7 +5,7 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class HelixContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.HelixContainerController'
          * @protected
@@ -16,7 +16,7 @@ class HelixContainerController extends ComponentController {
          * @protected
          */
         helix_: null
-    }}
+    }
 
     /**
      * Triggered when accessing the helix config

@@ -22,7 +22,7 @@ class RowModel extends Model {
          * @protected
          */
         cls: 'neo-selection-rowmodel'
-    }}
+    }
 
     /**
      *

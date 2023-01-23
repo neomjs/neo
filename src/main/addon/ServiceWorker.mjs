@@ -19,7 +19,7 @@ class ServiceWorker extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

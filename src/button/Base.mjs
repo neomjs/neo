@@ -19,7 +19,7 @@ class Base extends Component {
      */
     #rippleTimeoutId = null
 
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for badgePosition
          * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
@@ -34,7 +34,7 @@ class Base extends Component {
          * @static
          */
         iconPositions: ['top', 'right', 'bottom', 'left']
-    }}
+    }
 
     static config = {
         /**

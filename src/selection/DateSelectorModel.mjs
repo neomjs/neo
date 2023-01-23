@@ -22,7 +22,7 @@ class DateSelectorModel extends Model {
          * @member {Boolean} stayInColumn=false
          */
         stayInColumn: false
-    }}
+    }
 
     /**
      * @param {Object} data

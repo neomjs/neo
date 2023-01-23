@@ -21,7 +21,7 @@ class VBox extends Flexbox {
          * @protected
          */
         direction: 'column'
-    }}
+    }
 
     /**
      * Applies the flex value to an item of the container this layout is bound to

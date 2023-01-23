@@ -11,7 +11,7 @@ class Css extends Base {
          * @protected
          */
         className: 'Neo.util.Css'
-    }}
+    }
 
     /**
      * Pass the selectorText of the rules which you want to remove

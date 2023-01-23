@@ -11,14 +11,14 @@ import WorkerManager from './worker/Manager.mjs';
  * @singleton
  */
 class Main extends core.Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**
@@ -93,7 +93,7 @@ class Main extends core.Base {
          * @protected
          */
         writeQueue: []
-    }}
+    }
 
     /**
      * @param {Object} config

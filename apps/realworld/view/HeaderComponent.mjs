@@ -6,7 +6,7 @@ import NeoArray  from '../../../src/util/Array.mjs';
  * @extends Neo.component.Base
  */
 class HeaderComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.HeaderComponent'
          * @protected
@@ -70,7 +70,7 @@ class HeaderComponent extends Component {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the activeItem config got changed

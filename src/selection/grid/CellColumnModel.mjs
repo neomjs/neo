@@ -33,7 +33,7 @@ class CellColumnModel extends CellModel {
          * @protected
          */
         selectedColumnCellIds: null
-    }}
+    }
 
     /**
      * @param {Object} config

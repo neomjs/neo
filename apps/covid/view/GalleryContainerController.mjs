@@ -5,7 +5,7 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class GalleryContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.GalleryContainerController'
          * @protected
@@ -16,7 +16,7 @@ class GalleryContainerController extends ComponentController {
          * @protected
          */
         gallery_: null
-    }}
+    }
 
     /**
      * Triggered when accessing the gallery config

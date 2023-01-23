@@ -26,7 +26,7 @@ class Display extends Text {
          * @protected
          */
         clearable: false
-    }}
+    }
 
     /**
      * @param {Object} config

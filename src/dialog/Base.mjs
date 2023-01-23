@@ -10,7 +10,7 @@ let DragZone;
  * @extends Neo.container.Panel
  */
 class Base extends Panel {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for closeAction
          * @member {String[]} closeActions=['close','hide']
@@ -18,7 +18,7 @@ class Base extends Panel {
          * @static
          */
         closeActions: ['close', 'hide']
-    }}
+    }
 
     static config = {
         /**

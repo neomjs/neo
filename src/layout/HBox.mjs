@@ -21,7 +21,7 @@ class HBox extends Flexbox {
          * @protected
          */
         direction: 'row'
-    }}
+    }
 
     /**
      * Applies the flex value to an item of the container this layout is bound to

@@ -41,7 +41,7 @@ class Data extends Base {
          * @protected
          */
         workerId: 'data'
-    }}
+    }
 
     /**
      *

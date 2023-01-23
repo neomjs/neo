@@ -7,7 +7,7 @@ import NeoArray  from '../../../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for align
          * @member {String[]} alignValues=['end', 'start']
@@ -15,7 +15,7 @@ class Base extends Component {
          * @static
          */
         alignValues: ['end', 'start']
-    }}
+    }
 
     static config = {
         /**
@@ -73,7 +73,7 @@ class Base extends Component {
          * @member {Number} weight_=10
          */
         weight_: 10
-    }}
+    }
 
     /**
      * @param {Object} config

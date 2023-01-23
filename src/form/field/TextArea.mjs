@@ -7,7 +7,7 @@ import Text from './Text.mjs';
  * @abstract
  */
 class TextArea extends Text {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for wrap
          * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
@@ -15,7 +15,7 @@ class TextArea extends Text {
          * @static
          */
         wrapValues: ['hard', 'off', 'soft', null]
-    }}
+    }
 
     static config = {
         /**
@@ -67,7 +67,7 @@ class TextArea extends Text {
          * @member {String|null} wrap_=null
          */
         wrap_: null
-    }}
+    }
 
     /**
      * Triggered after the cols config got changed

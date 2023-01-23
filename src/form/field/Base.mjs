@@ -21,7 +21,7 @@ class Base extends Component {
          * @member {*} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * Triggered after the value config got changed

@@ -8,7 +8,7 @@ import Util                    from './Util.mjs';
  * @extends Neo.grid.Container
  */
 class GridContainer extends BaseGridContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.grid.covid.GridContainer'
          * @protected
@@ -105,7 +105,7 @@ class GridContainer extends BaseGridContainer {
          * @member {Object[]} store=Store
          */
         store: Store
-    }}
+    }
 }
 
 Neo.applyClassConfig(GridContainer);

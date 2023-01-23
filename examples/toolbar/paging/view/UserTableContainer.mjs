@@ -5,7 +5,7 @@ import TableContainer from '../../../../src/table/Container.mjs';
  * @extends Neo.table.Container
  */
 class UserTableContainer extends TableContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.view.UserTableContainer'
          * @protected
@@ -31,7 +31,7 @@ class UserTableContainer extends TableContainer {
             flex     : 1,
             text     : 'Image'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(UserTableContainer);

@@ -10,13 +10,13 @@ class GridContainerController extends Controller {
      */
     apiUrl = 'https://disease.sh/v3/covid-19/countries'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.grid.covid.GridContainerController'
          * @protected
          */
         className: 'Neo.examples.grid.covid.GridContainerController'
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -24,7 +24,7 @@ class GalleryModel extends Model {
          * @member {Boolean} stayInRow=false
          */
         stayInRow: false
-    }}
+    }
 
     /**
      * Override to not apply a domListener

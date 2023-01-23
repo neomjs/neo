@@ -5,7 +5,7 @@ import Container from '../../../../src/container/Base.mjs';
  * @extends Neo.form.Container
  */
 class DetailsContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.DetailsContainer'
          * @protected
@@ -24,7 +24,7 @@ class DetailsContainer extends Container {
         style: {
             padding: '20px'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(DetailsContainer);

@@ -8,10 +8,10 @@ import RangeField            from '../../../src/form/field/Range.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.carousel.MainContainer',
         layout   : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

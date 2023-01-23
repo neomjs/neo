@@ -20,7 +20,7 @@ class ListModel extends Model {
          * @member {Boolean} stayInList=true
          */
         stayInList: true
-    }}
+    }
 
     /**
      * @param {Object} data

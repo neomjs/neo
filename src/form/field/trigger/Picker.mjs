@@ -27,7 +27,7 @@ class Picker extends Base {
          * @protected
          */
         type: 'picker'
-    }}
+    }
 
     /**
      * @param {Object} data

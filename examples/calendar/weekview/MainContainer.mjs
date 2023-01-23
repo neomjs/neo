@@ -7,7 +7,7 @@ import WeekComponent      from '../../../src/calendar/view/week/Component.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.calendar.weekview.MainContainer'
          * @protected
@@ -57,7 +57,7 @@ class MainContainer extends Viewport {
         items: [{
             module: WeekComponent
         }]
-    }}
+    }
 
     /**
      * The styles for calendar events are located inside the MainContainer CSS output.

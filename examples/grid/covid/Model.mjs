@@ -5,7 +5,7 @@ import BaseModel from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class Model extends BaseModel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.grid.covid.Model'
          * @protected
@@ -57,7 +57,7 @@ class Model extends BaseModel {
             name: 'todayDeaths',
             type: 'Integer'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Model);

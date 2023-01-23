@@ -58,7 +58,7 @@ class Tree extends Base {
         {cn: [
             {tag: 'ul', cls: ['neo-list-container', 'neo-list'], cn: []}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the draggable config got changed

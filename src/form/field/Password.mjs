@@ -21,7 +21,7 @@ class Password extends Text {
          * @member {String} inputType='password'
          */
         inputType: 'password'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Password);

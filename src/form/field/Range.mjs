@@ -43,7 +43,7 @@ class Range extends Number {
          * @member {Boolean} useInputEvent=false
          */
         useSpinButtons: false
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -10,7 +10,7 @@ import Viewport    from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.gallery.MainContainer',
         /**
          * @member {Neo.component.Gallery|null} gallery=null
@@ -212,7 +212,7 @@ class MainContainer extends Viewport {
                 }
             }]
         }]
-    }}
+    }
 
     /**
      * @param {Object} config

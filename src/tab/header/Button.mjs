@@ -37,7 +37,7 @@ class Button extends BaseButton {
                 ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the useActiveTabIndicator config got changed

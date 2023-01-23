@@ -17,7 +17,7 @@ const today = {
  * @extends Neo.component.Base
  */
 class Component extends BaseComponent {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for timeAxisPosition
          * @member {String[]} timeAxisPositions=['end', 'start']
@@ -25,7 +25,7 @@ class Component extends BaseComponent {
          * @static
          */
         timeAxisPositions: ['end', 'start']
-    }}
+    }
 
     static config = {
         /**

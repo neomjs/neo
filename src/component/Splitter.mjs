@@ -8,7 +8,7 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Splitter extends Component {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for direction
          * @member {String[]} directions=['horizontal','vertical']
@@ -23,7 +23,7 @@ class Splitter extends Component {
          * @static
          */
         resizeTargets: ['next', 'previous']
-    }}
+    }
 
     static config = {
         /**

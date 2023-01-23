@@ -12,7 +12,7 @@ class Rectangle extends Base {
          * @protected
          */
         className: 'Neo.util.Rectangle'
-    }}
+    }
 
     /**
      * Checks if rect1 does not have an intersection with rect2

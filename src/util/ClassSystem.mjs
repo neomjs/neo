@@ -11,7 +11,7 @@ class ClassSystem extends Base {
          * @protected
          */
         className: 'Neo.util.ClassSystem'
-    }}
+    }
 
     /**
      * can get used inside beforeSet methods in case you want to create instances like stores

@@ -5,7 +5,7 @@ import Container from '../../../src/container/Base.mjs';
  * @extends Neo.container.Base
  */
 class FooterContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.FooterContainer'
          * @protected
@@ -56,7 +56,7 @@ class FooterContainer extends Container {
             style  : {margin: 0, marginRight: '10px', marginTop: '-5px'},
             text   : 'Remove Footer'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(FooterContainer);

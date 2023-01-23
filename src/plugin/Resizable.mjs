@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.plugin.Base
  */
 class Resizable extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Resize cursor styles use north, south based names, so we need a mapping.
          * The order has to match the static positions array.
@@ -35,7 +35,7 @@ class Resizable extends Base {
          * @static
          */
         validDirections: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
-    }}
+    }
 
     static config = {
         /**
@@ -167,7 +167,7 @@ class Resizable extends Base {
          * @protected
          */
         targetNode: null
-    }}
+    }
 
     /**
      * @param {Object} config

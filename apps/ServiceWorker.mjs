@@ -14,7 +14,7 @@ class ServiceWorker extends ServiceBase {
      */
     workerId = 'service'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.ServiceWorker'
          * @protected
@@ -29,7 +29,7 @@ class ServiceWorker extends ServiceBase {
          * @member {String} version='4.3.11'
          */
         version: '4.3.11'
-    }}
+    }
 }
 
 Neo.applyClassConfig(ServiceWorker);

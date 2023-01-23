@@ -16,7 +16,7 @@ import VNodeUtil        from '../util/VNode.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for hideMode
          * @member {String[]} hideModes=['removeDom','visibility']
@@ -30,7 +30,7 @@ class Base extends CoreBase {
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**

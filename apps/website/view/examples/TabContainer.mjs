@@ -6,7 +6,7 @@ import List      from './List.mjs';
  * @extends Neo.container.Base
  */
 class TabContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.examples.TabContainer'
          * @protected
@@ -58,7 +58,7 @@ class TabContainer extends Container {
          * @member {String} tabBarPosition='left'
          */
         tabBarPosition: 'left',
-    }}
+    }
 }
 
 Neo.applyClassConfig(TabContainer);

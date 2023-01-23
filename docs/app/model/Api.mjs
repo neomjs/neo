@@ -5,7 +5,7 @@ import Model from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class Api extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.app.model.Api'
          * @protected
@@ -42,7 +42,7 @@ class Api extends Model {
             name: 'srcPath',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Api);

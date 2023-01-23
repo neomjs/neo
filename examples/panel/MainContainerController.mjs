@@ -5,9 +5,9 @@ import Component from '../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.panel.MainContainerController'
-    }}
+    }
 
     onButton1Click(data) {
         console.log('onButton1Click', data, this);

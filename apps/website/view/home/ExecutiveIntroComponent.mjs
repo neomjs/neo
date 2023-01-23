@@ -5,7 +5,7 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class ExecutiveIntroComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.home.ExecutiveIntroComponent'
          * @protected
@@ -283,7 +283,7 @@ class ExecutiveIntroComponent extends Component {
                 '</p>',
             '</div>'
         ].join('')}
-    }}
+    }
 }
 
 Neo.applyClassConfig(ExecutiveIntroComponent);

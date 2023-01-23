@@ -5,7 +5,7 @@
  * @singleton
  */
 class IdGenerator {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Set this one to false in case you don't want to stick
          * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -14,7 +14,7 @@ class IdGenerator {
          * @static
          */
         registerToGlobalNs: true
-    }}
+    }
 
     static config = {
         /**

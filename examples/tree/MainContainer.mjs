@@ -9,13 +9,13 @@ import Panel                 from '../../src/container/Panel.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.tree.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 100,
         configItemWidth     : 230,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me       = this,

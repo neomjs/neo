@@ -45,7 +45,7 @@ class Time extends Picker {
          * @member {String|null} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * @param {Object} config

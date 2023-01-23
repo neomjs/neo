@@ -21,7 +21,7 @@ class Component extends Base {
          * @member {Neo.component.Base[]|null} items=null
          */
         items: null
-    }}
+    }
 
     /**
      * Triggered after the appName config got changed

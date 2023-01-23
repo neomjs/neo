@@ -24,7 +24,7 @@ class HelixModel extends Model {
          * @member {boolean} stayInColumn=false
          */
         stayInColumn: false
-    }}
+    }
 
     /**
      * Override to not apply a domListener

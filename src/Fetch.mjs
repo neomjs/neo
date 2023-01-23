@@ -32,7 +32,7 @@ class Fetch extends FetchConnection {
          * @protected
          */
         singleton: true
-    }}
+    }
 }
 
 let instance = Neo.applyClassConfig(Fetch);

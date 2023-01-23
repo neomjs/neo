@@ -20,7 +20,7 @@ class Email extends Text {
          * @member {String} inputType='email'
          */
         inputType: 'email'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Email);

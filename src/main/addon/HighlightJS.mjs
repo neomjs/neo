@@ -49,7 +49,7 @@ class HighlightJS extends Base {
          * @protected
          */
         themePath: './resources/highlightjs-custom-github-theme.css'
-    }}
+    }
 
     /**
      * @param {Object} config

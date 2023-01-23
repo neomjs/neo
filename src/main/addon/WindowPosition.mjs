@@ -51,7 +51,7 @@ class WindowPosition extends Base {
          * @protected
          */
         windows: {}
-    }}
+    }
 
     /**
      * @param {Object} config

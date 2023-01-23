@@ -9,7 +9,7 @@ import Strip         from './Strip.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for tabBarPosition
          * @member {String[]} tabBarPositions=['top','right','bottom','left']
@@ -17,7 +17,7 @@ class Container extends BaseContainer {
          * @static
          */
         tabBarPositions: ['top', 'right', 'bottom', 'left']
-    }}
+    }
 
     static config = {
         /**
@@ -104,7 +104,7 @@ class Container extends BaseContainer {
          * @member {Boolean} useActiveTabIndicator_=true
          */
         useActiveTabIndicator_: true
-    }}
+    }
 
     /**
      * Adds one or multiple tabs at the end of the header

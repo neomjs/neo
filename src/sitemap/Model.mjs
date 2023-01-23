@@ -43,7 +43,7 @@ class Model extends BaseModel {
             name: 'name',
             type: 'Html'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Model);

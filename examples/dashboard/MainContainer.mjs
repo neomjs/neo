@@ -7,7 +7,7 @@ import Viewport  from '../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.dashboard.MainContainer',
         layout   : {ntype: 'fit'},
         style    : {padding: '10px'},
@@ -31,7 +31,7 @@ class MainContainer extends Viewport {
                 style: {backgroundColor: 'orange'}
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

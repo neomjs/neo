@@ -17,7 +17,7 @@ class Grid extends Base {
          * @protected
          */
         ntype: 'layout-grid'
-    }}
+    }
 
     /**
      * Applies CSS classes to the container this layout is bound to

@@ -6,7 +6,7 @@ import Store    from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class BlogPosts extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.store.BlogPosts'
          * @protected
@@ -31,7 +31,7 @@ class BlogPosts extends Store {
          * @member {String} url='../../apps/website/data/blog.json'
          */
         url: '../../apps/website/data/blog.json'
-    }}
+    }
 }
 
 Neo.applyClassConfig(BlogPosts);

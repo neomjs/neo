@@ -23,7 +23,7 @@ class Base extends CoreBase {
          * @protected
          */
         owner: null
-    }}
+    }
 
     /**
      * @param {Object} config

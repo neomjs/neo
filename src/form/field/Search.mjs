@@ -30,7 +30,7 @@ class Search extends Text {
          * @member {String} placeholderText='Search'
          */
         placeholderText: 'Search',
-    }}
+    }
 }
 
 Neo.applyClassConfig(Search);

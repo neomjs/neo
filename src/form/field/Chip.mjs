@@ -22,7 +22,7 @@ class Chip extends Select {
         listConfig: {
             useCheckBoxes: true
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(Chip);

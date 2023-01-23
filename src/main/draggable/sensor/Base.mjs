@@ -36,7 +36,7 @@ class Base extends CoreBase {
          * @protected
          */
         startEvent: null
-    }}
+    }
 
     /**
      * Attaches sensors event listeners to the DOM

@@ -11,7 +11,7 @@ class VDom extends Base {
          * @protected
          */
         className: 'Neo.util.VDom'
-    }}
+    }
 
     /**
      * @param {Object} vdom

@@ -40,7 +40,7 @@ class CopyToClipboard extends Base {
          * @member {Number} weight_=21
          */
         weight: 21
-    }}
+    }
 
     /**
      * Triggered after the hidden config got changed

@@ -29,7 +29,7 @@ class CellRowModel extends CellModel {
          * @protected
          */
         selectedRowIds: null
-    }}
+    }
 
     /**
      * @param {Object} config

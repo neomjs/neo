@@ -6,7 +6,7 @@ import Store   from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Examples extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.store.Examples'
          * @protected
@@ -27,7 +27,7 @@ class Examples extends Store {
             property : 'id',
             direction: 'DESC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Examples);

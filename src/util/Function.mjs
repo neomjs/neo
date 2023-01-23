@@ -11,7 +11,7 @@ class NeoFunction extends Base {
          * @protected
          */
         className: 'Neo.util.Function'
-    }}
+    }
 
     /**
      * Append args instead of prepending them

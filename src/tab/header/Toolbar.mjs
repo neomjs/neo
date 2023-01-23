@@ -24,7 +24,7 @@ class Toolbar extends BaseToolbar {
          * @member {Boolean} useActiveTabIndicator_=true
          */
         useActiveTabIndicator_: true
-    }}
+    }
 
     /**
      * Triggered after the sortable config got changed

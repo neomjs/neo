@@ -27,7 +27,7 @@ class Toolbar extends BaseToolbar {
         itemDefaults: {
             ntype: 'grid-header-button'
         }
-    }}
+    }
 
     /**
      *

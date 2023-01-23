@@ -27,7 +27,7 @@ class SpinUp extends Base {
          * @protected
          */
         type: 'spinup'
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -5,7 +5,7 @@ import AmChartComponent from '../../../src/component/wrapper/AmChart.mjs';
  * @extends Neo.component.wrapper.AmChart
  */
 class WorldMapComponent extends AmChartComponent {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.WorldMapComponent'
          * @protected
@@ -75,7 +75,7 @@ class WorldMapComponent extends AmChartComponent {
                 }
             }]
         }
-    }}
+    }
 
     /**
      * @param {Object[]} data

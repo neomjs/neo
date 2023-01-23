@@ -29,7 +29,7 @@ class Radio extends CheckBox {
          * @member {String} inputType='radio'
          */
         inputType: 'radio'
-    }}
+    }
 
     /**
      * Triggered after the checked config got changed

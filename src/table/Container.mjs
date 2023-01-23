@@ -108,7 +108,7 @@ class Container extends BaseContainer {
         {cls: ['neo-table-wrapper'], cn: [
             {tag: 'table', cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -97,7 +97,7 @@ class List extends BaseList {
          * @member {Number} zIndex_=100
          */
         zIndex_: 100
-    }}
+    }
 
     /**
      * Triggered after the floating config got changed

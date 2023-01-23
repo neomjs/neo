@@ -6,7 +6,7 @@ import Base from '../../src/core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Util extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * A regex to replace blank chars
          * @member {RegExp} flagRegEx=/ /gi
@@ -22,15 +22,15 @@ class Util extends Base {
          * @static
          */
         locales: 'default'
-    }}
+    }
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.Util'
          * @protected
          */
         className: 'SharedCovid.Util'
-    }}
+    }
 
     /**
      * Used for the casesPerOneMillion column to show % of population

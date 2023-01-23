@@ -76,7 +76,7 @@ class Base extends Container {
          * @member {String} text_=null
          */
         text_: null
-    }}
+    }
 
     /**
      * Triggered after the componentId config got changed

@@ -6,7 +6,7 @@ import Collection from '../../../../src/collection/Base.mjs';
  * @extends Neo.list.Base
  */
 class MembersList extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.MembersList'
          * @protected
@@ -51,7 +51,7 @@ class MembersList extends Base {
          */
         _vdom:
         {cn: []}
-    }}
+    }
 
     /**
      *

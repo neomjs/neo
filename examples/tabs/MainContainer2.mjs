@@ -7,7 +7,7 @@ import TabContainer   from '../../src/tab/Container.mjs';
  * @extends Neo.container.Base
  */
 class MainContainer2 extends Container {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.tabs2.MainContainer2',
         autoMount: true,
         height   : 400,
@@ -152,7 +152,7 @@ class MainContainer2 extends Container {
                 flex : 10
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer2);

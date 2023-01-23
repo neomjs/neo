@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class TodoListModel extends Model {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.todoList.version2.MainModel',
         keyProperty: 'id',
 
@@ -19,7 +19,7 @@ class TodoListModel extends Model {
             name: 'text',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(TodoListModel);

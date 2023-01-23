@@ -31,7 +31,7 @@ class KeyNavigation extends Base {
          * @member {Array|null} keys_=null
          */
         keys_: null
-    }}
+    }
 
     add(value) {
         this._keys.push(...this.parseKeys(value));

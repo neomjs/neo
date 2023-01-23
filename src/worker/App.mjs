@@ -48,7 +48,7 @@ class App extends Base {
          * @protected
          */
         workerId: 'app'
-    }}
+    }
 
     /**
      * @param {Object} config

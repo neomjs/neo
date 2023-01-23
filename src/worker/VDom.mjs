@@ -27,7 +27,7 @@ class VDom extends Base {
          * @protected
          */
         workerId: 'vdom'
-    }}
+    }
 
     /**
      *

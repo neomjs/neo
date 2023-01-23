@@ -6,7 +6,7 @@ import CssUtil from '../../util/Css.mjs';
  * @extends Neo.plugin.Base
  */
 class Animate extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for transitionEasing
          * @member {String[]} transitionEasings=['ease','ease-in','ease-out','ease-in-out','linear']
@@ -14,7 +14,7 @@ class Animate extends Base {
          * @static
          */
         transitionEasings: ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
-    }}
+    }
 
     static config = {
         /**
@@ -57,7 +57,7 @@ class Animate extends Base {
          * @member {Number|null} transitionTimeoutId=null
          */
         transitionTimeoutId: null
-    }}
+    }
 
     /**
      * @param {Object} config

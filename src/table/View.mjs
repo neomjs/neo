@@ -42,7 +42,7 @@ class View extends Component {
          */
         _vdom:
         {tag: 'tbody', cn: []}
-    }}
+    }
 
     /**
      * @param {Array} inputData

@@ -43,7 +43,7 @@ class Panel extends BasePanel {
          * @member {Number} subMenuGap_=0
          */
         subMenuGap_: 0
-    }}
+    }
 
     /**
      * Triggered after the list config got changed

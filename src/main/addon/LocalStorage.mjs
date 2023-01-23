@@ -31,7 +31,7 @@ class LocalStorage extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Creates a new item into window.localStorage

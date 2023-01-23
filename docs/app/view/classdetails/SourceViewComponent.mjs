@@ -5,7 +5,7 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class SourceViewComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.SourceViewComponent'
          * @protected
@@ -51,7 +51,7 @@ class SourceViewComponent extends Component {
                 {tag: 'code', class: 'javascript'}
             ]}
         ]}
-    }}
+    }
 
     /**
      *

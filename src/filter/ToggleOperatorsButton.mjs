@@ -25,7 +25,7 @@ class ToggleOperatorsButton extends Button {
          * @member {String|null} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * @param {Object} config

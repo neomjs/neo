@@ -8,7 +8,7 @@ import MainContainer3 from './MainContainer3.mjs';
  * @extends Neo.container.Viewport
  */
 class Viewport extends BaseViewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.tablePerformance.Viewport',
         style    : {overflow: 'hidden', padding: '10px'},
 
@@ -26,7 +26,7 @@ class Viewport extends BaseViewport {
             module: MainContainer3,
             style: {marginTop: '20px'}
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Viewport);

@@ -17,7 +17,7 @@ class Matrix extends Base {
          * @protected
          */
         items_: null
-    }}
+    }
 
     /**
      * shortcut for getElement

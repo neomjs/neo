@@ -6,7 +6,7 @@ import Panel                   from '../../src/container/Panel.mjs';
  * @extends Neo.container.Panel
  */
 class MainContainer extends Panel {
-    static getConfig() {return {
+    static config = {
         className : 'Neo.examples.panel.MainContainer',
         autoMount : true,
         controller: MainContainerController,
@@ -162,7 +162,7 @@ class MainContainer extends Panel {
                 }
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

@@ -11,7 +11,7 @@ class VNode extends Base {
          * @protected
          */
         className: 'Neo.util.VNode'
-    }}
+    }
 
     /**
      * Search vnode child nodes by id or opts object for a given vdom tree

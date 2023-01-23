@@ -7,14 +7,14 @@ import Observable from '../core/Observable.mjs';
  * @singleton
  */
 class HashHistory extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**
@@ -37,7 +37,7 @@ class HashHistory extends Base {
          * @protected
          */
         stack: []
-    }}
+    }
 
     /**
      * @returns {Object}

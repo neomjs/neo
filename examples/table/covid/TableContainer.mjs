@@ -8,7 +8,7 @@ import Util                     from './Util.mjs';
  * @extends Neo.table.Container
  */
 class TableContainer extends BaseTableContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.table.covid.TableContainer'
          * @protected
@@ -104,7 +104,7 @@ class TableContainer extends BaseTableContainer {
          * @member {Object[]} store=MainStore
          */
         store: Store
-    }}
+    }
 }
 
 Neo.applyClassConfig(TableContainer);

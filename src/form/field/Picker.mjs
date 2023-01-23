@@ -86,7 +86,7 @@ class Picker extends Text {
         triggers: [{
             module: PickerTrigger
         }]
-    }}
+    }
 
     /**
      * @param {Object} config

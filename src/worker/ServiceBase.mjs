@@ -70,7 +70,7 @@ class ServiceBase extends Base {
                 'removeAssets'
             ]
         }
-    }}
+    }
 
     /**
      * @param {Object} config

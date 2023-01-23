@@ -6,11 +6,11 @@ import Store        from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class CountryStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.component.coronaHelix.CountryStore',
         keyProperty: 'country',
         model      : CountryModel
-    }}
+    }
 }
 
 Neo.applyClassConfig(CountryStore);

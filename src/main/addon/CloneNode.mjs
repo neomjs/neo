@@ -36,7 +36,7 @@ class CloneNode extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} data

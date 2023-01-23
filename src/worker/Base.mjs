@@ -47,7 +47,7 @@ class Base extends CoreBase {
          * @protected
          */
         workerId: null
-    }}
+    }
 
     /**
      * @param {Object} config

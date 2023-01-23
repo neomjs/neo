@@ -10,7 +10,7 @@ import MainContainerController from './MainContainerController.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className : 'Neo.examples.component.wrapper.googleMaps.MainContainer',
         autoMount : true,
         controller: MainContainerController,
@@ -60,7 +60,7 @@ class MainContainer extends Viewport {
                 text   : 'Hide marker'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

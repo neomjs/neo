@@ -504,7 +504,7 @@ class YearComponent extends Component {
                                 height   : `${2 * data.height}px`,
                                 transform: `translateY(${y}px)`,
                                 width    : `${data.width}px`
-                            }}
+                            }
                         ]}
                     );
 

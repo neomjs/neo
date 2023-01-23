@@ -13,7 +13,7 @@ class TouchDomEvents extends Base {
          * @protected
          */
         className: 'Neo.main.mixin.TouchDomEvents'
-    }}
+    }
 
     /**
      * @param {Object} event

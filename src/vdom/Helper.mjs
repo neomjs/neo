@@ -70,7 +70,7 @@ class Helper extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.

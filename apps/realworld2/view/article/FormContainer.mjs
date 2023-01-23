@@ -9,7 +9,7 @@ import TextField from '../../../../src/form/field/Text.mjs';
  * @extends Neo.form.Container
  */
 class FormContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.FormContainer'
          * @protected
@@ -60,7 +60,7 @@ class FormContainer extends Container {
          * @member {Object} layout
          */
         layout: {ntype: 'base'}
-    }}
+    }
 }
 
 Neo.applyClassConfig(FormContainer);

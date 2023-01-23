@@ -7,7 +7,7 @@ import TextField  from '../../form/field/Text.mjs';
  * @extends Neo.button.Base
  */
 class Button extends BaseButton {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for align
          * @member {String[]} alignValues: ['left', 'center', 'right']
@@ -15,7 +15,7 @@ class Button extends BaseButton {
          * @static
          */
         alignValues: ['left', 'center', 'right']
-    }}
+    }
 
     static config = {
         /**
@@ -101,7 +101,7 @@ class Button extends BaseButton {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

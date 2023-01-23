@@ -40,7 +40,7 @@ class Mouse extends Base {
          * @protected
          */
         pageY: null
-    }}
+    }
 
     /**
      * @param config

@@ -69,7 +69,7 @@ class AmCharts extends Base {
                 'updateData'
             ]
         }
-    }}
+    }
 
     /**
      * @param {Object} config

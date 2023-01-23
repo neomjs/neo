@@ -10,7 +10,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.MainContainer'
          * @protected
@@ -92,7 +92,7 @@ class MainContainer extends Viewport {
          * @member {Neo.model.Component} model=MainContainerModel
          */
         model: MainContainerModel
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

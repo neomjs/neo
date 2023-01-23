@@ -6,7 +6,7 @@ import ViewportController from './ViewportController.mjs'
  * @extends Neo.container.Viewport
  */
 class Viewport extends BaseViewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.Viewport'
          * @protected
@@ -22,7 +22,7 @@ class Viewport extends BaseViewport {
         style: {
             padding: '20px'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(Viewport);

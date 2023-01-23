@@ -41,7 +41,7 @@ class Toolbar extends BaseToolbar {
         {tag: 'thead', cn: [
             {tag: 'tr', cn: []}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the showHeaderFilters config got changed

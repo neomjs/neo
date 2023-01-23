@@ -42,7 +42,7 @@ class Paging extends Toolbar {
          * @member {Function} totalText_=count=>`Total: ${count} records`
          */
         totalText_: count => `Total: ${count} rows`
-    }}
+    }
 
     /**
      * @param config

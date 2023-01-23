@@ -21,7 +21,7 @@ class CellModel extends Model {
          * @protected
          */
         cls: 'neo-selection-cellmodel'
-    }}
+    }
 
     /**
      *

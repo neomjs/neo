@@ -27,7 +27,7 @@ class Logger extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param config

@@ -16,7 +16,7 @@ class Store extends BaseStore {
          * @member {Neo.data.Model} model=Model
          */
         model: Model
-    }}
+    }
 }
 
 Neo.applyClassConfig(Store);

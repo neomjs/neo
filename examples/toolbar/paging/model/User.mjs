@@ -5,7 +5,7 @@ import Model from '../../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class User extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.model.User'
          * @protected
@@ -30,7 +30,7 @@ class User extends Model {
             name: 'lastname',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(User);

@@ -74,7 +74,7 @@ class DomAccess extends Base {
             'checked',
             'required'
         ]
-    }}
+    }
 
     /**
      * @param {Object} config

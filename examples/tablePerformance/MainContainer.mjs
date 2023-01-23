@@ -7,7 +7,7 @@ import TableContainer from '../../src/table/Container.mjs';
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.tablePerformance.MainContainer',
         autoMount: true,
 
@@ -140,7 +140,7 @@ class MainContainer extends Container {
                 width    : 200
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

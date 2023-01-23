@@ -20,7 +20,7 @@ class Select extends Picker {
      */
     useFilter = true
 
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * Valid values for triggerAction
          * @member {String[]} triggerActions=['all','filtered']
@@ -28,7 +28,7 @@ class Select extends Picker {
          * @static
          */
         triggerActions: ['all', 'filtered']
-    }}
+    }
 
     static config = {
         /**
@@ -116,7 +116,7 @@ class Select extends Picker {
          * @member {Number|String} valueField='id'
          */
         valueField: 'id'
-    }}
+    }
 
     /**
      * @param {Object} config

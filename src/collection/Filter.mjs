@@ -6,7 +6,7 @@ import Observable from '../core/Observable.mjs';
  * @extends Neo.core.Base
  */
 class Filter extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
@@ -21,7 +21,7 @@ class Filter extends Base {
          * @static
          */
         operators: ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
-    }}
+    }
 
     static config = {
         /**

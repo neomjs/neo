@@ -11,7 +11,7 @@ class Style extends Base {
          * @protected
          */
         className: 'Neo.util.Style'
-    }}
+    }
 
     /**
      * Creates an delta object, containing the styles of newStyle which are not included or different than in oldStyle

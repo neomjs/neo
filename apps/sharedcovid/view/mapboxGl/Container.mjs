@@ -9,7 +9,7 @@ import Panel               from '../../../../src/container/Panel.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.mapboxGl.Container'
          * @protected
@@ -101,7 +101,7 @@ class Container extends BaseContainer {
                 }]
             }]
         }
-    }}
+    }
 
     /**
      * @param {Object} config

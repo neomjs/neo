@@ -9,14 +9,14 @@ import VDomUtil           from '../util/VDom.mjs';
  * @extends Neo.core.Base
  */
 class DragZone extends Base {
-    static getStaticConfig() {return {
+    static staticConfig = {
         /**
          * True automatically applies the core/Observable.mjs mixin
          * @member {Boolean} observable=true
          * @static
          */
         observable: true
-    }}
+    }
 
     static config = {
         /**

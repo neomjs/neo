@@ -43,7 +43,7 @@ class Chip extends ComponentList {
          */
         _vdom:
         {cn: []} // we are using a div instead of a li tag
-    }}
+    }
 
     /**
      * Triggered after the stacked config got changed

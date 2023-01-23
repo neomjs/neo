@@ -5,7 +5,7 @@ import Component from '../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class FooterComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.FooterComponent'
          * @protected
@@ -38,7 +38,7 @@ class FooterComponent extends Component {
                 }]
             }]
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(FooterComponent);

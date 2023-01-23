@@ -79,7 +79,7 @@ class Time extends Picker {
          * @protected
          */
         valueFormat_: null
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -48,7 +48,7 @@ class Focus extends CoreBase {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} opts

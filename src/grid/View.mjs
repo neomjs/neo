@@ -20,7 +20,7 @@ class View extends Component {
          * @member {String[]} baseCls=['neo-grid-view']
          */
         baseCls: ['neo-grid-view']
-    }}
+    }
 
     /**
      * @param {Array} inputData

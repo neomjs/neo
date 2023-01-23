@@ -52,7 +52,7 @@ class Message extends Base {
             direction: 'ASC',
             property : 'id'
         }]
-    }}
+    }
 
     /**
      *
