@@ -72,8 +72,8 @@ Neo = globalThis.Neo = Object.assign({
 
         protos.forEach(element => {
             ctor = element.constructor;
-            let cfg       = ctor.getConfig      ?.() || {},
-                staticCfg = ctor.getStaticConfig?.() || {},
+            let cfg       = ctor.config       || {},
+                staticCfg = ctor.staticConfig || {},
                 mixins;
 
             if (cfg) {
@@ -138,9 +138,6 @@ Neo = globalThis.Neo = Object.assign({
                 isClass           : true,
                 staticConfig      : Neo.clone(staticConfig, true)
             });
-
-            delete ctor.getConfig;
-            delete ctor.getStaticConfig;
 
             !config.singleton && this.applyToGlobalNs(cls);
         });

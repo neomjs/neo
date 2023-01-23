@@ -157,6 +157,7 @@ class Observable extends Base {
                     un            : me.un
                 });
             }
+
             proto = proto.__proto__;
         }
     }
