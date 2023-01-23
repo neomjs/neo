@@ -37,7 +37,7 @@ class Resizable extends Base {
         validDirections: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.plugin.Resizable'
          * @protected

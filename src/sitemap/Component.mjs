@@ -17,7 +17,7 @@ class Component extends Base {
         itemHideModes: ['removeDom', 'visibility']
     }}
 
-    static getConfig() {return {
+    static config = {
         /*
          * @member {String} className='Neo.sitemap.Component'
          * @protected

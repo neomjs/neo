@@ -21,7 +21,7 @@ class Component extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.model.Component'
          * @protected

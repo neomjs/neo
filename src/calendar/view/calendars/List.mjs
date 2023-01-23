@@ -6,7 +6,7 @@ import ComponentList from '../../../list/Component.mjs';
  * @extends Neo.list.Component
  */
 class List extends ComponentList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.calendars.List'
          * @protected
@@ -37,7 +37,7 @@ class List extends ComponentList {
          * @protected
          */
         owner: null
-    }}
+    }
 
     /**
      * Override this method for custom renderers

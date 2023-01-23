@@ -8,7 +8,7 @@ import Store     from './Store.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.menu.List'
          * @protected

@@ -6,7 +6,7 @@ import CoreBase from '../../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.draggable.sensor.Base'
          * @protected

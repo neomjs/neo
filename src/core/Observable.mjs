@@ -5,7 +5,7 @@ import Base from './Base.mjs';
  * @extends Neo.core.Base
  */
 class Observable extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.core.Observable'
          * @protected
@@ -21,7 +21,7 @@ class Observable extends Base {
          * @protected
          */
         mixin: true
-    }}
+    }
 
     /**
      * @param {Object|String} name

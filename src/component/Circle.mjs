@@ -12,7 +12,7 @@ let DragZone;
  * @extends Neo.component.Base
  */
 class Circle extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Circle'
          * @protected
@@ -125,7 +125,7 @@ class Circle extends Component {
                 {cls: ['neo-circle-back'], cn: []}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

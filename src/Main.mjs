@@ -20,7 +20,7 @@ class Main extends core.Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.Main'
          * @protected

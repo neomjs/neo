@@ -36,7 +36,7 @@ class Base extends Component {
         iconPositions: ['top', 'right', 'bottom', 'left']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.button.Base'
          * @protected
@@ -135,7 +135,7 @@ class Base extends Component {
                 {cls: ['neo-button-ripple']}
             ]}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the badgePosition config got changed

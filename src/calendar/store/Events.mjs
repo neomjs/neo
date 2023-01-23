@@ -7,7 +7,7 @@ import Store    from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Events extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.store.Events'
          * @protected
@@ -29,7 +29,7 @@ class Events extends Store {
             property : 'startDate',
             direction: 'ASC'
         }]
-    }}
+    }
 
     /**
      * @param {Date} date

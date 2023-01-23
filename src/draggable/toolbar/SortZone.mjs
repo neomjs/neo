@@ -6,7 +6,7 @@ import VDomUtil from '../../util/VDom.mjs';
  * @extends Neo.draggable.toolbar.DragZone
  */
 class SortZone extends DragZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.toolbar.SortZone'
          * @protected
@@ -67,7 +67,7 @@ class SortZone extends DragZone {
          * @protected
          */
         startIndex: -1
-    }}
+    }
 
     /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)

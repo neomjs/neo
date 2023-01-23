@@ -6,7 +6,7 @@ import ComponentList from './Component.mjs';
  * @extends Neo.list.Component
  */
 class Chip extends ComponentList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Chip'
          * @protected

@@ -9,7 +9,7 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class AmCharts extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.AmCharts'
          * @protected

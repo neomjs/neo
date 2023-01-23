@@ -18,7 +18,7 @@ class Base extends Container {
         dockPositions: ['top', 'right', 'bottom', 'left'],
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.toolbar.Base'
          * @protected

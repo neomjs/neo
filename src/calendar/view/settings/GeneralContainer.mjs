@@ -10,7 +10,7 @@ import TimeField     from '../../../form/field/Time.mjs';
  * @extends Neo.container.Base
  */
 class GeneralContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.settings.GeneralContainer'
          * @protected
@@ -20,7 +20,7 @@ class GeneralContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
-    }}
+    }
 
     /**
      *

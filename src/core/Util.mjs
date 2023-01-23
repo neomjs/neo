@@ -15,7 +15,7 @@ class Util extends Base {
         decamelRegEx: /([a-z])([A-Z])/g
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.core.Util'
          * @protected
@@ -25,8 +25,8 @@ class Util extends Base {
          * @member {String} ntype='core-util'
          * @protected
          */
-        ntype: 'core-util',
-    }}
+        ntype: 'core-util'
+    }
 
     /**
      * @param {Object} scope

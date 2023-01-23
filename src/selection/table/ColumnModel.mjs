@@ -6,7 +6,7 @@ import VDomUtil from '../../util/VDom.mjs';
  * @extends Neo.selection.Model
  */
 class ColumnModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.table.ColumnModel'
          * @protected

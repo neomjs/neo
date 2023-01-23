@@ -5,7 +5,7 @@ import Flexbox from './Flexbox.mjs';
  * @extends Neo.layout.Flexbox
  */
 class VBox extends Flexbox {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.VBox'
          * @protected

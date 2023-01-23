@@ -5,7 +5,7 @@ import BaseContainer from '../container/Base.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.dashboard.Container'
          * @protected
@@ -16,7 +16,7 @@ class Container extends BaseContainer {
          * @protected
          */
         ntype: 'dashboard'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Container);

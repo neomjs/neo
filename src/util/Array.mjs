@@ -5,7 +5,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class NeoArray extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Array'
          * @protected

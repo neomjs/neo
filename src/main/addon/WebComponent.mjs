@@ -7,7 +7,7 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class WebComponent extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.WebComponent'
          * @protected

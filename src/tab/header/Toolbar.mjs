@@ -5,7 +5,7 @@ import BaseToolbar from '../../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Toolbar extends BaseToolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tab.header.Toolbar'
          * @protected

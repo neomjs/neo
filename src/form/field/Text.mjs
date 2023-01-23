@@ -47,7 +47,7 @@ class Text extends Base {
         labelPositions: ['bottom', 'inline', 'left', 'right', 'top']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Text'
          * @protected

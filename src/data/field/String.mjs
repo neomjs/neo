@@ -5,7 +5,7 @@ import Field from './Field.mjs';
  * @extends Neo.data.field.Field
  */
 class StringField extends Field {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.field.String'
          * @protected
@@ -20,7 +20,7 @@ class StringField extends Field {
          * @member {String|null} defaultValue=''
          */
         defaultValue: ''
-    }}
+    }
 
     /**
      * Triggered before the value config gets changed.

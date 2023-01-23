@@ -15,7 +15,7 @@ class Sorter extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.collection.Sorter'
          * @protected
@@ -60,7 +60,7 @@ class Sorter extends Base {
          * @protected
          */
         useTransformValue: true
-    }}
+    }
 
     /**
      * @param {String} value

@@ -16,7 +16,7 @@ class IdGenerator {
         registerToGlobalNs: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.core.IdGenerator'
          * @protected
@@ -37,7 +37,7 @@ class IdGenerator {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param config

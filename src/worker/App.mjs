@@ -32,7 +32,7 @@ class App extends Base {
      */
     themeFilesCache = []
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.App'
          * @protected

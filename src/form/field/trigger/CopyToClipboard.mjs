@@ -7,7 +7,7 @@ import NeoArray from '../../../util/Array.mjs';
  * @extends Neo.form.field.trigger.Base
  */
 class CopyToClipboard extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.CopyToClipboard'
          * @protected

@@ -5,7 +5,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Style extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Style'
          * @protected

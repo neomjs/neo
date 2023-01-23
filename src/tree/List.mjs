@@ -7,7 +7,7 @@ import NeoArray   from '../util/Array.mjs';
  * @extends Neo.list.Base
  */
 class Tree extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tree.List'
          * @protected

@@ -7,7 +7,7 @@ import Picker from './Picker.mjs';
  * @extends Neo.form.field.trigger.Picker
  */
 class Time extends Picker {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Time'
          * @protected

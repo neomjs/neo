@@ -19,7 +19,7 @@ class Container extends BaseContainer {
         tabBarPositions: ['top', 'right', 'bottom', 'left']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tab.Container'
          * @protected

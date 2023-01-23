@@ -6,7 +6,7 @@ import Picker from './Picker.mjs';
  * @extends Neo.form.field.trigger.Picker
  */
 class Date extends Picker {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Date'
          * @protected

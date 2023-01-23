@@ -8,7 +8,7 @@ import WorkerManager from '../../worker/Manager.mjs';
  * @singleton
  */
 class ServiceWorker extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.ServiceWorker'
          * @protected

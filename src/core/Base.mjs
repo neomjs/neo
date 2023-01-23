@@ -32,7 +32,7 @@ class Base {
      * @returns {Object} config
      * @tutorial 02_ClassSystem
      */
-    static getConfig() {return {
+    static config = {
         /**
          * The class name which will get mapped into the Neo or app namespace
          * @member {String} className='Neo.core.Base'
@@ -67,7 +67,7 @@ class Base {
          * @protected
          */
         module: null
-    }}
+    }
 
     /**
      * Consumes the static getConfig() return object.

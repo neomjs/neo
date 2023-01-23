@@ -18,7 +18,7 @@ class DragZone extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.DragZone'
          * @protected
@@ -147,7 +147,7 @@ class DragZone extends Base {
          * @member {Boolean} useProxyWrapper=true
          */
         useProxyWrapper: true
-    }}
+    }
 
     /**
      * @param {Object} config

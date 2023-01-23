@@ -49,7 +49,7 @@ class Toast extends Base {
         slideDirections: ['down', 'up', 'left', 'right']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Toast'
          * @protected
@@ -122,7 +122,7 @@ class Toast extends Base {
                 {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
             ]
         }]}
-    }}
+    }
 
     /**
      * @param {Object} config

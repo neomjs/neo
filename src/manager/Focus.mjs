@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @singleton
  */
 class Focus extends CoreBase {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Focus'
          * @protected

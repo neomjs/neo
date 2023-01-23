@@ -15,7 +15,7 @@ class TimeAxisComponent extends Component {
         intervals: [15, 30, 60]
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.week.TimeAxisComponent'
          * @protected
@@ -59,7 +59,7 @@ class TimeAxisComponent extends Component {
          */
         vdom:
         {style: {}}
-    }}
+    }
 
     /**
      * @param {Object} config

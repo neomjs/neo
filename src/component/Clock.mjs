@@ -7,7 +7,7 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Clock extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Clock'
          * @protected
@@ -50,7 +50,7 @@ class Clock extends Component {
             {cls: ['neo-minutes'], style: {}},
             {cls: ['neo-hours'],   style: {}}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the fontSize config got changed

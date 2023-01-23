@@ -8,7 +8,7 @@ import VDomUtil  from '../../util/VDom.mjs';
  * @extends Neo.selection.table.CellModel
  */
 class CellRowModel extends CellModel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.table.CellRowModel'
          * @protected

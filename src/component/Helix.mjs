@@ -13,7 +13,7 @@ const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, si
  * @extends Neo.component.Base
  */
 class Helix extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Helix'
          * @protected
@@ -244,7 +244,7 @@ class Helix extends Component {
                 }
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

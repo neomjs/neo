@@ -7,7 +7,7 @@ let moduleLoaded = false;
  * @extends Neo.component.Base
  */
 class TextField extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.mwc.TextField'
          * @protected
@@ -60,7 +60,7 @@ class TextField extends Component {
          */
         _vdom:
         {tag: 'mwc-textfield'}
-    }}
+    }
 
     /**
      * @param {Object} config

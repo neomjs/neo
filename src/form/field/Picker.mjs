@@ -12,7 +12,7 @@ import VDomUtil      from '../../util/VDom.mjs';
  * @abstract
  */
 class Picker extends Text {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Picker'
          * @protected

@@ -30,7 +30,7 @@ class Container extends BaseContainer {
      */
     viewId = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.grid.Container'
          * @protected

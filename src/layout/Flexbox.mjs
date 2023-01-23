@@ -37,7 +37,7 @@ class Flexbox extends Base {
         wrapValues: ['nowrap', 'wrap', 'wrap-reverse'],
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Flexbox'
          * @protected

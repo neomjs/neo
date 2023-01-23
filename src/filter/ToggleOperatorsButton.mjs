@@ -6,7 +6,7 @@ import Filter from '../collection/Filter.mjs';
  * @extends Neo.button.Base
  */
 class ToggleOperatorsButton extends Button {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.filter.ToggleOperatorsButton'
          * @protected

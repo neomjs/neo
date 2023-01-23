@@ -16,7 +16,7 @@ class Animate extends Base {
         transitionEasings: ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.plugin.Animate'
          * @protected

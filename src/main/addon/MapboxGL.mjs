@@ -11,7 +11,7 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class MapboxGL extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.MapboxGL'
          * @protected

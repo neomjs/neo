@@ -6,7 +6,7 @@ import FetchConnection from './data/connection/Fetch.mjs';
  * @singleton
  */
 class Fetch extends FetchConnection {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.Fetch'
          * @protected

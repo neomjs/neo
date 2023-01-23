@@ -5,7 +5,7 @@ import Component from '../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class Strip extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tab.Strip'
          * @protected

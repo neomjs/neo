@@ -5,7 +5,7 @@ import DragZone from './DragZone.mjs';
  * @extends Neo.draggable.tree.DragZone
  */
 class SortZone extends DragZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.tree.SortZone'
          * @protected
@@ -16,7 +16,7 @@ class SortZone extends DragZone {
          * @protected
          */
         ntype: 'tree-sortzone'
-    }}
+    }
 }
 
 Neo.applyClassConfig(SortZone);

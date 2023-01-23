@@ -20,7 +20,7 @@ class Base extends Panel {
         closeActions: ['close', 'hide']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.dialog.Base'
          * @protected
@@ -125,7 +125,7 @@ class Base extends Panel {
         {cls: ['neo-dialog-wrapper'], cn: [
             {cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

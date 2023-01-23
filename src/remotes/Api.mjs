@@ -6,7 +6,7 @@ import Base from '../core/Base.mjs';
  * @singleton
  */
 class Api extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.remotes.Api'
          * @protected

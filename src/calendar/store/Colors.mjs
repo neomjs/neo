@@ -6,7 +6,7 @@ import Store from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Colors extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.store.Colors'
          * @protected
@@ -31,7 +31,7 @@ class Colors extends Store {
          * @member {Neo.data.Model} model=Color
          */
         model: Color
-    }}
+    }
 }
 
 Neo.applyClassConfig(Colors);

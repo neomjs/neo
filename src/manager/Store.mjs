@@ -7,7 +7,7 @@ import Base from './Base.mjs';
  * @singleton
  */
 class Store extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Store'
          * @protected

@@ -27,7 +27,7 @@ class Component extends BaseComponent {
         timeAxisPositions: ['end', 'start']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.week.Component'
          * @protected
@@ -211,7 +211,7 @@ class Component extends BaseComponent {
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
-    }}
+    }
 
     /**
      * @param {Object} config

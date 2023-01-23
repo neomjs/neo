@@ -7,7 +7,7 @@ import Toolbar         from '../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Breadcrumb extends Toolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.toolbar.Breadcrumb'
          * @protected

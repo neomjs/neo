@@ -19,7 +19,7 @@ class Number extends Text {
         triggerPositions: ['right', 'sides']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Number'
          * @protected

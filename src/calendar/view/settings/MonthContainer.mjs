@@ -7,7 +7,7 @@ import RadioField    from '../../../form/field/Radio.mjs';
  * @extends Neo.container.Base
  */
 class MonthContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.settings.MonthContainer'
          * @protected
@@ -17,7 +17,7 @@ class MonthContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
-    }}
+    }
 
     /**
      *

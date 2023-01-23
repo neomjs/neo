@@ -6,7 +6,7 @@ import ComponentManager from '../../manager/Component.mjs'
  * @extends Neo.form.field.CheckBox
  */
 class Radio extends CheckBox {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Radio'
          * @protected

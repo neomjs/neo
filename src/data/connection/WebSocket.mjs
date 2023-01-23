@@ -44,7 +44,7 @@ class Socket extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.connection.WebSocket'
          * @protected
@@ -60,7 +60,7 @@ class Socket extends Base {
          * @protected
          */
         socket_: null
-    }}
+    }
 
     /**
      * @param {Object} config

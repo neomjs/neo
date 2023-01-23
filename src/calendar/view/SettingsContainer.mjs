@@ -6,7 +6,7 @@ import TabContainer from '../../tab/Container.mjs';
  * @extends Neo.container.Base
  */
 class SettingsContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.SettingsContainer'
          * @protected
@@ -31,7 +31,7 @@ class SettingsContainer extends Container {
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true
-    }}
+    }
 
     /**
      * @param {Object} config

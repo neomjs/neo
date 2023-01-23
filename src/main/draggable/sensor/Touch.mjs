@@ -20,7 +20,7 @@ window.addEventListener('touchmove', event => {
  * @extends Neo.main.draggable.sensor.Base
  */
 class Touch extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.draggable.sensor.Touch'
          * @protected

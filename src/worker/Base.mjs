@@ -32,7 +32,7 @@ class Base extends CoreBase {
      */
     ports = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.Base'
          * @protected

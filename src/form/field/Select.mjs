@@ -30,7 +30,7 @@ class Select extends Picker {
         triggerActions: ['all', 'filtered']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Select'
          * @protected

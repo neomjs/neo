@@ -6,7 +6,7 @@ import HashHistory from '../util/HashHistory.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.controller.Base'
          * @protected
@@ -17,7 +17,7 @@ class Base extends CoreBase {
          * @protected
          */
         ntype: 'controller'
-    }}
+    }
 
     /**
      * @param {Object} config

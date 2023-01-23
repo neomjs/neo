@@ -28,7 +28,7 @@ class Toolbar extends Base {
      */
     actions = ['maximize', 'close']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.dialog.header.Toolbar'
          * @protected
@@ -38,7 +38,7 @@ class Toolbar extends Base {
          * @member {String|null} title=null
          */
         title_: null
-    }}
+    }
 
     /**
      * Triggered after the title config got changed

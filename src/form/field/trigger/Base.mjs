@@ -17,7 +17,7 @@ class Base extends Component {
         alignValues: ['end', 'start']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Base'
          * @protected

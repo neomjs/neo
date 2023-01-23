@@ -5,7 +5,7 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Field extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.field.Field'
          * @protected
@@ -30,7 +30,7 @@ class Field extends Base {
          * @protected
          */
         value_: null
-    }}
+    }
 
     /**
      * Triggered after the value config got changed

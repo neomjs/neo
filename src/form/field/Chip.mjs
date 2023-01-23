@@ -5,7 +5,7 @@ import Select from './Select.mjs';
  * @extends Neo.form.field.Select
  */
 class Chip extends Select {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Chip'
          * @protected

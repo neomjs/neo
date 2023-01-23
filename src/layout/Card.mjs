@@ -27,7 +27,7 @@ class Card extends Base {
         itemCls: 'neo-layout-card-item'
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Card'
          * @protected

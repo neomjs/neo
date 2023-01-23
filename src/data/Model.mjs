@@ -5,7 +5,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Model extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.Model'
          * @protected
@@ -36,7 +36,7 @@ class Model extends Base {
          * @member {Boolean} trackModifiedFields=false
          */
         trackModifiedFields: false
-    }}
+    }
 
     /**
      * Finds a field config by a given field name

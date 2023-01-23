@@ -25,7 +25,7 @@ class Splitter extends Component {
         resizeTargets: ['next', 'previous']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Splitter'
          * @protected
@@ -66,7 +66,7 @@ class Splitter extends Component {
          * @member {Number} size_=10
          */
         size_: 10
-    }}
+    }
 
     /**
      * @param {Object} config

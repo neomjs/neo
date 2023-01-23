@@ -8,7 +8,7 @@ import Observable   from '../core/Observable.mjs';
  * @singleton
  */
 class DomAccess extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.DomAccess'
          * @protected

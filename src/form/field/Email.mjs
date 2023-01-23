@@ -5,7 +5,7 @@ import Text from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class Email extends Text {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Email'
          * @protected

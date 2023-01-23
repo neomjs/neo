@@ -6,7 +6,7 @@ import BaseStore from '../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Store extends BaseStore {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.menu.Store'
          * @protected

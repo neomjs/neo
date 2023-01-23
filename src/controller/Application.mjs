@@ -14,7 +14,7 @@ class Application extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.controller.Application'
          * @protected
@@ -51,7 +51,7 @@ class Application extends Base {
          * @protected
          */
         rendering: false
-    }}
+    }
 
     /**
      * @param {Object} config

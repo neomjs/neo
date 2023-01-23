@@ -48,7 +48,7 @@ class Helper extends Base {
         'wbr'
     ]
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.vdom.Helper'
          * @protected

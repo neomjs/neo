@@ -7,7 +7,7 @@ import Component from './Base.mjs';
  * @extends Neo.component.Base
  */
 class Legend extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Legend'
          * @protected
@@ -42,7 +42,7 @@ class Legend extends Component {
             {vtype: 'text'},
             {vtype: 'text'}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the iconCls config got changed

@@ -5,7 +5,7 @@ import Number from './Number.mjs';
  * @extends Neo.form.field.Number
  */
 class Range extends Number {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Range'
          * @protected

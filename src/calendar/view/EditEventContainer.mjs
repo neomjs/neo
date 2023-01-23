@@ -11,7 +11,7 @@ import TimeField     from '../../form/field/Time.mjs';
  * @extends Neo.form.Container
  */
 class EditEventContainer extends FormContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.EditEventContainer'
          * @protected
@@ -72,7 +72,7 @@ class EditEventContainer extends FormContainer {
          * @member {Object|null} titleFieldConfig=null
          */
         titleFieldConfig: null
-    }}
+    }
 
     /**
      * @param {Object} config

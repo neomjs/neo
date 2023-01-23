@@ -32,7 +32,7 @@ class Base extends CoreBase {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Base'
          * @protected
@@ -302,7 +302,7 @@ class Base extends CoreBase {
          * @member {Object} _vdom={}
          */
         _vdom: {}
-    }}
+    }
 
     /**
      * Apply component based listeners

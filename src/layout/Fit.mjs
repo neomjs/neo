@@ -6,7 +6,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Fit extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Fit'
          * @protected

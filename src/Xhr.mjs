@@ -6,7 +6,7 @@ import XhrConnection from './data/connection/Xhr.mjs';
  * @singleton
  */
 class Xhr extends XhrConnection {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.Xhr'
          * @protected

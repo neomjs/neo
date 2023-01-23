@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Compare extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.core.Compare'
          * @protected
          */
         className: 'Neo.core.Compare'
-    }}
+    }
 
     /**
      * @param {*} item1

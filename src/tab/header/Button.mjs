@@ -5,7 +5,7 @@ import BaseButton from '../../button/Base.mjs';
  * @extends Neo.button.Base
  */
 class Button extends BaseButton {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tab.header.Button'
          * @protected

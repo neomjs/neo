@@ -78,7 +78,7 @@ class DomEvents extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.DomEvents'
          * @protected

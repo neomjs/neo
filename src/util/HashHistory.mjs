@@ -16,7 +16,7 @@ class HashHistory extends Base {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.ClassSystem'
          * @protected

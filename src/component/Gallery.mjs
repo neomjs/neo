@@ -11,7 +11,7 @@ const itemsMounted = Symbol.for('itemsMounted');
  * @extends Neo.component.Base
  */
 class Gallery extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Gallery'
          * @protected
@@ -168,7 +168,7 @@ class Gallery extends Component {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -10,7 +10,7 @@ import * as core from '../core/_export.mjs';
  * @singleton
  */
 class Canvas extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.Canvas'
          * @protected

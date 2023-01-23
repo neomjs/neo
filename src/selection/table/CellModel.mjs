@@ -5,7 +5,7 @@ import Model from '../Model.mjs';
  * @extends Neo.selection.Model
  */
 class CellModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.table.CellModel'
          * @protected

@@ -23,7 +23,7 @@ class Filter extends Base {
         operators: ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.collection.Filter'
          * @protected
@@ -94,7 +94,7 @@ class Filter extends Base {
          * @member {String} value_=null
          */
         value_: null
-    }}
+    }
 
     afterSetDisabled(...args) {
         this.fireChangeEvent(...args);

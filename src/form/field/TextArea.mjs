@@ -17,7 +17,7 @@ class TextArea extends Text {
         wrapValues: ['hard', 'off', 'soft', null]
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.TextArea'
          * @protected

@@ -12,7 +12,7 @@ class Color extends Base {
      */
     silentSelectUpdate = false
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Color'
          * @protected

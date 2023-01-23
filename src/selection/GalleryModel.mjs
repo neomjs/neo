@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.selection.Model
  */
 class GalleryModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.GalleryModel'
          * @protected

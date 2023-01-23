@@ -16,7 +16,7 @@ class CheckBox extends Base {
         labelPositions: ['left', 'top']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.CheckBox'
          * @protected

@@ -27,7 +27,7 @@ class Base extends CoreBase {
         observable: true
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.collection.Base'
          * @protected
@@ -103,7 +103,7 @@ class Base extends CoreBase {
          * @member {String|null} sourceId_=null
          */
         sourceId_: null
-    }}
+    }
 
     /**
      * @param config

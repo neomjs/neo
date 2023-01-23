@@ -7,7 +7,7 @@ import List            from './List.mjs';
  * @extends Neo.container.Panel
  */
 class Panel extends BasePanel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.menu.Panel'
          * @protected

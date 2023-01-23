@@ -6,7 +6,7 @@ import CollectionBase from '../collection/Base.mjs';
  * @extends Neo.collection.Base
  */
 class Base extends CollectionBase{
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Base'
          * @protected

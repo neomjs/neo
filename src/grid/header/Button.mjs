@@ -26,7 +26,7 @@ class Button extends BaseButton {
         alignValues: ['left', 'center', 'right']
     }}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.grid.header.Button'
          * @protected

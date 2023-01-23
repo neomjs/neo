@@ -7,7 +7,7 @@ import ComponentManager from '../manager/Component.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.Container'
          * @protected
