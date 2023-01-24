@@ -77,7 +77,7 @@ class DomEvent extends Base {
             path       = ComponentManager.getParentPath(pathIds),
             len        = path.length,
             component, delegationTargetId, id, preventFire;
-console.log('fire', event);
+
         for (; i < len; i++) {
             id        = path[i];
             component = Neo.getComponent(id);

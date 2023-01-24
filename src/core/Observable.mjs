@@ -127,6 +127,7 @@ class Observable extends Base {
     initObservable(config) {
         let me = this,
             proto = me.__proto__,
+            ctor  = proto.constructor,
             listeners;
 
         if (config.listeners) {
@@ -147,7 +148,7 @@ class Observable extends Base {
         }
 
         while (proto?.constructor.isClass) {
-            if (proto.constructor.staticConfig.observable && !proto.constructor.listeners) {
+            if (ctor.observable && !ctor.listeners) {
                 Object.assign(proto.constructor, {
                     addListener   : me.addListener,
                     fire          : me.fire,
