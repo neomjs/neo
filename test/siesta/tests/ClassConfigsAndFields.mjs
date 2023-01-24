@@ -5,11 +5,11 @@ class TestClass extends core.Base {
     fieldA = 1;
     fieldB = 2;
 
-    static getConfig() {return {
+    static config = {
         className: 'Neo.TestClass',
         configA_ : 3,
         configB_ : 4
-    }}
+    }
 
     beforeSetConfigA(value) {
         return this.fieldA + value;
@@ -242,11 +242,11 @@ StartTest(t => {
             fieldA = 2;
             fieldB = 1;
 
-            static getConfig() {return {
+            static config = {
                 configA_: 0,
                 configB_: 0,
                 configC_: 0
-            }}
+            }
 
             afterSetConfigA(value, oldValue) {
                 let me  = this,
