@@ -6,15 +6,13 @@ import Gallery      from '../../../src/component/Gallery.mjs';
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
-    static staticConfig = {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @protected
-         * @static
-         */
-        flagRegEx: / /gi
-    }
+    /**
+     * A regex to replace blank chars
+     * @member {RegExp} flagRegEx=/ /gi
+     * @protected
+     * @static
+     */
+    static flagRegEx = / /gi
 
     static config = {
         /**

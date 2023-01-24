@@ -6,15 +6,13 @@ import Helix        from '../../../src/component/Helix.mjs';
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
-    static staticConfig = {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @protected
-         * @static
-         */
-        flagRegEx: / /gi
-    }
+    /**
+     * A regex to replace blank chars
+     * @member {RegExp} flagRegEx=/ /gi
+     * @protected
+     * @static
+     */
+    static flagRegEx = / /gi
 
     static config = {
         /**
