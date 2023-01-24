@@ -62,7 +62,7 @@ class Card extends Base {
         let me                  = this,
             containerId         = me.containerId,
             container           = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            sCfg                = me.getStaticConfig(),
+            sCfg                = me.constructor,
             needsUpdate         = false,
             removeInactiveCards = me.removeInactiveCards,
             i, isActiveIndex, item, items, len, module, proto, vdom, wrapperCls;
@@ -147,7 +147,7 @@ class Card extends Base {
     applyChildAttributes(item, index, keepInDom=false) {
         let me            = this,
             isActiveIndex = me.activeIndex === index,
-            sCfg          = me.getStaticConfig(),
+            sCfg          = me.constructor,
             childCls      = item.wrapperCls,
             vdom          = item.vdom;
 

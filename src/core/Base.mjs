@@ -198,12 +198,11 @@ class Base {
 
     /**
      * Returns the value of a static config key or the staticConfig object itself in case no value is set
-     * @param {String} [key] The key of a staticConfig defined inside static getStaticConfig
+     * @param {String} key The key of a staticConfig defined inside static getStaticConfig
      * @returns {*}
      */
     getStaticConfig(key) {
-        let cfg = this.constructor.staticConfig;
-        return (key ? cfg[key] : cfg);
+        return this.constructor[key];
     }
 
     /**
