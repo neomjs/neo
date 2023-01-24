@@ -7,7 +7,7 @@ import List            from './List.mjs';
  * @extends Neo.container.Panel
  */
 class Panel extends BasePanel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.menu.Panel'
          * @protected
@@ -43,7 +43,7 @@ class Panel extends BasePanel {
          * @member {Number} subMenuGap_=0
          */
         subMenuGap_: 0
-    }}
+    }
 
     /**
      * Triggered after the list config got changed

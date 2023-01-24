@@ -6,7 +6,7 @@ import Label from './Label.mjs';
  * @extends Neo.component.Label
  */
 class BoxLabel extends Label {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.BoxLabel'
          * @protected
@@ -21,7 +21,7 @@ class BoxLabel extends Label {
          * @member {String[]} baseCls=['neo-box-label','neo-label']
          */
         baseCls: ['neo-box-label', 'neo-label']
-    }}
+    }
 }
 
 Neo.applyClassConfig(BoxLabel);

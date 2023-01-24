@@ -6,7 +6,7 @@ import MarkerDialog        from './MarkerDialog.mjs';
  * @extends Neo.component.wrapper.GoogleMaps
  */
 class MapComponent extends GoogleMapsComponent {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.wrapper.googleMaps.MapComponent',
         ntype: 'worldmap',
 
@@ -55,7 +55,7 @@ class MapComponent extends GoogleMapsComponent {
                 boundaryContainerId : me.id
             });
         }
-    }}
+    }
 
     construct(config) {
         super.construct(config);

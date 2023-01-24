@@ -5,7 +5,7 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class CreateCommentComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.article.CreateCommentComponent'
          * @protected
@@ -38,7 +38,7 @@ class CreateCommentComponent extends Component {
                 {tag: 'button', cls: ['btn', 'btn-sm', 'btn-primary'], html: 'Post Comment', type: 'button'}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

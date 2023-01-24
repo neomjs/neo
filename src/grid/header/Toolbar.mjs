@@ -5,7 +5,7 @@ import BaseToolbar from '../../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Toolbar extends BaseToolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.grid.header.Toolbar'
          * @protected
@@ -27,7 +27,7 @@ class Toolbar extends BaseToolbar {
         itemDefaults: {
             ntype: 'grid-header-button'
         }
-    }}
+    }
 
     /**
      *

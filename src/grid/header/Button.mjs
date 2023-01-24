@@ -16,17 +16,15 @@ class Button extends BaseButton {
      */
     field = null
 
-    static getStaticConfig() {return {
-        /**
-         * Valid values for align
-         * @member {String[]} alignValues: ['left', 'center', 'right']
-         * @protected
-         * @static
-         */
-        alignValues: ['left', 'center', 'right']
-    }}
+    /**
+     * Valid values for align
+     * @member {String[]} alignValues: ['left', 'center', 'right']
+     * @protected
+     * @static
+     */
+    static alignValues = ['left', 'center', 'right']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.grid.header.Button'
          * @protected
@@ -60,7 +58,7 @@ class Button extends BaseButton {
          * @protected
          */
         isSorted_: null
-    }}
+    }
 
     /**
      * @param {Object} config

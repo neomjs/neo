@@ -7,7 +7,7 @@ import GalleryMainContainer from '../../../../examples/component/gallery/MainCon
  * @extends Neo.examples.component.gallery.MainContainer
  */
 class GalleryContainer extends GalleryMainContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.GalleryContainer'
          * @protected
@@ -23,7 +23,7 @@ class GalleryContainer extends GalleryMainContainer {
             keyProperty: 'slug',
             store      : ArticlePreviews
         }
-    }}
+    }
 
     /**
      * @param {Object} [params={}]

@@ -7,17 +7,15 @@ import NeoArray  from '../../../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for align
-         * @member {String[]} alignValues=['end', 'start']
-         * @protected
-         * @static
-         */
-        alignValues: ['end', 'start']
-    }}
+    /**
+     * Valid values for align
+     * @member {String[]} alignValues=['end', 'start']
+     * @protected
+     * @static
+     */
+    static alignValues = ['end', 'start']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Base'
          * @protected
@@ -73,7 +71,7 @@ class Base extends Component {
          * @member {Number} weight_=10
          */
         weight_: 10
-    }}
+    }
 
     /**
      * @param {Object} config

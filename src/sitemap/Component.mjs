@@ -7,17 +7,15 @@ import Store           from './Store.mjs';
  * @extends Neo.component.Base
  */
 class Component extends Base {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for itemHideMode
-         * @member {String[]} itemHideModes=['removeDom','visibility']
-         * @protected
-         * @static
-         */
-        itemHideModes: ['removeDom', 'visibility']
-    }}
+    /**
+     * Valid values for itemHideMode
+     * @member {String[]} itemHideModes=['removeDom','visibility']
+     * @protected
+     * @static
+     */
+    static itemHideModes = ['removeDom', 'visibility']
 
-    static getConfig() {return {
+    static config = {
         /*
          * @member {String} className='Neo.sitemap.Component'
          * @protected
@@ -42,7 +40,7 @@ class Component extends Base {
          * @member {Neo.sitemap.Store|null} store_=null
          */
         store_: null
-    }}
+    }
 
     /**
      * @param {Object} config

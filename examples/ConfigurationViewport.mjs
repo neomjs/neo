@@ -11,7 +11,7 @@ import Viewport  from '../src/container/Viewport.mjs';
  * @abstract
  */
 class ConfigurationViewport extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.ConfigurationContainer'
          * @protected
@@ -46,7 +46,7 @@ class ConfigurationViewport extends Viewport {
          * @member {Number} exampleComponentFlex=1
          */
         exampleComponentFlex: 2
-    }}
+    }
 
     /**
      *

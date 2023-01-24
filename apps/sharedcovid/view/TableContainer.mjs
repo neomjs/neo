@@ -12,7 +12,7 @@ import TableContainerController from './TableContainerController.mjs';
  * @extends Neo.container.Base
  */
 class TableContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.TableContainer'
          * @protected
@@ -139,7 +139,7 @@ class TableContainer extends Container {
                 }]
             }]
         }]
-    }}
+    }
 
     /**
      * @param {Object} config

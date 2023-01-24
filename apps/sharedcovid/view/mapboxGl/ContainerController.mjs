@@ -5,7 +5,7 @@ import ComponentController from '../../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class ContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.mapboxGl.ContainerController'
          * @protected
@@ -16,7 +16,7 @@ class ContainerController extends ComponentController {
          * @protected
          */
         ntype: 'mapboxgl-container-controller'
-    }}
+    }
 
     /**
      * @param {String} layerId

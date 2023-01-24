@@ -6,7 +6,7 @@ import Toolbar                 from '../../../src/toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class HeaderToolbar extends Toolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.HeaderToolbar'
          * @protected
@@ -62,7 +62,7 @@ class HeaderToolbar extends Toolbar {
             text   : 'Profile',
             handler: 'onProfileButtonClick'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(HeaderToolbar);

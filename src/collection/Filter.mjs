@@ -6,24 +6,22 @@ import Observable from '../core/Observable.mjs';
  * @extends Neo.core.Base
  */
 class Filter extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true,
-        /**
-         * Valid values for the operator config:<br>
-         * ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
-         * @member {String[]} operators
-         * @protected
-         * @static
-         */
-        operators: ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+    /**
+     * Valid values for the operator config:<br>
+     * ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
+     * @member {String[]} operators
+     * @protected
+     * @static
+     */
+    static operators = ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.collection.Filter'
          * @protected
@@ -94,7 +92,7 @@ class Filter extends Base {
          * @member {String} value_=null
          */
         value_: null
-    }}
+    }
 
     afterSetDisabled(...args) {
         this.fireChangeEvent(...args);

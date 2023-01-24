@@ -10,7 +10,7 @@ const newRecordSymbol = Symbol.for('newRecordSymbol');
  * @extends Neo.plugin.Base
  */
 class DragDrop extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.week.plugin.DragDrop'
          * @protected
@@ -21,7 +21,7 @@ class DragDrop extends Base {
          * @protected
          */
         isDragging: false
-    }}
+    }
 
     /**
      * @param {Object} config

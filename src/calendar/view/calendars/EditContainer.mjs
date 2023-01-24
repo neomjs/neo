@@ -8,7 +8,7 @@ import TextField     from '../../../form/field/Text.mjs';
  * @extends Neo.form.Container
  */
 class EditContainer extends FormContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.calendars.EditContainer'
          * @protected
@@ -43,7 +43,7 @@ class EditContainer extends FormContainer {
          * @protected
          */
         unMountTimeoutId: null
-    }}
+    }
 
     /**
      * @param {Object} config

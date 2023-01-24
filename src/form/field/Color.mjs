@@ -7,7 +7,7 @@ import VDomUtil  from '../../util/VDom.mjs';
  * @extends Neo.form.field.Select
  */
 class Color extends Select {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Color'
          * @protected
@@ -42,7 +42,7 @@ class Color extends Select {
             colorFormatter    : '@config:colorFormatter',
             silentSelectUpdate: true
         }
-    }}
+    }
 
     /**
      * @param {Object} config

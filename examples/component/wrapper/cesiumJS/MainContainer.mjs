@@ -9,7 +9,7 @@ import Viewport                from '../../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className : 'Neo.examples.component.wrapper.cesiumJS.MainContainer',
         autoMount : true,
         controller: MainContainerController,
@@ -30,7 +30,7 @@ class MainContainer extends Viewport {
                 text   : 'Fly to San Fran'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

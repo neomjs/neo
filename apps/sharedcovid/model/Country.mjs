@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class Country extends Model {
-    static getConfig() {return {
+    static config = {
         className: 'SharedCovid.model.Country',
 
         fields: [{
@@ -51,7 +51,7 @@ class Country extends Model {
             name: 'todayDeaths',
             type: 'Integer'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Country);

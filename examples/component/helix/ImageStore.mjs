@@ -6,7 +6,7 @@ import Store      from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class ImageStore extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.helix.ImageModel'
          * @protected
@@ -24,7 +24,7 @@ class ImageStore extends Store {
          * @member {String} url='../../resources/examples/data/ai_contacts.json'
          */
         url: '../../resources/examples/data/ai_contacts.json'
-    }}
+    }
 }
 
 Neo.applyClassConfig(ImageStore);

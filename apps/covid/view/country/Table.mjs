@@ -7,7 +7,7 @@ import Util         from '../../Util.mjs';
  * @extends Neo.table.Container
  */
 class Table extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.country.Table'
          * @protected
@@ -109,7 +109,7 @@ class Table extends Container {
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore
-    }}
+    }
 
     /**
      * Triggered after the country config got changed

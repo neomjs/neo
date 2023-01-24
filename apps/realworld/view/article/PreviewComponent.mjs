@@ -7,7 +7,7 @@ import VDomUtil  from '../../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class PreviewComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.article.PreviewComponent'
          * @protected
@@ -76,7 +76,7 @@ class PreviewComponent extends Component {
                 {tag: 'span', html: 'Read more...'}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

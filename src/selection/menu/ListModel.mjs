@@ -5,7 +5,7 @@ import BaseListModel from '../ListModel.mjs';
  * @extends Neo.selection.ListModel
  */
 class ListModel extends BaseListModel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.menu.ListModel'
          * @protected
@@ -16,7 +16,7 @@ class ListModel extends BaseListModel {
          * @protected
          */
         ntype: 'selection-menu-listmodel'
-    }}
+    }
 
     /**
      * @param {Object} data

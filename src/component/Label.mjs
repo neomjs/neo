@@ -6,7 +6,7 @@ import Component from './Base.mjs';
  * @extends Neo.component.Base
  */
 class Label extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Label'
          * @protected
@@ -30,7 +30,7 @@ class Label extends Component {
          */
         _vdom:
         {tag: 'label', draggable: false}
-    }}
+    }
 
     /**
      * Triggered after the text config got changed

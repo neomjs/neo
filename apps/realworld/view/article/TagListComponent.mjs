@@ -5,16 +5,14 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class TagListComponent extends Component {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core.Observable mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.article.TagListComponent'
          * @protected
@@ -42,7 +40,7 @@ class TagListComponent extends Component {
                 {cls: ['tag-list']}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -11,7 +11,7 @@ import SearchField             from '../../../../src/form/field/Search.mjs';
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.MainContainer'
          * @protected
@@ -121,7 +121,7 @@ class MainContainer extends Container {
             listeners: {mutateItems: 'onMutateItems'},
             reference: 'classdetails-memberslist'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

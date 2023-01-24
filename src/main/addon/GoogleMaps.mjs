@@ -22,7 +22,7 @@ class GoogleMaps extends Base {
      */
     markers = {}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.GoogleMaps'
          * @protected
@@ -55,7 +55,7 @@ class GoogleMaps extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

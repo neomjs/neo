@@ -6,17 +6,15 @@ import Examples from '../../store/Examples.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
-    static getStaticConfig() {return {
-        /**
-         * A regex to enforce a maxLength (word break)
-         * @member {RegExp} nameRegEx
-         * @protected
-         * @static
-         */
-        nameRegEx: /^(.{65}[^\s]*).*/
-    }}
+    /**
+     * A regex to enforce a maxLength (word break)
+     * @member {RegExp} nameRegEx
+     * @protected
+     * @static
+     */
+    static nameRegEx = /^(.{65}[^\s]*).*/
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.examples.List'
          * @protected
@@ -45,7 +43,7 @@ class List extends BaseList {
         {cn: [
             {tag: 'ul', cn: []}
         ]}
-    }}
+    }
 
     /**
      * Triggered before the store config gets changed.

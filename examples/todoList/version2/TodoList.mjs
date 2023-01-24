@@ -5,10 +5,10 @@ import List from '../../../src/list/Base.mjs';
  * @extends Neo.list.Base
  */
 class TodoList extends List {
-    static getConfig() {return {
+    static config = {
         className   : 'Neo.examples.todoList.version2.TodoList',
         displayField: 'text'
-    }}
+    }
 
     /**
      *

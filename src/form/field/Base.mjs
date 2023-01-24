@@ -6,7 +6,7 @@ import Component from '../../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Base'
          * @protected
@@ -21,7 +21,7 @@ class Base extends Component {
          * @member {*} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * Triggered after the value config got changed

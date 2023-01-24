@@ -15,7 +15,7 @@ const today = {
  * @extends Neo.component.Base
  */
 class YearComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.YearComponent'
          * @protected
@@ -170,7 +170,7 @@ class YearComponent extends Component {
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
-    }}
+    }
 
     /**
      * @param config

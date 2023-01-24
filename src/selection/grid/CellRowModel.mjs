@@ -8,7 +8,7 @@ import VDomUtil  from '../../util/VDom.mjs';
  * @extends Neo.selection.grid.CellModel
  */
 class CellRowModel extends CellModel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.grid.CellRowModel'
          * @protected
@@ -29,7 +29,7 @@ class CellRowModel extends CellModel {
          * @protected
          */
         selectedRowIds: null
-    }}
+    }
 
     /**
      * @param {Object} config

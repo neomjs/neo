@@ -11,16 +11,14 @@ import WorkerManager from './worker/Manager.mjs';
  * @singleton
  */
 class Main extends core.Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.Main'
          * @protected
@@ -93,7 +91,7 @@ class Main extends core.Base {
          * @protected
          */
         writeQueue: []
-    }}
+    }
 
     /**
      * @param {Object} config

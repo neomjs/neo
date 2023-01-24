@@ -5,7 +5,7 @@ import BaseList from '../../../src/list/Base.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.list.animate.List'
          * @protected
@@ -33,7 +33,7 @@ class List extends BaseList {
          * @member {Number} itemWidth=300
          */
         itemWidth: 300
-    }}
+    }
 
     /**
      * Override this method for custom renderers

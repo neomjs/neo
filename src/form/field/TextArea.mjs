@@ -7,17 +7,15 @@ import Text from './Text.mjs';
  * @abstract
  */
 class TextArea extends Text {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for wrap
-         * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
-         * @protected
-         * @static
-         */
-        wrapValues: ['hard', 'off', 'soft', null]
-    }}
+    /**
+     * Valid values for wrap
+     * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
+     * @protected
+     * @static
+     */
+    static wrapValues = ['hard', 'off', 'soft', null]
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.TextArea'
          * @protected
@@ -67,7 +65,7 @@ class TextArea extends Text {
          * @member {String|null} wrap_=null
          */
         wrap_: null
-    }}
+    }
 
     /**
      * Triggered after the cols config got changed

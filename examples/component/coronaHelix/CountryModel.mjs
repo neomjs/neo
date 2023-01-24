@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class CountryModel extends Model {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.coronaHelix.CountryModel',
 
         fields: [{
@@ -30,7 +30,7 @@ class CountryModel extends Model {
             name: 'todayDeaths',
             type: 'int'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(CountryModel);

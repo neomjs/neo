@@ -5,7 +5,7 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.list.animate.MainContainerController'
          * @protected
@@ -16,7 +16,7 @@ class MainContainerController extends Component {
          * @protected
          */
         sortBy: 'firstname'
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class VNode extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.VNode'
          * @protected
          */
         className: 'Neo.util.VNode'
-    }}
+    }
 
     /**
      * Search vnode child nodes by id or opts object for a given vdom tree

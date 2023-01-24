@@ -9,9 +9,9 @@ import NumberField           from '../../../src/form/field/Number.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.component.dateSelector.MainContainer'
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

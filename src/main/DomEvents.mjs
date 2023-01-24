@@ -69,16 +69,14 @@ const preventClickTargets       = [],
  * @singleton
  */
 class DomEvents extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.DomEvents'
          * @protected
@@ -105,7 +103,7 @@ class DomEvents extends Base {
                 'registerPreventDefaultTargets'
             ]
         }
-    }}
+    }
 
     /**
      * @param {Object} config

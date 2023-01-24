@@ -6,7 +6,7 @@ import ApiStore from '../store/Api.mjs';
  * @extends Neo.tree.List
  */
 class ApiTreeList extends TreeList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.ApiTreeList'
          * @protected
@@ -22,7 +22,7 @@ class ApiTreeList extends TreeList {
          * @protected
          */
         store: ApiStore
-    }}
+    }
 
     /**
      *

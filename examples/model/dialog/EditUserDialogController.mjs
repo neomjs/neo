@@ -5,13 +5,13 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class EditUserDialogController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.dialog.EditUserDialogController'
          * @protected
          */
         className: 'Neo.examples.model.dialog.EditUserDialogController'
-    }}
+    }
 
     /**
      * @param {Object} data

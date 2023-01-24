@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class ArticlePreview extends Model {
-    static getConfig() {return {
+    static config = {
         className: 'RealWorld2.model.ArticlePreview',
 
         fields: [{
@@ -39,7 +39,7 @@ class ArticlePreview extends Model {
             name: 'updatedAt',
             type: 'String' // date
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(ArticlePreview);

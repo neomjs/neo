@@ -8,7 +8,7 @@ import Store     from './Store.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.menu.List'
          * @protected
@@ -97,7 +97,7 @@ class List extends BaseList {
          * @member {Number} zIndex_=100
          */
         zIndex_: 100
-    }}
+    }
 
     /**
      * Triggered after the floating config got changed

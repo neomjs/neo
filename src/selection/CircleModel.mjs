@@ -5,7 +5,7 @@ import Model from './Model.mjs';
  * @extends Neo.selection.Model
  */
 class CircleModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.CircleModel'
          * @protected
@@ -16,7 +16,7 @@ class CircleModel extends Model {
          * @protected
          */
         ntype: 'selection-circlemodel'
-    }}
+    }
 
     /**
      * @param {Object} data

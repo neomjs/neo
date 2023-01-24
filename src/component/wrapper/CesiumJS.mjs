@@ -7,7 +7,7 @@ import Component from '../Base.mjs';
  * @extends Neo.component.Base
  */
 class CesiumJS extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.wrapper.CesiumJS'
          * @protected
@@ -29,7 +29,7 @@ class CesiumJS extends Component {
         {style: {position: 'relative', height: '100%', width: '100%'}, cn: [
             {style: {position: 'absolute', height: '100%', width: '100%'}, }
         ]}
-    }}
+    }
 
     /**
      * Triggered after the mounted config got changed

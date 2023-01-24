@@ -18,7 +18,7 @@ const today = {
  * @extends Neo.component.Base
  */
 class DateSelector extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.DateSelector'
          * @protected
@@ -135,7 +135,7 @@ class DateSelector extends Component {
             ]},
             {cls: ['neo-dateselector-content'], cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

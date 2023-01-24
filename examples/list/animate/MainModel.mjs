@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.list.animate.MainModel',
         keyProperty: 'id',
 
@@ -25,7 +25,7 @@ class MainModel extends Model {
             name: 'lastname',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainModel);

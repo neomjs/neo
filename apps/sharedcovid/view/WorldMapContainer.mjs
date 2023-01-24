@@ -9,7 +9,7 @@ import WorldMapContainerController from './WorldMapContainerController.mjs';
  * @extends Neo.container.Base
  */
 class WorldMapContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.WorldMapContainer'
          * @protected
@@ -75,7 +75,7 @@ class WorldMapContainer extends Container {
             flex     : 1,
             reference: 'worldmap'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(WorldMapContainer);

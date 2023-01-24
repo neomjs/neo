@@ -5,7 +5,7 @@ import Base from './Base.mjs';
  * @extends RealWorld.api.Base
  */
 class Article extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.api.Article'
          * @protected
@@ -15,7 +15,7 @@ class Article extends Base {
          * @member {String} resource='/articles'
          */
         resource: '/articles'
-    }}
+    }
 
     /**
      * @param {String} slug

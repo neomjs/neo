@@ -6,7 +6,7 @@ import Model from './MainModel.mjs';
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.table.container.MainStore',
         keyProperty: 'githubId',
         model      : Model,
@@ -47,7 +47,7 @@ class MainStore extends Store {
             githubId : 'bhaustein',
             lastname : 'Haustein'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainStore);

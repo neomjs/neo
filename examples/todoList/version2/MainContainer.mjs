@@ -10,7 +10,7 @@ import Toolbar       from '../../../src/toolbar/Base.mjs';
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.todoList.version2.MainContainer',
         autoMount: true,
         height   : 300,
@@ -28,7 +28,7 @@ class MainContainer extends Container {
          * @member {Neo.data.Store|null} store=null
          */
         store: null
-    }}
+    }
 
     construct(config) {
         super.construct(config);

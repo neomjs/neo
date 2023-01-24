@@ -6,7 +6,7 @@ import TextField from '../../../../src/form/field/Text.mjs';
  * @extends Neo.dialog.Base
  */
 class AddUserDialog extends Dialog {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.view.AddUserDialog'
          * @protected
@@ -59,7 +59,7 @@ class AddUserDialog extends Dialog {
             height: '300px',
             width : '400px'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(AddUserDialog);

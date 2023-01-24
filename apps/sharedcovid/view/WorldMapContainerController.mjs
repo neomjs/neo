@@ -5,7 +5,7 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class WorldMapContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.WorldMapContainerController'
          * @protected
@@ -19,7 +19,7 @@ class WorldMapContainerController extends ComponentController {
          * @member {String|null} heatRuleChangeTimeout=null
          */
         heatRuleChangeTimeout: null
-    }}
+    }
 
     changeHeatRule(value) {
         const chartId = this.getReference('worldmap').id;

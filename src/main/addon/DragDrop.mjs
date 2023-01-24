@@ -8,7 +8,7 @@ import DomEvents from '../DomEvents.mjs';
  * @singleton
  */
 class DragDrop extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.DragDrop'
          * @protected
@@ -130,7 +130,7 @@ class DragDrop extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

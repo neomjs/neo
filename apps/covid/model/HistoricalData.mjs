@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class HistoricalData extends Model {
-    static getConfig() {return {
+    static config = {
         className: 'Covid.model.HistoricalData',
 
         fields: [{
@@ -36,7 +36,7 @@ class HistoricalData extends Model {
             name: 'recovered',
             type: 'int'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(HistoricalData);

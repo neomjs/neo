@@ -33,7 +33,7 @@ class Toast extends Base {
      */
     toastClass = 'Neo.component.Toast'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Toast'
          * @protected
@@ -44,7 +44,7 @@ class Toast extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

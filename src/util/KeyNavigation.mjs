@@ -6,7 +6,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.core.Base
  */
 class KeyNavigation extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.KeyNavigation'
          * @protected
@@ -31,7 +31,7 @@ class KeyNavigation extends Base {
          * @member {Array|null} keys_=null
          */
         keys_: null
-    }}
+    }
 
     add(value) {
         this._keys.push(...this.parseKeys(value));

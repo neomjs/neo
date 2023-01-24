@@ -6,7 +6,7 @@ import Store     from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.list.chip.MainStore',
         keyProperty: 'githubId',
         model      : MainModel,
@@ -47,7 +47,7 @@ class MainStore extends Store {
             property : 'firstname',
             direction: 'ASC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainStore);

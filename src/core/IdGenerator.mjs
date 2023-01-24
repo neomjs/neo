@@ -5,18 +5,16 @@
  * @singleton
  */
 class IdGenerator {
-    static getStaticConfig() {return {
-        /**
-         * Set this one to false in case you don't want to stick
-         * to the "anti-pattern" to apply classes to the global Neo or App namespace
-         * @member {Boolean} registerToGlobalNs=true
-         * @protected
-         * @static
-         */
-        registerToGlobalNs: true
-    }}
+    /**
+     * Set this one to false in case you don't want to stick
+     * to the "anti-pattern" to apply classes to the global Neo or App namespace
+     * @member {Boolean} registerToGlobalNs=true
+     * @protected
+     * @static
+     */
+    static registerToGlobalNs = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.core.IdGenerator'
          * @protected
@@ -37,7 +35,7 @@ class IdGenerator {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param config

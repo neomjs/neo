@@ -5,7 +5,7 @@ import Component from '../../../src/model/Component.mjs';
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.MainContainerModel'
          * @protected
@@ -25,7 +25,7 @@ class MainContainerModel extends Component {
              */
             countryRecord: null
         }
-    }}
+    }
 
     /**
      * @param {String} key

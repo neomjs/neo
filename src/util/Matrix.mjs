@@ -6,7 +6,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Matrix extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Matrix'
          * @protected
@@ -17,7 +17,7 @@ class Matrix extends Base {
          * @protected
          */
         items_: null
-    }}
+    }
 
     /**
      * shortcut for getElement

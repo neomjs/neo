@@ -48,18 +48,16 @@ Neo = globalThis.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     applyClassConfig(cls) {
-        let baseCfg       = null,
-            baseStaticCfg = null,
-            proto         = cls.prototype || cls,
-            protos        = [],
-            config, ctor, overrides, staticConfig;
+        let baseCfg = null,
+            proto   = cls.prototype || cls,
+            protos  = [],
+            config, ctor, overrides;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
 
             if (ctor.hasOwnProperty('classConfigApplied')) {
-                baseCfg       = Neo.clone(ctor.config,       true);
-                baseStaticCfg = Neo.clone(ctor.staticConfig, true);
+                baseCfg = Neo.clone(ctor.config, true);
                 break;
             }
 
@@ -67,13 +65,12 @@ Neo = globalThis.Neo = Object.assign({
             proto = proto.__proto__;
         }
 
-        config       = baseCfg       || {};
-        staticConfig = baseStaticCfg || {};
+        config = baseCfg || {};
 
         protos.forEach(element => {
             ctor = element.constructor;
-            let cfg       = ctor.getConfig      ?.() || {},
-                staticCfg = ctor.getStaticConfig?.() || {},
+
+            let cfg = ctor.config || {},
                 mixins;
 
             if (cfg) {
@@ -97,15 +94,15 @@ Neo = globalThis.Neo = Object.assign({
                 });
             }
 
-            Object.assign(ctor, staticCfg);
-
             if (cfg.hasOwnProperty('ntype')) {
                 Neo.ntypeMap[cfg.ntype] = cfg.className;
             }
 
             mixins = config.hasOwnProperty('mixins') && config.mixins || [];
 
-            if (staticCfg?.observable) {
+            let foo = false;
+
+            if (ctor.observable) {
                 mixins.push('Neo.core.Observable');
             }
 
@@ -117,7 +114,7 @@ Neo = globalThis.Neo = Object.assign({
                 applyMixins(ctor, mixins);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
-                    staticCfg.observable = true;
+                    ctor.observable = true;
                 }
             }
 
@@ -125,7 +122,6 @@ Neo = globalThis.Neo = Object.assign({
             delete config.mixins;
 
             Object.assign(config, cfg);
-            Object.assign(staticConfig, staticCfg);
 
             if (Neo.overrides) {
                 overrides = Neo.ns(config.className, false, Neo.overrides);
@@ -135,12 +131,8 @@ Neo = globalThis.Neo = Object.assign({
             Object.assign(ctor, {
                 classConfigApplied: true,
                 config            : Neo.clone(config, true),
-                isClass           : true,
-                staticConfig      : Neo.clone(staticConfig, true)
+                isClass           : true
             });
-
-            delete ctor.getConfig;
-            delete ctor.getStaticConfig;
 
             !config.singleton && this.applyToGlobalNs(cls);
         });

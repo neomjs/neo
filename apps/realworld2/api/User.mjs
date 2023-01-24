@@ -5,7 +5,7 @@ import Base from './Base.mjs';
  * @extends RealWorld2.api.Base
  */
 class User extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.api.User'
          * @protected
@@ -15,7 +15,7 @@ class User extends Base {
          * @member {String} resource='/tags'
          */
         resource: '/users'
-    }}
+    }
 }
 
 Neo.applyClassConfig(User);

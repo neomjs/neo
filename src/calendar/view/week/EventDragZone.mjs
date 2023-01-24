@@ -9,7 +9,7 @@ import VDomUtil           from '../../../util/VDom.mjs';
  * @extends Neo.draggable.DragZone
  */
 class EventDragZone extends DragZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.week.EventDragZone'
          * @protected
@@ -106,7 +106,7 @@ class EventDragZone extends DragZone {
          * @member {Boolean} useProxyWrapper=false
          */
         useProxyWrapper: false
-    }}
+    }
 
     /**
      *

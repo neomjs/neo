@@ -6,28 +6,26 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Card extends Base {
-    static getStaticConfig() {return {
-        /*
-         * The name of the CSS class for an active item inside the card layout
-         * @member {String} activeItemCls='neo-active-item'
-         * @static
-         */
-        activeItemCls: 'neo-active-item',
-        /*
-         * The name of the CSS class for an inactive item inside the card layout
-         * @member {String} inactiveItemCls='neo-inactive-item'
-         * @static
-         */
-        inactiveItemCls: 'neo-inactive-item',
-        /*
-         * The name of the CSS class for an item inside the card layout
-         * @member itemCls
-         * @static
-         */
-        itemCls: 'neo-layout-card-item'
-    }}
+    /*
+     * The name of the CSS class for an active item inside the card layout
+     * @member {String} activeItemCls='neo-active-item'
+     * @static
+     */
+    static activeItemCls = 'neo-active-item'
+    /*
+     * The name of the CSS class for an inactive item inside the card layout
+     * @member {String} inactiveItemCls='neo-inactive-item'
+     * @static
+     */
+    static inactiveItemCls = 'neo-inactive-item'
+    /*
+     * The name of the CSS class for an item inside the card layout
+     * @member itemCls
+     * @static
+     */
+    static itemCls = 'neo-layout-card-item'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Card'
          * @protected
@@ -50,7 +48,7 @@ class Card extends Base {
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true
-    }}
+    }
 
     /**
      * Modifies the CSS classes of the container items this layout is bound to.
@@ -64,7 +62,7 @@ class Card extends Base {
         let me                  = this,
             containerId         = me.containerId,
             container           = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            sCfg                = me.getStaticConfig(),
+            sCfg                = me.constructor,
             needsUpdate         = false,
             removeInactiveCards = me.removeInactiveCards,
             i, isActiveIndex, item, items, len, module, proto, vdom, wrapperCls;
@@ -149,7 +147,7 @@ class Card extends Base {
     applyChildAttributes(item, index, keepInDom=false) {
         let me            = this,
             isActiveIndex = me.activeIndex === index,
-            sCfg          = me.getStaticConfig(),
+            sCfg          = me.constructor,
             childCls      = item.wrapperCls,
             vdom          = item.vdom;
 

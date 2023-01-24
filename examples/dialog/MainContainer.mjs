@@ -10,7 +10,7 @@ import Viewport   from '../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.dialog.MainContainer',
         layout   : 'base',
         style    : {padding: '20px'},
@@ -25,7 +25,7 @@ class MainContainer extends Viewport {
          * @member {Neo.dialog.Base|null} dialog=null
          */
         dialog: null
-    }}
+    }
 
     /**
      * @param {Object} config

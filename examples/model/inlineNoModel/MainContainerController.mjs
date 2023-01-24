@@ -5,7 +5,7 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.inlineNoModel.MainContainerController'
          * @protected
@@ -19,7 +19,7 @@ class MainContainerController extends Component {
          * @member {String} button1Text_='Button 2'
          */
         button2Text_: 'Button 2'
-    }}
+    }
 
     /**
      * Triggered after the button1Text config got changed

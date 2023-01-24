@@ -7,7 +7,7 @@ import Util         from '../../Util.mjs';
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.country.Gallery'
          * @protected
@@ -108,7 +108,7 @@ class CountryGallery extends Gallery {
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore
-    }}
+    }
 
     /**
      * Triggered after the country config got changed

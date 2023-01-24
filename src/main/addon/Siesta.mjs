@@ -7,7 +7,7 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Siesta extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.Siesta'
          * @protected
@@ -18,7 +18,7 @@ class Siesta extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -6,7 +6,7 @@ import NumberContainer from './NumberContainer.mjs';
  * @extends Neo.filter.NumberContainer
  */
 class DateContainer extends NumberContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.filter.DateContainer'
          * @protected
@@ -21,7 +21,7 @@ class DateContainer extends NumberContainer {
          * @member {Neo.form.field.Base} fieldModule=Date
          */
         fieldModule: Date
-    }}
+    }
 }
 
 Neo.applyClassConfig(DateContainer);

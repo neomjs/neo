@@ -8,7 +8,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.dialog.MainContainer'
          * @protected
@@ -77,7 +77,7 @@ class MainContainer extends Viewport {
                 text : 'Click the edit user button to edit the user data inside this container view model.'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

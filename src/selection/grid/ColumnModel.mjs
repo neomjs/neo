@@ -6,7 +6,7 @@ import VDomUtil from '../../util/VDom.mjs';
  * @extends Neo.selection.Model
  */
 class ColumnModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.grid.ColumnModel'
          * @protected
@@ -22,7 +22,7 @@ class ColumnModel extends Model {
          * @protected
          */
         cls: 'neo-selection-columnmodel'
-    }}
+    }
 
     /**
      *

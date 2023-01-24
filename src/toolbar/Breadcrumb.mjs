@@ -7,7 +7,7 @@ import Toolbar         from '../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Breadcrumb extends Toolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.toolbar.Breadcrumb'
          * @protected
@@ -21,7 +21,7 @@ class Breadcrumb extends Toolbar {
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
-    }}
+    }
 
     /**
      * Triggered after the store config got changed

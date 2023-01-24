@@ -10,13 +10,13 @@ class MainContainerController extends ComponentController {
      */
     addUserDialog = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.view.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.toolbar.paging.view.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} data

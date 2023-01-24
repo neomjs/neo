@@ -6,13 +6,13 @@ import NeoArray            from '../../../src/util/Array.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.calendar.basic.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.calendar.basic.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} data

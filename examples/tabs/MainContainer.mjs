@@ -7,7 +7,7 @@ import PasswordField from '../../src/form/field/Password.mjs';
  * @extends Neo.tab.Container
  */
 class MainContainer extends TabContainer {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.tabs.MainContainer',
         activeIndex: 0,
         autoMount  : true,
@@ -163,7 +163,7 @@ class MainContainer extends TabContainer {
                 innerHTML: 'Test 3'
             }
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

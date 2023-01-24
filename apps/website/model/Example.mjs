@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class Example extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.model.Example'
          * @protected
@@ -40,7 +40,7 @@ class Example extends Model {
             name: 'url',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Example);

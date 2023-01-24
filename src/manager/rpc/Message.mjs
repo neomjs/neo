@@ -34,7 +34,7 @@ class Message extends Base {
      */
     transactionId = 1
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.rpc.Message'
          * @protected
@@ -52,7 +52,7 @@ class Message extends Base {
             direction: 'ASC',
             property : 'id'
         }]
-    }}
+    }
 
     /**
      *

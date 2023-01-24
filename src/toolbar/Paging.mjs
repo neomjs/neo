@@ -7,7 +7,7 @@ import Toolbar         from './Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Paging extends Toolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.toolbar.Paging'
          * @protected
@@ -42,7 +42,7 @@ class Paging extends Toolbar {
          * @member {Function} totalText_=count=>`Total: ${count} records`
          */
         totalText_: count => `Total: ${count} rows`
-    }}
+    }
 
     /**
      * @param config

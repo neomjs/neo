@@ -6,7 +6,7 @@ import PreviewComponent from './PreviewComponent.mjs';
  * @extends Neo.component.Helix
  */
 class Helix extends BaseHelix {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.Helix'
          * @protected
@@ -31,7 +31,7 @@ class Helix extends BaseHelix {
          * @member {Boolean} showCloneInfo=false
          */
         showCloneInfo: false
-    }}
+    }
 
     /**
      * @param {Object} vdomItem

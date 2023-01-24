@@ -5,7 +5,7 @@ import Base from './Base.mjs';
  * @extends RealWorld.api.Base
  */
 class Profile extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.api.Profile'
          * @protected
@@ -15,7 +15,7 @@ class Profile extends Base {
          * @member {String} resource='/profiles'
          */
         resource: '/profiles'
-    }}
+    }
 
     /**
      * @param {String} slug

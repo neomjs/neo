@@ -12,7 +12,7 @@ class Color extends Base {
      */
     silentSelectUpdate = false
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Color'
          * @protected
@@ -38,7 +38,7 @@ class Color extends Base {
          * @member {Function} colorField=(scope,data)=>data[scope.colorField]
          */
         colorFormatter: (scope,data) => data[scope.colorField]
-    }}
+    }
 
     /**
      * Override this method for custom renderers

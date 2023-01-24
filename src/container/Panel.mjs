@@ -7,7 +7,7 @@ import Toolbar   from '../toolbar/Base.mjs';
  * @extends Neo.container.Base
  */
 class Panel extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.container.Panel'
          * @protected
@@ -45,7 +45,7 @@ class Panel extends Container {
          * @member {Boolean} verticalHeadersFirst=false
          */
         verticalHeadersFirst: false
-    }}
+    }
 
     /**
      * @param {Object} config

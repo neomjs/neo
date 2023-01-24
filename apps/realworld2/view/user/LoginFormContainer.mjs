@@ -8,7 +8,7 @@ import Toolbar       from '../../../../src/toolbar/Base.mjs';
  * @extends Neo.form.Container
  */
 class LoginFormContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.user.LoginFormContainer'
          * @protected
@@ -30,7 +30,7 @@ class LoginFormContainer extends Container {
          * @member {Object} layout
          */
         layout: {ntype: 'base'}
-    }}
+    }
 
     /**
      * @param {Object} config

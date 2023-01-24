@@ -6,17 +6,15 @@ import NeoArray from '../../util/Array.mjs';
  * @extends Neo.form.field.Base
  */
 class CheckBox extends Base {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for labelPosition
-         * @member {String[]} labelPositions=['left','top']
-         * @protected
-         * @static
-         */
-        labelPositions: ['left', 'top']
-    }}
+    /**
+     * Valid values for labelPosition
+     * @member {String[]} labelPositions=['left','top']
+     * @protected
+     * @static
+     */
+    static labelPositions = ['left', 'top']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.CheckBox'
          * @protected
@@ -91,7 +89,7 @@ class CheckBox extends Base {
             {tag: 'i',     cls: ['neo-checkbox-icon']},
             {tag: 'span',  cls: ['neo-checkbox-value-label']}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

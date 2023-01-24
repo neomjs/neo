@@ -6,7 +6,7 @@ import DomEvents from '../../DomEvents.mjs';
  * @extends Neo.main.draggable.sensor.Base
  */
 class Mouse extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.draggable.sensor.Mouse'
          * @protected
@@ -40,7 +40,7 @@ class Mouse extends Base {
          * @protected
          */
         pageY: null
-    }}
+    }
 
     /**
      * @param config

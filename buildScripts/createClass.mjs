@@ -366,7 +366,7 @@ if (programOpts.info) {
 
         // find the starting point
         for (; i < len; i++) {
-            if (content[i].includes('static getConfig')) {
+            if (content[i].includes('static config')) {
                 break;
             }
         }
@@ -374,7 +374,7 @@ if (programOpts.info) {
         for (; i < len; i++) {
             codeLine = content[i];
 
-            if (codeLine.includes('}}')) {
+            if (codeLine.includes('    }')) {
                 addComma(content, i - 1);
                 addConfig({
                     baseType,
@@ -576,7 +576,7 @@ if (programOpts.info) {
         classContent.push(
             " */",
             `class ${file} extends ${baseFileName} {`,
-            "    static getConfig() {return {",
+            "    static config = {",
             "        /**",
             `         * @member {String} className='${className}'`,
             "         * @protected",
@@ -673,7 +673,7 @@ if (programOpts.info) {
         );
 
         classContent.push(
-            "    }}",
+            "    }",
             "}",
             "",
             `Neo.applyClassConfig(${file});`,

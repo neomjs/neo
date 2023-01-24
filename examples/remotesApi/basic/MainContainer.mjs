@@ -8,7 +8,7 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className : 'Neo.examples.remotesApi.basic.MainContainer',
         autoMount : true,
         controller: MainContainerController,
@@ -47,7 +47,7 @@ class MainContainer extends Viewport {
                 text   : 'Get users & friends'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

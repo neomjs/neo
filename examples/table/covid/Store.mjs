@@ -6,7 +6,7 @@ import Model     from './Model.mjs';
  * @extends Neo.data.Store
  */
 class Store extends BaseStore {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.table.covid.Store'
          * @protected
@@ -27,7 +27,7 @@ class Store extends BaseStore {
             property : 'active',
             direction: 'DESC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Store);

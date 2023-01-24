@@ -6,7 +6,7 @@ import Viewport     from '../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.viewport.MainContainer',
 
         layout: {
@@ -106,7 +106,7 @@ class MainContainer extends Viewport {
                 tabBarPosition: 'left'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

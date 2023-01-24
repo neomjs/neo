@@ -9,7 +9,7 @@ import VDomUtil     from '../../util/VDom.mjs';
  * @extends Neo.form.field.Picker
  */
 class DateField extends Picker {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Date'
          * @protected
@@ -57,7 +57,7 @@ class DateField extends Picker {
         triggers: [{
             module: DateTrigger
         }]
-    }}
+    }
 
     /**
      * @param config

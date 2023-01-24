@@ -6,38 +6,36 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Flexbox extends Base {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for align
-         * @member {String[]} alignValues=['center', 'end', 'start', 'stretch', null]
-         * @protected
-         * @static
-         */
-        alignValues: ['center', 'end', 'start', 'stretch', null],
-        /**
-         * Valid values for direction
-         * @member {String[]} directionValues=['column', 'column-reverse', 'row', 'row-reverse', null]
-         * @protected
-         * @static
-         */
-        directionValues: ['column', 'column-reverse', 'row', 'row-reverse', null],
-        /**
-         * Valid values for pack
-         * @member {String[]} packValues=['center', 'end', 'start', null]
-         * @protected
-         * @static
-         */
-        packValues: ['center', 'end', 'start', null],
-        /**
-         * Valid values for wrap
-         * @member {String[]} wrapValues=['nowrap', 'wrap', 'wrap-reverse']
-         * @protected
-         * @static
-         */
-        wrapValues: ['nowrap', 'wrap', 'wrap-reverse'],
-    }}
+    /**
+     * Valid values for align
+     * @member {String[]} alignValues=['center','end','start','stretch',null]
+     * @protected
+     * @static
+     */
+    static alignValues = ['center', 'end', 'start', 'stretch', null]
+    /**
+     * Valid values for direction
+     * @member {String[]} directionValues=['column','column-reverse','row','row-reverse',null]
+     * @protected
+     * @static
+     */
+    static directionValues = ['column', 'column-reverse', 'row', 'row-reverse', null]
+    /**
+     * Valid values for pack
+     * @member {String[]} packValues=['center','end','start',null]
+     * @protected
+     * @static
+     */
+    static packValues = ['center', 'end', 'start', null]
+    /**
+     * Valid values for wrap
+     * @member {String[]} wrapValues=['nowrap','wrap','wrap-reverse']
+     * @protected
+     * @static
+     */
+    static wrapValues = ['nowrap', 'wrap', 'wrap-reverse']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Flexbox'
          * @protected
@@ -73,7 +71,7 @@ class Flexbox extends Base {
          * @member {String} wrap_='nowrap'
          */
         wrap_: 'nowrap'
-    }}
+    }
 
     /**
      * Updates the Container CSS cls after "align" gets changed

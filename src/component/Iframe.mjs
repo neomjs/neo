@@ -5,7 +5,7 @@ import Base from '../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class Iframe extends Base {
-    static getConfig() {return {
+    static config = {
         /*
          * @member {String} className='Neo.component.Iframe'
          * @protected
@@ -24,7 +24,7 @@ class Iframe extends Base {
          */
         _vdom:
         {tag: 'iframe'}
-    }}
+    }
 
     /**
      * Triggered after the src config got changed

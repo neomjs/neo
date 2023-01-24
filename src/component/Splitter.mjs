@@ -8,24 +8,22 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Splitter extends Component {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for direction
-         * @member {String[]} directions=['horizontal','vertical']
-         * @protected
-         * @static
-         */
-        directions: ['horizontal', 'vertical'],
-        /**
-         * Valid values for resizeTarget
-         * @member {String[]} resizeTargets=['next','previous']
-         * @protected
-         * @static
-         */
-        resizeTargets: ['next', 'previous']
-    }}
+    /**
+     * Valid values for direction
+     * @member {String[]} directions=['horizontal','vertical']
+     * @protected
+     * @static
+     */
+    static directions = ['horizontal', 'vertical']
+    /**
+     * Valid values for resizeTarget
+     * @member {String[]} resizeTargets=['next','previous']
+     * @protected
+     * @static
+     */
+    static resizeTargets = ['next', 'previous']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Splitter'
          * @protected
@@ -66,7 +64,7 @@ class Splitter extends Component {
          * @member {Number} size_=10
          */
         size_: 10
-    }}
+    }
 
     /**
      * @param {Object} config

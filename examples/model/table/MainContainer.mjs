@@ -7,7 +7,7 @@ import Viewport           from '../../../src/container/Viewport.mjs';
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.table.MainContainer'
          * @protected
@@ -51,7 +51,7 @@ class MainContainer extends Viewport {
                 text     : 'Country'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

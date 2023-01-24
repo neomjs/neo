@@ -7,7 +7,7 @@ import NeoArray   from '../util/Array.mjs';
  * @extends Neo.list.Base
  */
 class Tree extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tree.List'
          * @protected
@@ -58,7 +58,7 @@ class Tree extends Base {
         {cn: [
             {tag: 'ul', cls: ['neo-list-container', 'neo-list'], cn: []}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the draggable config got changed

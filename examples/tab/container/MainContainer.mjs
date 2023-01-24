@@ -10,13 +10,13 @@ import TabContainer          from '../../../src/tab/Container.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.tab.container.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me           = this,

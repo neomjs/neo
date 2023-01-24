@@ -7,7 +7,7 @@ import Label     from '../component/Label.mjs';
  * @extends Neo.container.Base
  */
 class Base extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.tooltip.Base'
          * @protected
@@ -76,7 +76,7 @@ class Base extends Container {
          * @member {String} text_=null
          */
         text_: null
-    }}
+    }
 
     /**
      * Triggered after the componentId config got changed

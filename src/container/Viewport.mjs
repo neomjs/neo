@@ -5,7 +5,7 @@ import Container from './Base.mjs';
  * @extends Neo.container.Base
  */
 class Viewport extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.container.Viewport'
          * @protected
@@ -31,7 +31,7 @@ class Viewport extends Container {
          * @member {String[]} baseCls=['neo-viewport']
          */
         baseCls: ['neo-viewport']
-    }}
+    }
 
     /**
      *

@@ -5,7 +5,7 @@ import WeekComponent from './week/Component.mjs';
  * @extends Neo.calendar.view.week.Component
  */
 class DayComponent extends WeekComponent {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.DayComponent'
          * @protected
@@ -25,7 +25,7 @@ class DayComponent extends WeekComponent {
          * @member {Number} columnsVisible=1
          */
         columnsVisible: 1
-    }}
+    }
 
     /**
      * @param {Date} date

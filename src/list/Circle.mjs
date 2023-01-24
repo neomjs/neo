@@ -6,7 +6,7 @@ import Component       from './Component.mjs';
  * @extends Neo.list.Component
  */
 class Circle extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Circle'
          * @protected
@@ -41,7 +41,7 @@ class Circle extends Component {
          * @member {String} urlField='url'
          */
         urlField: 'url'
-    }}
+    }
 
     /**
      * Override this method for custom renderers

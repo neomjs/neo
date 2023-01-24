@@ -6,16 +6,14 @@ import CoreBase                     from '../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.api.Base'
          * @protected
@@ -33,7 +31,7 @@ class Base extends CoreBase {
          * @member {String} resource=''
          */
         resource: '/'
-    }}
+    }
 
     onConstructed() {
         super.onConstructed();

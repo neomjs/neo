@@ -6,7 +6,7 @@ import Split from './Split.mjs';
  * @extends Neo.button.Split
  */
 class Menu extends Split {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.button.Menu'
          * @protected
@@ -17,7 +17,7 @@ class Menu extends Split {
          * @protected
          */
         ntype: 'menu-button'
-    }}
+    }
 
     /**
      * @param {Object} data

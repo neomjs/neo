@@ -11,7 +11,7 @@ import Helper    from '../vdom/Helper.mjs';
  * @singleton
  */
 class VDom extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.VDom'
          * @protected
@@ -27,7 +27,7 @@ class VDom extends Base {
          * @protected
          */
         workerId: 'vdom'
-    }}
+    }
 
     /**
      *

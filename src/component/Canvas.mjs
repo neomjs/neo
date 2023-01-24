@@ -5,7 +5,7 @@ import Component from './Base.mjs';
  * @extends Neo.component.Base
  */
 class Canvas extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Canvas'
          * @protected
@@ -31,7 +31,7 @@ class Canvas extends Component {
          */
         _vdom:
         {tag: 'canvas'}
-    }}
+    }
 
     /**
      * Triggered after the mounted config got changed

@@ -5,7 +5,7 @@ import BaseComponent from '../../../../src/component/wrapper/MapboxGL.mjs';
  * @extends Neo.component.wrapper.MapboxGL
  */
 class Component extends BaseComponent {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.mapboxGl.Component'
          * @protected
@@ -110,7 +110,7 @@ class Component extends BaseComponent {
             type: 'raster-dem',
             url : 'mapbox://mapbox.terrain-rgb'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Component);

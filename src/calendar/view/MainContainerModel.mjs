@@ -10,7 +10,7 @@ const todayDate = new Date();
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.MainContainerModel'
          * @protected
@@ -102,7 +102,7 @@ class MainContainerModel extends Component {
              */
             weekStartDay: 0
         }
-    }}
+    }
 
     /**
      * @param {Object} config

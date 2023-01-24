@@ -6,7 +6,7 @@ import PreviewComponent from './PreviewComponent.mjs';
  * @extends Neo.component.Gallery
  */
 class Gallery extends BaseGallery {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.Gallery'
          * @protected
@@ -36,7 +36,7 @@ class Gallery extends BaseGallery {
          * @member {Boolean} selectOnMount=false
          */
         selectOnMount: false
-    }}
+    }
 
     /**
      * Override this method to get different item-markups

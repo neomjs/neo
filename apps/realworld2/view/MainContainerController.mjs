@@ -19,7 +19,7 @@ import UserApi                 from '../api/User.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.MainContainerController'
          * @protected
@@ -35,7 +35,7 @@ class MainContainerController extends ComponentController {
          * @member {String|null} hashString=null
          */
         hashString: null
-    }}
+    }
 
     onConstructed() {
         super.onConstructed();

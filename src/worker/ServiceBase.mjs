@@ -47,7 +47,7 @@ class ServiceBase extends Base {
      */
     workerId = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.ServiceBase'
          * @protected
@@ -70,7 +70,7 @@ class ServiceBase extends Base {
                 'removeAssets'
             ]
         }
-    }}
+    }
 
     /**
      * @param {Object} config

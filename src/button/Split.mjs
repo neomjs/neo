@@ -7,7 +7,7 @@ import Button from './Base.mjs';
  * @extends Neo.button.Base
  */
 class Split extends Button {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.button.Split'
          * @protected
@@ -50,7 +50,7 @@ class Split extends Button {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

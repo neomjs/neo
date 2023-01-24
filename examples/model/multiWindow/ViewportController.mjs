@@ -16,13 +16,13 @@ class MainContainerController extends ComponentController {
      */
     mainModel = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.ViewportController'
          * @protected
          */
         className: 'Neo.examples.model.multiWindow.ViewportController'
-    }}
+    }
 
     /**
      * The App worker will receive connect & disconnect events inside the SharedWorkers context

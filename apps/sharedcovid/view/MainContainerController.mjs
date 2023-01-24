@@ -7,7 +7,7 @@ import Util                from '../Util.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.MainContainerController'
          * @protected
@@ -73,7 +73,7 @@ class MainContainerController extends ComponentController {
          * @member {Object} windowChart=null
          */
         windowChart: null,
-    }}
+    }
 
     /**
      * @param {Object[]} data

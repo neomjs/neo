@@ -6,13 +6,13 @@ import Toast               from '../../../src/component/Toast.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.toast.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.component.toast.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} config

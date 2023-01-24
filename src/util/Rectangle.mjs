@@ -6,13 +6,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Rectangle extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Rectangle'
          * @protected
          */
         className: 'Neo.util.Rectangle'
-    }}
+    }
 
     /**
      * Checks if rect1 does not have an intersection with rect2

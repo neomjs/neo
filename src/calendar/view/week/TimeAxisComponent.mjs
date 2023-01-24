@@ -5,17 +5,15 @@ import Component from '../../../component/Base.mjs';
  * @extends Neo.container.Base
  */
 class TimeAxisComponent extends Component {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for interval
-         * @member {Number[]} intervals=[15, 30, 60]
-         * @protected
-         * @static
-         */
-        intervals: [15, 30, 60]
-    }}
+    /**
+     * Valid values for interval
+     * @member {Number[]} intervals=[15,30,60]
+     * @protected
+     * @static
+     */
+    static intervals = [15, 30, 60]
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.week.TimeAxisComponent'
          * @protected
@@ -59,7 +57,7 @@ class TimeAxisComponent extends Component {
          */
         vdom:
         {style: {}}
-    }}
+    }
 
     /**
      * @param {Object} config

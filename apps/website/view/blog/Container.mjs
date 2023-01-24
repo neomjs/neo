@@ -7,7 +7,7 @@ import SearchField   from '../../../../src/form/field/Search.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.blog.Container'
          * @protected
@@ -42,7 +42,7 @@ class Container extends BaseContainer {
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
-    }}
+    }
 }
 
 Neo.applyClassConfig(Container);

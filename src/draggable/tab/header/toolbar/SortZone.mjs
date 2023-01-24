@@ -6,7 +6,7 @@ import NeoArray     from '../../../../util/Array.mjs';
  * @extends Neo.draggable.toolbar.SortZone
  */
 class SortZone extends BaseSortZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.tab.header.toolbar.SortZone'
          * @protected
@@ -23,7 +23,7 @@ class SortZone extends BaseSortZone {
         dragProxyConfig: {
             cls: ['neo-tab-header-toolbar', 'neo-toolbar']
         }
-    }}
+    }
 
     /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)

@@ -6,7 +6,7 @@ import Model    from './Model.mjs';
  * @extends Neo.selection.Model
  */
 class DateSelectorModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.DateSelectorModel'
          * @protected
@@ -22,7 +22,7 @@ class DateSelectorModel extends Model {
          * @member {Boolean} stayInColumn=false
          */
         stayInColumn: false
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -9,7 +9,7 @@ import Stylesheet from './Stylesheet.mjs'
  * @singleton
  */
 class HighlightJS extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.HighlightJS'
          * @protected
@@ -49,7 +49,7 @@ class HighlightJS extends Base {
          * @protected
          */
         themePath: './resources/highlightjs-custom-github-theme.css'
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -5,7 +5,7 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.dialog.MainContainerController'
          * @protected
@@ -15,7 +15,7 @@ class MainContainerController extends Component {
          * @member {Neo.examples.dialog.EditUserDialog|null} dialog=null
          */
         dialog: null
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -7,37 +7,35 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.plugin.Base
  */
 class Resizable extends Base {
-    static getStaticConfig() {return {
-        /**
-         * Resize cursor styles use north, south based names, so we need a mapping.
-         * The order has to match the static positions array.
-         * @member {String[]} cursorPositions=['s', 'sw', 'se', 'w', 'e', 'n', 'nw', 'ne']
-         * @protected
-         * @static
-         */
-        cursorPositions: ['s', 'sw', 'se', 'w', 'e', 'n', 'nw', 'ne'],
-        /**
-         * remove - chars
-         * @member {RegExp} nameRegEx=/-([a-z])/g
-         * @protected
-         * @static
-         */
-        nameRegEx: /-([a-z])/g,
-        /**
-         * Internal position names
-         * @member {String[]} validDirections=['bottom','bottom-left','bottom-right','left','right','top','top-left','top-right']
-         * @static
-         */
-        positions: ['bottom', 'bottom-left', 'bottom-right', 'left', 'right', 'top', 'top-left', 'top-right'],
-        /**
-         * Directions into which you want to drag => resize
-         * @member {String[]} validDirections=['b','bl','br','l','r','t','tl','tr']
-         * @static
-         */
-        validDirections: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
-    }}
+    /**
+     * Resize cursor styles use north, south based names, so we need a mapping.
+     * The order has to match the static positions array.
+     * @member {String[]} cursorPositions=['s','sw','se','w','e','n','nw','ne']
+     * @protected
+     * @static
+     */
+    static cursorPositions = ['s', 'sw', 'se', 'w', 'e', 'n', 'nw', 'ne']
+    /**
+     * remove - chars
+     * @member {RegExp} nameRegEx=/-([a-z])/g
+     * @protected
+     * @static
+     */
+    static nameRegEx = /-([a-z])/g
+    /**
+     * Internal position names
+     * @member {String[]} validDirections=['bottom','bottom-left','bottom-right','left','right','top','top-left','top-right']
+     * @static
+     */
+    static positions = ['bottom', 'bottom-left', 'bottom-right', 'left', 'right', 'top', 'top-left', 'top-right']
+    /**
+     * Directions into which you want to drag => resize
+     * @member {String[]} validDirections=['b','bl','br','l','r','t','tl','tr']
+     * @static
+     */
+    static validDirections = ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.plugin.Resizable'
          * @protected
@@ -167,7 +165,7 @@ class Resizable extends Base {
          * @protected
          */
         targetNode: null
-    }}
+    }
 
     /**
      * @param {Object} config

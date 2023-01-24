@@ -6,7 +6,7 @@ import VDomUtil  from '../../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class SignUpComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.user.SignUpComponent'
          * @protected
@@ -59,7 +59,7 @@ class SignUpComponent extends Component {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

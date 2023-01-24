@@ -5,7 +5,7 @@ import Component from '../../../src/model/Component.mjs';
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.extendedClass.MainContainerModel'
          * @protected
@@ -18,7 +18,7 @@ class MainContainerModel extends Component {
             button1Text: 'Button 1',
             button2Text: 'Button 2'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainerModel);

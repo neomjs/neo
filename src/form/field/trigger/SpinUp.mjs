@@ -6,7 +6,7 @@ import Base from './Base.mjs';
  * @extends Neo.form.field.trigger.Base
  */
 class SpinUp extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.SpinUp'
          * @protected
@@ -27,7 +27,7 @@ class SpinUp extends Base {
          * @protected
          */
         type: 'spinup'
-    }}
+    }
 
     /**
      * @param {Object} data

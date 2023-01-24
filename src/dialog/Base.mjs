@@ -10,17 +10,15 @@ let DragZone;
  * @extends Neo.container.Panel
  */
 class Base extends Panel {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for closeAction
-         * @member {String[]} closeActions=['close','hide']
-         * @protected
-         * @static
-         */
-        closeActions: ['close', 'hide']
-    }}
+    /**
+     * Valid values for closeAction
+     * @member {String[]} closeActions=['close','hide']
+     * @protected
+     * @static
+     */
+    static closeActions = ['close', 'hide']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.dialog.Base'
          * @protected
@@ -125,7 +123,7 @@ class Base extends Panel {
         {cls: ['neo-dialog-wrapper'], cn: [
             {cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

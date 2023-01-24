@@ -6,17 +6,15 @@ import Gallery      from '../../../src/component/Gallery.mjs';
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
-    static getStaticConfig() {return {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @protected
-         * @static
-         */
-        flagRegEx: / /gi
-    }}
+    /**
+     * A regex to replace blank chars
+     * @member {RegExp} flagRegEx=/ /gi
+     * @protected
+     * @static
+     */
+    static flagRegEx = / /gi
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryGallery'
          * @protected
@@ -50,7 +48,7 @@ class CountryGallery extends Gallery {
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore
-    }}
+    }
 
     /**
      * Override this method to get different item-markups
