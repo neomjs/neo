@@ -5,7 +5,7 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Xhr extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.connection.Xhr'
          * @protected
@@ -36,7 +36,7 @@ class Xhr extends Base {
          * @member {Number} timeout=5000
          */
         timeout: 5000
-    }}
+    }
 
     /**
      * We cannot clone event objects across messaging
@@ -220,7 +220,7 @@ class Xhr extends Base {
 
     /**
      * Needed for remote method access
-     * 
+     *
      * @param {Object} value
      */
     setDefaultHeaders(value) {

@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.selection.Model
  */
 class HelixModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.HelixModel'
          * @protected
@@ -24,7 +24,7 @@ class HelixModel extends Model {
          * @member {boolean} stayInColumn=false
          */
         stayInColumn: false
-    }}
+    }
 
     /**
      * Override to not apply a domListener

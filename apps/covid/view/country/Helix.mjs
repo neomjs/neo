@@ -7,7 +7,7 @@ import Util         from '../../Util.mjs';
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.country.Helix'
          * @protected
@@ -103,7 +103,7 @@ class CountryHelix extends Helix {
          * @member {Number} translateZ_=-2300
          */
         translateZ: -2300
-    }}
+    }
 
     /**
      * Triggered after the country config got changed

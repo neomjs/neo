@@ -10,13 +10,13 @@ class Fetch extends Base {
      */
     defaultHeaders = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.connection.Fetch'
          * @protected
          */
         className: 'Neo.data.connection.Fetch'
-    }}
+    }
 
     /**
      * @param {Object|String} url

@@ -7,7 +7,7 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Cookie extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.Cookie'
          * @protected
@@ -30,7 +30,7 @@ class Cookie extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {String} name

@@ -7,7 +7,7 @@ import ExecutiveIntroComponent from './ExecutiveIntroComponent.mjs';
  * @extends Neo.container.Base
  */
 class TabContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.home.TabContainer'
          * @protected
@@ -48,7 +48,7 @@ class TabContainer extends Container {
          * @member {String} tabBarPosition='left'
          */
         tabBarPosition: 'left'
-    }}
+    }
 }
 
 Neo.applyClassConfig(TabContainer);

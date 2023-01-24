@@ -10,7 +10,7 @@ import RangeField                 from '../../../src/form/field/Range.mjs';
  * @extends Neo.container.Base
  */
 class GalleryContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.GalleryContainer'
          * @protected
@@ -191,7 +191,7 @@ class GalleryContainer extends Container {
                 ].join('')
             }]
         }]
-    }}
+    }
 
     /**
      * @param {Object} config

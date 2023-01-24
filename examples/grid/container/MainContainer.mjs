@@ -15,14 +15,14 @@ import RowModel              from '../../../src/selection/grid/RowModel.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.grid.container.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         configPanelFlex     : 1.5,
         exampleComponentFlex: 3,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

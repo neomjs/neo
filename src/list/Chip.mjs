@@ -6,7 +6,7 @@ import ComponentList from './Component.mjs';
  * @extends Neo.list.Component
  */
 class Chip extends ComponentList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Chip'
          * @protected
@@ -43,7 +43,7 @@ class Chip extends ComponentList {
          */
         _vdom:
         {cn: []} // we are using a div instead of a li tag
-    }}
+    }
 
     /**
      * Triggered after the stacked config got changed

@@ -7,7 +7,7 @@ import Text from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class Url extends Text {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Url'
          * @protected
@@ -23,7 +23,7 @@ class Url extends Text {
          * @member {String} inputType='url'
          */
         inputType: 'url'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Url);

@@ -6,7 +6,7 @@ import Store   from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Countries extends Store {
-    static getConfig() {return {
+    static config = {
         className: 'SharedCovid.store.Countries',
 
         keyProperty: 'country',
@@ -16,7 +16,7 @@ class Countries extends Store {
             property : 'active',
             direction: 'DESC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Countries);

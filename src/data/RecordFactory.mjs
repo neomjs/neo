@@ -10,7 +10,7 @@ let instance;
  * @singleton
  */
 class RecordFactory extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.RecordFactory'
          * @protected
@@ -31,7 +31,7 @@ class RecordFactory extends Base {
          * @member {String} recordNamespace='Neo.data.record'
          */
         recordNamespace: 'Neo.data.record'
-    }}
+    }
 
     /**
      * @param {Neo.data.Model} model

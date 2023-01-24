@@ -10,13 +10,13 @@ class TableContainerController extends Controller {
      */
     apiUrl = 'https://disease.sh/v3/covid-19/countries'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.table.covid.TableContainerController'
          * @protected
          */
         className: 'Neo.examples.table.covid.TableContainerController'
-    }}
+    }
 
     /**
      * @param {Object} config

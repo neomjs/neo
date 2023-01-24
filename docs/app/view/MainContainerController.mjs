@@ -6,7 +6,7 @@ import NeoArray  from '../../../src/util/Array.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.MainContainerController'
          * @protected
@@ -17,7 +17,7 @@ class MainContainerController extends Component {
          * @protected
          */
         ntype: 'docs-maincontainer-controller'
-    }}
+    }
 
     /**
      *

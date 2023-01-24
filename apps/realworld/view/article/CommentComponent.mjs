@@ -6,7 +6,7 @@ import VDomUtil  from '../../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class CommentComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.article.CommentComponent'
          * @protected
@@ -58,7 +58,7 @@ class CommentComponent extends Component {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -6,7 +6,7 @@ import Base from '../core/Base.mjs';
  * @singleton
  */
 class Logger extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Logger'
          * @protected
@@ -27,7 +27,7 @@ class Logger extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param config

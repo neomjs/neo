@@ -6,7 +6,7 @@ import SourceViewComponent from './SourceViewComponent.mjs';
  * @extends Neo.component.Base
  */
 class HeaderComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.HeaderComponent'
          * @protected
@@ -41,7 +41,7 @@ class HeaderComponent extends Component {
         {cn: [
             {tag: 'span', cls: ['neo-docs-header-text']}
         ]}
-    }}
+    }
 
     /**
      *

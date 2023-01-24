@@ -11,28 +11,26 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * The return value will get applied to the class constructor
-     * @returns {Object} staticConfig
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=false
      * @static
-     * @tutorial 02_ClassSystem
      */
-    static getStaticConfig() {return {
-        /**
-         * Set this one to false in case you don't want to stick
-         * to the "anti-pattern" to apply classes to the global Neo or App namespace
-         * @member {Boolean} registerToGlobalNs=true
-         * @protected
-         * @static
-         */
-        registerToGlobalNs: true
-    }}
+    static observable = false
+    /**
+     * Set this one to false in case you don't want to stick
+     * to the "anti-pattern" to apply classes to the global Neo or App namespace
+     * @member {Boolean} registerToGlobalNs=true
+     * @protected
+     * @static
+     */
+    static registerToGlobalNs = true
 
     /**
      * The return value will get applied to each class instance
      * @returns {Object} config
      * @tutorial 02_ClassSystem
      */
-    static getConfig() {return {
+    static config = {
         /**
          * The class name which will get mapped into the Neo or app namespace
          * @member {String} className='Neo.core.Base'
@@ -67,7 +65,7 @@ class Base {
          * @protected
          */
         module: null
-    }}
+    }
 
     /**
      * Consumes the static getConfig() return object.
@@ -200,12 +198,11 @@ class Base {
 
     /**
      * Returns the value of a static config key or the staticConfig object itself in case no value is set
-     * @param {String} [key] The key of a staticConfig defined inside static getStaticConfig
+     * @param {String} key The key of a staticConfig defined inside static getStaticConfig
      * @returns {*}
      */
     getStaticConfig(key) {
-        let cfg = this.constructor.staticConfig;
-        return (key ? cfg[key] : cfg);
+        return this.constructor[key];
     }
 
     /**
@@ -349,7 +346,7 @@ class Base {
         // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
         if (keys.length > 0) {
             // The hasOwnProperty check is intended for configs without a trailing underscore
-            // => they could already got assigned inside an afterSet-method
+            // => they could already have been assigned inside an afterSet-method
             if (forceAssign || !me.hasOwnProperty(keys[0])) {
                 me[keys[0]] = me[configSymbol][keys[0]];
             }

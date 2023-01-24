@@ -5,7 +5,7 @@ import Model  from '../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.tableFiltering.MainModel',
 
         fields: [{
@@ -30,7 +30,7 @@ class MainModel extends Model {
             name: 'specialDate',
             type: 'Date'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainModel);

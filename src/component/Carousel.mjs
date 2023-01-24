@@ -26,7 +26,7 @@ class Carousel extends Component {
      */
     itemData = {}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Carousel'
          * @protected
@@ -91,7 +91,7 @@ class Carousel extends Component {
                 {cls: ['neo-carousel-inner'], cn: []}
             ]}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -6,7 +6,7 @@ import Store               from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class HistoricalData extends Store {
-    static getConfig() {return {
+    static config = {
         className: 'Covid.store.HistoricalData',
 
         keyProperty: 'date',
@@ -16,7 +16,7 @@ class HistoricalData extends Store {
             property : 'date',
             direction: 'DESC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(HistoricalData);

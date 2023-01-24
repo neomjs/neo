@@ -7,7 +7,7 @@ import VNodeUtil from '../util/VNode.mjs';
  * @singleton
  */
 class Component extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Component'
          * @protected
@@ -18,7 +18,7 @@ class Component extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

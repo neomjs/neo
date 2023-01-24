@@ -5,13 +5,13 @@ import Base from './Base.mjs';
  * @extends RealWorld.api.Base
  */
 class Favorite extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.api.Favorite'
          * @protected
          */
         className: 'RealWorld.api.Favorite'
-    }}
+    }
 
     /**
      * @param {String} slug

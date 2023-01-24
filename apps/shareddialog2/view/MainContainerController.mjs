@@ -5,13 +5,13 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedDialog2.view.MainContainerController'
          * @protected
          */
         className: 'SharedDialog2.view.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} data

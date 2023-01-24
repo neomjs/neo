@@ -8,13 +8,13 @@ import Splitter              from '../../../src/component/Splitter.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.component.splitter.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 110,
         configItemWidth     : 230,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

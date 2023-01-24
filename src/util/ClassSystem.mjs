@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class ClassSystem extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.ClassSystem'
          * @protected
          */
         className: 'Neo.util.ClassSystem'
-    }}
+    }
 
     /**
      * can get used inside beforeSet methods in case you want to create instances like stores

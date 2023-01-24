@@ -5,7 +5,7 @@ import Flexbox from './Flexbox.mjs';
  * @extends Neo.layout.Flexbox
  */
 class VBox extends Flexbox {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.VBox'
          * @protected
@@ -21,7 +21,7 @@ class VBox extends Flexbox {
          * @protected
          */
         direction: 'column'
-    }}
+    }
 
     /**
      * Applies the flex value to an item of the container this layout is bound to

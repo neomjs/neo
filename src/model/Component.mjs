@@ -12,16 +12,14 @@ const dataVariableRegex = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
  * @extends Neo.core.Base
  */
 class Component extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.model.Component'
          * @protected
@@ -54,7 +52,7 @@ class Component extends Base {
          * @member {Object|null} stores_=null
          */
         stores_: null
-    }}
+    }
 
     /**
      * @param {Object} config

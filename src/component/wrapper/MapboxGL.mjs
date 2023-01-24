@@ -7,7 +7,7 @@ import Component from '../Base.mjs';
  * @extends Neo.component.Base
  */
 class MapboxGL extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.wrapper.MapboxGL'
          * @protected
@@ -75,7 +75,7 @@ class MapboxGL extends Component {
          * @member {Number} zoom_=3
          */
         zoom_: 3
-    }}
+    }
 
     /**
      * Triggered after the center config got changed

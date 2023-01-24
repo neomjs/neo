@@ -6,7 +6,7 @@ import Model from './MainModel.mjs';
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.tableFiltering.MainStore',
         keyProperty: 'id',
         model      : Model,
@@ -23,7 +23,7 @@ class MainStore extends Store {
             {id:  9, country: 'UK',            firstname: 'Nikola',  isOnline: true,  lastname: 'Markovic', luckyNumber: 3, specialDate: '2020-08-09'},
             {id: 10, country: 'United States', firstname: 'Hyle',    isOnline: false, lastname: 'Campbell', luckyNumber: 1, specialDate: '2020-08-10'}
         ]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainStore);

@@ -7,7 +7,7 @@ import VDomUtil     from '../../util/VDom.mjs';
  * @extends Neo.draggable.list.DragZone
  */
 class DragZone extends BaseDragZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.tree.DragZone'
          * @protected
@@ -29,7 +29,7 @@ class DragZone extends BaseDragZone {
          * @member {Boolean} leafNodesOnly_=true
          */
         leafNodesOnly_: false
-    }}
+    }
 
     /**
      * Triggered after the leafNodesOnly config got changed

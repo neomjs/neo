@@ -5,7 +5,7 @@ import AmChartComponent from '../../../../src/component/wrapper/AmChart.mjs';
  * @extends Neo.component.wrapper.AmChart
  */
 class LineChartComponent extends AmChartComponent {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.country.LineChartComponent'
          * @protected
@@ -130,7 +130,7 @@ class LineChartComponent extends AmChartComponent {
          * @member {Boolean} fitParentHeight=true
          */
         fitParentHeight: true
-    }}
+    }
 }
 
 Neo.applyClassConfig(LineChartComponent);

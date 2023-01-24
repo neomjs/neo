@@ -25,7 +25,7 @@ class Manager extends Base {
      */
     serviceWorker = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.Manager'
          * @protected
@@ -99,7 +99,7 @@ class Manager extends Base {
                 fileName: devMode ? 'VDom.mjs'   : 'vdomworker.js'
             }
         }
-    }}
+    }
 
     /**
      * @param {Object} config

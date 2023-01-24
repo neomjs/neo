@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.selection.Model
  */
 class GalleryModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.GalleryModel'
          * @protected
@@ -24,7 +24,7 @@ class GalleryModel extends Model {
          * @member {Boolean} stayInRow=false
          */
         stayInRow: false
-    }}
+    }
 
     /**
      * Override to not apply a domListener

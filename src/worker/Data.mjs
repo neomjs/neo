@@ -25,7 +25,7 @@ class Data extends Base {
      */
     rpcMessageManagerLoaded = false
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.Data'
          * @protected
@@ -41,7 +41,7 @@ class Data extends Base {
          * @protected
          */
         workerId: 'data'
-    }}
+    }
 
     /**
      *

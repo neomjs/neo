@@ -8,7 +8,7 @@ import Logger    from '../../util/Logger.mjs';
  * @extends Neo.component.Base
  */
 class AmChart extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.wrapper.AmChart'
          * @protected
@@ -60,7 +60,7 @@ class AmChart extends Component {
                 {style: {color:'red',height: '100%'}}
             ]}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the chartData config got changed

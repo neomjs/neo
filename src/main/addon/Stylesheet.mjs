@@ -14,7 +14,7 @@ class Stylesheet extends Base {
      */
     dynamicStyleSheetId = 'neo-dynamic-stylesheet';
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.Stylesheet'
          * @protected
@@ -40,7 +40,7 @@ class Stylesheet extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

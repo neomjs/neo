@@ -6,7 +6,7 @@ import Store    from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Calendars extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.store.Calendars'
          * @protected
@@ -27,7 +27,7 @@ class Calendars extends Store {
             property : 'name',
             direction: 'ASC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Calendars);

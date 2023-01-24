@@ -6,31 +6,29 @@ import Base from '../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Util extends Base {
-    static getStaticConfig() {return {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @protected
-         * @static
-         */
-        flagRegEx: / /gi,
-        /**
-         * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toLocaleString
-         * Change this config to enforce a county specific formatting (e.g. 'de-DE')
-         * @member {String} locales='default'
-         * @protected
-         * @static
-         */
-        locales: 'default'
-    }}
+    /**
+     * A regex to replace blank chars
+     * @member {RegExp} flagRegEx=/ /gi
+     * @protected
+     * @static
+     */
+    static flagRegEx = / /gi
+    /**
+     * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toLocaleString
+     * Change this config to enforce a county specific formatting (e.g. 'de-DE')
+     * @member {String} locales='default'
+     * @protected
+     * @static
+     */
+    static locales = 'default'
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.table.covid.Util'
          * @protected
          */
         className: 'Neo.examples.table.covid.Util'
-    }}
+    }
 
     /**
      * Used for the casesPerOneMillion column to show % of population

@@ -5,7 +5,7 @@ import Field from './Field.mjs';
  * @extends Neo.data.field.Field
  */
 class IntegerField extends Field {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.field.Integer'
          * @protected
@@ -20,7 +20,7 @@ class IntegerField extends Field {
          * @member {Number|null} defaultValue=0
          */
         defaultValue: 0
-    }}
+    }
 
     /**
      * Triggered before the value config gets changed.

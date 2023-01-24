@@ -5,7 +5,7 @@ import Model from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class ImageModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.gallery.ImageModel'
          * @protected
@@ -30,7 +30,7 @@ class ImageModel extends Model {
             name: 'lastname',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(ImageModel);

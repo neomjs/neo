@@ -5,7 +5,7 @@ import Flexbox from './Flexbox.mjs';
  * @extends Neo.layout.Flexbox
  */
 class HBox extends Flexbox {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.HBox'
          * @protected
@@ -21,7 +21,7 @@ class HBox extends Flexbox {
          * @protected
          */
         direction: 'row'
-    }}
+    }
 
     /**
      * Applies the flex value to an item of the container this layout is bound to

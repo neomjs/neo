@@ -6,7 +6,7 @@ import Store        from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class CountryStore extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryStore'
          * @protected
@@ -20,7 +20,7 @@ class CountryStore extends Store {
          * @member {Neo.data.Model} model=CountryModel
          */
         model: CountryModel
-    }}
+    }
 }
 
 Neo.applyClassConfig(CountryStore);

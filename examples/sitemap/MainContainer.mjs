@@ -7,10 +7,10 @@ import SiteMapComponent      from '../../src/sitemap/Component.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.sitemap.MainContainer',
         layout   : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

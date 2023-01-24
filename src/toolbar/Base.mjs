@@ -9,16 +9,14 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.container.Base
  */
 class Base extends Container {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for dock
-         * @member {String[]} dockPositions=['top', 'right', 'bottom', 'left']
-         * @static
-         */
-        dockPositions: ['top', 'right', 'bottom', 'left'],
-    }}
+    /**
+     * Valid values for dock
+     * @member {String[]} dockPositions=['top','right','bottom','left']
+     * @static
+     */
+    static dockPositions = ['top', 'right', 'bottom', 'left']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.toolbar.Base'
          * @protected
@@ -63,7 +61,7 @@ class Base extends Container {
          * @member {Object} sortZoneConfig=null
          */
         sortZoneConfig: null
-    }}
+    }
 
     /**
      * Triggered after the appName config got changed

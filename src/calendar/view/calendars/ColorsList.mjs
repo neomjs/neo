@@ -5,7 +5,7 @@ import List from '../../../list/Base.mjs';
  * @extends Neo.list.Base
  */
 class ColorsList extends List {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.view.calendars.ColorsList'
          * @protected
@@ -36,7 +36,7 @@ class ColorsList extends List {
          */
         _vdom:
         {tag: 'ul', cn: [], tabIndex: '0'}
-    }}
+    }
 
     /**
      * Triggered after the value config got changed

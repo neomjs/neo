@@ -13,7 +13,7 @@ import NeoArray   from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.container.Base'
          * @protected
@@ -73,7 +73,7 @@ class Base extends Component {
          */
         _vdom:
         {cn: []}
-    }}
+    }
 
     /**
      * Inserts an item or array of items at the last index

@@ -6,7 +6,7 @@ import Container from '../../src/container/Base.mjs';
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
-    static getConfig() {return {
+    static config = {
         className: 'Neo.examples.container.MainContainer',
         autoMount: true,
         layout   : 'vbox',
@@ -85,7 +85,7 @@ class MainContainer extends Container {
                 ]
             }
         ]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

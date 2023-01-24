@@ -6,7 +6,7 @@ import MainStore from './MainStore.mjs';
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.table.MainContainerModel'
          * @protected
@@ -18,7 +18,7 @@ class MainContainerModel extends Component {
         stores: {
             main: MainStore
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainerModel);

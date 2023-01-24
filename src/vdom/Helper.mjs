@@ -48,7 +48,7 @@ class Helper extends Base {
         'wbr'
     ]
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.vdom.Helper'
          * @protected
@@ -70,7 +70,7 @@ class Helper extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.

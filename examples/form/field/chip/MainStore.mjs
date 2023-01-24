@@ -6,7 +6,7 @@ import Model from './MainModel.mjs';
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.form.field.chip.MainStore',
         autoLoad   : true,
         keyProperty: 'abbreviation',
@@ -17,7 +17,7 @@ class MainStore extends Store {
             property : 'name',
             direction: 'ASC'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainStore);

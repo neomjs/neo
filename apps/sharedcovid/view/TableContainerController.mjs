@@ -6,7 +6,7 @@ import NeoArray            from '../../../src/util/Array.mjs';
  * @extends Neo.controller.Component
  */
 class TableContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.TableContainerController'
          * @protected
@@ -39,7 +39,7 @@ class TableContainerController extends ComponentController {
          * @protected
          */
         table_: null
-    }}
+    }
 
     /**
      * @param {Object} data

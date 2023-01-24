@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Css extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Css'
          * @protected
          */
         className: 'Neo.util.Css'
-    }}
+    }
 
     /**
      * Pass the selectorText of the rules which you want to remove

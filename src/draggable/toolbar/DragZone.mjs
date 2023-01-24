@@ -7,7 +7,7 @@ import VDomUtil     from '../../util/VDom.mjs';
  * @extends Neo.draggable.DragZone
  */
 class DragZone extends BaseDragZone {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.toolbar.DragZone'
          * @protected
@@ -18,7 +18,7 @@ class DragZone extends BaseDragZone {
          * @protected
          */
         ntype: 'toolbar-dragzone'
-    }}
+    }
 
     /**
      * @param {Object} config

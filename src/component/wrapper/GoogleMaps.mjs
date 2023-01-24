@@ -42,7 +42,7 @@ class GoogleMaps extends Base {
      */
     zoomControl = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.wrapper.GoogleMaps'
          * @protected
@@ -84,7 +84,7 @@ class GoogleMaps extends Base {
          * @member {Number} zoom_=8
          */
         zoom_: 8
-    }}
+    }
 
     /**
      * @param {Object} config

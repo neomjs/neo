@@ -39,7 +39,7 @@ const globalDomEvents = [
  * @singleton
  */
 class DomEvent extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.DomEvent'
          * @protected
@@ -60,7 +60,7 @@ class DomEvent extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} event

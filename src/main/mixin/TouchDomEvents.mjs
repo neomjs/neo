@@ -7,13 +7,13 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class TouchDomEvents extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.mixin.TouchDomEvents'
          * @protected
          */
         className: 'Neo.main.mixin.TouchDomEvents'
-    }}
+    }
 
     /**
      * @param {Object} event

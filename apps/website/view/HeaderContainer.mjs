@@ -5,7 +5,7 @@ import Container from '../../../src/container/Base.mjs';
  * @extends Neo.container.Base
  */
 class HeaderContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.HeaderContainer'
          * @protected
@@ -64,7 +64,7 @@ class HeaderContainer extends Container {
                 url    : 'https://twitter.com/UhligTobias'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(HeaderContainer);

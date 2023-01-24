@@ -7,7 +7,7 @@ import Util           from '../../Util.mjs';
  * @extends Neo.table.Container
  */
 class HistoricalDataTable extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='SharedCovid.view.country.HistoricalDataTable'
          * @protected
@@ -82,7 +82,7 @@ class HistoricalDataTable extends Container {
          * @member {Neo.data.Store} store=HistoricalData
          */
         store: HistoricalData
-    }}
+    }
 }
 
 Neo.applyClassConfig(HistoricalDataTable);

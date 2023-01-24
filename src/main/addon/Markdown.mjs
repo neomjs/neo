@@ -11,7 +11,7 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class Markdown extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.Markdown'
          * @protected
@@ -37,7 +37,7 @@ class Markdown extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

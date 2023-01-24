@@ -6,7 +6,7 @@ import Base from './Base.mjs';
  * @extends Neo.form.field.trigger.Base
  */
 class Picker extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Picker'
          * @protected
@@ -27,7 +27,7 @@ class Picker extends Base {
          * @protected
          */
         type: 'picker'
-    }}
+    }
 
     /**
      * @param {Object} data

@@ -7,7 +7,7 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.container.Base
  */
 class Fieldset extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.Fieldset'
          * @protected
@@ -71,7 +71,7 @@ class Fieldset extends Container {
          */
         _vdom:
         {tag: 'fieldset', cn: []}
-    }}
+    }
 
     /**
      * Triggered after the collapsed config got changed

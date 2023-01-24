@@ -5,7 +5,7 @@ import Model from '../../data/Model.mjs';
  * @extends Neo.data.Model
  */
 class Calendar extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.calendar.model.Calendar'
          * @protected
@@ -28,7 +28,7 @@ class Calendar extends Model {
             name: 'name',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(Calendar);

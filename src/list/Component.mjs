@@ -6,7 +6,7 @@ import Base from './Base.mjs';
  * @extends Neo.list.Base
  */
 class Component extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.list.Component'
          * @protected
@@ -21,7 +21,7 @@ class Component extends Base {
          * @member {Neo.component.Base[]|null} items=null
          */
         items: null
-    }}
+    }
 
     /**
      * Triggered after the appName config got changed

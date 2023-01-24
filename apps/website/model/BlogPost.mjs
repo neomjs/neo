@@ -5,7 +5,7 @@ import Model  from '../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class BlogPost extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.model.BlogPost'
          * @protected
@@ -52,7 +52,7 @@ class BlogPost extends Model {
             name: 'url',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(BlogPost);

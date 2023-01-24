@@ -5,7 +5,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class DropZone extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.DropZone'
          * @protected
@@ -20,7 +20,7 @@ class DropZone extends Base {
          * @member {Neo.component.Base} owner=null
          */
         owner: null
-    }}
+    }
 
     /**
      * @param {Object} config

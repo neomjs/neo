@@ -5,7 +5,7 @@ import Store from '../../../src/menu/Store.mjs';
  * @extends Neo.menu.Store
  */
 class MainStore extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.menu.list.MainStore'
          * @protected
@@ -61,7 +61,7 @@ class MainStore extends Store {
                 name   : 'Item 3'
             }]
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainStore);

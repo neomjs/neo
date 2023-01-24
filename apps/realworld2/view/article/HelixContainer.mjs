@@ -7,7 +7,7 @@ import HelixMainContainer from '../../../../examples/component/helix/MainContain
  * @extends Neo.examples.component.helix.MainContainer
  */
 class HelixContainer extends HelixMainContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.HelixContainer'
          * @protected
@@ -23,7 +23,7 @@ class HelixContainer extends HelixMainContainer {
             keyProperty: 'slug',
             store      : ArticlePreviews
         }
-    }}
+    }
 
     /**
      * @param {Object} config

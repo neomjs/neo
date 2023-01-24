@@ -8,7 +8,7 @@ import VdomUtil                from '../../../src/util/VDom.mjs';
  * @extends Neo.component.Base
  */
 class MainComponent extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='NeoApp.view.MainComponent'
          * @protected
@@ -58,7 +58,7 @@ class MainComponent extends Base {
             ]},
             {tag: 'span', cls: ['preloadicon', 'glyphicon', 'glyphicon-remove'], 'aria-hidden': true}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

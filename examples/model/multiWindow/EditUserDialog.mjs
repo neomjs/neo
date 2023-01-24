@@ -7,7 +7,7 @@ import TextField                from '../../../src/form/field/Text.mjs';
  * @extends Neo.dialog.Base
  */
 class EditUserDialog extends Dialog {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.EditUserDialog'
          * @protected
@@ -54,7 +54,7 @@ class EditUserDialog extends Dialog {
             height: '300px',
             width : '400px'
         }
-    }}
+    }
 }
 
 Neo.applyClassConfig(EditUserDialog);

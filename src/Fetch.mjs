@@ -6,7 +6,7 @@ import FetchConnection from './data/connection/Fetch.mjs';
  * @singleton
  */
 class Fetch extends FetchConnection {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.Fetch'
          * @protected
@@ -32,7 +32,7 @@ class Fetch extends FetchConnection {
          * @protected
          */
         singleton: true
-    }}
+    }
 }
 
 let instance = Neo.applyClassConfig(Fetch);

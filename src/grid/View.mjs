@@ -5,7 +5,7 @@ import Component from '../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class View extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.grid.View'
          * @protected
@@ -20,7 +20,7 @@ class View extends Component {
          * @member {String[]} baseCls=['neo-grid-view']
          */
         baseCls: ['neo-grid-view']
-    }}
+    }
 
     /**
      * @param {Array} inputData

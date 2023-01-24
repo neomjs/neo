@@ -6,12 +6,12 @@ import Store          from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class ArticlePreviews extends Store {
-    static getConfig() {return {
+    static config = {
         className: 'RealWorld2.store.ArticlePreviews',
 
         keyProperty: 'slug',
         model      : ArticlePreview
-    }}
+    }
 }
 
 Neo.applyClassConfig(ArticlePreviews);

@@ -6,15 +6,14 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
  * @extends Neo.controller.Base
  */
 class Application extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.controller.Application'
          * @protected
@@ -51,7 +50,7 @@ class Application extends Base {
          * @protected
          */
         rendering: false
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -12,7 +12,7 @@ import * as header     from './header/_export.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.table.Container'
          * @protected
@@ -108,7 +108,7 @@ class Container extends BaseContainer {
         {cls: ['neo-table-wrapper'], cn: [
             {tag: 'table', cn: []}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

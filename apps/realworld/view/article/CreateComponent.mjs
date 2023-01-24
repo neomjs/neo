@@ -8,7 +8,7 @@ import ArticleApi from '../../api/Article.mjs';
  * @extends Neo.component.Base
  */
 class CreateComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.article.CreateComponent'
          * @protected
@@ -73,7 +73,7 @@ class CreateComponent extends Component {
                 ]}
             ]}
         ]}
-    }}
+    }
 
     /**
      * constructor

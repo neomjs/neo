@@ -7,7 +7,7 @@ import CoreBase from '../core/Base.mjs';
  * @singleton
  */
 class Instance extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Instance'
          * @protected
@@ -18,7 +18,7 @@ class Instance extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

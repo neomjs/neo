@@ -6,7 +6,7 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Grid extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.layout.Grid'
          * @protected
@@ -17,7 +17,7 @@ class Grid extends Base {
          * @protected
          */
         ntype: 'layout-grid'
-    }}
+    }
 
     /**
      * Applies CSS classes to the container this layout is bound to

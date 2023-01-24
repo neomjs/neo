@@ -6,7 +6,7 @@ import HeaderButton from '../../../src/tab/header/Button.mjs';
  * @extends Neo.tab.Container
  */
 class ContentTabContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.ContentTabContainer'
          * @protected
@@ -50,7 +50,7 @@ class ContentTabContainer extends Container {
          * @member {Boolean} sortable=true
          */
         sortable: true
-    }}
+    }
 
     /**
      *

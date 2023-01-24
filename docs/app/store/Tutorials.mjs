@@ -6,7 +6,7 @@ import Tutorial from '../model/Tutorial.mjs';
  * @extends Neo.data.Store
  */
 class Tutorials extends Store {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.app.store.Tutorials'
          * @protected
@@ -20,7 +20,7 @@ class Tutorials extends Store {
          * @member {Neo.data.Model} model=Tutorial
          */
         model: Tutorial
-    }}
+    }
 }
 
 Neo.applyClassConfig(Tutorials);

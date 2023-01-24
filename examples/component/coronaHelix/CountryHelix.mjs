@@ -6,17 +6,15 @@ import Helix        from '../../../src/component/Helix.mjs';
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
-    static getStaticConfig() {return {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @protected
-         * @static
-         */
-        flagRegEx: / /gi
-    }}
+    /**
+     * A regex to replace blank chars
+     * @member {RegExp} flagRegEx=/ /gi
+     * @protected
+     * @static
+     */
+    static flagRegEx = / /gi
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.component.coronaHelix.CountryHelix'
          * @protected
@@ -102,7 +100,7 @@ class CountryHelix extends Helix {
          * @member {Number} translateZ_=-2300
          */
         translateZ: -2300
-    }}
+    }
 
     /**
      * @param {Object} vdomItem

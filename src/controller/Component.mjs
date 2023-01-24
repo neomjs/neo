@@ -8,7 +8,7 @@ import Logger           from '../util/Logger.mjs';
  * @extends Neo.controller.Base
  */
 class Component extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.controller.Component'
          * @protected
@@ -33,7 +33,7 @@ class Component extends Base {
          * @protected
          */
         references: null
-    }}
+    }
 
     /**
      * @param {Object} config

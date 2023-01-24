@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class VDom extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.VDom'
          * @protected
          */
         className: 'Neo.util.VDom'
-    }}
+    }
 
     /**
      * @param {Object} vdom

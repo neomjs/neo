@@ -10,13 +10,13 @@ class MainContainerController extends Component {
      */
     dialog = null
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.model.multiWindow.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Boolean} enable

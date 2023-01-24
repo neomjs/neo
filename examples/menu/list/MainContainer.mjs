@@ -8,13 +8,13 @@ import NumberField           from '../../../src/form/field/Number.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.menu.list.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         configItemWidth     : 230,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

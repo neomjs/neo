@@ -14,7 +14,7 @@ class CesiumJS extends Base {
      */
     viewers = {}
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.CesiumJS'
          * @protected
@@ -38,7 +38,7 @@ class CesiumJS extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -8,7 +8,7 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Mwc extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.main.addon.Mwc'
          * @protected
@@ -32,7 +32,7 @@ class Mwc extends Base {
                 'reportValidity'
             ]
         }
-    }}
+    }
 
     /**
      * @param {String} id

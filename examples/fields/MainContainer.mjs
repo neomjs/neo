@@ -7,7 +7,7 @@ import * as form from '../../src/form/_export.mjs';
  * @extends Neo.tab.Container
  */
 class MainContainer extends Container {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.fields.MainContainer',
         activeIndex: 0,
         autoMount  : true,
@@ -283,7 +283,7 @@ class MainContainer extends Container {
                 }
             }
         ]
-    }}
+    }
 }
 
 

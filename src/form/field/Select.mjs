@@ -20,17 +20,15 @@ class Select extends Picker {
      */
     useFilter = true
 
-    static getStaticConfig() {return {
-        /**
-         * Valid values for triggerAction
-         * @member {String[]} triggerActions=['all','filtered']
-         * @protected
-         * @static
-         */
-        triggerActions: ['all', 'filtered']
-    }}
+    /**
+     * Valid values for triggerAction
+     * @member {String[]} triggerActions=['all','filtered']
+     * @protected
+     * @static
+     */
+    static triggerActions = ['all', 'filtered']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Select'
          * @protected
@@ -116,7 +114,7 @@ class Select extends Picker {
          * @member {Number|String} valueField='id'
          */
         valueField: 'id'
-    }}
+    }
 
     /**
      * @param {Object} config

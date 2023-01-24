@@ -7,7 +7,7 @@ import ComponentManager from '../manager/Component.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.Container'
          * @protected
@@ -28,7 +28,7 @@ class Container extends BaseContainer {
          */
         vdom:
         {tag: 'form', cn: [], onsubmit: 'return false;'}
-    }}
+    }
 
     /**
      * Either pass a field id or name

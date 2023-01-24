@@ -6,7 +6,7 @@ import Panel                   from '../../../src/container/Panel.mjs';
  * @extends Neo.container.Panel
  */
 class MainContainer extends Panel {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.MainContainer'
          * @protected
@@ -56,7 +56,7 @@ class MainContainer extends Panel {
             ntype: 'label',
             text : 'Click the edit user button to edit the user data inside this container view model.'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

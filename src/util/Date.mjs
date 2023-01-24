@@ -5,7 +5,7 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class DateUtil extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Date'
          * @protected
@@ -32,7 +32,7 @@ class DateUtil extends Base {
          * @static
          */
         weekStartDays: [0, 1, 2, 3, 4, 5, 6]
-    }}
+    }
 
     /**
      * Clones a Date instance using the same value

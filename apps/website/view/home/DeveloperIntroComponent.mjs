@@ -5,7 +5,7 @@ import Component from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class DeveloperIntroComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Website.view.home.DeveloperIntroComponent'
          * @protected
@@ -258,7 +258,7 @@ class DeveloperIntroComponent extends Component {
                 '</p>',
             '</div>'
         ].join('')}
-    }}
+    }
 }
 
 Neo.applyClassConfig(DeveloperIntroComponent);

@@ -7,16 +7,14 @@ import Observable from '../core/Observable.mjs';
  * @singleton
  */
 class HashHistory extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.ClassSystem'
          * @protected
@@ -37,7 +35,7 @@ class HashHistory extends Base {
          * @protected
          */
         stack: []
-    }}
+    }
 
     /**
      * @returns {Object}

@@ -34,17 +34,14 @@ class Socket extends Base {
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core.Observable mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
-
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.data.connection.WebSocket'
          * @protected
@@ -60,7 +57,7 @@ class Socket extends Base {
          * @protected
          */
         socket_: null
-    }}
+    }
 
     /**
      * @param {Object} config

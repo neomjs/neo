@@ -6,7 +6,7 @@ import Picker from './Picker.mjs';
  * @extends Neo.form.field.trigger.Picker
  */
 class Date extends Picker {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Date'
          * @protected
@@ -21,7 +21,7 @@ class Date extends Picker {
          * @member {String|null} iconCls='fa fa-calendar-alt'
          */
         iconCls: 'fa fa-calendar-alt'
-    }}
+    }
 }
 
 Neo.applyClassConfig(Date);

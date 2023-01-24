@@ -5,7 +5,7 @@ import Base from '../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class DragProxyComponent extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.draggable.DragProxyComponent'
          * @protected
@@ -32,7 +32,7 @@ class DragProxyComponent extends Base {
          * @member {Boolean} moveInMainThread=true
          */
         moveInMainThread: true
-    }}
+    }
 
     /**
      * @param {Object} config

@@ -7,16 +7,14 @@ import Observable from '../core/Observable.mjs';
  * @extends Neo.core.Base
  */
 class Model extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.selection.Model'
          * @protected
@@ -52,7 +50,7 @@ class Model extends Base {
          * @protected
          */
         view_: null
-    }}
+    }
 
     /**
      * Gets triggered before getting the value of the items config

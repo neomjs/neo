@@ -5,7 +5,7 @@ import Model  from '../../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.form.field.color.MainModel'
          * @protected
@@ -22,7 +22,7 @@ class MainModel extends Model {
             name: 'name',
             type: 'String'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainModel);

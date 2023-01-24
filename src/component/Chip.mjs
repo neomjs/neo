@@ -6,7 +6,7 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Chip extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.Chip'
          * @protected
@@ -55,7 +55,7 @@ class Chip extends Component {
             {tag: 'span', cls: ['neo-chip-text']},
             {tag: 'span', cls: ['neo-chip-close-button', 'far fa-times-circle']}
         ]}
-    }}
+    }
 
     /**
      * @param {Object} config

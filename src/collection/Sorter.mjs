@@ -6,16 +6,14 @@ import Observable from '../core/Observable.mjs';
  * @extends Neo.core.Base
  */
 class Sorter extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.collection.Sorter'
          * @protected
@@ -60,7 +58,7 @@ class Sorter extends Base {
          * @protected
          */
         useTransformValue: true
-    }}
+    }
 
     /**
      * @param {String} value

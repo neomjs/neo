@@ -7,7 +7,7 @@ import Base from './Base.mjs';
  * @singleton
  */
 class Store extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Store'
          * @protected
@@ -30,7 +30,7 @@ class Store extends Base {
         remote: {
             app: ['createRandomData', 'filter', 'load', 'sort']
         }
-    }}
+    }
 
     /**
      * Dummy method until we have a data package in place

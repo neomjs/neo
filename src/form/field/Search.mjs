@@ -5,7 +5,7 @@ import Text from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class Search extends Text {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.Search'
          * @protected
@@ -30,7 +30,7 @@ class Search extends Text {
          * @member {String} placeholderText='Search'
          */
         placeholderText: 'Search',
-    }}
+    }
 }
 
 Neo.applyClassConfig(Search);

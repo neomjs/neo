@@ -5,13 +5,13 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class HeaderToolbarController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.HeaderToolbarController'
          * @protected
          */
         className: 'RealWorld2.view.HeaderToolbarController'
-    }}
+    }
 
     onGalleryButtonClick() {
         this.setRoute('/gallery');

@@ -5,13 +5,13 @@ import ComponentController from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.remotesApi.basic.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.remotesApi.basic.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} data

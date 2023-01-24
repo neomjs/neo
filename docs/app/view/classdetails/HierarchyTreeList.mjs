@@ -6,7 +6,7 @@ import NeoArray from '../../../../src/util/Array.mjs';
  * @extends Neo.tree.List
  */
 class HierarchyTreeList extends TreeList {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Docs.view.classdetails.HierarchyTreeList'
          * @protected
@@ -34,7 +34,7 @@ class HierarchyTreeList extends TreeList {
          * @member {Object|null} structureData=null
          */
         structureData: null
-    }}
+    }
 
     /**
      *

@@ -11,13 +11,13 @@ import TextField             from '../../../src/form/field/Text.mjs';
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
-    static getConfig() {return {
+    static config = {
         className           : 'Neo.examples.button.base.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
-    }}
+    }
 
     createConfigurationComponents() {
         let me = this;

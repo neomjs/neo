@@ -5,13 +5,13 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.examples.model.inline.MainContainerController'
          * @protected
          */
         className: 'Neo.examples.model.inline.MainContainerController'
-    }}
+    }
 
     /**
      * @param {Object} data

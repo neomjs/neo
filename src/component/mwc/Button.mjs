@@ -7,7 +7,7 @@ let moduleLoaded = false;
  * @extends Neo.component.Base
  */
 class Button extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.component.mwc.Button'
          * @protected
@@ -53,7 +53,7 @@ class Button extends Component {
          */
         _vdom:
         {tag: 'mwc-button'}
-    }}
+    }
 
     /**
      * @param {Object} config

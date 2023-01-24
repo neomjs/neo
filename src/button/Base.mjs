@@ -19,24 +19,22 @@ class Base extends Component {
      */
     #rippleTimeoutId = null
 
-    static getStaticConfig() {return {
-        /**
-         * Valid values for badgePosition
-         * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
-         * @protected
-         * @static
-         */
-        badgePositions: ['bottom-left', 'bottom-right', 'top-left', 'top-right'],
-        /**
-         * Valid values for iconPosition
-         * @member {String[]} iconPositions=['top','right','bottom','left']
-         * @protected
-         * @static
-         */
-        iconPositions: ['top', 'right', 'bottom', 'left']
-    }}
+    /**
+     * Valid values for badgePosition
+     * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
+     * @protected
+     * @static
+     */
+    static badgePositions = ['bottom-left', 'bottom-right', 'top-left', 'top-right']
+    /**
+     * Valid values for iconPosition
+     * @member {String[]} iconPositions=['top','right','bottom','left']
+     * @protected
+     * @static
+     */
+    static iconPositions = ['top', 'right', 'bottom', 'left']
 
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.button.Base'
          * @protected
@@ -135,7 +133,7 @@ class Base extends Component {
                 {cls: ['neo-button-ripple']}
             ]}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the badgePosition config got changed

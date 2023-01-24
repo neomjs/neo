@@ -7,7 +7,7 @@ import NeoArray from '../../../util/Array.mjs';
  * @extends Neo.form.field.trigger.Base
  */
 class Clear extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.form.field.trigger.Clear'
          * @protected
@@ -36,7 +36,7 @@ class Clear extends Base {
          * @member {Number} weight_=20
          */
         weight: 20
-    }}
+    }
 
     /**
      * Triggered after the hidden config got changed

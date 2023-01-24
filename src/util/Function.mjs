@@ -5,13 +5,13 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class NeoFunction extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.util.Function'
          * @protected
          */
         className: 'Neo.util.Function'
-    }}
+    }
 
     /**
      * Append args instead of prepending them

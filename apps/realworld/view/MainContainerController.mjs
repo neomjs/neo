@@ -11,7 +11,7 @@ import UserApi             from '../api/User.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld.view.MainContainerController'
          * @protected
@@ -61,7 +61,7 @@ class MainContainerController extends ComponentController {
          * @protected
          */
         signUpComponent: null
-    }}
+    }
 
     /**
      * Triggered after the articlesOffset config got changed

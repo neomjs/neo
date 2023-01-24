@@ -5,7 +5,7 @@ import Component from '../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class AttributionComponent extends Component {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Covid.view.AttributionComponent'
          * @protected
@@ -34,7 +34,7 @@ class AttributionComponent extends Component {
                 {tag: 'li', html: 'The Map & Heatmap styles are strongly inspired by <a target="_blank" href="https://blog.mapbox.com/visualizing-the-progression-of-the-2019-ncov-outbreak-66763eb59e79">Visualizing the progression of the 2019-nCoV outbreak</a>.'}
             ]}
         ]}
-    }}
+    }
 }
 
 Neo.applyClassConfig(AttributionComponent);

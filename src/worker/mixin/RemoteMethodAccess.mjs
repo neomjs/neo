@@ -5,7 +5,7 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class RemoteMethodAccess extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.worker.mixin.RemoteMethodAccess'
          * @protected
@@ -16,7 +16,7 @@ class RemoteMethodAccess extends Base {
          * @protected
          */
         mixin: true
-    }}
+    }
 
     /**
      * @param {Object} remote

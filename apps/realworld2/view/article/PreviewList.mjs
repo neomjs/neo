@@ -7,7 +7,7 @@ import PreviewComponent from './PreviewComponent.mjs';
  * @extends Neo.list.Base
  */
 class PreviewList extends List {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='RealWorld2.view.article.PreviewList'
          * @protected
@@ -21,7 +21,7 @@ class PreviewList extends List {
          * @member {Neo.data.Store} store=ArticlePreviews
          */
         store: ArticlePreviews
-    }}
+    }
 
     /**
      * @param {Boolean} [silent=false]

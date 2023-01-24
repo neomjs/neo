@@ -6,7 +6,7 @@ import Radio     from '../form/field/Radio.mjs';
  * @extends Neo.container.Base
  */
 class BooleanContainer extends Container {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.filter.BooleanContainer'
          * @protected
@@ -34,7 +34,7 @@ class BooleanContainer extends Container {
          * @member {Boolean|null} value_=null
          */
         value_: null
-    }}
+    }
 
     /**
      * Triggered after the value config got changed

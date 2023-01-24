@@ -5,7 +5,7 @@ import BaseToolbar from '../../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Toolbar extends BaseToolbar {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.table.header.Toolbar'
          * @protected
@@ -41,7 +41,7 @@ class Toolbar extends BaseToolbar {
         {tag: 'thead', cn: [
             {tag: 'tr', cn: []}
         ]}
-    }}
+    }
 
     /**
      * Triggered after the showHeaderFilters config got changed

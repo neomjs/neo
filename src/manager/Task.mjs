@@ -33,7 +33,7 @@ import Base from './Base.mjs';
  *     TaskManager.get(taskId).repeat = 20;
  */
 class Task extends Base {
-    static getConfig() {return {
+    static config = {
         /**
          * @member {String} className='Neo.manager.Task'
          * @protected
@@ -44,7 +44,7 @@ class Task extends Base {
          * @protected
          */
         singleton: true
-    }}
+    }
 
     /**
      * Adds a task to collection.

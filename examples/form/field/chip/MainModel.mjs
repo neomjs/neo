@@ -5,7 +5,7 @@ import Model  from '../../../../src/data/Model.mjs';
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
-    static getConfig() {return {
+    static config = {
         className  : 'Neo.examples.form.field.chip.MainModel',
         keyProperty: 'abbreviation',
 
@@ -16,7 +16,7 @@ class MainModel extends Model {
             name: 'name',
             type: 'string'
         }]
-    }}
+    }
 }
 
 Neo.applyClassConfig(MainModel);
