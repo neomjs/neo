@@ -7,15 +7,13 @@ import Text from './Text.mjs';
  * @abstract
  */
 class TextArea extends Text {
-    static staticConfig = {
-        /**
-         * Valid values for wrap
-         * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
-         * @protected
-         * @static
-         */
-        wrapValues: ['hard', 'off', 'soft', null]
-    }
+    /**
+     * Valid values for wrap
+     * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
+     * @protected
+     * @static
+     */
+    static wrapValues = ['hard', 'off', 'soft', null]
 
     static config = {
         /**

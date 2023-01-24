@@ -20,15 +20,13 @@ class Select extends Picker {
      */
     useFilter = true
 
-    static staticConfig = {
-        /**
-         * Valid values for triggerAction
-         * @member {String[]} triggerActions=['all','filtered']
-         * @protected
-         * @static
-         */
-        triggerActions: ['all', 'filtered']
-    }
+    /**
+     * Valid values for triggerAction
+     * @member {String[]} triggerActions=['all','filtered']
+     * @protected
+     * @static
+     */
+    static triggerActions = ['all', 'filtered']
 
     static config = {
         /**

@@ -16,15 +16,13 @@ class Button extends BaseButton {
      */
     field = null
 
-    static staticConfig = {
-        /**
-         * Valid values for align
-         * @member {String[]} alignValues: ['left', 'center', 'right']
-         * @protected
-         * @static
-         */
-        alignValues: ['left', 'center', 'right']
-    }
+    /**
+     * Valid values for align
+     * @member {String[]} alignValues: ['left', 'center', 'right']
+     * @protected
+     * @static
+     */
+    static alignValues = ['left', 'center', 'right']
 
     static config = {
         /**

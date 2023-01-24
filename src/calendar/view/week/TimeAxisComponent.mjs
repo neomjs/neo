@@ -5,15 +5,13 @@ import Component from '../../../component/Base.mjs';
  * @extends Neo.container.Base
  */
 class TimeAxisComponent extends Component {
-    static staticConfig = {
-        /**
-         * Valid values for interval
-         * @member {Number[]} intervals=[15, 30, 60]
-         * @protected
-         * @static
-         */
-        intervals: [15, 30, 60]
-    }
+    /**
+     * Valid values for interval
+     * @member {Number[]} intervals=[15,30,60]
+     * @protected
+     * @static
+     */
+    static intervals = [15, 30, 60]
 
     static config = {
         /**

@@ -9,14 +9,12 @@ import NeoArray  from '../util/Array.mjs';
  * @extends Neo.container.Base
  */
 class Base extends Container {
-    static staticConfig = {
-        /**
-         * Valid values for dock
-         * @member {String[]} dockPositions=['top', 'right', 'bottom', 'left']
-         * @static
-         */
-        dockPositions: ['top', 'right', 'bottom', 'left'],
-    }
+    /**
+     * Valid values for dock
+     * @member {String[]} dockPositions=['top','right','bottom','left']
+     * @static
+     */
+    static dockPositions = ['top', 'right', 'bottom', 'left']
 
     static config = {
         /**

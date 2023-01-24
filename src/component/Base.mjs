@@ -16,21 +16,19 @@ import VNodeUtil        from '../util/VNode.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static staticConfig = {
-        /**
-         * Valid values for hideMode
-         * @member {String[]} hideModes=['removeDom','visibility']
-         * @protected
-         * @static
-         */
-        hideModes: ['removeDom', 'visibility'],
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }
+    /**
+     * Valid values for hideMode
+     * @member {String[]} hideModes=['removeDom','visibility']
+     * @protected
+     * @static
+     */
+    static hideModes = ['removeDom', 'visibility']
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
     static config = {
         /**

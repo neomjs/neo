@@ -69,14 +69,12 @@ const preventClickTargets       = [],
  * @singleton
  */
 class DomEvents extends Base {
-    static staticConfig = {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
     static config = {
         /**

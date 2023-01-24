@@ -30,22 +30,20 @@ class Text extends Base {
      */
     validBeforeMount = true
 
-    static staticConfig = {
-        /**
-         * Valid values for autoCapitalize
-         * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
-         * @protected
-         * @static
-         */
-        autoCapitalizeValues: ['characters', 'none', 'on', 'off', 'sentences', 'words'],
-        /**
-         * Valid values for labelPosition
-         * @member {String[]} labelPositions=['bottom','inline','left','right','top']
-         * @protected
-         * @static
-         */
-        labelPositions: ['bottom', 'inline', 'left', 'right', 'top']
-    }
+    /**
+     * Valid values for autoCapitalize
+     * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
+     * @protected
+     * @static
+     */
+    static autoCapitalizeValues = ['characters', 'none', 'on', 'off', 'sentences', 'words']
+    /**
+     * Valid values for labelPosition
+     * @member {String[]} labelPositions=['bottom','inline','left','right','top']
+     * @protected
+     * @static
+     */
+    static labelPositions = ['bottom', 'inline', 'left', 'right', 'top']
 
     static config = {
         /**

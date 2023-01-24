@@ -7,15 +7,13 @@ import Store           from './Store.mjs';
  * @extends Neo.component.Base
  */
 class Component extends Base {
-    static staticConfig = {
-        /**
-         * Valid values for itemHideMode
-         * @member {String[]} itemHideModes=['removeDom','visibility']
-         * @protected
-         * @static
-         */
-        itemHideModes: ['removeDom', 'visibility']
-    }
+    /**
+     * Valid values for itemHideMode
+     * @member {String[]} itemHideModes=['removeDom','visibility']
+     * @protected
+     * @static
+     */
+    static itemHideModes = ['removeDom', 'visibility']
 
     static config = {
         /*

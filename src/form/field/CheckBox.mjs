@@ -6,15 +6,13 @@ import NeoArray from '../../util/Array.mjs';
  * @extends Neo.form.field.Base
  */
 class CheckBox extends Base {
-    static staticConfig = {
-        /**
-         * Valid values for labelPosition
-         * @member {String[]} labelPositions=['left','top']
-         * @protected
-         * @static
-         */
-        labelPositions: ['left', 'top']
-    }
+    /**
+     * Valid values for labelPosition
+     * @member {String[]} labelPositions=['left','top']
+     * @protected
+     * @static
+     */
+    static labelPositions = ['left', 'top']
 
     static config = {
         /**

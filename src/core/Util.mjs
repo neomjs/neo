@@ -5,15 +5,13 @@ import Base from './Base.mjs';
  * @extends Neo.core.Base
  */
 class Util extends Base {
-    static staticConfig = {
-        /**
-         * A regex to remove camel case syntax
-         * @member {RegExp} decamelRegEx=/([a-z])([A-Z])/g
-         * @protected
-         * @static
-         */
-        decamelRegEx: /([a-z])([A-Z])/g
-    }
+    /**
+     * A regex to remove camel case syntax
+     * @member {RegExp} decamelRegEx=/([a-z])([A-Z])/g
+     * @protected
+     * @static
+     */
+    static decamelRegEx = /([a-z])([A-Z])/g
 
     static config = {
         /**

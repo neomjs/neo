@@ -9,14 +9,12 @@ import RecordFactory   from './RecordFactory.mjs';
  * @extends Neo.collection.Base
  */
 class Store extends Base {
-    static staticConfig = {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
     static config = {
         /**

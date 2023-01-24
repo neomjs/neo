@@ -7,15 +7,13 @@ import NeoArray  from '../../../util/Array.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
-    static staticConfig = {
-        /**
-         * Valid values for align
-         * @member {String[]} alignValues=['end', 'start']
-         * @protected
-         * @static
-         */
-        alignValues: ['end', 'start']
-    }
+    /**
+     * Valid values for align
+     * @member {String[]} alignValues=['end', 'start']
+     * @protected
+     * @static
+     */
+    static alignValues = ['end', 'start']
 
     static config = {
         /**

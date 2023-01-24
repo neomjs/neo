@@ -34,15 +34,12 @@ class Socket extends Base {
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
-
-    static staticConfig = {
-        /**
-         * True automatically applies the core.Observable mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
 
     static config = {
         /**

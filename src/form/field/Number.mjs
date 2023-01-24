@@ -9,15 +9,13 @@ import Text              from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class Number extends Text {
-    static staticConfig = {
-        /**
-         * Valid values for triggerPosition
-         * @member {String[]} triggerPositions=['right', 'sides']
-         * @protected
-         * @static
-         */
-        triggerPositions: ['right', 'sides']
-    }
+    /**
+     * Valid values for triggerPosition
+     * @member {String[]} triggerPositions=['right', 'sides']
+     * @protected
+     * @static
+     */
+    static triggerPositions = ['right', 'sides']
 
     static config = {
         /**

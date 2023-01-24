@@ -11,21 +11,19 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * The return value will get applied to the class constructor
-     * @returns {Object} staticConfig
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=false
      * @static
-     * @tutorial 02_ClassSystem
      */
-    static staticConfig = {
-        /**
-         * Set this one to false in case you don't want to stick
-         * to the "anti-pattern" to apply classes to the global Neo or App namespace
-         * @member {Boolean} registerToGlobalNs=true
-         * @protected
-         * @static
-         */
-        registerToGlobalNs: true
-    }
+    static observable = false
+    /**
+     * Set this one to false in case you don't want to stick
+     * to the "anti-pattern" to apply classes to the global Neo or App namespace
+     * @member {Boolean} registerToGlobalNs=true
+     * @protected
+     * @static
+     */
+    static registerToGlobalNs = true
 
     /**
      * The return value will get applied to each class instance

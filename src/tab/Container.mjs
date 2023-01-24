@@ -9,15 +9,13 @@ import Strip         from './Strip.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    static staticConfig = {
-        /**
-         * Valid values for tabBarPosition
-         * @member {String[]} tabBarPositions=['top','right','bottom','left']
-         * @protected
-         * @static
-         */
-        tabBarPositions: ['top', 'right', 'bottom', 'left']
-    }
+    /**
+     * Valid values for tabBarPosition
+     * @member {String[]} tabBarPositions=['top','right','bottom','left']
+     * @protected
+     * @static
+     */
+    static tabBarPositions = ['top', 'right', 'bottom', 'left']
 
     static config = {
         /**

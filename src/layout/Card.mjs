@@ -6,26 +6,24 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Card extends Base {
-    static staticConfig = {
-        /*
-         * The name of the CSS class for an active item inside the card layout
-         * @member {String} activeItemCls='neo-active-item'
-         * @static
-         */
-        activeItemCls: 'neo-active-item',
-        /*
-         * The name of the CSS class for an inactive item inside the card layout
-         * @member {String} inactiveItemCls='neo-inactive-item'
-         * @static
-         */
-        inactiveItemCls: 'neo-inactive-item',
-        /*
-         * The name of the CSS class for an item inside the card layout
-         * @member itemCls
-         * @static
-         */
-        itemCls: 'neo-layout-card-item'
-    }
+    /*
+     * The name of the CSS class for an active item inside the card layout
+     * @member {String} activeItemCls='neo-active-item'
+     * @static
+     */
+    static activeItemCls = 'neo-active-item'
+    /*
+     * The name of the CSS class for an inactive item inside the card layout
+     * @member {String} inactiveItemCls='neo-inactive-item'
+     * @static
+     */
+    static inactiveItemCls = 'neo-inactive-item'
+    /*
+     * The name of the CSS class for an item inside the card layout
+     * @member itemCls
+     * @static
+     */
+    static itemCls = 'neo-layout-card-item'
 
     static config = {
         /**

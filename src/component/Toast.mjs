@@ -33,21 +33,19 @@ class Toast extends Base {
      */
     timeout = 3000
 
-    static staticConfig = {
-        /**
-         * Valid values for positions
-         * @member {String[]} positions = ['tl', 'tc', 'tr', 'bl', 'bc', 'br']
-         * @protected
-         * @static
-         */
-        positions: ['tl', 'tc', 'tr', 'bl', 'bc', 'br'],
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {String[]} slideDirections = ['down', 'up', 'left', 'right']
-         * @static
-         */
-        slideDirections: ['down', 'up', 'left', 'right']
-    }
+    /**
+     * Valid values for positions
+     * @member {String[]} positions = ['tl','tc','tr','bl','bc','br']
+     * @protected
+     * @static
+     */
+    static positions = ['tl', 'tc', 'tr', 'bl', 'bc', 'br']
+    /**
+     * True automatically applies the core/Observable.mjs mixin
+     * @member {String[]} slideDirections = ['down','up','left','right']
+     * @static
+     */
+    static slideDirections = ['down', 'up', 'left', 'right']
 
     static config = {
         /**
