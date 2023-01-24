@@ -15,11 +15,11 @@ StartTest(t => {
         t.diag('a=1, b=2');
 
         class TestClass extends core.Base {
-            static getConfig() {return {
+            static config = {
                 className: 'Neo.TestClass',
                 a_       : valueA,
                 b_       : valueB
-            }}
+            }
 
             afterSetA(value, oldValue) {
                 t.isStrict(value,  valueA, 'afterSetA: a equals ' + valueA);

@@ -316,7 +316,7 @@ if (programOpts.info) {
         codeLine, existingConfigName, j, nextLine;
 
     for (; i < len; i++) {
-        if (contentArray[i].includes('static getConfig')) {
+        if (contentArray[i].includes('static config')) {
             break;
         }
     }
@@ -324,7 +324,7 @@ if (programOpts.info) {
     for (; i < len; i++) {
         codeLine = contentArray[i];
 
-        if (codeLine.includes('}}')) {
+        if (codeLine.includes('    }')) {
             addComma(contentArray, i - 1);
             addConfig({
                 configName,

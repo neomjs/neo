@@ -26,7 +26,7 @@ class Base {
     static registerToGlobalNs = true
 
     /**
-     * The return value will get applied to each class instance
+     * Configs will get merged throughout the class hierarchy
      * @returns {Object} config
      * @tutorial 02_ClassSystem
      */
