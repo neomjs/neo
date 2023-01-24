@@ -72,6 +72,7 @@ Neo = globalThis.Neo = Object.assign({
 
         protos.forEach(element => {
             ctor = element.constructor;
+
             let cfg       = ctor.config       || {},
                 staticCfg = ctor.staticConfig || {},
                 mixins;
@@ -105,7 +106,10 @@ Neo = globalThis.Neo = Object.assign({
 
             mixins = config.hasOwnProperty('mixins') && config.mixins || [];
 
+            let foo = false;
+
             if (staticCfg?.observable) {
+                foo = true;
                 mixins.push('Neo.core.Observable');
             }
 
@@ -126,6 +130,11 @@ Neo = globalThis.Neo = Object.assign({
 
             Object.assign(config, cfg);
             Object.assign(staticConfig, staticCfg);
+
+            if (config.className === 'Neo.core.Base') {
+                console.log(config.className, foo, staticCfg);
+                console.log({protos});
+            }
 
             if (Neo.overrides) {
                 overrides = Neo.ns(config.className, false, Neo.overrides);

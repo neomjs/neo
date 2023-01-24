@@ -174,6 +174,7 @@ class App extends Base {
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
     onDomEvent(data) {
+        data.eventName === 'click' && console.log('onDomEvent', data);
         DomEventManager.fire(data);
     }
 
