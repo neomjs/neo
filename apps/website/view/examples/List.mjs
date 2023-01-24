@@ -6,15 +6,13 @@ import Examples from '../../store/Examples.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
-    static staticConfig = {
-        /**
-         * A regex to enforce a maxLength (word break)
-         * @member {RegExp} nameRegEx
-         * @protected
-         * @static
-         */
-        nameRegEx: /^(.{65}[^\s]*).*/
-    }
+    /**
+     * A regex to enforce a maxLength (word break)
+     * @member {RegExp} nameRegEx
+     * @protected
+     * @static
+     */
+    static nameRegEx = /^(.{65}[^\s]*).*/
 
     static config = {
         /**

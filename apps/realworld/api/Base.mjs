@@ -6,20 +6,18 @@ import CoreBase                     from '../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
-    static staticConfig = {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true,
-        /**
-         * @member {String|null} token=null
-         * @protected
-         * @static
-         */
-        token: null
-    }
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+    /**
+     * @member {String|null} token=null
+     * @protected
+     * @static
+     */
+    static token = null
 
     static config = {
         /**
