@@ -2,15 +2,28 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 25, 2023",
+        "id"          : 55,
+        "image"       : "the-next-generation-of-front-end-development.png",
+        "name"        : "The Next Generation of Front-end Development",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/the-next-generation-of-front-end-development-65887c59b173?source=friends_link&sk=51654f60033120e84454791015d8d205"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jan 18, 2023",
         "id"          : 54,
         "image"       : "changing-scoped-css-variables-using-javascript.png",
         "name"        : "Changing scoped CSS variables using JavaScript",
         "provider"    : "Medium",
-        "publisher"   : "",
+        "publisher"   : "ITNEXT",
         "selectedInto": [],
         "type"        : "Blog Post",
-        "url"         : "https://tobiasuhlig.medium.com/changing-scoped-css-variables-using-javascript-96b26dfa43b1?source=friends_link&sk=2be526c9917418b21fe42bd66c40ea87"
+        "url"         : "https://itnext.io/changing-scoped-css-variables-using-javascript-96b26dfa43b1?source=friends_link&sk=2be526c9917418b21fe42bd66c40ea87"
     },
     {
         "author"      : "Tobias Uhlig",
