@@ -35,7 +35,7 @@ class CountryHelix extends Helix {
         itemTpl:
         {cls: ['surface', 'neo-helix-item'], style: {}, tabIndex: '-1', cn: [
             {cls: ['neo-item-wrapper'], style: {}, cn: [
-                {tag: 'div', cls  : ['neo-country-helix-item'], style: {}, cn: [
+                {cls: ['neo-country-helix-item'], style: {}, cn: [
                     {cls: ['neo-item-header'], cn: [
                         {tag: 'img', cls: ['neo-flag']},
                         {}

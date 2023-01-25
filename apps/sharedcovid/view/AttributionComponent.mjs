@@ -20,7 +20,7 @@ class AttributionComponent extends Component {
          * @member {Object} vdom
          */
         vdom:
-        {tag: 'div', style: {margin: '20px'}, cn: [
+        {style: {margin: '20px'}, cn: [
             {tag: 'h2', html: 'Attribution'},
             {tag: 'ul', cn: [
                 {tag: 'li', html: 'The logos were created by <a target="_blank" href="https://www.driefmeier.com/">Sebastian Driefmeier</a>. Thank you!'},

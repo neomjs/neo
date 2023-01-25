@@ -64,7 +64,7 @@ class CountryGallery extends Gallery {
 
         return {cls, id: me.getItemVnodeId(record[me.keyProperty]), tabIndex: '-1', cn: [
             {cls: ['neo-item-wrapper'], style: {height: me.itemHeight + 'px'}, cn: [
-                {tag: 'div', cls: ['neo-country-gallery-item'], style, cn: [
+                {cls: ['neo-country-gallery-item'], style, cn: [
                     {cls: ['neo-item-header'], cn: [
                         {tag: 'img', cls: ['neo-flag'], src: me.getCountryFlagUrl(record.country)},
                         {html: record.country}

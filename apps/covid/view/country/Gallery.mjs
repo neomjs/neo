@@ -38,7 +38,7 @@ class CountryGallery extends Gallery {
         itemTpl:
         {cls: ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'], tabIndex: '-1', cn: [
             {cls: ['neo-item-wrapper'], style: {}, cn: [
-                {tag: 'div', cls: ['neo-country-gallery-item'], style: {}, cn: [
+                {cls: ['neo-country-gallery-item'], style: {}, cn: [
                     {cls: ['neo-item-header'], cn: [
                         {tag: 'img', cls: ['neo-flag']},
                         {}
