@@ -74,26 +74,24 @@ Neo = globalThis.Neo = Object.assign({
             let cfg = ctor.config || {},
                 mixins;
 
-            if (cfg) {
-                Object.entries(cfg).forEach(([key, value]) => {
-                    if (key.slice(-1) === '_') {
-                        delete cfg[key];
-                        key = key.slice(0, -1);
-                        cfg[key] = value;
-                        autoGenerateGetSet(element, key);
-                    }
+            Object.entries(cfg).forEach(([key, value]) => {
+                if (key.slice(-1) === '_') {
+                    delete cfg[key];
+                    key = key.slice(0, -1);
+                    cfg[key] = value;
+                    autoGenerateGetSet(element, key);
+                }
 
-                    // only apply properties which have no setters inside the prototype chain
-                    // those will get applied on create (Neo.core.Base -> initConfig)
-                    else if (!Neo.hasPropertySetter(element, key)) {
-                        Object.defineProperty(element, key, {
-                            enumerable: true,
-                            value,
-                            writable  : true
-                        });
-                    }
-                });
-            }
+                // only apply properties which have no setters inside the prototype chain
+                // those will get applied on create (Neo.core.Base -> initConfig)
+                else if (!Neo.hasPropertySetter(element, key)) {
+                    Object.defineProperty(element, key, {
+                        enumerable: true,
+                        value,
+                        writable  : true
+                    });
+                }
+            });
 
             if (Object.hasOwn(cfg, 'ntype')) {
                 if (Object.hasOwn(ntypeMap, cfg.ntype)) {
