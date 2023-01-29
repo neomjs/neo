@@ -56,7 +56,7 @@ Neo = globalThis.Neo = Object.assign({
         while (proto.__proto__) {
             ctor = proto.constructor;
 
-            if (ctor.hasOwnProperty('classConfigApplied')) {
+            if (Object.hasOwn(ctor, 'classConfigApplied')) {
                 baseCfg = Neo.clone(ctor.config, true);
                 break;
             }
@@ -94,19 +94,17 @@ Neo = globalThis.Neo = Object.assign({
                 });
             }
 
-            if (cfg.hasOwnProperty('ntype')) {
+            if (Object.hasOwn(cfg, 'ntype')) {
                 Neo.ntypeMap[cfg.ntype] = cfg.className;
             }
 
-            mixins = config.hasOwnProperty('mixins') && config.mixins || [];
-
-            let foo = false;
+            mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
 
             if (ctor.observable) {
                 mixins.push('Neo.core.Observable');
             }
 
-            if (cfg.hasOwnProperty('mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
+            if (Object.hasOwn(cfg, 'mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
                 mixins.push(...cfg.mixins);
             }
 
@@ -208,7 +206,7 @@ Neo = globalThis.Neo = Object.assign({
     assignDefaults(target, defaults) {
         if (target && Neo.typeOf(defaults) === 'Object') {
             Object.entries(defaults).forEach(([key, value]) => {
-                if (!target.hasOwnProperty(key)) {
+                if (!Object.hasOwn(target, key)) {
                     target[key] = value;
                 }
             });
@@ -547,7 +545,7 @@ function autoGenerateGetSet(proto, key) {
             get() {
                 let me        = this,
                     beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
-                    hasNewKey = me[configSymbol].hasOwnProperty(key),
+                    hasNewKey = Object.hasOwn(me[configSymbol], key),
                     newKey    = me[configSymbol][key],
                     value     = hasNewKey ? newKey : me['_' + key];
 
