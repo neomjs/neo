@@ -48,9 +48,10 @@ Neo = globalThis.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     applyClassConfig(cls) {
-        let baseCfg = null,
-            proto   = cls.prototype || cls,
-            protos  = [],
+        let baseCfg  = null,
+            ntypeMap = Neo.ntypeMap,
+            proto    = cls.prototype || cls,
+            protos   = [],
             config, ctor, overrides;
 
         while (proto.__proto__) {
@@ -95,7 +96,11 @@ Neo = globalThis.Neo = Object.assign({
             }
 
             if (Object.hasOwn(cfg, 'ntype')) {
-                Neo.ntypeMap[cfg.ntype] = cfg.className;
+                if (Object.hasOwn(ntypeMap, cfg.ntype)) {
+                    throw new Error(`ntype conflict for '${cfg.ntype}' inside the classes:\n${ntypeMap[cfg.ntype]}\n${cfg.className}`);
+                }
+
+                ntypeMap[cfg.ntype] = cfg.className;
             }
 
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
