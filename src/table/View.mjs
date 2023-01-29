@@ -1,4 +1,5 @@
 import Component from '../component/Base.mjs';
+import VDomUtil  from '../util/VDom.mjs';
 
 /**
  * @class Neo.table.View
@@ -199,6 +200,33 @@ class View extends Component {
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    }
+
+    /**
+     * Get the matching record by passing a row id, a cell id or an id inside a table cell.
+     * @param {String} nodeId
+     * @returns {Object|null}
+     */
+    getRecord(nodeId) {
+        let me     = this,
+            record = me.getRecordByRowId(nodeId),
+            node, parentNodes;
+
+        if (record) {
+            return record;
+        }
+
+        parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
+
+        for (node of parentNodes) {
+            record = me.getRecordByRowId(node.id);
+
+            if (record) {
+                return record;
+            }
+        }
+
+        return null;
     }
 
     /**
