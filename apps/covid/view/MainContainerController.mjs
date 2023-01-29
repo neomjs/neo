@@ -309,17 +309,15 @@ class MainContainerController extends ComponentController {
         let table = this.getReference('table');
 
         table.vdom.cn[0].cn[1].cn.push({
-            tag : 'div',
-            cls : ['neo-box-label', 'neo-label'],
+            cls  : ['neo-box-label', 'neo-label'],
+            style: {margin: '20px'},
+
             html: [
                 'Summary data did not arrive after 2s.</br>',
                 'Please double-check if the API is offline:</br></br>',
                 '<a target="_blank" href="https://disease.sh/all">NovelCOVID/API all endpoint</a></br></br>',
                 'and if so please try again later.'
-            ].join(''),
-            style: {
-                margin: '20px'
-            }
+            ].join('')
         });
 
         table.update();

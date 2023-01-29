@@ -68,7 +68,6 @@ class Base {
     }
 
     /**
-     * Consumes the static getConfig() return object.
      * Applies the observable mixin if needed, grants remote access if needed.
      * @param {Object} config={}
      */

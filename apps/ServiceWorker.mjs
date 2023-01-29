@@ -8,12 +8,6 @@ import ServiceBase from '../src/worker/ServiceBase.mjs';
  * @singleton
  */
 class ServiceWorker extends ServiceBase {
-    /**
-     * @member {String} workerId='service'
-     * @protected
-     */
-    workerId = 'service'
-
     static config = {
         /**
          * @member {String} className='Neo.ServiceWorker'
@@ -26,16 +20,18 @@ class ServiceWorker extends ServiceBase {
          */
         singleton: true,
         /**
-         * @member {String} version='5.0.0'
+         * @member {String} version='5.0.2'
          */
-        version: '5.0.0'
+        version: '5.0.2'
     }
+
+    /**
+     * @member {String} workerId='service'
+     * @protected
+     */
+    workerId = 'service'
 }
 
-Neo.applyClassConfig(ServiceWorker);
-
-let instance = Neo.create(ServiceWorker);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(ServiceWorker);
 
 export default instance;
