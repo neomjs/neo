@@ -1,5 +1,18 @@
 [
     {
+        "author"      : "Torsten Dinkheller",
+        "authorImage" : "author_TorstenDinkheller.jpg",
+        "date"        : "Jan 28, 2023",
+        "id"          : 56,
+        "image"       : "toast-tutorial-medium.jpg",
+        "name"        : "Reusable Next Gen Toast — to Industry Standard",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/reusable-next-gen-toast-to-industry-standard-502d2950701f"
+    },
+    {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jan 25, 2023",
