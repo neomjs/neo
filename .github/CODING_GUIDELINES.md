@@ -6,7 +6,7 @@ We strongly recommend to also stick to them when creating your own workspaces an
 
 ## Content
 1. Import statements
-2. Anatomy of a class
+2. Anatomy of a neo class / JS module
 
 
 ## 1. import statements
@@ -20,9 +20,10 @@ import ViewModel           from './MainViewModel.mjs';
 ```
 * Use block formatting. This makes it easy to spot invalid paths.
 * Use single quotes.
-* Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting.
+* Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting instead.
+* Feel free to rename module import names as needed. Neo classes are using the default export.
 
-## 2. Anatomy of a class
+## 2. Anatomy of a neo class / JS module
 ```javascript
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
@@ -134,5 +135,20 @@ Neo.applyClassConfig(Base);
 export default Base;
 
 ```
-
+* Use JSDoc based comments for all top level items as well as top level configs
+* Class content order:
+  - static configs (ordered chronologically)
+  - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
+  - non-static class fields (ordered chronologically)
+  - construct() in case you are using it
+  - all other class methods are ordered chronologically
+* Module order:
+  - Import statements formatted according to 1.
+  - empty line
+  - class definition
+  - empty line
+  - Neo.applyClassConfig(<ClassName>)
+  - empty line
+  - export statement
+  - empty line
 
