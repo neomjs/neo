@@ -8,10 +8,13 @@ In case you do find spots inside the neo.mjs code base which do not stick to the
 you are very welcome to create a ticket here: https://github.com/neomjs/neo/issues.
 Once approved, sending a PR is also highly appreciated (an easy way to get into the contributors list).
 
+In the long run, we are planning to convert as many of the rules as possible into linter specs.
+
 ## Content
 1. Import statements
 2. Anatomy of a neo class / JS module
 3. Config order
+4. Formatting vdom
 
 
 ## 1. import statements
@@ -201,5 +204,27 @@ static config = {
 * configs use camel-case syntax
 * JSDoc comments are required
 * no empty lines between configs
+
+## 4. Formatting vdom
+```javascript
+_vdom:
+{tag: 'button', type: 'button', cn: [
+    {tag: 'span', cls: ['neo-button-glyph']},
+    {tag: 'span', cls: ['neo-button-text']},
+    {cls: ['neo-button-badge']},
+    {cls: ['neo-button-ripple-wrapper'], cn: [
+        {cls: ['neo-button-ripple']}
+    ]}
+]}
+```
+* The idea is to format the structure in a way that is similar to html tags and allows us to easily see the DOM hierarchy.
+* The vdom object starts inside a new line, to keep the structure intact plus keep us more space to the right side.
+* vdom Objects start with the `tag` property.
+* the `tag` property is not needed for `div` tags, since this is the default value.
+* All other attributes are ordered chronologically.
+* `cn` (child nodes) is always the last attribute.
+
+There is a blog post which dives a bit deeper into this formatting strategy:</br>
+https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38
 
 
