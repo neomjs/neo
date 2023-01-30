@@ -4,9 +4,14 @@ Inside the neo repo the following coding guidelines are mandatory.
 They ensure a high code quality and consistency.
 We strongly recommend to also stick to them when creating your own workspaces and apps via `npx neo-app`.
 
+In case you do find spots inside the neo.mjs code base which do not stick to the new guidelines,
+you are very welcome to create a ticket here: https://github.com/neomjs/neo/issues.
+Once approved, sending a PR is also highly appreciated (an easy way to get into the contributors list).
+
 ## Content
 1. Import statements
 2. Anatomy of a neo class / JS module
+3. Config order
 
 
 ## 1. import statements
@@ -141,7 +146,7 @@ export default Base;
   - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
   - non-static class fields (ordered chronologically)
   - construct() in case you are using it
-  - all other class methods are ordered chronologically
+  - all other class methods are ordered chronologically and are prefixed with an empty line.
 * Module order:
   - Import statements formatted according to 1.
   - empty line
@@ -151,4 +156,50 @@ export default Base;
   - empty line
   - export statement
   - empty line
+
+## 3. Config order
+```javascript
+static config = {
+    /**
+     * @member {String} className='Neo.button.Base'
+     * @protected
+     */
+    className: 'Neo.button.Base',
+    /**
+     * @member {String} ntype='button'
+     * @protected
+     */
+    ntype: 'button',
+    /**
+     * Change the browser hash value on click
+     * @member {String|null} route_=null
+     */
+    route_: null,
+    /**
+     * True adds an expanding circle on click
+     * @member {Boolean} useRippleEffect_=true
+     */
+    useRippleEffect_: true,
+    /**
+     * @member {Object} _vdom
+     */
+    _vdom:
+    {tag: 'button', type: 'button', cn: [
+        {tag: 'span', cls: ['neo-button-glyph']},
+        {tag: 'span', cls: ['neo-button-text']},
+        {cls: ['neo-button-badge']},
+        {cls: ['neo-button-ripple-wrapper'], cn: [
+            {cls: ['neo-button-ripple']}
+        ]}
+    ]}
+}
+```
+* className first
+* ntype second (if used)
+* All other configs are ordered chronologically
+* _vdom last
+* configs use camel-case syntax
+* JSDoc comments are required
+* no empty lines between configs
+
 
