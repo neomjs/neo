@@ -65,9 +65,10 @@
     }
 
     .website-header-buttons {
-        position: absolute;
-        right   : 0;
-        top     : 0;
+        background-color: transparent;
+        position        : absolute;
+        right           : 0;
+        top             : 0;
     }
 
     @media (max-height: 400px), (max-width: 600px) {
