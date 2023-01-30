@@ -11,13 +11,23 @@ Once approved, sending a PR is also highly appreciated (an easy way to get into 
 In the long run, we are planning to convert as many of the rules as possible into linter specs.
 
 ## Content
-1. Import statements
-2. Anatomy of a neo class / JS module
-3. Config order
-4. Formatting vdom
+1. General rules
+2. Import statements
+3. Anatomy of a neo class / JS module
+4. Config order
+5. Formatting vdom
 
 
-## 1. import statements
+## 1. General rules
+* The neo.mjs code base follows the "easy to read for the human eye" paradigm.
+* A lot of the code is using block-formatting. Inside Jetbrains IDEs like WebStorm you can use the
+`align: 'On colon'` setting.
+* Use single quotes over double quotes.
+* Never use more than 1 empty line.
+* For indentation, we are using 4 spaces (no tab chars).
+* A lot of items inside various spots are ordered chronologically.
+
+## 2. import statements
 ```javascript
 import Container           from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import EarthquakesTable    from './earthquakes/Table.mjs';
@@ -31,7 +41,7 @@ import ViewModel           from './MainViewModel.mjs';
 * Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting instead.
 * Feel free to rename module import names as needed. Neo classes are using the default export.
 
-## 2. Anatomy of a neo class / JS module
+## 3. Anatomy of a neo class / JS module
 ```javascript
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
@@ -160,7 +170,7 @@ export default Base;
   - export statement
   - empty line
 
-## 3. Config order
+## 4. Config order
 ```javascript
 static config = {
     /**
@@ -205,7 +215,7 @@ static config = {
 * JSDoc comments are required
 * no empty lines between configs
 
-## 4. Formatting vdom
+## 5. Formatting vdom
 ```javascript
 _vdom:
 {tag: 'button', type: 'button', cn: [
@@ -226,5 +236,4 @@ _vdom:
 
 There is a blog post which dives a bit deeper into this formatting strategy:</br>
 https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38
-
 
