@@ -16,6 +16,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 3. Anatomy of a neo class / JS module
 4. Config order
 5. Formatting vdom
+6. Container items
 
 
 ## 1. General rules
@@ -237,3 +238,70 @@ _vdom:
 There is a blog post which dives a bit deeper into this formatting strategy:</br>
 https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38
 
+## 6. Container items
+```javascript
+items: [HeaderContainer, {
+    module     : TabContainer,
+    activeIndex: null, // render no items initially
+    flex       : 1,
+    reference  : 'tab-container',
+    sortable   : true,
+    style      : {margin: '10px', marginTop: 0},
+  
+    items: [{
+        module         : () => import('./TableContainer.mjs'),
+        reference      : 'table-container',
+        tabButtonConfig: {
+            iconCls: 'fa fa-table',
+            route  : 'mainview=table',
+            text   : 'Table'
+        }
+    }, {
+        module         : () => import('./mapboxGl/Container.mjs'),
+        tabButtonConfig: {
+            iconCls: 'fa fa-globe-americas',
+            route  : 'mainview=mapboxglmap',
+            text   : 'Mapbox GL Map'
+        }
+    }]
+}, FooterContainer]
+```
+Most arrays inside the neo.mjs code base use a compact formatting:
+```javascript
+items: [{
+    // content
+}, {
+    // content
+}, {
+    // content
+}]
+```
+
+It saves several lines of code compared to:
+```javascript
+items: [
+    {
+        // content
+    },
+    {
+        // content
+    },
+    {
+        // content
+    }
+]
+```
+So, please stick to the first version.
+
+Container items can contain:
+* imported JS modules / neo classes
+* neo instances
+* config objects
+
+Config objects get formatted in the following way:
+* Either `module`, `ntype` or `className` as the first item
+* All other items sorted chronologically
+* Exception: You can also sort everything which can get described in 1 line chronologically and use an empty
+blank line afterwards. This "resets" the block formatting and order. Afterwards you can add "bigger" properties
+like nested item arrays or complex objects (e.g. style). Each of those item starts with an empty line and they
+do get sorted chronologically as well.
