@@ -29,7 +29,7 @@ class Search extends Text {
          * Value for the placeholderText_ textfield config
          * @member {String} placeholderText='Search'
          */
-        placeholderText: 'Search',
+        placeholderText: 'Search'
     }
 }
 
