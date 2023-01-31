@@ -1200,7 +1200,7 @@ class Base extends CoreBase {
             me[countMutations]++;
         }
 
-        if(me[updatingIndex] === 0) {
+        if (me[updatingIndex] === 0) {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,

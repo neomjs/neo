@@ -182,7 +182,7 @@ class Component extends Base {
             root = app.mainView;
 
         /* create an array of objects from string */
-        if(Neo.isString(componentDescription)) {
+        if (Neo.isString(componentDescription)) {
             const regex = /(\w*)(\[[^\]]*\])|(\w*)/g;
             let match;
 
@@ -193,11 +193,11 @@ class Component extends Base {
                 ntype = ntype || ntypeOnly;
                 obj = {ntype};
 
-                if(pairs) {
+                if (pairs) {
                     const pairsRegex = /\[(.*?)\]/,
                         pairsMatch = pairs.match(pairsRegex);
 
-                    if(pairsMatch) {
+                    if (pairsMatch) {
                         const pairs = pairsMatch[1].split(',');
                         pairs.forEach((pair) => {
                             const [key, value] = pair.split('=');
@@ -217,10 +217,10 @@ class Component extends Base {
 
         /* find the correct child using down() */
         const result = objects.reduce((acc, key) => {
-            if(acc) {
+            if (acc) {
                 let child = acc.down(key, returnFirstMatch);
 
-                if(!!child) {
+                if (!!child) {
                     return child;
                 }
             }

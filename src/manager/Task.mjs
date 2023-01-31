@@ -102,7 +102,7 @@ class Task extends Base {
             let fn = function(task) {
                 task.runCount++;
 
-                if(task.addCountToArgs) {
+                if (task.addCountToArgs) {
                     task.args[task.args.length - 1] = task.runCount;
                 }
 
@@ -170,7 +170,7 @@ class Task extends Base {
             task.runCount  = 0;
             task.runner    = null;
 
-            if(task.addCountToArgs) {
+            if (task.addCountToArgs) {
                 task.args[task.args.length - 1] = 0;
             }
         }
