@@ -76,7 +76,7 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
             
             if (Neo.overrides) {
-                this.applyOverrides(element, cfg);
+                ctor.applyOverrides(cfg);
             }
 
 
@@ -178,42 +178,6 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return target;
-    },
-
-    /**
-     * Applying overrides and adding this.callOverridden to elements
-     * @param {Neo.core.Base} element 
-     * @param {Object}        cfg 
-     * @protected
-     */
-     applyOverrides (element, cfg) {
-        let overrides = Neo.ns(cfg.className, false, Neo.overrides);
-        if (overrides) {
-            // Apply all methods
-            for (const item in overrides) {
-                if(Neo.isFunction(overrides[item])) {
-                    // Already existing ones
-                    if (element[item]) {
-                        // Create callOverridden
-                        if(!Neo.isFunction(element.callOverridden)) {
-                            element.overriddenMethods = {};
-                            element.callOverridden = function (methodName, ...args) {
-                                this.overriddenMethods[methodName].call(this, ...args);
-                            };
-                        }
-                        // add to overriddenMethods
-                        element.overriddenMethods[item] = element[item];
-                    }
-
-                    // add override method
-                    element[item] = overrides[item];
-                    // delete override method from overrides object
-                    delete overrides[item]
-                }
-            }
-            // Apply configs
-            overrides && Object.assign(cfg, overrides);
-        }
     },
 
     /**
