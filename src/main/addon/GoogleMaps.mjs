@@ -9,19 +9,6 @@ import Observable from '../../core/Observable.mjs';
  * @singleton
  */
 class GoogleMaps extends Base {
-    /**
-     * @member {google.maps.Geocoder|null} maps=null
-     */
-    geoCoder = null
-    /**
-     * @member {Object} maps={}
-     */
-    maps = {}
-    /**
-     * @member {Object} markers={}
-     */
-    markers = {}
-
     static config = {
         /**
          * @member {String} className='Neo.main.addon.GoogleMaps'
@@ -56,6 +43,19 @@ class GoogleMaps extends Base {
          */
         singleton: true
     }
+
+    /**
+     * @member {google.maps.Geocoder|null} maps=null
+     */
+    geoCoder = null
+    /**
+     * @member {Object} maps={}
+     */
+    maps = {}
+    /**
+     * @member {Object} markers={}
+     */
+    markers = {}
 
     /**
      * @param {Object} config

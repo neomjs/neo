@@ -5,11 +5,6 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Fetch extends Base {
-    /**
-     * @member {Object} defaultHeaders=null
-     */
-    defaultHeaders = null
-
     static config = {
         /**
          * @member {String} className='Neo.data.connection.Fetch'
@@ -17,6 +12,11 @@ class Fetch extends Base {
          */
         className: 'Neo.data.connection.Fetch'
     }
+
+    /**
+     * @member {Object} defaultHeaders=null
+     */
+    defaultHeaders = null
 
     /**
      * @param {Object|String} url

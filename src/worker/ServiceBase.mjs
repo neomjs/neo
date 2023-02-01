@@ -8,6 +8,31 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  * @abstract
  */
 class ServiceBase extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.worker.ServiceBase'
+         * @protected
+         */
+        className: 'Neo.worker.ServiceBase',
+        /**
+         * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
+         */
+        mixins: [RemoteMethodAccess],
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'clearCache',
+                'clearCaches',
+                'preloadAssets',
+                'removeAssets'
+            ]
+        }
+    }
+
     /**
      * @member {String} cacheName='neo-runtime'
      */
@@ -46,31 +71,6 @@ class ServiceBase extends Base {
      * @protected
      */
     workerId = null
-
-    static config = {
-        /**
-         * @member {String} className='Neo.worker.ServiceBase'
-         * @protected
-         */
-        className: 'Neo.worker.ServiceBase',
-        /**
-         * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
-         */
-        mixins: [RemoteMethodAccess],
-        /**
-         * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
-         * @protected
-         */
-        remote: {
-            app: [
-                'clearCache',
-                'clearCaches',
-                'preloadAssets',
-                'removeAssets'
-            ]
-        }
-    }
 
     /**
      * @param {Object} config

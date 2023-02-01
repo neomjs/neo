@@ -10,6 +10,23 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  * @abstract
  */
 class Base extends CoreBase {
+    static config = {
+        /**
+         * @member {String} className='Neo.worker.Base'
+         * @protected
+         */
+        className: 'Neo.worker.Base',
+        /**
+         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
+         */
+        mixins: [Observable, RemoteMethodAccess],
+        /**
+         * @member {String|null} workerId=null
+         * @protected
+         */
+        workerId: null
+    }
+
     /**
      * @member {Object|null} channelPorts=null
      * @protected
@@ -31,23 +48,6 @@ class Base extends CoreBase {
      * @member {Array|null} ports=null
      */
     ports = null
-
-    static config = {
-        /**
-         * @member {String} className='Neo.worker.Base'
-         * @protected
-         */
-        className: 'Neo.worker.Base',
-        /**
-         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
-         */
-        mixins: [Observable, RemoteMethodAccess],
-        /**
-         * @member {String|null} workerId=null
-         * @protected
-         */
-        workerId: null
-    }
 
     /**
      * @param {Object} config

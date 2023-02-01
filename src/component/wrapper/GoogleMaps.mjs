@@ -7,41 +7,6 @@ import Store           from '../../data/Store.mjs';
  * @extends Neo.component.Base
  */
 class GoogleMaps extends Base {
-    /**
-     * false hides the default fullscreen control
-     * @member {Boolean} fullscreenControl=true
-     */
-    fullscreenControl = true
-    /**
-     * @member {Object} markerStoreConfig=null
-     */
-    markerStoreConfig = null
-    /**
-     * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
-     * @member {Boolean} mapCreated=false
-     */
-    mapCreated = false
-    /**
-     * Pass any options to the map instance which are not explicitly defined here
-     * @member {Object} mapOptions={}
-     */
-    mapOptions = {}
-    /**
-     * null => the maximum zoom from the current map type is used instead
-     * @member {Number|null} maxZoom=null
-     */
-    maxZoom = null
-    /**
-     null => the minimum zoom from the current map type is used instead
-     * @member {Number|null} minZoom=null
-     */
-    minZoom = null
-    /**
-     * false hides the default zoom control
-     * @member {Boolean} zoomControl=true
-     */
-    zoomControl = true
-
     static config = {
         /**
          * @member {String} className='Neo.component.wrapper.GoogleMaps'
@@ -85,6 +50,41 @@ class GoogleMaps extends Base {
          */
         zoom_: 8
     }
+
+    /**
+     * false hides the default fullscreen control
+     * @member {Boolean} fullscreenControl=true
+     */
+    fullscreenControl = true
+    /**
+     * @member {Object} markerStoreConfig=null
+     */
+    markerStoreConfig = null
+    /**
+     * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
+     * @member {Boolean} mapCreated=false
+     */
+    mapCreated = false
+    /**
+     * Pass any options to the map instance which are not explicitly defined here
+     * @member {Object} mapOptions={}
+     */
+    mapOptions = {}
+    /**
+     * null => the maximum zoom from the current map type is used instead
+     * @member {Number|null} maxZoom=null
+     */
+    maxZoom = null
+    /**
+     null => the minimum zoom from the current map type is used instead
+     * @member {Number|null} minZoom=null
+     */
+    minZoom = null
+    /**
+     * false hides the default zoom control
+     * @member {Boolean} zoomControl=true
+     */
+    zoomControl = true
 
     /**
      * @param {Object} config

@@ -8,6 +8,19 @@ import NeoArray from "../util/Array.mjs";
  * @singleton
  */
 class Toast extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.manager.Toast'
+         * @protected
+         */
+        className: 'Neo.manager.Toast',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
     /**
      * Using a default margin between the item
      * If you switch the distance to the top or bottom you have to change this value accordingly
@@ -32,19 +45,6 @@ class Toast extends Base {
      * @member {String} toastClass='Neo.component.Toast'
      */
     toastClass = 'Neo.component.Toast'
-
-    static config = {
-        /**
-         * @member {String} className='Neo.manager.Toast'
-         * @protected
-         */
-        className: 'Neo.manager.Toast',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
-    }
 
     /**
      * @param {Object} config

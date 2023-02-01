@@ -14,17 +14,6 @@ import Xhr          from '../Xhr.mjs';
  * @singleton
  */
 class Data extends Base {
-    /**
-     * @member {Boolean} rpcApiManagerLoaded=false
-     * @protected
-     */
-    rpcApiManagerLoaded = false
-    /**
-     * @member {Boolean} rpcMessageManagerLoaded=false
-     * @protected
-     */
-    rpcMessageManagerLoaded = false
-
     static config = {
         /**
          * @member {String} className='Neo.worker.Data'
@@ -42,6 +31,17 @@ class Data extends Base {
          */
         workerId: 'data'
     }
+
+    /**
+     * @member {Boolean} rpcApiManagerLoaded=false
+     * @protected
+     */
+    rpcApiManagerLoaded = false
+    /**
+     * @member {Boolean} rpcMessageManagerLoaded=false
+     * @protected
+     */
+    rpcMessageManagerLoaded = false
 
     /**
      *

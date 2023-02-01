@@ -10,26 +10,6 @@ import * as header     from './header/_export.mjs';
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
-    /**
-     * Configs for Neo.grid.header.Toolbar
-     * @member {Object|null} [headerToolbarConfig=null]
-     */
-    headerToolbarConfig = null
-    /**
-     * @member {String|null} headerToolbarId_=null
-     */
-    headerToolbarId = null
-    /**
-     * Configs for Neo.grid.View
-     * @member {Object|null} [viewConfig=null]
-     */
-    viewConfig = null
-    /**
-     * @member {String|null} viewId_=null
-     * @protected
-     */
-    viewId = null
-
     static config = {
         /**
          * @member {String} className='Neo.grid.Container'
@@ -74,6 +54,26 @@ class Container extends BaseContainer {
             {cn: []}
         ]}
     }
+
+    /**
+     * Configs for Neo.grid.header.Toolbar
+     * @member {Object|null} [headerToolbarConfig=null]
+     */
+    headerToolbarConfig = null
+    /**
+     * @member {String|null} headerToolbarId_=null
+     */
+    headerToolbarId = null
+    /**
+     * Configs for Neo.grid.View
+     * @member {Object|null} [viewConfig=null]
+     */
+    viewConfig = null
+    /**
+     * @member {String|null} viewId_=null
+     * @protected
+     */
+    viewId = null
 
     /**
      * @param {Object} config

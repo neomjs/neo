@@ -5,6 +5,18 @@ import Base from '../../toolbar/Base.mjs';
  * @extends Neo.toolbar.Base
  */
 class Toolbar extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.dialog.header.Toolbar'
+         * @protected
+         */
+        className: 'Neo.dialog.header.Toolbar',
+        /**
+         * @member {String|null} title=null
+         */
+        title_: null
+    }
+
     /**
      * @member {Object} actionMap
      */
@@ -27,18 +39,6 @@ class Toolbar extends Base {
      * @member {Object[]|String[]|null} actions=['maximize','close']
      */
     actions = ['maximize', 'close']
-
-    static config = {
-        /**
-         * @member {String} className='Neo.dialog.header.Toolbar'
-         * @protected
-         */
-        className: 'Neo.dialog.header.Toolbar',
-        /**
-         * @member {String|null} title=null
-         */
-        title_: null
-    }
 
     /**
      * Triggered after the title config got changed

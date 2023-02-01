@@ -14,24 +14,6 @@ import HashHistory     from '../util/HashHistory.mjs';
  * @singleton
  */
 class App extends Base {
-    /**
-     * @member {Object|null} data=null
-     * @protected
-     */
-    data = null
-    /**
-     * @member {Boolean} isUsingViewModels=false
-     * @protected
-     */
-    isUsingViewModels = false
-    /**
-     * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
-     * before the json theme structure got loaded.
-     * @member {Array[]} themeFilesCache=[]
-     * @protected
-     */
-    themeFilesCache = []
-
     static config = {
         /**
          * @member {String} className='Neo.worker.App'
@@ -49,6 +31,24 @@ class App extends Base {
          */
         workerId: 'app'
     }
+
+    /**
+     * @member {Object|null} data=null
+     * @protected
+     */
+    data = null
+    /**
+     * @member {Boolean} isUsingViewModels=false
+     * @protected
+     */
+    isUsingViewModels = false
+    /**
+     * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
+     * before the json theme structure got loaded.
+     * @member {Array[]} themeFilesCache=[]
+     * @protected
+     */
+    themeFilesCache = []
 
     /**
      * @param {Object} config

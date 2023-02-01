@@ -11,6 +11,30 @@ import VNodeUtil from '../util/VNode.mjs';
  * @singleton
  */
 class Helper extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.vdom.Helper'
+         * @protected
+         */
+        className: 'Neo.vdom.Helper',
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app:['create','update']}
+         * @protected
+         */
+        remote: {
+            app: [
+                'create',
+                'update'
+            ]
+        },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
     /**
      * @member {Boolean} returnChildNodeOuterHtml=false
      */
@@ -47,30 +71,6 @@ class Helper extends Base {
         'track',
         'wbr'
     ]
-
-    static config = {
-        /**
-         * @member {String} className='Neo.vdom.Helper'
-         * @protected
-         */
-        className: 'Neo.vdom.Helper',
-        /**
-         * Remote method access for other workers
-         * @member {Object} remote={app:['create','update']}
-         * @protected
-         */
-        remote: {
-            app: [
-                'create',
-                'update'
-            ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
-    }
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
