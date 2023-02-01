@@ -19,6 +19,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 6. Formatting vdom
 7. Container items
 8. Class methods
+9. Misc
 
 
 ## 1. General rules
@@ -368,6 +369,8 @@ adjustTotalHeight(data, silent=false) {
 * Try to define most (if not all) variables at the top of the method body.
 * Variables do use block formatting
 * Variables are separated by commas (file size)
+* Create variables for every item which you use more than 2 times. (maintainability, readability & file size)
+  + This rule also counts for `this`.
 * The framework source code is using `const` very(!) rarely. The only reason is the minified bundle size.
 
 Example:
@@ -388,3 +391,12 @@ let a = 1,
 // minified:
 let a=1,b=2,c=3,d=4; // 20 chars
 ```
+
+## 9. Misc
+* prefer using maps instead of `switch` whenever possible.
+* `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
+* `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
+* `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
+* Use `?.` where it makes sense
+  + Bad: `myView && myView.myFn && myView.myFn();`
+  + Good: `myView?.myFn?.();`
