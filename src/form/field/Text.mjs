@@ -772,11 +772,12 @@ class Text extends Base {
      */
     beforeSetLabelText(value, oldValue) {
         let me                = this,
-            labelOptionalText = me.labelOptionalText;
+            labelOptionalText = me.labelOptionalText,
+            hasOptionalText   = value.endsWith(labelOptionalText);
 
-        if (me.showOptionalText && !me.required) {
-            return value + labelOptionalText;
-        } else if (value && value.endsWith(labelOptionalText)) {
+        if (me.showOptionalText && !me.required && !hasOptionalText) {
+            value += labelOptionalText;
+        } else if (value && hasOptionalText) {
             value = value.replace(labelOptionalText, '');
         }
 
