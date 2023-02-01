@@ -418,7 +418,7 @@ fields: [{
 * (38) prefer using maps instead of `switch` whenever possible.
 * (39) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
 * (40) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
-* (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
+* (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket `// could get changed to use a blank char as well
 * (42) Use optional chaining => `?.` where it makes sense
   + Bad: `myView && myView.myFn && myView.myFn();`
   + Good: `myView?.myFn?.();`
@@ -431,3 +431,6 @@ fields: [{
   + Bad: `let obj = {record: record}`
   + Good: `let obj = {record};`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer#property_definitions
+* (45) Do not use killing commas (while IE6 is luckily no longer an issue => file size)
+  + Bad: `let obj = {a: 1,}`
+  + Good: `let obj = {a: 1};`
