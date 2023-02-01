@@ -418,7 +418,7 @@ fields: [{
 * (38) prefer using maps instead of `switch` whenever possible.
 * (39) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
 * (40) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
-* (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
+* (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket `// could get changed to use a blank char as well
 * (42) Use optional chaining => `?.` where it makes sense
   + Bad: `myView && myView.myFn && myView.myFn();`
   + Good: `myView?.myFn?.();`
