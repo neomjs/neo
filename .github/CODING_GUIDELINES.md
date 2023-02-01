@@ -13,10 +13,11 @@ In the long run, we are planning to convert as many of the rules as possible int
 ## Content
 1. General rules
 2. Import statements
-3. Anatomy of a neo class / JS module
-4. Config order
-5. Formatting vdom
-6. Container items
+3. Neo className
+4. Anatomy of a neo class / JS module
+5. Config order
+6. Formatting vdom
+7. Container items
 
 
 ## 1. General rules
@@ -42,7 +43,24 @@ import ViewModel           from './MainViewModel.mjs';
 * Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting instead.
 * Feel free to rename module import names as needed. Neo classes are using the default export.
 
-## 3. Anatomy of a neo class / JS module
+## 3. Neo className
+Examples:
+```
+Neo.component.Base
+Neo.data.Store
+Neo.tab.header.Button
+```
+* class names strictly follow the folder and file structure.
+* class names start with
+  + your app name like `MyApp` which maps to `./apps/myapp`
+  + or `Neo` which maps to `./src`
+* the first item is formatted in pascal-case or upper-case for abbreviations.
+* class names use dots => `.` instead of `/`, so it is important that you do not use dots within item names.
+* the last item (class file) is using pascal-case as well.
+* all items in between (folders) use lower-case syntax.
+* `ntype` is using lower-case syntax as well.
+
+## 4. Anatomy of a neo class / JS module
 ```javascript
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
@@ -171,7 +189,7 @@ export default Base;
   - export statement
   - empty line
 
-## 4. Config order
+## 5. Config order
 ```javascript
 static config = {
     /**
@@ -216,7 +234,7 @@ static config = {
 * JSDoc comments are required
 * no empty lines between configs
 
-## 5. Formatting vdom
+## 6. Formatting vdom
 ```javascript
 _vdom:
 {tag: 'button', type: 'button', cn: [
@@ -238,7 +256,7 @@ _vdom:
 There is a blog post which dives a bit deeper into this formatting strategy:</br>
 https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38
 
-## 6. Container items
+## 7. Container items
 ```javascript
 items: [HeaderContainer, {
     module     : TabContainer,
