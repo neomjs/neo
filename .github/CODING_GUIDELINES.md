@@ -424,6 +424,10 @@ fields: [{
   + Good: `myView?.myFn?.();`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
 * (43) Use method definitions (meaning avoid using the term `function`)
-  + Bad: `let obj = {a: function() {/**/}}`
-  + Good: `let obj = {a() {/**/}}`
+  + Bad: `let obj = {a: function() {/**/}};`
+  + Good: `let obj = {a() {/**/}};`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions
+* (44) Use shorthand property names when possible
+  + Bad: `let obj = {record: record}`
+  + Good: `let obj = {record};`
+  + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer#property_definitions
