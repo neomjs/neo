@@ -19,7 +19,8 @@ In the long run, we are planning to convert as many of the rules as possible int
 6. Formatting vdom
 7. Container items
 8. Class methods
-9. Misc
+9. data.Model fields
+10. Misc
 
 
 ## 1. General rules
@@ -394,11 +395,35 @@ let a = 1,
 let a=1,b=2,c=3,d=4; // 20 chars
 ```
 
-## 9. Misc
-* (36) prefer using maps instead of `switch` whenever possible.
-* (37) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
-* (38) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
-* (39) `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
-* (40) Use `?.` where it makes sense
+## 9. data.Model fields
+```javascript
+fields: [{
+    name: 'active',
+    type: 'Boolean'
+}, {
+    name: 'color',
+    type: 'String'
+}, {
+    name: 'id',
+    type: 'Integer'
+}, {
+    name: 'name',
+    type: 'String'
+}]
+```
+* (36) Compact array formatting (same as for container items)
+* (37) Sorted by the value of the name property
+
+## 10. Misc
+* (38) prefer using maps instead of `switch` whenever possible.
+* (39) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
+* (40) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
+* (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
+* (42) Use optional chaining => `?.` where it makes sense
   + Bad: `myView && myView.myFn && myView.myFn();`
   + Good: `myView?.myFn?.();`
+  + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
+* (43) Use method definitions (meaning avoid using the term `function`)
+  + Bad: `let obj = {a: function() {/**/}}`
+  + Good: `let obj = {a() {/**/}}`
+  + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions
