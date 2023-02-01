@@ -7,19 +7,6 @@ import NeoArray  from '../util/Array.mjs';
  */
 class Base extends Component {
     /**
-     * Time in ms for the ripple effect when clicking on the button.
-     * Only active if useRippleEffect is set to true.
-     * @member {Number} rippleEffectDuration=400
-     */
-    rippleEffectDuration = 400
-    /**
-     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
-     * @member {Number} #rippleTimeoutId=null
-     * @private
-     */
-    #rippleTimeoutId = null
-
-    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -134,6 +121,19 @@ class Base extends Component {
             ]}
         ]}
     }
+
+    /**
+     * Time in ms for the ripple effect when clicking on the button.
+     * Only active if useRippleEffect is set to true.
+     * @member {Number} rippleEffectDuration=400
+     */
+    rippleEffectDuration = 400
+    /**
+     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
+     * @member {Number} #rippleTimeoutId=null
+     * @private
+     */
+    #rippleTimeoutId = null
 
     /**
      * Triggered after the badgePosition config got changed
