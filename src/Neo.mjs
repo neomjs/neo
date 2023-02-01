@@ -179,8 +179,14 @@ Neo = globalThis.Neo = Object.assign({
 
         return target;
     },
-      
-    applyOverrides (element, cfg) {
+
+    /**
+     * Applying overrides and adding this.callOverridden to elements
+     * @param {Neo.core.Base} element 
+     * @param {Object}        cfg 
+     * @protected
+     */
+     applyOverrides (element, cfg) {
         let overrides = Neo.ns(cfg.className, false, Neo.overrides);
         if (overrides) {
             // Apply all methods
