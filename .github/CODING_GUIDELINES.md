@@ -431,3 +431,6 @@ fields: [{
   + Bad: `let obj = {record: record}`
   + Good: `let obj = {record};`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer#property_definitions
+* (45) Do not use killing commas (while IE6 is luckily no longer an issue => file size)
+  + Bad: `let obj = {a: 1,}`
+  + Good: `let obj = {a: 1};`
