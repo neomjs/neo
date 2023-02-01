@@ -52,7 +52,7 @@ Neo = globalThis.Neo = Object.assign({
             ntypeMap = Neo.ntypeMap,
             proto    = cls.prototype || cls,
             protos   = [],
-            config, ctor, overrides;
+            cfg, config, ctor, overrides;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
@@ -69,10 +69,16 @@ Neo = globalThis.Neo = Object.assign({
         config = baseCfg || {};
 
         protos.forEach(element => {
+            let mixins;
+              
             ctor = element.constructor;
 
-            let cfg = ctor.config || {},
-                mixins;
+            cfg = ctor.config || {};
+            
+            if (Neo.overrides) {
+                overrides = Neo.ns(cfg.className, false, Neo.overrides);
+                overrides && Object.assign(cfg, overrides);
+            }
 
             Object.entries(cfg).forEach(([key, value]) => {
                 if (key.slice(-1) === '_') {
@@ -123,11 +129,6 @@ Neo = globalThis.Neo = Object.assign({
             delete config.mixins;
 
             Object.assign(config, cfg);
-
-            if (Neo.overrides) {
-                overrides = Neo.ns(config.className, false, Neo.overrides);
-                overrides && Object.assign(config, overrides);
-            }
 
             Object.assign(ctor, {
                 classConfigApplied: true,
