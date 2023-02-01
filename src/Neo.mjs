@@ -76,9 +76,9 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
             
             if (Neo.overrides) {
-                overrides = Neo.ns(cfg.className, false, Neo.overrides);
-                overrides && Object.assign(cfg, overrides);
+                this.applyOverrides(element, cfg);
             }
+
 
             Object.entries(cfg).forEach(([key, value]) => {
                 if (key.slice(-1) === '_') {
@@ -178,6 +178,36 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return target;
+    },
+      
+    applyOverrides (element, cfg) {
+        let overrides = Neo.ns(cfg.className, false, Neo.overrides);
+        if (overrides) {
+            // Apply all methods
+            for (const item in overrides) {
+                if(Neo.isFunction(overrides[item])) {
+                    // Already existing ones
+                    if (element[item]) {
+                        // Create callOverridden
+                        if(!Neo.isFunction(element.callOverridden)) {
+                            element.overriddenMethods = {};
+                            element.callOverridden = function (methodName, ...args) {
+                                this.overriddenMethods[methodName].call(this, ...args);
+                            };
+                        }
+                        // add to overriddenMethods
+                        element.overriddenMethods[item] = element[item];
+                    }
+
+                    // add override method
+                    element[item] = overrides[item];
+                    // delete override method from overrides object
+                    delete overrides[item]
+                }
+            }
+            // Apply configs
+            overrides && Object.assign(cfg, overrides);
+        }
     },
 
     /**
