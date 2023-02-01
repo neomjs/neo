@@ -23,13 +23,13 @@ In the long run, we are planning to convert as many of the rules as possible int
 
 
 ## 1. General rules
-* The neo.mjs code base follows the "easy to read for the human eye" paradigm.
-* A lot of the code is using block-formatting. Inside Jetbrains IDEs like WebStorm you can use the
+* (1) The neo.mjs code base follows the "easy to read for the human eye" paradigm.
+* (2) A lot of the code is using block-formatting. Inside Jetbrains IDEs like WebStorm you can use the
 `align: 'On colon'` setting.
-* Use single quotes over double quotes.
-* Never use more than 1 empty line.
-* For indentation, we are using 4 spaces (no tab chars).
-* A lot of items inside various spots are ordered chronologically.
+* (3) Use single quotes over double quotes.
+* (4) Never use more than 1 empty line.
+* (5) For indentation, we are using 4 spaces (no tab chars).
+* (6) A lot of items inside various spots are ordered chronologically.
 
 ## 2. import statements
 ```javascript
@@ -40,10 +40,10 @@ import Toast               from '../../../node_modules/neo.mjs/src/component/Toa
 import ViewController      from './MainViewController.mjs';
 import ViewModel           from './MainViewModel.mjs';
 ```
-* Use block formatting. This makes it easy to spot invalid paths.
-* Use single quotes.
-* Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting instead.
-* Feel free to rename module import names as needed. Neo classes are using the default export.
+* (7) Use block formatting. This makes it easy to spot invalid paths.
+* (8) Use single quotes.
+* (9) Imports get sorted by module name. There are ongoing discussions if we should switch to a path based sorting instead.
+* (10) Feel free to rename module import names as needed. Neo classes are using the default export.
 
 ## 3. Neo className
 Examples:
@@ -52,15 +52,15 @@ Neo.component.Base
 Neo.data.Store
 Neo.tab.header.Button
 ```
-* class names strictly follow the folder and file structure.
-* class names start with
+* (11) class names strictly follow the folder and file structure.
+* (12) class names start with
   + your app name like `MyApp` which maps to `./apps/myapp`
   + or `Neo` which maps to `./src`
-* the first item is formatted in pascal-case or upper-case for abbreviations.
-* class names use dots => `.` instead of `/`, so it is important that you do not use dots within item names.
-* the last item (class file) is using pascal-case as well.
-* all items in between (folders) use lower-case syntax.
-* `ntype` is using lower-case syntax as well.
+* (13) the first item is formatted in pascal-case or upper-case for abbreviations.
+* (14) class names use dots => `.` instead of `/`, so it is important that you do not use dots within item names.
+* (15) the last item (class file) is using pascal-case as well.
+* (16) all items in between (folders) use lower-case syntax.
+* (17) `ntype` is using lower-case syntax as well.
 
 ## 4. Anatomy of a neo class / JS module
 ```javascript
@@ -174,14 +174,14 @@ Neo.applyClassConfig(Base);
 export default Base;
 
 ```
-* Use JSDoc based comments for all top level items as well as top level configs
-* Class content order:
+* (18) Use JSDoc based comments for all top level items as well as top level configs
+* (19) Class content order:
   - static configs (ordered chronologically)
   - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
   - non-static class fields (ordered chronologically)
   - construct() in case you are using it
   - all other class methods are ordered chronologically and are prefixed with an empty line.
-* Module order:
+* (20) Module order:
   - Import statements formatted according to 1.
   - empty line
   - class definition
@@ -228,13 +228,14 @@ static config = {
     ]}
 }
 ```
-* className first
-* ntype second (if used)
-* All other configs are ordered chronologically
-* _vdom last
-* configs use camel-case syntax
-* JSDoc comments are required
-* no empty lines between configs
+* (21) class content order
+  + className first
+  + ntype second (if used)
+  + All other configs are ordered chronologically
+  + _vdom last
+  + configs use camel-case syntax
+  + JSDoc comments are required
+  + no empty lines between configs
 
 ## 6. Formatting vdom
 ```javascript
@@ -248,12 +249,13 @@ _vdom:
     ]}
 ]}
 ```
-* The idea is to format the structure in a way that is similar to html tags and allows us to easily see the DOM hierarchy.
-* The vdom object starts inside a new line, to keep the structure intact plus keep us more space to the right side.
-* vdom Objects start with the `tag` property.
-* the `tag` property is not needed for `div` tags, since this is the default value.
-* All other attributes are ordered chronologically.
-* `cn` (child nodes) is always the last attribute.
+The idea is to format the structure in a way that is similar to html tags and allows us to easily see the DOM hierarchy.
+
+* (22) The vdom object starts inside a new line, to keep the structure intact plus keep us more space to the right side.
+* (23) vdom Objects start with the `tag` property.
+* (24) the `tag` property is not needed for `div` tags, since this is the default value.
+* (25) All other attributes are ordered chronologically.
+* (26) `cn` (child nodes) is always the last attribute.
 
 There is a blog post which dives a bit deeper into this formatting strategy:</br>
 https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38
@@ -311,14 +313,14 @@ items: [
     }
 ]
 ```
-So, please stick to the first version.
+(27) So, please stick to the first version.
 
 Container items can contain:
 * imported JS modules / neo classes
 * neo instances
 * config objects
 
-Config objects get formatted in the following way:
+(28) Config objects get formatted in the following way:
 * Either `module`, `ntype` or `className` as the first item
 * All other items sorted chronologically
 * Exception: You can also sort everything which can get described in 1 line chronologically and use an empty
@@ -363,15 +365,15 @@ adjustTotalHeight(data, silent=false) {
     !silent && me.update();
 }
 ```
-* Above every class method is one empty line
-* Each class method has JSDoc comments for the params
+* (29) Above every class method is one empty line
+* (30) Each class method has JSDoc comments for the params
   + While doc commons support `@returns` & `@return`, we do stick to `@returns` (consistency)
-* Try to define most (if not all) variables at the top of the method body.
-* Variables do use block formatting
-* Variables are separated by commas (file size)
-* Create variables for every item which you use more than 2 times. (maintainability, readability & file size)
+* (31) Try to define most (if not all) variables at the top of the method body.
+* (32) Variables do use block formatting
+* (33) Variables are separated by commas (file size)
+* (34) Create variables for every item which you use more than 2 times. (maintainability, readability & file size)
   + This rule also counts for `this`.
-* The framework source code is using `const` very(!) rarely. The only reason is the minified bundle size.
+* (35) The framework source code is using `const` very(!) rarely. The only reason is the minified bundle size.
 
 Example:
 ```javascript
@@ -393,10 +395,10 @@ let a=1,b=2,c=3,d=4; // 20 chars
 ```
 
 ## 9. Misc
-* prefer using maps instead of `switch` whenever possible.
-* `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
-* `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
-* `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
-* Use `?.` where it makes sense
+* (36) prefer using maps instead of `switch` whenever possible.
+* (37) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
+* (38) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
+* (39) `switch(/**/) {` switch, parenthesis, blank char, curly bracket // could get changed to use a blank char as well
+* (40) Use `?.` where it makes sense
   + Bad: `myView && myView.myFn && myView.myFn();`
   + Good: `myView?.myFn?.();`
