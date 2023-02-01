@@ -18,6 +18,7 @@ In the long run, we are planning to convert as many of the rules as possible int
 5. Config order
 6. Formatting vdom
 7. Container items
+8. Class methods
 
 
 ## 1. General rules
@@ -323,3 +324,67 @@ Config objects get formatted in the following way:
 blank line afterwards. This "resets" the block formatting and order. Afterwards you can add "bigger" properties
 like nested item arrays or complex objects (e.g. style). Each of those item starts with an empty line and they
 do get sorted chronologically as well.
+
+## 8. Class methods
+```javascript
+
+/**
+ * @param {Object} data
+ * @param {Neo.component.Base} data.component
+ * @param {Number} data.rowHeight
+ * @param {Number} data.rowsPerItem
+ * @param {Number} data.totalHeight
+ * @param {Boolean} [silent=false]
+ */
+adjustTotalHeight(data, silent=false) {
+    let me          = this,
+        rowHeight   = data.rowHeight,
+        rowsPerItem = data.rowsPerItem,
+        height      = data.totalHeight - rowHeight,
+        i           = 0,
+        gradient    = [];
+
+    for (; i < rowsPerItem; i++) {
+        gradient.push(
+            `var(--c-w-background-color) ${i * rowHeight + i}px`,
+            `var(--c-w-background-color) ${(i + 1) * rowHeight + i}px`,
+            'var(--c-w-border-color) 0'
+        );
+    }
+
+    Object.assign(me.getColumnContainer().style, {
+        backgroundImage: `linear-gradient(${gradient.join(',')})`,
+        backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
+        height         : `${height}px`,
+        maxHeight      : `${height}px`
+    });
+
+    !silent && me.update();
+}
+```
+* Above every class method is one empty line
+* Each class method has JSDoc comments for the params
+  + While doc commons support `@returns` & `@return`, we do stick to `@returns` (consistency)
+* Try to define most (if not all) variables at the top of the method body.
+* Variables do use block formatting
+* Variables are separated by commas (file size)
+* The framework source code is using `const` very(!) rarely. The only reason is the minified bundle size.
+
+Example:
+```javascript
+let   a = 1;
+const b = 2;
+let   c = 3;
+const d = 4;
+
+// minified:
+let a=1;const b=2;let c=3;const d=4; // 36 chars
+
+let a = 1,
+    b = 2,
+    c = 3,
+    d = 4;
+
+// minified:
+let a=1,b=2,c=3,d=4; // 20 chars
+```
