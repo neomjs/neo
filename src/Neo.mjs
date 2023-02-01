@@ -79,7 +79,6 @@ Neo = globalThis.Neo = Object.assign({
                 ctor.applyOverrides(cfg);
             }
 
-
             Object.entries(cfg).forEach(([key, value]) => {
                 if (key.slice(-1) === '_') {
                     delete cfg[key];
