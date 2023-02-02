@@ -159,6 +159,7 @@ class Text extends Base {
          */
         triggers_: null,
         /**
+         * A string based value will get resolved into the closest controller which implements it
          * @member {Function|String|null} validator=null
          */
         validator: null,
