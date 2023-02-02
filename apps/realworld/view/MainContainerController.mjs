@@ -11,6 +11,13 @@ import UserApi             from '../api/User.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=false
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='RealWorld.view.MainContainerController'
