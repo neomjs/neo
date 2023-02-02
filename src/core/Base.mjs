@@ -19,7 +19,7 @@ class Base {
       
     /**
      * Keep the overriden methods
-     * @type {{}}
+     * @type {Object}
      */
     static overriddenMethods = {}
 
