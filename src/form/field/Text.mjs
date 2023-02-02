@@ -159,6 +159,11 @@ class Text extends Base {
          */
         triggers_: null,
         /**
+         * A string based value will get resolved into the closest controller which implements it
+         * @member {Function|String|null} validator=null
+         */
+        validator: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -1289,9 +1294,17 @@ class Text extends Base {
             value       = me.value,
             valueLength = value?.toString().length,
             isEmpty     = !value || valueLength < 1,
-            errorParam  = {maxLength, minLength, valueLength};
+            errorParam  = {maxLength, minLength, valueLength},
+            errorText;
 
-        if (required && isEmpty) {
+        if (Neo.isFunction(me.validator)) {
+            errorText = me.validator(me);
+
+            if (errorText !== true) {
+                me[errorField] = errorText;
+                returnValue = false;
+            }
+        } else if (required && isEmpty) {
             me[errorField] = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {

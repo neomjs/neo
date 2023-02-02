@@ -62,26 +62,26 @@ class HomeComponent extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                {cls: ['banner'], cn: [
-                    {cls: ['container'], cn: [
-                        {tag: 'h1', cls: ['logo-font'], html: 'conduit'},
-                        {tag: 'p', html: 'A place to share your knowledge.'}
-                    ]}
-                ]},
-                {cls: ['container', 'page'], cn: [
-                    {cls: ['row'], cn: [
-                        {cls: ['col-md-9'], cn: [
-                            {cls: ['feed-toggle'], cn: [
-                                {tag: 'ul', cls: ['nav', 'nav-pills', 'outline-active'], flag: 'feed-header', cn: []}
-                            ]},
-                            {tag: 'nav', cn: [
-                                {tag: 'ul', cls: ['pagination'], flag: 'pagination'}
-                            ]}
+        {cn: [
+            {cls: ['banner'], cn: [
+                {cls: ['container'], cn: [
+                    {tag: 'h1', cls: ['logo-font'], html: 'conduit'},
+                    {tag: 'p', html: 'A place to share your knowledge.'}
+                ]}
+            ]},
+            {cls: ['container', 'page'], cn: [
+                {cls: ['row'], cn: [
+                    {cls: ['col-md-9'], cn: [
+                        {cls: ['feed-toggle'], cn: [
+                            {tag: 'ul', cls: ['nav', 'nav-pills', 'outline-active'], flag: 'feed-header', cn: []}
+                        ]},
+                        {tag: 'nav', cn: [
+                            {tag: 'ul', cls: ['pagination'], flag: 'pagination'}
                         ]}
                     ]}
                 ]}
             ]}
+        ]}
     }
 
     /**

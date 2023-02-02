@@ -148,8 +148,10 @@ class Observable extends Base {
         }
 
         while (proto?.constructor.isClass) {
+            ctor = proto.constructor;
+
             if (ctor.observable && !ctor.listeners) {
-                Object.assign(proto.constructor, {
+                Object.assign(ctor, {
                     addListener   : me.addListener,
                     fire          : me.fire,
                     listeners     : {},

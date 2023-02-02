@@ -141,6 +141,7 @@ class Component extends Base {
         let me        = this,
             listeners = component.listeners,
             reference = component.reference,
+            validator = component.validator,
             eventHandler, handlerScope;
 
         if (listeners) {
@@ -172,6 +173,16 @@ class Component extends Base {
                     }
                 }
             });
+        }
+
+        if (Neo.isString(validator)) {
+            handlerScope = me.getHandlerScope(validator);
+
+            if (!handlerScope) {
+                Logger.logError('Unknown validator for', component.id, component);
+            } else {
+                component.validator = handlerScope[validator].bind(handlerScope);
+            }
         }
 
         if (reference) {

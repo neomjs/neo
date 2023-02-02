@@ -215,6 +215,7 @@ class Base extends Component {
 
             case 'NeoInstance': {
                 item.set(config);
+                item.getController()?.parseConfig(item);
                 break;
             }
 
