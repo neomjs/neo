@@ -74,9 +74,9 @@ Neo = globalThis.Neo = Object.assign({
             ctor = element.constructor;
 
             cfg = ctor.config || {};
-
-            if (Neo.overrides) {
-                ctor.applyOverrides(cfg);
+            
+            if (Neo.overwrites) {
+                ctor.applyOverwrites(cfg);
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
