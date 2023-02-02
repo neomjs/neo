@@ -11,6 +11,13 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
+     * Regex to grab the MethodName from an error 
+     * which is a second generation function
+     * @type {*}
+     */
+    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/;
+
+    /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=false
      * @static
@@ -22,7 +29,7 @@ class Base {
      * @type {Object}
      */
     static overriddenMethods = {}
-
+    
     /**
      * Set this one to false in case you don't want to stick
      * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -210,7 +217,7 @@ class Base {
      */
     callOverridden(...args) {
         let stack = new Error().stack,
-            regex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/,
+            regex = Base.methodNameRegex,
             methodName = stack.match(regex)[1];
 
         this.__proto__.constructor.overriddenMethods[methodName].call(this, ...args);
