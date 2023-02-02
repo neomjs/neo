@@ -23,10 +23,10 @@ class Base {
      */
     static observable = false
     /**
-     * Keep the overriden methods
+     * Keep the overwritten methods
      * @type {Object}
      */
-    static overriddenMethods = {}
+    static overwrittenMethods = {}
 
     /**
      * Set this one to false in case you don't want to stick
@@ -150,29 +150,29 @@ class Base {
     }
 
     /**
-     * Applying overrides and adding overriddenMethods to the class constructors
+     * Applying overwrites and adding overwrittenMethods to the class constructors
      * @param {Object} cfg
      * @protected
      */
-    static applyOverrides(cfg) {
-        let overrides = Neo.ns(cfg.className, false, Neo.overrides),
+    static applyOverwrites(cfg) {
+        let overwrites = Neo.ns(cfg.className, false, Neo.overwrites),
             cls, item;
 
-        if (overrides) {
+        if (overwrites) {
             // Apply all methods
-            for (item in overrides) {
-                if (Neo.isFunction(overrides[item])) {
+            for (item in overwrites) {
+                if (Neo.isFunction(overwrites[item])) {
                     // Already existing ones
                     cls = this.prototype;
 
                     if (cls[item]) {
-                        // add to overriddenMethods
-                        cls.constructor.overriddenMethods[item] = cls[item];
+                        // add to overwrittenMethods
+                        cls.constructor.overwrittenMethods[item] = cls[item];
                     }
                 }
             }
             // Apply configs to prototype
-            overrides && Object.assign(cfg, overrides);
+            overwrites && Object.assign(cfg, overwrites);
         }
     }
 
@@ -196,12 +196,12 @@ class Base {
     }
 
     /**
-     * From within an override, a method can call a parent method, by using callOVerridden.
+     * From within an overwrite, a method can call a parent method, by using callOverwritten.
      *
      * @example
      *    afterSetHeight(value, oldValue) {
      *        // do the standard
-     *        this.callOverridden(...arguments);
+     *        this.callOverwritten(...arguments);
      *        // do you own stuff
      *    }
      *
@@ -209,17 +209,17 @@ class Base {
      * This is based on the following error structure, e.g. afterSetHeight.
      *
      *     Error
-     *         at Base.callOverridden (Base.mjs:176:21)
+     *         at Base.callOverwritten (Base.mjs:176:21)
      *         at Base.afterSetHeight (Overrides.mjs:19:26)
      *
      * @param args
      */
-    callOverridden(...args) {
+    callOverwritten(...args) {
         let stack      = new Error().stack,
             regex      = Base.methodNameRegex,
             methodName = stack.match(regex)[1];
 
-        this.__proto__.constructor.overriddenMethods[methodName].call(this, ...args);
+        this.__proto__.constructor.overwrittenMethods[methodName].call(this, ...args);
     }
 
     /**
