@@ -70,11 +70,11 @@ Neo = globalThis.Neo = Object.assign({
 
         protos.forEach(element => {
             let mixins;
-              
+
             ctor = element.constructor;
 
             cfg = ctor.config || {};
-            
+
             if (Neo.overrides) {
                 ctor.applyOverrides(cfg);
             }

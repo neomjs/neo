@@ -82,7 +82,6 @@ class Observable extends Base {
                     existing.push(eventConfig);
                 }
             } else {
-                !me.listeners && console.log(me);
                 me.listeners[name] = [eventConfig];
             }
 
