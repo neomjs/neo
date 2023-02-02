@@ -149,13 +149,13 @@ class Base {
      * @param {Object} cfg
      * @protected
      */
-    static applyOverrides (cfg) {
+    static applyOverrides(cfg) {
         let overrides = Neo.ns(cfg.className, false, Neo.overrides);
 
         if (overrides) {
             // Apply all methods
             for (const item in overrides) {
-                if(Neo.isFunction(overrides[item])) {
+                if (Neo.isFunction(overrides[item])) {
                     // Already existing ones
                     let cls = this.prototype;
 
@@ -208,7 +208,7 @@ class Base {
      *
      * @param args
      */
-    callOverridden (...args) {
+    callOverridden(...args) {
         let stack = new Error().stack,
             regex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/,
             methodName = stack.match(regex)[1];
