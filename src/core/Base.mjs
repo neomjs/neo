@@ -11,25 +11,23 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * Regex to grab the MethodName from an error 
+     * Regex to grab the MethodName from an error
      * which is a second generation function
      * @type {*}
      */
-    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/;
-
+    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=false
      * @static
      */
     static observable = false
-      
     /**
      * Keep the overriden methods
      * @type {Object}
      */
     static overriddenMethods = {}
-    
+
     /**
      * Set this one to false in case you don't want to stick
      * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -150,21 +148,22 @@ class Base {
             Neo.idMap[me.id] = me;
         }
     }
-      
+
     /**
-     * Applying overrides and adding this.callOverridden to elements
+     * Applying overrides and adding overriddenMethods to the class constructors
      * @param {Object} cfg
      * @protected
      */
     static applyOverrides(cfg) {
-        let overrides = Neo.ns(cfg.className, false, Neo.overrides);
+        let overrides = Neo.ns(cfg.className, false, Neo.overrides),
+            cls, item;
 
         if (overrides) {
             // Apply all methods
-            for (const item in overrides) {
+            for (item in overrides) {
                 if (Neo.isFunction(overrides[item])) {
                     // Already existing ones
-                    let cls = this.prototype;
+                    cls = this.prototype;
 
                     if (cls[item]) {
                         // add to overriddenMethods
@@ -195,7 +194,7 @@ class Base {
 
         return value;
     }
-      
+
     /**
      * From within an override, a method can call a parent method, by using callOVerridden.
      *
@@ -207,7 +206,7 @@ class Base {
      *    }
      *
      * We create an error to get the caller.name and then run that method on the constructor.
-     * This is based on the following error structur, e.g. afterSetHeight.
+     * This is based on the following error structure, e.g. afterSetHeight.
      *
      *     Error
      *         at Base.callOverridden (Base.mjs:176:21)
@@ -216,8 +215,8 @@ class Base {
      * @param args
      */
     callOverridden(...args) {
-        let stack = new Error().stack,
-            regex = Base.methodNameRegex,
+        let stack      = new Error().stack,
+            regex      = Base.methodNameRegex,
             methodName = stack.match(regex)[1];
 
         this.__proto__.constructor.overriddenMethods[methodName].call(this, ...args);
