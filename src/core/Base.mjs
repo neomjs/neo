@@ -11,11 +11,25 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
+     * Regex to grab the MethodName from an error 
+     * which is a second generation function
+     * @type {*}
+     */
+    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/;
+
+    /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=false
      * @static
      */
     static observable = false
+      
+    /**
+     * Keep the overriden methods
+     * @type {Object}
+     */
+    static overriddenMethods = {}
+    
     /**
      * Set this one to false in case you don't want to stick
      * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -136,6 +150,32 @@ class Base {
             Neo.idMap[me.id] = me;
         }
     }
+      
+    /**
+     * Applying overrides and adding this.callOverridden to elements
+     * @param {Object} cfg
+     * @protected
+     */
+    static applyOverrides(cfg) {
+        let overrides = Neo.ns(cfg.className, false, Neo.overrides);
+
+        if (overrides) {
+            // Apply all methods
+            for (const item in overrides) {
+                if (Neo.isFunction(overrides[item])) {
+                    // Already existing ones
+                    let cls = this.prototype;
+
+                    if (cls[item]) {
+                        // add to overriddenMethods
+                        cls.constructor.overriddenMethods[item] = cls[item];
+                    }
+                }
+            }
+            // Apply configs to prototype
+            overrides && Object.assign(cfg, overrides);
+        }
+    }
 
     /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
@@ -154,6 +194,33 @@ class Base {
         }
 
         return value;
+    }
+      
+    /**
+     * From within an override, a method can call a parent method, by using callOVerridden.
+     *
+     * @example
+     *    afterSetHeight(value, oldValue) {
+     *        // do the standard
+     *        this.callOverridden(...arguments);
+     *        // do you own stuff
+     *    }
+     *
+     * We create an error to get the caller.name and then run that method on the constructor.
+     * This is based on the following error structur, e.g. afterSetHeight.
+     *
+     *     Error
+     *         at Base.callOverridden (Base.mjs:176:21)
+     *         at Base.afterSetHeight (Overrides.mjs:19:26)
+     *
+     * @param args
+     */
+    callOverridden(...args) {
+        let stack = new Error().stack,
+            regex = Base.methodNameRegex,
+            methodName = stack.match(regex)[1];
+
+        this.__proto__.constructor.overriddenMethods[methodName].call(this, ...args);
     }
 
     /**

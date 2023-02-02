@@ -76,8 +76,7 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
             
             if (Neo.overrides) {
-                overrides = Neo.ns(cfg.className, false, Neo.overrides);
-                overrides && Object.assign(cfg, overrides);
+                ctor.applyOverrides(cfg);
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
