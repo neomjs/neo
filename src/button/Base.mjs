@@ -7,19 +7,6 @@ import NeoArray  from '../util/Array.mjs';
  */
 class Base extends Component {
     /**
-     * Time in ms for the ripple effect when clicking on the button.
-     * Only active if useRippleEffect is set to true.
-     * @member {Number} rippleEffectDuration=400
-     */
-    rippleEffectDuration = 400
-    /**
-     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
-     * @member {Number} #rippleTimeoutId=null
-     * @private
-     */
-    #rippleTimeoutId = null
-
-    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -136,6 +123,19 @@ class Base extends Component {
     }
 
     /**
+     * Time in ms for the ripple effect when clicking on the button.
+     * Only active if useRippleEffect is set to true.
+     * @member {Number} rippleEffectDuration=400
+     */
+    rippleEffectDuration = 400
+    /**
+     * Internal flag to store the last setTimeout() id for ripple effect remove node callbacks
+     * @member {Number} #rippleTimeoutId=null
+     * @private
+     */
+    #rippleTimeoutId = null
+
+    /**
      * Triggered after the badgePosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -161,13 +161,12 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgeText(value, oldValue) {
-        let me        = this,
-            badgeNode = me.getBadgeNode();
+        let badgeNode = this.getBadgeNode();
 
         badgeNode.html      = value;
         badgeNode.removeDom = !Boolean(value);
 
-        me.update();
+        this.update();
     }
 
     /**
@@ -192,15 +191,13 @@ class Base extends Component {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        let me       = this,
-            iconNode = me.getIconNode();
+        let iconNode = this.getIconNode();
 
         NeoArray.remove(iconNode.cls, oldValue);
         NeoArray.add(   iconNode.cls, value);
 
         iconNode.removeDom = !value || value === '';
-
-        me.update();
+        this.update();
     }
 
     /**
@@ -210,8 +207,7 @@ class Base extends Component {
      * @protected
      */
     afterSetIconColor(value, oldValue) {
-        let me       = this,
-            iconNode = me.getIconNode();
+        let iconNode = this.getIconNode();
 
         if (!iconNode.style) {
             iconNode.style = {};
@@ -222,7 +218,7 @@ class Base extends Component {
         }
 
         iconNode.style.color = value;
-        me.update();
+        this.update();
     }
 
     /**
@@ -300,8 +296,7 @@ class Base extends Component {
      * @protected
      */
     afterSetUrl(value, oldValue) {
-        let me       = this,
-            vdomRoot = me.getVdomRoot();
+        let vdomRoot = this.getVdomRoot();
 
         if (value) {
             vdomRoot.href = value;
@@ -311,7 +306,7 @@ class Base extends Component {
             vdomRoot.tag = 'button';
         }
 
-        me.update();
+        this.update();
     }
 
     /**

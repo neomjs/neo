@@ -11,26 +11,6 @@ import VNodeUtil    from '../../util/VNode.mjs';
  */
 class Text extends Base {
     /**
-     * data passes maxLength, minLength & valueLength properties
-     * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
-     */
-    errorTextMaxLength = data => `Max length violation: ${data.valueLength} / ${data.maxLength}`
-    /**
-     * data passes maxLength, minLength & valueLength properties
-     * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
-     */
-    errorTextMinLength = data => `Min length violation: ${data.valueLength} / ${data.minLength}`
-    /**
-     * @member {String} errorTextRequired='Required'
-     */
-    errorTextRequired = 'Required'
-    /**
-     * Set this value to false, in case a field should display errors up front
-     * @member {Boolean} validBeforeMount=true
-     */
-    validBeforeMount = true
-
-    /**
      * Valid values for autoCapitalize
      * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
      * @protected
@@ -189,6 +169,26 @@ class Text extends Base {
             {cls: ['neo-textfield-error'], removeDom: true}
         ]}
     }
+
+    /**
+     * data passes maxLength, minLength & valueLength properties
+     * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
+     */
+    errorTextMaxLength = data => `Max length violation: ${data.valueLength} / ${data.maxLength}`
+    /**
+     * data passes maxLength, minLength & valueLength properties
+     * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
+     */
+    errorTextMinLength = data => `Min length violation: ${data.valueLength} / ${data.minLength}`
+    /**
+     * @member {String} errorTextRequired='Required'
+     */
+    errorTextRequired = 'Required'
+    /**
+     * Set this value to false, in case a field should display errors up front
+     * @member {Boolean} validBeforeMount=true
+     */
+    validBeforeMount = true
 
     /**
      * @param {Object} config
@@ -772,11 +772,12 @@ class Text extends Base {
      */
     beforeSetLabelText(value, oldValue) {
         let me                = this,
-            labelOptionalText = me.labelOptionalText;
+            labelOptionalText = me.labelOptionalText,
+            hasOptionalText   = value.endsWith(labelOptionalText);
 
-        if (me.showOptionalText && !me.required) {
-            return value + labelOptionalText;
-        } else if (value && value.endsWith(labelOptionalText)) {
+        if (me.showOptionalText && !me.required && !hasOptionalText) {
+            value += labelOptionalText;
+        } else if (value && hasOptionalText) {
             value = value.replace(labelOptionalText, '');
         }
 

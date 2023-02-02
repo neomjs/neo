@@ -8,6 +8,31 @@ import Observable  from '../../core/Observable.mjs';
  */
 class Socket extends Base {
     /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
+    static config = {
+        /**
+         * @member {String} className='Neo.data.connection.WebSocket'
+         * @protected
+         */
+        className: 'Neo.data.connection.WebSocket',
+        /**
+         * @member {String} ntype='socket-connection'
+         * @protected
+         */
+        ntype: 'socket-connection',
+        /**
+         * @member {WebSocket|null} socket_=null
+         * @protected
+         */
+        socket_: null
+    }
+
+    /**
      * @member {String|null} channel=null
      */
     channel = null
@@ -34,30 +59,6 @@ class Socket extends Base {
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true
-
-    static config = {
-        /**
-         * @member {String} className='Neo.data.connection.WebSocket'
-         * @protected
-         */
-        className: 'Neo.data.connection.WebSocket',
-        /**
-         * @member {String} ntype='socket-connection'
-         * @protected
-         */
-        ntype: 'socket-connection',
-        /**
-         * @member {WebSocket|null} socket_=null
-         * @protected
-         */
-        socket_: null
-    }
 
     /**
      * @param {Object} config

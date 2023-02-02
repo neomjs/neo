@@ -7,6 +7,26 @@ import NeoArray from '../../util/Array.mjs';
  * @singleton
  */
 class Message extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.manager.rpc.Message'
+         * @protected
+         */
+        className: 'Neo.manager.rpc.Message',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {Object[]} sorters
+         */
+        sorters: [{
+            direction: 'ASC',
+            property : 'id'
+        }]
+    }
+
     /**
      * Stores the urls of endpoints for which a setTimeout() call is in progress
      * @member {String[]} endPointTimeouts=[]
@@ -33,26 +53,6 @@ class Message extends Base {
      * @protected
      */
     transactionId = 1
-
-    static config = {
-        /**
-         * @member {String} className='Neo.manager.rpc.Message'
-         * @protected
-         */
-        className: 'Neo.manager.rpc.Message',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
-         * @member {Object[]} sorters
-         */
-        sorters: [{
-            direction: 'ASC',
-            property : 'id'
-        }]
-    }
 
     /**
      *

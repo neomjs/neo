@@ -5,13 +5,6 @@ import Base from './Base.mjs';
  * @extends Neo.list.Base
  */
 class Color extends Base {
-    /**
-     * form.field.Color needs to trigger a silent vdom update
-     * @member {Boolean} silentSelectUpdate=false
-     * @protected
-     */
-    silentSelectUpdate = false
-
     static config = {
         /**
          * @member {String} className='Neo.list.Color'
@@ -39,6 +32,13 @@ class Color extends Base {
          */
         colorFormatter: (scope,data) => data[scope.colorField]
     }
+
+    /**
+     * form.field.Color needs to trigger a silent vdom update
+     * @member {Boolean} silentSelectUpdate=false
+     * @protected
+     */
+    silentSelectUpdate = false
 
     /**
      * Override this method for custom renderers

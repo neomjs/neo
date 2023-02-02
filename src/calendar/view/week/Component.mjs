@@ -260,7 +260,6 @@ class Component extends BaseComponent {
             rowHeight   = data.rowHeight,
             rowsPerItem = data.rowsPerItem,
             height      = data.totalHeight - rowHeight,
-            vdom        = me.vdom,
             i           = 0,
             gradient    = [];
 
@@ -279,7 +278,7 @@ class Component extends BaseComponent {
             maxHeight      : `${height}px`
         });
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update();
     }
 
     /**

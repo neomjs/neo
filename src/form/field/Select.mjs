@@ -11,16 +11,6 @@ import VDomUtil        from '../../util/VDom.mjs';
  */
 class Select extends Picker {
     /**
-     * @member {String} filterOperator='like'
-     */
-    filterOperator = 'like'
-    /**
-     * Set this config to false, in case typing into the input field should not filter list items
-     * @member {Boolean} useFilter=true
-     */
-    useFilter = true
-
-    /**
      * Valid values for triggerAction
      * @member {String[]} triggerActions=['all','filtered']
      * @protected
@@ -115,6 +105,16 @@ class Select extends Picker {
          */
         valueField: 'id'
     }
+
+    /**
+     * @member {String} filterOperator='like'
+     */
+    filterOperator = 'like'
+    /**
+     * Set this config to false, in case typing into the input field should not filter list items
+     * @member {Boolean} useFilter=true
+     */
+    useFilter = true
 
     /**
      * @param {Object} config

@@ -16,15 +16,6 @@ const NeoConfig = Neo.config,
  * @singleton
  */
 class Manager extends Base {
-    /**
-     * navigator.serviceWorker.controller can be null in case we load a page for the first time
-     * or in case of a force refresh.
-     * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
-     * Only in this case main.addon.ServiceWorker will store the active registration once ready here.
-     * @member {ServiceWorker|null} serviceWorker=null
-     */
-    serviceWorker = null
-
     static config = {
         /**
          * @member {String} className='Neo.worker.Manager'
@@ -100,6 +91,15 @@ class Manager extends Base {
             }
         }
     }
+
+    /**
+     * navigator.serviceWorker.controller can be null in case we load a page for the first time
+     * or in case of a force refresh.
+     * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
+     * Only in this case main.addon.ServiceWorker will store the active registration once ready here.
+     * @member {ServiceWorker|null} serviceWorker=null
+     */
+    serviceWorker = null
 
     /**
      * @param {Object} config

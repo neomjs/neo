@@ -8,12 +8,6 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class CesiumJS extends Base {
-    /**
-     * @member {Object} viewers={}
-     * @protected
-     */
-    viewers = {}
-
     static config = {
         /**
          * @member {String} className='Neo.main.addon.CesiumJS'
@@ -39,6 +33,12 @@ class CesiumJS extends Base {
          */
         singleton: true
     }
+
+    /**
+     * @member {Object} viewers={}
+     * @protected
+     */
+    viewers = {}
 
     /**
      * @param {Object} config
