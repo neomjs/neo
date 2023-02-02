@@ -82,6 +82,7 @@ class Observable extends Base {
                     existing.push(eventConfig);
                 }
             } else {
+                !me.listeners && console.log(me);
                 me.listeners[name] = [eventConfig];
             }
 
@@ -148,8 +149,10 @@ class Observable extends Base {
         }
 
         while (proto?.constructor.isClass) {
+            ctor = proto.constructor;
+
             if (ctor.observable && !ctor.listeners) {
-                Object.assign(proto.constructor, {
+                Object.assign(ctor, {
                     addListener   : me.addListener,
                     fire          : me.fire,
                     listeners     : {},
