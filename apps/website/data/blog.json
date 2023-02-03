@@ -2,6 +2,19 @@
     {
         "author"      : "Torsten Dinkheller",
         "authorImage" : "author_TorstenDinkheller.jpg",
+        "date"        : "Feb 03, 2023",
+        "id"          : 57,
+        "image"       : "leveraging-overrides.jpg",
+        "name"        : "Leveraging Overrides for Resilient Customizations and Effective Bugfixes in JavaScript Frameworks",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/leveraging-overrides-for-resilient-customizations-and-effective-bugfixes-in-javascript-frameworks-5b8ccfec0f8?source=friends_link&sk=790e868aac8b8570f0eee093adc30c00"
+    },
+    {
+        "author"      : "Torsten Dinkheller",
+        "authorImage" : "author_TorstenDinkheller.jpg",
         "date"        : "Jan 28, 2023",
         "id"          : 56,
         "image"       : "toast-tutorial-medium.jpg",
