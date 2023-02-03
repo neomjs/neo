@@ -309,7 +309,6 @@
             flex-shrink  : 1;
             margin       : 0; // important for Safari => #1125
             min-height   : v(textfield-input-height);
-            width        : 30px;
         }
     }
 
@@ -331,6 +330,7 @@
         min-width       : 50px;
         padding         : v(textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
+        width           : 100%;
 
         &:focus {
             outline: none;
