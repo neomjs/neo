@@ -18,6 +18,7 @@
         .neo-typeahead-input {
             border-color: transparent;
             color       : v(selectfield-input-hint-color);
+            font        : v(textfield-input-font);
             min-height  : 25px;
             opacity     : v(selectfield-input-hint-opacity);
         }
