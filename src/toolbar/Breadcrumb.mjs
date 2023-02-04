@@ -78,6 +78,32 @@ class Breadcrumb extends Toolbar {
      */
     updateItems() {
         console.log('updateItems');
+        console.log(this.items);
+
+        let me        = this,
+            items     = me.items,
+            pathItems = me.store.items, // todo
+            i         = 0,
+            len       = pathItems.length,
+            newItems  = [],
+            config, item
+
+        for (; i < len; i++) {
+            item = pathItems[i];
+
+            config = {
+                route: item.route,
+                text : item.name
+            };
+
+            if (items[i]) {
+                items[i].set(config);
+            } else {
+                newItems.push(config);
+            }
+        }
+
+        newItems.length > 0 && me.add(newItems);
     }
 }
 
