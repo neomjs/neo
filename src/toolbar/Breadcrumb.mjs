@@ -14,6 +14,15 @@ class Breadcrumb extends Toolbar {
          */
         className: 'Neo.toolbar.Breadcrumb',
         /**
+         * @member {String} ntype='breadcrumb-toolbar'
+         * @protected
+         */
+        ntype: 'breadcrumb-toolbar',
+        /**
+         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
+         */
+        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
+        /**
          * @member {Number|String|null} activeKey_=null
          */
         activeKey_: null,
