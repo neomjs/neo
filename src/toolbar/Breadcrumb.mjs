@@ -14,6 +14,10 @@ class Breadcrumb extends Toolbar {
          */
         className: 'Neo.toolbar.Breadcrumb',
         /**
+         * @member {Number|String|null} activeKey_=null
+         */
+        activeKey_: null,
+        /**
          * @member {Object[]} items
          */
         items: [],
@@ -21,6 +25,16 @@ class Breadcrumb extends Toolbar {
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
+    }
+
+    /**
+     * Triggered after the activeKey config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetActiveKey(value, oldValue) {
+        this.store.getCount?.() > 0 && this.updateItems()
     }
 
     /**
@@ -37,7 +51,7 @@ class Breadcrumb extends Toolbar {
             scope: me
         });
 
-        value?.getCount() > 0 && me.onStoreLoad(value.items);
+        value?.getCount() > 0 && me.onStoreLoad(value.items)
     }
 
     /**
@@ -56,7 +70,7 @@ class Breadcrumb extends Toolbar {
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-        this.updateItems();
+        this.activeKey !== null && this.updateItems()
     }
 
     /**
