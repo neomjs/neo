@@ -30,7 +30,14 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        console.log(value);
+        let me = this;
+
+        value.on({
+            load: this.onStoreLoad,
+            scope: me
+        });
+
+        value?.getCount() > 0 && me.onStoreLoad(value.items);
     }
 
     /**
@@ -43,6 +50,20 @@ class Breadcrumb extends Toolbar {
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store);
+    }
+
+    /**
+     * @param {Object[]} items
+     */
+    onStoreLoad(items) {
+        this.updateItems();
+    }
+
+    /**
+     *
+     */
+    updateItems() {
+        console.log('updateItems');
     }
 }
 

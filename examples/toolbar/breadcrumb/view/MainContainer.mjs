@@ -37,7 +37,14 @@ class MainContainer extends Viewport {
                         name: 'route',
                         type: 'String'
                     }]
-                }
+                },
+
+                data: [
+                    {id: 1, name: 'Home',          parentId: null, route: '/home/'},
+                    {id: 2, name: 'Accessibility', parentId: 1,    route: '/home/accessibility/'},
+                    {id: 3, name: 'Imprint',       parentId: 1,    route: '/home/imprint/'},
+                    {id: 4, name: 'News',          parentId: 1,    route: '/home/news/'},
+                ]
             }
         }],
         /**
