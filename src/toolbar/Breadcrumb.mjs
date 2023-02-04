@@ -30,7 +30,7 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetStore(value, oldValue) {
-
+        console.log(value);
     }
 
     /**

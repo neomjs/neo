@@ -1,4 +1,5 @@
 import BreadcrumbToolbar from '../../../../src/toolbar/Breadcrumb.mjs';
+import Store             from '../../../../src/data/Store.mjs';
 import Viewport          from '../../../../src/container/Viewport.mjs';
 
 /**
@@ -17,7 +18,27 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: BreadcrumbToolbar,
-            flex  : 'none'
+            flex  : 'none',
+
+            store: {
+                module: Store,
+
+                model: {
+                    fields: [{
+                        name: 'id',
+                        type: 'Integer'
+                    }, {
+                        name: 'name',
+                        type: 'String'
+                    }, {
+                        name: 'parentId',
+                        type: 'Integer'
+                    }, {
+                        name: 'route',
+                        type: 'String'
+                    }]
+                }
+            }
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
