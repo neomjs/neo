@@ -76,6 +76,26 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
+     * @returns {Object[]}
+     */
+    getPathItems() {
+        let items    = [],
+            parentId = this.activeKey,
+            store    = this.store,
+            item;
+
+        while (parentId !== null) {
+            item = store.get(parentId);
+
+            items.unshift(item);
+
+            parentId = item.parentId;
+        }
+
+        return items;
+    }
+
+    /**
      * @param {Object[]} items
      */
     onStoreLoad(items) {
@@ -86,12 +106,9 @@ class Breadcrumb extends Toolbar {
      *
      */
     updateItems() {
-        console.log('updateItems');
-        console.log(this.items);
-
         let me        = this,
             items     = me.items,
-            pathItems = me.store.items, // todo
+            pathItems = me.getPathItems(),
             i         = 0,
             len       = pathItems.length,
             newItems  = [],
@@ -101,8 +118,9 @@ class Breadcrumb extends Toolbar {
             item = pathItems[i];
 
             config = {
-                route: item.route,
-                text : item.name
+                editRoute: false,
+                route    : item.route,
+                text     : item.name
             };
 
             if (items[i]) {

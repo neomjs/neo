@@ -17,8 +17,9 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: BreadcrumbToolbar,
-            flex  : 'none',
+            module   : BreadcrumbToolbar,
+            activeKey: 2,
+            flex     : 'none',
 
             store: {
                 module: Store,
