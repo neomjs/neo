@@ -415,6 +415,7 @@ class DomEvents extends Base {
             value: target.value
         };
 
+        // input and change events can pass a FileList for input type file
         if (target.files) {
             data.files = target.files;
         }
