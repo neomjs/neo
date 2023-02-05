@@ -242,7 +242,7 @@ class Number extends Text {
             value    = (oldValue - stepSize) < me.minValue ? me.maxValue : (oldValue - stepSize);
 
         if (me.excludedValues) {
-            while(me.excludedValues.includes(value)) {
+            while (me.excludedValues.includes(value)) {
                 value = Math.max(me.minValue, value - stepSize);
             }
         }
@@ -262,7 +262,7 @@ class Number extends Text {
             value    = (oldValue + stepSize) > me.maxValue ? me.minValue : (oldValue + stepSize);
 
         if (me.excludedValues) {
-            while(me.excludedValues.includes(value)) {
+            while (me.excludedValues.includes(value)) {
                 value = Math.min(me.maxValue, value + stepSize);
             }
         }
