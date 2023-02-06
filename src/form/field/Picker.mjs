@@ -116,6 +116,20 @@ class Picker extends Text {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value === false && oldValue && this.pickerIsMounted) {
+            this.picker.hide();
+        }
+
+        super.afterSetMounted(value, oldValue);
+    }
+
+    /**
      * @param {Boolean} silent
      */
     applyClientRects(silent) {
@@ -184,6 +198,14 @@ class Picker extends Text {
      */
     createPickerComponent() {
         return null;
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        this.picker?.destroy();
+        super.destroy(...args);
     }
 
     /**
