@@ -28,6 +28,7 @@
         &.neo-button-secondary {
             background-color: v(button-secondary-background-color-disabled);
             border-color    : v(button-secondary-border-color-disabled);
+            opacity         : v(button-secondary-opacity-disabled);
 
             .neo-button-glyph {
                 color: v(button-secondary-glyph-color-disabled);
@@ -41,6 +42,7 @@
         &.neo-button-tertiary {
             background-color: v(button-tertiary-background-color-disabled);
             border-color    : v(button-tertiary-border-color-disabled);
+            opacity         : v(button-tertiary-opacity-disabled);
 
             .neo-button-glyph {
                 color: v(button-tertiary-glyph-color-disabled);
