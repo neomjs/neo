@@ -167,6 +167,10 @@
             color: v(button-secondary-glyph-color);
         }
 
+        .neo-button-ripple {
+            background-color: v(button-secondary-ripple-background-color);
+        }
+
         .neo-button-text {
             color: v(button-secondary-text-color);
         }
@@ -210,6 +214,10 @@
 
         .neo-button-glyph {
             color: v(button-tertiary-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: v(button-tertiary-ripple-background-color);
         }
 
         .neo-button-text {

@@ -56,6 +56,7 @@ $neoMap: map-merge($neoMap, (
     'button-secondary-glyph-color-disabled'     : inherit,
     'button-secondary-glyph-color-hover'        : var(--button-background-color),
     'button-secondary-opacity-disabled'         : var(--neo-disabled-opacity),
+    'button-secondary-ripple-background-color'  : inherit,
     'button-secondary-text-color'               : var(--button-background-color),
     'button-secondary-text-color-active'        : var(--button-background-color),
     'button-secondary-text-color-disabled'      : inherit,
@@ -79,6 +80,7 @@ $neoMap: map-merge($neoMap, (
     'button-tertiary-glyph-color-disabled'      : inherit,
     'button-tertiary-glyph-color-hover'         : var(--button-glyph-color),
     'button-tertiary-opacity-disabled'          : var(--neo-disabled-opacity),
+    'button-tertiary-ripple-background-color'   : inherit,
     'button-tertiary-text-color'                : var(--button-text-color),
     'button-tertiary-text-color-active'         : var(--button-text-color),
     'button-tertiary-text-color-disabled'       : inherit,
@@ -143,6 +145,7 @@ $neoMap: map-merge($neoMap, (
         --button-secondary-glyph-color-disabled     : #{neo(button-secondary-glyph-color-disabled)};
         --button-secondary-glyph-color-hover        : #{neo(button-secondary-glyph-color-hover)};
         --button-secondary-opacity-disabled         : #{neo(button-secondary-opacity-disabled)};
+        --button-secondary-ripple-background-color  : #{neo(button-secondary-ripple-background-color)};
         --button-secondary-text-color               : #{neo(button-secondary-text-color)};
         --button-secondary-text-color-active        : #{neo(button-secondary-text-color-active)};
         --button-secondary-text-color-disabled      : #{neo(button-secondary-text-color-disabled)};
@@ -165,6 +168,7 @@ $neoMap: map-merge($neoMap, (
         --button-tertiary-glyph-color-disabled      : #{neo(button-tertiary-glyph-color-disabled)};
         --button-tertiary-glyph-color-hover         : #{neo(button-tertiary-glyph-color-hover)};
         --button-tertiary-opacity-disabled          : #{neo(button-tertiary-opacity-disabled)};
+        --button-tertiary-ripple-background-color   : #{neo(button-tertiary-ripple-background-color)};
         --button-tertiary-text-color                : #{neo(button-tertiary-text-color)};
         --button-tertiary-text-color-active         : #{neo(button-tertiary-text-color-active)};
         --button-tertiary-text-color-disabled       : #{neo(button-tertiary-text-color-disabled)};
