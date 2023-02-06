@@ -40,6 +40,7 @@ $neoMap: map-merge($neoMap, (
     // {module: Button, ui: 'secondary'}
     'button-secondary-background-color'       : var(--button-text-color),
     'button-secondary-background-color-active': #ddd,
+    'button-secondary-background-color-hover' : var(--button-text-color),
     'button-secondary-background-image'       : none,
     'button-secondary-badge-background-color' : var(--button-badge-color),
     'button-secondary-badge-color'            : var(--button-badge-background-color),
@@ -54,6 +55,7 @@ $neoMap: map-merge($neoMap, (
     // {module: Button, ui: 'tertiary'}
     'button-tertiary-background-color'        : transparent,
     'button-tertiary-background-color-active' : #ddd,
+    'button-tertiary-background-color-hover'  : v(button-hover-background-color),
     'button-tertiary-background-image'        : none,
     'button-tertiary-badge-background-color'  : var(--button-badge-background-color),
     'button-tertiary-badge-color'             : var(--button-badge-color),
@@ -108,6 +110,7 @@ $neoMap: map-merge($neoMap, (
 
         --button-secondary-background-color       : #{neo(button-secondary-background-color)};
         --button-secondary-background-color-active: #{neo(button-secondary-background-color-active)};
+        --button-secondary-background-color-hover : #{neo(button-secondary-background-color-hover)};
         --button-secondary-background-image       : #{neo(button-secondary-background-image)};
         --button-secondary-badge-background-color : #{neo(button-secondary-badge-background-color)};
         --button-secondary-badge-color            : #{neo(button-secondary-badge-color)};
@@ -121,6 +124,7 @@ $neoMap: map-merge($neoMap, (
 
         --button-tertiary-background-color        : #{neo(button-tertiary-background-color)};
         --button-tertiary-background-color-active : #{neo(button-tertiary-background-color-active)};
+        --button-tertiary-background-color-hover  : #{neo(button-tertiary-background-color-hover)};
         --button-tertiary-background-image        : #{neo(button-tertiary-background-image)};
         --button-tertiary-badge-background-color  : #{neo(button-tertiary-badge-background-color)};
         --button-tertiary-badge-color             : #{neo(button-tertiary-badge-color)};
