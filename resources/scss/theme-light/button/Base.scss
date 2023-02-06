@@ -20,7 +20,7 @@ $neoMap: map-merge($neoMap, (
     'button-glyph-color-active'               : #1c60a0,
     'button-glyph-color-disabled'             : #1c60a0,
     'button-height'                           : inherit,
-    'button-hover-color'                      : #bbb,
+    'button-text-color-hover'                      : #bbb,
     'button-margin'                           : 2px,
     'button-opacity-disabled'                 : #{neo(neo-disabled-opacity)},
     'button-outline-active'                   : none,
@@ -91,7 +91,7 @@ $neoMap: map-merge($neoMap, (
         --button-glyph-color-active               : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled             : #{neo(button-glyph-color-disabled)};
         --button-height                           : #{neo(button-height)};
-        --button-hover-color                      : #{neo(button-hover-color)};
+        --button-text-color-hover                      : #{neo(button-text-color-hover)};
         --button-margin                           : #{neo(button-margin)};
         --button-opacity-disabled                 : #{neo(button-opacity-disabled)};
         --button-outline-active                   : #{neo(button-outline-active)};
