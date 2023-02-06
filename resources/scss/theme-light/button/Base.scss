@@ -20,7 +20,6 @@ $neoMap: map-merge($neoMap, (
     'button-glyph-color-active'               : #1c60a0,
     'button-glyph-color-disabled'             : #1c60a0,
     'button-height'                           : inherit,
-    'button-text-color-hover'                      : #bbb,
     'button-margin'                           : 2px,
     'button-opacity-disabled'                 : #{neo(neo-disabled-opacity)},
     'button-outline-active'                   : none,
@@ -30,6 +29,7 @@ $neoMap: map-merge($neoMap, (
     'button-text-color'                       : #1c60a0,
     'button-text-color-active'                : #1c60a0,
     'button-text-color-disabled'              : #1c60a0,
+    'button-text-color-hover'                 : #bbb,
     'button-text-font-family'                 : #{neo(neo-font-family)},
     'button-text-font-size'                   : 11px,
     'button-text-font-weight'                 : 600,
@@ -91,7 +91,6 @@ $neoMap: map-merge($neoMap, (
         --button-glyph-color-active               : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled             : #{neo(button-glyph-color-disabled)};
         --button-height                           : #{neo(button-height)};
-        --button-text-color-hover                      : #{neo(button-text-color-hover)};
         --button-margin                           : #{neo(button-margin)};
         --button-opacity-disabled                 : #{neo(button-opacity-disabled)};
         --button-outline-active                   : #{neo(button-outline-active)};
@@ -101,6 +100,7 @@ $neoMap: map-merge($neoMap, (
         --button-text-color                       : #{neo(button-text-color)};
         --button-text-color-active                : #{neo(button-text-color-active)};
         --button-text-color-disabled              : #{neo(button-text-color-disabled)};
+        --button-text-color-hover                 : #{neo(button-text-color-hover)};
         --button-text-font-family                 : #{neo(button-text-font-family)};
         --button-text-font-size                   : #{neo(button-text-font-size)};
         --button-text-font-weight                 : #{neo(button-text-font-weight)};
