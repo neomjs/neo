@@ -52,7 +52,10 @@
         background-color: v(button-background-color-active) !important;
         background-image: none !important;
         border-color    : v(button-border-color-active);
-        color           : v(button-text-color-active) !important;
+
+        .neo-button-text {
+            color: v(button-text-color-active);
+        }
     }
 
     &:focus {
@@ -83,6 +86,15 @@
         .neo-button-text {
             color: v(button-secondary-text-color);
         }
+
+        &:active {
+            background-color: v(button-secondary-background-color-active) !important;
+            border-color    : v(button-secondary-border-color-active);
+
+            .neo-button-text {
+                color: v(button-secondary-text-color-active);
+            }
+        }
     }
 
     &.neo-button-tertiary {
@@ -101,6 +113,15 @@
 
         .neo-button-text {
             color: v(button-tertiary-text-color);
+        }
+
+        &:active {
+            background-color: v(button-tertiary-background-color-active) !important;
+            border-color    : v(button-tertiary-border-color-active);
+
+            .neo-button-text {
+                color: v(button-tertiary-text-color-active);
+            }
         }
     }
 
