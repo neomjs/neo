@@ -19,6 +19,7 @@ $neoMap: map-merge($neoMap, (
     'button-glyph-color'                      : #1c60a0,
     'button-glyph-color-active'               : #1c60a0,
     'button-glyph-color-disabled'             : #1c60a0,
+    'button-glyph-color-hover'                : #1c60a0,
     'button-height'                           : inherit,
     'button-margin'                           : 2px,
     'button-opacity-disabled'                 : #{neo(neo-disabled-opacity)},
@@ -50,6 +51,7 @@ $neoMap: map-merge($neoMap, (
     'button-secondary-border-width'           : var(--button-border-width),
     'button-secondary-glyph-color'            : var(--button-background-color),
     'button-secondary-glyph-color-active'     : var(--button-background-color),
+    'button-secondary-glyph-color-hover'      : var(--button-background-color),
     'button-secondary-text-color'             : var(--button-background-color),
     'button-secondary-text-color-active'      : var(--button-background-color),
 
@@ -66,6 +68,7 @@ $neoMap: map-merge($neoMap, (
     'button-tertiary-border-width'            : 0,
     'button-tertiary-glyph-color'             : var(--button-glyph-color),
     'button-tertiary-glyph-color-active'      : var(--button-glyph-color),
+    'button-tertiary-glyph-color-hover'       : var(--button-glyph-color),
     'button-tertiary-text-color'              : var(--button-text-color),
     'button-tertiary-text-color-active'       : var(--button-text-color)
 ));
@@ -92,6 +95,7 @@ $neoMap: map-merge($neoMap, (
         --button-glyph-color                      : #{neo(button-glyph-color)};
         --button-glyph-color-active               : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled             : #{neo(button-glyph-color-disabled)};
+        --button-glyph-color-hover                : #{neo(button-glyph-color-hover)};
         --button-height                           : #{neo(button-height)};
         --button-margin                           : #{neo(button-margin)};
         --button-opacity-disabled                 : #{neo(button-opacity-disabled)};
@@ -122,6 +126,7 @@ $neoMap: map-merge($neoMap, (
         --button-secondary-border-width           : #{neo(button-secondary-border-width)};
         --button-secondary-glyph-color            : #{neo(button-secondary-glyph-color)};
         --button-secondary-glyph-color-active     : #{neo(button-secondary-glyph-color-active)};
+        --button-secondary-glyph-color-hover      : #{neo(button-secondary-glyph-color-hover)};
         --button-secondary-text-color             : #{neo(button-secondary-text-color)};
         --button-secondary-text-color-active      : #{neo(button-secondary-text-color-active)};
 
@@ -137,6 +142,7 @@ $neoMap: map-merge($neoMap, (
         --button-tertiary-border-width            : #{neo(button-tertiary-border-width)};
         --button-tertiary-glyph-color             : #{neo(button-tertiary-glyph-color)};
         --button-tertiary-glyph-color-active      : #{neo(button-tertiary-glyph-color-active)};
+        --button-tertiary-glyph-color-hover       : #{neo(button-tertiary-glyph-color-hover)};
         --button-tertiary-text-color              : #{neo(button-tertiary-text-color)};
         --button-tertiary-text-color-active       : #{neo(button-tertiary-text-color-active)};
     }

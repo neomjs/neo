@@ -71,6 +71,10 @@
         background-image: none !important;
         border-color    : v(button-border-color-hover);
 
+        .neo-button-glyph {
+            color: v(button-glyph-color-hover);
+        }
+
         .neo-button-text {
             color: v(button-text-color-hover);
         }
