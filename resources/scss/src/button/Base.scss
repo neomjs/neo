@@ -53,6 +53,10 @@
         background-image: none !important;
         border-color    : v(button-border-color-active);
 
+        .neo-button-glyph {
+            color: v(button-glyph-color-active);
+        }
+
         .neo-button-text {
             color: v(button-text-color-active);
         }
@@ -91,6 +95,10 @@
             background-color: v(button-secondary-background-color-active) !important;
             border-color    : v(button-secondary-border-color-active);
 
+            .neo-button-glyph {
+                color: v(button-secondary-glyph-color-active);
+            }
+
             .neo-button-text {
                 color: v(button-secondary-text-color-active);
             }
@@ -118,6 +126,10 @@
         &:active {
             background-color: v(button-tertiary-background-color-active) !important;
             border-color    : v(button-tertiary-border-color-active);
+
+            .neo-button-glyph {
+                color: v(button-tertiary-glyph-color-active);
+            }
 
             .neo-button-text {
                 color: v(button-tertiary-text-color-active);
