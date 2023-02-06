@@ -325,7 +325,7 @@ if (programOpts.info) {
     for (; i < len; i++) {
         codeLine = contentArray[i];
 
-        if (codeLine.includes('    }')) {
+        if (codeLine.startsWith('    }')) {
             addComma(contentArray, i - 1);
             addConfig({
                 configName,
