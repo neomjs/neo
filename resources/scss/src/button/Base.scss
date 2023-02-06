@@ -24,6 +24,14 @@
         .neo-button-text {
             color: v(button-text-color-disabled);
         }
+
+        &.neo-button-secondary {
+            background-color: v(button-secondary-background-color-disabled);
+        }
+
+        &.neo-button-tertiary {
+            background-color: v(button-tertiary-background-color-disabled);
+        }
     }
 }
 
