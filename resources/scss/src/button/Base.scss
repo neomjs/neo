@@ -66,27 +66,41 @@
     }
 
     &.neo-button-secondary {
-        background-color: v(button-text-color);
-        background-image: none;
+        background-color: v(button-secondary-background-color);
+        background-image: v(button-secondary-background-image);
+        border-width    : v(button-secondary-border-width);
 
         .neo-button-badge {
-            background-color: v(button-badge-color);
-            color           : v(button-badge-background-color);
+            background-color: v(button-secondary-badge-background-color);
+            color           : v(button-secondary-badge-color);
         }
 
         .neo-button-glyph {
-            color: v(button-background-color);
+            color: v(button-secondary-glyph-color);
         }
 
         .neo-button-text {
-            color: v(button-background-color);
+            color: v(button-secondary-text-color);
         }
     }
 
     &.neo-button-tertiary {
-        background-color: transparent;
-        background-image: none;
-        border-width    : 0;
+        background-color: v(button-tertiary-background-color);
+        background-image: v(button-tertiary-background-image);
+        border-width    : v(button-tertiary-border-width);
+
+        .neo-button-badge {
+            background-color: v(button-tertiary-badge-background-color);
+            color           : v(button-tertiary-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: v(button-tertiary-glyph-color);
+        }
+
+        .neo-button-text {
+            color: v(button-tertiary-text-color);
+        }
     }
 
     &.no-text {
