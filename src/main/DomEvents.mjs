@@ -407,11 +407,20 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onChange(event) {
-        this.sendMessageToApp({
+        let target = event.target,
+
+        data = {
             ...this.getEventData(event),
-            valid: event.target.checkValidity(),
-            value: event.target.value
-        });
+            valid: target.checkValidity(),
+            value: target.value
+        };
+
+        // input and change events can pass a FileList for input type file
+        if (target.files) {
+            data.files = target.files;
+        }
+
+        this.sendMessageToApp(data);
     }
 
     /**

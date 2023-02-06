@@ -530,7 +530,17 @@ class Text extends Base {
      * @protected
      */
     afterSetPlaceholderText(value, oldValue) {
-        this.changeInputElKey('placeholder', value === '' ? null : value);
+        let me  = this,
+            cls = me.cls;
+
+        me.changeInputElKey('placeholder', value === '' ? null : value);
+
+        // a non-empty placeholder needs to keep the 'neo-has-content' rule
+        // => labelPosition: 'inline' should keep the label at the top
+        if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
+            NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
+            me.cls = cls;
+        }
     }
 
     /**
@@ -686,21 +696,19 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me            = this,
-            cls           = me.cls,
-            emptyValue    = Neo.isEmpty(value),
-            originalValue = me.originalConfig.value,
-            isDirty       = value !== originalValue && emptyValue !== Neo.isEmpty(originalValue);
+        let me              = this,
+            cls             = me.cls,
+            placeholderText = me.placeholderText,
+            hasContent      = placeholderText?.length > 0 || value !== null && value.toString().length > 0,
+            originalValue   = me.originalConfig.value,
+            isDirty         = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue);
 
         me.silentVdomUpdate = true;
 
         me.getInputEl().value = value;
 
-        if (emptyValue !== Neo.isEmpty(oldValue)) {
-            NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
-        }
-
-        NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray[hasContent ? 'add' : 'remove'](cls, 'neo-has-content');
+        NeoArray[isDirty    ? 'add' : 'remove'](cls, 'neo-is-dirty');
         me.cls = cls;
 
         me.validate(); // silent

@@ -419,18 +419,21 @@ fields: [{
 * (39) `if (/**/) {` if, blank char, parenthesis, blank char, curly bracket
 * (40) `for (/**/) {` for, blank char, parenthesis, blank char, curly bracket
 * (41) `switch(/**/) {` switch, parenthesis, blank char, curly bracket `// could get changed to use a blank char as well
-* (42) Use optional chaining => `?.` where it makes sense
+* (42) `while (/**/) {` while, blank char, parenthesis, blank char, curly bracket
+* (43) Use optional chaining => `?.` where it makes sense
   + Bad: `myView && myView.myFn && myView.myFn();`
   + Good: `myView?.myFn?.();`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
-* (43) Use method definitions (meaning avoid using the term `function`)
+* (44) Use method definitions (meaning avoid using the term `function`)
   + Bad: `let obj = {a: function() {/**/}};`
   + Good: `let obj = {a() {/**/}};`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Method_definitions
-* (44) Use shorthand property names when possible
+* (45) Use shorthand property names when possible
   + Bad: `let obj = {record: record}`
   + Good: `let obj = {record};`
   + https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer#property_definitions
-* (45) Do not use killing commas (while IE6 is luckily no longer an issue => file size)
-  + Bad: `let obj = {a: 1,}`
+* (46) Do not use killing commas (while IE6 is luckily no longer an issue => file size)
+  + Bad: `let obj = {a: 1,};`
+  + Bad: `let arr = [1,];`
   + Good: `let obj = {a: 1};`
+  + Good: `let arr = [1];`

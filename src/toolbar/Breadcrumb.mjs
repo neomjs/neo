@@ -14,6 +14,19 @@ class Breadcrumb extends Toolbar {
          */
         className: 'Neo.toolbar.Breadcrumb',
         /**
+         * @member {String} ntype='breadcrumb-toolbar'
+         * @protected
+         */
+        ntype: 'breadcrumb-toolbar',
+        /**
+         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
+         */
+        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
+        /**
+         * @member {Number|String|null} activeKey_=null
+         */
+        activeKey_: null,
+        /**
          * @member {Object[]} items
          */
         items: [],
@@ -24,13 +37,30 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
+     * Triggered after the activeKey config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetActiveKey(value, oldValue) {
+        this.store.getCount?.() > 0 && this.updateItems()
+    }
+
+    /**
      * Triggered after the store config got changed
      * @param {Neo.data.Store|Object} value
      * @param {Neo.data.Store|Object} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
+        let me = this;
 
+        value.on({
+            load: this.onStoreLoad,
+            scope: me
+        });
+
+        value?.getCount() > 0 && me.onStoreLoad(value.items)
     }
 
     /**
@@ -43,6 +73,64 @@ class Breadcrumb extends Toolbar {
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store);
+    }
+
+    /**
+     * @returns {Object[]}
+     */
+    getPathItems() {
+        let items    = [],
+            parentId = this.activeKey,
+            store    = this.store,
+            item;
+
+        while (parentId !== null) {
+            item = store.get(parentId);
+
+            items.unshift(item);
+
+            parentId = item.parentId;
+        }
+
+        return items;
+    }
+
+    /**
+     * @param {Object[]} items
+     */
+    onStoreLoad(items) {
+        this.activeKey !== null && this.updateItems()
+    }
+
+    /**
+     *
+     */
+    updateItems() {
+        let me        = this,
+            items     = me.items,
+            pathItems = me.getPathItems(),
+            i         = 0,
+            len       = pathItems.length,
+            newItems  = [],
+            config, item
+
+        for (; i < len; i++) {
+            item = pathItems[i];
+
+            config = {
+                editRoute: false,
+                route    : item.route,
+                text     : item.name
+            };
+
+            if (items[i]) {
+                items[i].set(config);
+            } else {
+                newItems.push(config);
+            }
+        }
+
+        newItems.length > 0 && me.add(newItems);
     }
 }
 
