@@ -32,6 +32,10 @@
             .neo-button-glyph {
                 color: v(button-secondary-glyph-color-disabled);
             }
+
+            .neo-button-text {
+                color: v(button-secondary-text-color-disabled);
+            }
         }
 
         &.neo-button-tertiary {
@@ -40,6 +44,10 @@
 
             .neo-button-glyph {
                 color: v(button-tertiary-glyph-color-disabled);
+            }
+
+            .neo-button-text {
+                color: v(button-tertiary-text-color-disabled);
             }
         }
     }
