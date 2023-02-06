@@ -49,10 +49,10 @@
     -webkit-appearance: button;
 
     &:active {
-        background-color: v(button-active-background-color) !important;
+        background-color: v(button-background-color-active) !important;
         background-image: none !important;
-        border-color    : v(button-active-border-color);
-        color           : v(button-active-color) !important;
+        border-color    : v(button-border-color-active);
+        color           : v(button-text-color-active) !important;
     }
 
     &:focus {
