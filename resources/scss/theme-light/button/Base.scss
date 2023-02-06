@@ -2,6 +2,7 @@ $neoMap: map-merge($neoMap, (
     'button-background-color'                 : #fff,
     'button-background-color-active'          : #ddd,
     'button-background-color-disabled'        : #fff,
+    'button-background-color-hover'           : #fff,
     'button-background-image'                 : none,
     'button-background-gradient-end'          : #323536,
     'button-background-gradient-start'        : #434749,
@@ -18,7 +19,6 @@ $neoMap: map-merge($neoMap, (
     'button-glyph-color-active'               : #1c60a0,
     'button-glyph-color-disabled'             : #1c60a0,
     'button-height'                           : inherit,
-    'button-hover-background-color'           : #fff,
     'button-hover-border-color'               : #1c60a0,
     'button-hover-color'                      : #bbb,
     'button-margin'                           : 2px,
@@ -55,7 +55,7 @@ $neoMap: map-merge($neoMap, (
     // {module: Button, ui: 'tertiary'}
     'button-tertiary-background-color'        : transparent,
     'button-tertiary-background-color-active' : #ddd,
-    'button-tertiary-background-color-hover'  : v(button-hover-background-color),
+    'button-tertiary-background-color-hover'  : v(button-background-color-hover),
     'button-tertiary-background-image'        : none,
     'button-tertiary-badge-background-color'  : var(--button-badge-background-color),
     'button-tertiary-badge-color'             : var(--button-badge-color),
@@ -73,6 +73,7 @@ $neoMap: map-merge($neoMap, (
         --button-background-color                 : #{neo(button-background-color)};
         --button-background-color-active          : #{neo(button-background-color-active)};
         --button-background-color-disabled        : #{neo(button-background-color-disabled)};
+        --button-background-color-hover           : #{neo(button-background-color-hover)};
         --button-background-image                 : #{neo(button-background-image)};
         --button-background-gradient-end          : #{neo(button-background-gradient-end)};
         --button-background-gradient-start        : #{neo(button-background-gradient-start)};
@@ -89,7 +90,6 @@ $neoMap: map-merge($neoMap, (
         --button-glyph-color-active               : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled             : #{neo(button-glyph-color-disabled)};
         --button-height                           : #{neo(button-height)};
-        --button-hover-background-color           : #{neo(button-hover-background-color)};
         --button-hover-border-color               : #{neo(button-hover-border-color)};
         --button-hover-color                      : #{neo(button-hover-color)};
         --button-margin                           : #{neo(button-margin)};
