@@ -13,13 +13,13 @@ $neoMap: map-merge($neoMap, (
     'button-border-color'                     : #ddd,
     'button-border-color-active'              : #1c60a0,
     'button-border-color-disabled'            : #ddd,
+    'button-border-color-hover'               : #1c60a0,
     'button-border-radius'                    : 3px,
     'button-border-width'                     : 1px,
     'button-glyph-color'                      : #1c60a0,
     'button-glyph-color-active'               : #1c60a0,
     'button-glyph-color-disabled'             : #1c60a0,
     'button-height'                           : inherit,
-    'button-hover-border-color'               : #1c60a0,
     'button-hover-color'                      : #bbb,
     'button-margin'                           : 2px,
     'button-opacity-disabled'                 : #{neo(neo-disabled-opacity)},
@@ -84,13 +84,13 @@ $neoMap: map-merge($neoMap, (
         --button-border-color                     : #{neo(button-border-color)};
         --button-border-color-active              : #{neo(button-border-color-active)};
         --button-border-color-disabled            : #{neo(button-border-color-disabled)};
+        --button-border-color-hover               : #{neo(button-border-color-hover)};
         --button-border-radius                    : #{neo(button-border-radius)};
         --button-border-width                     : #{neo(button-border-width)};
         --button-glyph-color                      : #{neo(button-glyph-color)};
         --button-glyph-color-active               : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled             : #{neo(button-glyph-color-disabled)};
         --button-height                           : #{neo(button-height)};
-        --button-hover-border-color               : #{neo(button-hover-border-color)};
         --button-hover-color                      : #{neo(button-hover-color)};
         --button-margin                           : #{neo(button-margin)};
         --button-opacity-disabled                 : #{neo(button-opacity-disabled)};
