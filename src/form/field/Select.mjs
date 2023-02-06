@@ -640,7 +640,7 @@ class Select extends Picker {
         }
 
         if (!hasMatch && inputHintEl) {
-            inputHintEl.value = '';
+            inputHintEl.value = null;
             me.hintRecordId = null;
         }
 
