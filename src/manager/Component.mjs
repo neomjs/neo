@@ -117,6 +117,28 @@ class Component extends Base {
     }
 
     /**
+     * Returns all child components which are recursively matched via their parentId
+     * @param {Neo.component.Base} component
+     * @returns {Neo.component.Base[]} childComponents
+     */
+    getChildComponents(component) {
+        let me             = this,
+            directChildren = me.find('parentId', component.id) || [],
+            components     = [],
+            childComponents;
+
+        directChildren.forEach(item => {
+            components.push(item);
+
+            childComponents = me.getChildComponents(item);
+
+            childComponents && components.push(...childComponents);
+        });
+
+        return components;
+    }
+
+    /**
      * todo: replace all calls of this method to calls using the util.VNode class
      * Get the ids of all child nodes of the given vnode
      * @param vnode
