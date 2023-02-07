@@ -36,12 +36,12 @@ class Container extends BaseContainer {
      * @returns {Neo.form.field.Base|null} fields
      */
     getField(name) {
-        let fields = ComponentManager.getChildren(this),
+        let fields = ComponentManager.getChildComponents(this),
             field;
 
         for (field of fields) {
             if (field instanceof BaseField) {
-                if (field.id === name || field.name === name) {
+                if (field.name === name || field.id === name) {
                     return field;
                 }
             }
@@ -56,7 +56,7 @@ class Container extends BaseContainer {
     getFields() {
         let fields = [];
 
-        ComponentManager.getChildren(this).forEach(item => {
+        ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
         });
 
