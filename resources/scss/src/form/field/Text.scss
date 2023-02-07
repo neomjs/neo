@@ -10,6 +10,10 @@
         .neo-input-wrapper {
             border-color: v(textfield-border-color-active) !important;
             outline     : v(textfield-outline-active);
+
+            .neo-textfield-input {
+                outline: none;
+            }
         }
 
         .neo-label-wrapper { // labelPosition: inline
