@@ -14,6 +14,7 @@ $neoMap: map-merge($neoMap, (
     'button-border-color-active'                : #1c60a0,
     'button-border-color-disabled'              : #ddd,
     'button-border-color-hover'                 : #1c60a0,
+    'button-border-color-pressed'               : #1c60a0,
     'button-border-radius'                      : 3px,
     'button-border-width'                       : 1px,
     'button-glyph-color'                        : #1c60a0,
@@ -25,7 +26,6 @@ $neoMap: map-merge($neoMap, (
     'button-opacity-disabled'                   : #{neo(neo-disabled-opacity)},
     'button-outline-active'                     : none,
     'button-padding'                            : 5px 12px 5px 12px,
-    'button-pressed-border-color'               : #1c60a0,
     'button-ripple-background-color'            : lighten(#1c60a0, 50%),
     'button-text-color'                         : #1c60a0,
     'button-text-color-active'                  : #1c60a0,
@@ -104,6 +104,7 @@ $neoMap: map-merge($neoMap, (
         --button-border-color-active                : #{neo(button-border-color-active)};
         --button-border-color-disabled              : #{neo(button-border-color-disabled)};
         --button-border-color-hover                 : #{neo(button-border-color-hover)};
+        --button-border-color-pressed               : #{neo(button-border-color-pressed)};
         --button-border-radius                      : #{neo(button-border-radius)};
         --button-border-width                       : #{neo(button-border-width)};
         --button-glyph-color                        : #{neo(button-glyph-color)};
@@ -115,7 +116,6 @@ $neoMap: map-merge($neoMap, (
         --button-opacity-disabled                   : #{neo(button-opacity-disabled)};
         --button-outline-active                     : #{neo(button-outline-active)};
         --button-padding                            : #{neo(button-padding)};
-        --button-pressed-border-color               : #{neo(button-pressed-border-color)};
         --button-ripple-background-color            : #{neo(button-ripple-background-color)};
         --button-text-color                         : #{neo(button-text-color)};
         --button-text-color-active                  : #{neo(button-text-color-active)};
