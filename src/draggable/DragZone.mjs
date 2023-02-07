@@ -189,9 +189,9 @@ class DragZone extends Base {
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect      = me.dragElementRect,
             vdom      = me.dragProxyConfig?.vdom,
-            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
+            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement),
 
-        const config = {
+        config = {
             module          : DragProxyComponent,
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,

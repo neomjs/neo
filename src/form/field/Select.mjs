@@ -414,7 +414,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownEnter(data) {
-        let me    = this;
+        let me = this;
 
         if (me.pickerIsMounted) {
             me.selectListItem();

@@ -9,24 +9,6 @@
     }
 }
 
-.neo-disabled {
-    .neo-button,
-    &.neo-button {
-        background-color: v(button-background-color-disabled);
-        border-color    : v(button-border-color-disabled);
-        cursor          : default;
-        opacity         : v(button-opacity-disabled);
-
-        .neo-button-glyph {
-            color: v(button-glyph-color-disabled);
-        }
-
-        .neo-button-text {
-            color: v(button-text-color-disabled);
-        }
-    }
-}
-
 .neo-button {
     align-items       : center;
     background-color  : v(button-background-color);
@@ -37,6 +19,7 @@
     cursor            : pointer;
     display           : flex;
     flex-direction    : row;
+    height            : v(button-height);
     justify-content   : center;
     margin            : v(button-margin);
     padding           : v(button-padding);
@@ -46,58 +29,6 @@
     user-select       : none;
     white-space       : nowrap;
     -webkit-appearance: button;
-
-    &:active {
-        background-color: v(button-active-background-color) !important;
-        background-image: none !important;
-        border-color    : v(button-active-border-color);
-        color           : v(button-active-color) !important;
-    }
-
-    &:focus {
-        outline: v(button-outline-active);
-    }
-
-    &:hover {
-        background-color: v(button-hover-background-color);
-        background-image: none !important;
-        border-color    : v(button-hover-border-color);
-        color           : v(button-hover-color);
-    }
-
-    &.neo-button-secondary {
-        background-color: v(button-text-color);
-        background-image: none;
-
-        .neo-button-badge {
-            background-color: v(button-badge-color);
-            color           : v(button-badge-background-color);
-        }
-
-        .neo-button-glyph {
-            color: v(button-background-color);
-        }
-
-        .neo-button-text {
-            color: v(button-background-color);
-        }
-    }
-
-    &.neo-button-tertiary {
-        background-color: transparent;
-        background-image: none;
-        border-width    : 0;
-    }
-
-    &.no-text {
-        .neo-button-glyph {
-            margin: 0 !important;
-        }
-    }
-
-    &.pressed {
-        border-color: v(button-pressed-border-color);
-    }
 
     .neo-button-badge {
         background-color: v(button-badge-background-color);
@@ -166,6 +97,38 @@
         z-index       : 2;
     }
 
+    &:active {
+        background-color: v(button-background-color-active) !important;
+        background-image: none !important;
+        border-color    : v(button-border-color-active);
+
+        .neo-button-glyph {
+            color: v(button-glyph-color-active);
+        }
+
+        .neo-button-text {
+            color: v(button-text-color-active);
+        }
+    }
+
+    &:focus {
+        outline: v(button-outline-active);
+    }
+
+    &:hover {
+        background-color: v(button-background-color-hover);
+        background-image: none !important;
+        border-color    : v(button-border-color-hover);
+
+        .neo-button-glyph {
+            color: v(button-glyph-color-hover);
+        }
+
+        .neo-button-text {
+            color: v(button-text-color-hover);
+        }
+    }
+
     &.icon-bottom {
         flex-direction: column-reverse;
 
@@ -187,6 +150,160 @@
 
         .neo-button-glyph {
             margin: 0 0 6px 0;
+        }
+    }
+
+    &.neo-button-secondary {
+        background-color: v(button-secondary-background-color);
+        background-image: v(button-secondary-background-image);
+        border          : v(button-secondary-border-width) solid v(button-secondary-border-color);
+
+        .neo-button-badge {
+            background-color: v(button-secondary-badge-background-color);
+            color           : v(button-secondary-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: v(button-secondary-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: v(button-secondary-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: v(button-secondary-text-color);
+        }
+
+        &:active {
+            background-color: v(button-secondary-background-color-active) !important;
+            border-color    : v(button-secondary-border-color-active);
+
+            .neo-button-glyph {
+                color: v(button-secondary-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: v(button-secondary-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: v(button-secondary-background-color-hover);
+            border-color    : v(button-secondary-border-color-hover);
+
+            .neo-button-glyph {
+                color: v(button-secondary-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: v(button-secondary-text-color-hover);
+            }
+        }
+    }
+
+    &.neo-button-tertiary {
+        background-color: v(button-tertiary-background-color);
+        background-image: v(button-tertiary-background-image);
+        border          : v(button-tertiary-border-width) solid v(button-tertiary-border-color);
+
+        .neo-button-badge {
+            background-color: v(button-tertiary-badge-background-color);
+            color           : v(button-tertiary-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: v(button-tertiary-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: v(button-tertiary-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: v(button-tertiary-text-color);
+        }
+
+        &:active {
+            background-color: v(button-tertiary-background-color-active) !important;
+            border-color    : v(button-tertiary-border-color-active);
+
+            .neo-button-glyph {
+                color: v(button-tertiary-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: v(button-tertiary-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: v(button-tertiary-background-color-hover);
+            border-color    : v(button-tertiary-border-color-hover);
+
+            .neo-button-glyph {
+                color: v(button-tertiary-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: v(button-tertiary-text-color-hover);
+            }
+        }
+    }
+
+    &.no-text {
+        .neo-button-glyph {
+            margin: 0 !important;
+        }
+    }
+
+    &.pressed {
+        border-color: v(button-pressed-border-color);
+    }
+}
+
+.neo-disabled {
+    .neo-button,
+    &.neo-button {
+        background-color: v(button-background-color-disabled);
+        border-color    : v(button-border-color-disabled);
+        cursor          : default;
+        opacity         : v(button-opacity-disabled);
+
+        .neo-button-glyph {
+            color: v(button-glyph-color-disabled);
+        }
+
+        .neo-button-text {
+            color: v(button-text-color-disabled);
+        }
+
+        &.neo-button-secondary {
+            background-color: v(button-secondary-background-color-disabled);
+            border-color    : v(button-secondary-border-color-disabled);
+            opacity         : v(button-secondary-opacity-disabled);
+
+            .neo-button-glyph {
+                color: v(button-secondary-glyph-color-disabled);
+            }
+
+            .neo-button-text {
+                color: v(button-secondary-text-color-disabled);
+            }
+        }
+
+        &.neo-button-tertiary {
+            background-color: v(button-tertiary-background-color-disabled);
+            border-color    : v(button-tertiary-border-color-disabled);
+            opacity         : v(button-tertiary-opacity-disabled);
+
+            .neo-button-glyph {
+                color: v(button-tertiary-glyph-color-disabled);
+            }
+
+            .neo-button-text {
+                color: v(button-tertiary-text-color-disabled);
+            }
         }
     }
 }

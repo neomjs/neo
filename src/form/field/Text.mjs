@@ -894,17 +894,16 @@ class Text extends Base {
      * @returns {Object|null}
      */
     getCenterBorderEl() {
-        let el = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'});
-        return el?.vdom;
+        return VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'})?.vdom || null;
     }
 
     /**
      * @returns {Object|null}
      */
     getInputEl() {
-        let el = VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'});
-        return el?.vdom;
+        return VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'})?.vdom || null;
     }
+
     /**
      * @returns {String}
      */
@@ -942,8 +941,7 @@ class Text extends Base {
      * @returns {Object|null}
      */
     getLabelEl() {
-        let el = VDomUtil.findVdomChild(this.vdom, {tag: 'label'});
-        return el?.vdom;
+        return VDomUtil.findVdomChild(this.vdom, {tag: 'label'})?.vdom || null;
     }
 
     /**

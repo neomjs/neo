@@ -74,7 +74,7 @@ function addHook(opts) {
         name         = opts.name,
         len          = contentArray.length,
         type         = opts.type,
-        j, methodName, nextLine,
+        index, j, methodName, nextLine,
 
     method = [
         '',
@@ -125,17 +125,18 @@ function addHook(opts) {
     );
 
     for (; i < len; i++) {
-        if (contentArray[i].includes('}}')) {
+        if (contentArray[i].startsWith('    }')) {
             break;
         }
     }
 
     for (; i < len; i++) {
         if (contentArray[i].includes('*/')) {
-            nextLine   = contentArray[i + 1]
-            methodName = nextLine.substring(0, nextLine.indexOf('(')).trim();
+            nextLine   = contentArray[i + 1];
+            index      = nextLine.indexOf('(');
+            methodName = index > -1 && nextLine.substring(0, index).trim();
 
-            if (methodName === 'construct') {
+            if (!methodName || methodName === 'construct') {
                 continue;
             }
 
@@ -324,7 +325,7 @@ if (programOpts.info) {
     for (; i < len; i++) {
         codeLine = contentArray[i];
 
-        if (codeLine.includes('    }')) {
+        if (codeLine.startsWith('    }')) {
             addComma(contentArray, i - 1);
             addConfig({
                 configName,
