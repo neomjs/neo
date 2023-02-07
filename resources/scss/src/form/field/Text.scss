@@ -10,6 +10,10 @@
         .neo-input-wrapper {
             border-color: v(textfield-border-color-active) !important;
             outline     : v(textfield-outline-active);
+
+            .neo-textfield-input {
+                outline: none;
+            }
         }
 
         .neo-label-wrapper { // labelPosition: inline
@@ -296,7 +300,7 @@
         border          : v(textfield-border-width) solid v(textfield-border-color);
         border-radius   : v(textfield-border-radius);
         display         : flex;
-        flex            : 1 1 100px;
+        flex            : 1 1 1px;
         min-height      : v(textfield-input-height);
         outline         : 0 solid v(textfield-outline-active);
         overflow        : hidden;
