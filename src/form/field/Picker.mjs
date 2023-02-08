@@ -83,7 +83,7 @@ class Picker extends Text {
          * @member {Boolean} showPickerOnFocus=false
          * @protected
          */
-        showPickerOnFocus: true,
+        showPickerOnFocus: false,
         /**
          * @member {Object|Object[]} triggers=[]
          * @protected
