@@ -365,6 +365,21 @@ class Select extends Picker {
      * @param {Object} data
      * @protected
      */
+    handleKeyDownEnter(data) {
+        let me = this;
+
+        if (me.pickerIsMounted) {
+            me.selectListItem();
+            super.onKeyDownEnter(data)
+        } else {
+            super.onKeyDownEnter(data, me.selectListItem)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
     onContainerKeyDownEnter(data) {
         this.hidePicker()
     }
@@ -406,7 +421,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownDown(data) {
-        this.onKeyDownEnter(data)
+        this.handleKeyDownEnter(data)
     }
 
     /**
@@ -414,14 +429,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownEnter(data) {
-        let me = this;
-
-        if (me.pickerIsMounted) {
-            me.selectListItem();
-            super.onKeyDownEnter(data)
-        } else {
-            super.onKeyDownEnter(data, me.selectListItem)
-        }
+        this.handleKeyDownEnter(data);
     }
 
     /**
