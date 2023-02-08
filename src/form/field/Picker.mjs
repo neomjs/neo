@@ -80,6 +80,11 @@ class Picker extends Text {
          */
         pickerWidth: 100,
         /**
+         * @member {Boolean} showPickerOnFocus=false
+         * @protected
+         */
+        showPickerOnFocus: true,
+        /**
          * @member {Object|Object[]} triggers=[]
          * @protected
          */
@@ -256,6 +261,18 @@ class Picker extends Text {
         me.pickerIsMounted && picker.unmount();
 
         me.pickerIsMounted = false;
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
+
+        let me = this;
+
+        me.showPickerOnFocus && !me.pickerIsMounted && me.getClientRectsThenShow();
     }
 
     /**
