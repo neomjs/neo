@@ -185,7 +185,7 @@
 
             &:before {
                 color      : v(dateselector-nav-button-color);
-                font-family: "Font Awesome 5 Free";
+                font-family: var(--fa-style-family-classic);
                 font-size  : 18px;
                 font-weight: 900;
                 transition : color 150ms cubic-bezier(0.4, 0, 0.2, 1);

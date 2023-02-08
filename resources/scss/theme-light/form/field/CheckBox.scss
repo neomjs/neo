@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
     'checkboxfield-color'           : #aaa,
     'checkboxfield-color-checked'   : #1c60a0,
-    'checkboxfield-icon-font-family': '"Font Awesome 5 Free"',
+    'checkboxfield-icon-font-family': var(--fa-style-family-classic),
     'checkboxfield-icon-font-size'  : 14px,
     'checkboxfield-label-top-margin': 0 0 3px
 ));

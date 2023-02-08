@@ -48,7 +48,7 @@
             color      : v(list-item-glyph-color); // todo: tree-list var
             content    : "\f1f9";
             display    : inline-block;
-            font-family: "Font Awesome 5 Free";
+            font-family: var(--fa-style-family-classic);
             font-weight: 900;
             width      : 25px;
         }
@@ -75,7 +75,7 @@
         .neo-treelist-menu-item-content:before {
             color      : v(tree-list-menu-item-color);
             display    : inline-block;
-            font-family: "Font Awesome 5 Free";
+            font-family: var(--fa-style-family-classic);
             font-weight: 900;
             width      : 25px;
         }
