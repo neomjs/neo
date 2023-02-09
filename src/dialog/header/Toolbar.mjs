@@ -47,7 +47,7 @@ class Toolbar extends Base {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        oldValue && this.down({flag: 'title-label'})?.set({
+        this.down({flag: 'title-label'})?.set({
             removeDom: !value,
             text     : value
         })
