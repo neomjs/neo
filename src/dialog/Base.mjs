@@ -432,6 +432,11 @@ class Base extends Panel {
         };
 
         map[data.action]?.call(me, data);
+
+        me.fire('headerAction', {
+            dialog: me,
+            ...data
+        })
     }
 
     /**
