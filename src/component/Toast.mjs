@@ -1,6 +1,6 @@
 import Base         from '../component/Base.mjs';
-import ToastManager from '../manager/Toast.mjs';
 import NeoArray     from "../util/Array.mjs";
+import ToastManager from '../manager/Toast.mjs';
 
 /**
  * @class Neo.component.Toast
@@ -21,18 +21,6 @@ import NeoArray     from "../util/Array.mjs";
         })
  */
 class Toast extends Base {
-    /**
-     * Used by the ToastManager
-     * @member {Boolean} running=false
-     * @private
-     */
-    running = false
-    /**
-     * Timeout in ms after which the toast is removed
-     * @member {Number} timeout=3000
-     */
-    timeout = 3000
-
     /**
      * Valid values for positions
      * @member {String[]} positions = ['tl','tc','tr','bl','bc','br']
@@ -121,6 +109,18 @@ class Toast extends Base {
             ]
         }]}
     }
+
+    /**
+     * Used by the ToastManager
+     * @member {Boolean} running=false
+     * @private
+     */
+    running = false
+    /**
+     * Timeout in ms after which the toast is removed
+     * @member {Number} timeout=3000
+     */
+    timeout = 3000
 
     /**
      * @param {Object} config
