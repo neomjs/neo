@@ -253,6 +253,12 @@ class Base extends CoreBase {
          */
         rendering_: false,
         /**
+         * Specify a role tag attribute for the vdom root.
+         * See: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
+         * @member {String|null} role_=null
+         */
+        role_: null,
+        /**
          * Set this to true for bulk updates.
          * Ensure to set it back to false afterwards.
          * @member {Boolean} silentVdomUpdate=false
@@ -623,6 +629,16 @@ class Base extends CoreBase {
                 me.fire('mounted', me.id);
             }
         }
+    }
+
+    /**
+     * Triggered after the role config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.changeVdomRootKey('role', value);
     }
 
     /**
