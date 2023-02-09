@@ -431,7 +431,7 @@ class Base extends Panel {
             maximize: me.maximize
         };
 
-        map[data.action].call(me, data);
+        map[data.action]?.call(me, data);
     }
 
     /**
