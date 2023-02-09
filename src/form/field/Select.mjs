@@ -128,6 +128,7 @@ class Select extends Picker {
             module        : List,
             appName       : me.appName,
             displayField  : me.displayField,
+            itemRole      : 'option',
             parentId      : me.id,
             selectionModel: {stayInList: false},
             store         : me.store,
