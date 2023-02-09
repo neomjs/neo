@@ -83,6 +83,10 @@ class Select extends Picker {
          */
         record: null,
         /**
+         * @member {String|null} role='listbox'
+         */
+        role: 'listbox',
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
