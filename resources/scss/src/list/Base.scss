@@ -20,7 +20,7 @@
             color      : v(list-item-glyph-color);
             content    : "\f0c8";
             display    : inline-block;
-            font-family: "Font Awesome 5 Free";
+            font-family: var(--fa-style-family-classic);
             width      : 25px;
         }
 

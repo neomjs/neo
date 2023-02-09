@@ -121,7 +121,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onLeafNodesOnlyChange(opts) {
-        let dragZone = this.exampleComponent.dragZone;
+        let dragZone = this.exampleComponent.down({module: ApiTreeList}).dragZone;
 
         if (dragZone) {
             dragZone.leafNodesOnly = opts.value;

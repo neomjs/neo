@@ -80,6 +80,11 @@ class Picker extends Text {
          */
         pickerWidth: 100,
         /**
+         * @member {Boolean} showPickerOnFocus=false
+         * @protected
+         */
+        showPickerOnFocus: false,
+        /**
          * @member {Object|Object[]} triggers=[]
          * @protected
          */
@@ -168,7 +173,7 @@ class Picker extends Text {
             id       : me.getPickerId(),
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
-            vdom     : {cn: [], tabIndex: -1},
+            vdom     : {cn: [], 'aria-activedescendant': me.id, tabIndex: -1},
             width    : me.pickerWidth,
             ...me.pickerConfig,
 
@@ -256,6 +261,18 @@ class Picker extends Text {
         me.pickerIsMounted && picker.unmount();
 
         me.pickerIsMounted = false;
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
+
+        let me = this;
+
+        me.showPickerOnFocus && !me.pickerIsMounted && me.getClientRectsThenShow();
     }
 
     /**

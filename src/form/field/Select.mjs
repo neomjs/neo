@@ -83,6 +83,10 @@ class Select extends Picker {
          */
         record: null,
         /**
+         * @member {String|null} role='listbox'
+         */
+        role: 'listbox',
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
@@ -128,6 +132,7 @@ class Select extends Picker {
             module        : List,
             appName       : me.appName,
             displayField  : me.displayField,
+            itemRole      : 'option',
             parentId      : me.id,
             selectionModel: {stayInList: false},
             store         : me.store,
@@ -365,6 +370,21 @@ class Select extends Picker {
      * @param {Object} data
      * @protected
      */
+    handleKeyDownEnter(data) {
+        let me = this;
+
+        if (me.pickerIsMounted) {
+            me.selectListItem();
+            super.onKeyDownEnter(data)
+        } else {
+            super.onKeyDownEnter(data, me.selectListItem)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
     onContainerKeyDownEnter(data) {
         this.hidePicker()
     }
@@ -406,7 +426,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownDown(data) {
-        this.onKeyDownEnter(data)
+        this.handleKeyDownEnter(data)
     }
 
     /**
@@ -414,14 +434,7 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownEnter(data) {
-        let me = this;
-
-        if (me.pickerIsMounted) {
-            me.selectListItem();
-            super.onKeyDownEnter(data)
-        } else {
-            super.onKeyDownEnter(data, me.selectListItem)
-        }
+        this.handleKeyDownEnter(data);
     }
 
     /**

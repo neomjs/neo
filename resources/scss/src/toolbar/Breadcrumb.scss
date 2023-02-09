@@ -7,7 +7,7 @@
                 color       : v(button-text-color);
                 content     : "\f105";
                 display     : block;
-                font-family : "Font Awesome 5 Free";
+                font-family : var(--fa-style-family-classic);
                 font-weight : 600;
                 position    : absolute;
                 right       : -20px;

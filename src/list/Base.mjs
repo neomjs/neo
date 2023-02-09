@@ -133,6 +133,11 @@ class Base extends Component {
     }
 
     /**
+     * @member {String|null} itemRole=null
+     */
+    itemRole = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -369,6 +374,10 @@ class Base extends Component {
             id      : itemId,
             tabIndex: -1
         };
+
+        if (me.itemRole) {
+            item.role = me.itemRole;
+        }
 
         switch (Neo.typeOf(itemContent)) {
             case null: {
