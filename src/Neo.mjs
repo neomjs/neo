@@ -52,7 +52,7 @@ Neo = globalThis.Neo = Object.assign({
             ntypeMap = Neo.ntypeMap,
             proto    = cls.prototype || cls,
             protos   = [],
-            cfg, config, ctor, overrides;
+            cfg, config, ctor, ntype;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
@@ -74,7 +74,7 @@ Neo = globalThis.Neo = Object.assign({
             ctor = element.constructor;
 
             cfg = ctor.config || {};
-            
+
             if (Neo.overwrites) {
                 ctor.applyOverwrites(cfg);
             }
@@ -99,11 +99,15 @@ Neo = globalThis.Neo = Object.assign({
             });
 
             if (Object.hasOwn(cfg, 'ntype')) {
-                if (Object.hasOwn(ntypeMap, cfg.ntype)) {
-                    throw new Error(`ntype conflict for '${cfg.ntype}' inside the classes:\n${ntypeMap[cfg.ntype]}\n${cfg.className}`);
+                ntype = cfg.ntype;
+
+                // Running the docs app inside a workspace can pull in the same classes from different roots,
+                // so we want to check for different class names as well
+                if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
+                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`);
                 }
 
-                ntypeMap[cfg.ntype] = cfg.className;
+                ntypeMap[ntype] = cfg.className;
             }
 
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
@@ -396,7 +400,7 @@ Neo = globalThis.Neo = Object.assign({
      *
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
-     * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
+     * @param {Boolean} [create] Set create to true to create empty objects for non-existing parts
      * @param {Object} [scope] Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
