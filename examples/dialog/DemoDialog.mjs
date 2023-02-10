@@ -7,6 +7,7 @@ import Dialog from '../../src/dialog/Base.mjs';
 class DemoDialog extends Dialog {
     static config = {
         className: 'Neo.examples.dialog.DemoWindow',
+        title    : 'My Dialog',
 
         wrapperStyle: {
             height: '40%',
