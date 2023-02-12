@@ -1,5 +1,4 @@
 import BreadcrumbToolbar from '../../../../src/toolbar/Breadcrumb.mjs';
-import Store             from '../../../../src/data/Store.mjs';
 import Viewport          from '../../../../src/container/Viewport.mjs';
 
 /**
@@ -20,6 +19,7 @@ class MainContainer extends Viewport {
             module   : BreadcrumbToolbar,
             activeKey: 2,
             flex     : 'none',
+            reference: 'breadcrumb-toolbar',
 
             store: {
                 data: [
@@ -29,6 +29,23 @@ class MainContainer extends Viewport {
                     {id: 4, name: 'News',          parentId: 1,    route: '/home/news/'},
                 ]
             }
+        }, {
+            ntype: 'toolbar',
+            flex : 'none',
+            style: {marginTop: '30px'},
+
+            itemDefaults: {
+                ntype: 'button',
+                style: {marginRight: '10px'}
+            },
+
+            items: [{
+                activeKey: 1,
+                text     : 'Home'
+            }, {
+                activeKey: 2,
+                text     : 'Accessibility'
+            }]
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
