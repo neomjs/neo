@@ -8,9 +8,9 @@
         border : none;
         margin : 0;
         padding: .5em;
+    }
 
-        &:last-child {
-            border-left: v(button-border-width) solid v(button-border-color);
-        }
+    .neo-trigger-button {
+        border-left: v(button-border-width) solid v(button-border-color);
     }
 }

@@ -67,6 +67,7 @@ class Split extends Button {
         me.triggerButton = Neo.create({
             module  : Button,
             appName : me.appName,
+            cls     : ['neo-trigger-button'],
             disabled: me.disabled,
             handler : me.splitButtonHandler,
             hidden  : me.hideTriggerButton,
