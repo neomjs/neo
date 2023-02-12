@@ -20,13 +20,13 @@ class Breadcrumb extends Toolbar {
          */
         ntype: 'breadcrumb-toolbar',
         /**
-         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
-         */
-        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
-        /**
          * @member {Number|String|null} activeKey_=null
          */
         activeKey_: null,
+        /**
+         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
+         */
+        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
         /**
          * @member {Neo.data.Store|Object} store_=null
          */
