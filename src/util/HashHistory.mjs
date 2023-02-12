@@ -61,13 +61,15 @@ class HashHistory extends Base {
         let me    = this,
             stack = me.stack;
 
-        stack.unshift(data);
+        if (stack[0]?.hashString !== data.hashString) {
+            stack.unshift(data);
 
-        if (stack.length > me.maxItems) {
-            stack.pop();
+            if (stack.length > me.maxItems) {
+                stack.pop();
+            }
+
+            me.fire('change', data, stack[1] || null)
         }
-
-        me.fire('change', data, stack[1] || null);
     }
 }
 
