@@ -4,6 +4,7 @@
     color          : v(trigger-color);
     cursor         : pointer;
     display        : flex;
+    flex-shrink    : 0;
     font-size      : 14px;
     height         : v(textfield-input-height); // has to be 1px smaller to not overlap the bottom border on hover
     justify-content: center;
