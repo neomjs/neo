@@ -19,6 +19,10 @@ class Split extends Button {
          */
         ntype: 'split-button',
         /**
+         * @member {Boolean} hideTriggerButton_=false
+         */
+        hideTriggerButton_: false,
+        /**
          * Read only, it will get created inside the ctor.
          * Use triggerButtonConfig to pass initial config for it.
          * @member {Neo.button.Base|null} triggerButton=null
@@ -65,6 +69,7 @@ class Split extends Button {
             appName : me.appName,
             disabled: me.disabled,
             handler : me.splitButtonHandler,
+            hidden  : me.hideTriggerButton,
             iconCls : me.triggerButtonIconCls,
             parentId: me.id,
             pressed : me.pressed,
@@ -89,6 +94,20 @@ class Split extends Button {
         }
 
         super.afterSetDisabled(value, oldValue);
+    }
+
+    /**
+     * Triggered after the hideTriggerButton config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHideTriggerButton(value, oldValue) {
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.hidden = value;
+        }
     }
 
     /**

@@ -1,7 +1,8 @@
-import SplitButton           from '../../../src/button/Split.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import SplitButton           from '../../../src/button/Split.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
@@ -11,9 +12,8 @@ import TextField             from '../../../src/form/field/Text.mjs';
 class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.button.split.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 110,
-        configItemWidth     : 230,
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
@@ -30,9 +30,16 @@ class MainContainer extends ConfigurationViewport {
             stepSize  : 5,
             value     : me.exampleComponent.height
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.hideTriggerButton,
+            labelText: 'hideTriggerButton',
+            listeners: {change: me.onConfigChange.bind(me, 'hideTriggerButton')},
+            style    : {marginTop: '10px'}
+        }, {
             module    :  TextField, // todo: selectField with options
             labelText : 'iconCls',
             listeners : {change: me.onConfigChange.bind(me, 'iconCls')},
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.iconCls
         }, {
             module    :  TextField, // todo: colorPickerField
