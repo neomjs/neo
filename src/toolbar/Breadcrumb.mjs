@@ -37,6 +37,29 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
+     * @member {Object} defaultStoreConfig
+     */
+    defaultStoreConfig = {
+        module: Store,
+
+        model: {
+            fields: [{
+                name: 'id',
+                type: 'Integer'
+            }, {
+                name: 'name',
+                type: 'String'
+            }, {
+                name: 'parentId',
+                type: 'Integer'
+            }, {
+                name: 'route',
+                type: 'String'
+            }]
+        }
+    }
+
+    /**
      * Triggered after the activeKey config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
@@ -72,7 +95,7 @@ class Breadcrumb extends Toolbar {
      */
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, Store);
+        return ClassSystemUtil.beforeSetInstance(value, null, this.defaultStoreConfig);
     }
 
     /**

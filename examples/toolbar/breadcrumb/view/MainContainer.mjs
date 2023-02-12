@@ -22,24 +22,6 @@ class MainContainer extends Viewport {
             flex     : 'none',
 
             store: {
-                module: Store,
-
-                model: {
-                    fields: [{
-                        name: 'id',
-                        type: 'Integer'
-                    }, {
-                        name: 'name',
-                        type: 'String'
-                    }, {
-                        name: 'parentId',
-                        type: 'Integer'
-                    }, {
-                        name: 'route',
-                        type: 'String'
-                    }]
-                },
-
                 data: [
                     {id: 1, name: 'Home',          parentId: null, route: '/home/'},
                     {id: 2, name: 'Accessibility', parentId: 1,    route: '/home/accessibility/'},
