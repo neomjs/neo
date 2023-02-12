@@ -82,10 +82,10 @@ class Split extends Button {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let me = this;
+        let triggerButton = this.triggerButton;
 
-        if (me.triggerButton) {
-            me.triggerButton.disabled = value;
+        if (triggerButton) {
+            triggerButton.disabled = value;
         }
 
         super.afterSetDisabled(value, oldValue);
@@ -98,10 +98,10 @@ class Split extends Button {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let me = this;
+        let triggerButton = this.triggerButton;
 
-        if (me.triggerButton) {
-            me.triggerButton.pressed = value;
+        if (triggerButton) {
+            triggerButton.pressed = value;
         }
 
         super.afterSetPressed(value, oldValue);
@@ -114,8 +114,10 @@ class Split extends Button {
      * @protected
      */
     afterSetTriggerButtonIconCls(value, oldValue) {
-        if (this.triggerButton) {
-            this.triggerButton.iconCls = value;
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.iconCls = value;
         }
     }
 
