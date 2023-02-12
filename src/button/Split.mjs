@@ -81,6 +81,20 @@ class Split extends Button {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (this.triggerButton) {
+            this.triggerButton.appName = value;
+        }
+
+        super.afterSetAppName(value, oldValue);
+    }
+
+    /**
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
