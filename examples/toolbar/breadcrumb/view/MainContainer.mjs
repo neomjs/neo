@@ -42,14 +42,15 @@ class MainContainer extends Viewport {
                 ]
             }
         }, {
-            ntype: 'toolbar',
-            flex : 'none',
-            style: {marginTop: '30px'},
+            ntype : 'toolbar',
+            flex  : 'none',
+            layout: {ntype: 'vbox', align: 'start'},
+            style : {marginTop: '30px'},
 
             itemDefaults: {
                 ntype  : 'button',
                 handler: 'onActiveKeyButtonClick',
-                style  : {marginRight: '10px'}
+                style  : {marginTop: '10px'}
             },
 
             items: [{
@@ -57,28 +58,49 @@ class MainContainer extends Viewport {
                 text     : 'Home'
             }, {
                 activeKey: 2,
+                style    : {marginLeft: '20px', marginTop: '10px'},
                 text     : 'Accessibility'
+            }, {
+                activeKey: 3,
+                style    : {marginLeft: '20px', marginTop: '10px'},
+                text     : 'Imprint'
+            }, {
+                activeKey: 4,
+                style    : {marginLeft: '20px', marginTop: '10px'},
+                text     : 'News'
             }, {
                 activeKey: 5,
                 text     : 'Forms'
             }, {
+                activeKey: 6,
+                style    : {marginLeft: '20px', marginTop: '10px'},
+                text     : 'Group 1'
+            }, {
                 activeKey: 7,
-                text     : 'Group 1, Page 1'
+                style    : {marginLeft: '40px', marginTop: '10px'},
+                text     : 'Page 1'
             }, {
                 activeKey: 8,
-                text     : 'Group 1, Page 2'
+                style    : {marginLeft: '40px', marginTop: '10px'},
+                text     : 'Page 2'
+            }, {
+                activeKey: 9,
+                style    : {marginLeft: '20px', marginTop: '10px'},
+                text     : 'Group 2'
             }, {
                 activeKey: 10,
-                text     : 'Group 2, Page 1'
+                style    : {marginLeft: '40px', marginTop: '10px'},
+                text     : 'Page 1'
             }, {
                 activeKey: 11,
-                text     : 'Group 2, Page 2'
+                style    : {marginLeft: '40px', marginTop: '10px'},
+                text     : 'Page 2'
             }]
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
+        layout: {ntype: 'vbox', align: 'start'},
         /**
          * @member {Object} style={padding:'20px'}
          */
