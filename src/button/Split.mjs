@@ -73,6 +73,7 @@ class Split extends Button {
             iconCls : me.triggerButtonIconCls,
             parentId: me.vdom.id, // wrapper id
             pressed : me.pressed,
+            ui      : me.ui,
             ...me.triggerButtonConfig
         });
 
@@ -165,6 +166,20 @@ class Split extends Button {
         if (triggerButton) {
             triggerButton.iconCls = value;
         }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetUi(value, oldValue) {
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.ui = value;
+        }
+
+        super.afterSetUi(value, oldValue);
     }
 
     /**
