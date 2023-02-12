@@ -1,5 +1,6 @@
-import BreadcrumbToolbar from '../../../../src/toolbar/Breadcrumb.mjs';
-import Viewport          from '../../../../src/container/Viewport.mjs';
+import BreadcrumbToolbar       from '../../../../src/toolbar/Breadcrumb.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import Viewport                from '../../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.toolbar.breadcrumb.view.MainContainer
@@ -12,6 +13,10 @@ class MainContainer extends Viewport {
          * @protected
          */
         className: 'Neo.examples.toolbar.breadcrumb.view.MainContainer',
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
+        controller: MainContainerController,
         /**
          * @member {Object[]} items
          */
@@ -35,8 +40,9 @@ class MainContainer extends Viewport {
             style: {marginTop: '30px'},
 
             itemDefaults: {
-                ntype: 'button',
-                style: {marginRight: '10px'}
+                ntype  : 'button',
+                handler: 'onActiveKeyButtonClick',
+                style  : {marginRight: '10px'}
             },
 
             items: [{
