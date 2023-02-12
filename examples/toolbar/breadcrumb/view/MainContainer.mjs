@@ -42,10 +42,13 @@ class MainContainer extends Viewport {
                 ]
             }
         }, {
+            ntype: 'label',
+            style: {marginTop: '40px'},
+            text : 'Navigate to'
+        }, {
             ntype : 'toolbar',
             flex  : 'none',
             layout: {ntype: 'vbox', align: 'start'},
-            style : {marginTop: '30px'},
 
             itemDefaults: {
                 ntype  : 'button',
