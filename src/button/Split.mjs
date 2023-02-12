@@ -71,7 +71,7 @@ class Split extends Button {
             handler : me.splitButtonHandler,
             hidden  : me.hideTriggerButton,
             iconCls : me.triggerButtonIconCls,
-            parentId: me.id,
+            parentId: me.vdom.id, // wrapper id
             pressed : me.pressed,
             ...me.triggerButtonConfig
         });
@@ -108,6 +108,19 @@ class Split extends Button {
         }
 
         super.afterSetDisabled(value, oldValue);
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        this.vdom.id = value + '__wrapper';
+
+        // silent vdom update, the super call will trigger the engine
+        super.afterSetId(value, oldValue);
     }
 
     /**
