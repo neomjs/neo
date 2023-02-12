@@ -1660,7 +1660,7 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
-            me.render(true);
+            !me.silentVdomUpdate && me.render(true);
         } else {
             let style = me.style;
             delete style.visibility;
