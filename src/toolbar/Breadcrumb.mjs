@@ -27,10 +27,6 @@ class Breadcrumb extends Toolbar {
          */
         activeKey_: null,
         /**
-         * @member {Object[]} items
-         */
-        items: [],
-        /**
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
