@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neomjs-logo-250.png">
+  <img height="250" width="250" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/logo_rounded.svg">
 </p>
 
 <p align="center">

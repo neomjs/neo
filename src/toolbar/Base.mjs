@@ -11,10 +11,10 @@ import NeoArray  from '../util/Array.mjs';
 class Base extends Container {
     /**
      * Valid values for dock
-     * @member {String[]} dockPositions=['top','right','bottom','left']
+     * @member {String[]} dockPositions=['top','right','bottom','left', null]
      * @static
      */
-    static dockPositions = ['top', 'right', 'bottom', 'left']
+    static dockPositions = ['top', 'right', 'bottom', 'left', null]
 
     static config = {
         /**
@@ -32,9 +32,9 @@ class Base extends Container {
          */
         baseCls: ['neo-toolbar'],
         /**
-         * @member {String} dock_='top'
+         * @member {String|null} dock_=null
          */
-        dock_: 'top',
+        dock_: null,
         /**
          * @member {Object} itemDefaults={ntype:'button'}
          */
@@ -42,9 +42,9 @@ class Base extends Container {
             ntype: 'button'
         },
         /**
-         * @member {Object} _layout={ntype: 'hbox', align: 'center', pack : 'start'}
+         * @member {Object} layout={ntype: 'hbox', align: 'center', pack : 'start'}
          */
-        _layout: {
+        layout: {
             ntype: 'hbox',
             align: 'center',
             pack : 'start'
@@ -89,7 +89,7 @@ class Base extends Container {
             dockPositions = me.getStaticConfig('dockPositions');
 
         dockPositions.forEach(key => {
-            NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key);
+            key !== null && NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key);
         });
 
         me.cls    = cls;
@@ -154,36 +154,39 @@ class Base extends Container {
      * @returns {Object} layoutConfig
      */
     getLayoutConfig() {
-        let layoutConfig;
+        let me = this,
+            layoutConfig;
 
-        switch(this.dock) {
-            case 'bottom':
-            case 'top':
-                layoutConfig = {
-                    ntype: 'hbox',
-                    align: 'center',
-                    pack : 'start'
-                };
-                break;
-            case 'left':
-                layoutConfig = {
-                    ntype    : 'vbox',
-                    align    : 'center',
-                    direction: 'column-reverse',
-                    pack     : 'start'
-                };
-                break;
-            case 'right':
-                layoutConfig = {
-                    ntype    : 'vbox',
-                    align    : 'center',
-                    direction: 'column',
-                    pack     : 'start'
-                };
-                break;
+        if (me.dock) {
+            switch(me.dock) {
+                case 'bottom':
+                case 'top':
+                    layoutConfig = {
+                        ntype: 'hbox',
+                        align: 'center',
+                        pack : 'start'
+                    };
+                    break;
+                case 'left':
+                    layoutConfig = {
+                        ntype    : 'vbox',
+                        align    : 'center',
+                        direction: 'column-reverse',
+                        pack     : 'start'
+                    };
+                    break;
+                case 'right':
+                    layoutConfig = {
+                        ntype    : 'vbox',
+                        align    : 'center',
+                        direction: 'column',
+                        pack     : 'start'
+                    };
+                    break;
+            }
         }
 
-        return layoutConfig;
+        return layoutConfig || me.layout;
     }
 }
 

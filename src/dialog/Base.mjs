@@ -113,9 +113,9 @@ class Base extends Panel {
          */
         resizablePluginConfig: null,
         /**
-         * @member {String} title='Dialog Title'
+         * @member {String|null} title_=null
          */
-        title: 'Dialog Title',
+        title_: null,
         /**
          * @member {Object} _vdom
          */
@@ -269,6 +269,18 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the title config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        if (this.headerToolbar) {
+            this.headerToolbar.title = value;
+        }
+    }
+
+    /**
      *
      */
     async animateHide() {
@@ -419,7 +431,12 @@ class Base extends Panel {
             maximize: me.maximize
         };
 
-        map[data.action].call(me, data);
+        map[data.action]?.call(me, data);
+
+        me.fire('headerAction', {
+            dialog: me,
+            ...data
+        })
     }
 
     /**

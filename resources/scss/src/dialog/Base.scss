@@ -60,10 +60,6 @@
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);
 
-            &.neo-draggable {
-                cursor: move;
-            }
-
             .neo-button {
                 border      : 0;
                 margin-right: 0.3em;
@@ -81,11 +77,17 @@
 
             .neo-panel-header-text {
                 color         : v(dialog-header-color);
+                overflow      : hidden;
                 pointer-events: none;
+                text-overflow : ellipsis;
                 user-drag     : none; // not supported yet
                 user-select   : none;
 
                 -webkit-user-drag: none;
+            }
+
+            &.neo-draggable {
+                cursor: move;
             }
         }
     }

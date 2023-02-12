@@ -19,6 +19,10 @@ class Split extends Button {
          */
         ntype: 'split-button',
         /**
+         * @member {Boolean} hideTriggerButton_=false
+         */
+        hideTriggerButton_: false,
+        /**
          * Read only, it will get created inside the ctor.
          * Use triggerButtonConfig to pass initial config for it.
          * @member {Neo.button.Base|null} triggerButton=null
@@ -63,16 +67,33 @@ class Split extends Button {
         me.triggerButton = Neo.create({
             module  : Button,
             appName : me.appName,
+            cls     : ['neo-trigger-button'],
             disabled: me.disabled,
             handler : me.splitButtonHandler,
+            hidden  : me.hideTriggerButton,
             iconCls : me.triggerButtonIconCls,
-            parentId: me.id,
+            parentId: me.vdom.id, // wrapper id
             pressed : me.pressed,
+            ui      : me.ui,
             ...me.triggerButtonConfig
         });
 
         me.vdom.cn.push(me.triggerButton.vdom);
         me.update();
+    }
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (this.triggerButton) {
+            this.triggerButton.appName = value;
+        }
+
+        super.afterSetAppName(value, oldValue);
     }
 
     /**
@@ -82,13 +103,40 @@ class Split extends Button {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let me = this;
+        let triggerButton = this.triggerButton;
 
-        if (me.triggerButton) {
-            me.triggerButton.disabled = value;
+        if (triggerButton) {
+            triggerButton.disabled = value;
         }
 
         super.afterSetDisabled(value, oldValue);
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        this.vdom.id = value + '__wrapper';
+
+        // silent vdom update, the super call will trigger the engine
+        super.afterSetId(value, oldValue);
+    }
+
+    /**
+     * Triggered after the hideTriggerButton config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHideTriggerButton(value, oldValue) {
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.hidden = value;
+        }
     }
 
     /**
@@ -98,10 +146,10 @@ class Split extends Button {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let me = this;
+        let triggerButton = this.triggerButton;
 
-        if (me.triggerButton) {
-            me.triggerButton.pressed = value;
+        if (triggerButton) {
+            triggerButton.pressed = value;
         }
 
         super.afterSetPressed(value, oldValue);
@@ -114,9 +162,25 @@ class Split extends Button {
      * @protected
      */
     afterSetTriggerButtonIconCls(value, oldValue) {
-        if (this.triggerButton) {
-            this.triggerButton.iconCls = value;
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.iconCls = value;
         }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetUi(value, oldValue) {
+        let triggerButton = this.triggerButton;
+
+        if (triggerButton) {
+            triggerButton.ui = value;
+        }
+
+        super.afterSetUi(value, oldValue);
     }
 
     /**

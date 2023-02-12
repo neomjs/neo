@@ -1,4 +1,5 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import HashHistory     from '../util/HashHistory.mjs';
 import Store           from '../data/Store.mjs';
 import Toolbar         from '../toolbar/Base.mjs';
 
@@ -19,21 +20,55 @@ class Breadcrumb extends Toolbar {
          */
         ntype: 'breadcrumb-toolbar',
         /**
-         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
-         */
-        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
-        /**
          * @member {Number|String|null} activeKey_=null
          */
         activeKey_: null,
         /**
-         * @member {Object[]} items
+         * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
          */
-        items: [],
+        baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
         /**
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
+    }
+
+    /**
+     * @member {Object} defaultStoreConfig
+     */
+    defaultStoreConfig = {
+        module: Store,
+
+        model: {
+            fields: [{
+                name: 'id',
+                type: 'Integer'
+            }, {
+                name: 'name',
+                type: 'String'
+            }, {
+                name: 'parentId',
+                type: 'Integer'
+            }, {
+                name: 'route',
+                type: 'String'
+            }]
+        }
+    }
+    /**
+     * @member {Boolean} updateOnHashChange=true
+     */
+    updateOnHashChange = true
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.updateOnHashChange && HashHistory.on('change', me.onHashChange, me);
     }
 
     /**
@@ -43,7 +78,16 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetActiveKey(value, oldValue) {
-        this.store.getCount?.() > 0 && this.updateItems()
+        let me = this,
+            route;
+
+        if (value !== null && me.store.getCount?.() > 0) {
+            me.updateItems();
+
+            route = me.store.get(value)?.route;
+
+            route && Neo.Main.setRoute({value: route})
+        }
     }
 
     /**
@@ -53,14 +97,10 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me = this;
-
         value.on({
-            load: this.onStoreLoad,
-            scope: me
-        });
-
-        value?.getCount() > 0 && me.onStoreLoad(value.items)
+            load : this.onStoreLoad,
+            scope: this
+        })
     }
 
     /**
@@ -72,7 +112,18 @@ class Breadcrumb extends Toolbar {
      */
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, Store);
+        return ClassSystemUtil.beforeSetInstance(value, null, this.defaultStoreConfig);
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.updateOnHashChange && HashHistory.un('change', me.onHashChange, me);
+
+        super.destroy(...args);
     }
 
     /**
@@ -96,10 +147,24 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onHashChange(value, oldValue) {
+        let hashString = value?.hashString,
+            store      = this.store,
+            activeKey  = hashString && store.findFirst({route: hashString})?.[store.keyProperty];
+
+        if (activeKey !== null) {
+            this.activeKey = activeKey;
+        }
+    }
+
+    /**
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-        this.activeKey !== null && this.updateItems()
+       this.afterSetActiveKey(this.activeKey, null);
     }
 
     /**
@@ -114,23 +179,39 @@ class Breadcrumb extends Toolbar {
             newItems  = [],
             config, item
 
+        me.silentVdomUpdate = true;
+
         for (; i < len; i++) {
             item = pathItems[i];
 
             config = {
+                disabled : i === len - 1,
                 editRoute: false,
+                hidden   : false,
                 route    : item.route,
                 text     : item.name
             };
 
             if (items[i]) {
-                items[i].set(config);
+                items[i].setSilent(config)
             } else {
-                newItems.push(config);
+                newItems.push(config)
             }
         }
 
+        len = items.length;
+
+        for (; i < len; i++) {
+            items[i].setSilent({
+                hidden: true
+            })
+        }
+
         newItems.length > 0 && me.add(newItems);
+
+        me.silentVdomUpdate = false;
+
+        me.update()
     }
 }
 
