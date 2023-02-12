@@ -1,4 +1,5 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import HashHistory     from '../util/HashHistory.mjs';
 import Store           from '../data/Store.mjs';
 import Toolbar         from '../toolbar/Base.mjs';
 
@@ -54,6 +55,21 @@ class Breadcrumb extends Toolbar {
             }]
         }
     }
+    /**
+     * @member {Boolean} updateOnHashChange=true
+     */
+    updateOnHashChange = true
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.updateOnHashChange && HashHistory.on('change', me.onHashChange, me);
+    }
 
     /**
      * Triggered after the activeKey config got changed
@@ -100,6 +116,17 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
+     *
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.updateOnHashChange && HashHistory.un('change', me.onHashChange, me);
+
+        super.destroy(...args);
+    }
+
+    /**
      * @returns {Object[]}
      */
     getPathItems() {
@@ -117,6 +144,20 @@ class Breadcrumb extends Toolbar {
         }
 
         return items;
+    }
+
+    /**
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onHashChange(value, oldValue) {
+        let hashString = value?.hashString,
+            store      = this.store,
+            activeKey  = hashString && store.findFirst({route: hashString})?.[store.keyProperty];
+
+        if (activeKey !== null) {
+            this.activeKey = activeKey;
+        }
     }
 
     /**
