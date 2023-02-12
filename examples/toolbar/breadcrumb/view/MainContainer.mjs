@@ -33,12 +33,12 @@ class MainContainer extends Viewport {
                     {id: 3,  name: 'Imprint',       parentId: 1,    route: '/home/imprint/'},
                     {id: 4,  name: 'News',          parentId: 1,    route: '/home/news/'},
                     {id: 5,  name: 'Forms',         parentId: null, route: '/forms/'},
-                    {id: 6,  name: 'Group 1',       parentId: 5,    route: '/forms/group1/'},
-                    {id: 7,  name: 'Page 1',        parentId: 6,    route: '/forms/group1/page1/'},
-                    {id: 8,  name: 'Page 2',        parentId: 6,    route: '/forms/group1/page2/'},
-                    {id: 9,  name: 'Group 2',       parentId: 5,    route: '/forms/group2/'},
-                    {id: 10, name: 'Page 1',        parentId: 9,    route: '/forms/group2/page1/'},
-                    {id: 11, name: 'Page 2',        parentId: 9,    route: '/forms/group2/page2/'},
+                    {id: 6,  name: 'Form 1',        parentId: 5,    route: '/forms/form1/'},
+                    {id: 7,  name: 'Page 1',        parentId: 6,    route: '/forms/form1/page1/'},
+                    {id: 8,  name: 'Page 2',        parentId: 6,    route: '/forms/form1/page2/'},
+                    {id: 9,  name: 'Form 2',        parentId: 5,    route: '/forms/form2/'},
+                    {id: 10, name: 'Page 1',        parentId: 9,    route: '/forms/form2/page1/'},
+                    {id: 11, name: 'Page 2',        parentId: 9,    route: '/forms/form2/page2/'}
                 ]
             }
         }, {
@@ -74,7 +74,7 @@ class MainContainer extends Viewport {
             }, {
                 activeKey: 6,
                 style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Group 1'
+                text     : 'Form 1'
             }, {
                 activeKey: 7,
                 style    : {marginLeft: '40px', marginTop: '10px'},
@@ -86,7 +86,7 @@ class MainContainer extends Viewport {
             }, {
                 activeKey: 9,
                 style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Group 2'
+                text     : 'Form 2'
             }, {
                 activeKey: 10,
                 style    : {marginLeft: '40px', marginTop: '10px'},
