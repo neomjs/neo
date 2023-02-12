@@ -1660,6 +1660,7 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             me.vdom.removeDom = false;
+            console.log(me.parentId);
             me.update();
         } else {
             let style = me.style;

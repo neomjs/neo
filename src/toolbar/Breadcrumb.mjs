@@ -137,23 +137,40 @@ class Breadcrumb extends Toolbar {
             newItems  = [],
             config, item
 
+        me.silentVdomUpdate = true;
+
         for (; i < len; i++) {
             item = pathItems[i];
 
             config = {
                 editRoute: false,
+                hidden   : false,
                 route    : item.route,
                 text     : item.name
             };
 
             if (items[i]) {
-                items[i].set(config);
+                items[i].setSilent(config);
             } else {
                 newItems.push(config);
             }
         }
 
+        len = items.length;
+
+        for (; i < len; i++) {
+            item = items[i];
+
+            item.silentVdomUpdate = true;
+            item.hidden           = true;
+            item.silentVdomUpdate = false;
+        }
+
         newItems.length > 0 && me.add(newItems);
+
+        me.silentVdomUpdate = false;
+
+        me.update();
     }
 }
 
