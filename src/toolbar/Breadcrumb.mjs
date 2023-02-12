@@ -150,27 +150,25 @@ class Breadcrumb extends Toolbar {
             };
 
             if (items[i]) {
-                items[i].setSilent(config);
+                items[i].setSilent(config)
             } else {
-                newItems.push(config);
+                newItems.push(config)
             }
         }
 
         len = items.length;
 
         for (; i < len; i++) {
-            item = items[i];
-
-            item.silentVdomUpdate = true;
-            item.hidden           = true;
-            item.silentVdomUpdate = false;
+            items[i].setSilent({
+                hidden: true
+            })
         }
 
         newItems.length > 0 && me.add(newItems);
 
         me.silentVdomUpdate = false;
 
-        me.update();
+        me.update()
     }
 }
 
