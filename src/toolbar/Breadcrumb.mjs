@@ -66,7 +66,16 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetActiveKey(value, oldValue) {
-        this.store.getCount?.() > 0 && this.updateItems()
+        let me = this,
+            route;
+
+        if (value !== null && me.store.getCount?.() > 0) {
+            me.updateItems();
+
+            route = me.store.get(value)?.route;
+
+            route && Neo.Main.setRoute({value: route})
+        }
     }
 
     /**
@@ -76,14 +85,10 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me = this;
-
         value.on({
-            load: this.onStoreLoad,
-            scope: me
-        });
-
-        value?.getCount() > 0 && me.onStoreLoad(value.items)
+            load : this.onStoreLoad,
+            scope: this
+        })
     }
 
     /**
@@ -122,7 +127,7 @@ class Breadcrumb extends Toolbar {
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-        this.activeKey !== null && this.updateItems()
+       this.afterSetActiveKey(this.activeKey, null);
     }
 
     /**
