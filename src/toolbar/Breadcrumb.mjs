@@ -153,7 +153,7 @@ class Breadcrumb extends Toolbar {
     onHashChange(value, oldValue) {
         let hashString = value?.hashString,
             store      = this.store,
-            activeKey  = hashString && store.findFirst({route: hashString})?.[store.keyProperty];
+            activeKey  = hashString && store.findFirst({route: hashString})?.[store.keyProperty] || null;
 
         if (activeKey !== null) {
             this.activeKey = activeKey;
