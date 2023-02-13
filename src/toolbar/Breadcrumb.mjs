@@ -50,7 +50,7 @@ class Breadcrumb extends Toolbar {
                 name: 'parentId',
                 type: 'Integer'
             }, {
-                name: 'route',
+                name: 'route', // Each route has to end with a '/'. E.g.: '/home/accessibility/'
                 type: 'String'
             }]
         }
@@ -153,7 +153,13 @@ class Breadcrumb extends Toolbar {
     onHashChange(value, oldValue) {
         let hashString = value?.hashString,
             store      = this.store,
-            activeKey  = hashString && store.findFirst({route: hashString})?.[store.keyProperty] || null;
+            activeKey;
+
+        if (hashString && !hashString.endsWith('/')) {
+            hashString += '/';
+        }
+
+        activeKey = hashString && store.findFirst({route: hashString})?.[store.keyProperty] || null;
 
         if (activeKey !== null) {
             this.activeKey = activeKey;
