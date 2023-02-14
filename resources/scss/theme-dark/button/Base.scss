@@ -10,7 +10,7 @@ $neoMap: map-merge($neoMap, (
     'button-badge-color'                        : #282828,
     'button-badge-margin-left'                  : -10px,
     'button-badge-margin-top'                   : -10px,
-    'button-border-color'                       : #2b2b2b,
+    'button-border'                             : 1px solid #2b2b2b,
     'button-border-color-active'                : #282828,
     'button-border-color-disabled'              : #2b2b2b,
     'button-border-color-hover'                 : #292929,
@@ -100,13 +100,12 @@ $neoMap: map-merge($neoMap, (
         --button-badge-color                        : #{neo(button-badge-color)};
         --button-badge-margin-left                  : #{neo(button-badge-margin-left)};
         --button-badge-margin-top                   : #{neo(button-badge-margin-top)};
-        --button-border-color                       : #{neo(button-border-color)};
+        --button-border                             : #{neo(button-border)};
         --button-border-color-active                : #{neo(button-border-color-active)};
         --button-border-color-disabled              : #{neo(button-border-color-disabled)};
         --button-border-color-hover                 : #{neo(button-border-color-hover)};
         --button-border-color-pressed               : #{neo(button-border-color-pressed)};
         --button-border-radius                      : #{neo(button-border-radius)};
-        --button-border-width                       : #{neo(button-border-width)};
         --button-glyph-color                        : #{neo(button-glyph-color)};
         --button-glyph-color-active                 : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled               : #{neo(button-glyph-color-disabled)};

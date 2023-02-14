@@ -10,13 +10,12 @@ $neoMap: map-merge($neoMap, (
     'button-badge-color'                        : #fff,
     'button-badge-margin-left'                  : -10px,
     'button-badge-margin-top'                   : -10px,
-    'button-border-color'                       : #ddd,
+    'button-border'                             : 1px solid #ddd,
     'button-border-color-active'                : #1c60a0,
     'button-border-color-disabled'              : #ddd,
     'button-border-color-hover'                 : #1c60a0,
     'button-border-color-pressed'               : #1c60a0,
     'button-border-radius'                      : 3px,
-    'button-border-width'                       : 1px,
     'button-glyph-color'                        : #1c60a0,
     'button-glyph-color-active'                 : #1c60a0,
     'button-glyph-color-disabled'               : #1c60a0,
@@ -100,13 +99,12 @@ $neoMap: map-merge($neoMap, (
         --button-badge-color                        : #{neo(button-badge-color)};
         --button-badge-margin-left                  : #{neo(button-badge-margin-left)};
         --button-badge-margin-top                   : #{neo(button-badge-margin-top)};
-        --button-border-color                       : #{neo(button-border-color)};
+        --button-border                             : #{neo(button-border)};
         --button-border-color-active                : #{neo(button-border-color-active)};
         --button-border-color-disabled              : #{neo(button-border-color-disabled)};
         --button-border-color-hover                 : #{neo(button-border-color-hover)};
         --button-border-color-pressed               : #{neo(button-border-color-pressed)};
         --button-border-radius                      : #{neo(button-border-radius)};
-        --button-border-width                       : #{neo(button-border-width)};
         --button-glyph-color                        : #{neo(button-glyph-color)};
         --button-glyph-color-active                 : #{neo(button-glyph-color-active)};
         --button-glyph-color-disabled               : #{neo(button-glyph-color-disabled)};
