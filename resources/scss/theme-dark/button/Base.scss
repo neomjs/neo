@@ -46,11 +46,10 @@ $neoMap: map-merge($neoMap, (
     'button-secondary-background-image'         : none,
     'button-secondary-badge-background-color'   : var(--button-badge-color),
     'button-secondary-badge-color'              : var(--button-badge-background-color),
-    'button-secondary-border-color'             : var(--button-background-color),
+    'button-secondary-border'                   : 1px solid var(--button-background-color),
     'button-secondary-border-color-active'      : #282828,
     'button-secondary-border-color-disabled'    : inherit,
     'button-secondary-border-color-hover'       : #292929,
-    'button-secondary-border-width'             : var(--button-border-width),
     'button-secondary-glyph-color'              : var(--button-background-color),
     'button-secondary-glyph-color-active'       : var(--button-background-color),
     'button-secondary-glyph-color-disabled'     : inherit,
@@ -70,11 +69,10 @@ $neoMap: map-merge($neoMap, (
     'button-tertiary-background-image'          : none,
     'button-tertiary-badge-background-color'    : var(--button-badge-background-color),
     'button-tertiary-badge-color'               : var(--button-badge-color),
-    'button-tertiary-border-color'              : var(--button-border-color),
+    'button-tertiary-border'                    : 1px solid transparent,
     'button-tertiary-border-color-active'       : #282828,
     'button-tertiary-border-color-disabled'     : inherit,
     'button-tertiary-border-color-hover'        : #292929,
-    'button-tertiary-border-width'              : 0,
     'button-tertiary-glyph-color'               : var(--button-glyph-color),
     'button-tertiary-glyph-color-active'        : var(--button-glyph-color),
     'button-tertiary-glyph-color-disabled'      : inherit,
@@ -134,11 +132,10 @@ $neoMap: map-merge($neoMap, (
         --button-secondary-background-image         : #{neo(button-secondary-background-image)};
         --button-secondary-badge-background-color   : #{neo(button-secondary-badge-background-color)};
         --button-secondary-badge-color              : #{neo(button-secondary-badge-color)};
-        --button-secondary-border-color             : #{neo(button-secondary-border-color)};
+        --button-secondary-border                   : #{neo(button-secondary-border)};
         --button-secondary-border-color-active      : #{neo(button-secondary-border-color-active)};
         --button-secondary-border-color-disabled    : #{neo(button-secondary-border-color-disabled)};
         --button-secondary-border-color-hover       : #{neo(button-secondary-border-color-hover)};
-        --button-secondary-border-width             : #{neo(button-secondary-border-width)};
         --button-secondary-glyph-color              : #{neo(button-secondary-glyph-color)};
         --button-secondary-glyph-color-active       : #{neo(button-secondary-glyph-color-active)};
         --button-secondary-glyph-color-disabled     : #{neo(button-secondary-glyph-color-disabled)};
@@ -157,11 +154,10 @@ $neoMap: map-merge($neoMap, (
         --button-tertiary-background-image          : #{neo(button-tertiary-background-image)};
         --button-tertiary-badge-background-color    : #{neo(button-tertiary-badge-background-color)};
         --button-tertiary-badge-color               : #{neo(button-tertiary-badge-color)};
-        --button-tertiary-border-color              : #{neo(button-tertiary-border-color)};
+        --button-tertiary-border                    : #{neo(button-tertiary-border)};
         --button-tertiary-border-color-active       : #{neo(button-tertiary-border-color-active)};
         --button-tertiary-border-color-disabled     : #{neo(button-tertiary-border-color-disabled)};
         --button-tertiary-border-color-hover        : #{neo(button-tertiary-border-color-hover)};
-        --button-tertiary-border-width              : #{neo(button-tertiary-border-width)};
         --button-tertiary-glyph-color               : #{neo(button-tertiary-glyph-color)};
         --button-tertiary-glyph-color-active        : #{neo(button-tertiary-glyph-color-active)};
         --button-tertiary-glyph-color-disabled      : #{neo(button-tertiary-glyph-color-disabled)};

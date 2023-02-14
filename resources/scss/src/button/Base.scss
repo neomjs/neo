@@ -156,7 +156,7 @@
     &.neo-button-secondary {
         background-color: v(button-secondary-background-color);
         background-image: v(button-secondary-background-image);
-        border          : v(button-secondary-border-width) solid v(button-secondary-border-color);
+        border          : v(button-secondary-border);
 
         .neo-button-badge {
             background-color: v(button-secondary-badge-background-color);
@@ -205,7 +205,7 @@
     &.neo-button-tertiary {
         background-color: v(button-tertiary-background-color);
         background-image: v(button-tertiary-background-image);
-        border          : v(button-tertiary-border-width) solid v(button-tertiary-border-color);
+        border          : v(button-tertiary-border);
 
         .neo-button-badge {
             background-color: v(button-tertiary-badge-background-color);
