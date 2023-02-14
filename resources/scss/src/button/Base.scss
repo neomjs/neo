@@ -118,7 +118,7 @@
     &:hover {
         background-color: v(button-background-color-hover);
         background-image: none !important;
-        border-color    : v(button-border-color-hover);
+        border          : v(button-border-hover);
 
         .neo-button-glyph {
             color: v(button-glyph-color-hover);
@@ -190,7 +190,7 @@
 
         &:hover {
             background-color: v(button-secondary-background-color-hover);
-            border-color    : v(button-secondary-border-color-hover);
+            border          : v(button-secondary-border-hover);
 
             .neo-button-glyph {
                 color: v(button-secondary-glyph-color-hover);
@@ -239,7 +239,7 @@
 
         &:hover {
             background-color: v(button-tertiary-background-color-hover);
-            border-color    : v(button-tertiary-border-color-hover);
+            border          : v(button-tertiary-border-hover);
 
             .neo-button-glyph {
                 color: v(button-tertiary-glyph-color-hover);
