@@ -4,7 +4,7 @@
     100% {background-color: v(tab-indicator-background-color-active);}
 }
 
-.neo-tab-header-button {
+.neo-tab-header-button.neo-button {
     background-image: v(tab-button-background-image);
     border-radius   : v(tab-button-border-radius);
     border-width    : 0;
