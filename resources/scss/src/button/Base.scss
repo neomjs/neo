@@ -266,7 +266,7 @@
     .neo-button,
     &.neo-button {
         background-color: v(button-background-color-disabled);
-        border-color    : v(button-border-color-disabled);
+        border          : v(button-border-disabled);
         cursor          : default;
         opacity         : v(button-opacity-disabled);
 
