@@ -175,10 +175,6 @@
             color: v(button-secondary-text-color);
         }
 
-        &.pressed {
-            border: v(button-secondary-border-pressed);
-        }
-
         &:active {
             background-color: v(button-secondary-background-color-active) !important;
             border          : v(button-secondary-border-active);
@@ -203,6 +199,10 @@
             .neo-button-text {
                 color: v(button-secondary-text-color-hover);
             }
+        }
+
+        &.pressed {
+            border: v(button-secondary-border-pressed);
         }
     }
 
@@ -252,6 +252,10 @@
             .neo-button-text {
                 color: v(button-tertiary-text-color-hover);
             }
+        }
+
+        &.pressed {
+            border: v(button-tertiary-border-pressed);
         }
     }
 
