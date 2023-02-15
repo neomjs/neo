@@ -153,6 +153,59 @@
         }
     }
 
+    &.neo-button-ghost {
+        background-color: v(button-ghost-background-color);
+        background-image: v(button-ghost-background-image);
+        border          : v(button-ghost-border);
+
+        .neo-button-badge {
+            background-color: v(button-ghost-badge-background-color);
+            color           : v(button-ghost-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: v(button-ghost-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: v(button-ghost-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: v(button-ghost-text-color);
+        }
+
+        &:active {
+            background-color: v(button-ghost-background-color-active) !important;
+            border          : v(button-ghost-border-active);
+
+            .neo-button-glyph {
+                color: v(button-ghost-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: v(button-ghost-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: v(button-ghost-background-color-hover);
+            border          : v(button-ghost-border-hover);
+
+            .neo-button-glyph {
+                color: v(button-ghost-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: v(button-ghost-text-color-hover);
+            }
+        }
+
+        &.pressed {
+            border: v(button-ghost-border-pressed);
+        }
+    }
+
     &.neo-button-secondary {
         background-color: v(button-secondary-background-color);
         background-image: v(button-secondary-background-image);
