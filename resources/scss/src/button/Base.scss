@@ -294,7 +294,7 @@
 
         &.neo-button-tertiary {
             background-color: v(button-tertiary-background-color-disabled);
-            border-color    : v(button-tertiary-border-color-disabled);
+            border          : v(button-tertiary-border-disabled);
             opacity         : v(button-tertiary-opacity-disabled);
 
             .neo-button-glyph {
