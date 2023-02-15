@@ -2,7 +2,7 @@
     // default styling to match buttons, since this is the most common use case
     background-color: v(button-background-color);
     background-image: v(button-background-image);
-    border          : 1px solid v(button-border-color-active);
+    border          : v(button-border-active);
 
     position: fixed;
     z-index : 1000;

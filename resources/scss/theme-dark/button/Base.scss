@@ -11,7 +11,7 @@ $neoMap: map-merge($neoMap, (
     'button-badge-margin-left'                  : -10px,
     'button-badge-margin-top'                   : -10px,
     'button-border'                             : 1px solid #2b2b2b,
-    'button-border-color-active'                : #282828,
+    'button-border-active'                      : 1px solid #282828,
     'button-border-color-disabled'              : #2b2b2b,
     'button-border-hover'                       : 1px solid #292929,
     'button-border-pressed'                     : 1px solid #5d83a7,
@@ -99,7 +99,7 @@ $neoMap: map-merge($neoMap, (
         --button-badge-margin-left                  : #{neo(button-badge-margin-left)};
         --button-badge-margin-top                   : #{neo(button-badge-margin-top)};
         --button-border                             : #{neo(button-border)};
-        --button-border-color-active                : #{neo(button-border-color-active)};
+        --button-border-active                      : #{neo(button-border-active)};
         --button-border-color-disabled              : #{neo(button-border-color-disabled)};
         --button-border-hover                       : #{neo(button-border-hover)};
         --button-border-pressed                     : #{neo(button-border-pressed)};
