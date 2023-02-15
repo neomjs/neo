@@ -70,7 +70,7 @@ $neoMap: map-merge($neoMap, (
     'button-tertiary-badge-background-color'    : var(--button-badge-background-color),
     'button-tertiary-badge-color'               : var(--button-badge-color),
     'button-tertiary-border'                    : 1px solid transparent,
-    'button-tertiary-border-color-active'       : #282828,
+    'button-tertiary-border-active'             : 1px solid #282828,
     'button-tertiary-border-color-disabled'     : inherit,
     'button-tertiary-border-hover'              : 1px solid #292929,
     'button-tertiary-glyph-color'               : var(--button-glyph-color),
@@ -155,7 +155,7 @@ $neoMap: map-merge($neoMap, (
         --button-tertiary-badge-background-color    : #{neo(button-tertiary-badge-background-color)};
         --button-tertiary-badge-color               : #{neo(button-tertiary-badge-color)};
         --button-tertiary-border                    : #{neo(button-tertiary-border)};
-        --button-tertiary-border-color-active       : #{neo(button-tertiary-border-color-active)};
+        --button-tertiary-border-active             : #{neo(button-tertiary-border-active)};
         --button-tertiary-border-color-disabled     : #{neo(button-tertiary-border-color-disabled)};
         --button-tertiary-border-hover              : #{neo(button-tertiary-border-hover)};
         --button-tertiary-glyph-color               : #{neo(button-tertiary-glyph-color)};

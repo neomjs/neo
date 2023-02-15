@@ -226,7 +226,7 @@
 
         &:active {
             background-color: v(button-tertiary-background-color-active) !important;
-            border-color    : v(button-tertiary-border-color-active);
+            border          : v(button-tertiary-border-active);
 
             .neo-button-glyph {
                 color: v(button-tertiary-glyph-color-active);
