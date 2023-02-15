@@ -175,6 +175,10 @@
             color: v(button-secondary-text-color);
         }
 
+        &.pressed {
+            border: v(button-secondary-border-pressed);
+        }
+
         &:active {
             background-color: v(button-secondary-background-color-active) !important;
             border          : v(button-secondary-border-active);
