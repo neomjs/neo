@@ -258,7 +258,7 @@
     }
 
     &.pressed {
-        border-color: v(button-border-color-pressed);
+        border: v(button-border-pressed);
     }
 }
 
