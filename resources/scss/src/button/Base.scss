@@ -280,7 +280,7 @@
 
         &.neo-button-secondary {
             background-color: v(button-secondary-background-color-disabled);
-            border-color    : v(button-secondary-border-color-disabled);
+            border          : v(button-secondary-border-disabled);
             opacity         : v(button-secondary-opacity-disabled);
 
             .neo-button-glyph {
