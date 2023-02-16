@@ -34,7 +34,7 @@
     &.pressed {
         background-image: v(tab-button-background-image-pressed) !important;
         cursor          : default;
-        height          : v(tab-button-text-height-pressed);
+        height          : v(tab-button-height-pressed);
 
         .neo-button-glyph {
             color: v(tab-button-glyph-color-pressed);
