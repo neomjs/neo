@@ -23,6 +23,7 @@
     }
 
     &:hover {
+        background-color: v(tab-button-background-color-hover);
         background-image: none;
 
         .neo-button-glyph {
