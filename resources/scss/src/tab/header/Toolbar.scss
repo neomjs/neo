@@ -41,6 +41,11 @@
                 background-image: v(tab-button-background-image-pressed-left) !important;
                 width           : v(tab-button-height-pressed);
             }
+
+            &:not(:last-child) {
+                margin-right: unset;
+                margin-top  : v(tab-button-gap);
+            }
         }
     }
 
@@ -64,6 +69,11 @@
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-right) !important;
                 width           : v(tab-button-height-pressed);
+            }
+
+            &:not(:last-child) {
+                margin-bottom: v(tab-button-gap);
+                margin-right : unset;
             }
         }
     }
