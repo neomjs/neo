@@ -12,7 +12,7 @@
     border-width    : 0;
     height          : v(tab-button-height);
     margin          : 0;
-    padding         : 7px 12px 6px 12px;
+    padding         : v(tab-button-padding);
     text-transform  : v(tab-button-text-transform);
 
     &:active {
