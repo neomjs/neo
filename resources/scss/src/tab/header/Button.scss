@@ -68,3 +68,10 @@
         z-index         : 2;
     }
 }
+
+.neo-disabled {
+    .neo-tab-header-button.neo-button,
+    &.neo-tab-header-button.neo-button {
+        background-color: v(tab-button-background-color-disabled);
+    }
+}

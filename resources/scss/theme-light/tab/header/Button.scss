@@ -1,6 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'tab-button-background-color'               : transparent,
+    'tab-button-background-color'               : #fff,
     'tab-button-background-color-active'        : #ddd,
+    'tab-button-background-color-disabled'      : #fff,
     'tab-button-background-image'               : none,
     'tab-button-background-image-bottom'        : none,
     'tab-button-background-image-left'          : none,
@@ -22,6 +23,7 @@ $neoMap: map-merge($neoMap, (
     :root .neo-theme-light { // .neo-tab-header-button
         --tab-button-background-color               : #{neo(tab-button-background-color)};
         --tab-button-background-color-active        : #{neo(tab-button-background-color-active)};
+        --tab-button-background-color-disabled      : #{neo(tab-button-background-color-disabled)};
         --tab-button-background-image               : #{neo(tab-button-background-image)};
         --tab-button-background-image-bottom        : #{neo(tab-button-background-image-bottom)};
         --tab-button-background-image-left          : #{neo(tab-button-background-image-left)};
