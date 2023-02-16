@@ -4,6 +4,7 @@
 
     &.neo-dock-bottom {
         .neo-tab-header-button.neo-button {
+            align-self      : start;
             background-image: v(tab-button-background-image-bottom);
 
             .neo-tab-button-indicator {
@@ -23,7 +24,7 @@
         .neo-tab-header-button.neo-button {
             background-image: v(tab-button-background-image-left);
             height          : unset;
-            width           : 25px;
+            width           : v(tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
@@ -42,7 +43,7 @@
         .neo-tab-header-button.neo-button {
             background-image: v(tab-button-background-image-right);
             height: unset;
-            width : 25px;
+            width : v(tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;

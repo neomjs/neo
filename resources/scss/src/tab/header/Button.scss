@@ -5,6 +5,7 @@
 }
 
 .neo-tab-header-button.neo-button {
+    align-self      : end;
     background-color: v(tab-button-background-color);
     background-image: v(tab-button-background-image);
     border-radius   : v(tab-button-border-radius);
