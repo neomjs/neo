@@ -15,6 +15,8 @@
     text-transform  : v(tab-button-text-transform);
 
     &:active {
+        background-color: v(tab-button-background-color-active);
+
         .neo-button-glyph {
             color: v(tab-button-glyph-color-active);
         }

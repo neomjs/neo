@@ -1,5 +1,6 @@
 $neoMap: map-merge($neoMap, (
     'tab-button-background-color'               : #282b2b,
+    'tab-button-background-color-active'        : #282b2b,
     'tab-button-background-image'               : linear-gradient(#393d3e, #282b2b),
     'tab-button-background-image-bottom'        : linear-gradient(to top, #393d3e, #282b2b),
     'tab-button-background-image-left'          : linear-gradient(to right, #393d3e, #282b2b),
@@ -20,6 +21,7 @@ $neoMap: map-merge($neoMap, (
 @if $useCssVars == true {
     :root .neo-theme-dark { // .neo-tab-header-button
         --tab-button-background-color               : #{neo(tab-button-background-color)};
+        --tab-button-background-color-active        : #{neo(tab-button-background-color-active)};
         --tab-button-background-image               : #{neo(tab-button-background-image)};
         --tab-button-background-image-bottom        : #{neo(tab-button-background-image-bottom)};
         --tab-button-background-image-left          : #{neo(tab-button-background-image-left)};
