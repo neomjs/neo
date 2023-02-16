@@ -35,15 +35,17 @@
 
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-left) !important;
+                width           : v(tab-button-height-pressed);
             }
         }
     }
 
     &.neo-dock-right {
         .neo-tab-header-button.neo-button {
+            align-self      : start;
             background-image: v(tab-button-background-image-right);
-            height: unset;
-            width : v(tab-button-height);
+            height          : unset;
+            width           : v(tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
@@ -54,6 +56,7 @@
 
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-right) !important;
+                width           : v(tab-button-height-pressed);
             }
         }
     }
