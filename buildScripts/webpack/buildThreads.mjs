@@ -82,18 +82,39 @@ if (programOpts.info) {
               threads   = answers.threads || programOpts.threads || 'all',
               insideNeo = programOpts.framework || false,
               startDate = new Date();
+        let   status = 0;
 
         if (path.sep === '\\') {
             webpack = path.resolve(webpack).replace(/\\/g,'/');
         }
 
         function parseThreads(tPath) {
-            (threads === 'all' || threads === 'main')    && spawnSync(webpack, ['--config', `${tPath}.main.mjs`],                                                     cpOpts);
-            (threads === 'all' || threads === 'app')     && spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`],                cpOpts);
-            (threads === 'all' || threads === 'canvas')  && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=canvas`],  cpOpts);
-            (threads === 'all' || threads === 'data')    && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=data`],    cpOpts);
-            (threads === 'all' || threads === 'service') && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=service`], cpOpts);
-            (threads === 'all' || threads === 'vdom')    && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=vdom`],    cpOpts);
+            let childProcess;
+
+            if (threads === 'all' || threads === 'main') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.main.mjs`], cpOpts);
+                status = status | childProcess.status;
+            }
+            if (threads === 'all' || threads === 'app') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`], cpOpts);
+                status = status | childProcess.status;
+            }
+            if (threads === 'all' || threads === 'canvas') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);
+                status = status | childProcess.status;
+            }
+            if (threads === 'all' || threads === 'data') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=data`], cpOpts);
+                status = status | childProcess.status;
+            }
+            if (threads === 'all' || threads === 'service') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=service`], cpOpts);
+                status = status | childProcess.status;
+            }
+            if (threads === 'all' || threads === 'vdom') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=vdom`], cpOpts);
+                status = status | childProcess.status;
+            }
         }
 
         // dist/development
@@ -111,6 +132,6 @@ if (programOpts.info) {
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-        process.exit();
+        process.exit(status);
     });
 }

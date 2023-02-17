@@ -775,12 +775,15 @@ class Component extends BaseComponent {
             } else {
                 node = vdom.cn[0].cn[i];
 
-                node.html = me.intlFormat_day.format(date);
+                // the method could be called before the header content got created
+                if (node) {
+                    node.html = me.intlFormat_day.format(date);
 
-                if (!me.showWeekends && (day === 0 || day === 6)) {
-                    node.removeDom = true;
-                } else {
-                    delete node.removeDom;
+                    if (!me.showWeekends && (day === 0 || day === 6)) {
+                        node.removeDom = true;
+                    } else {
+                        delete node.removeDom;
+                    }
                 }
             }
 

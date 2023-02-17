@@ -1,65 +1,88 @@
 .neo-tab-header-toolbar {
     background-color: transparent;
+    height          : v(tab-button-height-pressed);
     padding         : 0;
 
     &.neo-dock-bottom {
-        .neo-tab-header-button {
+        .neo-tab-header-button.neo-button {
+            align-self      : start;
             background-image: v(tab-button-background-image-bottom);
+
+            .neo-tab-button-indicator {
+                bottom: unset;
+                height: v(tab-strip-height);
+                top   : calcVar(tab-strip-height, '*', -1);
+                width : 100%;
+            }
 
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-bottom) !important;
             }
         }
-
-        .neo-tab-button-indicator {
-            bottom: unset;
-            height: v(tab-strip-height);
-            top   : calcVar(tab-strip-height, '*', -1);
-            width : 100%;
-        }
     }
 
     &.neo-dock-left {
-        .neo-tab-header-button {
+        height: unset;
+        width : v(tab-button-height-pressed);
+
+        .neo-tab-header-button.neo-button {
             background-image: v(tab-button-background-image-left);
             height          : unset;
-            width           : 25px;
+            width           : v(tab-button-height);
+
+            .neo-tab-button-indicator {
+                bottom: unset;
+                height: 100%;
+                right : calcVar(tab-strip-height, '*', -1);
+                width : v(tab-strip-height);
+            }
 
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-left) !important;
+                width           : v(tab-button-height-pressed);
             }
-        }
 
-        .neo-tab-button-indicator {
-            bottom: unset;
-            height: 100%;
-            right : calcVar(tab-strip-height, '*', -1);
-            width : v(tab-strip-height);
+            &:not(:last-child) {
+                margin-right: unset;
+                margin-top  : v(tab-button-gap);
+            }
         }
     }
 
     &.neo-dock-right {
-        .neo-tab-header-button {
+        height: unset;
+        width : v(tab-button-height-pressed);
+
+        .neo-tab-header-button.neo-button {
+            align-self      : start;
             background-image: v(tab-button-background-image-right);
-            height: unset;
-            width : 25px;
+            height          : unset;
+            width           : v(tab-button-height);
+
+            .neo-tab-button-indicator {
+                bottom: unset;
+                height: 100%;
+                left  : calcVar(tab-strip-height, '*', -1);
+                width : v(tab-strip-height);
+            }
 
             &.pressed {
                 background-image: v(tab-button-background-image-pressed-right) !important;
+                width           : v(tab-button-height-pressed);
             }
-        }
 
-        .neo-tab-button-indicator {
-            bottom: unset;
-            height: 100%;
-            left  : calcVar(tab-strip-height, '*', -1);
-            width : v(tab-strip-height);
+            &:not(:last-child) {
+                margin-bottom: v(tab-button-gap);
+                margin-right : unset;
+            }
         }
     }
 
     &.neo-no-animation {
-        .neo-tab-button-indicator {
-            animation-duration: 0ms !important;
+        .neo-tab-header-button.neo-button {
+            .neo-tab-button-indicator {
+                animation-duration: 0ms !important;
+            }
         }
     }
 }
