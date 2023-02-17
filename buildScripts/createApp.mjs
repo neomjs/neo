@@ -126,7 +126,8 @@ if (programOpts.info) {
             appPath          = 'apps/' + lAppName + '/',
             dir              = 'apps/' + lAppName,
             folder           = path.resolve(cwd, dir),
-            startDate        = new Date();
+            startDate        = new Date(),
+            status           = 0;
 
         if (!Array.isArray(themes)) {
             themes = [themes];
@@ -296,19 +297,20 @@ if (programOpts.info) {
             fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
             if (mainThreadAddons.includes('HighlightJS')) {
-                spawnSync('node', [
+                const childProcess = spawnSync('node', [
                     './buildScripts/copyFolder.mjs',
                     '-s',
                     path.resolve(neoPath, 'docs/resources'),
                     '-t',
                     path.resolve(folder, 'resources'),
                 ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+                status = childProcess.status;
             }
 
             const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
             console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-            process.exit();
+            process.exit(status);
         });
     });
 }
