@@ -16,8 +16,8 @@
     position        : absolute;
 
     tr {
-        height    : 32px !important;
-        max-height: 32px !important;
+        height    : v(table-container-cell-height) !important;
+        max-height: v(table-container-cell-height) !important;
     }
 
     tr:last-child {
@@ -33,8 +33,8 @@
     }
 
     td, th {
-        min-width: 200px; // for testing
         height   : inherit;
+        min-width: 200px; // for testing
         width    : inherit;
 
         &:last-child {
@@ -51,8 +51,8 @@
         border-bottom   : v(table-container-cell-border-bottom);
         border-right    : 1px solid v(table-container-border-color);
         border-top      : 1px solid transparent;
-        height          : 32px !important;
-        max-height      : 32px !important;
+        height          : v(table-container-cell-height) !important;
+        max-height      : v(table-container-cell-height) !important;
         padding         : v(table-container-cell-padding);
 
         &.neo-locked {
@@ -96,7 +96,7 @@
             background:rgba(0,0,0,0.1);
 
             &:vertical {
-                margin-top: 32px;
+                margin-top: v(table-container-cell-height);
             }
         }
 
@@ -119,5 +119,3 @@
         }
     }
 }
-
-#myTableContainer ::-webkit-scrollbar-track:horizontal {margin-left: 400px;}
