@@ -126,8 +126,7 @@ if (programOpts.info) {
             appPath          = 'apps/' + lAppName + '/',
             dir              = 'apps/' + lAppName,
             folder           = path.resolve(cwd, dir),
-            startDate        = new Date(),
-            status           = 0;
+            startDate        = new Date();
 
         if (!Array.isArray(themes)) {
             themes = [themes];
@@ -304,13 +303,13 @@ if (programOpts.info) {
                     '-t',
                     path.resolve(folder, 'resources'),
                 ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
-                status = childProcess.status;
+                childProcess.status && process.exit(childProcess.status);
             }
 
             const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
             console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-            process.exit(status);
+            process.exit();
         });
     });
 }

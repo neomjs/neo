@@ -100,8 +100,7 @@ if (programOpts.info) {
               env       = answers.env || programOpts.env || ['all'],
               insideNeo = !!programOpts.framework || false,
               startDate = new Date();
-        let   childProcess,
-              status = 0;
+        let   childProcess;
 
         if (os.platform().startsWith('win')) {
             webpack = path.resolve(webpack).replace(/\\/g,'/');
@@ -111,19 +110,19 @@ if (programOpts.info) {
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             childProcess = spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.mjs`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             childProcess = spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.mjs`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-        process.exit(status);
+        process.exit();
     });
 }
