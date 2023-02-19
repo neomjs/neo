@@ -2,6 +2,9 @@ $neoMap: map-merge($neoMap, (
     'table-container-border-color'              : #ddd,
     'table-container-cell-background-color'     : #fff,
     'table-container-cell-background-color-even': #f2f2f2,
+    'table-container-cell-border-bottom'        : 1px solid #ddd,
+    'table-container-cell-height'               : 32px,
+    'table-container-cell-padding'              : 2px 10px 2px,
     'table-container-color'                     : #666,
     'table-container-header-cell-border-bottom' : 1px solid #ddd
 ));
@@ -11,6 +14,9 @@ $neoMap: map-merge($neoMap, (
         --table-container-border-color              : #{neo(table-container-border-color)};
         --table-container-cell-background-color     : #{neo(table-container-cell-background-color)};
         --table-container-cell-background-color-even: #{neo(table-container-cell-background-color-even)};
+        --table-container-cell-border-bottom        : #{neo(table-container-cell-border-bottom)};
+        --table-container-cell-height               : #{neo(table-container-cell-height)};
+        --table-container-cell-padding              : #{neo(table-container-cell-padding)};
         --table-container-color                     : #{neo(table-container-color)};
         --table-container-header-cell-border-bottom : #{neo(table-container-header-cell-border-bottom)};
     }
