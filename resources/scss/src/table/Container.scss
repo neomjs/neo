@@ -48,7 +48,7 @@
 
     td {
         background-color: v(table-container-cell-background-color);
-        border-bottom   : 1px solid v(table-container-border-color);
+        border-bottom   : v(table-container-cell-border-bottom);
         border-right    : 1px solid v(table-container-border-color);
         border-top      : 1px solid transparent;
         height          : 32px !important;
