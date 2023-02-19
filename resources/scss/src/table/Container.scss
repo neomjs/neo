@@ -53,7 +53,7 @@
         border-top      : 1px solid transparent;
         height          : 32px !important;
         max-height      : 32px !important;
-        padding         : 2px 10px 2px;
+        padding         : v(table-container-cell-padding);
 
         &.neo-locked {
             z-index: 10;
