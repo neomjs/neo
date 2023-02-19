@@ -119,46 +119,45 @@ if (programOpts.info) {
               insideNeo  = !!programOpts.framework || false,
               cpArgs     = ['-e', env],
               startDate  = new Date();
-        let   childProcess,
-              status = 0;
+        let   childProcess;
 
         programOpts.noquestions && cpArgs.push('-n');
         insideNeo               && cpArgs.push('-f');
 
         if (npminstall === 'yes') {
             childProcess = spawnSync(npmCmd, ['i'], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
         if (themes     === 'yes') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
         if (threads    === 'yes') {
             childProcess = spawnSync('node', [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
         if (parsedocs  === 'yes') {
             childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         };
 
         if (env === 'all' || env === 'dev') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/development/docs/resources')}`], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
 
         if (env === 'all' || env === 'prod') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/production/docs/output')}`],    cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/production/docs/resources')}`], cpOpts);
-            status = status | childProcess.status;
+            childProcess.status && process.exit(childProcess.status);
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-        process.exit(status);
+        process.exit();
     });
 }
