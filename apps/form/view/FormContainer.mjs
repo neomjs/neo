@@ -28,10 +28,19 @@ class FormContainer extends BaseFormContainer {
          * @member {Object[]} items
          */
         items: [{
-            module: Label,
-            bind  : {text: data => data.activeTitle},
+            module: Toolbar,
             cls   : ['form-header'],
-            flex  : 'none'
+            flex  : 'none',
+
+            items: [{
+                module: Label,
+                bind  : {text: data => data.activeTitle},
+                cls   : ['form-header-label'],
+                flex  : 'none'
+            }, '->', {
+                handler: 'onValidatePageButtonClick',
+                text   : 'Validate Page'
+            }]
         }, {
             module   : Container,
             reference: 'pages-container',

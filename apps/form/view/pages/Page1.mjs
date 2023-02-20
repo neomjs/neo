@@ -18,7 +18,9 @@ class Page1 extends FormPageContainer {
         items: [{
             module   : TextField,
             labelText: 'Firstname',
-            name     : 'firstname'
+            minLength: 3,
+            name     : 'firstname',
+            required : true
         }, {
             module   : TextField,
             labelText: 'Lastname',
