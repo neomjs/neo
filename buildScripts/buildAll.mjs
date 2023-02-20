@@ -128,27 +128,30 @@ if (programOpts.info) {
             childProcess = spawnSync(npmCmd, ['i'], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
+
         if (themes     === 'yes') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
+
         if (threads    === 'yes') {
             childProcess = spawnSync('node', [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
+
         if (parsedocs  === 'yes') {
             childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
             childProcess.status && process.exit(childProcess.status);
-        };
+        }
 
-        if (env === 'all' || env === 'dev') {
+        if (parsedocs === 'yes' && (env === 'all' || env === 'dev')) {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
             childProcess.status && process.exit(childProcess.status);
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/development/docs/resources')}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
 
-        if (env === 'all' || env === 'prod') {
+        if (parsedocs === 'yes' && (env === 'all' || env === 'prod')) {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/production/docs/output')}`],    cpOpts);
             childProcess.status && process.exit(childProcess.status);
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/production/docs/resources')}`], cpOpts);
