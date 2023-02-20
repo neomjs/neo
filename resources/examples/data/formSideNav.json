@@ -10,10 +10,10 @@
         {"id":  6, "cardIndex":    3, "isHeader": false, "name": "Page 4"},
         {"id":  7, "cardIndex":    4, "isHeader": false, "name": "Page 5"},
         {"id":  8, "cardIndex":    5, "isHeader": false, "name": "Page 6"},
-        {"id":  8, "cardIndex":    6, "isHeader": false, "name": "Page 7"},
-        {"id":  9, "cardIndex": null, "isHeader": true,  "name": "3. More data"},
-        {"id": 10, "cardIndex":    7, "isHeader": false, "name": "Page 8"},
-        {"id": 11, "cardIndex":    8, "isHeader": false, "name": "Page 3"},
-        {"id": 12, "cardIndex":    9, "isHeader": false, "name": "Page 10"}
+        {"id":  9, "cardIndex":    6, "isHeader": false, "name": "Page 7"},
+        {"id": 10, "cardIndex": null, "isHeader": true,  "name": "3. More data"},
+        {"id": 11, "cardIndex":    7, "isHeader": false, "name": "Page 8"},
+        {"id": 12, "cardIndex":    8, "isHeader": false, "name": "Page 3"},
+        {"id": 13, "cardIndex":    9, "isHeader": false, "name": "Page 10"}
     ]
 }
