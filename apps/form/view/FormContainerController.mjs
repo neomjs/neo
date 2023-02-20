@@ -26,20 +26,6 @@ class FormContainerController extends Component {
     onPrevPageButtonClick(data) {
         this.getModel().data.activeIndex--;
     }
-
-    /**
-     * @param {Object} data
-     */
-    onValidatePageButtonClick(data) {
-        let me             = this,
-            activeIndex    = me.getModel().data.activeIndex,
-            pagesContainer = me.getReference('pages-container'),
-            activeCard     = pagesContainer.items[activeIndex];
-
-        console.log(`Current page: ${activeIndex + 1}`, activeCard.getValues());
-
-        activeCard.validate();
-    }
 }
 
 Neo.applyClassConfig(FormContainerController);

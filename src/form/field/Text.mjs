@@ -696,19 +696,17 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me              = this,
-            cls             = me.cls,
-            placeholderText = me.placeholderText,
-            hasContent      = placeholderText?.length > 0 || value !== null && value.toString().length > 0,
-            originalValue   = me.originalConfig.value,
-            isDirty         = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue);
+        let me            = this,
+            cls           = me.cls,
+            originalValue = me.originalConfig.value,
+            isDirty       = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue);
 
         me.silentVdomUpdate = true;
 
         me.getInputEl().value = value;
 
-        NeoArray[hasContent ? 'add' : 'remove'](cls, 'neo-has-content');
-        NeoArray[isDirty    ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray[me.hasContent() ? 'add' : 'remove'](cls, 'neo-has-content');
+        NeoArray[isDirty         ? 'add' : 'remove'](cls, 'neo-is-dirty');
         me.cls = cls;
 
         me.validate(); // silent
@@ -996,6 +994,15 @@ class Text extends Base {
      */
     getTriggerId(type) {
         return this.id + '-trigger-' + type;
+    }
+
+    /**
+     * @returns {Boolean}
+     */
+    hasContent() {
+        let value = this.value;
+
+        return this.placeholderText?.length > 0 || value !== null && value.toString().length > 0
     }
 
     /**

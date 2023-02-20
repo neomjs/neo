@@ -12,9 +12,46 @@ class SideNavList extends List {
          */
         className: 'Form.view.SideNavList',
         /**
+         * @member {String[]} baseCls=['form-side-nav-list','neo-list']
+         * @protected
+         */
+        baseCls: ['form-side-nav-list', 'neo-list'],
+        /**
          * @member {Boolean} useHeaders=true
          */
         useHeaders: true
+    }
+
+    /**
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     */
+    createItemContent(record, index) {
+        let itemText = record[this.displayField];
+
+        return record.isHeader ? itemText : [
+            {tag: 'i', cls: this.getIconCls(record)},
+            {html: itemText}
+        ];
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String[]}
+     */
+    getIconCls(record) {
+        let cls = ['neo-list-icon'];
+
+        if (record.isValid === true) {
+            return [...cls, 'neo-color-green', 'far', 'fa-circle-check'];
+        }
+
+        if (record.isValid === false) {
+            return [...cls, 'neo-color-red', 'far', 'fa-circle-xmark'];
+        }
+
+        return [...cls, 'neo-color-blue', 'far', 'fa-circle'];
     }
 
     /**
