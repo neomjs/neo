@@ -31,9 +31,27 @@ class SideNavList extends List {
         let itemText = record[this.displayField];
 
         return record.isHeader ? itemText : [
-            {tag: 'i', cls: ['neo-list-icon', 'far', 'fa-circle']},
+            {tag: 'i', cls: this.getIconCls(record)},
             {html: itemText}
         ];
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String[]}
+     */
+    getIconCls(record) {
+        let cls = ['neo-list-icon'];
+
+        if (record.isValid === true) {
+            return [...cls, 'neo-color-green', 'far', 'fa-circle-check'];
+        }
+
+        if (record.isValid === false) {
+            return [...cls, 'neo-color-red', 'far', 'fa-circle-xmark'];
+        }
+
+        return [...cls, 'neo-color-blue', 'far', 'fa-circle'];
     }
 
     /**

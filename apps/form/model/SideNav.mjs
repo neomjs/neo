@@ -24,6 +24,9 @@ class SideNav extends Model {
             name: 'isHeader',
             type: 'Boolean'
         }, {
+            name: 'isValid',
+            type: 'Boolean'
+        }, {
             name: 'name',
             type: 'String'
         }]
