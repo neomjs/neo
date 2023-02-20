@@ -1,4 +1,5 @@
 import BaseViewport from '../../../src/container/Viewport.mjs';
+import SideNavList  from './SideNavList.mjs';
 
 /**
  * @class Form.view.Viewport
@@ -19,7 +20,10 @@ class Viewport extends BaseViewport {
             width: '300',
 
             items: [{
+                flex: 'none',
                 vdom: {tag: 'h1', innerHTML: 'My Form Header'}
+            }, {
+                module: SideNavList
             }]
         }, {
             ntype: 'container',

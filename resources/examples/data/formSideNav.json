@@ -1,0 +1,10 @@
+{
+    "success": true,
+
+    "data": [
+        {"id": 1, "cardIndex": null, "isHeader": true,  "name": "1. Basic data"},
+        {"id": 2, "cardIndex":    0, "isHeader": false, "name": "Page 1"},
+        {"id": 3, "cardIndex":    1, "isHeader": false, "name": "Page 2"},
+        {"id": 4, "cardIndex":    2, "isHeader": false, "name": "Page 3"}
+    ]
+}
