@@ -3,8 +3,8 @@
 
     "data": [
         {"id":  1, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "1. Basic data"},
-        {"id":  2, "cardIndex":    0, "isHeader": false, "isValid": true, "name": "Page 1"},
-        {"id":  3, "cardIndex":    1, "isHeader": false, "isValid": false, "name": "Page 2"},
+        {"id":  2, "cardIndex":    0, "isHeader": false, "isValid": null, "name": "Page 1"},
+        {"id":  3, "cardIndex":    1, "isHeader": false, "isValid": null, "name": "Page 2"},
         {"id":  4, "cardIndex":    2, "isHeader": false, "isValid": null, "name": "Page 3"},
         {"id":  5, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "2. Personal data"},
         {"id":  6, "cardIndex":    3, "isHeader": false, "isValid": null, "name": "Page 4"},

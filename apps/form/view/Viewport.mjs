@@ -1,7 +1,8 @@
-import BaseViewport  from '../../../src/container/Viewport.mjs';
-import FormContainer from './FormContainer.mjs';
-import SideNavList   from './SideNavList.mjs';
-import ViewportModel from './ViewportModel.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import FormContainer      from './FormContainer.mjs';
+import SideNavList        from './SideNavList.mjs';
+import ViewportController from './ViewportController.mjs';
+import ViewportModel      from './ViewportModel.mjs';
 
 /**
  * @class Form.view.Viewport
@@ -15,6 +16,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Form.view.Viewport',
         /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController,
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -26,7 +31,8 @@ class Viewport extends BaseViewport {
                 flex: 'none',
                 vdom: {tag: 'h1', innerHTML: 'My Form Header'}
             }, {
-                module: SideNavList,
+                module   : SideNavList,
+                reference: 'side-nav',
 
                 bind: {
                     headerlessActiveIndex: data => data.activeIndex,
