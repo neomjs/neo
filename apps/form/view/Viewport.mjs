@@ -26,7 +26,11 @@ class Viewport extends BaseViewport {
                 vdom: {tag: 'h1', innerHTML: 'My Form Header'}
             }, {
                 module: SideNavList,
-                bind  : {store: 'stores.sideNav'}
+
+                bind: {
+                    headerlessActiveIndex: data => data.activeIndex,
+                    store                : 'stores.sideNav'
+                }
             }]
         }, {
             module: FormContainer,
