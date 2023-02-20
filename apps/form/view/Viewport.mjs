@@ -19,6 +19,7 @@ class Viewport extends BaseViewport {
          */
         items: [{
             ntype: 'container',
+            style: {margin: '0 1em'},
             width: '300',
 
             items: [{
