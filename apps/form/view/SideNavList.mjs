@@ -23,6 +23,20 @@ class SideNavList extends List {
     }
 
     /**
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     */
+    createItemContent(record, index) {
+        let itemText = record[this.displayField];
+
+        return record.isHeader ? itemText : [
+            {tag: 'i', cls: ['neo-list-icon', 'far', 'fa-circle']},
+            {html: itemText}
+        ];
+    }
+
+    /**
      * Saves activeIndex & activeTitle into the closest view model
      * @param {String[]} items
      */

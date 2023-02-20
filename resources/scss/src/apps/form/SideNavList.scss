@@ -5,8 +5,15 @@
     }
 
     .neo-list-item {
+        .neo-list-icon {
+            margin-right: .5em;
+        }
+
         &:not(.neo-list-header) {
-            margin-left: 18px;
+            align-items   : center;
+            display       : flex;
+            flex-direction: row;
+            margin-left   : 18px;
         }
     }
 }
