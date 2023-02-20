@@ -32,13 +32,16 @@ class FormContainerController extends Component {
      */
     onValidatePageButtonClick(data) {
         let me             = this,
-            activeIndex    = me.getModel().data.activeIndex,
+            model          = me.getModel(),
+            activeIndex    = model.data.activeIndex,
             pagesContainer = me.getReference('pages-container'),
-            activeCard     = pagesContainer.items[activeIndex];
+            store          = model.getStore('sideNav'),
+            activeCard     = pagesContainer.items[activeIndex],
+            isValid        = activeCard.validate();
 
         console.log(`Current page: ${activeIndex + 1}`, activeCard.getValues());
 
-        activeCard.validate();
+        store.getAt(activeIndex).isValid = isValid;
     }
 }
 
