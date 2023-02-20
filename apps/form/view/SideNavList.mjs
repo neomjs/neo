@@ -18,6 +18,20 @@ class SideNavList extends List {
     }
 
     /**
+     * Saves activeIndex & activeTitle into the closest view model
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        let me     = this,
+            record = me.store.get(me.getItemRecordId(items[0]));
+
+        me.getModel().setData({
+            activeIndex: record.cardIndex,
+            activeTitle: record.name
+        })
+    }
+
+    /**
      * Saves the amount of non-header items into the closest view model
      */
     onStoreLoad() {
