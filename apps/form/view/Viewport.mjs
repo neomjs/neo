@@ -29,7 +29,8 @@ class Viewport extends BaseViewport {
                 bind  : {store: 'stores.sideNav'}
             }]
         }, {
-            module: FormContainer
+            module: FormContainer,
+            style : {margin: '20px'}
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

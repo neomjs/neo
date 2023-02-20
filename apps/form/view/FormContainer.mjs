@@ -15,11 +15,17 @@ class FormContainer extends BaseFormContainer {
          */
         className: 'Form.view.FormContainer',
         /**
+         * @member {String[]} baseCls=['form-form-container','neo-container'],
+         * @protected
+         */
+        baseCls: ['form-form-container', 'neo-container'],
+        /**
          * @member {Object[]} items
          */
         items: [{
             module: Label,
             bind  : {text: data => data.activeTitle},
+            cls   : ['form-header'],
             flex  : 'none'
         }, {
             module   : Container,
