@@ -16,6 +16,23 @@ class SideNavList extends List {
          */
         useHeaders: true
     }
+
+    /**
+     * Saves the amount of non-header items into the closest view model
+     */
+    onStoreLoad() {
+        let maxIndex = -1;
+
+        this.store.items.forEach(record => {
+            if (!record.isHeader) {
+                maxIndex++;
+            }
+        });
+
+        this.getModel().data.maxIndex = maxIndex;
+
+        super.onStoreLoad()
+    }
 }
 
 Neo.applyClassConfig(SideNavList);
