@@ -1,5 +1,4 @@
-import List         from '../../../src/list/Base.mjs';
-import SideNavStore from '../store/SideNav.mjs'
+import List from '../../../src/list/Base.mjs';
 
 /**
  * @class Form.view.SideNavList
@@ -12,10 +11,6 @@ class SideNavList extends List {
          * @protected
          */
         className: 'Form.view.SideNavList',
-        /**
-         * @member {Neo.data.Store} store=SideNavStore
-         */
-        store: SideNavStore,
         /**
          * @member {Boolean} useHeaders=true
          */

@@ -13,17 +13,9 @@ class SideNav extends Store {
          */
         className: 'Form.store.SideNav',
         /**
-         * @member {Boolean} autoLoad=true
-         */
-        autoLoad: true,
-        /**
          * @member {Neo.data.Model} model=SideNavModel
          */
-        model: SideNavModel,
-        /**
-         * @member {String} url='../../resources/examples/data/formSideNav.json'
-         */
-        url: '../../resources/examples/data/formSideNav.json'
+        model: SideNavModel
     }
 }
 
