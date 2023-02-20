@@ -1,4 +1,5 @@
 import BaseViewport  from '../../../src/container/Viewport.mjs';
+import FormContainer from './FormContainer.mjs';
 import SideNavList   from './SideNavList.mjs';
 import ViewportModel from './ViewportModel.mjs';
 
@@ -28,8 +29,7 @@ class Viewport extends BaseViewport {
                 bind  : {store: 'stores.sideNav'}
             }]
         }, {
-            ntype: 'container',
-            html : 'Content'
+            module: FormContainer
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
@@ -38,11 +38,7 @@ class Viewport extends BaseViewport {
         /**
          * @member {Neo.model.Component} model=ViewportModel
          */
-        model: ViewportModel,
-        /**
-         * @member {Object} style={padding:'20px'}
-         */
-        style: {padding: '20px'}
+        model: ViewportModel
     }
 }
 
