@@ -2,6 +2,11 @@
     border       : 1px solid #ddd;
     border-radius: 5px;
 
+    .form-footer {
+        border-top: 1px solid #ddd;
+        min-height: 50px;
+    }
+
     .form-header {
         align-items  : center;
         border-bottom: 1px solid #ddd;

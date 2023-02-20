@@ -36,6 +36,7 @@ class FormContainer extends BaseFormContainer {
             ]
         }, {
             module: Toolbar,
+            cls   : ['form-footer'],
             flex  : 'none',
 
             items: ['->', {
