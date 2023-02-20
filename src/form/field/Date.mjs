@@ -91,6 +91,17 @@ class DateField extends Picker {
     }
 
     /**
+     * @returns {Boolean}
+     */
+    hasContent() {
+        if (this.labelPosition === 'inline') {
+            return true;
+        }
+
+        return super.hasContent()
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
