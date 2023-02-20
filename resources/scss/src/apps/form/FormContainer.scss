@@ -1,0 +1,22 @@
+.form-form-container.neo-container {
+    border       : 1px solid #ddd;
+    border-radius: 5px;
+
+    .form-footer {
+        border-top: 1px solid #ddd;
+        min-height: 50px;
+        padding   : .5em 1em;
+    }
+
+    .form-header {
+        align-items  : center;
+        border-bottom: 1px solid #ddd;
+        display      : flex;
+        min-height   : 50px;
+        padding      : .5em 1em;
+    }
+
+    .form-header-label {
+        font-size: 24px;
+    }
+}

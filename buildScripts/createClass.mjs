@@ -584,13 +584,6 @@ if (programOpts.info) {
             `        className: '${className}'`
         );
 
-        baseClass === 'container.Viewport' && addComma(classContent).push(
-            "        /**",
-            "         * @member {Boolean} autoMount=true",
-            "         */",
-            "        autoMount: true"
-        );
-
         baseClass === 'table.Container' && addComma(classContent).push(
             "        /**",
             "         * @member {Object[]} columns",
