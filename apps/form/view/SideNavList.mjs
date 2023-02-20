@@ -12,6 +12,11 @@ class SideNavList extends List {
          */
         className: 'Form.view.SideNavList',
         /**
+         * @member {String[]} baseCls=['form-side-nav-list','neo-list']
+         * @protected
+         */
+        baseCls: ['form-side-nav-list', 'neo-list'],
+        /**
          * @member {Boolean} useHeaders=true
          */
         useHeaders: true

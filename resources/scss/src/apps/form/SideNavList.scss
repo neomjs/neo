@@ -1,0 +1,12 @@
+.form-side-nav-list.neo-list {
+    .neo-list-header {
+        font-weight   : bold;
+        text-transform: uppercase;
+    }
+
+    .neo-list-item {
+        &:not(.neo-list-header) {
+            margin-left: 18px;
+        }
+    }
+}
