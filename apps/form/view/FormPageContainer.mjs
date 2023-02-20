@@ -15,7 +15,7 @@ class FormPageContainer extends FormContainer {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: []} // using a div  instead of a form tag
+        {cn: []} // using a div instead of a form tag
     }
 }
 

@@ -31,9 +31,14 @@ class FormContainer extends BaseFormContainer {
             module   : Container,
             reference: 'pages-container',
 
-            items: [
+            layout: {
+                ntype: 'card',
+                bind : {activeIndex: data => data.activeIndex}
+            },
 
-            ]
+            items: [{
+                module: () => import('./pages/Page1.mjs')
+            }]
         }, {
             module: Toolbar,
             cls   : ['form-footer'],
