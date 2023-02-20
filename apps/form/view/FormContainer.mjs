@@ -1,7 +1,8 @@
-import BaseFormContainer from '../../../src/form/Container.mjs';
-import Container         from '../../../src/container/Base.mjs';
-import Label             from '../../../src/component/Label.mjs';
-import Toolbar           from '../../../src/toolbar/Base.mjs';
+import BaseFormContainer       from '../../../src/form/Container.mjs';
+import Container               from '../../../src/container/Base.mjs';
+import FormContainerController from './FormContainerController.mjs';
+import Label                   from '../../../src/component/Label.mjs';
+import Toolbar                 from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Form.view.FormContainer
@@ -19,6 +20,10 @@ class FormContainer extends BaseFormContainer {
          * @protected
          */
         baseCls: ['form-form-container', 'neo-container'],
+        /**
+         * @member {Neo.controller.Component} controller=FormContainerController
+         */
+        controller: FormContainerController,
         /**
          * @member {Object[]} items
          */
@@ -48,10 +53,12 @@ class FormContainer extends BaseFormContainer {
 
             items: ['->', {
                 bind   : {disabled: data => data.activeIndex === 0},
+                handler: 'onPrevPageButtonClick',
                 iconCls: 'fas fa-chevron-left',
                 text   : 'Back'
             }, {
                 bind        : {disabled: data => data.activeIndex === data.maxIndex},
+                handler     : 'onNextPageButtonClick',
                 iconCls     : 'fas fa-chevron-right',
                 iconPosition: 'right',
                 style       : {marginLeft: '1em'},
