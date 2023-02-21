@@ -170,16 +170,23 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Updates the invalid state for all fields, which have updateValidationIndicators() implemented.
-     * This can be useful for create entity forms which show up "clean", when pressing a submit button.
+     * Updates the invalid state for all fields which have validate() implemented.
+     * This can be useful for create-entity forms which show up "clean" until pressing a submit button.
      * @returns {Boolean}
      */
     validate() {
+        let isValid = true,
+            validField;
+
         this.getFields().forEach(item => {
-            item.validate?.(false);
+            validField = item.validate?.(false);
+
+            if (!validField) {
+                isValid = false;
+            }
         });
 
-        return this.isValid();
+        return isValid;
     }
 }
 
