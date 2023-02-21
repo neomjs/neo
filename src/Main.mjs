@@ -49,6 +49,7 @@ class Main extends core.Base {
                 'alert',
                 'editRoute',
                 'getWindowData',
+                'redirectTo',
                 'setNeoConfig',
                 'setRoute',
                 'windowClose',
@@ -332,6 +333,14 @@ class Main extends core.Base {
             me.running = true;
             requestAnimationFrame(me.renderFrame.bind(me));
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.url
+     */
+    redirectTo(data) {
+        window.location.href = data.url;
     }
 
     /**
