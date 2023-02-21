@@ -1284,8 +1284,7 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             let removeFn = function() {
-                me.vdom.removeDom = true;
-                me.update();
+                me.unmount();
             }
 
             if (timeout) {
@@ -1393,7 +1392,9 @@ class Base extends CoreBase {
                 parentIndex: me.parentIndex
             });
 
-            await Neo.timeout(2000);
+            delete me.vdom.removeDom;
+
+            await Neo.timeout(30);
 
             me.mounted = true;
         }
@@ -1627,7 +1628,8 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me = this;
+        let me             = this,
+            needsRendering = values.hidden === false && values.hidden !== me.hidden;
 
         me.silentVdomUpdate = true;
 
@@ -1638,6 +1640,11 @@ class Base extends CoreBase {
         if (silent || !me.needsVdomUpdate) {
             return Promise.resolve();
         } else {
+            if (needsRendering) {
+                me.show();
+                return Promise.resolve();
+            }
+
             return me.promiseVdomUpdate();
         }
     }
@@ -1660,7 +1667,12 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
-            !me.silentVdomUpdate && me.render(true);
+
+            if (me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+            } else {
+                !me.mounted && me.render(true)
+            }
         } else {
             let style = me.style;
             delete style.visibility;
@@ -1758,6 +1770,8 @@ class Base extends CoreBase {
      */
     unmount() {
         let me = this;
+
+        me.vdom.removeDom = true;
 
         me.mounted = false;
 
