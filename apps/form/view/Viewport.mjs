@@ -40,8 +40,9 @@ class Viewport extends BaseViewport {
                 }
             }]
         }, {
-            module: FormContainer,
-            style : {margin: '20px'}
+            module   : FormContainer,
+            reference: 'main-form',
+            style    : {margin: '20px'}
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

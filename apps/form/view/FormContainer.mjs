@@ -38,8 +38,14 @@ class FormContainer extends BaseFormContainer {
                 cls   : ['form-header-label'],
                 flex  : 'none'
             }, '->', {
+                iconCls: ['fas', 'fa-file'],
                 handler: 'onValidatePageButtonClick',
-                text   : 'Validate Page'
+                text   : 'Validate page'
+            }, {
+                iconCls: ['fas', 'fa-layer-group'],
+                handler: 'onValidateAllPagesButtonClick',
+                style  : {marginLeft: '1em'},
+                text   : 'Validate all pages'
             }]
         }, {
             module   : Container,
