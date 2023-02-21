@@ -65,11 +65,10 @@ class Card extends Base {
             sCfg                = me.constructor,
             needsUpdate         = false,
             removeInactiveCards = me.removeInactiveCards,
-            i, isActiveIndex, item, items, len, module, proto, vdom, wrapperCls;
+            i, isActiveIndex, item, items, len, module, wrapperCls;
 
         if (Neo.isNumber(value) && container) {
             items = container.items;
-            vdom  = container.vdom;
             len   = items.length;
 
             if (!items[value]) {
@@ -80,7 +79,7 @@ class Card extends Base {
             for (i=0; i < len; i++) {
                 module = items[i].module;
 
-                if (i === value && !module?.isClass && Neo.isFunction(module)) {
+                if (i === value && Neo.typeOf(module) === 'Function') {
                     needsUpdate = true;
                     break;
                 }
@@ -91,23 +90,8 @@ class Card extends Base {
                 item          = items[i];
                 module        = item.module;
 
-                if (isActiveIndex && !module?.isClass && Neo.isFunction(module)) {
-                    module     = await module();
-                    module     = module.default;
-                    proto      = module.prototype;
-                    wrapperCls = item.wrapperCls || proto.constructor.config.wrapperCls || [];
-
-                    item.className  = proto.className;
-                    item.wrapperCls = [...wrapperCls, sCfg.itemCls];
-                    item.module     = module;
-
-                    delete item.vdom;
-
-                    items[i] = item = Neo.create(item);
-
-                    container.fire('cardLoaded', {item});
-
-                    vdom.cn[i] = item.vdom;
+                if (isActiveIndex && Neo.typeOf(module) === 'Function') {
+                    item = await me.loadModule(item, i);
                 }
 
                 if (item instanceof Neo.core.Base) {
@@ -178,6 +162,50 @@ class Card extends Base {
         NeoArray.add(wrapperCls, 'neo-layout-card');
 
         container.wrapperCls = wrapperCls;
+    }
+
+    /**
+     * Loads a component.Base module which is defined via module: () => import('...')
+     * @param {Object} item
+     * @param {Number} [index]
+     * @returns {Neo.component.Base}
+     */
+    async loadModule(item, index) {
+        let me          = this,
+            containerId = me.containerId,
+            container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            items       = container.items,
+            sCfg        = me.constructor,
+            vdom        = container.vdom,
+            module      = item.module,
+            proto, wrapperCls;
+
+        if (!Neo.isNumber(index)) {
+            index = items.indexOf(item);
+        }
+
+        module     = await module();
+        module     = module.default;
+        proto      = module.prototype;
+        wrapperCls = item.wrapperCls || proto.constructor.config.wrapperCls || [];
+
+        item.className  = proto.className;
+        item.wrapperCls = [...wrapperCls, sCfg.itemCls];
+        item.module     = module;
+
+        delete item.vdom;
+
+        items[index] = item = Neo.create(item);
+
+        if (me.removeInactiveCards) {
+            item.vdom.removeDom = true;
+        }
+
+        container.fire('cardLoaded', {item});
+
+        vdom.cn[index] = item.vdom;
+
+        return item;
     }
 
     /**
