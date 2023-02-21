@@ -612,7 +612,6 @@ class Helper extends Base {
 
         for (; i < len; i++) {
             childNode = vnode.childNodes[i];
-
             outerHTML = this.createStringFromVnode(childNode);
 
             if (childNode.innerHTML !== outerHTML) {

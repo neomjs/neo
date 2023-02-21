@@ -378,7 +378,7 @@ class Base {
                         nsKey   = nsArray.pop();
                         ns      = Neo.ns(nsArray, false, me);
 
-                        if (!Object.hasOwn(ns, nsKey)) {
+                        if (ns[nsKey] === undefined) {
                             console.error('The used @config does not exist:', nsKey, nsArray.join('.'));
                         } else {
                             symbolNs = Neo.ns(nsArray, false, me[configSymbol]);

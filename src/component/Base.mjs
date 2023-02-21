@@ -1606,6 +1606,8 @@ class Base extends CoreBase {
         if (me.vdom) {
             me.isVdomUpdating = true;
 
+            delete me.vdom.removeDom;
+
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
