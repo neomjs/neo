@@ -31,6 +31,25 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @returns {Object[]}
+     */
+    findNotLoadedModules(container=this) {
+        let modules = [];
+
+        container.items.forEach(item => {
+            if (Neo.typeOf(item.module) === 'Function') {
+                modules.push(item)
+            } else {
+                item.items && this.findNotLoadedModules(item);
+            }
+        });
+
+        console.log(modules);
+
+        return modules;
+    }
+
+    /**
      * Either pass a field id or name
      * @param {String} name
      * @returns {Neo.form.field.Base|null} fields
@@ -55,6 +74,8 @@ class Container extends BaseContainer {
      */
     getFields() {
         let fields = [];
+
+        this.findNotLoadedModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
