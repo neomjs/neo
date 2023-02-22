@@ -31,16 +31,16 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Neo.container.Base} parent
+     * @param {Object[]} modules
      * @returns {Object[]}
      */
-    findNotLoadedModules(parent=this) {
-        let modules = [];
-
+    findNotLoadedModules(parent=this, modules=[]) {
         parent.items.forEach(item => {
-            if (Neo.typeOf(item.module) === 'Function') {
+            if (Neo.typeOf(item.module) === 'Function' && !item.isLoading) {
                 modules.push({item, parent});
             } else {
-                item.items && this.findNotLoadedModules(item);
+                item.items && this.findNotLoadedModules(item, modules);
             }
         });
 
@@ -73,7 +73,7 @@ class Container extends BaseContainer {
     getFields() {
         let fields = [];
 
-        this.findNotLoadedModules();
+        this.loadModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
@@ -124,6 +124,24 @@ class Container extends BaseContainer {
         }
 
         return true;
+    }
+
+    /**
+     * Loads all not loaded items inside card layouts
+     * @returns {Promise<Neo.component.Base[]>}
+     */
+    async loadModules() {
+        let me       = this,
+            modules  = me.findNotLoadedModules(),
+            promises = [];
+
+        modules.forEach(module => {
+            promises.push(module.parent.layout.loadModule(module.item));
+        });
+
+        modules = await Promise.all(promises);
+
+        return modules;
     }
 
     /**

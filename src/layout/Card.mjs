@@ -184,6 +184,8 @@ class Card extends Base {
             index = items.indexOf(item);
         }
 
+        item.isLoading = true; // prevent the item from getting queued multiple times inside form.Container
+
         module     = await module();
         module     = module.default;
         proto      = module.prototype;
@@ -193,6 +195,7 @@ class Card extends Base {
         item.wrapperCls = [...wrapperCls, sCfg.itemCls];
         item.module     = module;
 
+        delete item.isLoading;
         delete item.vdom;
 
         items[index] = item = Neo.create(item);
