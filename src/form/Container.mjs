@@ -33,18 +33,16 @@ class Container extends BaseContainer {
     /**
      * @returns {Object[]}
      */
-    findNotLoadedModules(container=this) {
+    findNotLoadedModules(parent=this) {
         let modules = [];
 
-        container.items.forEach(item => {
+        parent.items.forEach(item => {
             if (Neo.typeOf(item.module) === 'Function') {
-                modules.push(item)
+                modules.push({item, parent});
             } else {
                 item.items && this.findNotLoadedModules(item);
             }
         });
-
-        console.log(modules);
 
         return modules;
     }
