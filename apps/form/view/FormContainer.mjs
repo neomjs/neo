@@ -38,8 +38,14 @@ class FormContainer extends BaseFormContainer {
                 cls   : ['form-header-label'],
                 flex  : 'none'
             }, '->', {
+                iconCls: ['fas', 'fa-file'],
                 handler: 'onValidatePageButtonClick',
-                text   : 'Validate Page'
+                text   : 'Validate page'
+            }, {
+                iconCls: ['fas', 'fa-layer-group'],
+                handler: 'onValidateAllPagesButtonClick',
+                style  : {marginLeft: '1em'},
+                text   : 'Validate all pages'
             }]
         }, {
             module   : Container,
@@ -50,27 +56,18 @@ class FormContainer extends BaseFormContainer {
                 bind : {activeIndex: data => data.activeIndex}
             },
 
-            items: [{
-                module: () => import('./pages/Page1.mjs')
-            }, {
-                module: () => import('./pages/Page2.mjs')
-            }, {
-                module: () => import('./pages/Page3.mjs')
-            }, {
-                module: () => import('./pages/Page4.mjs')
-            }, {
-                module: () => import('./pages/Page5.mjs')
-            }, {
-                module: () => import('./pages/Page6.mjs')
-            }, {
-                module: () => import('./pages/Page7.mjs')
-            }, {
-                module: () => import('./pages/Page8.mjs')
-            }, {
-                module: () => import('./pages/Page9.mjs')
-            }, {
-                module: () => import('./pages/Page10.mjs')
-            }]
+            items: [
+                {module: () => import('./pages/Page1.mjs')},
+                {module: () => import('./pages/Page2.mjs')},
+                {module: () => import('./pages/Page3.mjs')},
+                {module: () => import('./pages/Page4.mjs')},
+                {module: () => import('./pages/Page5.mjs')},
+                {module: () => import('./pages/Page6.mjs')},
+                {module: () => import('./pages/Page7.mjs')},
+                {module: () => import('./pages/Page8.mjs')},
+                {module: () => import('./pages/Page9.mjs')},
+                {module: () => import('./pages/Page10.mjs')}
+            ]
         }, {
             module: Toolbar,
             cls   : ['form-footer'],

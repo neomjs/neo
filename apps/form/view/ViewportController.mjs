@@ -16,6 +16,17 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
+    onValidateAllPagesButtonClick(data) {
+        let me      = this,
+            form    = me.getReference('main-form'),
+            isValid = form.validate();
+
+        console.log('Form values', form.getValues());
+    }
+
+    /**
+     * @param {Object} data
+     */
     onValidatePageButtonClick(data) {
         let me             = this,
             model          = me.getModel(),

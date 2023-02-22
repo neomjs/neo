@@ -570,7 +570,7 @@ class Text extends Base {
 
         me.validate(); // silent
         me.changeInputElKey('required', value ? value : null, true); // silent update
-        me.labelText = me.labelText;
+        me.labelText = me.labelText; // triggers a vdom update
     }
 
     /**
@@ -786,8 +786,10 @@ class Text extends Base {
             labelOptionalText = me.labelOptionalText,
             hasOptionalText   = value.endsWith(labelOptionalText);
 
-        if (me.showOptionalText && !me.required && !hasOptionalText) {
-            value += labelOptionalText;
+        if (me.showOptionalText && !me.required) {
+            if (!hasOptionalText) {
+                value += labelOptionalText;
+            }
         } else if (value && hasOptionalText) {
             value = value.replace(labelOptionalText, '');
         }

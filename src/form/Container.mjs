@@ -31,6 +31,25 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @returns {Object[]}
+     */
+    findNotLoadedModules(container=this) {
+        let modules = [];
+
+        container.items.forEach(item => {
+            if (Neo.typeOf(item.module) === 'Function') {
+                modules.push(item)
+            } else {
+                item.items && this.findNotLoadedModules(item);
+            }
+        });
+
+        console.log(modules);
+
+        return modules;
+    }
+
+    /**
      * Either pass a field id or name
      * @param {String} name
      * @returns {Neo.form.field.Base|null} fields
@@ -55,6 +74,8 @@ class Container extends BaseContainer {
      */
     getFields() {
         let fields = [];
+
+        this.findNotLoadedModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
@@ -149,16 +170,23 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Updates the invalid state for all fields, which have updateValidationIndicators() implemented.
-     * This can be useful for create entity forms which show up "clean", when pressing a submit button.
+     * Updates the invalid state for all fields which have validate() implemented.
+     * This can be useful for create-entity forms which show up "clean" until pressing a submit button.
      * @returns {Boolean}
      */
     validate() {
+        let isValid = true,
+            validField;
+
         this.getFields().forEach(item => {
-            item.validate?.(false);
+            validField = item.validate?.(false);
+
+            if (!validField) {
+                isValid = false;
+            }
         });
 
-        return this.isValid();
+        return isValid;
     }
 }
 

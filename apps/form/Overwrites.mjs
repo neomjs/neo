@@ -3,7 +3,8 @@ Neo.overwrites = {
         form: {
             field: {
                 Text: {
-                    labelPosition_: 'inline'
+                    labelPosition_   : 'inline',
+                    showOptionalText_: true
                 }
             }
         }
