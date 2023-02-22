@@ -31,30 +31,30 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Neo.container.Base} parent
+     * @param {Object[]} modules
      * @returns {Object[]}
      */
-    findNotLoadedModules(container=this) {
-        let modules = [];
-
-        container.items.forEach(item => {
-            if (Neo.typeOf(item.module) === 'Function') {
-                modules.push(item)
+    findNotLoadedModules(parent=this, modules=[]) {
+        parent.items.forEach(item => {
+            if (Neo.typeOf(item.module) === 'Function' && !item.isLoading) {
+                modules.push({item, parent});
             } else {
-                item.items && this.findNotLoadedModules(item);
+                item.items && this.findNotLoadedModules(item, modules);
             }
         });
-
-        console.log(modules);
 
         return modules;
     }
 
     /**
-     * Either pass a field id or name
+     * Either pass a field name or id
      * @param {String} name
-     * @returns {Neo.form.field.Base|null} fields
+     * @returns {Promise<Neo.form.field.Base|null>} fields
      */
-    getField(name) {
+    async getField(name) {
+        await this.loadModules();
+
         let fields = ComponentManager.getChildComponents(this),
             field;
 
@@ -70,12 +70,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.form.field.Base[]} fields
+     * @returns {Promise<Neo.form.field.Base[]>} fields
      */
-    getFields() {
+    async getFields() {
         let fields = [];
 
-        this.findNotLoadedModules();
+        await this.loadModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
@@ -85,12 +85,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    getSubmitValues() {
-        let values = {};
+    async getSubmitValues() {
+        let fields = await this.getFields(),
+            values = {};
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             values[item.name || item.id] = item.getSubmitValue();
         });
 
@@ -98,12 +99,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    getValues() {
-        let values = {};
+    async getValues() {
+        let fields = await this.getFields(),
+            values = {};
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             values[item.name || item.id] = item.value;
         });
 
@@ -112,10 +114,10 @@ class Container extends BaseContainer {
 
     /**
      * Returns true in case no form field isValid() call returns false
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    isValid() {
-        let fields = this.getFields(),
+    async isValid() {
+        let fields = await this.getFields(),
             i      = 0,
             len    = fields.length;
 
@@ -129,15 +131,34 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Loads all not loaded items inside card layouts
+     * @returns {Promise<Neo.component.Base[]>}
+     */
+    async loadModules() {
+        let me       = this,
+            modules  = me.findNotLoadedModules(),
+            promises = [];
+
+        modules.forEach(module => {
+            promises.push(module.parent.layout.loadModule(module.item));
+        });
+
+        modules = await Promise.all(promises);
+
+        return modules;
+    }
+
+    /**
      * Resets field values by field name or field id.
      * Fields not included with a value will get reset to null.
      * @param {Object} [values]
      */
-    reset(values={}) {
-        let keys = values ? Object.keys(values) : [],
+    async reset(values={}) {
+        let keys   = values ? Object.keys(values) : [],
+            fields = await this.getFields(),
             index;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -145,18 +166,19 @@ class Container extends BaseContainer {
             }
 
             item.reset(index > -1 ? values[keys[index]] : null);
-        });
+        })
     }
 
     /**
      * Set field values by field name or field id
      * @param {Object} values={}
      */
-    setValues(values={}) {
-        let keys = Object.keys(values),
+    async setValues(values={}) {
+        let keys   = Object.keys(values),
+            fields = await this.getFields(),
             index;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -166,19 +188,20 @@ class Container extends BaseContainer {
             if (index > -1) {
                 item.value = values[keys[index]];
             }
-        });
+        })
     }
 
     /**
      * Updates the invalid state for all fields which have validate() implemented.
      * This can be useful for create-entity forms which show up "clean" until pressing a submit button.
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    validate() {
+    async validate() {
         let isValid = true,
+            fields  = await this.getFields(),
             validField;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             validField = item.validate?.(false);
 
             if (!validField) {

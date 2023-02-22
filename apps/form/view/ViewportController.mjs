@@ -16,30 +16,59 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
-    onValidateAllPagesButtonClick(data) {
-        let me      = this,
-            form    = me.getReference('main-form'),
-            isValid = form.validate();
+    async onValidateAllPagesButtonClick(data) {
+        let me         = this,
+            form       = me.getReference('main-form'),
+            isValid    = await form.validate(),
+            formValues = await form.getValues();
 
-        console.log('Form values', form.getValues());
+        console.log({isValid, formValues});
+
+        await me.updateRecordValidityState()
     }
 
     /**
      * @param {Object} data
      */
-    onValidatePageButtonClick(data) {
+    async onValidatePageButtonClick(data) {
+        let me          = this,
+            activeIndex = me.getModel().data.activeIndex,
+            activeCard  = me.getReference('pages-container').items[activeIndex],
+            formValues  = await activeCard.getValues();
+
+        await activeCard.validate();
+        await me.updateRecordValidityState(activeIndex)
+
+        console.log(`Current page: ${activeIndex + 1}`, formValues);
+    }
+
+    /**
+     * Not passing a pageIndex validates all pages
+     * @param {Number|null} [pageIndex]
+     * @returns {Promise<void>}
+     */
+    async updateRecordValidityState(pageIndex=null) {
         let me             = this,
             model          = me.getModel(),
-            activeIndex    = model.data.activeIndex,
             pagesContainer = me.getReference('pages-container'),
+            sideNav        = me.getReference('side-nav'),
             store          = model.getStore('sideNav'),
-            activeCard     = pagesContainer.items[activeIndex],
-            listIndex      = me.getReference('side-nav').getActiveIndex(activeIndex),
-            isValid        = activeCard.validate();
+            i              = 0,
+            len            = pagesContainer.items.length,
+            isValid, listIndex, page;
 
-        console.log(`Current page: ${activeIndex + 1}`, activeCard.getValues());
+        if (Neo.isNumber(pageIndex)) {
+            i   = pageIndex;
+            len = pageIndex + 1;
+        }
 
-        store.getAt(listIndex).isValid = isValid;
+        for (; i < len; i++) {
+            page      = pagesContainer.items[i];
+            listIndex = sideNav.getActiveIndex(i);
+            isValid   = await page.isValid();
+
+            store.getAt(listIndex).isValid = isValid;
+        }
     }
 }
 
