@@ -16,18 +16,19 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
-    onValidateAllPagesButtonClick(data) {
-        let me      = this,
-            form    = me.getReference('main-form'),
-            isValid = form.validate();
+    async onValidateAllPagesButtonClick(data) {
+        let me         = this,
+            form       = me.getReference('main-form'),
+            isValid    = await form.validate(),
+            formValues = await form.getValues();
 
-        console.log('Form values', form.getValues());
+        console.log({isValid, formValues});
     }
 
     /**
      * @param {Object} data
      */
-    onValidatePageButtonClick(data) {
+    async onValidatePageButtonClick(data) {
         let me             = this,
             model          = me.getModel(),
             activeIndex    = model.data.activeIndex,
@@ -35,9 +36,10 @@ class ViewportController extends Component {
             store          = model.getStore('sideNav'),
             activeCard     = pagesContainer.items[activeIndex],
             listIndex      = me.getReference('side-nav').getActiveIndex(activeIndex),
-            isValid        = activeCard.validate();
+            isValid        = await activeCard.validate(),
+            formValues     = await activeCard.getValues();
 
-        console.log(`Current page: ${activeIndex + 1}`, activeCard.getValues());
+        console.log(`Current page: ${activeIndex + 1}`, formValues);
 
         store.getAt(listIndex).isValid = isValid;
     }
