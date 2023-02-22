@@ -48,11 +48,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Either pass a field id or name
+     * Either pass a field name or id
      * @param {String} name
-     * @returns {Neo.form.field.Base|null} fields
+     * @returns {Promise<Neo.form.field.Base|null>} fields
      */
-    getField(name) {
+    async getField(name) {
+        await this.loadModules();
+
         let fields = ComponentManager.getChildComponents(this),
             field;
 
@@ -68,12 +70,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.form.field.Base[]} fields
+     * @returns {Promise<Neo.form.field.Base[]>} fields
      */
-    getFields() {
+    async getFields() {
         let fields = [];
 
-        this.loadModules();
+        await this.loadModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
             item instanceof BaseField && fields.push(item);
@@ -83,12 +85,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    getSubmitValues() {
-        let values = {};
+    async getSubmitValues() {
+        let fields = await this.getFields(),
+            values = {};
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             values[item.name || item.id] = item.getSubmitValue();
         });
 
@@ -96,12 +99,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    getValues() {
-        let values = {};
+    async getValues() {
+        let fields = await this.getFields(),
+            values = {};
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             values[item.name || item.id] = item.value;
         });
 
@@ -110,10 +114,10 @@ class Container extends BaseContainer {
 
     /**
      * Returns true in case no form field isValid() call returns false
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    isValid() {
-        let fields = this.getFields(),
+    async isValid() {
+        let fields = await this.getFields(),
             i      = 0,
             len    = fields.length;
 
@@ -149,11 +153,12 @@ class Container extends BaseContainer {
      * Fields not included with a value will get reset to null.
      * @param {Object} [values]
      */
-    reset(values={}) {
-        let keys = values ? Object.keys(values) : [],
+    async reset(values={}) {
+        let keys   = values ? Object.keys(values) : [],
+            fields = await this.getFields(),
             index;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -161,18 +166,19 @@ class Container extends BaseContainer {
             }
 
             item.reset(index > -1 ? values[keys[index]] : null);
-        });
+        })
     }
 
     /**
      * Set field values by field name or field id
      * @param {Object} values={}
      */
-    setValues(values={}) {
-        let keys = Object.keys(values),
+    async setValues(values={}) {
+        let keys   = Object.keys(values),
+            fields = await this.getFields(),
             index;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             index = keys.indexOf(item.name);
 
             if (index < 0) {
@@ -182,19 +188,20 @@ class Container extends BaseContainer {
             if (index > -1) {
                 item.value = values[keys[index]];
             }
-        });
+        })
     }
 
     /**
      * Updates the invalid state for all fields which have validate() implemented.
      * This can be useful for create-entity forms which show up "clean" until pressing a submit button.
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    validate() {
+    async validate() {
         let isValid = true,
+            fields  = await this.getFields(),
             validField;
 
-        this.getFields().forEach(item => {
+        fields.forEach(item => {
             validField = item.validate?.(false);
 
             if (!validField) {
