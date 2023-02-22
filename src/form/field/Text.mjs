@@ -1088,10 +1088,12 @@ class Text extends Base {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            cls            = me.cls;
+            cls;
 
         if (!me.readOnly) {
             me.validate(); // silent
+
+            cls = me.cls; // has to get set after validate()
 
             NeoArray.remove(cls, 'neo-focus');
             me.cls = cls;
