@@ -87,20 +87,6 @@ class Container extends BaseContainer {
     /**
      * @returns {Promise<Object>}
      */
-    async getSubmitValues() {
-        let fields = await this.getFields(),
-            values = {};
-
-        fields.forEach(item => {
-            values[item.name || item.id] = item.getSubmitValue();
-        });
-
-        return values;
-    }
-
-    /**
-     * @returns {Promise<Object>}
-     */
     async getValues() {
         let fields = await this.getFields(),
             values = {},

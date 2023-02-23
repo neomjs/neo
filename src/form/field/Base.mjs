@@ -48,9 +48,9 @@ class Base extends Component {
     }
 
     /**
-     * @returns {*} this.value
+     * @returns {*}
      */
-    getSubmitValue() {
+    getValue() {
         return this.value;
     }
 

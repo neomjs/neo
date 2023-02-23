@@ -356,7 +356,7 @@ class Select extends Picker {
     /**
      * @returns {Number|String}
      */
-    getSubmitValue() {
+    getValue() {
         let me = this;
 
         return me.record?.[me.valueField] || me.value
