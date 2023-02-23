@@ -103,10 +103,19 @@ class Container extends BaseContainer {
      */
     async getValues() {
         let fields = await this.getFields(),
-            values = {};
+            values = {},
+            key, ns, nsArray;
 
         fields.forEach(item => {
-            values[item.name || item.id] = item.value;
+            if (item.name) {
+                nsArray = item.name.split('.');
+                key     = nsArray.pop();
+                ns      = Neo.ns(nsArray, true, values);
+
+                ns[key] = item.value;
+            } else {
+                values[item.id] = item.value;
+            }
         });
 
         return values;
