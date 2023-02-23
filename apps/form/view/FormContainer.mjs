@@ -66,7 +66,11 @@ class FormContainer extends BaseFormContainer {
                 {module: () => import('./pages/Page7.mjs')},
                 {module: () => import('./pages/Page8.mjs')},
                 {module: () => import('./pages/Page9.mjs')},
-                {module: () => import('./pages/Page10.mjs')}
+                {module: () => import('./pages/Page10.mjs')},
+                {module: () => import('./pages/Page11.mjs')},
+                {module: () => import('./pages/Page12.mjs')},
+                {module: () => import('./pages/Page13.mjs')},
+                {module: () => import('./pages/Page14.mjs')}
             ]
         }, {
             module: Toolbar,
