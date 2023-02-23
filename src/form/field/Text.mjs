@@ -1314,6 +1314,11 @@ class Text extends Base {
             errorParam  = {maxLength, minLength, valueLength},
             errorText;
 
+        if (!silent) {
+            // in case we manually call validate() on a form or field before it is mounted, we do want to see errors.
+            me.validBeforeMount = false;
+        }
+
         if (Neo.isFunction(me.validator)) {
             errorText = me.validator(me);
 
