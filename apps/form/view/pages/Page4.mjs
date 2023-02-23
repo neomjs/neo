@@ -19,7 +19,7 @@ class Page4 extends FormPageContainer {
             module    : CheckBox,
             labelText : null,
             labelWidth: 70,
-            name      : 'fruits[]'
+            name      : 'fruits'
         },
         /**
          * @member {Object[]} items

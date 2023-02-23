@@ -111,10 +111,19 @@ class Container extends BaseContainer {
                 nsArray = item.name.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true, values);
-
-                ns[key] = item.value;
             } else {
-                values[item.id] = item.value;
+                key = item.id;
+                ns  = values;
+            }
+
+            if (Object.hasOwn(ns, key)) {
+                if (!Array.isArray(ns[key])) {
+                    ns[key] = [ns[key]]
+                }
+
+                ns[key].unshift(item.value)
+            } else {
+                ns[key] = item.value;
             }
         });
 
