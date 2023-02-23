@@ -90,9 +90,11 @@ class Container extends BaseContainer {
     async getValues() {
         let fields = await this.getFields(),
             values = {},
-            key, ns, nsArray;
+            key, ns, nsArray, value;
 
         fields.forEach(item => {
+            value = item.getValue();
+
             if (item.name) {
                 nsArray = item.name.split('.');
                 key     = nsArray.pop();
@@ -103,13 +105,15 @@ class Container extends BaseContainer {
             }
 
             if (Object.hasOwn(ns, key)) {
-                if (!Array.isArray(ns[key])) {
+                if (ns[key] === null) {
+                    ns[key] = []
+                } else if (!Array.isArray(ns[key])) {
                     ns[key] = [ns[key]]
                 }
 
-                ns[key].unshift(item.value)
+                value !== null && ns[key].unshift(value)
             } else {
-                ns[key] = item.value;
+                ns[key] = value;
             }
         });
 
