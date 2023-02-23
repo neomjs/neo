@@ -18,12 +18,13 @@ class Page3 extends FormPageContainer {
         items: [{
             module   : TextField,
             labelText: 'Page 3 Field 1',
-            name     : 'page3field1',
-            required : true
+            name     : 'page3.field1',
+            required : true,
+            value    : 'foo'
         }, {
             module   : TextField,
             labelText: 'Page 3 Field 2',
-            name     : 'page3field2'
+            name     : 'page3.field2'
         }]
     }
 }

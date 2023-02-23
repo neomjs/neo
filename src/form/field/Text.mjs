@@ -176,6 +176,12 @@ class Text extends Base {
     }
 
     /**
+     * Set this value to false, in case a field should display errors up front.
+     * Otherwise, errors will stay hidden on mounting, unless you trigger validate(false).
+     * @member {Boolean} clean=true
+     */
+    clean = true
+    /**
      * data passes maxLength, minLength & valueLength properties
      * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
      */
@@ -189,11 +195,6 @@ class Text extends Base {
      * @member {String} errorTextRequired='Required'
      */
     errorTextRequired = 'Required'
-    /**
-     * Set this value to false, in case a field should display errors up front
-     * @member {Boolean} validBeforeMount=true
-     */
-    validBeforeMount = true
 
     /**
      * @param {Object} config
@@ -1204,7 +1205,7 @@ class Text extends Base {
 
         super.reset(value);
 
-        if (value === null && me.validBeforeMount) {
+        if (value === null && me.clean) {
             me.updateError(null);
         }
     }
@@ -1236,7 +1237,7 @@ class Text extends Base {
             cls = me.cls,
             errorNode, isValid;
 
-        if (!(me.validBeforeMount && !me.mounted)) {
+        if (!(me.clean && !me.mounted)) {
             me._error = value;
 
             isValid = !value || value === '';
@@ -1313,6 +1314,11 @@ class Text extends Base {
             isEmpty     = !value || valueLength < 1,
             errorParam  = {maxLength, minLength, valueLength},
             errorText;
+
+        if (!silent) {
+            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
+            me.clean = false;
+        }
 
         if (Neo.isFunction(me.validator)) {
             errorText = me.validator(me);

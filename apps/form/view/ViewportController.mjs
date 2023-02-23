@@ -22,7 +22,7 @@ class ViewportController extends Component {
             isValid    = await form.validate(),
             formValues = await form.getValues();
 
-        console.log({isValid, formValues});
+        console.log('All pages', {isValid, formValues});
 
         await me.updateRecordValidityState()
     }
