@@ -48,9 +48,9 @@ class Base extends Component {
     }
 
     /**
-     * @returns {*} this.value
+     * @returns {*}
      */
-    getSubmitValue() {
+    getValue() {
         return this.value;
     }
 
@@ -63,9 +63,9 @@ class Base extends Component {
 
     /**
      * Resets the field to a new value or null
-     * @param {*} [value=null]
+     * @param {*} value=null
      */
-    reset(value) {
+    reset(value=null) {
         this.value = value;
     }
 

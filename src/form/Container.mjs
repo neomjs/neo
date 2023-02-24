@@ -87,34 +87,33 @@ class Container extends BaseContainer {
     /**
      * @returns {Promise<Object>}
      */
-    async getSubmitValues() {
-        let fields = await this.getFields(),
-            values = {};
-
-        fields.forEach(item => {
-            values[item.name || item.id] = item.getSubmitValue();
-        });
-
-        return values;
-    }
-
-    /**
-     * @returns {Promise<Object>}
-     */
     async getValues() {
         let fields = await this.getFields(),
             values = {},
-            key, ns, nsArray;
+            key, ns, nsArray, value;
 
         fields.forEach(item => {
+            value = item.getValue();
+
             if (item.name) {
                 nsArray = item.name.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true, values);
-
-                ns[key] = item.value;
             } else {
-                values[item.id] = item.value;
+                key = item.id;
+                ns  = values;
+            }
+
+            if (Object.hasOwn(ns, key)) {
+                if (ns[key] === null) {
+                    ns[key] = []
+                } else if (!Array.isArray(ns[key])) {
+                    ns[key] = [ns[key]]
+                }
+
+                value !== null && ns[key].unshift(value)
+            } else {
+                ns[key] = value;
             }
         });
 

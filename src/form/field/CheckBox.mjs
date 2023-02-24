@@ -317,6 +317,13 @@ class CheckBox extends Base {
     }
 
     /**
+     * @returns {String|null}
+     */
+    getValue() {
+        return this.checked ? this.value : null
+    }
+
+    /**
      * @returns {String}
      */
     getValueLabelId() {
