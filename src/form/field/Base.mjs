@@ -31,17 +31,6 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the formGroup config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     */
-    afterSetFormGroup(value, oldValue) {
-        let parents = ComponentManager.getParents(this);
-
-        console.log(parents);
-    }
-
-    /**
      * Triggered after the value config got changed
      * @param {*} value
      * @param {*} oldValue
@@ -50,6 +39,20 @@ class Base extends Component {
         if (oldValue !== undefined) {
             this.fireChangeEvent(value, oldValue);
         }
+    }
+
+    /**
+     * Triggered when accessing the formGroup config
+     * @param {String|null} value
+     * @returns {String|null} parents
+     * @protected
+     */
+    beforeGetFormGroup(value) {
+        let parents = ComponentManager.getParents(this);
+
+        console.log(parents);
+
+        return value;
     }
 
     /**
