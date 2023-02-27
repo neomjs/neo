@@ -31,6 +31,12 @@ class Base extends Component {
     }
 
     /**
+     * An internal cache for formGroups on all parent levels
+     * @member {String|null} formGroupString=null
+     */
+    formGroupString = null
+
+    /**
      * Triggered after the value config got changed
      * @param {*} value
      * @param {*} oldValue
@@ -48,11 +54,25 @@ class Base extends Component {
      * @protected
      */
     beforeGetFormGroup(value) {
-        let parents = ComponentManager.getParents(this);
+        let me    = this,
+            group = [],
+            returnValue;
 
-        console.log(parents);
+        if (me.formGroupString) {
+            return me.formGroupString;
+        }
 
-        return value;
+        value && group.push(value);
+
+        ComponentManager.getParents(me).forEach(parent => {
+            parent.formGroup && group.push(parent.formGroup)
+        });
+
+        returnValue = group.join('.');
+
+        me.formGroupString = returnValue;
+
+        return returnValue;
     }
 
     /**
