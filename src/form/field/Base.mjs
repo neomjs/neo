@@ -1,4 +1,5 @@
-import Component from '../../component/Base.mjs';
+import Component        from '../../component/Base.mjs';
+import ComponentManager from '../../manager/Component.mjs';
 
 /**
  * Abstract base class for form fields
@@ -18,9 +19,26 @@ class Base extends Component {
          */
         ntype: 'basefield',
         /**
+         * Form groups can get set on any parent component level.
+         * An alternative way for using dots in field names.
+         * @member {String|null} formGroup_=null
+         */
+        formGroup_: null,
+        /**
          * @member {*} value_=null
          */
         value_: null
+    }
+
+    /**
+     * Triggered after the formGroup config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetFormGroup(value, oldValue) {
+        let parents = ComponentManager.getParents(this);
+
+        console.log(parents);
     }
 
     /**
