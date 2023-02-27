@@ -13,17 +13,21 @@ class Page5 extends FormPageContainer {
          */
         className: 'Form.view.pages.Page5',
         /**
+         * @member {String} formGroup='page5'
+         */
+        formGroup: 'page5',
+        /**
          * @member {Object[]} items
          */
         items: [{
             module   : TextField,
             labelText: 'Page 5 Field 1',
-            name     : 'page5field1',
+            name     : 'field1',
             required : true
         }, {
             module   : TextField,
             labelText: 'Page 5 Field 2',
-            name     : 'page5field2'
+            name     : 'field2'
         }]
     }
 }
