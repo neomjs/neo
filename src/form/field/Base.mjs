@@ -1,4 +1,5 @@
-import Component from '../../component/Base.mjs';
+import Component        from '../../component/Base.mjs';
+import ComponentManager from '../../manager/Component.mjs';
 
 /**
  * Abstract base class for form fields
@@ -18,10 +19,22 @@ class Base extends Component {
          */
         ntype: 'basefield',
         /**
+         * Form groups can get set on any parent component level.
+         * An alternative way for using dots in field names.
+         * @member {String|null} formGroup_=null
+         */
+        formGroup_: null,
+        /**
          * @member {*} value_=null
          */
         value_: null
     }
+
+    /**
+     * An internal cache for formGroups of all parent levels
+     * @member {String|null} formGroupString=null
+     */
+    formGroupString = null
 
     /**
      * Triggered after the value config got changed
@@ -32,6 +45,34 @@ class Base extends Component {
         if (oldValue !== undefined) {
             this.fireChangeEvent(value, oldValue);
         }
+    }
+
+    /**
+     * Triggered when accessing the formGroup config
+     * @param {String|null} value
+     * @returns {String|null} parents
+     * @protected
+     */
+    beforeGetFormGroup(value) {
+        let me    = this,
+            group = [],
+            returnValue;
+
+        if (me.formGroupString) {
+            return me.formGroupString;
+        }
+
+        value && group.push(value);
+
+        ComponentManager.getParents(me).forEach(parent => {
+            parent.formGroup && group.push(parent.formGroup)
+        });
+
+        returnValue = group.join('.');
+
+        me.formGroupString = returnValue;
+
+        return returnValue;
     }
 
     /**

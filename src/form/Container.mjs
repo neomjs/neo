@@ -90,13 +90,19 @@ class Container extends BaseContainer {
     async getValues() {
         let fields = await this.getFields(),
             values = {},
-            key, ns, nsArray, value;
+            itemName, key, ns, nsArray, value;
 
         fields.forEach(item => {
             value = item.getValue();
 
             if (item.name) {
-                nsArray = item.name.split('.');
+                itemName = item.name;
+
+                if (item.formGroup) {
+                    itemName = item.formGroup + '.' + itemName;
+                }
+
+                nsArray = itemName.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true, values);
             } else {
