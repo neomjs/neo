@@ -23,7 +23,8 @@ class Page5 extends FormPageContainer {
             module   : TextField,
             labelText: 'Page 5 Field 1',
             name     : 'field1',
-            required : true
+            required : true,
+            value    : 'bar'
         }, {
             module   : TextField,
             labelText: 'Page 5 Field 2',

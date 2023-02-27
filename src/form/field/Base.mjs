@@ -31,7 +31,7 @@ class Base extends Component {
     }
 
     /**
-     * An internal cache for formGroups on all parent levels
+     * An internal cache for formGroups of all parent levels
      * @member {String|null} formGroupString=null
      */
     formGroupString = null
