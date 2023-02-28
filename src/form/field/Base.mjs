@@ -65,7 +65,7 @@ class Base extends Component {
         value && group.push(value);
 
         ComponentManager.getParents(me).forEach(parent => {
-            parent.formGroup && group.push(parent.formGroup)
+            parent.formGroup && group.unshift(parent.formGroup)
         });
 
         returnValue = group.join('.');
