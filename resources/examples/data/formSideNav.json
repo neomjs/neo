@@ -10,7 +10,7 @@
         {"id":  6, "cardIndex":    3, "isHeader": false, "isValid": null, "name": "CheckBoxes"},
         {"id":  7, "cardIndex":    4, "isHeader": false, "isValid": null, "name": "Page 5"},
         {"id":  8, "cardIndex":    5, "isHeader": false, "isValid": null, "name": "Page 6"},
-        {"id":  9, "cardIndex":    6, "isHeader": false, "isValid": null, "name": "Page 7"},
+        {"id":  9, "cardIndex":    6, "isHeader": false, "isValid": null, "name": "Fieldsets"},
         {"id": 10, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "3. More data"},
         {"id": 11, "cardIndex":    7, "isHeader": false, "isValid": null, "name": "Page 8"},
         {"id": 12, "cardIndex":    8, "isHeader": false, "isValid": null, "name": "Page 9"},
