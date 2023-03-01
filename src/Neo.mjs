@@ -432,28 +432,17 @@ Neo = globalThis.Neo = Object.assign({
         return names.reduce((prev, current) => {
             if (create && !prev[current]) {
                 if (current.endsWith(']')) {
-                    let arrDetails = parseArrayFromString(current),
-                        i          = 1,
-                        len        = arrDetails.length,
-                        arrItem, arrRoot;
-
-                    prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
-
-                    for (; i < len; i++) {
-                        arrItem = parseInt(arrDetails[i]);
-
-                        arrRoot[arrItem] = arrRoot[arrItem] || {};
-
-                        arrRoot = arrRoot[arrItem];
-                    }
-
-                    return arrRoot;
-                } else {
-                    prev[current] = {};
+                    return createArrayNs(true, current, prev);
                 }
+
+                prev[current] = {};
             }
 
             if (prev) {
+                if (current.endsWith(']')) {
+                    return createArrayNs(false, current, prev);
+                }
+
                 return prev[current];
             }
         }, scope || globalThis);
@@ -665,6 +654,37 @@ function autoGenerateGetSet(proto, key) {
     }
 
     Object.defineProperty(proto, key, Neo[getSetCache][key]);
+}
+
+/**
+ * @param {Boolean} create
+ * @param {Object} current
+ * @param {Object} prev
+ * @returns {Object}
+ */
+function createArrayNs(create, current, prev) {
+    let arrDetails = parseArrayFromString(current),
+        i          = 1,
+        len        = arrDetails.length,
+        arrItem, arrRoot;
+
+    if (create) {
+        prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
+    } else {
+        arrRoot = prev[arrDetails[0]];
+    }
+
+    for (; i < len; i++) {
+        arrItem = parseInt(arrDetails[i]);
+
+        if (create) {
+            arrRoot[arrItem] = arrRoot[arrItem] || {};
+        }
+
+        arrRoot = arrRoot[arrItem];
+    }
+
+    return arrRoot;
 }
 
 /**
