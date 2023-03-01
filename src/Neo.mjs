@@ -433,14 +433,21 @@ Neo = globalThis.Neo = Object.assign({
             if (create && !prev[current]) {
                 if (current.endsWith(']')) {
                     let arrDetails = parseArrayFromString(current),
-                        arrItem    = parseInt(arrDetails[1]),
-                        arrRoot;
+                        i          = 1,
+                        len        = arrDetails.length,
+                        arrItem, arrRoot;
 
                     prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
 
-                    arrRoot[arrItem] = arrRoot[arrItem] || {};
+                    for (; i < len; i++) {
+                        arrItem = parseInt(arrDetails[i]);
 
-                    return arrRoot[arrItem];
+                        arrRoot[arrItem] = arrRoot[arrItem] || {};
+
+                        arrRoot = arrRoot[arrItem];
+                    }
+
+                    return arrRoot;
                 } else {
                     prev[current] = {};
                 }
