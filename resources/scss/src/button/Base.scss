@@ -100,7 +100,7 @@
     &:active {
         background-color: v(button-background-color-active) !important;
         background-image: none !important;
-        border          : v(button-border-active);
+        border          : v(button-border-active) !important;
 
         .neo-button-glyph {
             color: v(button-glyph-color-active);

@@ -104,7 +104,7 @@ class Container extends BaseContainer {
 
                 nsArray = itemName.split('.');
                 key     = nsArray.pop();
-                ns      = Neo.ns(nsArray, true, values);
+                ns      = Neo.nsWithArrays(nsArray, true, values);
             } else {
                 key = item.id;
                 ns  = values;

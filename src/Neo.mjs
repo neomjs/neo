@@ -411,7 +411,38 @@ Neo = globalThis.Neo = Object.assign({
             if (create && !prev[current]) {
                 prev[current] = {};
             }
+
             if (prev) {
+                return prev[current];
+            }
+        }, scope || globalThis);
+    },
+
+    /**
+     * Extended version of Neo.ns() which supports mapping into arrays.
+     * @memberOf module:Neo
+     * @param {Array|String} names The class name string containing dots or an Array of the string parts
+     * @param {Boolean} [create] Set create to true to create empty objects for non-existing parts
+     * @param {Object} [scope] Set a different starting point as globalThis
+     * @returns {Object} reference to the toplevel namespace
+     */
+    nsWithArrays(names, create, scope) {
+        names = Array.isArray(names) ? names : names.split('.');
+
+        return names.reduce((prev, current) => {
+            if (create && !prev[current]) {
+                if (current.endsWith(']')) {
+                    return createArrayNs(true, current, prev);
+                }
+
+                prev[current] = {};
+            }
+
+            if (prev) {
+                if (current.endsWith(']')) {
+                    return createArrayNs(false, current, prev);
+                }
+
                 return prev[current];
             }
         }, scope || globalThis);
@@ -439,6 +470,7 @@ Neo = globalThis.Neo = Object.assign({
     ntype(ntype, config) {
         if (typeof ntype === 'object') {
             config = ntype;
+
             if (!config.ntype) {
                 throw new Error('Class defined with object configuration missing ntype property. ' + config.ntype);
             }
@@ -450,6 +482,7 @@ Neo = globalThis.Neo = Object.assign({
         if (!className) {
             throw new Error('ntype ' + ntype + ' does not exist');
         }
+
         return Neo.create(className, config);
     },
 
@@ -492,7 +525,10 @@ const ignoreMixin = [
     'ntype',
     'observable',
     'registerToGlobalNs'
-];
+],
+
+    charsRegex         = /\d+/g,
+    extractArraysRegex = /^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/;
 
 /**
  * @param {Neo.core.Base} cls
@@ -519,6 +555,7 @@ function applyMixins(cls, mixins) {
             if (!exists(mixin)) {
                 throw new Error('Attempting to mixin an undefined class: ' + mixin + ', ' + cls.prototype.className);
             }
+
             mixinCls   = Neo.ns(mixin);
             mixinProto = mixinCls.prototype;
         }
@@ -620,6 +657,37 @@ function autoGenerateGetSet(proto, key) {
 }
 
 /**
+ * @param {Boolean} create
+ * @param {Object} current
+ * @param {Object} prev
+ * @returns {Object}
+ */
+function createArrayNs(create, current, prev) {
+    let arrDetails = parseArrayFromString(current),
+        i          = 1,
+        len        = arrDetails.length,
+        arrItem, arrRoot;
+
+    if (create) {
+        prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
+    } else {
+        arrRoot = prev[arrDetails[0]];
+    }
+
+    for (; i < len; i++) {
+        arrItem = parseInt(arrDetails[i]);
+
+        if (create) {
+            arrRoot[arrItem] = arrRoot[arrItem] || {};
+        }
+
+        arrRoot = arrRoot[arrItem];
+    }
+
+    return arrRoot;
+}
+
+/**
  * Checks if the class name exists inside the Neo or app namespace
  * @param {String} className
  * @returns {Boolean}
@@ -646,6 +714,7 @@ function mixinProperty(proto, mixinProto) {
         if (~ignoreMixin.indexOf(key)) {
             return;
         }
+
         if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
@@ -675,6 +744,17 @@ function mixReduce(mixinCls) {
     return (prev, current, idx, arr) => {
         return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls;
     };
+}
+
+/**
+ * @param {String} str
+ * @returns {Function}
+ * @private
+ */
+function parseArrayFromString(str) {
+    return (extractArraysRegex.exec(str) || [null]).slice(1).reduce(
+        (fun, args) => [fun].concat(args.match(charsRegex))
+    );
 }
 
 Neo.config = Neo.config || {};
