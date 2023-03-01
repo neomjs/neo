@@ -411,6 +411,7 @@ Neo = globalThis.Neo = Object.assign({
             if (create && !prev[current]) {
                 prev[current] = {};
             }
+
             if (prev) {
                 return prev[current];
             }
@@ -444,6 +445,7 @@ Neo = globalThis.Neo = Object.assign({
                     prev[current] = {};
                 }
             }
+
             if (prev) {
                 return prev[current];
             }
@@ -472,6 +474,7 @@ Neo = globalThis.Neo = Object.assign({
     ntype(ntype, config) {
         if (typeof ntype === 'object') {
             config = ntype;
+
             if (!config.ntype) {
                 throw new Error('Class defined with object configuration missing ntype property. ' + config.ntype);
             }
@@ -483,6 +486,7 @@ Neo = globalThis.Neo = Object.assign({
         if (!className) {
             throw new Error('ntype ' + ntype + ' does not exist');
         }
+
         return Neo.create(className, config);
     },
 
@@ -555,6 +559,7 @@ function applyMixins(cls, mixins) {
             if (!exists(mixin)) {
                 throw new Error('Attempting to mixin an undefined class: ' + mixin + ', ' + cls.prototype.className);
             }
+
             mixinCls   = Neo.ns(mixin);
             mixinProto = mixinCls.prototype;
         }
@@ -682,6 +687,7 @@ function mixinProperty(proto, mixinProto) {
         if (~ignoreMixin.indexOf(key)) {
             return;
         }
+
         if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
