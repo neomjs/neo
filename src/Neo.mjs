@@ -431,14 +431,15 @@ Neo = globalThis.Neo = Object.assign({
         return names.reduce((prev, current) => {
             if (create && !prev[current]) {
                 if (current.endsWith(']')) {
-                    let arrDetails = parseArrayFromString(current);
+                    let arrDetails = parseArrayFromString(current),
+                        arrItem    = parseInt(arrDetails[1]),
+                        arrRoot;
 
-                    //console.log(arrDetails);
-                    prev[arrDetails[0]] = prev[arrDetails[0]] || [];
-                    //console.log(parseInt(arrDetails[1]));
-                    prev[arrDetails[0]][parseInt(arrDetails[1])] = prev[arrDetails[0]][parseInt(arrDetails[1])] || {};
+                    prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
 
-                    return prev[arrDetails[0]][parseInt(arrDetails[1])];
+                    arrRoot[arrItem] = arrRoot[arrItem] || {};
+
+                    return arrRoot[arrItem];
                 } else {
                     prev[current] = {};
                 }
