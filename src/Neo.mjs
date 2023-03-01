@@ -524,7 +524,10 @@ const ignoreMixin = [
     'ntype',
     'observable',
     'registerToGlobalNs'
-];
+],
+
+    charsRegex         = /\d+/g,
+    extractArraysRegex = /^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/;
 
 /**
  * @param {Neo.core.Base} cls
@@ -715,8 +718,8 @@ function mixReduce(mixinCls) {
  * @private
  */
 function parseArrayFromString(str) {
-    return (/^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/.exec(str) || [null]).slice(1).reduce(
-        (fun, args) => [fun].concat(args.match(/\d+/g))
+    return (extractArraysRegex.exec(str) || [null]).slice(1).reduce(
+        (fun, args) => [fun].concat(args.match(charsRegex))
     );
 }
 
