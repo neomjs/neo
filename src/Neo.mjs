@@ -417,15 +417,21 @@ Neo = globalThis.Neo = Object.assign({
         }, scope || globalThis);
     },
 
-
-
+    /**
+     * Extended version of Neo.ns() which supports mapping into arrays.
+     * @memberOf module:Neo
+     * @param {Array|String} names The class name string containing dots or an Array of the string parts
+     * @param {Boolean} [create] Set create to true to create empty objects for non-existing parts
+     * @param {Object} [scope] Set a different starting point as globalThis
+     * @returns {Object} reference to the toplevel namespace
+     */
     nsWithArrays(names, create, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
         return names.reduce((prev, current) => {
             if (create && !prev[current]) {
                 if (current.endsWith(']')) {
-                    let arrDetails = this.parseArray(current);
+                    let arrDetails = parseArrayFromString(current);
 
                     //console.log(arrDetails);
                     prev[arrDetails[0]] = prev[arrDetails[0]] || [];
@@ -441,12 +447,6 @@ Neo = globalThis.Neo = Object.assign({
                 return prev[current];
             }
         }, scope || globalThis);
-    },
-
-    parseArray(s) {
-        return (/^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/.exec(s) || [null]).slice(1).reduce(
-            (fun, args) => [fun].concat(args.match(/\d+/g))
-        );
     },
 
     /**
@@ -707,6 +707,17 @@ function mixReduce(mixinCls) {
     return (prev, current, idx, arr) => {
         return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls;
     };
+}
+
+/**
+ * @param {String} str
+ * @returns {Function}
+ * @private
+ */
+function parseArrayFromString(str) {
+    return (/^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/.exec(str) || [null]).slice(1).reduce(
+        (fun, args) => [fun].concat(args.match(/\d+/g))
+    );
 }
 
 Neo.config = Neo.config || {};
