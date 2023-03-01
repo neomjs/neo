@@ -104,7 +104,7 @@ class Container extends BaseContainer {
 
                 nsArray = itemName.split('.');
                 key     = nsArray.pop();
-                ns      = Neo.ns(nsArray, true, values);
+                ns      = this.nsArray(nsArray, true, values);
             } else {
                 key = item.id;
                 ns  = values;
@@ -160,6 +160,36 @@ class Container extends BaseContainer {
         modules = await Promise.all(promises);
 
         return modules;
+    }
+
+    nsArray(names, create, scope) {
+        names = Array.isArray(names) ? names : names.split('.');
+
+        return names.reduce((prev, current) => {
+            if (create && !prev[current]) {
+                if (current.endsWith(']')) {
+                    let arrDetails = this.parseArray(current);
+
+                    //console.log(arrDetails);
+                    prev[arrDetails[0]] = prev[arrDetails[0]] || [];
+                    //console.log(parseInt(arrDetails[1]));
+                    prev[arrDetails[0]][parseInt(arrDetails[1])] = prev[arrDetails[0]][parseInt(arrDetails[1])] || {};
+
+                    return prev[arrDetails[0]][parseInt(arrDetails[1])];
+                } else {
+                    prev[current] = {};
+                }
+            }
+            if (prev) {
+                return prev[current];
+            }
+        }, scope || globalThis);
+    }
+
+    parseArray(s) {
+        return (/^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/.exec(s) || [null]).slice(1).reduce(
+            (fun, args) => [fun].concat(args.match(/\d+/g))
+        );
     }
 
     /**

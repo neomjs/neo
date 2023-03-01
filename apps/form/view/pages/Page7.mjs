@@ -22,7 +22,7 @@ class Page7 extends FormPageContainer {
          */
         items: [{
             module   : Fieldset,
-            formGroup: 'persons',
+            formGroup: 'persons[0]',
             title    : 'Fieldset 1',
 
             items : [{
@@ -39,7 +39,7 @@ class Page7 extends FormPageContainer {
             }]
         }, {
             module   : Fieldset,
-            formGroup: 'persons',
+            formGroup: 'persons[1]',
             title    : 'Fieldset 2',
 
             items : [{
