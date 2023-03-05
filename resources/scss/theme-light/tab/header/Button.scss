@@ -12,6 +12,7 @@ $neoMap: map-merge($neoMap, (
     'tab-button-background-image-pressed-right' : none,
     'tab-button-background-image-right'         : none,
     'tab-button-border'                         : none,
+    'tab-button-border-bottom-pressed'          : none,
     'tab-button-border-pressed'                 : none,
     'tab-button-border-radius'                  : 0,
     'tab-button-gap'                            : 0,
@@ -41,6 +42,7 @@ $neoMap: map-merge($neoMap, (
         --tab-button-background-image-pressed-right : #{neo(tab-button-background-image-pressed-right)};
         --tab-button-background-image-right         : #{neo(tab-button-background-image-right)};
         --tab-button-border                         : #{neo(tab-button-border)};
+        --tab-button-border-bottom-pressed          : #{neo(tab-button-border-bottom-pressed)};
         --tab-button-border-pressed                 : #{neo(tab-button-border-pressed)};
         --tab-button-border-radius                  : #{neo(tab-button-border-radius)};
         --tab-button-gap                            : #{neo(tab-button-gap)};

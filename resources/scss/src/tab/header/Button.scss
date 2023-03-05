@@ -58,6 +58,7 @@
     &.pressed {
         background-image: v(tab-button-background-image-pressed) !important;
         border          : v(tab-button-border-pressed);
+        border-bottom   : v(tab-button-border-bottom-pressed);
         cursor          : default;
         height          : v(tab-button-height-pressed);
 
