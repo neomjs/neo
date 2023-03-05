@@ -8,8 +8,8 @@
     align-self      : end;
     background-color: v(tab-button-background-color);
     background-image: v(tab-button-background-image);
+    border          : v(tab-button-border);
     border-radius   : v(tab-button-border-radius);
-    border-width    : 0;
     height          : v(tab-button-height);
     margin          : 0;
     padding         : v(tab-button-padding);
@@ -57,6 +57,8 @@
 
     &.pressed {
         background-image: v(tab-button-background-image-pressed) !important;
+        border          : v(tab-button-border-pressed);
+        border-bottom   : v(tab-button-border-bottom-pressed);
         cursor          : default;
         height          : v(tab-button-height-pressed);
 

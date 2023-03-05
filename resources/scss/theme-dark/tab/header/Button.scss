@@ -11,6 +11,9 @@ $neoMap: map-merge($neoMap, (
     'tab-button-background-image-pressed-left'  : linear-gradient(to right, #434749, #323536),
     'tab-button-background-image-pressed-right' : linear-gradient(to left,  #434749, #323536),
     'tab-button-background-image-right'         : linear-gradient(to left,  #393d3e, #282b2b),
+    'tab-button-border'                         : none,
+    'tab-button-border-bottom-pressed'          : none,
+    'tab-button-border-pressed'                 : none,
     'tab-button-border-radius'                  : 0,
     'tab-button-gap'                            : 0,
     'tab-button-glyph-color'                    : #bbb,
@@ -38,6 +41,9 @@ $neoMap: map-merge($neoMap, (
         --tab-button-background-image-pressed-left  : #{neo(tab-button-background-image-pressed-left)};
         --tab-button-background-image-pressed-right : #{neo(tab-button-background-image-pressed-right)};
         --tab-button-background-image-right         : #{neo(tab-button-background-image-right)};
+        --tab-button-border                         : #{neo(tab-button-border)};
+        --tab-button-border-bottom-pressed          : #{neo(tab-button-border-bottom-pressed)};
+        --tab-button-border-pressed                 : #{neo(tab-button-border-pressed)};
         --tab-button-border-radius                  : #{neo(tab-button-border-radius)};
         --tab-button-gap                            : #{neo(tab-button-gap)};
         --tab-button-glyph-color                    : #{neo(tab-button-glyph-color)};
