@@ -25,6 +25,12 @@ class Page1 extends FormPageContainer {
             module   : TextField,
             labelText: 'Lastname',
             name     : 'lastname'
+        }, {
+            module   : TextField,
+            labelText: 'Status',
+            name     : 'status',
+            readOnly : true,
+            value    : 'Active'
         }]
     }
 }
