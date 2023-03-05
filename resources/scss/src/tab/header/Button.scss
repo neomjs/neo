@@ -11,7 +11,7 @@
     border          : v(tab-button-border);
     border-radius   : v(tab-button-border-radius);
     height          : v(tab-button-height);
-    margin          : 0;
+    margin          : 0 0 v(tab-button-margin-bottom);
     padding         : v(tab-button-padding);
     text-transform  : v(tab-button-text-transform);
 

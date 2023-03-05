@@ -22,6 +22,7 @@ $neoMap: map-merge($neoMap, (
     'tab-button-glyph-color-pressed'            : #1c60a0,
     'tab-button-height'                         : 25px,
     'tab-button-height-pressed'                 : 25px,
+    'tab-button-margin-bottom'                  : 0,
     'tab-button-padding'                        : 7px 12px 6px 12px,
     'tab-button-text-color'                     : #2b2b2b,
     'tab-button-text-transform'                 : uppercase
@@ -52,6 +53,7 @@ $neoMap: map-merge($neoMap, (
         --tab-button-glyph-color-pressed            : #{neo(tab-button-glyph-color-pressed)};
         --tab-button-height                         : #{neo(tab-button-height)};
         --tab-button-height-pressed                 : #{neo(tab-button-height-pressed)};
+        --tab-button-margin-bottom                  : #{neo(tab-button-margin-bottom)};
         --tab-button-padding                        : #{neo(tab-button-padding)};
         --tab-button-text-color                     : #{neo(tab-button-text-color)};
         --tab-button-text-transform                 : #{neo(tab-button-text-transform)};
