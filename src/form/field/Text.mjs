@@ -560,7 +560,7 @@ class Text extends Base {
         me.changeInputElKey('readonly', value ? value : null);
 
         me.triggers?.forEach(trigger => {
-            trigger.hidden = value
+            trigger.hidden = value ? true : trigger.getHiddenState?.() || false
         })
     }
 
