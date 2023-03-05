@@ -12,6 +12,7 @@ $neoMap: map-merge($neoMap, (
     'tab-button-background-image-pressed-right' : linear-gradient(to left,  #434749, #323536),
     'tab-button-background-image-right'         : linear-gradient(to left,  #393d3e, #282b2b),
     'tab-button-border'                         : none,
+    'tab-button-border-bottom'                  : none,
     'tab-button-border-bottom-pressed'          : none,
     'tab-button-border-pressed'                 : none,
     'tab-button-border-radius'                  : 0,
@@ -22,6 +23,7 @@ $neoMap: map-merge($neoMap, (
     'tab-button-glyph-color-pressed'            : #bbb,
     'tab-button-height'                         : 25px,
     'tab-button-height-pressed'                 : 25px,
+    'tab-button-margin-bottom'                  : 0,
     'tab-button-padding'                        : 7px 12px 6px 12px,
     'tab-button-text-color'                     : #bbb,
     'tab-button-text-transform'                 : none
@@ -42,6 +44,7 @@ $neoMap: map-merge($neoMap, (
         --tab-button-background-image-pressed-right : #{neo(tab-button-background-image-pressed-right)};
         --tab-button-background-image-right         : #{neo(tab-button-background-image-right)};
         --tab-button-border                         : #{neo(tab-button-border)};
+        --tab-button-border-bottom                  : #{neo(tab-button-border-bottom)};
         --tab-button-border-bottom-pressed          : #{neo(tab-button-border-bottom-pressed)};
         --tab-button-border-pressed                 : #{neo(tab-button-border-pressed)};
         --tab-button-border-radius                  : #{neo(tab-button-border-radius)};
@@ -52,6 +55,7 @@ $neoMap: map-merge($neoMap, (
         --tab-button-glyph-color-pressed            : #{neo(tab-button-glyph-color-pressed)};
         --tab-button-height                         : #{neo(tab-button-height)};
         --tab-button-height-pressed                 : #{neo(tab-button-height-pressed)};
+        --tab-button-margin-bottom                  : #{neo(tab-button-margin-bottom)};
         --tab-button-padding                        : #{neo(tab-button-padding)};
         --tab-button-text-color                     : #{neo(tab-button-text-color)};
         --tab-button-text-transform                 : #{neo(tab-button-text-transform)};
