@@ -376,7 +376,7 @@ class Base extends Component {
             items = me.items,
             i, len, returnArray;
 
-        if (Neo.typeOf(item) === 'Array') {
+        if (Array.isArray(item)) {
             i           = 0;
             len         = item.length;
             returnArray = [];
