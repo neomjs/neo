@@ -408,25 +408,27 @@ class Container extends BaseContainer {
      * Inserts an item or array of items at a specific index
      * @param {Number} index
      * @param {Object|Object[]} item
+     * @param {Boolean} silent=false
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item) {
+    insert(index, item, silent=false) {
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             hasItem       = false,
-            i, len, superItem, tab, tabButtonConfig;
+            i, len, returnArray, superItem, tab, tabButtonConfig;
 
         if (Array.isArray(item)) {
-            i   = 0;
-            len = item.length;
+            i           = 0;
+            len         = item.length;
+            returnArray = [];
 
             for (; i < len; i++) {
-                // todo: render is async, ensure the order of items is correct
-
                 // insert the array backwards
-                item[i] = me.insert(item[len - 1], index);
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
             }
+
+            superItem = returnArray;
         } else if (typeof item === 'object') {
             i   = 0;
             len = cardContainer.items.length;
@@ -435,36 +437,44 @@ class Container extends BaseContainer {
                 if (cardContainer.items[i].id === item.id) {
                     hasItem   = true;
                     superItem = cardContainer.items[i];
-                    me.activeIndex = i;
+
+                    if (me.activateInsertedTabs) {
+                        me.activeIndex = i;
+                    }
+
                     break;
+                }
+            }
+
+            if (!hasItem) {
+                tabButtonConfig = item.tabButtonConfig;
+
+                tab = tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
+
+                // todo: non index based matching of tab buttons and cards
+                i = 0;
+                len = tabBar.items.length;
+
+                for (; i < len; i++) {
+                    tabBar.items[i].index = i;
+                }
+
+                item.flex = 1;
+                superItem = cardContainer.insert(index, item, silent);
+
+                if (me.activateInsertedTabs) {
+                    if (!me.vnode) {
+                        me.activeIndex = index;
+                    } else {
+                        tab.on('mounted', me.onTabButtonMounted, me);
+                    }
                 }
             }
         }
 
-        if (!hasItem) {
-            tabButtonConfig = item.tabButtonConfig;
-
-            tab = tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
-
-            // todo: non index based matching of tab buttons and cards
-            i   = 0;
-            len = tabBar.items.length;
-
-            for (; i < len; i++) {
-                tabBar.items[i].index = i;
-
-            }
-
-            item.flex = 1;
-            superItem = cardContainer.insert(index, item);
-
-            if (me.activateInsertedTabs) {
-                if (!me.vnode) {
-                    me.activeIndex = index;
-                } else {
-                    tab.on('mounted', me.onTabButtonMounted, me);
-                }
-            }
+        if (!silent) {
+            me.updateTabButtons()
+            me.update();
         }
 
         return superItem
