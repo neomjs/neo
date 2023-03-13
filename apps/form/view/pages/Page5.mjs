@@ -1,5 +1,5 @@
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
+import Radio             from '../../../../src/form/field/Radio.mjs';
 
 /**
  * @class Form.view.pages.Page5
@@ -13,6 +13,15 @@ class Page5 extends FormPageContainer {
          */
         className: 'Form.view.pages.Page5',
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module    : Radio,
+            labelText : null,
+            labelWidth: 70,
+            name      : 'fruits'
+        },
+        /**
          * @member {String} formGroup='page5'
          */
         formGroup: 'page5',
@@ -20,15 +29,22 @@ class Page5 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
-            labelText: 'Page 5 Field 1',
-            name     : 'field1',
-            required : true,
-            value    : 'bar'
+            labelText     : 'Fruits',
+            value         : 'apple',
+            valueLabelText: 'Apple'
         }, {
-            module   : TextField,
-            labelText: 'Page 5 Field 2',
-            name     : 'field2'
+            value         : 'banana',
+            valueLabelText: 'Banana'
+        }, {
+            checked       : true,
+            value         : 'lemon',
+            valueLabelText: 'Lemon'
+        }, {
+            value         : 'orange',
+            valueLabelText: 'Orange'
+        }, {
+            value         : 'strawberry',
+            valueLabelText: 'Strawberry'
         }]
     }
 }
