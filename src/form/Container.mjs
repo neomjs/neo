@@ -110,7 +110,7 @@ class Container extends BaseContainer {
                 ns  = values;
             }
 
-            if (Object.hasOwn(ns, key)) {
+            if (Object.hasOwn(ns, key) && value !== undefined) {
                 if (ns[key] === null) {
                     ns[key] = []
                 } else if (!Array.isArray(ns[key])) {
@@ -118,8 +118,8 @@ class Container extends BaseContainer {
                 }
 
                 value !== null && ns[key].unshift(value)
-            } else {
-                ns[key] = value;
+            } else if (value !== undefined) {
+                ns[key] = value
             }
         });
 

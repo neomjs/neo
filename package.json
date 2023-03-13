@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "5.2.11",
+    "version": "5.2.12",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -44,7 +44,7 @@
         "@fortawesome/fontawesome-free": "^6.3.0",
         "@material/mwc-button": "^0.27.0",
         "@material/mwc-textfield": "^0.27.0",
-        "autoprefixer": "^10.4.13",
+        "autoprefixer": "^10.4.14",
         "chalk": "^5.2.0",
         "clean-webpack-plugin": "^4.0.0",
         "commander": "^10.0.0",
@@ -56,8 +56,8 @@
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.5",
         "postcss": "^8.4.21",
-        "sass": "^1.58.3",
-        "webpack": "^5.75.0",
+        "sass": "^1.59.2",
+        "webpack": "^5.76.1",
         "webpack-cli": "^5.0.1",
         "webpack-dev-server": "4.11.1",
         "webpack-hook-plugin": "^1.0.7",
