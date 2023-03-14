@@ -74,8 +74,17 @@ class ViewportModel extends Component {
     onDataPropertyChange(key, value, oldValue) {
         super.onDataPropertyChange(key, value, oldValue);
 
-        if (key === 'activeIndex') {
-            console.log(key, value);
+        let me = this;
+
+        if (me.formData && key === 'activeIndex') {
+            // short delay to honor the lazy loading
+            setTimeout(() => {
+                let page = me.component.getController().getReference('pages-container').items[value];
+
+                console.log(key, value, page);
+
+                page.setValues(me.formData);
+            }, 50)
         }
     }
 }
