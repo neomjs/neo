@@ -45,6 +45,27 @@ class ViewportModel extends Component {
     }
 
     /**
+     * We are storing the local storage data into this class field
+     * @member {Object} data
+     */
+    formData = null
+
+    /**
+     *
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        Neo.main.addon.LocalStorage.readLocalStorageItem({
+            appName: this.component.appName,
+            key    : 'neo-form'
+        }).then(data => {
+            this.formData = JSON.parse(data.value);
+        })
+    }
+
+    /**
      *
      * @param {String} key
      * @param {*} value
