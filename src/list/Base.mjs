@@ -136,6 +136,11 @@ class Base extends Component {
      * @member {String|null} itemRole=null
      */
     itemRole = null
+    /**
+     * Defaults to false in case useHeaders is set to true
+     * @member {Boolean} scrollIntoViewOnFocus=true
+     */
+    scrollIntoViewOnFocus = true
 
     /**
      * @param {Object} config
@@ -144,6 +149,10 @@ class Base extends Component {
         super.construct(config);
 
         let me = this;
+
+        if (me.useHeaders) {
+            me.scrollIntoViewOnFocus = false;
+        }
 
         me.addDomListeners({
             click: me.onClick,
@@ -488,7 +497,7 @@ class Base extends Component {
     focus(id) {
         super.focus(id);
 
-        id && Neo.main.DomAccess.scrollIntoView({
+        id && this.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
             behavior: 'auto',
             id      : id || this.id
         });
