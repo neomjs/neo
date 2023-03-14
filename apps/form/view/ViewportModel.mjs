@@ -43,6 +43,20 @@ class ViewportModel extends Component {
             }
         }
     }
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        if (key === 'activeIndex') {
+            console.log(key, value);
+        }
+    }
 }
 
 Neo.applyClassConfig(ViewportModel);
