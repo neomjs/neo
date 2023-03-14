@@ -60,6 +60,12 @@ class DateField extends Picker {
     }
 
     /**
+     * Setting the value to true will return a Date object when calling getValue()
+     * @member {Boolean} submitDateObject=false
+     */
+    submitDateObject = false
+
+    /**
      * @param config
      */
     construct(config) {
@@ -88,6 +94,15 @@ class DateField extends Picker {
      */
     createPickerComponent() {
         return this.dateSelector;
+    }
+
+    /**
+     * @returns {Date|String|null}
+     */
+    getValue() {
+        let value = this.value;
+
+        return this.submitDateObject && value ? new Date(value) : value
     }
 
     /**
