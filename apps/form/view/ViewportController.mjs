@@ -16,6 +16,20 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
+    async onSaveButtonClick(data) {
+        let form       = this.getReference('main-form'),
+            formValues = await form.getValues();
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            appName: this.component.AppName,
+            key    : 'neo-form',
+            value  : JSON.stringify(formValues)
+        })
+    }
+
+    /**
+     * @param {Object} data
+     */
     async onValidateAllPagesButtonClick(data) {
         let me         = this,
             form       = me.getReference('main-form'),

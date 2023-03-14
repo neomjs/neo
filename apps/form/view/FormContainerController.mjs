@@ -26,13 +26,6 @@ class FormContainerController extends Component {
     onPrevPageButtonClick(data) {
         this.getModel().data.activeIndex--;
     }
-
-    /**
-     * @param {Object} data
-     */
-    onSaveButtonClick(data) {
-        console.log('onSaveButtonClick');
-    }
 }
 
 Neo.applyClassConfig(FormContainerController);
