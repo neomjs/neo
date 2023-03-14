@@ -21,7 +21,7 @@ class ViewportController extends Component {
             formValues = await form.getValues();
 
         Neo.main.addon.LocalStorage.updateLocalStorageItem({
-            appName: this.component.AppName,
+            appName: this.component.appName,
             key    : 'neo-form',
             value  : JSON.stringify(formValues)
         })
