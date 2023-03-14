@@ -79,7 +79,7 @@ class ViewportModel extends Component {
         if (me.formData && key === 'activeIndex') {
             // short delay to honor the lazy loading
             setTimeout(() => {
-                let page = me.component.getController().getReference('pages-container').items[value];
+                let page = me.getController().getReference('pages-container').items[value];
 
                 console.log(key, value, page);
 
