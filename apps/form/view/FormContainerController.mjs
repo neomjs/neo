@@ -26,6 +26,20 @@ class FormContainerController extends Component {
     onPrevPageButtonClick(data) {
         this.getModel().data.activeIndex--;
     }
+
+    /**
+     * @param {Object} data
+     */
+    async onSaveButtonClick(data) {
+        let form       = this.getReference('main-form'),
+            formValues = await form.getValues();
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            appName: this.component.appName,
+            key    : 'neo-form',
+            value  : JSON.stringify(formValues)
+        })
+    }
 }
 
 Neo.applyClassConfig(FormContainerController);
