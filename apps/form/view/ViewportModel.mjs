@@ -51,7 +51,7 @@ class ViewportModel extends Component {
     formData = null
 
     /**
-     *
+     * Loading the local storage formData
      * @param {Object} config
      */
     construct(config) {
