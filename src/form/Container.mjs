@@ -210,6 +210,15 @@ class Container extends BaseContainer {
             path  = me.getFieldPath(item);
             value = Neo.nsWithArrays(path, false, values);
 
+            if (Neo.typeOf(value) === 'Array') {
+                // form.field.CheckBox
+                if (value.includes(item.value)) {
+                    item.checked = true;
+                }
+            } else if (value !== undefined) {
+                console.log(values);
+            }
+
             console.log(path, values);
             console.log(value);
 
