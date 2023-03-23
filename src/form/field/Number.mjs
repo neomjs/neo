@@ -172,6 +172,22 @@ class Number extends Text {
     }
 
     /**
+     * Triggered before the value config gets changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        let stepSizeString = String(this.stepSize);
+
+        if (Neo.isNumber(value) && stepSizeString.includes('.')) {
+            return +value.toFixed(stepSizeString.split('.')[1].length);
+        }
+
+        return value;
+    }
+
+    /**
      * @returns {Boolean}
      */
     isValid() {
