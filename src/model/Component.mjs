@@ -271,6 +271,15 @@ class Component extends Base {
     }
 
     /**
+     * Convenience shortcut
+     * @param {String} [ntype]
+     * @returns {Neo.controller.Component|null}
+     */
+    getController(ntype) {
+        return this.component.getController(ntype);
+    }
+
+    /**
      * Access the closest data property inside the VM parent chain.
      * @param {String} key
      * @param {Neo.model.Component} [originModel=this] for internal usage only

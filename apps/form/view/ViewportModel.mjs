@@ -43,6 +43,50 @@ class ViewportModel extends Component {
             }
         }
     }
+
+    /**
+     * We are storing the local storage data into this class field
+     * @member {Object} data
+     */
+    formData = null
+
+    /**
+     * Loading the local storage formData
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        Neo.main.addon.LocalStorage.readLocalStorageItem({
+            appName: this.component.appName,
+            key    : 'neo-form'
+        }).then(data => {
+            this.formData = JSON.parse(data.value);
+        })
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        let me = this;
+
+        if (me.formData && key === 'activeIndex') {
+            // short delay to honor the lazy loading
+            setTimeout(() => {
+                let page = me.getController().getReference('pages-container').items[value];
+
+                console.log(key, value, page);
+
+                page.setValues(me.formData);
+            }, 50)
+        }
+    }
 }
 
 Neo.applyClassConfig(ViewportModel);

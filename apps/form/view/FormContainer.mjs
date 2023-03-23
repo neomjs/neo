@@ -46,6 +46,11 @@ class FormContainer extends BaseFormContainer {
                 handler: 'onValidateAllPagesButtonClick',
                 style  : {marginLeft: '1em'},
                 text   : 'Validate all pages'
+            }, {
+                iconCls: ['fas', 'fa-floppy-disk'],
+                handler: 'onSaveButtonClick',
+                style  : {marginLeft: '1em'},
+                text   : 'Save'
             }]
         }, {
             module   : Container,

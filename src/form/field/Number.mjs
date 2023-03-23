@@ -70,6 +70,11 @@ class Number extends Text {
     }
 
     /**
+     * @member {Number|null} stepSizeDigits=null
+     */
+    stepSizeDigits = null
+
+    /**
      * Triggered after the inputEditable config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -120,11 +125,15 @@ class Number extends Text {
     afterSetStepSize(value, oldValue) {
         let me  = this,
             val = me.value,
-            modulo;
+            modulo, stepSizeString;
 
         me.changeInputElKey('step', value);
 
         if (val !== null) {
+            stepSizeString = String(this.stepSize);
+
+            me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
+
             modulo = (val - me.minValue) % value;
 
             if (modulo !== 0) { // find the closest valid value
@@ -169,6 +178,20 @@ class Number extends Text {
      */
     beforeSetTriggerPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'triggerPosition');
+    }
+
+    /**
+     * Triggered before the value config gets changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        if (Neo.isNumber(value) && this.stepSizeDigits > 0) {
+            return +value.toFixed(this.stepSizeDigits);
+        }
+
+        return value;
     }
 
     /**

@@ -1,6 +1,7 @@
 {
-    "appPath": "apps/form/app.mjs",
-    "basePath": "../../",
-    "environment": "development",
-    "mainPath": "./Main.mjs"
+    "appPath"         : "apps/form/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "LocalStorage", "Stylesheet"]
 }
