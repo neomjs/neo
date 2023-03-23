@@ -69,10 +69,16 @@ class Container extends BaseContainer {
         return null;
     }
 
+    /**
+     * @param {Neo.field.Base} field
+     * @returns {String}
+     */
     getFieldPath(field) {
-        console.log('getFieldPath', field);
+        let path = field.formGroup ? field.formGroup.split('.') : [];
 
-        return field.name;
+        path.push(field.name || field.id);
+
+        return path.join('.');
     }
 
     /**
@@ -203,7 +209,7 @@ class Container extends BaseContainer {
             index = keys.indexOf(item.name);
             path  = me.getFieldPath(item);
 
-            console.log(path);
+            console.log(path, values);
 
             if (index < 0) {
                 index = keys.indexOf(item.id);
