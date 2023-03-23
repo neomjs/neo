@@ -74,7 +74,8 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'stepSize',
             listeners: {change: me.onConfigChange.bind(me, 'stepSize')},
             maxValue : 10,
-            minValue : 1,
+            minValue : 0.01,
+            stepSize : 0.01,
             value    : me.exampleComponent.stepSize
         }, {
             module        : Radio,
