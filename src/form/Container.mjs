@@ -69,6 +69,12 @@ class Container extends BaseContainer {
         return null;
     }
 
+    getFieldPath(field) {
+        console.log('getFieldPath', field);
+
+        return field.name;
+    }
+
     /**
      * @returns {Promise<Neo.form.field.Base[]>} fields
      */
@@ -188,12 +194,16 @@ class Container extends BaseContainer {
      * @param {Object} values={}
      */
     async setValues(values={}) {
-        let keys   = Object.keys(values),
-            fields = await this.getFields(),
-            index;
+        let me     = this,
+            keys   = Object.keys(values),
+            fields = await me.getFields(),
+            index, path;
 
         fields.forEach(item => {
             index = keys.indexOf(item.name);
+            path  = me.getFieldPath(item);
+
+            console.log(path);
 
             if (index < 0) {
                 index = keys.indexOf(item.id);
