@@ -70,7 +70,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Neo.field.Base} field
+     * @param {Neo.form.field.Base} field
      * @returns {String}
      */
     getFieldPath(field) {
@@ -203,13 +203,15 @@ class Container extends BaseContainer {
         let me     = this,
             keys   = Object.keys(values),
             fields = await me.getFields(),
-            index, path;
+            index, path, value;
 
         fields.forEach(item => {
             index = keys.indexOf(item.name);
             path  = me.getFieldPath(item);
+            value = Neo.nsWithArrays(path, false, values);
 
             console.log(path, values);
+            console.log(value);
 
             if (index < 0) {
                 index = keys.indexOf(item.id);
