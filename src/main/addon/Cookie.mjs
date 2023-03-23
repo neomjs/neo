@@ -37,7 +37,7 @@ class Cookie extends Base {
      * @returns {String}
      */
     getCookie(name) {
-        const cookie = document.cookie
+        let cookie = document.cookie
             .split('; ')
             .find(row => row.startsWith(name));
 
