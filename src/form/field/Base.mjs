@@ -89,7 +89,7 @@ class Base extends Component {
             value
         });
 
-        ComponentManager.getParents(this).forEach(parent => {
+        ComponentManager.getParents(me).forEach(parent => {
             if (parent instanceof Neo.form.Container) {
                 parent.fire('fieldChange', {
                     component: me,
