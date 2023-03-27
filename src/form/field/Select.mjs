@@ -1,8 +1,9 @@
-import ClassSystemUtil from '../../util/ClassSystem.mjs';
-import List            from '../../list/Base.mjs';
-import Picker          from './Picker.mjs';
-import Store           from '../../data/Store.mjs';
-import VDomUtil        from '../../util/VDom.mjs';
+import ClassSystemUtil  from '../../util/ClassSystem.mjs';
+import ComponentManager from '../../manager/Component.mjs';
+import List             from '../../list/Base.mjs';
+import Picker           from './Picker.mjs';
+import Store            from '../../data/Store.mjs';
+import VDomUtil         from '../../util/VDom.mjs';
 
 /**
  * Provides a dropdown list to select one or multiple items
@@ -306,6 +307,18 @@ class Select extends Picker {
                 oldValue,
                 record,
                 value
+            });
+
+            ComponentManager.getParents(me).forEach(parent => {
+                if (parent instanceof Neo.form.Container) {
+                    parent.fire('fieldChange', {
+                        component: me,
+                        oldRecord,
+                        oldValue,
+                        record,
+                        value
+                    })
+                }
             })
         }
     }
