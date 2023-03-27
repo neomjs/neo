@@ -14,6 +14,17 @@ class FormContainerController extends Component {
     }
 
     /**
+     *
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        this.component.on('fieldFocusLeave', data => {
+            console.log('fieldFocusLeave', data);
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     onNextPageButtonClick(data) {

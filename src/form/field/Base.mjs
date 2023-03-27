@@ -103,6 +103,24 @@ class Base extends Component {
     }
 
     /**
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @protected
+     */
+    onFocusLeave(data) {
+        super.onFocusLeave?.(data);
+
+        ComponentManager.getParents(this).forEach(parent => {
+            if (parent instanceof Neo.form.Container) {
+                parent.fire('fieldFocusLeave', {
+                    ...data,
+                    field: this
+                })
+            }
+        })
+    }
+
+    /**
      * Resets the field to a new value or null
      * @param {*} value=null
      */
