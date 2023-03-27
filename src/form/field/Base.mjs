@@ -81,11 +81,23 @@ class Base extends Component {
      * @param {*} oldValue
      */
     fireChangeEvent(value, oldValue) {
-        this.fire('change', {
-            component: this,
+        let me = this;
+
+        me.fire('change', {
+            component: me,
             oldValue,
             value
         });
+
+        ComponentManager.getParents(this).forEach(parent => {
+            if (parent instanceof Neo.form.Container) {
+                parent.fire('fieldChange', {
+                    component: me,
+                    oldValue,
+                    value
+                })
+            }
+        })
     }
 
     /**
@@ -114,7 +126,7 @@ class Base extends Component {
             if (parent instanceof Neo.form.Container) {
                 parent.fire('fieldFocusLeave', {
                     ...data,
-                    field: this
+                    component: this
                 })
             }
         })
