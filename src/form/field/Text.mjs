@@ -1109,6 +1109,8 @@ class Text extends Base {
 
             me.update();
         }
+
+        super.onFocusLeave(data);
     }
 
     /**

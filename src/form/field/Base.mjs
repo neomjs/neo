@@ -103,6 +103,15 @@ class Base extends Component {
     }
 
     /**
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @protected
+     */
+    onFocusLeave(data) {
+        console.log('onFocusLeave', data);
+    }
+
+    /**
      * Resets the field to a new value or null
      * @param {*} value=null
      */
