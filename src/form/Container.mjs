@@ -201,12 +201,10 @@ class Container extends BaseContainer {
      */
     async setValues(values={}) {
         let me     = this,
-            keys   = Object.keys(values),
             fields = await me.getFields(),
-            index, path, value;
+            path, value;
 
         fields.forEach(item => {
-            index = keys.indexOf(item.name);
             path  = me.getFieldPath(item);
             value = Neo.nsWithArrays(path, false, values);
 
@@ -216,18 +214,7 @@ class Container extends BaseContainer {
                     item.checked = true;
                 }
             } else if (value !== undefined) {
-                console.log(values);
-            }
-
-            console.log(path, values);
-            console.log(value);
-
-            if (index < 0) {
-                index = keys.indexOf(item.id);
-            }
-
-            if (index > -1) {
-                item.value = values[keys[index]];
+                item.value = value;
             }
         })
     }
