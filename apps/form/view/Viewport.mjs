@@ -29,7 +29,7 @@ class Viewport extends BaseViewport {
 
             items: [{
                 flex: 'none',
-                vdom: {tag: 'h1', innerHTML: 'My Form Header'}
+                vdom: {tag: 'h1', innerHTML: 'Nested Forms'}
             }, {
                 module   : SideNavList,
                 reference: 'side-nav',

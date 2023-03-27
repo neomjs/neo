@@ -82,12 +82,12 @@ class FormContainer extends BaseFormContainer {
             cls   : ['form-footer'],
             flex  : 'none',
 
-            items: ['->', {
+            items: [{
                 bind   : {disabled: data => data.activeIndex === 0},
                 handler: 'onPrevPageButtonClick',
                 iconCls: 'fas fa-chevron-left',
                 text   : 'Back'
-            }, {
+            }, '->', {
                 bind        : {disabled: data => data.activeIndex === data.maxIndex},
                 handler     : 'onNextPageButtonClick',
                 iconCls     : 'fas fa-chevron-right',

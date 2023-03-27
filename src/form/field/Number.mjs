@@ -229,30 +229,23 @@ class Number extends Text {
 
     /**
      * @param {Object} data
-     * @override
+     * @param {Object[]} data.oldPath
+     * @protected
      */
-    onInputValueChange(data) {
-        let me       = this,
-            value    = data.value,
-            oldValue = me.value;
+    onFocusLeave(data) {
+        let me    = this,
+            value = me.value;
 
-        if (!value && !me.required) {
-            super.onInputValueChange(data);
-        } else {
-            value = parseInt(value); // todo: support for other number types
+        if (value !== null) {
+            value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
+            value = value - value % me.stepSize;
+            value = Math.max(me.minValue, value);
+            value = Math.min(me.maxValue, value);
 
-            if (!Neo.isNumber(value)) {
-                me._value = oldValue;
-            } else {
-                value = value - value % me.stepSize;
-                value = Math.max(me.minValue, value);
-                value = Math.min(me.maxValue, value);
-
-                data.value = value;
-
-                super.onInputValueChange(data);
-            }
+            me.value = value;
         }
+
+        super.onFocusLeave(data)
     }
 
     /**

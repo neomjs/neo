@@ -70,6 +70,18 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Neo.form.field.Base} field
+     * @returns {String}
+     */
+    getFieldPath(field) {
+        let path = field.formGroup ? field.formGroup.split('.') : [];
+
+        path.push(field.name || field.id);
+
+        return path.join('.');
+    }
+
+    /**
      * @returns {Promise<Neo.form.field.Base[]>} fields
      */
     async getFields() {
@@ -188,19 +200,29 @@ class Container extends BaseContainer {
      * @param {Object} values={}
      */
     async setValues(values={}) {
-        let keys   = Object.keys(values),
-            fields = await this.getFields(),
-            index;
+        let me     = this,
+            fields = await me.getFields(),
+            isRadio, path, value;
 
         fields.forEach(item => {
-            index = keys.indexOf(item.name);
+            path  = me.getFieldPath(item);
+            value = Neo.nsWithArrays(path, false, values);
 
-            if (index < 0) {
-                index = keys.indexOf(item.id);
-            }
+            if (Neo.typeOf(value) === 'Array') {
+                // form.field.CheckBox
+                if (value.includes(item.value)) {
+                    item.checked = true;
+                }
+            } else if (value !== undefined) {
+                isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
 
-            if (index > -1) {
-                item.value = values[keys[index]];
+                if (isRadio) {
+                    if (item.value === value) {
+                        item.checked = true;
+                    }
+                } else {
+                    item.value = value;
+                }
             }
         })
     }
