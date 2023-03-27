@@ -202,7 +202,7 @@ class Container extends BaseContainer {
     async setValues(values={}) {
         let me     = this,
             fields = await me.getFields(),
-            path, value;
+            isRadio, path, value;
 
         fields.forEach(item => {
             path  = me.getFieldPath(item);
@@ -214,7 +214,15 @@ class Container extends BaseContainer {
                     item.checked = true;
                 }
             } else if (value !== undefined) {
-                item.value = value;
+                isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
+
+                if (isRadio) {
+                    if (item.value === value) {
+                        item.checked = true;
+                    }
+                } else {
+                    item.value = value;
+                }
             }
         })
     }
