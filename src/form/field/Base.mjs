@@ -108,7 +108,16 @@ class Base extends Component {
      * @protected
      */
     onFocusLeave(data) {
-        console.log('onFocusLeave', data);
+        super.onFocusLeave?.(data);
+
+        ComponentManager.getParents(this).forEach(parent => {
+            if (parent instanceof Neo.form.Container) {
+                parent.fire('fieldFocusLeave', {
+                    ...data,
+                    field: this
+                })
+            }
+        })
     }
 
     /**
