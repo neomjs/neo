@@ -21,15 +21,20 @@ class Page6 extends FormPageContainer {
          */
         items: [{
             module   : TextArea,
+            height   : 200,
             labelText: 'Page 6 Field 1',
             name     : 'field1',
             required : true,
-            height   : 200,
             value    : 'Lorem ipsum'
         }, {
             module   : TextArea,
+            height   : 300,
             labelText: 'Page 6 Field 2',
             name     : 'field2'
+        }, {
+            module   : TextArea,
+            labelText: 'Page 6 Field 3',
+            name     : 'field3'
         }]
     }
 }

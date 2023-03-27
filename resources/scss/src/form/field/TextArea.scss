@@ -1,11 +1,35 @@
 .neo-textarea {
-    align-items: stretch;
+    align-items   : stretch;
+    display       : flex;
+    flex-direction: column;
 
     .neo-input-wrapper {
-        height: fit-content;
+        flex: 1 0 auto;
+    }
+
+    .neo-label-wrapper {
+        height: 100%;
     }
 
     .neo-field-trigger {
         border-bottom: 1px solid var(--textfield-border-color);
+    }
+
+    .neo-textfield-error {
+        height: 1.2em; // 1.5em - 0.3em => margin top
+    }
+
+    &.label-inline {
+        display: flex;
+
+        .neo-label-wrapper {
+            height: 100%;
+        }
+    }
+
+    &:has(.neo-textfield-error) {
+        .neo-label-wrapper {
+            height: calc(100% - 1.5em);
+        }
     }
 }
