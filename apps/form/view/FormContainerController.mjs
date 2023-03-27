@@ -22,6 +22,10 @@ class FormContainerController extends Component {
         this.component.on('fieldFocusLeave', data => {
             console.log('fieldFocusLeave', data);
         })
+
+        this.component.on('fieldChange', data => {
+            console.log('fieldChange', data);
+        })
     }
 
     /**

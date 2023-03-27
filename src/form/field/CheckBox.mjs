@@ -123,11 +123,7 @@ class CheckBox extends Base {
         me.update();
 
         if (oldValue !== undefined) {
-            me.fire('change', {
-                component: me,
-                oldValue,
-                value
-            })
+            me.fireChangeEvent(me.value, null);
         }
     }
 
