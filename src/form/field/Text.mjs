@@ -74,6 +74,20 @@ class Text extends Base {
          */
         error_: null,
         /**
+         * data passes maxLength, minLength & valueLength properties
+         * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
+         */
+        errorTextMaxLength: data => `Max length violation: ${data.valueLength} / ${data.maxLength}`,
+        /**
+         * data passes maxLength, minLength & valueLength properties
+         * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
+         */
+        errorTextMinLength: data => `Min length violation: ${data.valueLength} / ${data.minLength}`,
+        /**
+         * @member {String} errorTextRequired='Required'
+         */
+        errorTextRequired: 'Required',
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -181,20 +195,6 @@ class Text extends Base {
      * @member {Boolean} clean=true
      */
     clean = true
-    /**
-     * data passes maxLength, minLength & valueLength properties
-     * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
-     */
-    errorTextMaxLength = data => `Max length violation: ${data.valueLength} / ${data.maxLength}`
-    /**
-     * data passes maxLength, minLength & valueLength properties
-     * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
-     */
-    errorTextMinLength = data => `Min length violation: ${data.valueLength} / ${data.minLength}`
-    /**
-     * @member {String} errorTextRequired='Required'
-     */
-    errorTextRequired = 'Required'
 
     /**
      * @param {Object} config
