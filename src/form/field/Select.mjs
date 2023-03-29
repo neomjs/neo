@@ -294,8 +294,9 @@ class Select extends Picker {
      * @override
      */
     fireChangeEvent(value, oldValue) {
-        let me     = this,
-            record = me.record,
+        let me            = this,
+            FormContainer = Neo.form?.Container,
+            record        = me.record,
             oldRecord;
 
         if (!(me.forceSelection && !record)) {
@@ -310,7 +311,7 @@ class Select extends Picker {
             });
 
             ComponentManager.getParents(me).forEach(parent => {
-                if (parent instanceof Neo.form.Container) {
+                if (FormContainer && parent instanceof FormContainer) {
                     parent.fire('fieldChange', {
                         component: me,
                         oldRecord,
