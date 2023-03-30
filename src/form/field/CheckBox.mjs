@@ -123,7 +123,7 @@ class CheckBox extends Base {
         me.update();
 
         if (oldValue !== undefined) {
-            me.fireChangeEvent(me.value, null);
+            me.fireChangeEvent(me.getValue(), null);
         }
     }
 
