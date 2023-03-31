@@ -118,9 +118,14 @@ class Flexbox extends Base {
      * @param {Neo.component.Base} item
      */
     applyChildAttributes(item) {
-        let style = item.wrapperStyle;
+        let style = item.wrapperStyle,
+            flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
-        style.flex = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
+        if (flex === 1) {
+            flex = '1 1 auto';
+        }
+
+        style.flex = flex;
         item.wrapperStyle = style;
     }
 
