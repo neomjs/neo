@@ -40,48 +40,52 @@ class DeltaUpdates extends Base {
     du_insertNode(delta) {
         let index         = delta.index,
             parentNode    = this.getElementOrBody(delta.parentId),
-            countChildren = parentNode.childNodes.length,
+            countChildren = parentNode?.childNodes.length,
             i             = 0,
             realIndex     = index,
             hasComments   = false,
             node;
 
-        // console.log('insertNode', index, countChildren, delta.parentId);
+        if (!parentNode) {
+            // console.log('parentNode not found', delta.parentId);
+        } else {
+            // console.log('insertNode', index, countChildren, delta.parentId);
 
-        if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
-            for (; i < countChildren; i++) {
-                if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
-                    if (i < realIndex) {
-                        realIndex++;
+            if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
+                for (; i < countChildren; i++) {
+                    if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
+                        if (i < realIndex) {
+                            realIndex++;
+                        }
+
+                        hasComments = true;
                     }
-
-                    hasComments = true;
                 }
             }
-        }
 
-        if (!hasComments) {
-            countChildren = parentNode.children.length;
+            if (!hasComments) {
+                countChildren = parentNode.children.length;
 
-            if (index > 0 && index >= countChildren) {
-                parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
-                return;
-            }
+                if (index > 0 && index >= countChildren) {
+                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                    return;
+                }
 
-            if (countChildren > 0 && countChildren > index) {
-                parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
-            } else if (countChildren > 0) {
-                parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML);
+                if (countChildren > 0 && countChildren > index) {
+                    parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
+                } else if (countChildren > 0) {
+                    parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML);
+                } else {
+                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                }
             } else {
-                parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
-            }
-        } else {
-            node = this.htmlStringToElement(delta.outerHTML);
+                node = this.htmlStringToElement(delta.outerHTML);
 
-            if (countChildren > 0 && countChildren > realIndex) {
-                parentNode.insertBefore(node, parentNode.childNodes[realIndex]);
-            } else {
-                parentNode.appendChild(node);
+                if (countChildren > 0 && countChildren > realIndex) {
+                    parentNode.insertBefore(node, parentNode.childNodes[realIndex]);
+                } else {
+                    parentNode.appendChild(node);
+                }
             }
         }
     }
