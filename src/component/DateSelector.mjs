@@ -752,6 +752,13 @@ class DateSelector extends Component {
     }
 
     /**
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.value = items[0].split('__')[1]
+    }
+
+    /**
      * Recreates the current centerEl, month & year el
      * @param {Number} monthIncrement
      * @param {Number} yearIncrement
