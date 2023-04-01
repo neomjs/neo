@@ -1042,6 +1042,8 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isValid() {
+        this.validate(true); // silent
+
         return this.error?.length > 0 ? false : super.isValid();
     }
 
@@ -1249,7 +1251,7 @@ class Text extends Base {
             isValid = !value || value === '';
 
             NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
-            me.cls = cls; // todo: silent update
+            me[silent ? '_cls' : 'cls'] = cls;
 
             errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
 

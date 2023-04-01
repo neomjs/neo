@@ -137,16 +137,16 @@ class DateSelectorModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me    = this,
+            scope = {scope: me.id},
+            view  = me.view;
 
         if (view.keys) {
             view.keys._keys.push(
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+                {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
+                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
+                {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
+                {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
             );
         }
     }
@@ -155,16 +155,16 @@ class DateSelectorModel extends Model {
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me    = this,
+            scope = {scope: me.id},
+            view  = me.view;
 
         if (view.keys) {
             view.keys.removeKeys([
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+                {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
+                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
+                {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
+                {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
             ]);
         }
 

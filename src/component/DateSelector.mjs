@@ -694,7 +694,12 @@ class DateSelector extends Component {
             date   = me.currentDate; // cloned
 
         date.setDate(parseInt(cellEl.vdom.cn[0].html));
-        me.value = DateUtil.convertToyyyymmdd(date);
+        date = DateUtil.convertToyyyymmdd(date);
+
+        // We want to always trigger a change event.
+        // Reason: A form.field.Date can have a null value and we want to select the current date.
+        me._value = date;
+        me.afterSetValue(date, null);
     }
 
     /**
@@ -749,6 +754,13 @@ class DateSelector extends Component {
     onConstructed() {
         super.onConstructed();
         this.selectionModel?.register(this);
+    }
+
+    /**
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.value = items[0].split('__')[1]
     }
 
     /**
@@ -916,8 +928,6 @@ class DateSelector extends Component {
      */
     updateHeaderMonthTransitionCallback(opts) {
         let {data, headerCenterEl, increment, yearIncrement} = opts,
-            me             = this,
-            vdom           = me.vdom,
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom',
             y;
 
@@ -935,8 +945,6 @@ class DateSelector extends Component {
      */
     updateHeaderMonthWrapperCallback(opts) {
         let {headerCenterEl, increment, yearIncrement} = opts,
-            me             = this,
-            vdom           = me.vdom,
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom';
 
         headerCenterEl.cn[0] = headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 1 : 0];
@@ -948,12 +956,11 @@ class DateSelector extends Component {
      */
     updateHeaderYear(increment, silent=false) {
         let me     = this,
-            vdom   = me.vdom,
             yearEl = me.getHeaderYearEl();
 
         yearEl.html = me.currentDate.getFullYear();
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 }
 

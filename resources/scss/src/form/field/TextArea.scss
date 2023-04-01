@@ -27,6 +27,12 @@
         }
     }
 
+    &.neo-invalid {
+        .neo-textfield-input {
+            border-color: v(textfield-border-color-invalid);
+        }
+    }
+
     &:has(.neo-textfield-error) {
         .neo-label-wrapper {
             height: calc(100% - 1.5em);
