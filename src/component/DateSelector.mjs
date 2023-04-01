@@ -694,7 +694,12 @@ class DateSelector extends Component {
             date   = me.currentDate; // cloned
 
         date.setDate(parseInt(cellEl.vdom.cn[0].html));
-        me.value = DateUtil.convertToyyyymmdd(date);
+        date = DateUtil.convertToyyyymmdd(date);
+
+        // We want to always trigger a change event.
+        // Reason: A form.field.Date can have a null value and we want to select the current date.
+        me._value = date;
+        me.afterSetValue(date, null);
     }
 
     /**
