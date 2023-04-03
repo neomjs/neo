@@ -660,7 +660,7 @@ function autoGenerateGetSet(proto, key) {
  * @param {Boolean} create
  * @param {Object} current
  * @param {Object} prev
- * @returns {Object}
+ * @returns {Object|undefined}
  */
 function createArrayNs(create, current, prev) {
     let arrDetails = parseArrayFromString(current),
@@ -672,6 +672,10 @@ function createArrayNs(create, current, prev) {
         prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
     } else {
         arrRoot = prev[arrDetails[0]];
+    }
+
+    if (!arrRoot) {
+        return;
     }
 
     for (; i < len; i++) {
