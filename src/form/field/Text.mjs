@@ -1253,7 +1253,7 @@ class Text extends Base {
             NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
             me[silent ? '_cls' : 'cls'] = cls;
 
-            errorNode = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-textfield-error'}).vdom;
+            errorNode = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom;
 
             if (!isValid) {
                 errorNode.html = me.error;
