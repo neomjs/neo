@@ -310,17 +310,19 @@ class Select extends Picker {
                 value
             });
 
-            ComponentManager.getParents(me).forEach(parent => {
-                if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldChange', {
-                        component: me,
-                        oldRecord,
-                        oldValue,
-                        record,
-                        value
-                    })
-                }
-            })
+            if (!me.suspendEvents) {
+                ComponentManager.getParents(me).forEach(parent => {
+                    if (FormContainer && parent instanceof FormContainer) {
+                        parent.fire('fieldChange', {
+                            component: me,
+                            oldRecord,
+                            oldValue,
+                            record,
+                            value
+                        })
+                    }
+                })
+            }
         }
     }
 
