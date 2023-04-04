@@ -115,7 +115,9 @@ class Observable extends Base {
                 if (eventConfig.scope && !eventConfig.scope.id) {
                     listeners[name].splice(i, 1);
                 } else {
-                    eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
+                    if (!me.suspendEvents) {
+                        eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
+                    }
                 }
             }
         }

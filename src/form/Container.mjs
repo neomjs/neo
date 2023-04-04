@@ -180,31 +180,33 @@ class Container extends BaseContainer {
      * @param {Object} [values]
      */
     async reset(values={}) {
-        let keys   = values ? Object.keys(values) : [],
-            fields = await this.getFields(),
-            index;
+        let me     = this,
+            fields = await me.getFields(),
+            path, value;
 
         fields.forEach(item => {
-            index = keys.indexOf(item.name);
+            path  = me.getFieldPath(item);
+            value = Neo.nsWithArrays(path, false, values);
 
-            if (index < 0) {
-                index = keys.indexOf(item.id);
-            }
-
-            item.reset(index > -1 ? values[keys[index]] : null);
+            item.reset(path ? value : null);
         })
     }
 
     /**
      * Set field values by field name or field id
      * @param {Object} values={}
+     * @param {Boolean} suspendEvents=false
      */
-    async setValues(values={}) {
+    async setValues(values={}, suspendEvents=false) {
         let me     = this,
             fields = await me.getFields(),
             isRadio, path, value;
 
         fields.forEach(item => {
+            if (suspendEvents) {
+                item.suspendEvents = true;
+            }
+
             path  = me.getFieldPath(item);
             value = Neo.nsWithArrays(path, false, values);
 
@@ -217,12 +219,14 @@ class Container extends BaseContainer {
                 isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
 
                 if (isRadio) {
-                    if (item.value === value) {
-                        item.checked = true;
-                    }
+                    item.checked = item.value === value;
                 } else {
                     item.value = value;
                 }
+            }
+
+            if (suspendEvents) {
+                delete item.suspendEvents;
             }
         })
     }
