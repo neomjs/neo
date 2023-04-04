@@ -90,15 +90,17 @@ class Base extends Component {
             value
         });
 
-        ComponentManager.getParents(me).forEach(parent => {
-            if (FormContainer && parent instanceof FormContainer) {
-                parent.fire('fieldChange', {
-                    component: me,
-                    oldValue,
-                    value
-                })
-            }
-        })
+        if (!me.suspendEvents) {
+            ComponentManager.getParents(me).forEach(parent => {
+                if (FormContainer && parent instanceof FormContainer) {
+                    parent.fire('fieldChange', {
+                        component: me,
+                        oldValue,
+                        value
+                    })
+                }
+            })
+        }
     }
 
     /**
@@ -123,16 +125,19 @@ class Base extends Component {
     onFocusLeave(data) {
         super.onFocusLeave?.(data);
 
-        let FormContainer = Neo.form?.Container;
+        let me            = this,
+            FormContainer = Neo.form?.Container;
 
-        ComponentManager.getParents(this).forEach(parent => {
-            if (FormContainer && parent instanceof FormContainer) {
-                parent.fire('fieldFocusLeave', {
-                    ...data,
-                    component: this
-                })
-            }
-        })
+        if (!me.suspendEvents) {
+            ComponentManager.getParents(me).forEach(parent => {
+                if (FormContainer && parent instanceof FormContainer) {
+                    parent.fire('fieldFocusLeave', {
+                        ...data,
+                        component: me
+                    })
+                }
+            })
+        }
     }
 
     /**
