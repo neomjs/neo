@@ -180,18 +180,15 @@ class Container extends BaseContainer {
      * @param {Object} [values]
      */
     async reset(values={}) {
-        let keys   = values ? Object.keys(values) : [],
-            fields = await this.getFields(),
-            index;
+        let me     = this,
+            fields = await me.getFields(),
+            path, value;
 
         fields.forEach(item => {
-            index = keys.indexOf(item.name);
+            path  = me.getFieldPath(item);
+            value = Neo.nsWithArrays(path, false, values);
 
-            if (index < 0) {
-                index = keys.indexOf(item.id);
-            }
-
-            item.reset(index > -1 ? values[keys[index]] : null);
+            item.reset(path ? value : null);
         })
     }
 
