@@ -297,30 +297,28 @@ class Select extends Picker {
         let me            = this,
             FormContainer = Neo.form?.Container,
             record        = me.record,
-            oldRecord;
+            oldRecord, params;
 
         if (!(me.forceSelection && !record)) {
             oldRecord = me.store.get(oldValue) || null;
 
-            me.fire('change', {
+            params = {
                 component: me,
                 oldRecord,
                 oldValue,
                 record,
                 value
-            });
+            };
 
-            ComponentManager.getParents(me).forEach(parent => {
-                if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldChange', {
-                        component: me,
-                        oldRecord,
-                        oldValue,
-                        record,
-                        value
-                    })
-                }
-            })
+            me.fire('change', params);
+
+            if (!me.suspendEvents) {
+                ComponentManager.getParents(me).forEach(parent => {
+                    if (FormContainer && parent instanceof FormContainer) {
+                        parent.fire('fieldChange', params)
+                    }
+                })
+            }
         }
     }
 
