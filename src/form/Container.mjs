@@ -195,13 +195,18 @@ class Container extends BaseContainer {
     /**
      * Set field values by field name or field id
      * @param {Object} values={}
+     * @param {Boolean} suspendEvents=false
      */
-    async setValues(values={}) {
+    async setValues(values={}, suspendEvents=false) {
         let me     = this,
             fields = await me.getFields(),
             isRadio, path, value;
 
         fields.forEach(item => {
+            if (suspendEvents) {
+                item.suspendEvents = true;
+            }
+
             path  = me.getFieldPath(item);
             value = Neo.nsWithArrays(path, false, values);
 
@@ -218,6 +223,10 @@ class Container extends BaseContainer {
                 } else {
                     item.value = value;
                 }
+            }
+
+            if (suspendEvents) {
+                delete item.suspendEvents;
             }
         })
     }
