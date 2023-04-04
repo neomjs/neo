@@ -217,9 +217,7 @@ class Container extends BaseContainer {
                 isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
 
                 if (isRadio) {
-                    if (item.value === value) {
-                        item.checked = true;
-                    }
+                    item.checked = item.value === value;
                 } else {
                     item.value = value;
                 }
