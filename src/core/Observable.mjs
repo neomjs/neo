@@ -98,7 +98,7 @@ class Observable extends Base {
         let me        = this,
             args      = [].slice.call(arguments, 1),
             listeners = me.listeners,
-            eventConfig, events, i, len, scope;
+            eventConfig, events, i, len;
 
         if (listeners && listeners[name]) {
             events = [...listeners[name]];
@@ -115,10 +115,8 @@ class Observable extends Base {
                 if (eventConfig.scope && !eventConfig.scope.id) {
                     listeners[name].splice(i, 1);
                 } else {
-                    scope = eventConfig.scope || me;
-
-                    if (!scope.suspendEvents) {
-                        eventConfig.fn.apply(scope, eventConfig.data ? args.concat(eventConfig.data) : args);
+                    if (!me.suspendEvents) {
+                        eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
                     }
                 }
             }
