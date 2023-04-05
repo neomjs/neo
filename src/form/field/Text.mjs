@@ -1356,7 +1356,7 @@ class Text extends Base {
             me[errorField] = null;
         }
 
-        silent && me.updateError(me[errorField], true);
+        !me.clean && me.updateError(me[errorField], silent);
 
         return !returnValue ? false : super.validate(silent);
     }
