@@ -33,6 +33,20 @@ class Number extends Text {
          */
         baseCls: ['neo-numberfield', 'neo-textfield'],
         /**
+         * data passes maxLength, minLength & valueLength properties
+         * @member {Function} errorTextMaxValue=data=>`Max value violation: ${data.value} / ${data.maxValue}`
+         */
+        errorTextMaxValue: data => `Max value violation: ${data.value} / ${data.maxValue}`,
+        /**
+         * data passes maxLength, minLength & valueLength properties
+         * @member {Function} errorTextMinValue=data=>`Min value violation: ${data.value} / ${data.minValue}`
+         */
+        errorTextMinValue: data => `Min value violation: ${data.value} / ${data.minValue}`,
+        /**
+         * @member {String} errorTextStepSize='Required'
+         */
+        errorTextStepSize: data => `step-size violation: ${data.value} / ${data.stepSize}`,
+        /**
          * @member {Number[]|null} excluded=null
          */
         excludedValues: null,
@@ -321,6 +335,47 @@ class Number extends Text {
         }
 
         me.triggers = triggers;
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            errorField  = silent ? '_error' : 'error',
+            value       = me.value,
+            isNumber    = Neo.isNumber(value),
+            maxValue    = me.maxValue,
+            minValue    = me.minValue,
+            stepSize    = me.stepSize,
+            returnValue = true,
+            errorParam  = {maxValue, minValue, stepSize, value};
+
+        if (!silent) {
+            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
+            me.clean = false;
+        }
+
+        if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
+            me[errorField] = me.errorTextMaxValue(errorParam);
+            returnValue = false;
+        } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
+            me[errorField] = me.errorTextMinValue(errorParam);
+            returnValue = false;
+        } else if (value % me.stepSize !== 0) {
+            me[errorField] = me.errorTextStepSize(errorParam);
+            returnValue = false;
+        }
+
+        if (returnValue) {
+            me[errorField] = null;
+        }
+
+        !me.clean && me.updateError(me[errorField], silent);
+
+        return !returnValue ? false : super.validate(silent);
     }
 }
 
