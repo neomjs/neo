@@ -13,7 +13,7 @@
         {"id":  9, "cardIndex":    6, "isHeader": false, "isValid": null, "name": "Fieldsets"},
         {"id": 10, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "3. More data"},
         {"id": 11, "cardIndex":    7, "isHeader": false, "isValid": null, "name": "NumberFields"},
-        {"id": 12, "cardIndex":    8, "isHeader": false, "isValid": null, "name": "Page 9"},
+        {"id": 12, "cardIndex":    8, "isHeader": false, "isValid": null, "name": "HiddenFields"},
         {"id": 13, "cardIndex":    9, "isHeader": false, "isValid": null, "name": "Page 10"},
         {"id": 14, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "3. Optional data"},
         {"id": 15, "cardIndex":   10, "isHeader": false, "isValid": null, "name": "Page 11"},

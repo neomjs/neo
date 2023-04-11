@@ -1,5 +1,6 @@
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
+import HiddenField       from '../../../../src/form/field/Hidden.mjs';
+import Label             from '../../../../src/component/Label.mjs';
 
 /**
  * @class Form.view.pages.Page9
@@ -13,17 +14,23 @@ class Page9 extends FormPageContainer {
          */
         className: 'Form.view.pages.Page9',
         /**
+         * @member {String} formGroup='page9'
+         */
+        formGroup: 'page9',
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
-            labelText: 'Page 9 Field 1',
-            name     : 'page9field1',
-            required : true
+            module: Label,
+            text  : 'Hidden fields will not get mounted. Inspect the DOM.'
         }, {
-            module   : TextField,
-            labelText: 'Page 9 Field 2',
-            name     : 'page9field2'
+            module: HiddenField,
+            name  : 'field1',
+            value : 'foo'
+        }, {
+            module: HiddenField,
+            name  : 'field2',
+            value : 'bar'
         }]
     }
 }
