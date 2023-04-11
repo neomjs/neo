@@ -1,12 +1,12 @@
-import Container from '../container/Base.mjs';
-import Legend    from '../component/Legend.mjs';
-import NeoArray  from '../util/Array.mjs';
+import FormContainer from '../form/Container.mjs';
+import Legend        from '../component/Legend.mjs';
+import NeoArray      from '../util/Array.mjs';
 
 /**
  * @class Neo.form.Fieldset
- * @extends Neo.container.Base
+ * @extends Neo.form.Container
  */
-class Fieldset extends Container {
+class Fieldset extends FormContainer {
     static config = {
         /**
          * @member {String} className='Neo.form.Fieldset'
@@ -67,9 +67,9 @@ class Fieldset extends Container {
          */
         title_: '',
         /**
-         * @member {Object} _vdom={tag:'fieldset',cn:[]}
+         * @member {Object} vdom={tag:'fieldset',cn:[]}
          */
-        _vdom:
+        vdom:
         {tag: 'fieldset', cn: []}
     }
 
