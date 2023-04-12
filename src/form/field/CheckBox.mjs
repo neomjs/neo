@@ -92,6 +92,13 @@ class CheckBox extends Base {
     }
 
     /**
+     * In case the CheckBox does not belong to a group (multiple fields with the same name),
+     * you can pass a custom value for the unchecked state.
+     * @member {*} uncheckedValue=null
+     */
+    uncheckedValue = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -316,7 +323,9 @@ class CheckBox extends Base {
      * @returns {String|null}
      */
     getValue() {
-        return this.checked ? this.value : null
+        let me = this;
+
+        return me.checked ? me.value : me.uncheckedValue
     }
 
     /**

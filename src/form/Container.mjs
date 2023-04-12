@@ -122,14 +122,19 @@ class Container extends BaseContainer {
                 ns  = values;
             }
 
+            /*
+             * CheckBoxes need custom logic
+             * => we only want to pass the uncheckedValue in case the field does not belong to a group
+             * (multiple fields using the same name)
+             */
             if (Object.hasOwn(ns, key) && value !== undefined) {
-                if (ns[key] === null) {
+                if (ns[key] === field.uncheckedValue) {
                     ns[key] = []
                 } else if (!Array.isArray(ns[key])) {
                     ns[key] = [ns[key]]
                 }
 
-                value !== null && ns[key].unshift(value)
+                value !== field.uncheckedValue && ns[key].unshift(value)
             } else if (value !== undefined) {
                 ns[key] = value
             }
