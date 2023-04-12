@@ -1,5 +1,5 @@
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
+import SelectField       from '../../../../src/form/field/Select.mjs';
 
 /**
  * @class Form.view.pages.Page10
@@ -16,14 +16,17 @@ class Page10 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
+            module   : SelectField,
+            editable : false,
             labelText: 'Page 10 Field 1',
             name     : 'page10field1',
-            required : true
-        }, {
-            module   : TextField,
-            labelText: 'Page 10 Field 2',
-            name     : 'page10field2'
+
+            store: {
+                data: [
+                    {id: '1', name: 'A-Z'},
+                    {id: '2', name: 'Z-A'}
+                ]
+            }
         }]
     }
 }

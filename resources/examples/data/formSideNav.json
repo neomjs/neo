@@ -14,7 +14,7 @@
         {"id": 10, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "3. More data"},
         {"id": 11, "cardIndex":    7, "isHeader": false, "isValid": null, "name": "NumberFields"},
         {"id": 12, "cardIndex":    8, "isHeader": false, "isValid": null, "name": "HiddenFields"},
-        {"id": 13, "cardIndex":    9, "isHeader": false, "isValid": null, "name": "Page 10"},
+        {"id": 13, "cardIndex":    9, "isHeader": false, "isValid": null, "name": "SelectFields"},
         {"id": 14, "cardIndex": null, "isHeader": true,  "isValid": null, "name": "3. Optional data"},
         {"id": 15, "cardIndex":   10, "isHeader": false, "isValid": null, "name": "Page 11"},
         {"id": 16, "cardIndex":   11, "isHeader": false, "isValid": null, "name": "Page 12"},
