@@ -42,6 +42,12 @@ class Page4 extends FormPageContainer {
         }, {
             value         : 'strawberry',
             valueLabelText: 'Strawberry'
+        }, {
+            labelText     : 'Boolean',
+            name          : 'boolean',
+            style         : {marginTop: '50px'},
+            uncheckedValue: false,
+            value         : true
         }]
     }
 }

@@ -128,13 +128,13 @@ class Container extends BaseContainer {
              * (multiple fields using the same name)
              */
             if (Object.hasOwn(ns, key) && value !== undefined) {
-                if (ns[key] === field.uncheckedValue) {
+                if (ns[key] === item.uncheckedValue) {
                     ns[key] = []
                 } else if (!Array.isArray(ns[key])) {
                     ns[key] = [ns[key]]
                 }
 
-                value !== field.uncheckedValue && ns[key].unshift(value)
+                value !== item.uncheckedValue && ns[key].unshift(value)
             } else if (value !== undefined) {
                 ns[key] = value
             }
