@@ -79,10 +79,10 @@ class Select extends Picker {
          */
         pickerHeight: null,
         /**
-         * @member {Object} record=null
+         * @member {Object} record_=null
          * @protected
          */
-        record: null,
+        record_: null,
         /**
          * @member {String|null} role='listbox'
          */
@@ -155,6 +155,32 @@ class Select extends Picker {
         });
 
         me.typeAhead && me.updateTypeAhead()
+    }
+
+    /**
+     * Triggered after the record config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        let me             = this,
+            list           = me.list,
+            selectionModel = list?.selectionModel,
+            valueField     = me.valueField,
+            nodeId;
+
+        if (oldValue) {
+            nodeId = list?.getItemId(oldValue[valueField]);
+
+            selectionModel?.deselect(nodeId);
+        }
+
+        if (value) {
+            nodeId = list?.getItemId(value[valueField]);
+
+            selectionModel?.select(nodeId);
+        }
     }
 
     /**
@@ -530,25 +556,6 @@ class Select extends Picker {
     }
 
     /**
-     * Called by form.field.trigger.Picker
-     * @protected
-     */
-    onPickerTriggerClick() {
-        let me = this,
-            filter;
-
-        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
-            filter = me.store.getFilter(me.displayField);
-
-            if (filter) {
-                filter.value = null;
-            }
-        }
-
-        super.onPickerTriggerClick()
-    }
-
-    /**
      * @protected
      */
     onSelectPostLastItem() {
@@ -595,6 +602,24 @@ class Select extends Picker {
 
         me.list.selectItem(index);
         me.onListItemNavigate(me.store.getAt(index))
+    }
+
+    /**
+     *
+     */
+    togglePicker() {
+        let me = this,
+            filter;
+
+        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
+            filter = me.store.getFilter(me.displayField);
+
+            if (filter) {
+                filter.value = null;
+            }
+        }
+
+        super.togglePicker()
     }
 
     /**
