@@ -77,14 +77,15 @@ class ViewportModel extends Component {
         let me = this;
 
         if (me.formData && key === 'activeIndex') {
-            // short delay to honor the lazy loading
-            setTimeout(() => {
-                let page = me.getController().getReference('pages-container').items[value];
+            let page = me.getController().getReference('pages-container').items[value];
 
-                console.log(key, value, page);
-
+            if (page instanceof Neo.core.Base) {
                 page.setValues(me.formData);
-            }, 50)
+            } else {
+                setTimeout(() => {
+                    me.onDataPropertyChange(key, value, oldValue)
+                }, 20)
+            }
         }
     }
 }
