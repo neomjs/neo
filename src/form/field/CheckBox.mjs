@@ -76,6 +76,12 @@ class CheckBox extends Base {
          */
         name_: '',
         /**
+         * In case the CheckBox does not belong to a group (multiple fields with the same name),
+         * you can pass a custom value for the unchecked state.
+         * @member {*} uncheckedValue=null
+         */
+        uncheckedValue: null,
+        /**
          * @member {String|null} valueLabelText_=null
          */
         valueLabelText_: null,
@@ -90,13 +96,6 @@ class CheckBox extends Base {
             {tag: 'span',  cls: ['neo-checkbox-value-label']}
         ]}
     }
-
-    /**
-     * In case the CheckBox does not belong to a group (multiple fields with the same name),
-     * you can pass a custom value for the unchecked state.
-     * @member {*} uncheckedValue=null
-     */
-    uncheckedValue = null
 
     /**
      * @param {Object} config
