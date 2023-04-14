@@ -1321,7 +1321,7 @@ class Text extends Base {
             returnValue = true,
             value       = me.value,
             valueLength = value?.toString().length,
-            isEmpty     = !value || valueLength < 1,
+            isEmpty     = value !== 0 && (!value || valueLength < 1),
             errorParam  = {maxLength, minLength, valueLength},
             errorText;
 
