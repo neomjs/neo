@@ -84,7 +84,7 @@ class ViewportModel extends Component {
             } else {
                 setTimeout(() => {
                     me.onDataPropertyChange(key, value, oldValue)
-                }, 20)
+                }, 30)
             }
         }
     }
