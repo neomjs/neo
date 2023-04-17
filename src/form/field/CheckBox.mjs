@@ -124,7 +124,6 @@ class CheckBox extends Base {
         me.vdom.cn[1].checked = value;
 
         NeoArray.removeAdd(iconCls, oldCls, newCls);
-        console.log(this.id, iconCls);
 
         me.update();
 
