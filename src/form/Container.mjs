@@ -205,28 +205,32 @@ class Container extends BaseContainer {
     async setValues(values={}, suspendEvents=false) {
         let me     = this,
             fields = await me.getFields(),
-            isRadio, path, value;
+            isCheckBox, isRadio, path, value;
 
         fields.forEach(item => {
             if (suspendEvents) {
                 item.suspendEvents = true;
             }
 
-            path  = me.getFieldPath(item);
-            value = Neo.nsWithArrays(path, false, values);
+            isCheckBox = Neo.form.field?.CheckBox && item instanceof Neo.form.field.CheckBox;
+            path       = me.getFieldPath(item);
+            value      = Neo.nsWithArrays(path, false, values);
 
-            if (Neo.typeOf(value) === 'Array') {
-                // form.field.CheckBox
-                if (value.includes(item.value)) {
-                    item.checked = true;
+            if (isCheckBox) {
+                if (Neo.typeOf(value) === 'Array') {
+                    if (value.includes(item.value)) {
+                        item.checked = true
+                    }
+                } else {
+                    item.checked = item.value === value
                 }
             } else if (value !== undefined) {
                 isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
 
                 if (isRadio) {
-                    item.checked = item.value === value;
+                    item.checked = item.value === value
                 } else {
-                    item.value = value;
+                    item.value = value
                 }
             }
 

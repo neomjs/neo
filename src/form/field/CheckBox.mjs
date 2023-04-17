@@ -123,8 +123,7 @@ class CheckBox extends Base {
 
         me.vdom.cn[1].checked = value;
 
-        NeoArray.remove(iconCls, oldCls);
-        NeoArray.add(iconCls, newCls);
+        NeoArray.removeAdd(iconCls, oldCls, newCls);
 
         me.update();
 
@@ -253,8 +252,6 @@ class CheckBox extends Base {
             this.vdom.cn[1].value = value;
             this.update();
         }
-
-        super.afterSetValue(value, oldValue);
     }
 
     /**
