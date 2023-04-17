@@ -247,12 +247,13 @@ class Number extends Text {
      * @protected
      */
     onFocusLeave(data) {
-        let me    = this,
-            value = me.value;
+        let me          = this,
+            stepSizePow = Math.pow(10, me.stepSizeDigits),
+            value       = me.value;
 
         if (value !== null) {
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
-            value = value - value % me.stepSize;
+            value = value - Math.round((value % me.stepSize) * stepSizePow) / stepSizePow;
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
 
@@ -350,6 +351,7 @@ class Number extends Text {
             maxValue    = me.maxValue,
             minValue    = me.minValue,
             stepSize    = me.stepSize,
+            stepSizePow = Math.pow(10, me.stepSizeDigits),
             returnValue = true,
             errorParam  = {maxValue, minValue, stepSize, value};
 
@@ -364,7 +366,7 @@ class Number extends Text {
         } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
             me[errorField] = me.errorTextMinValue(errorParam);
             returnValue = false;
-        } else if (value % me.stepSize !== 0) {
+        } else if ((Math.round((value % me.stepSize) * stepSizePow) / stepSizePow) !== 0) {
             me[errorField] = me.errorTextStepSize(errorParam);
             returnValue = false;
         }
