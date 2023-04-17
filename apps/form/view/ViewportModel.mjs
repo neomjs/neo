@@ -80,7 +80,7 @@ class ViewportModel extends Component {
             let page = me.getController().getReference('pages-container').items[value];
 
             if (page instanceof Neo.core.Base) {
-                page.setValues(me.formData);
+                page.setValues(me.formData, true);
             } else {
                 setTimeout(() => {
                     me.onDataPropertyChange(key, value, oldValue)
