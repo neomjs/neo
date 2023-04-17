@@ -24,8 +24,14 @@ class Page8 extends FormPageContainer {
             module   : NumberField,
             labelText: 'Page 8 Field 2',
             name     : 'page8field2',
+            required : true,
             stepSize : 0.01,
             value    : 0.02
+        }, {
+            module   : NumberField,
+            labelText: 'Page 8 Field 3',
+            name     : 'page8field3',
+            stepSize : 0.01
         }]
     }
 }
