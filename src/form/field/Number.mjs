@@ -143,11 +143,11 @@ class Number extends Text {
 
         me.changeInputElKey('step', value);
 
+        stepSizeString = String(this.stepSize);
+
+        me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
+
         if (val !== null) {
-            stepSizeString = String(this.stepSize);
-
-            me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
-
             modulo = (val - me.minValue) % value;
 
             if (modulo !== 0) { // find the closest valid value
@@ -252,11 +252,12 @@ class Number extends Text {
             value       = me.value;
 
         if (value !== null) {
+            console.log(value, me.value, me.stepSizeDigits);
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
             value = value - Math.round((value % me.stepSize) * stepSizePow) / stepSizePow;
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
-
+            console.log(value, me.value);
             me.value = value;
         }
 
