@@ -143,11 +143,11 @@ class Number extends Text {
 
         me.changeInputElKey('step', value);
 
+        stepSizeString = String(this.stepSize);
+
+        me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
+
         if (val !== null) {
-            stepSizeString = String(this.stepSize);
-
-            me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
-
             modulo = (val - me.minValue) % value;
 
             if (modulo !== 0) { // find the closest valid value
