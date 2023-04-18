@@ -252,12 +252,11 @@ class Number extends Text {
             value       = me.value;
 
         if (value !== null) {
-            console.log(value, me.value, me.stepSizeDigits);
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
             value = value - Math.round((value % me.stepSize) * stepSizePow) / stepSizePow;
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
-            console.log(value, me.value);
+
             me.value = value;
         }
 
