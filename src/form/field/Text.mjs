@@ -573,9 +573,15 @@ class Text extends Base {
     afterSetRequired(value, oldValue) {
         let me = this;
 
-        me.validate(); // silent
-        me.changeInputElKey('required', value ? value : null, true); // silent update
-        me.labelText = me.labelText; // triggers a vdom update
+        me.silentVdomUpdate = true;
+
+        me.validate(false);
+        me.changeInputElKey('required', value ? value : null);
+        me.labelText        = me.labelText; // apply the optional text if needed
+
+        me.silentVdomUpdate = false;
+
+        me.update()
     }
 
     /**

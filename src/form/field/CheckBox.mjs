@@ -78,9 +78,13 @@ class CheckBox extends Base {
         /**
          * In case the CheckBox does not belong to a group (multiple fields with the same name),
          * you can pass a custom value for the unchecked state.
-         * @member {*} uncheckedValue=null
+         * @member {*} uncheckedValue=false
          */
-        uncheckedValue: null,
+        uncheckedValue: false,
+        /**
+         * @member {Boolean|Number|String|null} value=true
+         */
+        value: true,
         /**
          * @member {String|null} valueLabelText_=null
          */
