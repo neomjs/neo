@@ -63,21 +63,23 @@
             border-color: v(textfield-border-color-invalid);
         }
 
-        .neo-label-wrapper {
-            .neo-center-border, .neo-left-border, .neo-right-border {
-                border-bottom-color: v(textfield-border-color-invalid);
-            }
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-invalid);
+                }
 
-            .neo-left-border, .neo-right-border {
-                border-top-color: v(textfield-border-color-invalid);
-            }
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-invalid);
+                }
 
-            .neo-left-border {
-                border-left-color: v(textfield-border-color-invalid);
-            }
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-invalid);
+                }
 
-            .neo-right-border {
-                border-right-color: v(textfield-border-color-invalid);
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-invalid);
+                }
             }
         }
     }
