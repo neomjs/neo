@@ -92,7 +92,7 @@ class Text extends Base {
          */
         hideLabel_: false,
         /**
-         * @member {RegExp|null} inputPattern=null
+         * @member {RegExp|null} inputPattern_=null
          */
         inputPattern_: null,
         /**
