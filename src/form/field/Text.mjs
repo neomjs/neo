@@ -1131,16 +1131,18 @@ class Text extends Base {
         let me       = this,
             value    = data.value,
             oldValue = me.value,
-            vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+            vnode;
 
-        if (vnode) {
-            // required for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = value;
-        }
+        if (me.inputPattern && !me.inputPattern.test(value)) {
+            me.value = oldValue;
+        } else {
+            vnode = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
-        if (me.inputPattern && !me.inputPattern.test(value) ) {
-            me.afterSetValue(oldValue, value);
-        } else if (value !== oldValue) {
+            if (vnode) {
+                // required for validation -> revert a wrong user input
+                vnode.vnode.attributes.value = value;
+            }
+
             me.value = value;
         }
     }
