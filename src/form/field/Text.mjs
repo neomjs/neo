@@ -1345,7 +1345,9 @@ class Text extends Base {
                 me[errorField] = errorText;
                 returnValue = false;
             }
-        } else if (required && isEmpty) {
+        }
+
+        if (required && isEmpty) {
             me[errorField] = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
