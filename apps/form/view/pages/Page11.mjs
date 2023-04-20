@@ -1,5 +1,5 @@
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
+import ZipCodeField      from '../../../../src/form/field/ZipCode.mjs';
 
 /**
  * @class Form.view.pages.Page11
@@ -16,13 +16,15 @@ class Page11 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
-            labelText: 'Page 11 Field 1',
-            name     : 'page11field1'
+            module   : ZipCodeField,
+            labelText: 'Munich',
+            name     : 'page11.field1',
+            required : true,
+            value    : '80796'
         }, {
-            module   : TextField,
+            module   : ZipCodeField,
             labelText: 'Page 11 Field 2',
-            name     : 'page11field2'
+            name     : 'page11.field2'
         }]
     }
 }
