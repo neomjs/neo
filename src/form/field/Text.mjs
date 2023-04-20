@@ -330,7 +330,12 @@ class Text extends Base {
      * @protected
      */
     afterSetInputPattern(value, oldValue) {
+        if (value) {
+            value = value.toString();
+            value = value.substring(1, value.length - 1);
+        }
 
+        this.changeInputElKey('pattern', value);
     }
 
     /**
