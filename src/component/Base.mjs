@@ -259,8 +259,8 @@ class Base extends CoreBase {
          */
         role_: null,
         /**
-         * Set this to true for bulk updates.
-         * Ensure to set it back to false afterwards.
+         * Set this to true for bulk updates. Ensure to set it back to false afterwards.
+         * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
          * @member {Boolean} silentVdomUpdate_=false
          */
         silentVdomUpdate_: false,
