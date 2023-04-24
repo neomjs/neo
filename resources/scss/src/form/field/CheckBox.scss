@@ -33,6 +33,20 @@
         user-select: none;
     }
 
+    .neo-error {
+        color      : v(textfield-border-color-invalid);
+        font-size  : 11px;
+        margin-top : .3em;
+        white-space: break-spaces;
+        word-break : break-word;
+    }
+
+    &.neo-invalid {
+        .neo-checkbox-icon {
+            color: v(textfield-border-color-invalid);
+        }
+    }
+
     &.neo-label-top {
         .neo-checkbox-input {
             margin-left: 0;

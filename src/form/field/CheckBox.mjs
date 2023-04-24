@@ -34,6 +34,14 @@ class CheckBox extends Base {
          */
         checked_: false,
         /**
+         * @member {String|null} error_=null
+         */
+        error_: null,
+        /**
+         * @member {String} errorTextRequired='Required'
+         */
+        errorTextRequired: 'Required',
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -76,6 +84,10 @@ class CheckBox extends Base {
          */
         name_: '',
         /**
+         * @member {Boolean} required_=false
+         */
+        required_: false,
+        /**
          * In case the CheckBox does not belong to a group (multiple fields with the same name),
          * you can pass a custom value for the unchecked state.
          * @member {*} uncheckedValue=false
@@ -93,13 +105,23 @@ class CheckBox extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'label', cn: [
-            {tag: 'span',  cls: []},
-            {tag: 'input', cls: ['neo-checkbox-input']},
-            {tag: 'i',     cls: ['neo-checkbox-icon']},
-            {tag: 'span',  cls: ['neo-checkbox-value-label']}
+        {cn: [
+            {tag: 'label', cls: ['neo-checkbox-label'], cn: [
+                {tag: 'span',  cls: []},
+                {tag: 'input', cls: ['neo-checkbox-input']},
+                {tag: 'i',     cls: ['neo-checkbox-icon']},
+                {tag: 'span',  cls: ['neo-checkbox-value-label']}
+            ]},
+            {cls: ['neo-error'], removeDom: true}
         ]}
     }
+
+    /**
+     * Set this value to false, in case a field should display errors up front.
+     * Otherwise, errors will stay hidden on mounting, unless you trigger validate(false).
+     * @member {Boolean} clean=true
+     */
+    clean = true
 
     /**
      * @param {Object} config
@@ -111,7 +133,7 @@ class CheckBox extends Base {
 
         me.addDomListeners(
             {change: me.onInputValueChange, scope: me}
-        );
+        )
     }
 
     /**
@@ -121,19 +143,32 @@ class CheckBox extends Base {
      */
     afterSetChecked(value, oldValue) {
         let me      = this,
-            iconCls = me.vdom.cn[2].cls,
+            labelEl = me.vdom.cn[0],
+            iconCls = labelEl.cn[2].cls,
             newCls  = value ? me.iconClsChecked : me.iconCls,
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
-        me.vdom.cn[1].checked = value;
+        me.validate(); // silent
+
+        labelEl.cn[1].checked = value;
 
         NeoArray.removeAdd(iconCls, oldCls, newCls);
 
         me.update();
 
         if (oldValue !== undefined) {
-            me.fireChangeEvent(me.getValue(), null);
+            me.fireChangeEvent(me.getValue(), null)
         }
+    }
+
+    /**
+     * Triggered after the error config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetError(value, oldValue) {
+        this.updateError(value)
     }
 
     /**
@@ -143,8 +178,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        this.vdom.cn[0].removeDom = value;
-        this.update();
+        this.vdom.cn[0].cn[0].removeDom = value;
+        this.update()
     }
 
     /**
@@ -154,16 +189,17 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetId(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me      = this,
+            vdom    = me.vdom,
+            labelEl = vdom.cn[0];
 
-        vdom.cn[0].id = me.getLabelId();
-        vdom.cn[1].id = me.getInputElId();
-        vdom.cn[2].id = me.getIconElId();
-        vdom.cn[3].id = me.getValueLabelId();
+        labelEl.cn[0].id = me.getLabelId();
+        labelEl.cn[1].id = me.getInputElId();
+        labelEl.cn[2].id = me.getIconElId();
+        labelEl.cn[3].id = me.getValueLabelId();
 
         // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue);
+        super.afterSetId(value, oldValue)
     }
 
     /**
@@ -173,8 +209,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        this.vdom.cn[1].type = value;
-        this.update();
+        this.vdom.cn[0].cn[1].type = value;
+        this.update()
     }
 
     /**
@@ -185,12 +221,12 @@ class CheckBox extends Base {
      */
     afterSetLabelCls(value, oldValue) {
         let me  = this,
-            cls = me.vdom.cn[0].cls;
+            cls = me.vdom.cn[0].cn[0].cls;
 
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -205,7 +241,7 @@ class CheckBox extends Base {
 
         NeoArray.remove(cls, 'neo-label-' + oldValue);
         NeoArray.add(   cls, 'neo-label-' + value);
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -215,8 +251,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetLabelText(value, oldValue) {
-        this.vdom.cn[0].innerHTML = value;
-        this.update();
+        this.vdom.cn[0].cn[0].innerHTML = value;
+        this.update()
     }
 
     /**
@@ -229,8 +265,8 @@ class CheckBox extends Base {
         let me = this;
 
         if (!me.hideLabel) {
-            me.vdom.cn[0].width = value;
-            me.update();
+            me.vdom.cn[0].cn[0].width = value;
+            me.update()
         }
     }
 
@@ -241,8 +277,18 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetName(value, oldValue) {
-        this.vdom.cn[1].name = value;
-        this.update();
+        this.vdom.cn[0].cn[1].name = value;
+        this.update()
+    }
+
+    /**
+     * Triggered after the required config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
     }
 
     /**
@@ -253,8 +299,8 @@ class CheckBox extends Base {
      */
     afterSetValue(value, oldValue) {
         if (value) {
-            this.vdom.cn[1].value = value;
-            this.update();
+            this.vdom.cn[0].cn[1].value = value;
+            this.update()
         }
     }
 
@@ -266,7 +312,7 @@ class CheckBox extends Base {
      */
     afterSetValueLabelText(value, oldValue) {
         let me         = this,
-            valueLabel = me.vdom.cn[3],
+            valueLabel = me.vdom.cn[0].cn[3],
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
@@ -274,7 +320,7 @@ class CheckBox extends Base {
         }
 
         valueLabel.removeDom = !showLabel;
-        me.update();
+        me.update()
     }
 
     /**
@@ -284,7 +330,7 @@ class CheckBox extends Base {
      * @protected
      */
     beforeSetLabelCls(value, oldValue) {
-        return NeoArray.union(value || [], this.labelBaseCls);
+        return NeoArray.union(value || [], this.labelBaseCls)
     }
 
     /**
@@ -295,28 +341,28 @@ class CheckBox extends Base {
      * @returns {String}
      */
     beforeSetLabelPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition')
     }
 
     /**
      * @returns {String}
      */
     getIconElId() {
-        return `${this.id}__icon`;
+        return `${this.id}__icon`
     }
 
     /**
      * @returns {String}
      */
     getInputElId() {
-        return `${this.id}__input`;
+        return `${this.id}__input`
     }
 
     /**
      * @returns {String}
      */
     getLabelId() {
-        return `${this.id}__label`;
+        return `${this.id}__label`
     }
 
     /**
@@ -332,7 +378,14 @@ class CheckBox extends Base {
      * @returns {String}
      */
     getValueLabelId() {
-        return `${this.id}__value-label`;
+        return `${this.id}__value-label`
+    }
+
+    /**
+     * @returns {Boolean}
+     */
+    isValid() {
+        return this.error ? false : super.isValid()
     }
 
     /**
@@ -344,9 +397,66 @@ class CheckBox extends Base {
             checked = data.target.checked;
 
         // keep the vdom & vnode in sync for future updates
-        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
+        me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
-        me.checked = checked;
+        me.checked = checked
+    }
+
+    /**
+     @param {String|null} value
+     @param {Boolean} silent=false
+     */
+    updateError(value, silent=false) {
+        let me  = this,
+            cls = me.cls,
+            errorNode;
+
+        if (!(me.clean && !me.mounted)) {
+            me._error = value; // silent update
+
+            NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
+            me.cls = cls;
+
+            errorNode = me.vdom.cn[1];
+
+            if (value) {
+                errorNode.html = value;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = !value;
+
+            !silent && me.update()
+        }
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            returnValue = true;
+
+        if (!silent) {
+            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
+            me.clean = false;
+        }
+
+        if (me.required && !me.checked) {
+            me._error = me.errorTextRequired;
+            returnValue = false;
+        }
+
+        if (returnValue) {
+            me._error = null;
+        }
+
+        !me.clean && me.updateError(me._error, silent);
+
+        return !returnValue ? false : super.validate(silent)
     }
 }
 

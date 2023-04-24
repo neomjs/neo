@@ -345,7 +345,6 @@ class Number extends Text {
      */
     validate(silent=true) {
         let me          = this,
-            errorField  = silent ? '_error' : 'error',
             value       = me.value,
             isNumber    = Neo.isNumber(value),
             maxValue    = me.maxValue,
@@ -361,21 +360,21 @@ class Number extends Text {
         }
 
         if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
-            me[errorField] = me.errorTextMaxValue(errorParam);
+            me._error = me.errorTextMaxValue(errorParam);
             returnValue = false;
         } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
-            me[errorField] = me.errorTextMinValue(errorParam);
+            me._error = me.errorTextMinValue(errorParam);
             returnValue = false;
         } else if ((Math.round((value % me.stepSize) * stepSizePow) / stepSizePow) !== 0) {
-            me[errorField] = me.errorTextStepSize(errorParam);
+            me._error = me.errorTextStepSize(errorParam);
             returnValue = false;
         }
 
         if (returnValue) {
-            me[errorField] = null;
+            me._error = null;
         }
 
-        !me.clean && me.updateError(me[errorField], silent);
+        !me.clean && me.updateError(me._error, silent);
 
         return !returnValue ? false : super.validate(silent);
     }

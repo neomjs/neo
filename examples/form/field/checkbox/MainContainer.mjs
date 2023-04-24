@@ -23,8 +23,14 @@ class MainContainer extends ConfigurationViewport {
             module   : CheckBox,
             checked  : me.exampleComponent.disabled,
             labelText: 'disabled',
-            listeners: {change: me.onConfigChange.bind(me, 'disabled')},
-            style    : {marginTop: '10px'}
+            listeners: {change: me.onConfigChange.bind(me, 'disabled')}
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'error',
+            listeners: {change: me.onConfigChange.bind(me, 'error')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.error
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
