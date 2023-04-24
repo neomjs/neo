@@ -133,7 +133,7 @@ class CheckBox extends Base {
 
         me.addDomListeners(
             {change: me.onInputValueChange, scope: me}
-        );
+        )
     }
 
     /**
@@ -157,7 +157,7 @@ class CheckBox extends Base {
         me.update();
 
         if (oldValue !== undefined) {
-            me.fireChangeEvent(me.getValue(), null);
+            me.fireChangeEvent(me.getValue(), null)
         }
     }
 
@@ -179,7 +179,7 @@ class CheckBox extends Base {
      */
     afterSetHideLabel(value, oldValue) {
         this.vdom.cn[0].cn[0].removeDom = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -199,7 +199,7 @@ class CheckBox extends Base {
         labelEl.cn[3].id = me.getValueLabelId();
 
         // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue);
+        super.afterSetId(value, oldValue)
     }
 
     /**
@@ -210,7 +210,7 @@ class CheckBox extends Base {
      */
     afterSetInputType(value, oldValue) {
         this.vdom.cn[0].cn[1].type = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -226,7 +226,7 @@ class CheckBox extends Base {
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -241,7 +241,7 @@ class CheckBox extends Base {
 
         NeoArray.remove(cls, 'neo-label-' + oldValue);
         NeoArray.add(   cls, 'neo-label-' + value);
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -252,7 +252,7 @@ class CheckBox extends Base {
      */
     afterSetLabelText(value, oldValue) {
         this.vdom.cn[0].cn[0].innerHTML = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -266,7 +266,7 @@ class CheckBox extends Base {
 
         if (!me.hideLabel) {
             me.vdom.cn[0].cn[0].width = value;
-            me.update();
+            me.update()
         }
     }
 
@@ -278,7 +278,7 @@ class CheckBox extends Base {
      */
     afterSetName(value, oldValue) {
         this.vdom.cn[0].cn[1].name = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -300,7 +300,7 @@ class CheckBox extends Base {
     afterSetValue(value, oldValue) {
         if (value) {
             this.vdom.cn[0].cn[1].value = value;
-            this.update();
+            this.update()
         }
     }
 
@@ -320,7 +320,7 @@ class CheckBox extends Base {
         }
 
         valueLabel.removeDom = !showLabel;
-        me.update();
+        me.update()
     }
 
     /**
@@ -330,7 +330,7 @@ class CheckBox extends Base {
      * @protected
      */
     beforeSetLabelCls(value, oldValue) {
-        return NeoArray.union(value || [], this.labelBaseCls);
+        return NeoArray.union(value || [], this.labelBaseCls)
     }
 
     /**
@@ -341,28 +341,28 @@ class CheckBox extends Base {
      * @returns {String}
      */
     beforeSetLabelPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition')
     }
 
     /**
      * @returns {String}
      */
     getIconElId() {
-        return `${this.id}__icon`;
+        return `${this.id}__icon`
     }
 
     /**
      * @returns {String}
      */
     getInputElId() {
-        return `${this.id}__input`;
+        return `${this.id}__input`
     }
 
     /**
      * @returns {String}
      */
     getLabelId() {
-        return `${this.id}__label`;
+        return `${this.id}__label`
     }
 
     /**
@@ -378,14 +378,14 @@ class CheckBox extends Base {
      * @returns {String}
      */
     getValueLabelId() {
-        return `${this.id}__value-label`;
+        return `${this.id}__value-label`
     }
 
     /**
      * @returns {Boolean}
      */
     isValid() {
-        return this.error ? false : super.isValid();
+        return this.error ? false : super.isValid()
     }
 
     /**
@@ -399,7 +399,7 @@ class CheckBox extends Base {
         // keep the vdom & vnode in sync for future updates
         me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
-        me.checked = checked;
+        me.checked = checked
     }
 
     /**
