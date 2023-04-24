@@ -288,7 +288,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        oldValue && this.validate(false)
+        oldValue !== undefined && this.validate(false)
     }
 
     /**
