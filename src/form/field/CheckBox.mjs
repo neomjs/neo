@@ -406,6 +406,8 @@ class CheckBox extends Base {
             return false
         }
 
+        me.error = null;
+
         return true
     }
 }
