@@ -1256,7 +1256,7 @@ class Text extends Base {
     updateError(value, silent=false) {
         let me  = this,
             cls = me.cls,
-            errorNode, isValid;
+            errorNode;
 
         if (!(me.clean && !me.mounted)) {
             me._error = value;
@@ -1274,7 +1274,7 @@ class Text extends Base {
 
             errorNode.removeDom = !value;
 
-            !silent && me.update();
+            !silent && me.update()
         }
     }
 
