@@ -440,6 +440,11 @@ class CheckBox extends Base {
         let me          = this,
             returnValue = true;
 
+        if (!silent) {
+            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
+            me.clean = false;
+        }
+
         if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
             returnValue = false;
