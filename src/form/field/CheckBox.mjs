@@ -117,6 +117,13 @@ class CheckBox extends Base {
     }
 
     /**
+     * Set this value to false, in case a field should display errors up front.
+     * Otherwise, errors will stay hidden on mounting, unless you trigger validate(false).
+     * @member {Boolean} clean=true
+     */
+    clean = true
+
+    /**
      * @param {Object} config
      */
     construct(config) {
