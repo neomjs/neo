@@ -285,6 +285,16 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the required config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRequired(value, oldValue) {
+        oldValue && this.validate(false)
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
