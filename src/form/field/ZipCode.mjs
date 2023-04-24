@@ -17,11 +17,7 @@ class ZipCode extends Text {
          * @member {String} ntype='zipcodefield'
          * @protected
          */
-        ntype: 'zipcodefield',
-        /**
-         * @member {RegExp|null} inputPattern=null
-         */
-        inputPattern: /[0-9]*/
+        ntype: 'zipcodefield'
     }
 }
 
