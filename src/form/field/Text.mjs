@@ -1259,7 +1259,7 @@ class Text extends Base {
             errorNode;
 
         if (!(me.clean && !me.mounted)) {
-            me._error = value;
+            me._error = value; // silent update
 
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
