@@ -1259,8 +1259,6 @@ class Text extends Base {
             errorNode;
 
         if (!(me.clean && !me.mounted)) {
-            me._error = value; // silent update
-
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
@@ -1323,7 +1321,6 @@ class Text extends Base {
      */
     validate(silent=true) {
         let me           = this,
-            errorField   = silent ? '_error' : 'error',
             maxLength    = me.maxLength,
             minLength    = me.minLength,
             required     = me.required,
@@ -1344,36 +1341,36 @@ class Text extends Base {
             errorText = me.validator(me);
 
             if (errorText !== true) {
-                me[errorField] = errorText;
+                me._error = errorText;
                 returnValue = false;
             }
         }
 
         if (required && isEmpty) {
-            me[errorField] = me.errorTextRequired;
+            me._error = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
             if (required || !isEmpty) {
-                me[errorField] = me.errorTextMaxLength(errorParam);
+                me._error = me.errorTextMaxLength(errorParam);
                 returnValue = false;
             }
         } else if (Neo.isNumber(minLength) && valueLength < minLength) {
             if (required || !isEmpty) {
-                me[errorField] = me.errorTextMinLength(errorParam);
+                me._error = me.errorTextMinLength(errorParam);
                 returnValue = false;
             }
         } else if (inputPattern && !inputPattern.test(value)) {
             if (required || !isEmpty) {
-                me[errorField] = me.errorTextInputPattern(errorParam);
+                me._error = me.errorTextInputPattern(errorParam);
                 returnValue = false;
             }
         }
 
         if (returnValue) {
-            me[errorField] = null;
+            me._error = null;
         }
 
-        !me.clean && me.updateError(me[errorField], silent);
+        !me.clean && me.updateError(me._error, silent);
 
         return !returnValue ? false : super.validate(silent)
     }
