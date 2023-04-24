@@ -440,13 +440,13 @@ class CheckBox extends Base {
         let me = this;
 
         if (me.required && !me.checked) {
-            me.error = me.errorTextRequired;
+            me.updateError(me.errorTextRequired, silent);
             return false
         }
 
         me.error = null;
 
-        return true
+        return super.validate(silent)
     }
 }
 
