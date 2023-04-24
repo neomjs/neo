@@ -41,6 +41,12 @@
         word-break : break-word;
     }
 
+    &.neo-invalid {
+        .neo-checkbox-icon {
+            color: v(textfield-border-color-invalid);
+        }
+    }
+
     &.neo-label-top {
         .neo-checkbox-input {
             margin-left: 0;
