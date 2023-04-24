@@ -1,6 +1,5 @@
 import Base     from './Base.mjs';
 import NeoArray from '../../util/Array.mjs';
-import VDomUtil from "src/util/VDom.mjs";
 
 /**
  * @class Neo.form.field.CheckBox
