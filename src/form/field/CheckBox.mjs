@@ -155,12 +155,17 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        let errorEl = this.vdom.cn[1];
+        let me      = this,
+            cls     = me.cls,
+            errorEl = me.vdom.cn[1];
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
+        me.cls = cls;
 
         errorEl.html      = value;
         errorEl.removeDom = !value;
 
-        this.update();
+        me.update();
     }
 
     /**
