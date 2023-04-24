@@ -93,11 +93,14 @@ class CheckBox extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'label', cn: [
-            {tag: 'span',  cls: []},
-            {tag: 'input', cls: ['neo-checkbox-input']},
-            {tag: 'i',     cls: ['neo-checkbox-icon']},
-            {tag: 'span',  cls: ['neo-checkbox-value-label']}
+        {cn: [
+            {tag: 'label', cls: ['neo-checkbox-label'], cn: [
+                {tag: 'span',  cls: []},
+                {tag: 'input', cls: ['neo-checkbox-input']},
+                {tag: 'i',     cls: ['neo-checkbox-icon']},
+                {tag: 'span',  cls: ['neo-checkbox-value-label']}
+            ]},
+            {cls: ['neo-error'], removeDom: true}
         ]}
     }
 
@@ -121,11 +124,12 @@ class CheckBox extends Base {
      */
     afterSetChecked(value, oldValue) {
         let me      = this,
-            iconCls = me.vdom.cn[2].cls,
+            labelEl = me.vdom.cn[0],
+            iconCls = labelEl.cn[2].cls,
             newCls  = value ? me.iconClsChecked : me.iconCls,
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
-        me.vdom.cn[1].checked = value;
+        labelEl.cn[1].checked = value;
 
         NeoArray.removeAdd(iconCls, oldCls, newCls);
 
@@ -143,7 +147,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        this.vdom.cn[0].removeDom = value;
+        this.vdom.cn[0].cn[0].removeDom = value;
         this.update();
     }
 
@@ -154,13 +158,14 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetId(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me      = this,
+            vdom    = me.vdom,
+            labelEl = vdom.cn[0];
 
-        vdom.cn[0].id = me.getLabelId();
-        vdom.cn[1].id = me.getInputElId();
-        vdom.cn[2].id = me.getIconElId();
-        vdom.cn[3].id = me.getValueLabelId();
+        labelEl.cn[0].id = me.getLabelId();
+        labelEl.cn[1].id = me.getInputElId();
+        labelEl.cn[2].id = me.getIconElId();
+        labelEl.cn[3].id = me.getValueLabelId();
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId(value, oldValue);
@@ -173,7 +178,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        this.vdom.cn[1].type = value;
+        this.vdom.cn[0].cn[1].type = value;
         this.update();
     }
 
@@ -185,7 +190,7 @@ class CheckBox extends Base {
      */
     afterSetLabelCls(value, oldValue) {
         let me  = this,
-            cls = me.vdom.cn[0].cls;
+            cls = me.vdom.cn[0].cn[0].cls;
 
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
@@ -215,7 +220,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetLabelText(value, oldValue) {
-        this.vdom.cn[0].innerHTML = value;
+        this.vdom.cn[0].cn[0].innerHTML = value;
         this.update();
     }
 
@@ -229,7 +234,7 @@ class CheckBox extends Base {
         let me = this;
 
         if (!me.hideLabel) {
-            me.vdom.cn[0].width = value;
+            me.vdom.cn[0].cn[0].width = value;
             me.update();
         }
     }
@@ -241,7 +246,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetName(value, oldValue) {
-        this.vdom.cn[1].name = value;
+        this.vdom.cn[0].cn[1].name = value;
         this.update();
     }
 
@@ -253,7 +258,7 @@ class CheckBox extends Base {
      */
     afterSetValue(value, oldValue) {
         if (value) {
-            this.vdom.cn[1].value = value;
+            this.vdom.cn[0].cn[1].value = value;
             this.update();
         }
     }
@@ -266,7 +271,7 @@ class CheckBox extends Base {
      */
     afterSetValueLabelText(value, oldValue) {
         let me         = this,
-            valueLabel = me.vdom.cn[3],
+            valueLabel = me.vdom.cn[0].cn[3],
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
@@ -344,7 +349,7 @@ class CheckBox extends Base {
             checked = data.target.checked;
 
         // keep the vdom & vnode in sync for future updates
-        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
+        me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.checked = checked;
     }
