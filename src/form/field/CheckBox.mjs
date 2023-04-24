@@ -1,5 +1,6 @@
 import Base     from './Base.mjs';
 import NeoArray from '../../util/Array.mjs';
+import VDomUtil from "src/util/VDom.mjs";
 
 /**
  * @class Neo.form.field.CheckBox
@@ -168,17 +169,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        let me      = this,
-            cls     = me.cls,
-            errorEl = me.vdom.cn[1];
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
-        me.cls = cls;
-
-        errorEl.html      = value;
-        errorEl.removeDom = !value;
-
-        me.update();
+        this.updateError(value)
     }
 
     /**
@@ -410,6 +401,35 @@ class CheckBox extends Base {
         me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.checked = checked;
+    }
+
+    /**
+     @param {String|null} value
+     @param {Boolean} silent=false
+     */
+    updateError(value, silent=false) {
+        let me  = this,
+            cls = me.cls,
+            errorNode;
+
+        if (!(me.clean && !me.mounted)) {
+            me._error = value;
+
+            NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
+            me.cls = cls;
+
+            errorNode = me.vdom.cn[1];
+
+            if (value) {
+                errorNode.html = value;
+            } else {
+                delete errorNode.html;
+            }
+
+            errorNode.removeDom = !value;
+
+            !silent && me.update()
+        }
     }
 
     /**
