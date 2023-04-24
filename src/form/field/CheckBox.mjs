@@ -141,6 +141,8 @@ class CheckBox extends Base {
             newCls  = value ? me.iconClsChecked : me.iconCls,
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
+        me.validate(); // silent
+
         labelEl.cn[1].checked = value;
 
         NeoArray.removeAdd(iconCls, oldCls, newCls);
