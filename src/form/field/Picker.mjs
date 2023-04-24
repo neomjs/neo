@@ -94,6 +94,13 @@ class Picker extends Text {
     }
 
     /**
+     * Internal flag to prevent showing a picker multiple times
+     * @member {Boolean} pickerIsMounting=false
+     * @protected
+     */
+    pickerIsMounting = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -267,7 +274,7 @@ class Picker extends Text {
      * @param {Object} data
      * @protected
      */
-    onFocusEnter(data) {
+    onFocusEnter(data) {console.log('onFocusEnter')
         super.onFocusEnter(data);
 
         let me = this;
@@ -279,7 +286,7 @@ class Picker extends Text {
      * @param {Object} data
      * @protected
      */
-    onFocusLeave(data) {
+    onFocusLeave(data) {console.log('onFocusLeave')
         let me           = this,
             insidePicker = false,
             item;
@@ -300,7 +307,7 @@ class Picker extends Text {
     /**
      * @param {Object} data
      */
-    onInputClick(data) {
+    onInputClick(data) {console.log('onInputClick')
         let me = this;
 
         if (!me.editable) {
@@ -346,16 +353,21 @@ class Picker extends Text {
             picker = me.getPicker(),
             listenerId;
 
-        me.applyClientRects(true);
+        if (!me.pickerIsMounting) {
+            me.pickerIsMounting = true;
 
-        listenerId = picker.on('mounted', () => {
-            picker.un('mounted', listenerId);
+            me.applyClientRects(true);
 
-            me.pickerIsMounted = true;
-            callback?.apply(callbackScope || me);
-        });
+            listenerId = picker.on('mounted', () => {
+                picker.un('mounted', listenerId);
 
-        picker.render(true);
+                me.pickerIsMounting = false;
+                me.pickerIsMounted  = true;
+                callback?.apply(callbackScope || me);
+            });
+
+            picker.render(true);
+        }
     }
 
     /**
