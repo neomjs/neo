@@ -437,16 +437,21 @@ class CheckBox extends Base {
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
-        let me = this;
+        let me          = this,
+            returnValue = true;
 
         if (me.required && !me.checked) {
-            me.updateError(me.errorTextRequired, silent);
-            return false
+            me._error = me.errorTextRequired;
+            returnValue = false;
         }
 
-        me.updateError(null, silent);
+        if (returnValue) {
+            me._error = null;
+        }
 
-        return super.validate(silent)
+        !me.clean && me.updateError(me._error, silent);
+
+        return !returnValue ? false : super.validate(silent)
     }
 }
 
