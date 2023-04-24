@@ -259,11 +259,11 @@ class Base extends CoreBase {
          */
         role_: null,
         /**
-         * Set this to true for bulk updates.
-         * Ensure to set it back to false afterwards.
-         * @member {Boolean} silentVdomUpdate=false
+         * Set this to true for bulk updates. Ensure to set it back to false afterwards.
+         * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
+         * @member {Boolean} silentVdomUpdate_=false
          */
-        silentVdomUpdate: false,
+        silentVdomUpdate_: false,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style_=null
@@ -980,6 +980,21 @@ class Base extends CoreBase {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the silentVdomUpdate config gets changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetSilentVdomUpdate(value, oldValue) {
+        if (value === true) {
+            return Neo.isNumber(oldValue) ? (oldValue + 1) : 1
+        }
+
+        return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
     }
 
     /**

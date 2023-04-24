@@ -74,12 +74,17 @@ class Text extends Base {
          */
         error_: null,
         /**
-         * data passes maxLength, minLength & valueLength properties
+         * data passes inputPattern, maxLength, minLength & valueLength properties
+         * @member {Function} errorTextInputPattern=data=>`Input pattern violation: ${data.inputPattern}`
+         */
+        errorTextInputPattern: data => `Input pattern violation: ${data.inputPattern}`,
+        /**
+         * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextMaxLength=data=>`Max length violation: ${valueLength} / ${maxLength}`
          */
         errorTextMaxLength: data => `Max length violation: ${data.valueLength} / ${data.maxLength}`,
         /**
-         * data passes maxLength, minLength & valueLength properties
+         * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextMinLength=data=>`Min length violation: ${data.valueLength} / ${data.minLength}`
          */
         errorTextMinLength: data => `Min length violation: ${data.valueLength} / ${data.minLength}`,
@@ -92,7 +97,7 @@ class Text extends Base {
          */
         hideLabel_: false,
         /**
-         * @member {RegExp|null} inputPattern=null
+         * @member {RegExp|null} inputPattern_=null
          */
         inputPattern_: null,
         /**
@@ -330,7 +335,12 @@ class Text extends Base {
      * @protected
      */
     afterSetInputPattern(value, oldValue) {
+        if (value) {
+            value = value.toString();
+            value = value.substring(1, value.length - 1);
+        }
 
+        this.changeInputElKey('pattern', value);
     }
 
     /**
@@ -1128,21 +1138,16 @@ class Text extends Base {
      * @protected
      */
     onInputValueChange(data) {
-        let me       = this,
-            value    = data.value,
-            oldValue = me.value,
-            vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+        let me    = this,
+            value = data.value,
+            vnode = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
             // required for validation -> revert a wrong user input
             vnode.vnode.attributes.value = value;
         }
 
-        if (me.inputPattern && !me.inputPattern.test(value) ) {
-            me.afterSetValue(oldValue, value);
-        } else if (value !== oldValue) {
-            me.value = value;
-        }
+        me.value = value;
     }
 
     /**
@@ -1259,7 +1264,7 @@ class Text extends Base {
             isValid = !value || value === '';
 
             NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
-            me[silent ? '_cls' : 'cls'] = cls;
+            me.cls = cls;
 
             errorNode = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom;
 
@@ -1319,16 +1324,17 @@ class Text extends Base {
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
-        let me          = this,
-            errorField  = silent ? '_error' : 'error',
-            maxLength   = me.maxLength,
-            minLength   = me.minLength,
-            required    = me.required,
-            returnValue = true,
-            value       = me.value,
-            valueLength = value?.toString().length,
-            isEmpty     = value !== 0 && (!value || valueLength < 1),
-            errorParam  = {maxLength, minLength, valueLength},
+        let me           = this,
+            errorField   = silent ? '_error' : 'error',
+            maxLength    = me.maxLength,
+            minLength    = me.minLength,
+            required     = me.required,
+            returnValue  = true,
+            value        = me.value,
+            valueLength  = value?.toString().length,
+            inputPattern = me.inputPattern,
+            isEmpty      = value !== 0 && (!value || valueLength < 1),
+            errorParam   = {inputPattern, maxLength, minLength, valueLength},
             errorText;
 
         if (!silent) {
@@ -1343,7 +1349,9 @@ class Text extends Base {
                 me[errorField] = errorText;
                 returnValue = false;
             }
-        } else if (required && isEmpty) {
+        }
+
+        if (required && isEmpty) {
             me[errorField] = me.errorTextRequired;
             returnValue = false;
         } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
@@ -1354,6 +1362,11 @@ class Text extends Base {
         } else if (Neo.isNumber(minLength) && valueLength < minLength) {
             if (required || !isEmpty) {
                 me[errorField] = me.errorTextMinLength(errorParam);
+                returnValue = false;
+            }
+        } else if (inputPattern && !inputPattern.test(value)) {
+            if (required || !isEmpty) {
+                me[errorField] = me.errorTextInputPattern(errorParam);
                 returnValue = false;
             }
         }
