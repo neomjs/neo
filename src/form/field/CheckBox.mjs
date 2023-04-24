@@ -38,6 +38,10 @@ class CheckBox extends Base {
          */
         error_: null,
         /**
+         * @member {String} errorTextRequired='Required'
+         */
+        errorTextRequired: 'Required',
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -387,6 +391,22 @@ class CheckBox extends Base {
         me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.checked = checked;
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me = this;
+
+        if (me.required && !me.checked) {
+            me.error = me.errorTextRequired;
+            return false
+        }
+
+        return true
     }
 }
 
