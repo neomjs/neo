@@ -1261,20 +1261,18 @@ class Text extends Base {
         if (!(me.clean && !me.mounted)) {
             me._error = value;
 
-            isValid = !value || value === '';
-
-            NeoArray[!isValid ? 'add' : 'remove'](cls, 'neo-invalid');
+            NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
             errorNode = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom;
 
-            if (!isValid) {
+            if (value) {
                 errorNode.html = me.error;
             } else {
                 delete errorNode.html;
             }
 
-            errorNode.removeDom = isValid;
+            errorNode.removeDom = !value;
 
             !silent && me.update();
         }
