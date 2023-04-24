@@ -76,6 +76,10 @@ class CheckBox extends Base {
          */
         name_: '',
         /**
+         * @member {Boolean} required_=false
+         */
+        required_: false,
+        /**
          * In case the CheckBox does not belong to a group (multiple fields with the same name),
          * you can pass a custom value for the unchecked state.
          * @member {*} uncheckedValue=false
