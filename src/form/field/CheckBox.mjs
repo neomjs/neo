@@ -149,6 +149,21 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the error config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetError(value, oldValue) {
+        let errorEl = this.vdom.cn[1];
+
+        errorEl.html      = value;
+        errorEl.removeDom = !value;
+
+        this.update();
+    }
+
+    /**
      * Triggered after the hideLabel config got changed
      * @param {String} value
      * @param {String} oldValue
