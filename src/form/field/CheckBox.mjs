@@ -369,6 +369,13 @@ class CheckBox extends Base {
     }
 
     /**
+     * @returns {Boolean}
+     */
+    isValid() {
+        return this.error ? false : super.isValid();
+    }
+
+    /**
      * Gets triggered when a user checks a checkbox input.
      * @param {Object} data
      */
