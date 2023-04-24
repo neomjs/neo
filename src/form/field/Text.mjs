@@ -1062,7 +1062,7 @@ class Text extends Base {
     isValid() {
         this.validate(true); // silent
 
-        return this.error?.length > 0 ? false : super.isValid();
+        return this.error ? false : super.isValid();
     }
 
     /**
