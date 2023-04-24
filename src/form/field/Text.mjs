@@ -281,7 +281,7 @@ class Text extends Base {
         this.fire('changeClearToOriginalValue', {
             oldValue,
             value
-        });
+        })
     }
 
     /**
@@ -291,7 +291,7 @@ class Text extends Base {
      * @protected
      */
     afterSetError(value, oldValue) {
-        this.updateError(value);
+        this.updateError(value)
     }
 
     /**
@@ -305,7 +305,7 @@ class Text extends Base {
             node = me.labelPosition === 'inline' ? me.getCenterBorderEl() : me.vdom.cn[0];
 
         node.removeDom = value;
-        me.updateInputWidth();
+        me.updateInputWidth()
     }
 
     /**
@@ -325,7 +325,7 @@ class Text extends Base {
         labelEl.for = inputElId;
 
         // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue);
+        super.afterSetId(value, oldValue)
     }
 
     /**
@@ -340,7 +340,7 @@ class Text extends Base {
             value = value.substring(1, value.length - 1);
         }
 
-        this.changeInputElKey('pattern', value);
+        this.changeInputElKey('pattern', value)
     }
 
     /**
@@ -350,7 +350,7 @@ class Text extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        this.changeInputElKey('type', value);
+        this.changeInputElKey('type', value)
     }
 
     /**
@@ -366,7 +366,7 @@ class Text extends Base {
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -376,7 +376,7 @@ class Text extends Base {
      * @protected
      */
     afterSetLabelOptionalText(value, oldValue) {
-        this.labelText = this.labelText; // triggers a vdom update
+        this.labelText = this.labelText // triggers a vdom update
     }
 
     /**
@@ -428,11 +428,11 @@ class Text extends Base {
             me.updateInputWidth();
 
             !isEmpty && setTimeout(() => {
-                me.updateCenterBorderElWidth(false);
+                me.updateCenterBorderElWidth(false)
             }, 20);
         } else {
             // changes from e.g. left to top
-            me.updateInputWidth();
+            me.updateInputWidth()
         }
     }
 
@@ -455,7 +455,7 @@ class Text extends Base {
                 }
 
                 me.promiseVdomUpdate().then(() => {
-                    me.updateCenterBorderElWidth(isEmpty);
+                    me.updateCenterBorderElWidth(isEmpty)
                 });
             } else {
                 me.update();
@@ -499,7 +499,7 @@ class Text extends Base {
      */
     afterSetMinLength(value, oldValue) {
         this.validate(); // silent
-        this.changeInputElKey('minlength', value);
+        this.changeInputElKey('minlength', value)
     }
 
     /**
@@ -526,9 +526,9 @@ class Text extends Base {
 
             if (me.labelPosition === 'inline') {
                 if (value) {
-                    me.updateCenterBorderElWidth();
+                    me.updateCenterBorderElWidth()
                 } else {
-                    delete me.getCenterBorderEl().width;
+                    delete me.getCenterBorderEl().width
                 }
             }
         }
@@ -550,7 +550,7 @@ class Text extends Base {
         // => labelPosition: 'inline' should keep the label at the top
         if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
             NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
-            me.cls = cls;
+            me.cls = cls
         }
     }
 
@@ -601,7 +601,7 @@ class Text extends Base {
      * @protected
      */
     afterSetShowOptionalText(value, oldValue) {
-        this.labelText = this.labelText; // triggers a vdom update
+        this.labelText = this.labelText // triggers a vdom update
     }
 
     /**
@@ -627,7 +627,7 @@ class Text extends Base {
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -644,7 +644,7 @@ class Text extends Base {
         subLabel.html      = value;
         subLabel.removeDom = !showLabel;
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -663,7 +663,7 @@ class Text extends Base {
 
         oldValue?.forEach(item => {
             if (!me.getTrigger(item.type)) {
-                item.destroy();
+                item.destroy()
             }
         });
 
@@ -705,8 +705,8 @@ class Text extends Base {
         }
 
         me.promiseVdomUpdate().then(() => {
-            me.updateTriggerVnodes();
-        });
+            me.updateTriggerVnodes()
+        })
     }
 
     /**
@@ -738,7 +738,7 @@ class Text extends Base {
 
         me.update();
 
-        super.afterSetValue(value, oldValue); // fires the change event
+        super.afterSetValue(value, oldValue) // fires the change event
     }
 
     /**
@@ -749,7 +749,7 @@ class Text extends Base {
      */
     afterSetWidth(value, oldValue) {
         super.afterSetWidth(value, oldValue);
-        this.updateInputWidth();
+        this.updateInputWidth()
     }
 
     /**
@@ -762,7 +762,7 @@ class Text extends Base {
             return [...value];
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -773,7 +773,7 @@ class Text extends Base {
      * @returns {String}
      */
     beforeSetAutoCapitalize(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues');
+        return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues')
     }
 
     /**
@@ -783,7 +783,7 @@ class Text extends Base {
      * @protected
      */
     beforeSetLabelCls(value, oldValue) {
-        return NeoArray.union(value || [], this.labelBaseCls);
+        return NeoArray.union(value || [], this.labelBaseCls)
     }
 
     /**
@@ -794,7 +794,7 @@ class Text extends Base {
      * @returns {String}
      */
     beforeSetLabelPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition')
     }
 
     /**
@@ -817,7 +817,7 @@ class Text extends Base {
             value = value.replace(labelOptionalText, '');
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -828,7 +828,7 @@ class Text extends Base {
      * @protected
      */
     beforeSetSubLabelCls(value, oldValue) {
-        return NeoArray.union(value || [], this.subLabelBaseCls);
+        return NeoArray.union(value || [], this.subLabelBaseCls)
     }
 
     /**
@@ -869,11 +869,11 @@ class Text extends Base {
                     ...item,
                     appName: me.appName,
                     field  : me
-                });
+                })
             }
         });
 
-        return value;
+        return value
     }
 
     /**
@@ -891,7 +891,7 @@ class Text extends Base {
             delete me.getInputEl()[key];
         }
 
-        !silent && me.update();
+        !silent && me.update()
     }
 
     /**
@@ -901,7 +901,7 @@ class Text extends Base {
         let me = this;
 
         me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
-        me.fire('clear');
+        me.fire('clear')
     }
 
     /**
@@ -910,28 +910,28 @@ class Text extends Base {
      * @override
      */
     focus(id=this.id) {
-        super.focus(this.getInputElId());
+        super.focus(this.getInputElId())
     }
 
     /**
      * @returns {Object|null}
      */
     getCenterBorderEl() {
-        return VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'})?.vdom || null;
+        return VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'})?.vdom || null
     }
 
     /**
      * @returns {Object|null}
      */
     getInputEl() {
-        return VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'})?.vdom || null;
+        return VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'})?.vdom || null
     }
 
     /**
      * @returns {String}
      */
     getInputElId() {
-        return `${this.id}__input`;
+        return `${this.id}__input`
     }
 
     /**
@@ -945,33 +945,33 @@ class Text extends Base {
             width       = me.width;
 
         if (labelWidth && width) {
-            return parseInt(width) - parseInt(labelWidth);
+            return parseInt(width) - parseInt(labelWidth)
         } else if (width) {
-            return width;
+            return width
         }
 
-        return null;
+        return null
     }
 
     /**
      * @returns {String}
      */
     getInputWrapperId() {
-        return `${this.id}__input-wrapper`;
+        return `${this.id}__input-wrapper`
     }
 
     /**
      * @returns {Object|null}
      */
     getLabelEl() {
-        return VDomUtil.findVdomChild(this.vdom, {tag: 'label'})?.vdom || null;
+        return VDomUtil.findVdomChild(this.vdom, {tag: 'label'})?.vdom || null
     }
 
     /**
      * @returns {String}
      */
     getLabelId() {
-        return `${this.id}__label`;
+        return `${this.id}__label`
     }
 
     /**
@@ -986,11 +986,11 @@ class Text extends Base {
 
         for (; i < len; i++) {
             if (triggers[i].type === type) {
-                return triggers[i];
+                return triggers[i]
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -1005,11 +1005,11 @@ class Text extends Base {
 
         for (; i < len; i++) {
             if (triggers[i].id === id) {
-                return triggers[i];
+                return triggers[i]
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -1018,7 +1018,7 @@ class Text extends Base {
      * @returns {String} The trigger node id
      */
     getTriggerId(type) {
-        return this.id + '-trigger-' + type;
+        return this.id + '-trigger-' + type
     }
 
     /**
@@ -1042,18 +1042,18 @@ class Text extends Base {
 
         for (; i < len; i++) {
             if (triggers[i].type === type) {
-                return true;
+                return true
             }
         }
 
-        return false;
+        return false
     }
 
     /**
      * @returns {Boolean}
      */
     isEmpty() {
-        return !(this.value?.toString().length > 0);
+        return !(this.value?.toString().length > 0)
     }
 
     /**
@@ -1062,7 +1062,7 @@ class Text extends Base {
     isValid() {
         this.validate(true); // silent
 
-        return this.error ? false : super.isValid();
+        return this.error ? false : super.isValid()
     }
 
     /**
@@ -1078,7 +1078,7 @@ class Text extends Base {
         me[triggers ? 'triggers' : '_triggers'] = triggers;
 
         delete config.triggers;
-        return config;
+        return config
     }
 
     /**
@@ -1097,9 +1097,9 @@ class Text extends Base {
             if (me.labelPosition === 'inline') {
                 if (me.centerBorderElWidth) {
                     me.getCenterBorderEl().width = me.centerBorderElWidth;
-                    me.update();
+                    me.update()
                 } else {
-                    me.updateCenterBorderElWidth(false);
+                    me.updateCenterBorderElWidth(false)
                 }
             }
         }
@@ -1127,10 +1127,10 @@ class Text extends Base {
                 delete centerBorderEl.width;
             }
 
-            me.update();
+            me.update()
         }
 
-        super.onFocusLeave(data);
+        super.onFocusLeave(data)
     }
 
     /**
@@ -1147,7 +1147,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        me.value = value;
+        me.value = value
     }
 
     /**
@@ -1159,7 +1159,7 @@ class Text extends Base {
 
         if (!me.readOnly) {
             NeoArray.add(cls, 'neo-hovered');
-            me.cls = cls;
+            me.cls = cls
         }
     }
 
@@ -1172,7 +1172,7 @@ class Text extends Base {
 
         if (!me.readOnly) {
             NeoArray.remove(cls, 'neo-hovered');
-            me.cls = cls;
+            me.cls = cls
         }
     }
 
@@ -1205,7 +1205,7 @@ class Text extends Base {
             me.triggers = triggers;
         }
 
-        return hasMatch;
+        return hasMatch
     }
 
     /**
@@ -1227,7 +1227,7 @@ class Text extends Base {
         super.reset(value);
 
         if (value === null && me.clean) {
-            me.updateError(null);
+            me.updateError(null)
         }
     }
 
@@ -1244,9 +1244,9 @@ class Text extends Base {
 
             if (!silent) {
                 me.getCenterBorderEl().width = me.centerBorderElWidth;
-                me.update();
+                me.update()
             }
-        });
+        })
     }
 
     /**
@@ -1267,7 +1267,7 @@ class Text extends Base {
             errorNode = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom;
 
             if (value) {
-                errorNode.html = me.error;
+                errorNode.html = value;
             } else {
                 delete errorNode.html;
             }
@@ -1287,12 +1287,12 @@ class Text extends Base {
             inputWidth = me.getInputWidth();
 
         if (inputWidth !== null && inputWidth !== me.width) {
-            me.vdom.cn[1].width = inputWidth;
+            me.vdom.cn[1].width = inputWidth
         } else {
-            delete me.vdom.cn[1].width;
+            delete me.vdom.cn[1].width
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -1312,8 +1312,8 @@ class Text extends Base {
                 vnode,
                 _rendered: true,
                 _mounted : true
-            });
-        });
+            })
+        })
     }
 
     /**
@@ -1375,7 +1375,7 @@ class Text extends Base {
 
         !me.clean && me.updateError(me[errorField], silent);
 
-        return !returnValue ? false : super.validate(silent);
+        return !returnValue ? false : super.validate(silent)
     }
 }
 
