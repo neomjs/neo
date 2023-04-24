@@ -34,6 +34,10 @@ class CheckBox extends Base {
          */
         checked_: false,
         /**
+         * @member {String|null} error_=null
+         */
+        error_: null,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
