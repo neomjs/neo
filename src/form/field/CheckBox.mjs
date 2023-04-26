@@ -465,18 +465,14 @@ class CheckBox extends Base {
             errorNode;
 
         if (!(me.clean && !me.mounted)) {
+            me._error = value; // silent update
+
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
-            if (!me.showErrorTexts) {
-                value = null;
-            }
-
-            me._error = value; // silent update
-
             errorNode = me.vdom.cn[1];
 
-            if (value) {
+            if (value && me.showErrorTexts) {
                 errorNode.html = value;
             } else {
                 delete errorNode.html;
