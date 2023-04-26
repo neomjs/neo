@@ -176,6 +176,16 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the required groupRequired got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetGroupRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
+    }
+
+    /**
      * Triggered after the hideLabel config got changed
      * @param {String} value
      * @param {String} oldValue
