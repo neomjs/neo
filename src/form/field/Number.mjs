@@ -163,6 +163,34 @@ class Number extends Text {
     }
 
     /**
+     * Triggered before the maxLength config gets changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    beforeSetMaxLength(value, oldValue) {
+        if (value !== null) {
+            console.warn('input type number does not support maxLength. use maxValue instead.', this)
+        }
+
+        return null;
+    }
+
+    /**
+     * Triggered before the minLength config gets changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    beforeSetMinLength(value, oldValue) {
+        if (value !== null) {
+            console.warn('input type number does not support minLength. use minValue instead.', this)
+        }
+
+        return null;
+    }
+
+    /**
      * Triggered after the triggerPosition config got changed
      * @param {String} value
      * @param {String} oldValue
