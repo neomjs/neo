@@ -16,10 +16,11 @@ class Page4 extends FormPageContainer {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module    : CheckBox,
-            labelText : null,
-            labelWidth: 70,
-            name      : 'fruits'
+            module       : CheckBox,
+            groupRequired: true,
+            labelText    : null,
+            labelWidth   : 70,
+            name         : 'fruits'
         },
         /**
          * @member {Object[]} items
@@ -44,6 +45,7 @@ class Page4 extends FormPageContainer {
             valueLabelText: 'Strawberry'
         }, {
             labelText     : 'Boolean',
+            groupRequired : false, // overwriting the itemDefaults value
             name          : 'boolean',
             style         : {marginTop: '50px'},
             uncheckedValue: false,
