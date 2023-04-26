@@ -1,5 +1,6 @@
-import Base     from './Base.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Base             from './Base.mjs';
+import ComponentManager from '../../manager/Component.mjs';
+import NeoArray         from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
@@ -471,7 +472,8 @@ class CheckBox extends Base {
      */
     validate(silent=true) {
         let me          = this,
-            returnValue = true;
+            returnValue = true,
+            checkBox, checkBoxes;
 
         if (!silent) {
             // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
@@ -479,11 +481,37 @@ class CheckBox extends Base {
         }
 
         if (me.groupRequired && !me.checked) {
-            me._error = me.errorTextGroupRequired;
             returnValue = false;
-        }
 
-        if (me.required && !me.checked) {
+            // discuss: we could limit this to checkBoxes / radios inside the same form, IF a top level form is used
+            checkBoxes = ComponentManager.find({
+                ntype: me.ntype,
+                name : me.name
+            });
+
+            // get the group validity state first
+            for (checkBox of checkBoxes) {
+                if (checkBox.checked) {
+                    returnValue = true;
+                    break;
+                }
+            }
+
+            // update all group items
+            for (checkBox of checkBoxes) {
+                if (checkBox.id !== me.id) {
+                    if (!me.clean) {
+                        checkBox.clean = false;
+                    }
+
+                    checkBox.error = returnValue ? null : checkBox.errorTextGroupRequired
+                }
+            }
+
+            if (!returnValue) {
+                me._error = me.errorTextGroupRequired;
+            }
+        } else if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
             returnValue = false;
         }
