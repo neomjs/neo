@@ -42,6 +42,10 @@ class CheckBox extends Base {
          */
         errorTextRequired: 'Required',
         /**
+         * @member {Boolean} groupRequired_=false
+         */
+        groupRequired_: false,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -321,6 +325,21 @@ class CheckBox extends Base {
 
         valueLabel.removeDom = !showLabel;
         me.update()
+    }
+
+    /**
+     * Triggered before the groupRequired config gets changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetGroupRequired(value, oldValue) {
+        if (value && this.required) {
+            console.warn('Do not use groupRequired & required at the same time. Switching to required.', this);
+            return false
+        }
+
+        return value
     }
 
     /**
