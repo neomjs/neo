@@ -157,6 +157,10 @@ class CheckBox extends Base {
             newCls  = value ? me.iconClsChecked : me.iconCls,
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
+        if (oldValue) {
+            me.clean = false;
+        }
+
         me.validate(); // silent
 
         labelEl.cn[1].checked = value;
@@ -472,6 +476,7 @@ class CheckBox extends Base {
      */
     validate(silent=true) {
         let me          = this,
+            name        = me.name,
             returnValue = true,
             checkBox, checkBoxes;
 
@@ -480,7 +485,7 @@ class CheckBox extends Base {
             me.clean = false;
         }
 
-        if (me.groupRequired && !me.checked) {
+        if (me.groupRequired) {
             returnValue = false;
 
             // discuss: we could limit this to checkBoxes / radios inside the same form, IF a top level form is used
@@ -504,12 +509,12 @@ class CheckBox extends Base {
                         checkBox.clean = false;
                     }
 
-                    checkBox.error = returnValue ? null : checkBox.errorTextGroupRequired
+                    checkBox[me.clean ? '_error' : 'error'] = returnValue ? null : checkBox.errorTextGroupRequired({name})
                 }
             }
 
             if (!returnValue) {
-                me._error = me.errorTextGroupRequired;
+                me._error = me.errorTextGroupRequired({name});
             }
         } else if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
