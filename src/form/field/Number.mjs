@@ -163,6 +163,34 @@ class Number extends Text {
     }
 
     /**
+     * Triggered before the maxLength config gets changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    beforeSetMaxLength(value, oldValue) {
+        if (value !== null) {
+            console.warn('input type number does not support maxLength. use maxValue instead.', this)
+        }
+
+        return null;
+    }
+
+    /**
+     * Triggered before the minLength config gets changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    beforeSetMinLength(value, oldValue) {
+        if (value !== null) {
+            console.warn('input type number does not support minLength. use minValue instead.', this)
+        }
+
+        return null;
+    }
+
+    /**
      * Triggered after the triggerPosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -351,32 +379,25 @@ class Number extends Text {
             minValue    = me.minValue,
             stepSize    = me.stepSize,
             stepSizePow = Math.pow(10, me.stepSizeDigits),
-            returnValue = true,
+            returnValue = super.validate(silent),
             errorParam  = {maxValue, minValue, stepSize, value};
 
-        if (!silent) {
-            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
-            me.clean = false;
-        }
-
-        if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
-            me._error = me.errorTextMaxValue(errorParam);
-            returnValue = false;
-        } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
-            me._error = me.errorTextMinValue(errorParam);
-            returnValue = false;
-        } else if ((Math.round((value % me.stepSize) * stepSizePow) / stepSizePow) !== 0) {
-            me._error = me.errorTextStepSize(errorParam);
-            returnValue = false;
-        }
-
         if (returnValue) {
-            me._error = null;
+            if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
+                me._error = me.errorTextMaxValue(errorParam);
+                returnValue = false;
+            } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
+                me._error = me.errorTextMinValue(errorParam);
+                returnValue = false;
+            } else if ((Math.round((value % me.stepSize) * stepSizePow) / stepSizePow) !== 0) {
+                me._error = me.errorTextStepSize(errorParam);
+                returnValue = false;
+            }
         }
 
-        !me.clean && me.updateError(me._error, silent);
+        !returnValue && !me.clean && me.updateError(me._error, silent);
 
-        return !returnValue ? false : super.validate(silent);
+        return returnValue
     }
 }
 

@@ -1,5 +1,6 @@
-import Base     from './Base.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Base             from './Base.mjs';
+import ComponentManager from '../../manager/Component.mjs';
+import NeoArray         from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
@@ -38,9 +39,17 @@ class CheckBox extends Base {
          */
         error_: null,
         /**
+         * @member {Function} errorTextGroupRequired='Required'
+         */
+        errorTextGroupRequired: data => `Please check at least one item of the group: ${data.name}`,
+        /**
          * @member {String} errorTextRequired='Required'
          */
         errorTextRequired: 'Required',
+        /**
+         * @member {Boolean} groupRequired_=false
+         */
+        groupRequired_: false,
         /**
          * @member {Boolean} hideLabel_=false
          */
@@ -87,6 +96,11 @@ class CheckBox extends Base {
          * @member {Boolean} required_=false
          */
         required_: false,
+        /**
+         * Use case: Set this config to false for all but one items with the same name.
+         * @member {Boolean} showErrorTexts_=true
+         */
+        showErrorTexts_: true,
         /**
          * In case the CheckBox does not belong to a group (multiple fields with the same name),
          * you can pass a custom value for the unchecked state.
@@ -148,6 +162,10 @@ class CheckBox extends Base {
             newCls  = value ? me.iconClsChecked : me.iconCls,
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
+        if (oldValue) {
+            me.clean = false;
+        }
+
         me.validate(); // silent
 
         labelEl.cn[1].checked = value;
@@ -169,6 +187,16 @@ class CheckBox extends Base {
      */
     afterSetError(value, oldValue) {
         this.updateError(value)
+    }
+
+    /**
+     * Triggered after the required groupRequired got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetGroupRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
     }
 
     /**
@@ -292,6 +320,16 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the showErrorTexts config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowErrorTexts(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -321,6 +359,21 @@ class CheckBox extends Base {
 
         valueLabel.removeDom = !showLabel;
         me.update()
+    }
+
+    /**
+     * Triggered before the groupRequired config gets changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetGroupRequired(value, oldValue) {
+        if (value && this.required) {
+            console.warn('Do not use groupRequired & required at the same time. Switching to required.', this);
+            return false
+        }
+
+        return value
     }
 
     /**
@@ -407,8 +460,9 @@ class CheckBox extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent=false) {
-        let me  = this,
-            cls = me.cls,
+        let me        = this,
+            cls       = me.cls,
+            showError = value && me.showErrorTexts,
             errorNode;
 
         if (!(me.clean && !me.mounted)) {
@@ -419,13 +473,13 @@ class CheckBox extends Base {
 
             errorNode = me.vdom.cn[1];
 
-            if (value) {
+            if (showError) {
                 errorNode.html = value;
             } else {
                 delete errorNode.html;
             }
 
-            errorNode.removeDom = !value;
+            errorNode.removeDom = !showError;
 
             !silent && me.update()
         }
@@ -438,14 +492,47 @@ class CheckBox extends Base {
      */
     validate(silent=true) {
         let me          = this,
-            returnValue = true;
+            name        = me.name,
+            returnValue = true,
+            checkBox, checkBoxes;
 
         if (!silent) {
             // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
             me.clean = false;
         }
 
-        if (me.required && !me.checked) {
+        if (me.groupRequired) {
+            returnValue = false;
+
+            // discuss: we could limit this to checkBoxes / radios inside the same form, IF a top level form is used
+            checkBoxes = ComponentManager.find({
+                ntype: me.ntype,
+                name : me.name
+            });
+
+            // get the group validity state first
+            for (checkBox of checkBoxes) {
+                if (checkBox.checked) {
+                    returnValue = true;
+                    break;
+                }
+            }
+
+            // update all group items
+            for (checkBox of checkBoxes) {
+                if (checkBox.id !== me.id) {
+                    if (!me.clean) {
+                        checkBox.clean = false;
+                    }
+
+                    checkBox[me.clean ? '_error' : 'error'] = returnValue ? null : checkBox.errorTextGroupRequired({name})
+                }
+            }
+
+            if (!returnValue) {
+                me._error = me.errorTextGroupRequired({name});
+            }
+        } else if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
             returnValue = false;
         }
