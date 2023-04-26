@@ -460,8 +460,9 @@ class CheckBox extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent=false) {
-        let me  = this,
-            cls = me.cls,
+        let me        = this,
+            cls       = me.cls,
+            showError = value && me.showErrorTexts,
             errorNode;
 
         if (!(me.clean && !me.mounted)) {
@@ -472,13 +473,13 @@ class CheckBox extends Base {
 
             errorNode = me.vdom.cn[1];
 
-            if (value && me.showErrorTexts) {
+            if (showError) {
                 errorNode.html = value;
             } else {
                 delete errorNode.html;
             }
 
-            errorNode.removeDom = !value;
+            errorNode.removeDom = !showError;
 
             !silent && me.update()
         }
