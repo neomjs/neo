@@ -38,6 +38,10 @@ class CheckBox extends Base {
          */
         error_: null,
         /**
+         * @member {Function} errorTextGroupRequired='Required'
+         */
+        errorTextGroupRequired: data => `Please check at least one item of the group: ${data.name}`,
+        /**
          * @member {String} errorTextRequired='Required'
          */
         errorTextRequired: 'Required',
@@ -472,6 +476,11 @@ class CheckBox extends Base {
         if (!silent) {
             // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
             me.clean = false;
+        }
+
+        if (me.groupRequired && !me.checked) {
+            me._error = me.errorTextGroupRequired;
+            returnValue = false;
         }
 
         if (me.required && !me.checked) {
