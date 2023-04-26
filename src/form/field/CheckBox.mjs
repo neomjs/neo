@@ -97,6 +97,11 @@ class CheckBox extends Base {
          */
         required_: false,
         /**
+         * Use case: Set this config to false for all but one items with the same name.
+         * @member {Boolean} showErrorTexts_=true
+         */
+        showErrorTexts_: true,
+        /**
          * In case the CheckBox does not belong to a group (multiple fields with the same name),
          * you can pass a custom value for the unchecked state.
          * @member {*} uncheckedValue=false
@@ -311,6 +316,16 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
+    }
+
+    /**
+     * Triggered after the showErrorTexts config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowErrorTexts(value, oldValue) {
         oldValue !== undefined && this.validate(false)
     }
 
