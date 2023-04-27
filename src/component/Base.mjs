@@ -1181,6 +1181,31 @@ class Base extends CoreBase {
     }
 
     /**
+     * Calculate the real parentIndex inside the DOM
+     * @returns {Number|undefined}
+     */
+    getMountedParentIndex() {
+        let parent = Neo.getComponent(this.parentId),
+            items  = parent?.items || [],
+            i      = 0,
+            index  = 0,
+            len    = items.length,
+            item;
+
+        for (; i < len; i++) {
+            item = items[i];
+
+            if (item === this) {
+                return index
+            }
+
+            if (!item.hidden && item.hideMode === 'removeDom') {
+                index++
+            }
+        }
+    }
+
+    /**
      * Get the parent components as an array
      * @returns {Neo.component.Base[]}
      */
@@ -1404,7 +1429,7 @@ class Base extends CoreBase {
                 id         : me.id,
                 html       : me.vnode.outerHTML,
                 parentId   : me.parentId,
-                parentIndex: me.parentIndex
+                parentIndex: me.getMountedParentIndex()
             });
 
             delete me.vdom.removeDom;
@@ -1626,8 +1651,8 @@ class Base extends CoreBase {
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
-                parentId   : autoMount ? me.parentId    : undefined,
-                parentIndex: autoMount ? me.parentIndex : undefined,
+                parentId   : autoMount ? me.parentId                : undefined,
+                parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 ...me.vdom
             }).then(data => {
                 me.onRender(data, useVdomWorker ? autoMount : false);
