@@ -2,7 +2,6 @@ import Container     from '../../container/Base.mjs';
 import NeoArray      from '../../util/Array.mjs';
 import PickerTrigger from './trigger/Picker.mjs';
 import Text          from './Text.mjs';
-import VDomUtil      from '../../util/VDom.mjs';
 
 /**
  * The abstract picker field provides an arrow down trigger which opens a floating container to provide
@@ -274,7 +273,7 @@ class Picker extends Text {
      * @param {Object} data
      * @protected
      */
-    onFocusEnter(data) {console.log('onFocusEnter')
+    onFocusEnter(data) {
         super.onFocusEnter(data);
 
         let me = this;
@@ -286,7 +285,7 @@ class Picker extends Text {
      * @param {Object} data
      * @protected
      */
-    onFocusLeave(data) {console.log('onFocusLeave')
+    onFocusLeave(data) {
         let me           = this,
             insidePicker = false,
             item;
@@ -307,7 +306,7 @@ class Picker extends Text {
     /**
      * @param {Object} data
      */
-    onInputClick(data) {console.log('onInputClick')
+    onInputClick(data) {
         let me = this;
 
         if (!me.editable) {
