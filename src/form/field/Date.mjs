@@ -90,6 +90,20 @@ class DateField extends Picker {
     }
 
     /**
+     * Triggered after the value config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        super.afterSetValue(value, oldValue);
+
+        if (oldValue !== undefined) {
+            this.dateSelector.value = value
+        }
+    }
+
+    /**
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -150,16 +164,8 @@ class DateField extends Picker {
      * @protected
      */
     onInputValueChange(data) {
-        let me       = this,
-            value    = data.value,
-            oldValue = me.value;
-
         if (data.valid === true) {
-            super.onInputValueChange(data);
-
-            if (value !== oldValue) {
-                me.dateSelector.value = value;
-            }
+            super.onInputValueChange(data)
         }
     }
 
