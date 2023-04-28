@@ -57,7 +57,7 @@
         "neo-jsdoc-x": "^1.0.5",
         "postcss": "^8.4.23",
         "sass": "^1.62.1",
-        "webpack": "^5.80.0",
+        "webpack": "^5.81.0",
         "webpack-cli": "^5.0.2",
         "webpack-dev-server": "4.13.3",
         "webpack-hook-plugin": "^1.0.7",
