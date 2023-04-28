@@ -149,10 +149,6 @@ class DateSelector extends Component {
             {click: me.onComponentClick, scope: me},
             {wheel: me.onComponentWheel, scope: me}
         ]);
-
-        me.updateHeaderMonth(0, 0, true);
-        me.updateHeaderYear(0, true);
-        me.createDayViewContent(false);
     }
 
     /**
@@ -191,6 +187,10 @@ class DateSelector extends Component {
                     me[method](...methodParams);
                 }
             }
+        } else if (value) {
+            me.updateHeaderMonth(0, 0, true);
+            me.updateHeaderYear(0, true);
+            me.recreateDayViewContent(false, false)
         }
     }
 
@@ -556,10 +556,10 @@ class DateSelector extends Component {
     }
 
     /**
-     * @param {Boolean} silent true to update the vdom silently
+     * @param {Boolean} silent=false true to update the vdom silently
      * @param {Object} [containerEl]
      */
-    createDayViewContent(silent, containerEl) {
+    createDayViewContent(silent=false, containerEl) {
         let me              = this,
             currentDate     = me.currentDate,
             currentDay      = currentDate.getDate(),
@@ -572,7 +572,6 @@ class DateSelector extends Component {
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
             firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
-            vdom            = me.vdom,
             centerEl        = containerEl || me.getCenterContentEl(),
             columns         = 7,
             i               = 0,
@@ -632,7 +631,7 @@ class DateSelector extends Component {
             centerEl.cn.push(row);
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -697,7 +696,7 @@ class DateSelector extends Component {
         date = DateUtil.convertToyyyymmdd(date);
 
         // We want to always trigger a change event.
-        // Reason: A form.field.Date can have a null value and we want to select the current date.
+        // Reason: A form.field.Date can have a null value, and we want to select the current date.
         me._value = date;
         me.afterSetValue(date, null);
     }
@@ -872,9 +871,9 @@ class DateSelector extends Component {
             vdom           = me.vdom,
             headerCenterEl, y;
 
-        if (!me.rendered || !me.useAnimations) {
+        if (!me.mounted || !me.useAnimations) {
             monthEl.html = currentMonth;
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            !silent && me.update()
             return null;
         } else {
             y = slideDirection === 'top' ? 0 : -monthElDomRect.height;
