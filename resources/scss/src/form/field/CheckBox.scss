@@ -19,6 +19,7 @@
         display    : inline-block;
         font-family: v(checkboxfield-icon-font-family);
         font-size  : v(checkboxfield-icon-font-size);
+        margin     : v(checkboxfield-icon-margin);
         width      : 20px;
     }
 
@@ -53,7 +54,7 @@
         }
 
         .neo-checkbox-label {
-            display: block;
+            display: flex;
             margin : v(checkboxfield-label-top-margin);
         }
     }
