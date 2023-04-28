@@ -59,7 +59,7 @@ class Text extends Base {
          */
         centerBorderElWidth: null,
         /**
-         * True shows a clear trigger in case the field has a non empty value.
+         * True shows a clear trigger in case the field has a non-empty value.
          * @member {Boolean} clearable_=true
          */
         clearable_: true,
@@ -73,6 +73,11 @@ class Text extends Base {
          * @member {String|null} error_=null
          */
         error_: null,
+        /**
+         * Useful for fields inside a css grid where errors should live outside the layout
+         * @member {Boolean} errorPositionAbsolute_=false
+         */
+        errorPositionAbsolute_: false,
         /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextInputPattern=data=>`Input pattern violation: ${data.inputPattern}`
@@ -190,7 +195,9 @@ class Text extends Base {
             {tag: 'label', cls: [], style: {}},
             {tag: 'label', cls: []},
             {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
-            {cls: ['neo-textfield-error'], removeDom: true}
+            {cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
+                {cls: ['neo-textfield-error']}
+            ]}
         ]}
     }
 
@@ -292,6 +299,21 @@ class Text extends Base {
      */
     afterSetError(value, oldValue) {
         this.updateError(value)
+    }
+
+    /**
+     * Triggered after the errorPositionAbsolute config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetErrorPositionAbsolute(value, oldValue) {
+        let me  = this,
+            cls = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-absolute');
+
+        me.update()
     }
 
     /**
@@ -1256,13 +1278,14 @@ class Text extends Base {
     updateError(value, silent=false) {
         let me  = this,
             cls = me.cls,
-            errorNode;
+            errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
-            errorNode = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom;
+            errorWrapper = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error-wrapper'}).vdom;
+            errorNode    = errorWrapper.cn[0];
 
             if (value) {
                 errorNode.html = value;
@@ -1270,7 +1293,7 @@ class Text extends Base {
                 delete errorNode.html;
             }
 
-            errorNode.removeDom = !value;
+            errorWrapper.removeDom = !value;
 
             !silent && me.update()
         }
