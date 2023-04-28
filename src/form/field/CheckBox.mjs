@@ -39,6 +39,11 @@ class CheckBox extends Base {
          */
         error_: null,
         /**
+         * Useful for fields inside a css grid where errors should live outside the layout
+         * @member {Boolean} errorPositionAbsolute_=false
+         */
+        errorPositionAbsolute_: false,
+        /**
          * @member {Function} errorTextGroupRequired='Required'
          */
         errorTextGroupRequired: data => `Please check at least one item of the group: ${data.name}`,
@@ -126,7 +131,9 @@ class CheckBox extends Base {
                 {tag: 'i',     cls: ['neo-checkbox-icon']},
                 {tag: 'span',  cls: ['neo-checkbox-value-label']}
             ]},
-            {cls: ['neo-error'], removeDom: true}
+            {cls: ['neo-error-wrapper'], removeDom: true, cn: [
+                {cls: ['neo-error']}
+            ]}
         ]}
     }
 
@@ -187,6 +194,21 @@ class CheckBox extends Base {
      */
     afterSetError(value, oldValue) {
         this.updateError(value)
+    }
+
+    /**
+     * Triggered after the errorPositionAbsolute config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetErrorPositionAbsolute(value, oldValue) {
+        let me  = this,
+            cls = me.vdom.cn[1].cn[0].cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-absolute');
+
+        me.update()
     }
 
     /**
@@ -463,7 +485,7 @@ class CheckBox extends Base {
         let me        = this,
             cls       = me.cls,
             showError = value && me.showErrorTexts,
-            errorNode;
+            errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
             me._error = value; // silent update
@@ -471,7 +493,8 @@ class CheckBox extends Base {
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
-            errorNode = me.vdom.cn[1];
+            errorWrapper = me.vdom.cn[1];
+            errorNode    = errorWrapper.cn[0];
 
             if (showError) {
                 errorNode.html = value;
@@ -479,7 +502,7 @@ class CheckBox extends Base {
                 delete errorNode.html;
             }
 
-            errorNode.removeDom = !showError;
+            errorWrapper.removeDom = !showError;
 
             !silent && me.update()
         }
