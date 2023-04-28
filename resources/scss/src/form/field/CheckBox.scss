@@ -40,6 +40,14 @@
         margin-top : .3em;
         white-space: break-spaces;
         word-break : break-word;
+
+        &.neo-absolute {
+            position: absolute;
+        }
+    }
+
+    .neo-error-wrapper {
+        position: relative;
     }
 
     &.neo-invalid {
