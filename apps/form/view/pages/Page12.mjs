@@ -1,4 +1,4 @@
-import EmailField        from '../../../../src/form/field/Text.mjs';
+import EmailField        from '../../../../src/form/field/Email.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
 
 /**

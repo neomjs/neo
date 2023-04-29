@@ -6,11 +6,12 @@ import Text from './Text.mjs';
  */
 class Email extends Text {
     /**
+     * See: https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
      * @member {RegExp} emailRegex
      * @protected
      * @static
      */
-    static emailRegex = /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/i
+    static emailRegex = /^[a-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i
 
     static config = {
         /**
