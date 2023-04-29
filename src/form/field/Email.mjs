@@ -41,10 +41,11 @@ class Email extends Text {
      */
     validate(silent=true) {
         let me          = this,
-            returnValue = super.validate(silent);
+            returnValue = super.validate(silent),
+            value       = me.value;
 
         if (returnValue) {
-            if (!Email.emailRegex.test(me.value)) {
+            if (value && !Email.emailRegex.test(value)) {
                 me._error = me.errorTextValidEmail;
                 returnValue = false;
             }
