@@ -1,5 +1,5 @@
+import EmailField        from '../../../../src/form/field/Email.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Form.view.pages.Page12
@@ -16,11 +16,12 @@ class Page12 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
+            module   : EmailField,
             labelText: 'Page 12 Field 1',
-            name     : 'page12field1'
+            name     : 'page12field1',
+            required : true
         }, {
-            module   : TextField,
+            module   : EmailField,
             labelText: 'Page 12 Field 2',
             name     : 'page12field2'
         }]
