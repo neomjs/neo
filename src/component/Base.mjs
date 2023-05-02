@@ -537,8 +537,12 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        if (!(!value && oldValue === undefined)) {
-            this[value ? 'hide' : 'show']();
+        let me = this;
+
+        if (value && oldValue === undefined && me.hideMode === 'removeDom') {
+            me.getVdomRoot().removeDom = true;
+        } else if (!(!value && oldValue === undefined)) {
+            me[value ? 'hide' : 'show']();
         }
     }
 
