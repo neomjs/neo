@@ -1,4 +1,5 @@
 import FormPageContainer from '../FormPageContainer.mjs';
+import SelectField       from '../../../../src/form/field/Select.mjs';
 import ZipCodeField      from '../../../../src/form/field/ZipCode.mjs';
 
 /**
@@ -16,15 +17,32 @@ class Page11 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : ZipCodeField,
-            labelText: 'Munich',
-            name     : 'page11.field1',
-            required : true,
-            value    : '80796'
+            module        : SelectField,
+            editable      : false,
+            forceSelection: true,
+            labelText     : 'Country',
+            name          : 'page11.countryfield',
+            reference     : 'country',
+            value         : 'DE',
+
+            store: {
+                data: [
+                    {id: 'DE',     name: 'Germany'},
+                    {id: 'Others', name: 'Others'}
+                ]
+            }
         }, {
-            module   : ZipCodeField,
-            labelText: 'Page 11 Field 2',
-            name     : 'page11.field2'
+            module      : ZipCodeField,
+            countryField: 'country',
+            labelText   : 'Munich',
+            name        : 'page11.field1',
+            required    : true,
+            value       : '80796'
+        }, {
+            module      : ZipCodeField,
+            countryField: 'country',
+            labelText   : 'Page 11 Field 2',
+            name        : 'page11.field2'
         }]
     }
 }
