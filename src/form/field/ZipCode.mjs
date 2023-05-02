@@ -17,7 +17,33 @@ class ZipCode extends Text {
          * @member {String} ntype='zipcodefield'
          * @protected
          */
-        ntype: 'zipcodefield'
+        ntype: 'zipcodefield',
+        /**
+         * @member {Neo.form.field.Base|String|null} countryField_=null
+         */
+        countryField_: null
+    }
+
+    /**
+     * Triggered after the countryField config got changed
+     * @param {Neo.form.field.Base|null} value
+     * @param {Neo.form.field.Base|null} oldValue
+     * @protected
+     */
+    afterSetCountryField(value, oldValue) {
+
+    }
+
+    /**
+     * Triggered before the countryField config gets changed
+     * @param {Neo.form.field.Base|String|null} value
+     * @param {Neo.form.field.Base|String|null} oldValue
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    beforeSetCountryField(value, oldValue) {
+        console.log(value);
+        return value;
     }
 }
 
