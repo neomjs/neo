@@ -35,6 +35,30 @@ class Url extends Text {
     }
 
     /**
+     * Triggered when accessing the value config
+     * The default URL ctor has some sanity checks to convert an "almost" valid URL into a real one.
+     * E.g. new URL("http:www.google.com").href => "http://www.google.com"
+     * @param {String|null} value
+     * @returns {String|null}
+     * @protected
+     */
+    beforeGetValue(value) {
+        if (value) {
+            let url;
+
+            try {
+                url = new URL(value);
+            } catch(e) {
+                return value
+            }
+
+            return url.href
+        }
+
+        return value
+    }
+
+    /**
      * Checks for client-side field errors
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
