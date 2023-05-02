@@ -1,5 +1,5 @@
 import FormPageContainer from '../FormPageContainer.mjs';
-import TextField         from '../../../../src/form/field/Text.mjs';
+import UrlField          from '../../../../src/form/field/Url.mjs';
 
 /**
  * @class Form.view.pages.Page13
@@ -16,13 +16,15 @@ class Page13 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : TextField,
+            module   : UrlField,
             labelText: 'Page 13 Field 1',
-            name     : 'page13field1'
+            name     : 'page13field1',
+            value    : 'https://google.com'
         }, {
-            module   : TextField,
+            module   : UrlField,
             labelText: 'Page 13 Field 2',
-            name     : 'page13field2'
+            name     : 'page13field2',
+            value    : 'www.google.com' // missing protocol
         }]
     }
 }
