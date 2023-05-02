@@ -540,7 +540,7 @@ class Base extends CoreBase {
         let me = this;
 
         if (value && oldValue === undefined && me.hideMode === 'removeDom') {
-            me.getVdomRoot().removeDom = true;
+            me.vdom.removeDom = true;
         } else if (!(!value && oldValue === undefined)) {
             me[value ? 'hide' : 'show']();
         }
