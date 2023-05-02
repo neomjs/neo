@@ -7,6 +7,15 @@ import Text from './Text.mjs';
  * @extends Neo.form.field.Text
  */
 class ZipCode extends Text {
+    /**
+     * @member {Object} countryCodes
+     * @protected
+     * @static
+     */
+    static countryCodes = {
+        DE: /^(?!01000|99999)(0[1-9]\d{3}|[1-9]\d{4})$/
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.form.field.ZipCode'
@@ -22,7 +31,12 @@ class ZipCode extends Text {
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} countryField_=null
          */
-        countryField_: null
+        countryField_: null,
+        /**
+         * data passes inputPattern, maxLength, minLength & valueLength properties
+         * @member {Function} errorTextInputPattern=data=>`Input pattern violation: ${data.inputPattern}`
+         */
+        errorTextInputPattern: data => `Not a valid zip code`
     }
 
     /**
@@ -38,9 +52,14 @@ class ZipCode extends Text {
             value.on({
                 change: me.onCountryFieldChange,
                 scope : me
+            });
+
+            value.value && me.onCountryFieldChange({
+                component: value,
+                record   : value.record,
+                value    : value.value
             })
         }
-        console.log(value);
     }
 
     /**
@@ -62,7 +81,12 @@ class ZipCode extends Text {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        console.log('onCountryFieldChange', data);
+        let me          = this,
+            countryCode = data.record?.[data.component.valueField];
+
+        me.inputPattern = ZipCode.countryCodes[countryCode] || null;
+
+        !me.clean && me.validate(false);
     }
 }
 
