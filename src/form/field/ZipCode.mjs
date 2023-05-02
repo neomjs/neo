@@ -28,6 +28,10 @@ class ZipCode extends Text {
          */
         ntype: 'zipcodefield',
         /**
+         * @member {String} countryCode_=null
+         */
+        countryCode_: null,
+        /**
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} countryField_=null
          */
@@ -37,6 +41,20 @@ class ZipCode extends Text {
          * @member {Function} errorTextInputPattern=data=>`Input pattern violation: ${data.inputPattern}`
          */
         errorTextInputPattern: data => `Not a valid zip code`
+    }
+
+    /**
+     * Triggered after the countryCode config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountryCode(value, oldValue) {
+        let me = this;
+
+        me.inputPattern = ZipCode.countryCodes[value] || null;
+
+        !me.clean && me.validate(false);
     }
 
     /**
@@ -81,12 +99,7 @@ class ZipCode extends Text {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        let me          = this,
-            countryCode = data.record?.[data.component.valueField];
-
-        me.inputPattern = ZipCode.countryCodes[countryCode] || null;
-
-        !me.clean && me.validate(false);
+        this.countryCode = data.record?.[data.component.valueField];
     }
 }
 
