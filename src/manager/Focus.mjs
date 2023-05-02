@@ -108,6 +108,7 @@ class Focus extends CoreBase {
 
             if (component) {
                 data = {
+                    component,
                     path   : opts.data.path,
                     oldPath: history[0].data.path
                 };
@@ -179,6 +180,8 @@ class Focus extends CoreBase {
 
         components.forEach(component => {
             if (component) {
+                data.component = component;
+
                 data[containsFocus ? 'path' : 'oldPath'] = opts.data.path
 
                 handler = containsFocus ? 'onFocusEnter' : 'onFocusLeave';
