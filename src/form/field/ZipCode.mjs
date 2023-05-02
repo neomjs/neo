@@ -32,7 +32,15 @@ class ZipCode extends Text {
      * @protected
      */
     afterSetCountryField(value, oldValue) {
+        if (value) {
+            let me = this;
 
+            value.on({
+                change: me.onCountryFieldChange,
+                scope : me
+            })
+        }
+        console.log(value);
     }
 
     /**
@@ -43,8 +51,18 @@ class ZipCode extends Text {
      * @protected
      */
     beforeSetCountryField(value, oldValue) {
-        console.log(value);
+        if (Neo.isString(value)) {
+            return this.up().getReference(value)
+        }
+
         return value;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onCountryFieldChange(data) {
+        console.log('onCountryFieldChange', data);
     }
 }
 
