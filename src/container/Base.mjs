@@ -507,18 +507,26 @@ class Base extends Component {
 
     /**
      * Clears the item array
-     * @param {Boolean} [destroyItem=true]
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} destroyItems=true
+     * @param {Boolean} silent=false
      */
-    removeAll(destroyItem = true, silent = false) {
+    removeAll(destroyItems=true, silent=false) {
         let me = this;
+
+        me.items.forEach(item => {
+            if (destroyItems) {
+                item.destroy(true, true)
+            } else {
+                item.mounted = false
+            }
+        });
 
         me.items = [];
 
         me.getVdomItemsRoot().cn = [];
 
-        if (!silent || destroyItem) {
-            me.update();
+        if (!silent || destroyItems) {
+            me.update()
         }
     }
 
