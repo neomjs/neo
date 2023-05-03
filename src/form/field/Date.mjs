@@ -116,7 +116,7 @@ class DateField extends Picker {
     getValue() {
         let value = this.value;
 
-        return this.submitDateObject && value ? new Date(value) : value
+        return this.submitDateObject && value ? new Date(`${value}T00:00:00.000Z`) : value
     }
 
     /**

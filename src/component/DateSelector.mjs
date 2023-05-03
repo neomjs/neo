@@ -214,7 +214,7 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00`)) {
+            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00.000Z`)) {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate));
             }
 
@@ -295,7 +295,7 @@ class DateSelector extends Component {
             });
 
             // triggers the vdom update
-            me.updateHeaderDays(me.dayNameFormat, '');
+            me.updateHeaderDays(me.dayNameFormat, '')
         }
     }
 
@@ -306,7 +306,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        oldValue !== undefined && value.register(this);
+        oldValue !== undefined && value.register(this)
     }
 
     /**
@@ -319,15 +319,15 @@ class DateSelector extends Component {
         let me = this;
 
         if (!me.isUpdating) {
-            me.currentDate = new Date(`${value}T00:00:00`);
+            me.currentDate = new Date(`${value}T00:00:00.000Z`);
 
             me.fire('change', {
                 component: me,
                 oldValue,
                 value
-            });
+            })
         } else {
-            me.cacheUpdate();
+            me.cacheUpdate()
         }
     }
 
@@ -566,7 +566,7 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            valueDate       = new Date(`${me.value}T00:00:00`),
+            valueDate       = new Date(`${me.value}T00:00:00.000Z`),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),

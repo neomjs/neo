@@ -38,7 +38,7 @@ class ZipCode extends Text {
         countryField_: null,
         /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
-         * @member {Function} errorTextInputPattern=data=>`Input pattern violation: ${data.inputPattern}`
+         * @member {Function} errorTextInputPattern=data=>`Not a valid zip code`
          */
         errorTextInputPattern: data => `Not a valid zip code`
     }

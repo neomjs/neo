@@ -19,6 +19,6 @@
         {"id": 15, "cardIndex":   10, "isHeader": false, "isValid": null, "name": "ZipCodeFields"},
         {"id": 16, "cardIndex":   11, "isHeader": false, "isValid": null, "name": "EmailFields"},
         {"id": 17, "cardIndex":   12, "isHeader": false, "isValid": null, "name": "UrlFields"},
-        {"id": 18, "cardIndex":   13, "isHeader": false, "isValid": null, "name": "Page 14"}
+        {"id": 18, "cardIndex":   13, "isHeader": false, "isValid": null, "name": "PhoneFields"}
     ]
 }
