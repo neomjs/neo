@@ -592,7 +592,7 @@ class MainContainer extends Container {
      * @param {String} data.value
      */
     onDateSelectorChange(data) {
-        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00`));
+        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`));
     }
 
     /**
