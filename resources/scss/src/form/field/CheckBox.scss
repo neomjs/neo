@@ -62,8 +62,12 @@
         }
 
         .neo-checkbox-label {
-            display: flex;
+            display: block;
             margin : v(checkboxfield-label-top-margin);
+        }
+
+        .neo-checkbox-value-label {
+            display: flex;
         }
     }
 }
