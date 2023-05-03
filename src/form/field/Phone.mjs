@@ -18,6 +18,15 @@ class Phone extends Text {
          */
         ntype: 'phonefield',
         /**
+         * data passes inputPattern, maxLength, minLength & valueLength properties
+         * @member {Function} errorTextInputPattern=data=>`Not a valid phone number``
+         */
+        errorTextInputPattern: data => `Not a valid phone number`,
+        /**
+         * @member {RegExp|null} inputPattern=/^[0-9\-+\(\) ]+$/
+         */
+        inputPattern: /^[0-9\-+\(\) ]+$/,
+        /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='tel'
          */
