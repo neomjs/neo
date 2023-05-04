@@ -27,6 +27,10 @@ class Phone extends Text {
          */
         inputPattern: /^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/,
         /**
+         * @member {Boolean} inputPatternDOM=false
+         */
+        inputPatternDOM: false,
+        /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='tel'
          */

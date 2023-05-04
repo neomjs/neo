@@ -106,6 +106,13 @@ class Text extends Base {
          */
         inputPattern_: null,
         /**
+         * If false, the inputPattern will only get validated via JavaScript, but not getting applied on DOM level.
+         * The regex support for input based patterns is not fully there yet, so feel free to disable this feature
+         * if needed (E.g. form.field.Phone).
+         * @member {Boolean} inputPatternDOM=true
+         */
+        inputPatternDOM: true,
+        /**
          * @member {String} inputType_='text'
          */
         inputType_: 'text',
@@ -357,12 +364,14 @@ class Text extends Base {
      * @protected
      */
     afterSetInputPattern(value, oldValue) {
-        if (value) {
-            value = value.toString();
-            value = value.substring(1, value.length - 1);
-        }
+        if (this.inputPatternDOM) {
+            if (value) {
+                value = value.toString();
+                value = value.substring(1, value.length - 1);
+            }
 
-        this.changeInputElKey('pattern', value)
+            this.changeInputElKey('pattern', value)
+        }
     }
 
     /**
