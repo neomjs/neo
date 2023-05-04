@@ -411,7 +411,7 @@ class Container extends BaseContainer {
      * @param {Boolean} silent=false
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {
+    insert(index, item, silent=false) {console.log('insert', this.id)
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
@@ -472,10 +472,7 @@ class Container extends BaseContainer {
             }
         }
 
-        if (!silent) {
-            me.updateTabButtons()
-            me.update();
-        }
+        !silent && me.updateTabButtons()
 
         return superItem
     }
@@ -526,7 +523,7 @@ class Container extends BaseContainer {
      * @param {String} buttonId
      * @protected
      */
-    onTabButtonMounted(buttonId) {
+    onTabButtonMounted(buttonId) {console.log('onTabButtonMounted')
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
