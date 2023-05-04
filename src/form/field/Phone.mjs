@@ -25,7 +25,7 @@ class Phone extends Text {
         /**
          * @member {RegExp|null} inputPattern=/^[0-9\-+\(\) ]+$/
          */
-        inputPattern: /^[0-9\-+\(\) ]+$/,
+        inputPattern: /^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/,
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='tel'
