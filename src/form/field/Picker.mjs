@@ -215,7 +215,13 @@ class Picker extends Text {
      * @param args
      */
     destroy(...args) {
-        this.picker?.destroy();
+        let picker = this.picker;
+
+        if (this.pickerIsMounted) {
+            picker?.unmount();
+        }
+
+        picker?.destroy();
         super.destroy(...args);
     }
 
