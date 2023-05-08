@@ -141,7 +141,7 @@ class Base extends Component {
             setTimeout(() => {
                 let items = this.items,
                     i     = 0,
-                    len   = items.length;
+                    len   = items?.length || 0;
 
                 for (; i < len; i++) {
                     if (!items[i].vdom.removeDom) {
