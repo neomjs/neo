@@ -37,6 +37,11 @@ class ZipCode extends Text {
          */
         countryField_: null,
         /**
+         * The data.Model field inside the related country field which provides the country code (e.g. 'DE')
+         * @member {String} countryKeyProperty='id'
+         */
+        countryKeyProperty: 'id',
+        /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextInputPattern=data=>`Not a valid zip code`
          */
@@ -99,7 +104,7 @@ class ZipCode extends Text {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        this.countryCode = data.record?.[data.component.valueField];
+        this.countryCode = data.record?.[this.countryKeyProperty];
     }
 }
 
