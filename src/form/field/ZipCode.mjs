@@ -93,8 +93,19 @@ class ZipCode extends Text {
      * @protected
      */
     beforeSetCountryField(value, oldValue) {
+        let me = this,
+            field;
+
         if (Neo.isString(value)) {
-            return this.up().getReference(value)
+            field = me.up().getReference(value);
+
+            if (!field) {
+                setTimeout(() => {
+                    me.countryField = value;
+                }, 20)
+            }
+
+            return field
         }
 
         return value;
