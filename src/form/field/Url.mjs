@@ -28,10 +28,11 @@ class Url extends Text {
          */
         inputType: 'url',
         /**
-         * Specify allowed protocols
-         * @member {String[]} protocols=['http:','https:']
+         * Specify allowed protocols.
+         * 'none' means that user inputs like "www.google.com" will be considered as valid.
+         * @member {String[]} protocols=['http:','https:','none']
          */
-        protocols: ['http:', 'https:']
+        protocols: ['http:', 'https:', 'none']
     }
 
     /**
@@ -44,18 +45,40 @@ class Url extends Text {
      */
     beforeGetValue(value) {
         if (value) {
-            let url;
+            let me   = this,
+                href = me.getUrl(value)?.href;
 
-            try {
-                url = new URL(value);
-            } catch(e) {
-                return value
+            if (!href && me.protocols.includes('none')) {
+                href = me.getUrl(`https://${value}`)?.href;
+
+                if (href) {
+                    href = href.replace('https://', '')
+                }
             }
 
-            return url.href
+            if (href) {
+                return href
+            }
         }
 
         return value
+    }
+
+    /**
+     * Returns false in case an URL could not get created
+     * @param {String} value
+     * @returns {Boolean|URL}
+     */
+    getUrl(value) {
+        let url;
+
+        try {
+            url = new URL(value);
+        } catch(e) {
+            return false
+        }
+
+        return url
     }
 
     /**
@@ -85,15 +108,18 @@ class Url extends Text {
      * @returns {Boolean}
      */
     verifyUrl(value) {
-        let url;
+        let me  = this,
+            url = me.getUrl(value);
 
-        try {
-            url = new URL(value);
-        } catch(e) {
+        if (!url && me.protocols.includes('none')) {
+            url = me.getUrl(`https://${value}`);console.log(url)
+        }
+
+        if (!url) {
             return false
         }
 
-        return this.protocols.includes(url.protocol)
+        return me.protocols.includes(url.protocol)
     }
 }
 
