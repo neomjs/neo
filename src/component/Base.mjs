@@ -1185,6 +1185,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Honors different item roots for mount / render OPs
+     * @returns {String}
+     */
+    getMountedParentId() {
+        let parentId  = this.parentId,
+            parent    = Neo.getComponent(parentId),
+            itemsRoot = parent?.getVdomItemsRoot();
+
+        return itemsRoot ? itemsRoot.id : parentId
+    }
+
+    /**
      * Calculate the real parentIndex inside the DOM
      * @returns {Number|undefined}
      */
@@ -1432,7 +1444,7 @@ class Base extends CoreBase {
                 appName    : me.appName,
                 id         : me.id,
                 html       : me.vnode.outerHTML,
-                parentId   : me.parentId,
+                parentId   : me.getMountedParentId(),
                 parentIndex: me.getMountedParentIndex()
             });
 
@@ -1655,7 +1667,7 @@ class Base extends CoreBase {
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
-                parentId   : autoMount ? me.parentId                : undefined,
+                parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 ...me.vdom
             }).then(data => {
