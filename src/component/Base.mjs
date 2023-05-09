@@ -1251,12 +1251,6 @@ class Base extends CoreBase {
      * @returns {Neo.component.Base|null}
      */
     getReference(value) {
-        let controller = this.getController();
-
-        if (controller) {
-            return controller.getReference(value)
-        }
-
         return this.down({reference: value})
     }
 
