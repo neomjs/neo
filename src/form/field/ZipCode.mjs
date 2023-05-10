@@ -93,24 +93,10 @@ class ZipCode extends Text {
      * @protected
      */
     beforeSetCountryField(value, oldValue) {
-        let me = this,
-            field;
+        let me = this;
 
         if (Neo.isString(value)) {
-            field = me.up().getReference(value);
-
-            /*
-             * The related field could be at a higher index inside the items array
-             * => Not being constructed when this logic triggers.
-             * In this case we want to frequently check again until the field is found.
-             */
-            if (!field) {
-                setTimeout(() => {
-                    me.countryField = value;
-                }, 20)
-            }
-
-            return field
+            return me.up().getReference(value)
         }
 
         return value;
