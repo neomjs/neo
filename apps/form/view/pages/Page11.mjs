@@ -1,5 +1,5 @@
+import CountryField      from '../../../../src/form/field/Country.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
-import SelectField       from '../../../../src/form/field/Select.mjs';
 import ZipCodeField      from '../../../../src/form/field/ZipCode.mjs';
 
 /**
@@ -30,12 +30,12 @@ class Page11 extends FormPageContainer {
             layout: {ntype: 'hbox'},
 
             items : [{
-                module        : SelectField,
+                module        : CountryField,
                 editable      : false,
                 forceSelection: true,
                 labelText     : 'Country',
                 name          : 'page11.countryfield1',
-                reference     : 'country',
+                reference     : 'country1',
                 value         : 'DE',
 
                 store: {
@@ -46,7 +46,7 @@ class Page11 extends FormPageContainer {
                 }
             }, {
                 module      : ZipCodeField,
-                countryField: 'country',
+                countryField: 'country1',
                 labelText   : 'Munich',
                 name        : 'page11.zipcodefield1',
                 required    : true,
@@ -61,18 +61,19 @@ class Page11 extends FormPageContainer {
                 module   : ZipCodeField,
                 labelText: 'Munich',
                 name     : 'page11.zipcodefield2',
+                reference: 'zipcodefield2',
                 required : true,
                 value    : '80796'
             }, {
-                module        : SelectField,
+                module        : CountryField,
                 editable      : false,
                 forceSelection: true,
                 labelText     : 'Country',
                 name          : 'page11.countryfield2',
-                reference     : 'country',
+                reference     : 'country2',
                 style         : {marginLeft: '10px', maxWidth: '300px'},
                 value         : 'DE',
-                zipCodeField  : 'page11.zipcodefield2',
+                zipCodeField  : 'zipcodefield2',
 
                 store: {
                     data: [
