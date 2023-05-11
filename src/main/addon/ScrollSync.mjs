@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomEvents from '../DomEvents.mjs'
 
 /**
  * @class Neo.main.addon.ScrollSync
@@ -49,7 +50,9 @@ class ScrollSync extends Base {
      * @param {Event} event
      */
     onDocumentScroll(event) {
-        console.log('onDocumentScroll', event);
+        let path = event.composedPath().map(e => DomEvents.getTargetData(e));
+
+        console.log('onDocumentScroll', path);
     }
 
     /**
