@@ -3,6 +3,6 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "DragDrop", "MapboxGL", "Stylesheet"],
+    "mainThreadAddons": ["AmCharts", "DragDrop", "MapboxGL", "ScrollSync", "Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"]
 }

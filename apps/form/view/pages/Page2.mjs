@@ -18,7 +18,8 @@ class Page2 extends FormPageContainer {
         items: [{
             module   : DateField,
             labelText: 'Birthday',
-            name     : 'birthday'
+            name     : 'birthday',
+            style    : {marginBottom: '800px', marginTop: '800px'}
         }]
     }
 }

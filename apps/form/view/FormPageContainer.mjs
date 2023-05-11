@@ -22,6 +22,10 @@ class FormPageContainer extends FormContainer {
          */
         layout: {ntype: 'vbox'},
         /**
+         * @member {Object} style={overflow:'auto'}
+         */
+        style: {overflow: 'auto'},
+        /**
          * @member {Object} _vdom
          */
         vdom:
