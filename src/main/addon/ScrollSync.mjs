@@ -50,27 +50,17 @@ class ScrollSync extends Base {
      * @param {Event} event
      */
     onDocumentScroll(event) {
-        let me        = this,
-            path      = event.composedPath().map(e => DomEvents.getTargetData(e)),
-            i         = 0,
-            len       = path.length,
-            sourceMap = me.sourceMap,
-            node, nodeId;
-//console.log(path)
-        for (; i < len; i++) {
-            node   = path[i];
-            nodeId = node.id;
+        let me         = this,
+            scrollNode = event.target,
+            sourceRect, targetNode;
 
-            if (!nodeId) {
-                break;
-            }
+        me.sourceMap[scrollNode.id]?.forEach(item => {
+            sourceRect = document.getElementById(item.sourceId).getBoundingClientRect();
+            targetNode = document.getElementById(item.targetId)
 
-            if (sourceMap[nodeId]) {console.log(sourceMap[nodeId], sourceMap);
-                Object.entries(sourceMap[nodeId]).forEach(([key, value]) => {
-                    console.log('scroll', key)
-                })
-            }
-        }
+            targetNode.style.left = `${sourceRect.x + item.deltaX}px`;
+            targetNode.style.top  = `${sourceRect.y + item.deltaY}px`
+        })
     }
 
     /**
@@ -90,8 +80,8 @@ class ScrollSync extends Base {
             parentNode = sourceNode.parentNode,
             targetId   = data.targetId,
             targetRect = document.getElementById(targetId).getBoundingClientRect(),
-            deltaX     = targetRect.left - sourceRect.left,
-            deltaY     = targetRect.top  - sourceRect.top,
+            deltaX     = targetRect.x - sourceRect.x,
+            deltaY     = targetRect.y - sourceRect.y,
             overflowX, overflowY, parentId;
 
         while (parentNode && parentNode.id) {
