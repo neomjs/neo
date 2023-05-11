@@ -431,14 +431,22 @@ class Main extends core.Base {
     }
 
     /**
-     * Open a new popup window
+     * Open a new popup window and return if successfull
      * @param {Object} data
      * @param {String} data.url
      * @param {String} data.windowFeatures
      * @param {String} data.windowName
+     * @return {Boolean}
      */
     windowOpen(data) {
-        this.openWindows[data.windowName] = window.open(data.url, data.windowName, data.windowFeatures);
+        let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
+            success = !!openedWindow;
+
+        if(success) {
+            this.openWindows[data.windowName] = openedWindow;
+        }
+
+        return success;
     }
 
     /**
