@@ -442,7 +442,7 @@ class Main extends core.Base {
         let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
             success      = !!openedWindow;
 
-        if(success) {
+        if (success) {
             this.openWindows[data.windowName] = openedWindow;
         }
 
