@@ -56,12 +56,35 @@ class ScrollSync extends Base {
     }
 
     /**
+     * @param {String} sourceId
+     * @param {String} targetId
+     * @returns {Boolean}
+     */
+    removeItem(sourceId, targetId) {
+        let items = this.items,
+            i     = 0,
+            len   = items.length,
+            item;
+
+        for (; i < len; i++) {
+            item = items[i];
+
+            if (item.source.id === sourceId && item.target.id === targetId) {
+                items.splice(i, 1);
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
      */
     unregister(data) {
-        console.log('unregister', data)
+        this.removeItem(data.sourceId, data.targetId)
     }
 }
 
