@@ -50,27 +50,65 @@ class ScrollSync extends Base {
      * @param {Event} event
      */
     onDocumentScroll(event) {
-        let path = event.composedPath().map(e => DomEvents.getTargetData(e));
+        let me        = this,
+            path      = event.composedPath().map(e => DomEvents.getTargetData(e)),
+            i         = 0,
+            len       = path.length,
+            sourceMap = me.sourceMap,
+            node, nodeId;
+//console.log(path)
+        for (; i < len; i++) {
+            node   = path[i];
+            nodeId = node.id;
 
-        console.log('onDocumentScroll', path);
+            if (!nodeId) {
+                break;
+            }
+
+            if (sourceMap[nodeId]) {console.log(sourceMap[nodeId], sourceMap);
+                Object.entries(sourceMap[nodeId]).forEach(([key, value]) => {
+                    console.log('scroll', key)
+                })
+            }
+        }
     }
 
     /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
-     * @returns {Boolean}
+     * @returns Promise<Boolean>
      */
-    register(data) {
-        let sourceId  = data.sourceId,
-            sourceMap = this.sourceMap,
-            targetId  = data.targetId;
+    async register(data) {
+        // short delay to ensure the target node got mounted
+        await Neo.timeout(50)
 
-        if (!sourceMap[sourceId]) {
-            sourceMap[sourceId] = {}
+        let sourceId   = data.sourceId,
+            sourceMap  = this.sourceMap,
+            sourceNode = document.getElementById(sourceId),
+            sourceRect = sourceNode.getBoundingClientRect(),
+            parentNode = sourceNode.parentNode,
+            targetId   = data.targetId,
+            targetRect = document.getElementById(targetId).getBoundingClientRect(),
+            deltaX     = targetRect.left - sourceRect.left,
+            deltaY     = targetRect.top  - sourceRect.top,
+            overflowX, overflowY, parentId;
+
+        while (parentNode && parentNode.id) {
+            parentId = parentNode.id;
+
+            ({overflowX, overflowY} = getComputedStyle(parentNode))
+
+            if (overflowX === 'auto' || overflowX === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') {
+                if (!sourceMap[parentId]) {
+                    sourceMap[parentId] = []
+                }
+
+                sourceMap[parentId].push({deltaX, deltaY, sourceId, targetId})
+            }
+
+            parentNode = parentNode.parentNode
         }
-
-        sourceMap[sourceId][targetId] = {}
 
         return true
     }
