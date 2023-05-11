@@ -42,13 +42,14 @@ class ScrollSync extends Base {
     construct(config = {}) {
         super.construct(config);
 
-        onscroll = (event) => {console.log(event)};
-
-        document.body.addEventListener('scroll', this.onDocumentScroll.bind(this))
+        document.addEventListener('scroll', this.onDocumentScroll.bind(this), true)
     }
 
-    onDocumentScroll(data) {
-        console.log('onDocumentScroll', data);
+    /**
+     * @param {Event} event
+     */
+    onDocumentScroll(event) {
+        console.log('onDocumentScroll', event);
     }
 
     /**
