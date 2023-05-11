@@ -372,6 +372,11 @@ class Picker extends Text {
             });
 
             picker.render(true);
+
+            Neo.main.addon.ScrollSync.register({
+                sourceId: me.id,
+                targetId: picker.id
+            })
         }
     }
 
