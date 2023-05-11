@@ -31,12 +31,28 @@ class ScrollSync extends Base {
     }
 
     /**
+     * @member {Object} items=[]
+     * @protected
+     */
+    items = []
+
+    /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
      */
     register(data) {
-        console.log('register', data)
+        let me       = this,
+            items    = me.items,
+            sourceId = data.sourceId,
+            targetId = data.targetId;
+
+        items.push({
+            source: {id: sourceId},
+            target: {id: targetId}
+        })
+
+        console.log('register', data, items)
     }
 
     /**
