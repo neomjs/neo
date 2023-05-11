@@ -47,6 +47,9 @@ class ScrollSync extends Base {
             sourceId = data.sourceId,
             targetId = data.targetId;
 
+        // ensure that there are no duplicate entries
+        me.removeItem(sourceId, targetId);
+
         items.push({
             source: {id: sourceId},
             target: {id: targetId}
