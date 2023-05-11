@@ -270,9 +270,16 @@ class Picker extends Text {
         // avoid breaking selection model cls updates
         await Neo.timeout(30);
 
-        me.pickerIsMounted && picker.unmount();
+        if (me.pickerIsMounted) {
+            picker.unmount();
 
-        me.pickerIsMounted = false;
+            me.pickerIsMounted = false;
+
+            Neo.main.addon.ScrollSync.unregister({
+                sourceId: me.id,
+                targetId: picker.id
+            })
+        }
     }
 
     /**
