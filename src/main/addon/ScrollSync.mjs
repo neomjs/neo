@@ -130,10 +130,6 @@ class ScrollSync extends Base {
     }
 }
 
-Neo.applyClassConfig(ScrollSync);
-
-let instance = Neo.create(ScrollSync);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(ScrollSync);
 
 export default instance;
