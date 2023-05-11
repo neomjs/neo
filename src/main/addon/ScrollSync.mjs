@@ -32,10 +32,10 @@ class ScrollSync extends Base {
     }
 
     /**
-     * @member {Object} items=[]
+     * @member {Object} sourceMap={}
      * @protected
      */
-    items = []
+    sourceMap = {}
 
     /**
      * @param {Object} config
@@ -59,54 +59,46 @@ class ScrollSync extends Base {
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
-     */
-    register(data) {
-        let me       = this,
-            items    = me.items,
-            sourceId = data.sourceId,
-            targetId = data.targetId;
-
-        // ensure that there are no duplicate entries
-        me.removeItem(sourceId, targetId);
-
-        items.push({
-            source: {id: sourceId},
-            target: {id: targetId}
-        })
-
-        console.log('register', data, items)
-    }
-
-    /**
-     * @param {String} sourceId
-     * @param {String} targetId
      * @returns {Boolean}
      */
-    removeItem(sourceId, targetId) {
-        let items = this.items,
-            i     = 0,
-            len   = items.length,
-            item;
+    register(data) {
+        let sourceId  = data.sourceId,
+            sourceMap = this.sourceMap,
+            targetId  = data.targetId;
 
-        for (; i < len; i++) {
-            item = items[i];
-
-            if (item.source.id === sourceId && item.target.id === targetId) {
-                items.splice(i, 1);
-                return true
-            }
+        if (!sourceMap[sourceId]) {
+            sourceMap[sourceId] = {}
         }
 
-        return false
+        sourceMap[sourceId][targetId] = {}
+
+        return true
     }
 
     /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
+     * @returns {Boolean}
      */
     unregister(data) {
-        this.removeItem(data.sourceId, data.targetId)
+        let hasMatch  = false,
+            sourceId  = data.sourceId,
+            sourceMap = this.sourceMap,
+            targetId  = data.targetId;
+
+        if (sourceMap[sourceId]) {
+            if (sourceMap[sourceId][targetId]) {
+                delete sourceMap[sourceId][targetId];
+                hasMatch = true
+            }
+
+            if (Object.keys(sourceMap[sourceId]).length < 1) {
+                delete sourceMap[sourceId]
+            }
+        }
+
+        return hasMatch
     }
 }
 
