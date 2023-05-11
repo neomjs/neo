@@ -258,12 +258,13 @@ class Text extends Base {
 
     /**
      * Triggered after the autoComplete config got changed
+     * Chrome ignores a value of "off", so we stick to a different value instead
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetAutoComplete(value, oldValue) {
-        this.changeInputElKey('autocomplete', value ? null : 'off');
+        this.changeInputElKey('autocomplete', value ? null : 'no');
     }
 
     /**

@@ -637,7 +637,7 @@ class Select extends Picker {
                 cls: ['neo-input-field-wrapper'],
                 cn : [{
                     tag         : 'input',
-                    autocomplete: 'off',
+                    autocomplete: 'no',
                     autocorrect : 'off',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
                     id          : me.getInputHintId(),
