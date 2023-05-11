@@ -437,10 +437,10 @@ class Main extends core.Base {
      * @param {String} data.windowFeatures
      * @param {String} data.windowName
      * @return {Boolean}
-     */
+     */    
     windowOpen(data) {
         let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
-            success = !!openedWindow;
+            success      = !!openedWindow;
 
         if(success) {
             this.openWindows[data.windowName] = openedWindow;
