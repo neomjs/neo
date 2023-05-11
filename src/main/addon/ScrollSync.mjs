@@ -110,23 +110,31 @@ class ScrollSync extends Base {
      * @returns {Boolean}
      */
     unregister(data) {
-        let hasMatch  = false,
-            sourceId  = data.sourceId,
-            sourceMap = this.sourceMap,
-            targetId  = data.targetId;
+        let sourceId   = data.sourceId,
+            sourceMap  = this.sourceMap,
+            sourceNode = document.getElementById(sourceId),
+            parentNode = sourceNode.parentNode,
+            parentId;
 
-        if (sourceMap[sourceId]) {
-            if (sourceMap[sourceId][targetId]) {
-                delete sourceMap[sourceId][targetId];
-                hasMatch = true
+        while (parentNode && parentNode.id) {
+            parentId = parentNode.id;
+
+            if (sourceMap[parentId]) {
+                [...sourceMap[parentId]].forEach((item, index) => {
+                    if (item.sourceId === sourceId && item.targetId === data.targetId) {
+                        sourceMap[parentId].splice(index, 1)
+                    }
+                })
+
+                if (sourceMap[parentId].length < 1) {
+                    delete sourceMap[parentId]
+                }
             }
 
-            if (Object.keys(sourceMap[sourceId]).length < 1) {
-                delete sourceMap[sourceId]
-            }
+            parentNode = parentNode.parentNode
         }
 
-        return hasMatch
+        return true
     }
 }
 
