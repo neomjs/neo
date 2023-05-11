@@ -31,12 +31,54 @@ class ScrollSync extends Base {
     }
 
     /**
+     * @member {Object} items=[]
+     * @protected
+     */
+    items = []
+
+    /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
      */
     register(data) {
-        console.log('register', data)
+        let me       = this,
+            items    = me.items,
+            sourceId = data.sourceId,
+            targetId = data.targetId;
+
+        // ensure that there are no duplicate entries
+        me.removeItem(sourceId, targetId);
+
+        items.push({
+            source: {id: sourceId},
+            target: {id: targetId}
+        })
+
+        console.log('register', data, items)
+    }
+
+    /**
+     * @param {String} sourceId
+     * @param {String} targetId
+     * @returns {Boolean}
+     */
+    removeItem(sourceId, targetId) {
+        let items = this.items,
+            i     = 0,
+            len   = items.length,
+            item;
+
+        for (; i < len; i++) {
+            item = items[i];
+
+            if (item.source.id === sourceId && item.target.id === targetId) {
+                items.splice(i, 1);
+                return true
+            }
+        }
+
+        return false
     }
 
     /**
@@ -45,7 +87,7 @@ class ScrollSync extends Base {
      * @param {String} data.targetId
      */
     unregister(data) {
-        console.log('unregister', data)
+        this.removeItem(data.sourceId, data.targetId)
     }
 }
 

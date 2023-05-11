@@ -167,8 +167,6 @@ class GoogleMaps extends Base {
         let key = Neo.config.googleMapsApiKey,
             url = ' https://maps.googleapis.com/maps/api/js';
 
-        window.foo = Neo.emptyFn;
-
         DomAccess.loadScript(`${url}?key=${key}&v=weekly&callback=Neo.emptyFn`).then(() => {
             console.log('GoogleMaps API loaded');
         })

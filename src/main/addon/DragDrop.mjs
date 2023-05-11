@@ -310,10 +310,13 @@ class DragDrop extends Base {
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
+            const originalEvent = event.detail.originalEvent;
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
                 offsetX: me.offsetX,
                 offsetY: me.offsetY,
+                screenX: originalEvent.screenX,
+                screenY: originalEvent.screenY,
                 type   : 'drag:move'
             });
         }
