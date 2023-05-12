@@ -235,10 +235,12 @@ class Number extends Text {
      */
     beforeSetValue(value, oldValue) {
         if (Neo.isNumber(value) && this.stepSizeDigits > 0) {
-            return +value.toFixed(this.stepSizeDigits);
+            return +value.toFixed(this.stepSizeDigits)
+        } else if (value === '') {
+            return null
         }
 
-        return value;
+        return value
     }
 
     /**
