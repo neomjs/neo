@@ -60,7 +60,8 @@ const lastWheelEvent = {
     target: null
 };
 
-const preventClickTargets       = [],
+const disabledInputKeys         = {},
+      preventClickTargets       = [],
       preventContextmenuTargets = [];
 
 /**
@@ -100,7 +101,9 @@ class DomEvents extends Base {
         remote: {
             app: [
                 'addDomListener',
-                'registerPreventDefaultTargets'
+                'registerDisabledInputChars',
+                'registerPreventDefaultTargets',
+                'unregisterDisabledInputChars'
             ]
         }
     }
@@ -507,11 +510,18 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onKeyDown(event) {
-        this.sendMessageToApp(this.getKeyboardEventData(event));
+        let target  = event.target,
+            isInput = target.nodeName === 'INPUT';
 
-        if (event.target.nodeName !== 'INPUT') { // see: https://github.com/neomjs/neo/issues/1729
-            if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
-                event.preventDefault();
+        if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
+            event.preventDefault();
+        } else {
+            this.sendMessageToApp(this.getKeyboardEventData(event));
+
+            if (!isInput) { // see: https://github.com/neomjs/neo/issues/1729
+                if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
+                    event.preventDefault();
+                }
             }
         }
     }
@@ -659,7 +669,16 @@ class DomEvents extends Base {
             value = true;
         }
 
-        return value;
+        return value
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String[]} data.chars
+     * @param {String} data.id
+     */
+    registerDisabledInputChars(data) {
+        disabledInputKeys[data.id] = data.chars
     }
 
     /**
@@ -726,7 +745,15 @@ class DomEvents extends Base {
             }
         }
 
-        return false;
+        return false
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    unregisterDisabledInputChars(data) {
+        delete disabledInputKeys[data.id]
     }
 }
 
