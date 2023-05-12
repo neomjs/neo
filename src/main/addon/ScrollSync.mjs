@@ -1,6 +1,10 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomEvents from '../DomEvents.mjs'
 
 /**
+ * This addon keeps the position of overlays in sync with an anchor element,
+ * when scrolling inside any parent node.
+ * A prominent use case is Neo.form.field.Picker.
  * @class Neo.main.addon.ScrollSync
  * @extends Neo.core.Base
  * @singleton
@@ -31,70 +35,112 @@ class ScrollSync extends Base {
     }
 
     /**
-     * @member {Object} items=[]
+     * @member {Object} sourceMap={}
      * @protected
      */
-    items = []
+    sourceMap = {}
+
+    /**
+     * @param {Object} config
+     */
+    construct(config = {}) {
+        super.construct(config);
+
+        document.addEventListener('scroll', this.onDocumentScroll.bind(this), true)
+    }
+
+    /**
+     * @param {Event} event
+     */
+    onDocumentScroll(event) {
+        let me         = this,
+            scrollNode = event.target,
+            sourceRect, targetNode;
+
+        me.sourceMap[scrollNode.id]?.forEach(item => {
+            sourceRect = document.getElementById(item.sourceId).getBoundingClientRect();
+            targetNode = document.getElementById(item.targetId)
+
+            targetNode.style.left = `${sourceRect.x + item.deltaX}px`;
+            targetNode.style.top  = `${sourceRect.y + item.deltaY}px`
+        })
+    }
 
     /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
+     * @returns Promise<Boolean>
      */
-    register(data) {
-        let me       = this,
-            items    = me.items,
-            sourceId = data.sourceId,
-            targetId = data.targetId;
+    async register(data) {
+        // short delay to ensure the target node got mounted
+        await Neo.timeout(50)
 
-        // ensure that there are no duplicate entries
-        me.removeItem(sourceId, targetId);
+        let sourceId   = data.sourceId,
+            sourceMap  = this.sourceMap,
+            sourceNode = document.getElementById(sourceId),
+            sourceRect = sourceNode.getBoundingClientRect(),
+            parentNode = sourceNode.parentNode,
+            targetId   = data.targetId,
+            targetRect = document.getElementById(targetId).getBoundingClientRect(),
+            deltaX     = targetRect.x - sourceRect.x,
+            deltaY     = targetRect.y - sourceRect.y,
+            overflowX, overflowY, parentId;
 
-        items.push({
-            source: {id: sourceId},
-            target: {id: targetId}
-        })
+        while (parentNode && parentNode.id) {
+            parentId = parentNode.id;
 
-        console.log('register', data, items)
-    }
+            ({overflowX, overflowY} = getComputedStyle(parentNode))
 
-    /**
-     * @param {String} sourceId
-     * @param {String} targetId
-     * @returns {Boolean}
-     */
-    removeItem(sourceId, targetId) {
-        let items = this.items,
-            i     = 0,
-            len   = items.length,
-            item;
+            if (overflowX === 'auto' || overflowX === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') {
+                if (!sourceMap[parentId]) {
+                    sourceMap[parentId] = []
+                }
 
-        for (; i < len; i++) {
-            item = items[i];
-
-            if (item.source.id === sourceId && item.target.id === targetId) {
-                items.splice(i, 1);
-                return true
+                sourceMap[parentId].push({deltaX, deltaY, sourceId, targetId})
             }
+
+            parentNode = parentNode.parentNode
         }
 
-        return false
+        return true
     }
 
     /**
      * @param {Object} data
      * @param {String} data.sourceId
      * @param {String} data.targetId
+     * @returns {Boolean}
      */
     unregister(data) {
-        this.removeItem(data.sourceId, data.targetId)
+        let sourceId   = data.sourceId,
+            sourceMap  = this.sourceMap,
+            sourceNode = document.getElementById(sourceId),
+            parentNode = sourceNode.parentNode,
+            parentId;
+
+        while (parentNode && parentNode.id) {
+            parentId = parentNode.id;
+
+            if (sourceMap[parentId]) {
+                [...sourceMap[parentId]].forEach((item, index) => {
+                    if (item.sourceId === sourceId && item.targetId === data.targetId) {
+                        sourceMap[parentId].splice(index, 1)
+                    }
+                })
+
+                if (sourceMap[parentId].length < 1) {
+                    delete sourceMap[parentId]
+                }
+            }
+
+            parentNode = parentNode.parentNode
+        }
+
+        return true
     }
 }
 
-Neo.applyClassConfig(ScrollSync);
-
-let instance = Neo.create(ScrollSync);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.applyClassConfig(ScrollSync);
 
 export default instance;
