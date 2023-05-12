@@ -70,6 +70,12 @@ class Text extends Base {
          */
         clearToOriginalValue_: false,
         /**
+         * Prevent users from typing specific characters.
+         * E.g. disabling +-e for NumberFields
+         * @member {String[]|null} disabledChars_=null
+         */
+        disabledChars_: null,
+        /**
          * @member {String|null} error_=null
          */
         error_: null,
@@ -297,6 +303,24 @@ class Text extends Base {
             oldValue,
             value
         })
+    }
+
+    /**
+     * Triggered after the disabledChars config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetDisabledChars(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            Neo.main.DomEvents.registerDisabledInputChars({
+                appName: me.appName,
+                chars  : value,
+                id     : me.getInputEl().id
+            })
+        }
     }
 
     /**
@@ -934,6 +958,23 @@ class Text extends Base {
 
         me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
         me.fire('clear')
+    }
+
+    /**
+     *
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        if (me.disabledChars) {
+            Neo.main.DomEvents.unregisterDisabledInputChars({
+                appName: me.appName,
+                id     : me.getInputEl().id
+            })
+        }
+
+        super.destroy(...args);
     }
 
     /**

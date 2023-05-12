@@ -33,6 +33,11 @@ class Number extends Text {
          */
         baseCls: ['neo-numberfield', 'neo-textfield'],
         /**
+         * Prevent users from typing specific characters.
+         * @member {String[]|null} disabledChars=['e','E']
+         */
+        disabledChars: ['e', 'E'],
+        /**
          * data passes maxLength, minLength & valueLength properties
          * @member {Function} errorTextMaxValue=data=>`Max value violation: ${data.value} / ${data.maxValue}`
          */
