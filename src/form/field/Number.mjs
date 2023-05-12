@@ -285,7 +285,7 @@ class Number extends Text {
         let me    = this,
             value = me.value;
 
-        if (value !== null) {console.log(value);
+        if (value !== null) {
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
