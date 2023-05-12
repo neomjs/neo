@@ -47,6 +47,10 @@ class DateField extends Picker {
          */
         pickerHeight: 225,
         /**
+         * @member {Number|null} pickerMaxHeight=225
+         */
+        pickerMaxHeight: 225,
+        /**
          * @member {Number} pickerWidth=200
          */
         pickerWidth: 200,
