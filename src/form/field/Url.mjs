@@ -23,9 +23,9 @@ class Url extends Text {
          */
         errorTextInputPattern: data => 'Not a valid URL',
         /**
-         * @member {RegExp|null} inputPattern_=/^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/
+         * @member {RegExp|null} inputPattern=/^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/
          */
-        inputPattern_: /^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/,
+        inputPattern: /^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/,
         /**
          * @member {Boolean} inputPatternDOM=false
          */
