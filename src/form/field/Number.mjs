@@ -235,10 +235,12 @@ class Number extends Text {
      */
     beforeSetValue(value, oldValue) {
         if (Neo.isNumber(value) && this.stepSizeDigits > 0) {
-            return +value.toFixed(this.stepSizeDigits);
+            return +value.toFixed(this.stepSizeDigits)
+        } else if (value === '') {
+            return null
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -283,7 +285,7 @@ class Number extends Text {
         let me    = this,
             value = me.value;
 
-        if (value !== null) {
+        if (value !== null) {console.log(value);
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
