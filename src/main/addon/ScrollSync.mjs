@@ -2,6 +2,9 @@ import Base      from '../../core/Base.mjs';
 import DomEvents from '../DomEvents.mjs'
 
 /**
+ * This addon keeps the position of overlays in sync with an anchor element,
+ * when scrolling inside any parent node.
+ * A prominent use case is Neo.form.field.Picker.
  * @class Neo.main.addon.ScrollSync
  * @extends Neo.core.Base
  * @singleton
