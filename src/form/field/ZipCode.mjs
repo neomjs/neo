@@ -59,7 +59,7 @@ class ZipCode extends Text {
 
         me.inputPattern = ZipCode.countryCodes[value] || null;
 
-        !me.clean && me.validate(false);
+        oldValue !== undefined && me.value && !me.clean && me.validate(false);
     }
 
     /**
@@ -106,7 +106,7 @@ class ZipCode extends Text {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        this.countryCode = data.record?.[this.countryKeyProperty];
+        this.countryCode = data.record?.[this.countryKeyProperty] || null;
     }
 }
 
