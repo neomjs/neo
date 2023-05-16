@@ -667,7 +667,7 @@ class Text extends Base {
      * @protected
      */
     afterSetSpellCheck(value, oldValue) {
-        this.changeInputElKey('spellcheck', Neo.isBoolean(value) ? value : null);
+        this.changeInputElKey('spellcheck', Neo.isBoolean(value) ? value : null)
     }
 
     /**

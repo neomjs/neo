@@ -255,8 +255,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        this.vdom.cn[0].cn[1].type = value;
-        this.update()
+        this.changeInputElKey('type', value)
     }
 
     /**
@@ -343,10 +342,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        if (value) {
-            this.vdom.cn[0].cn[1].value = value;
-            this.update()
-        }
+        this.changeInputElKey('value', value)
     }
 
     /**
