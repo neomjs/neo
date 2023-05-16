@@ -25,6 +25,24 @@ class Base extends Component {
          */
         formGroup_: null,
         /**
+         * @member {String|null} name_=null
+         */
+        name_: null,
+        /**
+         * Neo itself does not need field names to get mapped to the DOM (input nodes),
+         * except for CheckBoxes & Radios to work. It can be useful for testing tools
+         * & accessibility though, so the default got set to true.
+         * Feel free to change it to false to keep the DOM minimal.
+         * @member {Boolean} renderName_=true
+         */
+        renderName_: true,
+        /**
+         * In case renderName is set to true, you can optionally render the combination
+         * of all formGroup(s) & the field name into the DOM => input node
+         * @member {Boolean} renderPath=true
+         */
+        renderPath: true,
+        /**
          * @member {*} value_=null
          */
         value_: null
@@ -35,6 +53,22 @@ class Base extends Component {
      * @member {String|null} formGroupString=null
      */
     formGroupString = null
+    /**
+     * An internal cache for formGroup(s) and the field name
+     * @member {String|null} path=null
+     */
+    path = null
+
+    /**
+     * Triggered after the name config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetName(value, oldValue) {
+        let me = this;
+
+        me.renderName && me.changeInputElKey('name', me.renderPath ? me.getPath() : value)
+    }
 
     /**
      * Triggered after the value config got changed
@@ -43,7 +77,7 @@ class Base extends Component {
      */
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
-            this.fireChangeEvent(value, oldValue);
+            this.fireChangeEvent(value, oldValue)
         }
     }
 
@@ -72,7 +106,25 @@ class Base extends Component {
 
         me.formGroupString = returnValue;
 
-        return returnValue;
+        return returnValue
+    }
+
+    /**
+     * Changes the value of a inputEl vdom object attribute or removes it in case it has no value
+     * @param {String} key
+     * @param {Array|Number|Object|String|null} value
+     * @param {Boolean} silent=false
+     */
+    changeInputElKey(key, value, silent=false) {
+        let me = this;
+
+        if (value || Neo.isBoolean(value) || value === 0) {
+            me.getInputEl()[key] = value;
+        } else {
+            delete me.getInputEl()[key];
+        }
+
+        !silent && me.update()
     }
 
     /**
@@ -101,6 +153,41 @@ class Base extends Component {
                 }
             })
         }
+    }
+
+    /**
+     * Override this method as needed
+     * @returns {Object|null}
+     */
+    getInputEl() {
+        return this.vdom
+    }
+
+    /**
+     * Returns the combination of the field formGroup(s) & name
+     * @returns {String|null}
+     */
+    getPath() {
+        let me = this,
+            path;
+
+        if (!me.path) {
+            path = me.formGroup ? me.formGroup.split('.') : [];
+
+            me.name && path.push(me.name);
+
+            if (path.length < 1) {
+                return null
+            }
+
+            me.path = path.join('.');
+        }
+
+        if (!me.path) {
+            me.path = 'none'
+        }
+
+        return me.path === 'none' ? null: me.path
     }
 
     /**

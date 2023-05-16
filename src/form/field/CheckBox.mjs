@@ -94,15 +94,11 @@ class CheckBox extends Base {
          */
         labelWidth_: 150,
         /**
-         * @member {String} The name (group) of the input dom node
-         */
-        name_: '',
-        /**
          * @member {Boolean} required_=false
          */
         required_: false,
         /**
-         * Use case: Set this config to false for all but one items with the same name.
+         * Use case: Set this config to false for all but one item with the same name.
          * @member {Boolean} showErrorTexts_=true
          */
         showErrorTexts_: true,
@@ -259,8 +255,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetInputType(value, oldValue) {
-        this.vdom.cn[0].cn[1].type = value;
-        this.update()
+        this.changeInputElKey('type', value)
     }
 
     /**
@@ -321,17 +316,6 @@ class CheckBox extends Base {
     }
 
     /**
-     * Triggered after the name config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetName(value, oldValue) {
-        this.vdom.cn[0].cn[1].name = value;
-        this.update()
-    }
-
-    /**
      * Triggered after the required config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -358,10 +342,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        if (value) {
-            this.vdom.cn[0].cn[1].value = value;
-            this.update()
-        }
+        this.changeInputElKey('value', value)
     }
 
     /**
@@ -420,10 +401,28 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered before the renderName config gets changed.
+     * CheckBoxes & radios rely on this flag being set to true
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetRenderName(value, oldValue) {
+        return true
+    }
+
+    /**
      * @returns {String}
      */
     getIconElId() {
         return `${this.id}__icon`
+    }
+
+    /**
+     * @returns {Object|null}
+     */
+    getInputEl() {
+        return this.vdom.cn[0].cn[1]
     }
 
     /**

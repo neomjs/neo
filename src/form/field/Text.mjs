@@ -667,7 +667,7 @@ class Text extends Base {
      * @protected
      */
     afterSetSpellCheck(value, oldValue) {
-        this.changeInputElKey('spellcheck', Neo.isBoolean(value) ? value : null);
+        this.changeInputElKey('spellcheck', Neo.isBoolean(value) ? value : null)
     }
 
     /**
@@ -930,24 +930,6 @@ class Text extends Base {
         });
 
         return value
-    }
-
-    /**
-     * Changes the value of a inputEl vdom object attribute or removes it in case it has no value
-     * @param {String} key
-     * @param {Array|Number|Object|String|null} value
-     * @param {Boolean} silent=false
-     */
-    changeInputElKey(key, value, silent=false) {
-        let me = this;
-
-        if (value || Neo.isBoolean(value) || value === 0) {
-            me.getInputEl()[key] = value;
-        } else {
-            delete me.getInputEl()[key];
-        }
-
-        !silent && me.update()
     }
 
     /**
