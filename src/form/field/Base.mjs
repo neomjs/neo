@@ -183,7 +183,11 @@ class Base extends Component {
             me.path = path.join('.');
         }
 
-        return me.path
+        if (!me.path) {
+            me.path = 'none'
+        }
+
+        return me.path === 'none' ? null: me.path
     }
 
     /**
