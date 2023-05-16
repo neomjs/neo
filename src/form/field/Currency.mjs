@@ -21,6 +21,32 @@ class Currency extends Number {
          */
         stepSize: 0.01
     }
+
+    /**
+     * @param {Number|null} value
+     * @returns {Number}
+     */
+    inputValueAdjustor(value) {
+        if (Neo.isString(value)) {
+            value = parseFloat(value).toFixed(2);
+
+            return parseInt(value.replace('.', '')) / 100
+        }
+
+        return value
+    }
+
+    /**
+     * @param {Number|null} value
+     * @returns {String}
+     */
+    inputValueRenderer(value) {
+        if (value === null) {
+            return null
+        }
+
+        return value.toFixed(2)
+    }
 }
 
 Neo.applyClassConfig(Currency);
