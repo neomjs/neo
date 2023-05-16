@@ -780,7 +780,7 @@ class Text extends Base {
 
         me.silentVdomUpdate = true;
 
-        me.getInputEl().value = value;
+        me.getInputEl().value = me.inputValueRenderer(value);
 
         me.validate(); // silent
 
@@ -1105,6 +1105,26 @@ class Text extends Base {
     }
 
     /**
+     * Transform an input node value before applied to this.value.
+     * Override as needed
+     * @param {*} value
+     * @returns {*}
+     */
+    inputValueAdjustor(value) {
+        return value
+    }
+
+    /**
+     * Transform a value before getting rendered.
+     * Override as needed
+     * @param {*} value
+     * @returns {*}
+     */
+    inputValueRenderer(value) {
+        return value
+    }
+
+    /**
      * @returns {Boolean}
      */
     isEmpty() {
@@ -1202,7 +1222,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        me.value = value
+       me.value = me.inputValueAdjustor(value)
     }
 
     /**
