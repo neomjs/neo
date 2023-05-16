@@ -37,6 +37,12 @@ class Base extends Component {
          */
         renderName_: true,
         /**
+         * In case renderName is set to true, you can optionally render the combination
+         * of all formGroup(s) & the field name into the DOM => input node
+         * @member {Boolean} renderPath=true
+         */
+        renderPath: true,
+        /**
          * @member {*} value_=null
          */
         value_: null
@@ -47,6 +53,11 @@ class Base extends Component {
      * @member {String|null} formGroupString=null
      */
     formGroupString = null
+    /**
+     * An internal cache for formGroup(s) and the field name
+     * @member {String|null} path=null
+     */
+    path = null
 
     /**
      * Triggered after the name config got changed
@@ -54,7 +65,9 @@ class Base extends Component {
      * @param {String|null} oldValue
      */
     afterSetName(value, oldValue) {
-        this.renderName && this.changeInputElKey('name', value)
+        let me = this;
+
+        me.renderName && me.changeInputElKey('name', me.renderPath ? me.getPath() : value)
     }
 
     /**
@@ -148,6 +161,29 @@ class Base extends Component {
      */
     getInputEl() {
         return this.vdom
+    }
+
+    /**
+     * Returns the combination of the field formGroup(s) & name
+     * @returns {String|null}
+     */
+    getPath() {
+        let me = this,
+            path;
+
+        if (!me.path) {
+            path = me.formGroup ? me.formGroup.split('.') : [];
+
+            me.name && path.push(me.name);
+
+            if (path.length < 1) {
+                return null
+            }
+
+            me.path = path.join('.');
+        }
+
+        return me.path
     }
 
     /**
