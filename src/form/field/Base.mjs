@@ -29,6 +29,14 @@ class Base extends Component {
          */
         name_: null,
         /**
+         * Neo itself does not need field names to get mapped to the DOM (input nodes),
+         * except for CheckBoxes & Radios to work. It can be useful for testing tools
+         * & accessibility though, so the default got set to true.
+         * Feel free to change it to false to keep the DOM minimal.
+         * @member {Boolean} renderName_=true
+         */
+        renderName_: false,
+        /**
          * @member {*} value_=null
          */
         value_: null
@@ -46,7 +54,7 @@ class Base extends Component {
      * @param {String|null} oldValue
      */
     afterSetName(value, oldValue) {
-        this.changeInputElKey('name', value)
+        this.renderName && this.changeInputElKey('name', value)
     }
 
     /**

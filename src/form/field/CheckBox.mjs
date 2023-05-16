@@ -98,7 +98,7 @@ class CheckBox extends Base {
          */
         required_: false,
         /**
-         * Use case: Set this config to false for all but one items with the same name.
+         * Use case: Set this config to false for all but one item with the same name.
          * @member {Boolean} showErrorTexts_=true
          */
         showErrorTexts_: true,
@@ -398,6 +398,17 @@ class CheckBox extends Base {
      */
     beforeSetLabelPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'labelPosition')
+    }
+
+    /**
+     * Triggered before the renderName config gets changed.
+     * CheckBoxes & radios rely on this flag being set to true
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetRenderName(value, oldValue) {
+        return true
     }
 
     /**
