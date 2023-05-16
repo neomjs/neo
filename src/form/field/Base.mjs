@@ -35,7 +35,7 @@ class Base extends Component {
          * Feel free to change it to false to keep the DOM minimal.
          * @member {Boolean} renderName_=true
          */
-        renderName_: false,
+        renderName_: true,
         /**
          * @member {*} value_=null
          */
