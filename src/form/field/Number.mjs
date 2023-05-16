@@ -244,11 +244,15 @@ class Number extends Text {
     }
 
     /**
-     * @param {Number} value
+     * @param {Number|null} value
      * @returns {Boolean}
      */
     fitsStepSize(value) {
-        return (value * (1 / this.stepSize)) % 1 === 0
+        if (value === null) {
+            return true
+        }
+
+        return (parseInt(value.toString().replace('.', '')) * (1 / this.stepSize)) % 1 === 0
     }
 
     /**
