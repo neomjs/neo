@@ -244,6 +244,14 @@ class Number extends Text {
     }
 
     /**
+     * @param {Number} value
+     * @returns {Boolean}
+     */
+    fitsStepSize(value) {
+        return (value * (1 / this.stepSize)) % 1 === 0
+    }
+
+    /**
      * @returns {Boolean}
      */
     isValid() {
@@ -261,7 +269,7 @@ class Number extends Text {
             return false;
         }
 
-        if ((value / me.stepSize) % 1 !== 0) {
+        if (!me.fitsStepSize(value)) {
             return false;
         }
 
@@ -393,7 +401,7 @@ class Number extends Text {
             } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
                 me._error = me.errorTextMinValue(errorParam);
                 returnValue = false;
-            } else if ((value / me.stepSize) % 1 !== 0) {
+            } else if (!me.fitsStepSize(value)) {
                 me._error = me.errorTextStepSize(errorParam);
                 returnValue = false;
             }
