@@ -94,10 +94,6 @@ class CheckBox extends Base {
          */
         labelWidth_: 150,
         /**
-         * @member {String} The name (group) of the input dom node
-         */
-        name_: '',
-        /**
          * @member {Boolean} required_=false
          */
         required_: false,
@@ -321,17 +317,6 @@ class CheckBox extends Base {
     }
 
     /**
-     * Triggered after the name config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetName(value, oldValue) {
-        this.vdom.cn[0].cn[1].name = value;
-        this.update()
-    }
-
-    /**
      * Triggered after the required config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -424,6 +409,13 @@ class CheckBox extends Base {
      */
     getIconElId() {
         return `${this.id}__icon`
+    }
+
+    /**
+     * @returns {Object|null}
+     */
+    getInputEl() {
+        return this.vdom.cn[0].cn[1]
     }
 
     /**

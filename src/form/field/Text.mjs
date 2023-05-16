@@ -933,24 +933,6 @@ class Text extends Base {
     }
 
     /**
-     * Changes the value of a inputEl vdom object attribute or removes it in case it has no value
-     * @param {String} key
-     * @param {Array|Number|Object|String|null} value
-     * @param {Boolean} silent=false
-     */
-    changeInputElKey(key, value, silent=false) {
-        let me = this;
-
-        if (value || Neo.isBoolean(value) || value === 0) {
-            me.getInputEl()[key] = value;
-        } else {
-            delete me.getInputEl()[key];
-        }
-
-        !silent && me.update()
-    }
-
-    /**
      * Resets the field to its original value or null depending on the clearToOriginalValue config
      */
     clear() {

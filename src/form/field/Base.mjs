@@ -25,6 +25,10 @@ class Base extends Component {
          */
         formGroup_: null,
         /**
+         * @member {String|null} name_=null
+         */
+        name_: null,
+        /**
          * @member {*} value_=null
          */
         value_: null
@@ -37,13 +41,22 @@ class Base extends Component {
     formGroupString = null
 
     /**
+     * Triggered after the name config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetName(value, oldValue) {
+        this.changeInputElKey('name', value)
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {*} value
      * @param {*} oldValue
      */
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
-            this.fireChangeEvent(value, oldValue);
+            this.fireChangeEvent(value, oldValue)
         }
     }
 
@@ -72,7 +85,25 @@ class Base extends Component {
 
         me.formGroupString = returnValue;
 
-        return returnValue;
+        return returnValue
+    }
+
+    /**
+     * Changes the value of a inputEl vdom object attribute or removes it in case it has no value
+     * @param {String} key
+     * @param {Array|Number|Object|String|null} value
+     * @param {Boolean} silent=false
+     */
+    changeInputElKey(key, value, silent=false) {
+        let me = this;
+
+        if (value || Neo.isBoolean(value) || value === 0) {
+            me.getInputEl()[key] = value;
+        } else {
+            delete me.getInputEl()[key];
+        }
+
+        !silent && me.update()
     }
 
     /**
@@ -101,6 +132,14 @@ class Base extends Component {
                 }
             })
         }
+    }
+
+    /**
+     * Override this method as needed
+     * @returns {Object|null}
+     */
+    getInputEl() {
+        return this.vdom
     }
 
     /**
