@@ -44,7 +44,7 @@ class MainContainer extends Container {
         items: [{
             ntype : 'container',
             _cls  : ['neo-docs-classdetails-headercontainer'],
-            flex  : '0 1 auto',
+            flex  : '1 0 auto',
             layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
