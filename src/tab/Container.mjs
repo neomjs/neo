@@ -523,7 +523,7 @@ class Container extends BaseContainer {
      * @param {String} buttonId
      * @protected
      */
-    onTabButtonMounted(buttonId) {console.log('onTabButtonMounted')
+    onTabButtonMounted(buttonId) {
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
