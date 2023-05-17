@@ -17,16 +17,24 @@ class Currency extends Number {
          */
         ntype: 'currencyfield',
         /**
+         * @member {Number} maxValue=1000000
+         */
+        maxValue: 1000000,
+        /**
          * @member {Number} stepSize=0.01
          */
         stepSize: 0.01
     }
 
     /**
-     * @param {Number|null} value
+     * @param {String|null} value
      * @returns {Number}
      */
     inputValueAdjustor(value) {
+        if (value === '') {
+            return null
+        }
+
         if (Neo.isString(value)) {
             value = parseFloat(value).toFixed(2);
 
