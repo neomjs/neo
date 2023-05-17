@@ -258,7 +258,7 @@ class MembersList extends Base {
                 }, []).join(', ') + ')');
             }
 
-            if (item.returns) {
+            if (item.returns && item.returns[0].type) {
                 headerText += (' → {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '}'));
             }
 
