@@ -258,7 +258,7 @@ class MembersList extends Base {
                 }, []).join(', ') + ')');
             }
 
-            if (item.returns && item.returns[0].type) {
+            if (item.returns?.[0].type) {
                 headerText += (' → {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '}'));
             }
 
@@ -318,7 +318,7 @@ class MembersList extends Base {
                 itemConfig.cn.push(MembersList.createParametersTable(item.params));
             }
 
-            if (item.returns && item.kind !== 'event') {
+            if (item.returns?.[0].type && item.kind !== 'event') {
                 itemConfig.cn.push({
                     innerHTML: 'Returns {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '} ') + (item.returns[0].description || '')
                 });
