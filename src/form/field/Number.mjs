@@ -302,7 +302,11 @@ class Number extends Text {
             value = Math.max(me.minValue, value);
             value = Math.min(me.maxValue, value);
 
-            me.value = value;
+            if (me.value !== value) {
+                me.value = value;
+            } else {
+                me.getInputEl().value = me.inputValueRenderer(value);
+            }
         }
 
         super.onFocusLeave(data)

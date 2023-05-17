@@ -780,7 +780,7 @@ class Text extends Base {
 
         me.silentVdomUpdate = true;
 
-        me.getInputEl().value = me.inputValueRenderer(value);
+        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
 
         me.validate(); // silent
 
