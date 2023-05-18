@@ -674,9 +674,7 @@ if (programOpts.info) {
         );
 
         isSingleton && classContent.push(
-            `let instance = Neo.create(${file});`,
-            "",
-            "Neo.applyToGlobalNs(instance);",
+            `let instance = Neo.applyClassConfig(${file});`,
             "",
             "export default instance;"
         );
