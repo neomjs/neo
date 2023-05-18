@@ -5,7 +5,7 @@ $neoMap: map-merge($neoMap, (
 ));
 
 @if $useCssVars == true {
-    :root .neo-theme-light { // .neo-pickerfield
+    :root .neo-theme-dark { // .neo-pickerfield
         --pickerfield-container-background-color: #{neo(pickerfield-container-background-)};
         --pickerfield-container-border          : #{neo(pickerfield-container-border)};
         --pickerfield-container-box-shadow      : #{neo(pickerfield-container-box-shadow)};
