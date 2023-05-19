@@ -1,0 +1,190 @@
+.neo-process {
+  // will be set by the component if changes
+  --process-arrow-color: v(process-arrow-color);
+  --process-icon-color: v(process-icon-color);
+
+  display: flex;
+  background-color: v(process-background-color);
+  padding: 0.5rem;
+
+  .process-step {
+    position: relative;
+    z-index: 0;
+    padding: 0.75rem;
+
+    .arrow {
+      width: 0;
+      height: 0;
+      position: absolute;
+      top: 50%;
+
+      &.white {
+        z-index: 1;
+        border-bottom: 10px solid transparent;
+        border-right: 10px solid transparent;
+      }
+
+      &.yellow {
+        z-index: -1;
+        border-bottom: 20px solid transparent;
+        border-right: 20px solid transparent;
+      }
+    }
+
+    .slit {
+      position: absolute;
+      inset: 0;
+    }
+
+    .process-content {
+      position: relative;
+
+      .process-step-icon {
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+        text-align: center;
+        height: v(process-icon-size);
+        z-index: 10;
+
+        &::before {
+          // Do NOT switch to v()
+          color: var(--process-icon-color);
+          font-size: v(process-icon-size);
+        }
+      }
+
+      .process-step-header {
+        display: block;
+        color: v(process-title-color);
+        word-break: break-word;
+        text-align: center;
+        text-transform: uppercase;
+        margin: 1.5rem 0;
+      }
+
+      .process-step-text {
+        text-align: center;
+        display: block;
+        color: v(process-text-color);
+        font-size: 1em;
+        font-weight: 400;
+        line-height: 1.5;
+      }
+    }
+  }
+
+  &.neo-process-horizontal {
+    flex-direction: row;
+
+    .process-step {
+      .arrow.white {
+        border-left: 10px solid v(process-background-color);
+        border-top: 10px solid transparent;
+        top: 50%;
+        left: 0;
+        margin-left: 0;
+        margin-top: -10px;
+      }
+
+      .arrow.yellow {
+        // Do NOT switch to v()
+        border-left: 20px solid var(--process-arrow-color);
+        border-top: 20px solid transparent;
+        top: 50%;
+        left: 0;
+        margin-left: 0;
+        margin-top: -20px;
+      }
+
+      .slit {
+        box-shadow: inset 0 100px 50px -40px v(process-background-color),
+        inset 0 -100px 50px -40px v(process-background-color),
+        inset 5px 0 10px -5px v(process-shadow-color);
+      }
+
+      .process-content {
+        padding-left: 30px;
+        padding-top: 0;
+      }
+    }
+  }
+
+  &.neo-process-vertical {
+    flex-direction: column;
+
+    .process-step {
+      .arrow.white {
+        border-left: 10px solid transparent;
+        border-top: 10px solid v(process-background-color);
+        top: 0;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: 0;
+
+      }
+
+      .arrow.yellow {
+        border-left: 20px solid transparent;
+        // Do NOT switch to v()
+        border-top: 20px solid var(--process-arrow-color);
+        top: 0;
+        left: 50%;
+        margin-left: -20px;
+        margin-top: 0;
+      }
+
+      .slit {
+        box-shadow: inset 80px 0 50px -40px v(process-background-color),
+        inset -80px 0 50px -40px v(process-background-color),
+        inset 0 5px 10px -5px v(process-shadow-color);
+      }
+
+      .process-content {
+        padding-left: 0;
+        padding-top: 30px;
+      }
+    }
+  }
+}
+
+@media screen and (max-width: 700px) {
+  .neo-process {
+    &.neo-process-horizontal {
+      flex-direction: column;
+
+      .process-step {
+        .arrow.white {
+          border-left: 10px solid transparent;
+          border-top: 10px solid v(process-background-color);
+          top: 0;
+          left: 50%;
+          margin-left: -10px;
+          margin-top: 0;
+
+        }
+
+        .arrow.yellow {
+          border-left: 20px solid transparent;
+          // Do NOT switch to v()
+          border-top: 20px solid var(--process-arrow-color);
+          top: 0;
+          left: 50%;
+          margin-left: -20px;
+          margin-top: 0;
+        }
+
+        .slit {
+          box-shadow: inset 80px 0 50px -40px v(process-background-color),
+          inset -80px 0 50px -40px v(process-background-color),
+          inset 0 5px 10px -5px v(process-shadow-color);
+        }
+
+        .process-content {
+          padding-left: 0;
+          padding-top: 30px;
+        }
+      }
+    }
+  }
+}
