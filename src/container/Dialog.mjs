@@ -16,7 +16,12 @@ class Dialog extends Base {
         /**
          * @member {Object[]} items
          */
-        items: []
+        items: [],
+        /**
+         * @member {Object} _vdom={tag: 'dialog', cn: []}
+         */
+        _vdom:
+        {tag: 'dialog', cn: []}
     }
 }
 
