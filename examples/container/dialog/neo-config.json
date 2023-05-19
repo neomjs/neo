@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/container/dialog/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
