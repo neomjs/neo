@@ -1,6 +1,8 @@
 import Base from '../container/Base.mjs';
 
 /**
+ * Lightweight implementation using the dialog tag.
+ * See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog
  * @class Neo.container.Dialog
  * @extends Neo.container.Base
  */
