@@ -2,7 +2,7 @@ import CheckBox from './CheckBox.mjs';
 
 /**
  * @class Neo.form.field.Switch
- * @extends Neo.form.field.Base
+ * @extends Neo.form.field.CheckBox
  */
 class Switch extends CheckBox {
     static config = {
