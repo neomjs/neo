@@ -2,5 +2,6 @@
     "appPath"    : "examples/container/dialog/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath"   : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "ScrollSync", "Stylesheet", "Dialog"]
 }

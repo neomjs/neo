@@ -103,6 +103,17 @@ class Dialog extends Base {
         this.createHeader();
     }
 
+    close() {
+        let me = this;
+
+        Neo.main.addon.Dialog.close({
+            id: me.id,
+            appName: me.appName
+        }).then(data => {
+            console.log(data)
+        });
+    }
+
     createHeader() {
         let me      = this,
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
@@ -138,8 +149,7 @@ class Dialog extends Base {
         let me = this,
 
         map = {
-            close   : me.closeOrHide,
-            maximize: me.maximize
+            close   : me.close
         };
 
         map[data.action]?.call(me, data);
@@ -164,6 +174,18 @@ class Dialog extends Base {
      */
     getIconNode() {
         return this.getVdomRoot().cn[0];
+    }
+
+    async show(modal = true) {
+        let me = this;
+        await Neo.timeout(20);
+
+        Neo.main.addon.Dialog[modal ? 'showModal': 'show']({
+            id: me.id,
+            appName: me.appName
+        }).then(data => {
+            console.log(data)
+        });
     }
 }
 

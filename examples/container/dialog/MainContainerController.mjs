@@ -22,52 +22,49 @@ class MainContainerController extends Component {
      */
     construct(config) {
         super.construct(config);
-        console.log('I am here')
     }
 
     /**
      * 
      * @param {Object} data 
      */
-    onButtonClick(data) {
+    async onButtonClick(data) {
         let me = this;
         if (!this.dialog) {
-            import ('../../../src/container/Dialog.mjs').then((module) => {
-                this.dialog = Neo.create({
-                    module: module.default,
-                    appName: this.component.appName,
-                    autoMount: true,
-                    autoRender: true,
-                    title: 'test title',
-                    height: 400,
-                    width: 600,
-                    headerConfig: {
-                        items: [{
-                            ntype: 'container',
-                            cls: ['neo-button-glyph'],
-                            html: '<i class="fa-solid fa-circle-check"></i>',
-                            style: {height:'100%', justifyContent: 'center'}
-                        }],
-                        style: {borderBottom: 'solid 1px #bdbdbd'}
-                    },
+            let module = await import ('../../../src/container/Dialog.mjs');
+            this.dialog = Neo.create({
+                module: module.default,
+                appName: this.component.appName,
+                autoMount: true,
+                autoRender: true,
+                title: 'test title',
+                height: 400,
+                width: 600,
+                headerConfig: {
+                    items: [{
+                        ntype: 'container',
+                        cls: ['neo-button-glyph'],
+                        html: '<i class="fa-solid fa-circle-check"></i>',
+                        style: {height:'100%', justifyContent: 'center'}
+                    }],
+                    style: {borderBottom: 'solid 1px #bdbdbd'}
+                },
 
-                    items: [ {
-                        module: TabContainer,
-                        items: [{
-                            tabButtonConfig: {text: 'Tab 1', flag: 'tab1'},
-                            ntype: 'container',
-                            html: 'text'
-                        }, {
-                            tabButtonConfig: {text: 'Tab 2'},
-                            ntype: 'container',
-                            html: 'text2'
-                        }]
+                items: [ {
+                    module: TabContainer,
+                    items: [{
+                        tabButtonConfig: {text: 'Tab 1', flag: 'tab1'},
+                        ntype: 'container',
+                        html: 'text'
+                    }, {
+                        tabButtonConfig: {text: 'Tab 2'},
+                        ntype: 'container',
+                        html: 'text2'
                     }]
-                })
+                }]
             })
-        } else {
-            //TODO: this.dialog.show()
         }
+        this.dialog.show();
 
         console.log(data, this);
     }
