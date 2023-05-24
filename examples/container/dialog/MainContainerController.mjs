@@ -1,4 +1,4 @@
-import Component from '../../../src/controller/Component.mjs';
+import Component    from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.container.dialog.MainContainerController
@@ -13,21 +13,66 @@ class MainContainerController extends Component {
         className: 'Neo.examples.container.dialog.MainContainerController'
     }
 
+    dialog = null;
+    title = 'example dialog';
+    height = 300;
+    width = 500;
+
     /**
      * 
      * @param {*} config 
      */
     construct(config) {
         super.construct(config);
-        console.log('I am here')
     }
 
     /**
      * 
      * @param {Object} data 
      */
-    onButtonClick(data) {
-        console.log(data);
+    async onButtonClick(data) {
+        if (!this.dialog) {
+            let module = await import ('../../../src/container/Dialog.mjs');
+            this.dialog = Neo.create({
+                module: module.default,
+                appName: this.component.appName,
+                autoMount: true,
+                autoRender: true,
+                title: this.title,
+                height: this.height,
+                width: this.width,
+                
+                headerConfig: {
+                    items: [{
+                        ntype: 'container',
+                        cls: ['neo-button-glyph'],
+                        html: '<i class="fa-solid fa-circle-check"></i>',
+                        style: {height:'100%', justifyContent: 'center'}
+                    }],
+                    style: {borderBottom: 'solid 1px #bdbdbd'}
+                },
+
+                items: [{
+                    ntype: 'container',
+                    html: 'text'
+                }]
+            })
+        }
+        this.dialog.show();
+
+        console.log(data, this);
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigChange(config, opts) {
+        if (this.dialog) {
+            this.dialog[config] = opts.value;
+        } else {
+            this[config] = opts.value;
+        }
     }
 }
 
