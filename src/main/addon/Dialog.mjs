@@ -33,6 +33,7 @@ class Dialog extends Base {
     }
 
     /**
+     * @param {Object} data
      * @param {String} data.id
      * @returns {Boolean}
      */
@@ -42,6 +43,7 @@ class Dialog extends Base {
     }
 
     /**
+     * @param {Object} data
      * @param {String} data.id
      * @returns {Boolean}
      */
@@ -51,6 +53,7 @@ class Dialog extends Base {
     }
 
     /**
+     * @param {Object} data
      * @param {String} data.id
      * @returns {Boolean}
      */
