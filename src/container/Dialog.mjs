@@ -1,6 +1,5 @@
 import Base          from '../container/Panel.mjs';
 import HeaderToolbar from '../dialog/header/Toolbar.mjs';
-import NeoArray      from '../util/Array.mjs';
 
 /**
  * Lightweight implementation using the dialog tag.
@@ -43,56 +42,14 @@ class Dialog extends Base {
          */
         items: [],
         /**
+         * @member {String} title=null
+         */
+        title_: null,
+        /**
          * @member {Object} _vdom={tag: 'dialog', cn: []}
          */
         _vdom:
         {tag: 'dialog', cn: []}
-    }
-
-    /**
-     * Triggered after the iconCls config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetIconCls(value, oldValue) {
-        /* let iconNode = this.getIconNode();
-
-        NeoArray.remove(iconNode.cls, oldValue);
-        NeoArray.add(   iconNode.cls, value);
-
-        iconNode.removeDom = !value || value === '';
-        this.update(); */
-    }
-
-    /**
-     * Converts the iconCls array into a string on beforeGet
-     * @returns {String}
-     * @protected
-     */
-    beforeGetIconCls() {
-        let iconCls = this._iconCls;
-
-        if (Array.isArray(iconCls)) {
-            return iconCls.join(' ');
-        }
-
-        return iconCls;
-    }
-
-    /**
-     * Triggered before the iconCls config gets changed. Converts the string into an array if needed.
-     * @param {Array|String|null} value
-     * @param {Array|String|null} oldValue
-     * @returns {Array}
-     * @protected
-     */
-    beforeSetIconCls(value, oldValue) {
-        if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean);
-        }
-
-        return value;
     }
 
     /**
@@ -103,17 +60,33 @@ class Dialog extends Base {
         this.createHeader();
     }
 
+    /**
+     * Triggered after the title config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        this.headerToolbar?.set({
+            title: value
+        });
+    }
+
+    /**
+     * close the dialog in main thread
+     */
     close() {
         let me = this;
 
         Neo.main.addon.Dialog.close({
             id: me.id,
             appName: me.appName
-        }).then(data => {
-            console.log(data)
         });
     }
 
+    /**
+     *
+     */
     createHeader() {
         let me      = this,
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
@@ -129,11 +102,6 @@ class Dialog extends Base {
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
-            items: [{
-                ntype: 'container',
-                html: '<i class="fa-solid fa-circle-check"></i>',
-                style: {height:'100%', justifyContent: 'center'}
-            }],
             ...me.headerConfig
         });
 
@@ -169,13 +137,9 @@ class Dialog extends Base {
     }
 
     /**
-     * Convenience shortcut
-     * @returns {Object}
+     * Shows the dialog (with / without Modal) in main thread
+     * @param {Boolean} modal
      */
-    getIconNode() {
-        return this.getVdomRoot().cn[0];
-    }
-
     async show(modal = true) {
         let me = this;
         await Neo.timeout(20);
@@ -183,8 +147,6 @@ class Dialog extends Base {
         Neo.main.addon.Dialog[modal ? 'showModal': 'show']({
             id: me.id,
             appName: me.appName
-        }).then(data => {
-            console.log(data)
         });
     }
 }

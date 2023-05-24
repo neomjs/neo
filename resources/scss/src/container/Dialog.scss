@@ -1,23 +1,12 @@
 .neo-container-dialog {
     padding: 0;
     z-index: 100;
-    box-shadow: 0 3px 6px 1px rgba(0, 0, 0, 0.15);
     
     &:not([open]) {
         display: none;
     }
 
     > div {
-        &:not(.neo-header-toolbar) {
-            background-color: #fafafa;
-        }
-
-        &.neo-header-toolbar {
-            .neo-button-glyph {
-                margin-right: .2em;
-            }
-        }
-
         padding: 1em;
     }
 }

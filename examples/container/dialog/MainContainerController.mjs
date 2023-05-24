@@ -1,5 +1,4 @@
 import Component    from '../../../src/controller/Component.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
 
 /**
  * @class Neo.examples.container.dialog.MainContainerController
@@ -15,6 +14,9 @@ class MainContainerController extends Component {
     }
 
     dialog = null;
+    title = 'example dialog';
+    height = 300;
+    width = 500;
 
     /**
      * 
@@ -29,7 +31,6 @@ class MainContainerController extends Component {
      * @param {Object} data 
      */
     async onButtonClick(data) {
-        let me = this;
         if (!this.dialog) {
             let module = await import ('../../../src/container/Dialog.mjs');
             this.dialog = Neo.create({
@@ -37,9 +38,10 @@ class MainContainerController extends Component {
                 appName: this.component.appName,
                 autoMount: true,
                 autoRender: true,
-                title: 'test title',
-                height: 400,
-                width: 600,
+                title: this.title,
+                height: this.height,
+                width: this.width,
+                
                 headerConfig: {
                     items: [{
                         ntype: 'container',
@@ -50,23 +52,27 @@ class MainContainerController extends Component {
                     style: {borderBottom: 'solid 1px #bdbdbd'}
                 },
 
-                items: [ {
-                    module: TabContainer,
-                    items: [{
-                        tabButtonConfig: {text: 'Tab 1', flag: 'tab1'},
-                        ntype: 'container',
-                        html: 'text'
-                    }, {
-                        tabButtonConfig: {text: 'Tab 2'},
-                        ntype: 'container',
-                        html: 'text2'
-                    }]
+                items: [{
+                    ntype: 'container',
+                    html: 'text'
                 }]
             })
         }
         this.dialog.show();
 
         console.log(data, this);
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigChange(config, opts) {
+        if (this.dialog) {
+            this.dialog[config] = opts.value;
+        } else {
+            this[config] = opts.value;
+        }
     }
 }
 

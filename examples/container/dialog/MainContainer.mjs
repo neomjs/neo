@@ -1,10 +1,7 @@
 import Button                  from '../../../src/button/Base.mjs';
-import CheckBox                from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport   from '../../ConfigurationViewport.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
-import Radio                   from '../../../src/form/field/Radio.mjs';
-import SelectField             from '../../../src/form/field/Select.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 
 /**
@@ -23,44 +20,33 @@ class MainContainer extends ConfigurationViewport {
     createConfigurationComponents() {
         let me = this;
 
-        return [ {
+        return [{
+            module    : TextField,
+            clearable : true,
+            labelText : 'title',
+            listeners : {change: me.controller.onConfigChange.bind(me.controller, 'title')},
+            style     : {marginTop: '10px'},
+            value     : 'example dialog'
+        }, {
             module    : NumberField,
             clearable : true,
             labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
+            listeners : {change: me.controller.onConfigChange.bind(me.controller, 'height')},
+            maxValue  : 1000,
+            minValue  : 100,
+            stepSize  : 10,
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            value     : 300
         }, {
-            module    : TextField, // todo: selectField with options
-            labelText : 'iconCls',
-            listeners : {change: me.onConfigChange.bind(me, 'iconCls')},
-            value     : me.exampleComponent.iconCls
-        }, {
-            module    : TextField, // todo: colorPickerField
-            clearable : true,
-            labelText : 'iconColor',
-            listeners : {change: me.onConfigChange.bind(me, 'iconColor')},
-            value     : me.exampleComponent.iconColor
-        }, {
-            module    :  TextField,
-            clearable : true,
-            labelText : 'text',
-            listeners : {change: me.onConfigChange.bind(me, 'text')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.text
-        }, {
-            module    :  NumberField,
+            module    : NumberField,
             clearable : true,
             labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
+            listeners : {change: me.controller.onConfigChange.bind(me.controller, 'width')},
+            maxValue  : 2000,
             minValue  : 100,
-            stepSize  : 5,
+            stepSize  : 10,
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            value     : 500
         }];
     }
 
@@ -68,10 +54,8 @@ class MainContainer extends ConfigurationViewport {
         let controller = this.getController();
         return Neo.create({
             module   : Button,
-            badgeText: 'Badge',
             height   : 50,
-            iconCls  : 'fa fa-home',
-            text     : 'Hello World',
+            text     : 'show Dialog',
             ui       : 'primary',
             width    : 150,
             handler  : controller.onButtonClick.bind(controller)
