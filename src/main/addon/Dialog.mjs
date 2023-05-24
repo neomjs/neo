@@ -33,31 +33,28 @@ class Dialog extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @param {String} data.id
      * @returns {Boolean}
      */
     close(data) {
-        console.log(DomAccess.getElement(data.id))
         DomAccess.getElement(data.id).close()
         return true;
     }
 
     /**
-     * @param {Object} data
+     * @param {String} data.id
      * @returns {Boolean}
      */
     show(data) {
-        console.log(DomAccess.getElement(data.id))
         DomAccess.getElement(data.id).show()
         return true;
     }
 
     /**
-     * @param {Object} data
+     * @param {String} data.id
      * @returns {Boolean}
      */
     showModal(data) {
-        console.log(DomAccess.getElement(data.id))
         DomAccess.getElement(data.id).showModal()
         return true;
     }
