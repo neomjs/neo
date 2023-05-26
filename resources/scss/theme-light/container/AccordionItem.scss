@@ -1,0 +1,19 @@
+$neoMap: map-merge($neoMap, (
+        'accordion-item-bg-color'      : #f9f9f9,
+        'accordion-item-arrow-bg-color': #dedede,
+        'accordion-item-border-color'  : #ddd,
+        'accordion-item-shadow'        : 0 4px 16px rgba(0 0 0 / .09),
+        'accordion-item-radius'        : 5px,
+        'accordion-item-header-height' : 50px
+));
+
+@if $useCssVars == true {
+  :root .neo-theme-light { // .neo-accordion-item
+    --accordion-item-bg-color      : #{neo(accordion-item-bg-color)};
+    --accordion-item-arrow-bg-color: #{neo(accordion-item-arrow-bg-color)};
+    --accordion-item-border-color  : #{neo(accordion-item-border-color)};
+    --accordion-item-shadow        : #{neo(accordion-item-shadow)};
+    --accordion-item-radius        : #{neo(accordion-item-radius)};
+    --accordion-item-header-height : #{neo(accordion-item-header-height)};
+  }
+}
