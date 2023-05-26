@@ -61,7 +61,7 @@
       height: 30px;
       width: 30px;
       border-radius: v(accordion-item-radius);
-      box-shadow: v(accordion-item-shadow);
+      box-shadow: v(accordion-item-arrow-shadow);
       padding: 7px;
       text-align: center;
 
@@ -75,7 +75,7 @@
   }
 
   .neo-accordion-content {
-    background-color: white;
+    background-color: v(accordion-item-content-bg-color);
     border-bottom-left-radius: v(accordion-item-radius);
     border-bottom-right-radius: v(accordion-item-radius);
     padding: 15px;

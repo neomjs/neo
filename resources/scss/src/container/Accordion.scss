@@ -2,6 +2,8 @@
 
   & > div:not(.neo-accordion-item, .neo-accordion-title) {
     background-color: transparent;
+    overflow: unset;
+
   }
 
   .neo-accordion-title {
