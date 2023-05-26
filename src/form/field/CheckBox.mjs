@@ -81,7 +81,7 @@ class CheckBox extends Base {
         labelCls_: [],
         /**
          * Edge-case config in case we want to render leading content with their own selectors like:
-         * <span class="my-label-id-cls">E10</span> • Firstname
+         * <span class="my-label-id-cls">E10</span> · Firstname
          * @member {String|null} labelId_=null
          */
         labelId_: null,
@@ -90,6 +90,11 @@ class CheckBox extends Base {
          * @member {String[]} labelIdCls_=[]
          */
         labelIdCls_: [],
+        /**
+         * Separator between labelId & labelText
+         * @member {String} labelIdSeparator_=' · '
+         */
+        labelIdSeparator_: ' · ',
         /**
          * Valid values: 'left', 'top'
          * @member {String} labelPosition_='left'
@@ -310,7 +315,7 @@ class CheckBox extends Base {
         let me = this;
 
         if (me.labelId) {
-            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span> • ${value}`
+            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
         }
 
         me.vdom.cn[0].cn[0].innerHTML = value;
