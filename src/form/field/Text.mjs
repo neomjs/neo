@@ -142,6 +142,11 @@ class Text extends Base {
          */
         labelIdCls_: [],
         /**
+         * Separator between labelId & labelText
+         * @member {String} labelIdSeparator_=' · '
+         */
+        labelIdSeparator_: ' · ',
+        /**
          * @member {String} labelOptionalText_=' (Optional)'
          */
         labelOptionalText_: ' (Optional)',
@@ -514,7 +519,7 @@ class Text extends Base {
             isEmpty = me.isEmpty();
 
         if (me.labelId) {
-            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span> • ${value}`
+            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
         }
 
         me.getLabelEl().innerHTML = value;
