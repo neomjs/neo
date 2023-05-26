@@ -193,17 +193,23 @@ class Select extends Picker {
         let me = this,
             filters;
 
-        if (value && me.useFilter) {
-            filters = value.filters || [];
+        if (value) {
+            if (me.useFilter) {
+                filters = value.filters || [];
 
-            filters.push({
-                includeEmptyValues: true,
-                operator          : me.filterOperator,
-                property          : me.displayField,
-                value             : value.get(me.value)?.[me.displayField] || me.value
-            });
+                filters.push({
+                    includeEmptyValues: true,
+                    operator          : me.filterOperator,
+                    property          : me.displayField,
+                    value             : value.get(me.value)?.[me.displayField] || me.value
+                });
 
-            value.filters = filters
+                value.filters = filters
+            }
+
+            if (me.list) {
+                me.list.store = value
+            }
         }
     }
 

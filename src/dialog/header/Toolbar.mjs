@@ -48,8 +48,8 @@ class Toolbar extends Base {
      */
     afterSetTitle(value, oldValue) {
         this.down({flag: 'title-label'})?.set({
-            removeDom: !value,
-            text     : value
+            hidden: !value,
+            text  : value
         })
     }
 
@@ -62,11 +62,11 @@ class Toolbar extends Base {
             items   = me.items || [];
 
         items.push({
-            ntype    : 'label',
-            cls      : ['neo-panel-header-text', 'neo-label'],
-            flag     : 'title-label',
-            removeDom: !me.title,
-            text     : me.title
+            ntype : 'label',
+            cls   : ['neo-panel-header-text', 'neo-label'],
+            flag  : 'title-label',
+            hidden: !me.title,
+            text  : me.title
         });
 
         if (me.actions) {

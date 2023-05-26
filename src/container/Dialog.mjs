@@ -1,4 +1,5 @@
 import Base          from '../container/Panel.mjs';
+import NeoArray      from '../util/Array.mjs';
 import HeaderToolbar from '../dialog/header/Toolbar.mjs';
 
 /**
@@ -61,6 +62,28 @@ class Dialog extends Base {
     }
 
     /**
+     * Triggered after the iconCls config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetIconCls(value, oldValue) {
+        console.log(value, oldValue)
+        
+        if (!this.headers) { return }
+        let iconNode = this.headers.down({flag: 'dialog-header-icon'});
+        let iconNodeCls = [...iconNode.cls];
+
+        NeoArray.remove(iconNodeCls, oldValue);
+        NeoArray.add(   iconNodeCls, value);
+
+        iconNode.cls = iconNodeCls;
+
+        iconNode.removeDom = !value || value === '';
+        this.update();
+    } 
+
+    /**
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -72,6 +95,36 @@ class Dialog extends Base {
         });
     }
 
+    /**
+     * Converts the iconCls array into a string on beforeGet
+     * @returns {String}
+     * @protected
+     */
+    beforeGetIconCls() {
+        let iconCls = this._iconCls;
+
+        if (Array.isArray(iconCls)) {
+            return iconCls.join(' ');
+        }
+
+        return iconCls;
+    }
+
+    /**
+     * Triggered before the iconCls config gets changed. Converts the string into an array if needed.
+     * @param {Array|String|null} value
+     * @param {Array|String|null} oldValue
+     * @returns {Array}
+     * @protected
+     */
+    beforeSetIconCls(value, oldValue) {
+        if (value && !Array.isArray(value)) {
+            value = value.split(' ').filter(Boolean);
+        }
+
+        return value;
+    }
+ 
     /**
      * close the dialog in main thread
      */
@@ -85,12 +138,14 @@ class Dialog extends Base {
     }
 
     /**
-     *
+     * @protected
      */
     createHeader() {
         let me      = this,
             cls     = ['neo-header-toolbar', 'neo-toolbar'],
-            headers = me.headers || [];
+            headers = me.headers || [],
+            headerConfigCopy = {...me.headerConfig};
+        delete headerConfigCopy.items;
 
         me.headerToolbar = Neo.create({
             module   : HeaderToolbar,
@@ -101,8 +156,18 @@ class Dialog extends Base {
             flex     : 'none',
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
-            title    : me.title,
-            ...me.headerConfig
+            items    : [{
+                cls: me.iconCls,
+                flag     : 'dialog-header-icon',
+            }, {
+                ntype    : 'label',
+                cls      : ['neo-panel-header-text', 'neo-label'],
+                flag     : 'title-label',
+                removeDom: !me.title,
+                text     : me.title
+            }, ...me.headerConfig.items],
+            
+            ...headerConfigCopy
         });
 
         headers.unshift(me.headerToolbar);

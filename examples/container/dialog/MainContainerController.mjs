@@ -41,13 +41,12 @@ class MainContainerController extends Component {
                 title: this.title,
                 height: this.height,
                 width: this.width,
+                iconCls: ['fa', 'fa-home'],
                 
                 headerConfig: {
                     items: [{
-                        ntype: 'container',
-                        cls: ['neo-button-glyph'],
-                        html: '<i class="fa-solid fa-circle-check"></i>',
-                        style: {height:'100%', justifyContent: 'center'}
+                        ntype: 'button',
+                        text: 'foo'
                     }],
                     style: {borderBottom: 'solid 1px #bdbdbd'}
                 },

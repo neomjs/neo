@@ -131,6 +131,22 @@ class Text extends Base {
          */
         labelCls_: [],
         /**
+         * Edge-case config in case we want to render leading content with their own selectors like:
+         * <span class="my-label-id-cls">E10</span> • Firstname
+         * @member {String|null} labelId_=null
+         */
+        labelId_: null,
+        /**
+         * CSS rules for labelId
+         * @member {String[]} labelIdCls_=[]
+         */
+        labelIdCls_: [],
+        /**
+         * Separator between labelId & labelText
+         * @member {String} labelIdSeparator_=' · '
+         */
+        labelIdSeparator_: ' · ',
+        /**
          * @member {String} labelOptionalText_=' (Optional)'
          */
         labelOptionalText_: ' (Optional)',
@@ -502,6 +518,10 @@ class Text extends Base {
         let me      = this,
             isEmpty = me.isEmpty();
 
+        if (me.labelId) {
+            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
+        }
+
         me.getLabelEl().innerHTML = value;
 
         if (!me.hideLabel) {
@@ -512,9 +532,9 @@ class Text extends Base {
 
                 me.promiseVdomUpdate().then(() => {
                     me.updateCenterBorderElWidth(isEmpty)
-                });
+                })
             } else {
-                me.update();
+                me.update()
             }
         }
     }
@@ -532,7 +552,7 @@ class Text extends Base {
                 label = vdom.cn[0];
 
             label.width = value;
-            !me.hideLabel && me.updateInputWidth();
+            !me.hideLabel && me.updateInputWidth()
         }
     }
 
@@ -544,7 +564,7 @@ class Text extends Base {
      */
     afterSetMaxLength(value, oldValue) {
         this.validate(); // silent
-        this.changeInputElKey('maxlength', value);
+        this.changeInputElKey('maxlength', value)
     }
 
     /**
@@ -576,7 +596,7 @@ class Text extends Base {
 
             for (; i < len; i++) {
                 if (!triggers[i].vdom.removeDom) {
-                    triggers[i].mounted = value;
+                    triggers[i].mounted = value
                 }
             }
 
