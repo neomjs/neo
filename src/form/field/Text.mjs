@@ -138,9 +138,9 @@ class Text extends Base {
         labelId_: null,
         /**
          * CSS rules for labelId
-         * @member {String[]} labelIdCls=[]
+         * @member {String[]} labelIdCls_=[]
          */
-        labelIdCls: [],
+        labelIdCls_: [],
         /**
          * @member {String} labelOptionalText_=' (Optional)'
          */
