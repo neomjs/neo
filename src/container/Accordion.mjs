@@ -1,13 +1,13 @@
-import Base          from './Base.mjs';
+import Panel         from './Panel.mjs';
 // used in code
 import AccordionItem from './AccordionItem.mjs';
 import NeoArray      from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Accordion
- * @extends Neo.container.Base
+ * @extends Neo.container.Panel
  */
-class AccordionContainer extends Base {
+class AccordionContainer extends Panel {
     static config = {
         /**
          * @member {String} className='Neo.container.Accordion'
@@ -39,7 +39,12 @@ class AccordionContainer extends Base {
          * @member {String[]} openItems=[]
          * @private
          */
-        openItems: [],
+        openItems_: [],
+        /**
+         * Creates a top header
+         * @memeber {String|null} title=null
+         */
+        title_: null,
 
         itemDefaults: {ntype: 'accordionitem'},
         items       : []
@@ -51,8 +56,9 @@ class AccordionContainer extends Base {
      * @param {Number[]} openArray
      */
     afterSetInitialOpen(openArray) {
-        const me    = this,
-              items = me.items;
+        const me        = this,
+              items     = me.items,
+              openItems = me.openItems;
 
         openArray.forEach((itemNo) => {
             const id   = Neo.getId(me.itemDefaults.ntype),
@@ -60,12 +66,35 @@ class AccordionContainer extends Base {
 
             item.expanded = true;
             item.id = id;
-            NeoArray.add(me.openItems, id);
-        })
+            NeoArray.add(openItems, id);
+        });
+
+        me.openItems = openItems;
     }
 
     /**
-     * Called by accordion items
+     * After changes to title config, we add a header
+     * @param {String|null} newTitle
+     */
+    afterSetTitle(newTitle) {
+        const me      = this,
+              titleEl = me.down({flag: 'titleEl'});
+
+        if (newTitle && !titleEl) {
+            const titleCls = me.titleCls;
+
+            me.headers = [{
+                dock   : 'top',
+                text   : newTitle,
+                baseCls: 'neo-accordion-title',
+                cls    : ['neo-accordion-title']
+            }];
+        }
+    }
+
+    /**
+     * Called by accordion items.
+     * Checks for maxExpandedItems
      *
      * @param {Object}                      data
      * @param {Boolean}                     data.expanded newState
@@ -82,7 +111,8 @@ class AccordionContainer extends Base {
               targetId         = target.id,
               expanded         = data.expanded;
 
-        if (expanded && maxExpandedItems !== 0
+        if (expanded
+            && maxExpandedItems !== 0
             && curNoOpenItems === maxExpandedItems) {
             Neo.get(openItems[0]).expanded = false;
             NeoArray.remove(openItems, openItems[0]);

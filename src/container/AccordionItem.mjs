@@ -53,10 +53,10 @@ class AccordionContainer extends Base {
      * @protected
      */
     createItems() {
-        const me       = this,
-              items    = me.items,
-              title    = me.title;
-        let iconCls = me.iconCls || ['no-icon'],
+        const me    = this,
+              items = me.items,
+              title = me.title;
+        let iconCls  = me.iconCls || ['no-icon'],
             arrowCls = me.arrowCls || 'fa-caret-down',
             header, content;
 
@@ -133,7 +133,7 @@ class AccordionContainer extends Base {
         if (iconEl) {
             let cls = iconEl.cls;
 
-            if(!Neo.isArray(newValue)) newValue = newValue.split(' ');
+            if (!Neo.isArray(newValue)) newValue = newValue.split(' ');
 
             NeoArray.remove(cls, oldValue);
             NeoArray.add(cls, newValue);
@@ -159,8 +159,8 @@ class AccordionContainer extends Base {
      */
     onExpandClick() {
         const me           = this,
-              currentState = me.expanded,
-              parent       = me.up();
+              currentState = me.expanded;
+        let parent = me.up('accordion');
 
         if (parent.ntype === 'accordion') {
             parent.childExpandChange({
