@@ -1,0 +1,116 @@
+.neo-accordion {
+  --accordion-title-bg-color: #292929;
+  --accordion-title-color: #fff;
+  --accordion-item-radius: 5px;
+
+  & > div:not(.neo-accordion-item, .neo-accordion-title) {
+    background-color: transparent;
+  }
+
+  .neo-accordion-title {
+    background-color: var(--accordion-title-bg-color);
+    margin-bottom: 15px;
+    padding: 5px;
+    border-radius: var(--accordion-item-radius);
+    color: var(--accordion-title-color);
+
+    label {
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: 1.1rem;
+      text-align: center;
+      width: 100%;
+    }
+  }
+}
+
+.neo-accordion-item {
+  --accordion-item-bg-color: #f9f9f9;
+  --accordion-item-arrow-bg-color: #dedede;
+  --accordion-item-border-color: #ddd;
+  --accordion-item-shadow: 0 4px 16px rgba(0 0 0 / .09);
+  --accordion-item-radius: 5px;
+  --accordion-item-header-height: 50px;
+
+  background-color: var(--accordion-item-bg-color);
+  border: 1px solid var(--accordion-item-border-color);
+  box-shadow: var(--accordion-item-shadow);
+  border-radius: var(--accordion-item-radius);
+
+  transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
+  max-height: var(--accordion-item-header-height);
+
+  overflow: hidden;
+
+  &:not(:first-child) {
+    margin-top: 15px;
+  }
+
+  & > div {
+    background-color: transparent;
+  }
+
+  &.neo-expanded {
+    max-height: 1000px;
+    transition: max-height 1s ease-in-out;
+
+    .neo-toolbar {
+      border-bottom-color: var(--accordion-item-border-color);
+
+      .neo-accordion-header-arrow::before {
+        transform: rotate(0deg);
+      }
+    }
+  }
+
+  &.neo-scrollable {
+    .neo-accordion-content {
+      overflow: auto;
+    }
+  }
+
+  .neo-toolbar {
+    max-height: var(--accordion-item-header-height);
+    min-height: var(--accordion-item-header-height);
+    border-bottom: 1px solid transparent;
+
+    .neo-accordion-header-icon {
+      &::before {
+        margin: 0 15px 0 10px;
+      }
+
+      &.no-icon {
+        margin-left: 10px;
+      }
+    }
+
+    .neo-accordion-header-title {
+      flex: 1 !important;
+      font-weight: 600;
+    }
+
+    .neo-accordion-header-arrow {
+      height: 30px;
+      width: 30px;
+      background-color: var(--accordion-item-arrow-bg-color);
+      padding: 7px;
+      border-radius: var(--accordion-item-radius);
+      box-shadow: var(--accordion-item-shadow);
+      text-align: center;
+
+
+      &::before {
+        display: inline-block;
+        transform: rotate(-180deg);
+        transition: transform .5s ease-out;
+      }
+    }
+  }
+
+  .neo-accordion-content {
+    background-color: white;
+    border-bottom-left-radius: var(--accordion-item-radius);
+    border-bottom-right-radius: var(--accordion-item-radius);
+    padding: 15px;
+  }
+}
