@@ -1,0 +1,12 @@
+.neo-container-dialog {
+    padding: 0;
+    z-index: 100;
+    
+    &:not([open]) {
+        display: none;
+    }
+
+    > div {
+        padding: 1em;
+    }
+}
