@@ -182,7 +182,7 @@ class MainContainer extends ConfigurationViewport {
             handler: (() => {me.exampleComponent.reset()}),
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -201,7 +201,7 @@ class MainContainer extends ConfigurationViewport {
                 },
                 scope: this
             }
-        });
+        })
     }
 }
 
