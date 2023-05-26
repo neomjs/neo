@@ -1,0 +1,26 @@
+.neo-accordion {
+  --accordion-title-bg-color: #292929;
+  --accordion-title-color: #fff;
+  --accordion-item-radius: 5px;
+
+  & > div:not(.neo-accordion-item, .neo-accordion-title) {
+    background-color: transparent;
+  }
+
+  .neo-accordion-title {
+    background-color: var(--accordion-title-bg-color);
+    margin-bottom: 15px;
+    padding: 5px;
+    border-radius: var(--accordion-item-radius);
+    color: var(--accordion-title-color);
+
+    label {
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: 1.1rem;
+      text-align: center;
+      width: 100%;
+    }
+  }
+}
+
