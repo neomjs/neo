@@ -114,10 +114,11 @@ class Process extends Base {
      * @protected
      */
     afterSetArrowColor(newValue) {
+        if (newValue === null) return;
+
         let style = this.style;
 
         style['--process-arrow-color'] = newValue;
-
         this.style = style;
     }
 
@@ -127,10 +128,12 @@ class Process extends Base {
      * @protected
      */
     afterSetHorizontal(isHorizontal) {
-        let cls = this.cls,
-            positionCls = isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical';
+        let cls         = this.cls,
+            positionCls = isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical',
+            removeCls   = !isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical';
 
         NeoArray.add(cls, positionCls);
+        NeoArray.remove(cls, removeCls);
 
         this.cls = cls;
     }
@@ -141,6 +144,7 @@ class Process extends Base {
      * @protected
      */
     afterSetIconColor(newValue) {
+        if (newValue === null) return;
         let style = this.style;
 
         style['--process-icon-color'] = newValue;
@@ -159,7 +163,7 @@ class Process extends Base {
             items = [items];
         }
 
-        let vdomRoot = this.vdom,
+        let vdomRoot   = this.vdom,
             itemLayout = this.itemLayout;
 
         items.forEach((newItem) => {

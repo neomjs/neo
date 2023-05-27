@@ -1,14 +1,12 @@
 .neo-process {
-  // will be set by the component if changes
-  --process-arrow-color: v(process-arrow-color);
-  --process-icon-color: v(process-icon-color);
-
   display: flex;
+  flex-wrap: wrap;
   background-color: v(process-background-color);
   padding: 0.5rem;
 
   .process-step {
     position: relative;
+    flex: 1;
     z-index: 0;
     padding: 0.75rem;
 
