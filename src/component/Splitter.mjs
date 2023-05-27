@@ -136,16 +136,17 @@ class Splitter extends Component {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     onDragEnd(data) {
         let me         = this,
             style      = me.style || {},
+            parentId   = me.parentId,
             resizeNext = me.resizeTarget === 'next',
             size       = me.size,
             index, newSize, sibling, parent;
 
-        Neo.getComponent(me.parentId).disabled = false;
+        Neo.getComponent(parentId).disabled = false;
 
         me.dragZone.dragEnd(data);
 
@@ -153,8 +154,8 @@ class Splitter extends Component {
 
         me.style = style;
 
-        me.getDomRect(me.parentId).then(parentRect => {
-            parent  = Neo.getComponent(me.parentId);
+        me.getDomRect(parentId).then(parentRect => {
+            parent  = Neo.getComponent(parentId);
             index   = parent.indexOf(me);
             sibling = parent.items[resizeNext ? index + 1 :index - 1];
             style   = sibling.style || {};
