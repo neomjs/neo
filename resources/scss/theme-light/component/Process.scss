@@ -1,11 +1,11 @@
 $neoMap: map-merge($neoMap, (
-        'process-arrow-color'     : #ffdb4a,
-        'process-background-color': #fff,
-        'process-icon-color'      : #a3996f,
-        'process-icon-size'     : 2rem,
-        'process-shadow-color'  : rgba(0, 0, 0, .5),
-        'process-title-color'   : #363636,
-        'process-text-color'    : #444444
+  'process-arrow-color'     :  #6d5f28,
+  'process-background-color': #fff,
+  'process-icon-color'      : #a3996f,
+  'process-icon-size'       : 2rem,
+  'process-shadow-color'    : rgba(0, 0, 0, .5),
+  'process-title-color'     : #363636,
+  'process-text-color'      : #444444
 ));
 
 @if $useCssVars == true {
