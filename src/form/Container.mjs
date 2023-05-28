@@ -198,46 +198,63 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Set field configs by field name or field id
+     * @param {Object} configs={}
+     * @param {Boolean} suspendEvents=false
+     */
+    async setConfigs(configs={}, suspendEvents=false) {
+        let me     = this,
+            fields = await me.getFields(),
+            fieldConfigs, isCheckBox, isRadio, path, value;
+
+        fields.forEach(item => {
+            path         = me.getFieldPath(item);
+            fieldConfigs = Neo.nsWithArrays(path, false, configs);
+
+            if (fieldConfigs) {
+                if (suspendEvents) {
+                    item.suspendEvents = true;
+                }
+
+                isCheckBox = Neo.form.field?.CheckBox && item instanceof Neo.form.field.CheckBox;
+                value      = fieldConfigs.value;
+
+                if (isCheckBox) {
+                    if (Neo.typeOf(value) === 'Array') {
+                        if (value.includes(item.value)) {
+                            fieldConfigs.checked = true
+                        }
+                    } else {
+                        fieldConfigs.checked = item.value === value
+                    }
+                } else if (value !== undefined) {
+                    isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
+
+                    if (isRadio) {
+                        fieldConfigs.checked = item.value === value
+                    }
+                }
+
+                item.set(fieldConfigs)
+
+                if (suspendEvents) {
+                    delete item.suspendEvents;
+                }
+            }
+        })
+    }
+
+    /**
      * Set field values by field name or field id
      * @param {Object} values={}
      * @param {Boolean} suspendEvents=false
      */
     async setValues(values={}, suspendEvents=false) {
-        let me     = this,
-            fields = await me.getFields(),
-            isCheckBox, isRadio, path, value;
-
-        fields.forEach(item => {
-            if (suspendEvents) {
-                item.suspendEvents = true;
-            }
-
-            isCheckBox = Neo.form.field?.CheckBox && item instanceof Neo.form.field.CheckBox;
-            path       = me.getFieldPath(item);
-            value      = Neo.nsWithArrays(path, false, values);
-
-            if (isCheckBox) {
-                if (Neo.typeOf(value) === 'Array') {
-                    if (value.includes(item.value)) {
-                        item.checked = true
-                    }
-                } else {
-                    item.checked = item.value === value
-                }
-            } else if (value !== undefined) {
-                isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
-
-                if (isRadio) {
-                    item.checked = item.value === value
-                } else {
-                    item.value = value
-                }
-            }
-
-            if (suspendEvents) {
-                delete item.suspendEvents;
-            }
+        Object.entries(values).forEach(([key, value]) => {
+            values[key] = {value}
         })
+
+        await this.setConfigs(values, suspendEvents)
     }
 
     /**
