@@ -5,12 +5,12 @@ import CheckBox              from "../../../src/form/field/CheckBox.mjs";
 import ColorField             from "../../../src/form/field/Color.mjs"
 
 /**
- * @class Neo.examples.component.accordion.MainContainer
+ * @class Neo.examples.component.process.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.component.accordion.MainContainer',
+        className           : 'Neo.examples.component.process.MainContainer',
     }
 
     createConfigurationComponents() {
