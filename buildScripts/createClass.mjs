@@ -164,7 +164,7 @@ if (programOpts.info) {
             console.log(chalk.red('Drop mode not yet supported for the neo framework scope'));
             process.exit(1);
         } else {
-            classFolder = path.join(cwd, '/src/', ns.join('/'));
+            classFolder = path.join(cwd, className.startsWith('Neo.examples') ? '/' : '/src/', ns.join('/'));
             folderDelta = ns.length;
         }
     } else {
@@ -551,11 +551,19 @@ if (programOpts.info) {
             baseFileName  = opts.baseFileName,
             baseClassPath = baseClass.split('.').join('/'),
             className     = opts.className,
-            importSrc     = root === 'Neo' ? '' : 'src/',
+            importSrc     = 'src/',
             isSingleton   = opts.isSingleton,
             file          = opts.file,
             i             = 0,
             importDelta   = '';
+
+        if (root === 'Neo') {
+            if (className.startsWith('Neo.examples')) {
+                importSrc = 'src/';
+            } else {
+                importSrc = '';
+            }
+        }
 
         for (; i < opts.folderDelta; i++) {
             importDelta += '../';
