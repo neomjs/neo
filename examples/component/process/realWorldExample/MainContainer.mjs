@@ -10,7 +10,7 @@ import Process               from '../../../../src/component/Process.mjs';
 import RangeField            from "../../../../src/form/field/Range.mjs"
 import SelectField           from "../../../../src/form/field/Select.mjs";
 import TextField             from "../../../../src/form/field/Text.mjs"
-import Toast               from '../../../../src/component/Toast.mjs';
+import Toast                 from '../../../../src/component/Toast.mjs';
 
 /**
  * @class Neo.examples.component.process.realWorldExample.MainContainer
@@ -22,7 +22,7 @@ class MainContainer extends ConfigurationViewport {
         configItemLabelWidth: 110,
         configItemWidth     : 250,
         configPanelMinWidth : 250,
-        configPanelFlex: 'none',
+        configPanelFlex     : 'none',
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
@@ -62,21 +62,23 @@ class MainContainer extends ConfigurationViewport {
 
         return Neo.create({
             module      : Container,
-            maxWidth: 450,
-            maxHeight: '100%',
+            maxWidth    : 450,
+            maxHeight   : '100%',
             style       : {
                 overflowY: 'auto',
-                margin: '0 auto'
+                margin   : '0 auto'
             },
             itemDefaults: {
                 horizontal: false
             },
             items       : [{
                 module: Component,
-                vdom: {cn: [
-                    {tag:'img',src: './RangeHeader.jpg', width: '100%'}
-                ]}
-            },{
+                vdom  : {
+                    cn: [
+                        {tag: 'img', src: './RangeHeader.jpg', width: '100%'}
+                    ]
+                }
+            }, {
                 module: Process,
                 flag  : 'start-process',
                 items : [{
@@ -103,7 +105,7 @@ class MainContainer extends ConfigurationViewport {
                     minValue         : 1,
                     maxValue         : 100,
                     value            : 100,
-                    listeners: {change: onRangeChange}
+                    listeners        : {change: onRangeChange}
                 }, {
                     module   : NumberField,
                     flag     : 'start-km',
@@ -132,7 +134,7 @@ class MainContainer extends ConfigurationViewport {
                     minValue         : 0,
                     maxValue         : 99,
                     value            : 0,
-                    listeners: {change: onRangeChange}
+                    listeners        : {change: onRangeChange}
                 }, {
                     module   : NumberField,
                     flag     : 'end-km',
@@ -178,8 +180,8 @@ class MainContainer extends ConfigurationViewport {
                 }]
             }, {
                 module      : Form,
-                flag: 'additional-information',
-                disabled: true,
+                flag        : 'additional-information',
+                disabled    : true,
                 layout      : {ntype: 'vbox', align: 'stretch'},
                 itemDefaults: {
                     showResultInLabel: true,
@@ -192,7 +194,7 @@ class MainContainer extends ConfigurationViewport {
                     value       : 'normal',
 
                     store: {
-                        data  : [
+                        data : [
                             {style: 'sportStyle', name: 'sport', code: 'sportCode'},
                             {style: 'nomalStyle', name: 'normal', code: 'normalCode'},
                             {style: 'ecoStyle', name: 'eco', code: 'ecoCode'},
@@ -218,11 +220,11 @@ class MainContainer extends ConfigurationViewport {
                     minValue : -20,
                     maxValue : 50
                 }, {
-                    module: Button,
-                    text: 'Speichern und Auswerten',
-                    ui: 'secondary',
-                    style: {
-                        minHeight: '50px',
+                    module : Button,
+                    text   : 'Speichern und Auswerten',
+                    ui     : 'secondary',
+                    style  : {
+                        minHeight   : '50px',
                         marginBottom: '35px'
                     },
                     handler: me.onSaveClick.bind(me)
@@ -244,17 +246,18 @@ class MainContainer extends ConfigurationViewport {
         });
     }
 
+    /**
+     * @param {Object} data
+     */
     onRangeChange(data) {
-        console.log('###')
-        const me           = this,
-              startBattery = me.down({flag: 'start-battery'}).value,
-              endBatteryEl = me.down({flag: 'end-battery'}),
-              endBattery   = endBatteryEl.value,
-              startKm      = me.down({flag: 'start-km'}).value,
-              endKmEl      = me.down({flag: 'end-km'}),
-              endKm        = endKmEl.value,
-              temperature  = me.down({flag: 'temperature'}).value,
-            additionalInformationEl = me.down({flag: 'additional-information'});
+        const me                      = this,
+              startBattery            = me.down({flag: 'start-battery'}).value,
+              endBatteryEl            = me.down({flag: 'end-battery'}),
+              endBattery              = endBatteryEl.value,
+              startKm                 = me.down({flag: 'start-km'}).value,
+              endKmEl                 = me.down({flag: 'end-km'}),
+              endKm                   = endKmEl.value,
+              additionalInformationEl = me.down({flag: 'additional-information'});
 
         if (startKm) {
             const startProcess = this.down({flag: 'start-process'});
@@ -267,7 +270,7 @@ class MainContainer extends ConfigurationViewport {
             startProcess.arrowColor = '#12FE88';
         }
 
-        if ((startKm && !endKm)|| endKm <= startKm) {
+        if ((startKm && !endKm) || endKm <= startKm) {
             endKmEl.value = startKm + 5;
         }
         if (endBattery >= startBattery) {
@@ -275,18 +278,17 @@ class MainContainer extends ConfigurationViewport {
         }
 
         if (startKm && endKm) {
-            additionalInformationEl.disabled = false;
-            // TODO : 'km/kWh|Autobahn(Percentage)|Stil(Eco,Norm,Sport)',
-            const resultEl    = me.down({flag: 'result'}),
-                  kwpMaxEl    = me.down({flag: 'max-capacity'}),
-                  remainKwhEl = me.down({flag: 'remain-kWh'}),
-                  averageKwhEl = me.down({flag: 'average-kWh'}),
+            const resultEl      = me.down({flag: 'result'}),
+                  kwpMaxEl      = me.down({flag: 'max-capacity'}),
+                  remainKwhEl   = me.down({flag: 'remain-kWh'}),
+                  averageKwhEl  = me.down({flag: 'average-kWh'}),
                   maxCapacityEl = me.down({flag: 'max-capacity'}),
-                  batteryDiff = startBattery - endBattery,
-                  kmDiff      = endKm - startKm,
-                  kWhUsed = maxCapacityEl.value * (batteryDiff / 100),
-                  resultKm    = (endBattery) * kmDiff / batteryDiff;
+                  batteryDiff   = startBattery - endBattery,
+                  kmDiff        = endKm - startKm,
+                  kWhUsed       = maxCapacityEl.value * (batteryDiff / 100),
+                  resultKm      = (endBattery) * kmDiff / batteryDiff;
 
+            additionalInformationEl.disabled = false;
             resultEl.value = Math.ceil(resultKm);
             remainKwhEl.value = Math.ceil(kwpMaxEl.value * (endBattery / 100));
             averageKwhEl.value = Math.ceil(100 * (kWhUsed / kmDiff));
@@ -295,30 +297,34 @@ class MainContainer extends ConfigurationViewport {
         }
     }
 
+    /**
+     * Shows a toast
+     */
     onSaveClick() {
         const averageKwh = this.down({flag: 'average-kWh'}).value;
-        let msg= `Du hast einen durchschnittlichen Verbrauch von ${averageKwh} kwh/100km.`,
+        let msg     = `Du hast einen durchschnittlichen Verbrauch von ${averageKwh} kwh/100km.`,
             iconCls = 'fa fa-user-tie',
-            title = 'results',
+            title   = 'results',
             ui;
-        if(averageKwh > 25) {
+
+        if (averageKwh > 25) {
             msg = `Du bist seeehr sportlich unterwegs mit ${averageKwh} kWh auf 100km`;
-            iconCls = 'fa fa-flag-checkered',
-            ui = 'danger',
+            iconCls = 'fa fa-flag-checkered';
+            ui = 'danger';
             title = 'racing';
         } else if (averageKwh < 15) {
-            msg= `Du bist sehr umweltbewusst gefahren und hast nur ${averageKwh} kwh/100km verbraucht.`;
-            iconCls = 'fa-brands fa-pagelines'
-            ui = 'success',
+            msg = `Du bist sehr umweltbewusst gefahren und hast nur ${averageKwh} kwh/100km verbraucht.`;
+            iconCls = 'fa-brands fa-pagelines';
+            ui = 'success';
             title = 'ECO';
         }
 
         Neo.toast({
             appName: this.appName,
-            ui: ui,
+            ui     : ui,
             iconCls: iconCls,
-            title: title,
-            msg: msg
+            title  : title,
+            msg    : msg
         });
     }
 }
