@@ -88,12 +88,9 @@ class Range extends Number {
      * Override the NumberField implementation
      * @param {Object} data
      */
-    onInputValueChange(data) {
-        const me = this;
-
-        me.addValueToLabel();
-
-        super.onInputValueChange(data);
+    afterSetValue(value, oldValue) {
+        this.addValueToLabel();
+        super.afterSetValue(value, oldValue);
     }
 
     /**
