@@ -148,7 +148,7 @@ class Number extends Text {
 
         me.changeInputElKey('step', value);
 
-        stepSizeString = String(this.stepSize);
+        stepSizeString = String(value);
 
         me.stepSizeDigits = stepSizeString.includes('.') ? stepSizeString.split('.')[1].length : 0;
 
@@ -157,13 +157,41 @@ class Number extends Text {
 
             if (modulo !== 0) { // find the closest valid value
                 if (modulo / value > 0.5) {
-                    if      (val + value - modulo < me.maxValue) {me.value = val + value - modulo;}
-                    else if (val - modulo > me.minValue)         {me.value = val - modulo;}
+                    if (val + value - modulo < me.maxValue) {
+                        me.value = val + value - modulo;
+                    } else if (val - modulo > me.minValue) {
+                        me.value = val - modulo;
+                    }
                 } else {
-                    if      (val - modulo > me.minValue)         {me.value = val - modulo;}
-                    else if (val + value - modulo < me.maxValue) {me.value = val + value - modulo;}
+                    if (val - modulo > me.minValue) {
+                        me.value = val - modulo;
+                    } else if (val + value - modulo < me.maxValue) {
+                        me.value = val + value - modulo;
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Triggered after the triggerPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTriggerPosition(value, oldValue) {
+        oldValue && this.updateTriggers();
+    }
+
+    /**
+     * Triggered after the useSpinButtons config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseSpinButtons(value, oldValue) {
+        if (typeof oldValue === 'boolean') {
+            this.updateTriggers();
         }
     }
 
@@ -196,28 +224,6 @@ class Number extends Text {
     }
 
     /**
-     * Triggered after the triggerPosition config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetTriggerPosition(value, oldValue) {
-        oldValue && this.updateTriggers();
-    }
-
-    /**
-     * Triggered after the useSpinButtons config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetUseSpinButtons(value, oldValue) {
-        if (typeof oldValue === 'boolean') {
-            this.updateTriggers();
-        }
-    }
-
-    /**
      * Triggered before the triggerPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -229,18 +235,24 @@ class Number extends Text {
 
     /**
      * Triggered before the value config gets changed
-     * @param {Number} value
+     * @param {Number|String} value
      * @param {Number} oldValue
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        if (Neo.isNumber(value) && this.stepSizeDigits > 0) {
-            return +value.toFixed(this.stepSizeDigits)
-        } else if (value === '') {
-            return null
+        if (value === null || value === '') {
+            return null;
         }
 
-        return value
+        if (!Neo.isNumber(value)) {
+            value = +value;
+        }
+
+        if (this.stepSizeDigits > 0) {
+            value = +value.toFixed(this.stepSizeDigits);
+        }
+
+        return value;
     }
 
     /**
@@ -366,7 +378,7 @@ class Number extends Text {
                 }
 
                 me.removeTrigger('spindown', true, triggers);
-                me.removeTrigger('spinup',   true, triggers);
+                me.removeTrigger('spinup', true, triggers);
             } else {
                 if (!me.hasTrigger('spindown')) {
                     triggers.push(SpinDownTrigger);
@@ -379,8 +391,8 @@ class Number extends Text {
                 me.removeTrigger('spinupdown', true, triggers);
             }
         } else {
-            me.removeTrigger('spindown',   true, triggers);
-            me.removeTrigger('spinup',     true, triggers);
+            me.removeTrigger('spindown', true, triggers);
+            me.removeTrigger('spinup', true, triggers);
             me.removeTrigger('spinupdown', true, triggers);
         }
 
@@ -392,7 +404,7 @@ class Number extends Text {
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate(silent=true) {
+    validate(silent = true) {
         let me          = this,
             value       = me.value,
             isNumber    = Neo.isNumber(value),
