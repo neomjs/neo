@@ -118,7 +118,7 @@ class Process extends Base {
 
         let style = this.style;
 
-        style['--process-arrow-color'] = newValue;
+        style['--process-arrow-color'] = newValue + '!important';
         this.style = style;
     }
 
@@ -147,7 +147,7 @@ class Process extends Base {
         if (newValue === null) return;
         let style = this.style;
 
-        style['--process-icon-color'] = newValue;
+        style['--process-icon-color'] = newValue + '!important';
 
         this.style = style;
     }
@@ -171,7 +171,7 @@ class Process extends Base {
                 content = curItem.cn[3];
 
             content.cn[0].cls.push(newItem.iconCls);
-            content.cn[1].innerHTML = newItem.header;
+            content.cn[1].innerHTML = newItem.title;
             content.cn[2].innerHTML = newItem.text;
 
             NeoArray.add(vdomRoot.cn, curItem);
