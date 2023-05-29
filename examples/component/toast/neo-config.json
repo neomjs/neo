@@ -3,5 +3,5 @@
     "basePath"        : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["HighlightJS", "Stylesheet"]
+    "mainThreadAddons": ["HighlightJS", "Stylesheet", "ScrollSync"]
 }
