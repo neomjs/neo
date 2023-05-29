@@ -51,20 +51,23 @@ class MainContainer extends Viewport {
                 labelText: 'iconCls',
                 name     : 'iconCls'
             }, {
-                module   : SelectField,
-                labelText: 'position = tr',
-                name     : 'position',
-                store    : {data: [{name: 'tl'}, {name: 'tc'}, {name: 'tr'}, {name: 'bl'}, {name: 'bc'}, {name: 'br'}]}
+                module    : SelectField,
+                labelText : 'position = tr',
+                name      : 'position',
+                store     : {data: [{name: 'tl'}, {name: 'tc'}, {name: 'tr'}, {name: 'bl'}, {name: 'bc'}, {name: 'br'}]},
+                valueField: 'name'
             }, {
                 module   : SelectField,
                 labelText: 'slideDirection = right',
                 name     : 'slideDirection',
-                store    : {data: [{name: 'down'}, {name: 'up'}, {name: 'left'}, {name: 'right'}]}
+                store    : {data: [{name: 'down'}, {name: 'up'}, {name: 'left'}, {name: 'right'}]},
+                valueField: 'name'
             }, {
                 module   : SelectField,
                 labelText: 'ui = info',
                 name     : 'ui',
-                store    : {data: [{name: 'info'}, {name: 'danger'}, {name: 'success'}]}
+                store    : {data: [{name: 'info'}, {name: 'danger'}, {name: 'success'}]},
+                valueField: 'name'
             }, {
                 module   : NumberField,
                 labelText: 'minHeight = 50',
