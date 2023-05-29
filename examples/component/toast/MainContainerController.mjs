@@ -33,19 +33,19 @@ class MainContainerController extends ComponentController {
             output  = me.getReference('output'),
             button  = me.getReference('creation-button'),
             oVdom   = output.vdom.cn[0].cn[0],
-            isValid = form.isValid(),
+            isValid = await form.isValid(),
             values;
 
         if (Neo.isBoolean(data.value)) {
             me.getReference('closable').value = data.value;
         }
 
-        values = form.getValues();
+        values = await form.getValues();
 
         values.appName = me.component.appName;
         button.disabled = !isValid;
 
-        if (form.validate()) {
+        if (isValid) {
             oVdom.cn = output.itemTpl(values);
 
             output.update();
@@ -58,10 +58,10 @@ class MainContainerController extends ComponentController {
     /**
      * Cleanup the values and show the toast
      */
-    createToast() {
+    async createToast() {
         let me     = this,
             form   = me.getReference('form'),
-            values = form.getValues(),
+            values = await form.getValues(),
             clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable', 'timeout'];
 
         // use the defaults from toast if not set
