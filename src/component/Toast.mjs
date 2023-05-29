@@ -245,12 +245,13 @@ class Toast extends Base {
      */
     async destroy(...args) {
         let me = this;
+        const superDestroy = super.destroy.bind(me);
 
         me.addDomListeners({
             animationend: function () {
                 ToastManager.removeToast(me.id);
                 ToastManager.unregister(me);
-                me.destroy(true);
+                superDestroy(...args);
             }
         });
 

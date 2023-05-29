@@ -204,7 +204,11 @@ class Toast extends Base {
             component.style = moveObj;
             component.update();
 
-            acc = acc + rects[index].height;
+            // Sometimes the index is already reduced
+            // so the last index might not be available
+            if(rects[index]) {
+                acc = acc + rects[index].height;
+            }
         }
     }
 }

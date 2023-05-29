@@ -31,13 +31,18 @@ class Range extends Number {
          */
         inputType: 'range',
         /**
+         * If true, shows the result of the slider in the label
+         * @member {Boolean} showResultInLabel=false
+         */
+        showResultInLabel: false,
+        /**
          * @member {Array} tickmarks_=[]
          */
         tickmarks_: [],
         /**
          * @member {Boolean} useInputEvent=false
          */
-        useInputEvent : false,
+        useInputEvent: false,
         /**
          * Disables the field.Number buttons
          * @member {Boolean} useInputEvent=false
@@ -57,14 +62,16 @@ class Range extends Number {
         if (me.useInputEvent) {
             me.addDomListeners({
                 input: {
-                    fn    : me.onInputValueChange,
-                    id    : me.vdom.cn[2].id,
-                    scope : me
+                    fn   : me.onInputValueChange,
+                    id   : me.vdom.cn[2].id,
+                    scope: me
                 }
             });
         }
 
         inputEl.cls = ['neo-rangefield-input']; // replace neo-textfield-input
+
+        me.addValueToLabel();
     }
 
     /**
@@ -75,6 +82,26 @@ class Range extends Number {
      */
     afterSetTickmarks(value, oldValue) {
         // todo
+    }
+
+    /**
+     * Override the NumberField implementation
+     * @param {Object} data
+     */
+    afterSetValue(value, oldValue) {
+        this.addValueToLabel();
+        super.afterSetValue(value, oldValue);
+    }
+
+    /**
+     * Update label with value
+     */
+    addValueToLabel() {
+        const me = this;
+
+        if (me.showResultInLabel) {
+            me.getLabelEl().innerHTML = `[${me.value}] ` + me.labelText;
+        }
     }
 }
 

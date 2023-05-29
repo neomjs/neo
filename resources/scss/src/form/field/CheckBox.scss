@@ -1,5 +1,6 @@
 .neo-checkboxfield {
     .neo-checkbox-input {
+        margin: 0;
         width: 0; // using display: none would break the keynav
 
         &:checked {

@@ -35,9 +35,13 @@ class ConfigurationViewport extends Viewport {
          */
         configItemWidth: 270,
         /**
-         * @member {Number} configItemWidth=270
+         * @member {Number} configPanelFlex=1
          */
         configPanelFlex: 1,
+        /**
+         * @member {Number} configPanelMinWidth=350
+         */
+        configPanelMinWidth: 350,
         /**
          * @member {Neo.component.Base|null} exampleComponent=null
          */
@@ -70,7 +74,7 @@ class ConfigurationViewport extends Viewport {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
             flex  : me.configPanelFlex,
-            style : {margin: '20px', minWidth: '350px'},
+            style : {margin: '20px', minWidth: me.configPanelMinWidth},
 
             containerConfig: {
                 style: {overflowY: 'scroll'}
