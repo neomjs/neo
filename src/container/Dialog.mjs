@@ -21,7 +21,7 @@ class Dialog extends Base {
          */
         ntype: 'container-dialog',
         /**
-        * @member {String[]} baseCls=['container-dialog']
+        * @member {String[]} baseCls=['neo-container-dialog', 'neo-panel', 'neo-container']
         * @protected
         */
         baseCls: ['neo-container-dialog', 'neo-panel', 'neo-container'],
@@ -34,10 +34,16 @@ class Dialog extends Base {
          */
         headerToolbar: null,
         /**
-         * The CSS class to use for an icon, e.g. 'fa fa-home'
-         * @member {String|null} [iconCls_=null]
+         * The CSS class to use for an icon, e.g. ['fa', 'fa-home']
+         * @member {String[]} [iconCls_=null]
          */
         iconCls_: null,
+        /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            baseCls: ['neo-dialog-content']
+        },
         /**
          * @member {Object[]} items
          */
@@ -125,8 +131,9 @@ class Dialog extends Base {
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             items    : [{
-                cls: me.iconCls,
-                flag     : 'dialog-header-icon',
+                ntype: '',
+                cls  : ['neo-dialog-header-icon', ...me.iconCls],
+                flag : 'dialog-header-icon',
             }, {
                 ntype : 'label',
                 cls   : ['neo-panel-header-text', 'neo-label'],
