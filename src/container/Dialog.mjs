@@ -88,8 +88,8 @@ class Dialog extends Base {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        this.headerToolbar?.set({
-            title: value
+        this.headerToolbar?.down({flag: 'panel-header-title'}).set({
+            text: value
         });
     }
 
@@ -130,7 +130,7 @@ class Dialog extends Base {
             }, {
                 ntype : 'label',
                 cls   : ['neo-panel-header-text', 'neo-label'],
-                flag  : 'title-label',
+                flag  : 'panel-header-title',
                 hidden: !me.title,
                 text  : me.title
             }, ...me.headerConfig.items || []],
