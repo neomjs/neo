@@ -21,9 +21,17 @@ class Dialog extends Base {
          */
         ntype: 'container-dialog',
         /**
-        * @member {String[]} baseCls=['neo-container-dialog', 'neo-panel', 'neo-container']
-        * @protected
-        */
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Boolean} autoRender=true
+         */
+        autoRender: true,
+        /**
+         * @member {String[]} baseCls=['neo-container-dialog', 'neo-panel', 'neo-container']
+         * @protected
+         */
         baseCls: ['neo-container-dialog', 'neo-panel', 'neo-container'],
         /**
          * @member {Object} headerConfig=null
