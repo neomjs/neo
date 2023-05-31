@@ -1,5 +1,6 @@
 import Base           from '../core/Base.mjs';
 import Observable     from '../core/Observable.mjs';
+import StringUtil     from '../util/String.mjs';
 import TouchDomEvents from './mixin/TouchDomEvents.mjs';
 
 const globalDomEvents = [
@@ -415,7 +416,7 @@ class DomEvents extends Base {
         data = {
             ...this.getEventData(event),
             valid: target.checkValidity(),
-            value: target.value
+            value: (target.tagName === 'INPUT') ? StringUtil.escapeHtml(target.value) : target.value
         };
 
         // input and change events can pass a FileList for input type file
