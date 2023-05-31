@@ -55,7 +55,7 @@
         "inquirer": "^9.2.6",
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.5",
-        "postcss": "^8.4.23",
+        "postcss": "^8.4.24",
         "sass": "^1.62.1",
         "webpack": "^5.84.1",
         "webpack-cli": "^5.1.1",
