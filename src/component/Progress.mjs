@@ -20,14 +20,92 @@ class Progress extends Base {
          * @member {String[]} baseCls=['neo-progress-label']
          * @protected
          */
-        baseCls: ['neo-progress-label'],
+        baseCls: ['neo-progress'],
+        /**
+         * @member {String} labelText_=null
+         */
+        labelText_: null,
+        /**
+         * @member {Number} max_=100
+         */
+        max_: 100,
+        /**
+         * @member {Number} value_=null
+         */
+        value_: null,
         /**
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'label', cn: [
-            {tag: 'progress', cls: ['neo-progress']}
-        ]}
+        {tag: 'div', cls: ['neo-progress'], cn: [
+            {tag: 'label'},
+            {tag: 'progress'}
+        ]},
+    }
+
+    /**
+     * Triggered after the labelText config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLabelText(value, oldValue) {
+        this.vdom.cn[0].html = value;
+        this.update();
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        let childId = value + '__progress-el'; 
+        this.vdom.cn[0].for = childId;
+        this.vdom.cn[1].id = childId;
+        this.update();
+    }
+
+    /**
+     * Triggered after the max config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMax(value, oldValue) {
+        this.vdom.cn[1].max = value;
+        this.update();
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        this.vdom.cn[1].value = value;
+        console.log(value)
+        this.update();
+    }
+
+    /**
+     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[1];
+    }
+
+    /**
+     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[1];
     }
 }
 

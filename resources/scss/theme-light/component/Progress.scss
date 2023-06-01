@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+    'progress-label-color': #000
+));
+
+@if $useCssVars == true {
+    :root .neo-theme-light {
+        --progress-label-color: #{neo(progress-label-color)};
+    }
+}
