@@ -6,7 +6,17 @@
         display: none;
     }
 
-    > div {
+    .neo-header-toolbar {
+        padding: 1em;
+        align-items: baseline;
+
+        .neo-dialog-header-icon {
+            font-size: 16px;
+            margin-right: .25em;
+        }
+    }
+
+    .neo-dialog-content {
         padding: 1em;
     }
 }

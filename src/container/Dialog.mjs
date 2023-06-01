@@ -21,9 +21,17 @@ class Dialog extends Base {
          */
         ntype: 'container-dialog',
         /**
-        * @member {String[]} baseCls=['container-dialog']
-        * @protected
-        */
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Boolean} autoRender=true
+         */
+        autoRender: true,
+        /**
+         * @member {String[]} baseCls=['neo-container-dialog', 'neo-panel', 'neo-container']
+         * @protected
+         */
         baseCls: ['neo-container-dialog', 'neo-panel', 'neo-container'],
         /**
          * @member {Object} headerConfig=null
@@ -34,10 +42,16 @@ class Dialog extends Base {
          */
         headerToolbar: null,
         /**
-         * The CSS class to use for an icon, e.g. 'fa fa-home'
-         * @member {String|null} [iconCls_=null]
+         * The CSS class to use for an icon, e.g. ['fa', 'fa-home']
+         * @member {String[]} [iconCls_=null]
          */
         iconCls_: null,
+        /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            baseCls: ['neo-dialog-content']
+        },
         /**
          * @member {Object[]} items
          */
@@ -68,11 +82,9 @@ class Dialog extends Base {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        console.log(value, oldValue)
-        
         if (!this.headers) { return }
-        let iconNode = this.headers.down({flag: 'dialog-header-icon'});
-        let iconNodeCls = [...iconNode.cls];
+        let iconNode    = this.headers.down({flag: 'dialog-header-icon'}),
+            iconNodeCls = [...iconNode.cls];
 
         NeoArray.remove(iconNodeCls, oldValue);
         NeoArray.add(   iconNodeCls, value);
@@ -90,41 +102,11 @@ class Dialog extends Base {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        this.headerToolbar?.set({
-            title: value
+        this.headerToolbar?.down({flag: 'panel-header-title'}).set({
+            text: value
         });
     }
 
-    /**
-     * Converts the iconCls array into a string on beforeGet
-     * @returns {String}
-     * @protected
-     */
-    beforeGetIconCls() {
-        let iconCls = this._iconCls;
-
-        if (Array.isArray(iconCls)) {
-            return iconCls.join(' ');
-        }
-
-        return iconCls;
-    }
-
-    /**
-     * Triggered before the iconCls config gets changed. Converts the string into an array if needed.
-     * @param {Array|String|null} value
-     * @param {Array|String|null} oldValue
-     * @returns {Array}
-     * @protected
-     */
-    beforeSetIconCls(value, oldValue) {
-        if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean);
-        }
-
-        return value;
-    }
- 
     /**
      * close the dialog in main thread
      */
@@ -141,15 +123,15 @@ class Dialog extends Base {
      * @protected
      */
     createHeader() {
-        let me      = this,
-            cls     = ['neo-header-toolbar', 'neo-toolbar'],
-            headers = me.headers || [],
+        let me               = this,
+            cls              = ['neo-header-toolbar', 'neo-toolbar'],
+            headers          = me.headers || [],
             headerConfigCopy = {...me.headerConfig};
         delete headerConfigCopy.items;
 
         me.headerToolbar = Neo.create({
             module   : HeaderToolbar,
-            actions: [{action: 'close', iconCls: 'fa-solid fa-xmark'}],
+            actions  : [{action: 'close', iconCls: 'fa-solid fa-xmark'}],
             appName  : me.appName,
             cls,
             dock     : 'top',
@@ -157,15 +139,16 @@ class Dialog extends Base {
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             items    : [{
-                cls: me.iconCls,
-                flag     : 'dialog-header-icon',
+                ntype: '',
+                cls  : ['neo-dialog-header-icon', ...me.iconCls],
+                flag : 'dialog-header-icon',
             }, {
-                ntype    : 'label',
-                cls      : ['neo-panel-header-text', 'neo-label'],
-                flag     : 'title-label',
-                removeDom: !me.title,
-                text     : me.title
-            }, ...me.headerConfig.items],
+                ntype : 'label',
+                cls   : ['neo-panel-header-text', 'neo-label'],
+                flag  : 'panel-header-title',
+                hidden: !me.title,
+                text  : me.title
+            }, ...me.headerConfig.items || []],
             
             ...headerConfigCopy
         });
@@ -182,7 +165,7 @@ class Dialog extends Base {
         let me = this,
 
         map = {
-            close   : me.close
+            close: me.close
         };
 
         map[data.action]?.call(me, data);
