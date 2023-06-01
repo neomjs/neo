@@ -12,10 +12,22 @@ class Progress extends Base {
          */
         className: 'Neo.component.Progress',
         /**
+         * @member {String} ntype='progress'
+         * @protected
+         */
+        ntype: 'progress',
+        /**
+         * @member {String[]} baseCls=['neo-progress-label']
+         * @protected
+         */
+        baseCls: ['neo-progress-label'],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
-        {}
+        {tag: 'label', cn: [
+            {tag: 'progress', cls: ['neo-progress']}
+        ]}
     }
 }
 
