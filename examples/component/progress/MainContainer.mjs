@@ -1,8 +1,7 @@
-import CheckBox                  from '../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport     from '../../ConfigurationViewport.mjs';
-import NumberField               from '../../../src/form/field/Number.mjs';
-import Progress                  from '../../../src/component/Progress.mjs';
-import TextField                 from '../../../src/form/field/Text.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import Progress              from '../../../src/component/Progress.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.component.progress.MainContainer
@@ -53,8 +52,7 @@ class MainContainer extends ConfigurationViewport {
             listeners : {change: me.onConfigChange.bind(me, 'value')},
             maxValue  : 100,
             minValue  : 0,
-            value     : me.exampleComponent.value,
-            //stepSize: 0.01
+            value     : me.exampleComponent.value
         }];
     }
 
@@ -63,7 +61,7 @@ class MainContainer extends ConfigurationViewport {
             module   : Progress,
             height   : 30,
             labelText: 'Hello World',
-            value: 40,
+            value    : 40
         });
     }
 }

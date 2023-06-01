@@ -22,7 +22,7 @@ class Progress extends Base {
          */
         baseCls: ['neo-progress'],
         /**
-         * @member {String} labelText_=null
+         * @member {String|null} labelText_=null
          */
         labelText_: null,
         /**
@@ -30,7 +30,7 @@ class Progress extends Base {
          */
         max_: 100,
         /**
-         * @member {Number} value_=null
+         * @member {Number|null} value_=null
          */
         value_: null,
         /**
@@ -40,18 +40,7 @@ class Progress extends Base {
         {tag: 'div', cls: ['neo-progress'], cn: [
             {tag: 'label'},
             {tag: 'progress'}
-        ]},
-    }
-
-    /**
-     * Triggered after the labelText config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetLabelText(value, oldValue) {
-        this.vdom.cn[0].html = value;
-        this.update();
+        ]}
     }
 
     /**
@@ -61,10 +50,21 @@ class Progress extends Base {
      * @protected
      */
     afterSetId(value, oldValue) {
-        let childId = value + '__progress-el'; 
-        this.vdom.cn[0].for = childId;
-        this.vdom.cn[1].id = childId;
-        this.update();
+        super.afterSetId(value, oldValue);
+
+        this.vdom.cn[0].for = value;
+        this.update()
+    }
+
+    /**
+     * Triggered after the labelText config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelText(value, oldValue) {
+        this.vdom.cn[0].html = value;
+        this.update()
     }
 
     /**
@@ -75,19 +75,18 @@ class Progress extends Base {
      */
     afterSetMax(value, oldValue) {
         this.vdom.cn[1].max = value;
-        this.update();
+        this.update()
     }
 
     /**
      * Triggered after the value config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetValue(value, oldValue) {
         this.vdom.cn[1].value = value;
-        console.log(value)
-        this.update();
+        this.update()
     }
 
     /**
@@ -96,7 +95,7 @@ class Progress extends Base {
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
-        return this.vdom.cn[1];
+        return this.vdom.cn[1]
     }
 
     /**
@@ -105,7 +104,7 @@ class Progress extends Base {
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[1];
+        return this.vnode.childNodes[1]
     }
 }
 
