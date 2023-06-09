@@ -2,6 +2,7 @@ import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import SelectField           from '../../../src/form/field/Select.mjs';
 import SplitButton           from '../../../src/button/Split.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
 
@@ -88,6 +89,22 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
+            module        : SelectField,
+            forceSelection: true,
+            labelText     : 'ui',
+            listeners     : {change: me.onConfigChange.bind(me, 'ui')},
+            style         : {marginTop: '10px'},
+            value         : me.exampleComponent.ui,
+
+            store: {
+                data: [
+                    {id: 'ghost',     name: 'ghost'},
+                    {id: 'primary',   name: 'primary'},
+                    {id: 'secondary', name: 'secondary'},
+                    {id: 'tertiary',  name: 'tertiary'}
+                ]
+            }
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'width',
@@ -104,6 +121,7 @@ class MainContainer extends ConfigurationViewport {
             module : SplitButton,
             iconCls: 'fa fa-home',
             text   : 'Hello World',
+            ui     : 'ghost',
 
             handler: data => {
                 console.log('button click =>', data.component.id);
