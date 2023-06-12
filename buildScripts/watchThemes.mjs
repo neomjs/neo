@@ -3,7 +3,7 @@ import chalk        from 'chalk';
 import fs           from 'fs-extra';
 import path         from 'path';
 import postcss      from 'postcss';
-import sass         from 'sass';
+import * as sass    from 'sass';
 
 let cwd             = process.cwd(),
     requireJson     = path => JSON.parse(fs.readFileSync((path))),

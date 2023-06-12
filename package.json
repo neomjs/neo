@@ -56,7 +56,7 @@
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.5",
         "postcss": "^8.4.24",
-        "sass": "1.62.1",
+        "sass": "1.63.3",
         "webpack": "^5.86.0",
         "webpack-cli": "^5.1.4",
         "webpack-dev-server": "4.15.1",
@@ -65,7 +65,7 @@
     },
     "devDependencies": {
         "siesta-lite": "5.5.2",
-        "url": "^0.11.0"
+        "url": "^0.11.1"
     },
     "funding": {
         "type": "GitHub Sponsors",
