@@ -7,7 +7,7 @@ import fs           from 'fs-extra';
 import inquirer     from 'inquirer';
 import path         from 'path';
 import postcss      from 'postcss';
-import sass         from 'sass';
+import * as sass    from 'sass';
 
 const __dirname          = path.resolve(),
       cwd                = process.cwd(),

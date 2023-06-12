@@ -174,13 +174,18 @@ class Split extends Button {
      * @param {String|null} oldValue
      */
     afterSetUi(value, oldValue) {
-        let triggerButton = this.triggerButton;
+        let me            = this,
+            ntype         = me.ntype,
+            triggerButton = me.triggerButton;
 
         if (triggerButton) {
             triggerButton.ui = value;
         }
 
+        // we do want to assign a button based ui to the vdomRoot
+        me.ntype = 'button';
         super.afterSetUi(value, oldValue);
+        me.ntype = ntype;
     }
 
     /**
