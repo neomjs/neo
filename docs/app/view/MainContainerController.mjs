@@ -20,7 +20,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} record
      */
     onApiListLeafClick(record) {
@@ -36,11 +35,10 @@ class MainContainerController extends Component {
                 iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
                 text   : record.name
             }
-        });
+        })
     }
 
     /**
-     *
      * @param {Object} record
      */
     onExamplesListLeafClick(record) {
@@ -72,7 +70,7 @@ class MainContainerController extends Component {
                         module: module.default,
                         id    : name,
                         tabButtonConfig
-                    });
+                    })
                 }
             );
         } else {
@@ -95,13 +93,12 @@ class MainContainerController extends Component {
                     items,
                     style: {padding: '10px'},
                     tabButtonConfig
-                });
+                })
             })
         }
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -135,7 +132,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNavigationSearchFieldChange(data) {
@@ -169,7 +165,7 @@ class MainContainerController extends Component {
             id     : 'hljs-theme'
         }).then(data => {
             button.text = buttonText;
-        });
+        })
     }
 
     /**
@@ -206,7 +202,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} record
      */
     onTutorialListLeafClick(record) {
@@ -223,7 +218,7 @@ class MainContainerController extends Component {
                 iconCls: 'fa fa-hands-helping',
                 text   : record.name
             }
-        });
+        })
     }
 }
 

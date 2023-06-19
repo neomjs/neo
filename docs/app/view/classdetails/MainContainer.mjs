@@ -87,14 +87,14 @@ class MainContainer extends Container {
                         iconCls  : 'fa fa-check-square',
                         reference: 'showPrivateMembers',
                         style    : {marginRight: '5px'},
-                        text     : 'Private',
+                        text     : 'Private'
                     }, {
                         checked  : true,
                         handler  : 'onToggleMembers',
                         iconCls  : 'fa fa-check-square',
                         reference: 'showProtectedMembers',
                         style    : {marginRight: '5px'},
-                        text     : 'Protected',
+                        text     : 'Protected'
                     }, {
                         checked  : true,
                         handler  : 'onToggleMembers',
