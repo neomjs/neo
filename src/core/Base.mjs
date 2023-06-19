@@ -370,7 +370,7 @@ class Base {
             }
 
             items.forEach(item => {
-                !Neo.typeOf(item) === 'NeoClass' && Object.entries(item).forEach(([key, value]) => {
+                Object.entries(item).forEach(([key, value]) => {
                     if (Array.isArray(value)) {
                         me.parseItemConfigs(value);
                     } else if (typeof value === 'string' && value.startsWith('@config:')) {
