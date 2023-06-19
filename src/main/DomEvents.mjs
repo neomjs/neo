@@ -515,7 +515,8 @@ class DomEvents extends Base {
      */
     onKeyDown(event) {
         let target  = event.target,
-            isInput = target.nodeName === 'INPUT';
+            tagName = target.tagName,
+            isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
             event.preventDefault();
