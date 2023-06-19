@@ -411,12 +411,15 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onChange(event) {
-        let target = event.target,
+        let me      = this,
+            target  = event.target,
+            tagName = target.tagName,
+            value   = target.value,
 
         data = {
-            ...this.getEventData(event),
+            ...me.getEventData(event),
             valid: target.checkValidity(),
-            value: (target.tagName === 'INPUT') ? StringUtil.escapeHtml(target.value) : target.value
+            value: tagName === 'INPUT' ? StringUtil.escapeHtml(value) : tagName === 'TEXTAREA' ? me.stripHtml(value) : value
         };
 
         // input and change events can pass a FileList for input type file
@@ -424,7 +427,7 @@ class DomEvents extends Base {
             data.files = target.files;
         }
 
-        this.sendMessageToApp(data);
+        me.sendMessageToApp(data);
     }
 
     /**
@@ -719,6 +722,17 @@ class DomEvents extends Base {
             eventName: data.type,
             data
         })
+    }
+
+    /**
+     * hello <foo>world thorsten! 3 < 4 and 5 > 3
+     * @param {String} value
+     * @returns {String}
+     */
+    stripHtml(value) {
+        let doc = new DOMParser().parseFromString(value, 'text/html');
+
+        return doc.body.textContent || '';
     }
 
     /**
