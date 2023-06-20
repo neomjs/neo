@@ -33,6 +33,10 @@ class StringUtil extends Base {
         return value.replace(/[&<>"']/g, (char) => this.escapedChars[char] || char);
     }
 
+    static getKeyByValue(value) {
+        return Object.keys(this.escapedChars).find(key => this.escapedChars[key] === value);
+    }
+
     /**
      * Unescape HTML special characters
      * @param {String} value
@@ -44,10 +48,6 @@ class StringUtil extends Base {
 
         return value.replace(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/g, (entity) => this.getKeyByValue(entity) || entity);
     }
-
-    static getKeyByValue(value) {
-        return Object.keys(this.escapedChars).find(key => this.escapedChars[key] === value);
-      }
 }
 
 
