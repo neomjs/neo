@@ -21,6 +21,8 @@ class StringUtil extends Base {
         '\'': '&#039;'
      }
 
+     static charPattern = new RegExp(/[&<>"']/, 'g');
+
      static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
 
     /**
@@ -32,7 +34,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/[&<>"']/g, (char) => this.charEntityMap[char] || char);
+        return value.replace(this.charPattern, (char) => this.charEntityMap[char] || char);
     }
 
     static getKeyByValue(value) {
