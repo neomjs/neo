@@ -13,7 +13,7 @@ class StringUtil extends Base {
         className: 'Neo.util.StringUtil'
     }
     
-     static escapedChars = {
+     static escapedCharMap = {
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
@@ -30,11 +30,11 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/[&<>"']/g, (char) => this.escapedChars[char] || char);
+        return value.replace(/[&<>"']/g, (char) => this.escapedCharMap[char] || char);
     }
 
     static getKeyByValue(value) {
-        return Object.keys(this.escapedChars).find(key => this.escapedChars[key] === value);
+        return Object.keys(this.escapedCharMap).find(key => this.escapedCharMap[key] === value);
     }
 
     /**
