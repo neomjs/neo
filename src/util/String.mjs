@@ -21,6 +21,8 @@ class StringUtil extends Base {
         '\'': '&#039;'
      }
 
+     static escapedCharPattern =  new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
+
     /**
      * Escape HTML special characters
      * @param {String} value
@@ -46,7 +48,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/g, (entity) => this.getKeyByValue(entity) || entity);
+        return value.replace(this.escapedCharPattern, (entity) => this.getKeyByValue(entity) || entity);
     }
 }
 
