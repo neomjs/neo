@@ -13,7 +13,7 @@ class StringUtil extends Base {
         className: 'Neo.util.StringUtil'
     }
     
-     static escapedCharMap = {
+     static charEntityMap = {
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
@@ -21,7 +21,7 @@ class StringUtil extends Base {
         '\'': '&#039;'
      }
 
-     static escapedCharPattern =  new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
+     static entityPattern =  new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
 
     /**
      * Escape HTML special characters
@@ -32,11 +32,11 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/[&<>"']/g, (char) => this.escapedCharMap[char] || char);
+        return value.replace(/[&<>"']/g, (char) => this.charEntityMap[char] || char);
     }
 
     static getKeyByValue(value) {
-        return Object.keys(this.escapedCharMap).find(key => this.escapedCharMap[key] === value);
+        return Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === value);
     }
 
     /**
@@ -48,7 +48,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(this.escapedCharPattern, (entity) => this.getKeyByValue(entity) || entity);
+        return value.replace(this.entityPattern, (entity) => this.getKeyByValue(entity) || entity);
     }
 }
 
