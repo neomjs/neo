@@ -21,7 +21,7 @@ class StringUtil extends Base {
         '\'': '&#039;'
      }
 
-     static entityPattern =  new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
+     static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
 
     /**
      * Escape HTML special characters
@@ -51,7 +51,6 @@ class StringUtil extends Base {
         return value.replace(this.entityPattern, (entity) => this.getKeyByValue(entity) || entity);
     }
 }
-
 
 Neo.applyClassConfig(StringUtil);
 
