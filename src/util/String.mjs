@@ -25,6 +25,15 @@ class StringUtil extends Base {
 
      static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
 
+     static getCharFromEntity(entity) {
+        const mappedChar = Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === entity);
+        return mappedChar || entity;
+     }
+
+     static getEntityFromChar(char) {
+        return this.charEntityMap[char] || char;
+     }
+
     /**
      * Escape HTML special characters
      * @param {String} value
@@ -34,11 +43,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(this.charPattern, (char) => this.charEntityMap[char] || char);
-    }
-
-    static getKeyByValue(value) {
-        return Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === value);
+        return value.replace(this.charPattern, this.getEntityFromChar.bind(this));
     }
 
     /**
@@ -50,7 +55,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(this.entityPattern, (entity) => this.getKeyByValue(entity) || entity);
+        return value.replace(this.entityPattern, this.getCharFromEntity.bind(this));
     }
 }
 
