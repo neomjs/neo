@@ -25,11 +25,19 @@ class StringUtil extends Base {
 
      static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
 
+    /**
+     * Get char equivalent of a mapped entity 
+     * @param {String} entity
+     */
      static getCharFromEntity(entity) {
         const mappedChar = Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === entity);
         return mappedChar || entity;
      }
 
+    /**
+     * Get entity equivalent of a mapped char 
+     * @param {String} char
+     */
      static getEntityFromChar(char) {
         return this.charEntityMap[char] || char;
      }
