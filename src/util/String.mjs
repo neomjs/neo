@@ -1,7 +1,7 @@
 import Base from '../core/Base.mjs';
 
 /**
- * @class Neo.util.StringUtil
+ * @class Neo.util.String
  * @extends Neo.core.Base
  */
 class StringUtil extends Base {
@@ -29,10 +29,10 @@ class StringUtil extends Base {
 
     static config = {
         /**
-         * @member {String} className='Neo.util.StringUtil'
+         * @member {String} className='Neo.util.String'
          * @protected
          */
-        className: 'Neo.util.StringUtil'
+        className: 'Neo.util.String'
     }
 
     /**
