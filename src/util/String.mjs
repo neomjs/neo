@@ -5,6 +5,28 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class StringUtil extends Base {
+    /**
+     * @member {Object} charEntityMap
+     * @static
+     */
+    static charEntityMap = {
+        '&' : '&amp;',
+        '<' : '&lt;',
+        '>' : '&gt;',
+        '"' : '&quot;',
+        '\'': '&#039;'
+    }
+    /**
+     * @member {RegExp} charPattern
+     * @static
+     */
+    static charPattern = /[&<>"']/g
+    /**
+     * @member {RegExp} entityPattern
+     * @static
+     */
+    static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/g
+
     static config = {
         /**
          * @member {String} className='Neo.util.StringUtil'
@@ -12,46 +34,36 @@ class StringUtil extends Base {
          */
         className: 'Neo.util.StringUtil'
     }
-    
-     static charEntityMap = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        '\'': '&#039;'
-     }
-
-     static charPattern = new RegExp(/[&<>"']/, 'g');
-
-     static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
-
-    /**
-     * Get char equivalent of a mapped entity 
-     * @param {String} entity
-     */
-     static getCharFromEntity(entity) {
-        const mappedChar = Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === entity);
-        return mappedChar || entity;
-     }
-
-    /**
-     * Get entity equivalent of a mapped char 
-     * @param {String} char
-     */
-     static getEntityFromChar(char) {
-        return this.charEntityMap[char] || char;
-     }
 
     /**
      * Escape HTML special characters
      * @param {String} value
      */
     static escapeHtml(value) {
+        let me = this; // inside a static method, we are pointing to the class prototype
+
         if (Neo.typeOf(value) !== 'String') {
             return value;
         }
 
-        return value.replace(this.charPattern, this.getEntityFromChar.bind(this));
+        return value.replace(me.charPattern, me.getEntityFromChar.bind(me));
+    }
+
+    /**
+     * Get char equivalent of a mapped entity
+     * @param {String} entity
+     */
+    static getCharFromEntity(entity) {
+        const mappedChar = Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === entity);
+        return mappedChar || entity;
+    }
+
+    /**
+     * Get entity equivalent of a mapped char
+     * @param {String} char
+     */
+    static getEntityFromChar(char) {
+        return this.charEntityMap[char] || char;
     }
 
     /**
@@ -59,11 +71,13 @@ class StringUtil extends Base {
      * @param {String} value
      */
     static unescapeHtml(value) {
+        let me = this; // inside a static method, we are pointing to the class prototype
+
         if (Neo.typeOf(value) !== 'String') {
             return value;
         }
 
-        return value.replace(this.entityPattern, this.getCharFromEntity.bind(this));
+        return value.replace(me.entityPattern, me.getCharFromEntity.bind(me));
     }
 }
 
