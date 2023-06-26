@@ -27,7 +27,6 @@ class Base {
      * @type {Object}
      */
     static overwrittenMethods = {}
-
     /**
      * Set this one to false in case you don't want to stick
      * to the "anti-pattern" to apply classes to the global Neo or App namespace
@@ -36,7 +35,6 @@ class Base {
      * @static
      */
     static registerToGlobalNs = true
-
     /**
      * Configs will get merged throughout the class hierarchy
      * @returns {Object} config
@@ -229,7 +227,7 @@ class Base {
      * @param {String} id
      */
     createId(id) {
-        this.id = id || IdGenerator.getId(this.getIdKey());
+        this.id = id || IdGenerator.getId(this.getIdKey())
     }
 
     /**
@@ -249,7 +247,7 @@ class Base {
             if (Object.getOwnPropertyDescriptor(me, key).writable) {
                 delete me[key];
             }
-        });
+        })
     }
 
     /**
@@ -258,7 +256,7 @@ class Base {
      * @returns {String}
      */
     getIdKey() {
-        return this.ntype;
+        return this.ntype
     }
 
     /**
@@ -267,7 +265,7 @@ class Base {
      * @returns {*}
      */
     getStaticConfig(key) {
-        return this.constructor[key];
+        return this.constructor[key]
     }
 
     /**
@@ -286,7 +284,7 @@ class Base {
         let me = this;
 
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
-        me.processConfigs();
+        me.processConfigs()
     }
 
     /**
@@ -308,10 +306,10 @@ class Base {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 listenerId = currentWorker.on('connected', () => {
                     currentWorker.un('connected', listenerId);
-                    Base.sendRemotes(className, remote);
+                    Base.sendRemotes(className, remote)
                 });
             } else {
-                Base.sendRemotes(className, remote);
+                Base.sendRemotes(className, remote)
             }
         }
     }
@@ -334,7 +332,7 @@ class Base {
             me.originalConfig = Neo.clone(config, true, true);
         }
 
-        return {...ctor.config, ...config};
+        return {...ctor.config, ...config}
     }
 
     /**
@@ -346,7 +344,7 @@ class Base {
         me.isConstructed = true;
 
         // We can only fire the event in case the Observable mixin is included.
-        me.getStaticConfig('observable') && me.fire('constructed', me);
+        me.getStaticConfig('observable') && me.fire('constructed', me)
     }
 
     /**
@@ -392,8 +390,8 @@ class Base {
                             }
                         }
                     }
-                });
-            });
+                })
+            })
         }
     }
 
@@ -420,7 +418,7 @@ class Base {
             // we need to keep this one for configs, which do not use getters (no trailing underscore)
             delete me[configSymbol][keys[0]];
 
-            me.processConfigs(forceAssign);
+            me.processConfigs(forceAssign)
         }
     }
 
@@ -439,7 +437,7 @@ class Base {
                     action: 'registerRemote',
                     className,
                     methods
-                });
+                })
             }
         });
     }
@@ -462,7 +460,7 @@ class Base {
 
         Object.assign(me[configSymbol], values);
 
-        me.processConfigs(true);
+        me.processConfigs(true)
     }
 
     /**
@@ -480,7 +478,7 @@ class Base {
                 me[key] = value;
                 delete config[key];
             }
-        });
+        })
 
         return config;
     }
@@ -496,10 +494,10 @@ class Base {
 
         if (staticConfig.hasOwnProperty(key)) {
             staticConfig[key] = value;
-            return true;
+            return true
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -508,7 +506,7 @@ class Base {
      * @returns {String}
      */
     get [Symbol.toStringTag]() {
-        return `${this.className} (id: ${this.id})`;
+        return `${this.className} (id: ${this.id})`
     }
 
     /**
@@ -521,10 +519,10 @@ class Base {
      */
     static [Symbol.hasInstance](instance) {
         if (!instance) {
-            return false;
+            return false
         }
 
-        return instance[isInstance] === true ? super[Symbol.hasInstance](instance) : false;
+        return instance[isInstance] === true ? super[Symbol.hasInstance](instance) : false
     }
 }
 
