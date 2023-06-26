@@ -13,12 +13,33 @@ class StringUtil extends Base {
         className: 'Neo.util.StringUtil'
     }
     
-     static escapedChars = {
+     static charEntityMap = {
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
         '\'': '&#039;'
+     }
+
+     static charPattern = new RegExp(/[&<>"']/, 'g');
+
+     static entityPattern = new RegExp(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/, 'g');
+
+    /**
+     * Get char equivalent of a mapped entity 
+     * @param {String} entity
+     */
+     static getCharFromEntity(entity) {
+        const mappedChar = Object.keys(this.charEntityMap).find(key => this.charEntityMap[key] === entity);
+        return mappedChar || entity;
+     }
+
+    /**
+     * Get entity equivalent of a mapped char 
+     * @param {String} char
+     */
+     static getEntityFromChar(char) {
+        return this.charEntityMap[char] || char;
      }
 
     /**
@@ -30,7 +51,7 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/[&<>"']/g, (char) => this.escapedChars[char] || char);
+        return value.replace(this.charPattern, this.getEntityFromChar.bind(this));
     }
 
     /**
@@ -42,14 +63,9 @@ class StringUtil extends Base {
             return value;
         }
 
-        return value.replace(/(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/g, (entity) => this.getKeyByValue(entity) || entity);
+        return value.replace(this.entityPattern, this.getCharFromEntity.bind(this));
     }
-
-    static getKeyByValue(value) {
-        return Object.keys(this.escapedChars).find(key => this.escapedChars[key] === value);
-      }
 }
-
 
 Neo.applyClassConfig(StringUtil);
 
