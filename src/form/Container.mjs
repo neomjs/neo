@@ -31,6 +31,21 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Helper function used by setValues() which wraps the leaves of a tree structure into a new property
+     * @param {Object} values
+     * @param {String} configName
+     */
+    static adjustTreeLeaves(values={}, configName) {
+        Object.entries(values).forEach(([key, value]) => {
+            if (Neo.typeOf(value) === 'Object') {
+                this.adjustTreeLeaves(value, configName)
+            } else {
+                values[key] = {[configName]: value}
+            }
+        })
+    }
+
+    /**
      * @param {Neo.container.Base} parent
      * @param {Object[]} modules
      * @returns {Object[]}
@@ -250,9 +265,7 @@ class Container extends BaseContainer {
      * @param {Boolean} suspendEvents=false
      */
     async setValues(values={}, suspendEvents=false) {
-        Object.entries(values).forEach(([key, value]) => {
-            values[key] = {value}
-        })
+        Container.adjustTreeLeaves(values, 'value');
 
         await this.setConfigs(values, suspendEvents)
     }
