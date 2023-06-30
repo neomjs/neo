@@ -115,9 +115,9 @@ class Text extends Base {
          * If false, the inputPattern will only get validated via JavaScript, but not getting applied on DOM level.
          * The regex support for input based patterns is not fully there yet, so feel free to disable this feature
          * if needed (E.g. form.field.Phone).
-         * @member {Boolean} inputPatternDOM=true
+         * @member {Boolean} inputPatternDOM_=true
          */
-        inputPatternDOM: true,
+        inputPatternDOM_: true,
         /**
          * @member {String} inputType_='text'
          */
