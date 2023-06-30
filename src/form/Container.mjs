@@ -36,8 +36,14 @@ class Container extends BaseContainer {
      * @param {String} configName
      */
     static adjustTreeLeaves(values={}, configName) {
+        let type;
+
         Object.entries(values).forEach(([key, value]) => {
-            if (Neo.typeOf(value) === 'Object') {
+            type = Neo.typeOf(value);
+
+            if (type === 'Array') {
+                value.forEach(item => this.adjustTreeLeaves(item, configName))
+            } else if (type === 'Object') {
                 this.adjustTreeLeaves(value, configName)
             } else {
                 values[key] = {[configName]: value}

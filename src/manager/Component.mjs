@@ -25,8 +25,11 @@ class Component extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.getComponent = this.getById.bind(this); // alias
-        Neo.first = this.getFirst.bind(this); // alias
+
+        let me = this;
+
+        Neo.first        = me.getFirst.bind(me); // alias
+        Neo.getComponent = me.getById.bind(me);  // alias
     }
 
     /**
@@ -173,9 +176,10 @@ class Component extends Base {
     /**
      * !! For debugging purposes only !!
      *
-     * Get the first component based on the nytpe or other properties
+     * Get the first component based on the ntype or other properties
      *
      * @param {String|Object|Array} componentDescription
+     * @param {Boolean} returnFirstMatch=true
      * @returns {Neo.component.Base|null|Neo.component.Base[]}
      *
      * @example
@@ -200,8 +204,8 @@ class Component extends Base {
      */
     getFirst(componentDescription, returnFirstMatch = true) {
         let objects = [],
-            app = Neo.apps[Object.keys(Neo.apps)[0]],
-            root = app.mainView;
+            app     = Neo.apps[Object.keys(Neo.apps)[0]],
+            root    = app.mainView;
 
         /* create an array of objects from string */
         if (Neo.isString(componentDescription)) {
