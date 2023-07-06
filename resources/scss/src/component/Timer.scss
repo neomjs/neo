@@ -1,0 +1,115 @@
+//@property --neo-timer-current {
+//  syntax: '<number>';
+//  initial-value: 1000;
+//  inherits: true
+//}
+
+.neo-timer {
+    --neo-timer-current: '';
+    --neo-timer-full: '';
+
+    margin: 1rem auto;
+
+    .countdown {
+        display: grid;
+        width: v(timer-dimension);
+        height: v(timer-dimension);
+        container-type: size;
+    }
+
+    @keyframes t {
+        to {
+            --neo-timer-current: 0
+        }
+    }
+
+    svg {
+        grid-column: 1;
+        grid-row: 1
+    }
+
+    [r] {
+        fill: none;
+        stroke: silver;
+
+        + [r] {
+            --k: calc(var(--neo-timer-current) / var(--neo-timer-full));
+            transform: rotate(-90deg);
+            stroke-linecap: round;
+            stroke: color-mix(in hsl shorter hue, v(timer-color-start) calc(var(--k) * 300%), v(timer-color-end));
+            stroke-dasharray: var(--k) 1
+        }
+    }
+}
+
+.flip-card {
+    grid-column: 1;
+    grid-row: 1;
+
+    margin: 7cqh;
+    border-radius: 100%;
+    overflow: hidden;
+
+    background-color: transparent;
+    perspective: 1000px; /* Remove this if you don't want the 3D effect */
+
+    /* This container is needed to position the front and back side */
+    .flip-card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        transition: transform 0.8s;
+        transform-style: preserve-3d;
+
+        /* Position the front and back side */
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+        }
+
+        /* Style the front side (fallback if image is missing) */
+        .flip-card-front {
+            & > input {
+                background-color: v(container-background-color);
+                color: v(container-color);
+                margin-top: 25%;
+                height:41%;
+                width: 100%;
+                font: calc(v(timer-dimension) * 0.25)/2 ubuntu mono, consolas, monaco, monospace;
+                text-align: center;
+                border-width: 0 !important;
+
+                &:focus {
+                    outline: none;
+                }
+            }
+
+            & > button {
+                border: 0 none;
+                background-color: v(timer-button-color);
+                height: 35%;
+                width: 100%;
+                font-size: 15cqh;
+            }
+        }
+
+        /* Style the back side */
+        .flip-card-back {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font: calc(v(timer-dimension)*.25)/ 2 ubuntu mono, consolas, monaco, monospace;
+            // initial transformation
+            transform: rotateY(180deg);
+        }
+    }
+
+    /* Do an horizontal flip when you move the mouse over the flip box container */
+    &.turn .flip-card-inner {
+        transform: rotateY(180deg);
+    }
+}
