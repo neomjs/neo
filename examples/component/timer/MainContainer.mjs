@@ -18,6 +18,7 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : TextField,
+            labelText: 'dimensions',
             value    : '8rem',
             listeners: {change: me.onConfigChange.bind(me, 'dimensions')}
         }, {
