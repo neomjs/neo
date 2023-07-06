@@ -86,6 +86,10 @@ class Button extends BaseButton {
          */
         showHeaderFilter_: false,
         /**
+         * @member {Boolean} sortable_=true
+         */
+        sortable_: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -107,24 +111,19 @@ class Button extends BaseButton {
     construct(config) {
         super.construct(config);
 
-        let me        = this,
-            listeners = {
-                click: me.onButtonClick,
-                scope: me
-            };
-
+        let me        = this;
+        
         if (me.draggable) {
-            Object.assign(listeners, {
+            me.addDomListeners({
                 dragend  : me.onDragEnd,
                 dragenter: me.onDragEnter,
                 dragleave: me.onDragLeave,
                 dragover : me.onDragOver,
                 dragstart: me.onDragStart,
                 drop     : me.onDrop,
+                scope    : me
             });
         }
-
-        me.addDomListeners(listeners);
     }
 
     /**
@@ -224,6 +223,34 @@ class Button extends BaseButton {
             me.filterField.vdom.removeDom = true;
         }
 
+        me.update();
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+     afterSetSortable(value, oldValue) {
+        let me = this,
+            cls = me.cls;
+
+        if (value === true) {
+            NeoArray.remove(cls, 'neo-sort-hidden');
+            me.addDomListeners({
+                click: me.onButtonClick,
+                scope: me
+            });
+        } else {
+            NeoArray.add(cls, 'neo-sort-hidden');
+            me.removeDomListeners({
+                click: me.onButtonClick,
+                scope: me
+            });
+        }
+
+        me.cls = cls;
         me.update();
     }
 
