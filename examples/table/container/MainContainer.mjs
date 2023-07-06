@@ -2,6 +2,7 @@ import CellColumnModel       from '../../../src/selection/table/CellColumnModel.
 import CellColumnRowModel    from '../../../src/selection/table/CellColumnRowModel.mjs';
 import CellModel             from '../../../src/selection/table/CellModel.mjs';
 import CellRowModel          from '../../../src/selection/table/CellRowModel.mjs';
+import Checkbox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import ColumnModel           from '../../../src/selection/table/ColumnModel.mjs';
 import MainStore             from './MainStore.mjs';
@@ -75,6 +76,11 @@ class MainContainer extends ConfigurationViewport {
             checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellcolumnrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
+        }, {
+            module   : Checkbox,
+            labelText: 'sortable',
+            listeners: {change: me.onConfigChange.bind(me, 'sortable')},
+            value    : me.exampleComponent.sortable
         }];
     }
 
