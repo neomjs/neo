@@ -105,9 +105,9 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetGap(value, oldValue) {
-                if (!value && !oldValue) return;
+        if (!value && !oldValue) return;
 
-        let item = Neo.getComponent(this.containerId),
+        let item  = Neo.getComponent(this.containerId),
             style = item.wrapperStyle;
 
         style.gap = value;
