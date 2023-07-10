@@ -45,8 +45,31 @@ class MainContainer extends ConfigurationViewport {
                     scope: this
                 }
             },
-            reference: 'gap-field',
             value    : '0 .5rem'
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'Textfield 01 Label',
+            listeners: {change: me.updateLabelFromTextField.bind(me, 1)},
+            value    : 'This is a wide label inside Form'
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'Textfield 02 Label',
+            listeners: {change: me.updateLabelFromTextField.bind(me, 2)},
+            value    : 'Small label'
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'Textfield 03 Label',
+            listeners: {change: me.updateLabelFromTextField.bind(me, 3)},
+            value    : 'I am inside a fieldset'
+        }, {
+            module   : TextField,
+            clearable: true,
+            labelText: 'Textfield 04 Label',
+            listeners: {change: me.updateLabelFromTextField.bind(me, 4)},
+            value    : 'Fieldset with layout-form'
         }]
     }
 
@@ -62,9 +85,11 @@ class MainContainer extends ConfigurationViewport {
                 value    : 'Layout Demo'
             },
             items       : [{
-                labelText: 'This is a wide Label inside Form'
+                labelText: 'This is a wide Label inside Form',
+                name     : 1
             }, {
-                labelText: 'Small Label'
+                labelText: 'Small Label',
+                name     : 2
             }, {
                 module      : Fieldset,
                 title       : 'Fieldset with Layout',
@@ -75,16 +100,29 @@ class MainContainer extends ConfigurationViewport {
                 itemDefaults: {
                     ntype    : 'textfield',
                     clearable: true,
-                    minLength: 3,
                     value    : 'Layout Demo'
                 },
                 items       : [{
-                    labelText: 'I am inside a fieldset'
+                    labelText: 'I am inside a fieldset',
+                    name     : 3
                 }, {
-                    labelText: 'Fieldset with layout-form'
+                    labelText: 'Fieldset with layout-form',
+                    name     : 4
                 }]
             }]
         })
+    }
+
+    /**
+     * Update the textfield labelText, based on index
+     * @param {Number} index
+     * @param {Object} data
+     */
+    updateLabelFromTextField(index, data) {
+        const comp      = this.exampleComponent,
+              textfield = comp.down({ntype: 'textfield', name: index});
+
+        textfield.labelText = data.value;
     }
 }
 
