@@ -78,6 +78,10 @@ class Container extends BaseContainer {
          */
         showHeaderFilters_: false,
         /**
+         * @member {Boolean} sortable_=true
+         */
+        sortable_: true,
+        /**
          * @member {Neo.data.Store} store_=null
          */
         store_: null,
@@ -125,6 +129,7 @@ class Container extends BaseContainer {
             module           : header.Toolbar,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
+            sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
             module         : View,
@@ -159,6 +164,18 @@ class Container extends BaseContainer {
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
             Neo.getComponent(this.headerToolbarId).showHeaderFilters = value;
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            Neo.getComponent(this.headerToolbarId).sortable = value;
         }
     }
 

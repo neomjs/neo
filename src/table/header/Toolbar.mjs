@@ -35,6 +35,10 @@ class Toolbar extends BaseToolbar {
          */
         showHeaderFilters_: false,
         /**
+         * @member {Boolean} sortable=true
+         */
+        sortable: true,
+        /**
          * @member {Object} _vdom={tag:'thead',cn:[{tag:'tr',cn:[]}]}
          */
         _vdom:
@@ -56,6 +60,26 @@ class Toolbar extends BaseToolbar {
             me.items.forEach(item => {
                 item.setSilent({
                     showHeaderFilter: value
+                });
+            });
+
+            me.update();
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+     afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    sortable: value
                 });
             });
 
@@ -98,7 +122,8 @@ class Toolbar extends BaseToolbar {
             } else {
                 item.vdom.cls = []; // remove the button cls from the th tag
             }
-
+            
+            item.sortable = me.sortable;
             item.wrapperStyle = style;
 
             // inverse loop direction
