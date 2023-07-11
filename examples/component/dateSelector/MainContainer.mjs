@@ -108,19 +108,6 @@ class MainContainer extends ConfigurationViewport {
             name          : 'dayNameFormat',
             valueLabelText: 'long'
         }, {
-            module          : DateField,
-            labelText       : 'maxValue',
-            listeners       : {change: me.onConfigChange.bind(me, 'maxValue')},
-            matchPickerWidth: false,
-            style           : {marginTop: '10px'},
-            value           : me.exampleComponent.maxValue
-        }, {
-            module          : DateField,
-            labelText       : 'minValue',
-            listeners       : {change: me.onConfigChange.bind(me, 'minValue')},
-            matchPickerWidth: false,
-            value           : me.exampleComponent.minValue
-        }, {
             module    : NumberField,
             clearable : true,
             labelText : 'height',
@@ -128,7 +115,20 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 800,
             minValue  : 230,
             stepSize  : 10,
+            style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
+        }, {
+            module          : DateField,
+            labelText       : 'maxValue',
+            listeners       : {change: me.onConfigChange.bind(me, 'maxValue')},
+            matchPickerWidth: false,
+            value           : me.exampleComponent.maxValue
+        }, {
+            module          : DateField,
+            labelText       : 'minValue',
+            listeners       : {change: me.onConfigChange.bind(me, 'minValue')},
+            matchPickerWidth: false,
+            value           : me.exampleComponent.minValue
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.showCellBorders,
