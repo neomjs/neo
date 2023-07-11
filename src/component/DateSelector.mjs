@@ -250,6 +250,26 @@ class DateSelector extends Component {
     }
 
     /**
+     * Triggered after the maxValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMaxValue(value, oldValue) {
+        oldValue !== undefined && this.recreateDayViewContent()
+    }
+
+    /**
+     * Triggered after the minValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMinValue(value, oldValue) {
+        oldValue !== undefined && this.recreateDayViewContent()
+    }
+
+    /**
      * Triggered after the showCellBorders config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -270,7 +290,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
-        oldValue !== undefined && this.recreateDayViewContent();
+        oldValue !== undefined && this.recreateDayViewContent()
     }
 
     /**
