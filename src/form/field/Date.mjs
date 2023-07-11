@@ -43,6 +43,14 @@ class DateField extends Picker {
          */
         inputType: 'date',
         /**
+         * @member {String|null} maxValue_=null
+         */
+        maxValue_: null,
+        /**
+         * @member {String|null} minValue_=null
+         */
+        minValue_: null,
+        /**
          * @member {Number} pickerHeight=225
          */
         pickerHeight: 225,
@@ -79,6 +87,8 @@ class DateField extends Picker {
 
         me.dateSelector = Neo.create(DateSelector, {
             dayNameFormat: 'short',
+            maxValue     : me.maxValue,
+            minValue     : me.minValue,
             value        : me.value || DateUtil.convertToyyyymmdd(new Date()),
             ...me.dateSelectorConfig
         });
@@ -91,6 +101,38 @@ class DateField extends Picker {
             change: me.onDatePickerChange,
             scope : me
         });
+    }
+
+    /**
+     * Triggered after the maxValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMaxValue(value, oldValue) {
+        let me = this;
+
+        me.changeInputElKey('max', value);
+
+        if (me.dateSelector) {
+            me.dateSelector.maxValue = value
+        }
+    }
+
+    /**
+     * Triggered after the minValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMinValue(value, oldValue) {
+        let me = this;
+
+        me.changeInputElKey('max', value);
+
+        if (me.dateSelector) {
+            me.dateSelector.minValue = value
+        }
     }
 
     /**
