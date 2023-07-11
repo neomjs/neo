@@ -57,6 +57,11 @@ class Flexbox extends Base {
          */
         direction_: null,
         /**
+         * flex css allows gap. This adds it to the component style
+         * @member {String} gap_=null
+         */
+        gap_: null,
+        /**
          * Valid values: 'center', 'end', 'start', null
          * @member {String|null} pack_=null
          */
@@ -91,6 +96,22 @@ class Flexbox extends Base {
      */
     afterSetDirection(value, oldValue) {
         oldValue && this.updateInputValue(value, oldValue, 'direction');
+    }
+
+    /**
+     * Updates the Container style to add a gap to display:flex
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetGap(value, oldValue) {
+        if (!value && !oldValue) return;
+
+        let item  = Neo.getComponent(this.containerId),
+            style = item.wrapperStyle;
+
+        style.gap = value;
+        item.wrapperStyle = style;
     }
 
     /**

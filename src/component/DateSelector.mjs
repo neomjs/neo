@@ -76,6 +76,14 @@ class DateSelector extends Component {
          */
         locale_: Neo.config.locale,
         /**
+         * @member {String|null} maxValue_=null
+         */
+        maxValue_: null,
+        /**
+         * @member {String|null} minValue_=null
+         */
+        minValue_: null,
+        /**
          * Used for wheel events. min value = 1.
          * A higher value means lesser sensitivity for wheel events
          * => you need to scroll "more" to trigger a month / year change
@@ -242,6 +250,26 @@ class DateSelector extends Component {
     }
 
     /**
+     * Triggered after the maxValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMaxValue(value, oldValue) {
+        oldValue !== undefined && this.recreateDayViewContent()
+    }
+
+    /**
+     * Triggered after the minValue config got changed
+     * @param {Text} value
+     * @param {Text} oldValue
+     * @protected
+     */
+    afterSetMinValue(value, oldValue) {
+        oldValue !== undefined && this.recreateDayViewContent()
+    }
+
+    /**
      * Triggered after the showCellBorders config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -262,7 +290,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
-        oldValue !== undefined && this.recreateDayViewContent();
+        oldValue !== undefined && this.recreateDayViewContent()
     }
 
     /**
@@ -566,6 +594,8 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
+            maxDate         = me.maxValue && new Date(`${me.maxValue}T00:00:00.000Z`),
+            minDate         = me.minValue && new Date(`${me.minValue}T00:00:00.000Z`),
             valueDate       = new Date(`${me.value}T00:00:00.000Z`),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -612,23 +642,27 @@ class DateSelector extends Component {
                     config.cls.push('neo-weekend');
                 }
 
+                if (maxDate && date > maxDate || minDate && date < minDate) {
+                    NeoArray.add(config.cls, 'neo-disabled')
+                }
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    config.cn[0].cls.push('neo-today');
+                    config.cn[0].cls.push('neo-today')
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
                     config.cls.push('neo-selected');
-                    me.selectionModel.items = [cellId]; // silent update
+                    me.selectionModel.items = [cellId] // silent update
                 }
 
                 row.cn.push(config);
 
                 date.setDate(date.getDate() + 1);
 
-                day++;
+                day++
             }
 
-            centerEl.cn.push(row);
+            centerEl.cn.push(row)
         }
 
         !silent && me.update()
@@ -638,7 +672,7 @@ class DateSelector extends Component {
      *
      */
     focusCurrentItem() {
-        this.focus(this.selectionModel.items[0]);
+        this.focus(this.selectionModel.items[0])
     }
 
     /**
@@ -752,7 +786,7 @@ class DateSelector extends Component {
      */
     onConstructed() {
         super.onConstructed();
-        this.selectionModel?.register(this);
+        this.selectionModel?.register(this)
     }
 
     /**
@@ -777,7 +811,7 @@ class DateSelector extends Component {
         monthIncrement !== 0 && me.updateHeaderMonth(monthIncrement, yearIncrement, true);
         yearIncrement  !== 0 && me.updateHeaderYear(yearIncrement, true);
 
-        me.triggerVdomUpdate(silent);
+        me.triggerVdomUpdate(silent)
     }
 
     /**
@@ -793,10 +827,10 @@ class DateSelector extends Component {
         me.createDayViewContent(true);
 
         if (syncIds) {
-            me.syncVdomIds();
+            me.syncVdomIds()
         }
 
-        me.triggerVdomUpdate(silent);
+        me.triggerVdomUpdate(silent)
     }
 
     /**

@@ -1,5 +1,6 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import DateField             from '../../../src/form/field/Date.mjs';
 import DateSelector          from '../../../src/component/DateSelector.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
@@ -107,14 +108,26 @@ class MainContainer extends ConfigurationViewport {
             name          : 'dayNameFormat',
             valueLabelText: 'long'
         }, {
-            module    :  NumberField,
+            module          : DateField,
+            labelText       : 'maxValue',
+            listeners       : {change: me.onConfigChange.bind(me, 'maxValue')},
+            matchPickerWidth: false,
+            style           : {marginTop: '10px'},
+            value           : me.exampleComponent.maxValue
+        }, {
+            module          : DateField,
+            labelText       : 'minValue',
+            listeners       : {change: me.onConfigChange.bind(me, 'minValue')},
+            matchPickerWidth: false,
+            value           : me.exampleComponent.minValue
+        }, {
+            module    : NumberField,
             clearable : true,
             labelText : 'height',
             listeners : {change: me.onConfigChange.bind(me, 'height')},
             maxValue  : 800,
             minValue  : 230,
             stepSize  : 10,
-            style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
         }, {
             module   : CheckBox,
@@ -176,7 +189,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(DateSelector, {
             height: 300,
             width : 300
-        });
+        })
     }
 
     onMonthRadioChange(value, opts) {
