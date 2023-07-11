@@ -642,8 +642,8 @@ class DateSelector extends Component {
                     config.cls.push('neo-weekend');
                 }
 
-                if (date > maxDate || date < minDate) {
-                    NeoArray.add(config.cn[0].cls, 'neo-disabled')
+                if (maxDate && date > maxDate || minDate && date < minDate) {
+                    NeoArray.add(config.cls, 'neo-disabled')
                 }
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
@@ -786,7 +786,7 @@ class DateSelector extends Component {
      */
     onConstructed() {
         super.onConstructed();
-        this.selectionModel?.register(this);
+        this.selectionModel?.register(this)
     }
 
     /**
@@ -811,7 +811,7 @@ class DateSelector extends Component {
         monthIncrement !== 0 && me.updateHeaderMonth(monthIncrement, yearIncrement, true);
         yearIncrement  !== 0 && me.updateHeaderYear(yearIncrement, true);
 
-        me.triggerVdomUpdate(silent);
+        me.triggerVdomUpdate(silent)
     }
 
     /**
@@ -827,10 +827,10 @@ class DateSelector extends Component {
         me.createDayViewContent(true);
 
         if (syncIds) {
-            me.syncVdomIds();
+            me.syncVdomIds()
         }
 
-        me.triggerVdomUpdate(silent);
+        me.triggerVdomUpdate(silent)
     }
 
     /**
