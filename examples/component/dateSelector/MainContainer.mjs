@@ -15,11 +15,12 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createConfigurationComponents() {
-        let me = this;
+        let me               = this,
+            exampleComponent = me.exampleComponent;
 
         return [{
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getMonth() === 0,
+            checked       : exampleComponent.currentDate.getMonth() === 0,
             hideValueLabel: false,
             labelText     : 'currentDate (month)',
             listeners     : {change: me.onMonthRadioChange.bind(me, 0)},
@@ -27,7 +28,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Jan'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getMonth() === 1,
+            checked       : exampleComponent.currentDate.getMonth() === 1,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onMonthRadioChange.bind(me, 1)},
@@ -35,7 +36,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Feb'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getMonth() === 2,
+            checked       : exampleComponent.currentDate.getMonth() === 2,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onMonthRadioChange.bind(me, 2)},
@@ -43,7 +44,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Mar'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getMonth() === 3,
+            checked       : exampleComponent.currentDate.getMonth() === 3,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onMonthRadioChange.bind(me, 3)},
@@ -51,7 +52,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Apr'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getFullYear() === 2021,
+            checked       : exampleComponent.currentDate.getFullYear() === 2021,
             hideValueLabel: false,
             labelText     : 'currentDate (year)',
             listeners     : {change: me.onYearRadioChange.bind(me, 2021)},
@@ -60,7 +61,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '2021'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getFullYear() === 2020,
+            checked       : exampleComponent.currentDate.getFullYear() === 2020,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onYearRadioChange.bind(me, 2020)},
@@ -68,7 +69,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '2020'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getFullYear() === 2019,
+            checked       : exampleComponent.currentDate.getFullYear() === 2019,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onYearRadioChange.bind(me, 2019)},
@@ -76,7 +77,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '2019'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.currentDate.getFullYear() === 2018,
+            checked       : exampleComponent.currentDate.getFullYear() === 2018,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onYearRadioChange.bind(me, 2018)},
@@ -84,7 +85,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '2018'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.dayNameFormat === 'narrow',
+            checked       : exampleComponent.dayNameFormat === 'narrow',
             hideValueLabel: false,
             labelText     : 'dayNameFormat',
             listeners     : {change: me.onRadioChange.bind(me, 'dayNameFormat', 'narrow')},
@@ -93,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'narrow'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.dayNameFormat === 'short',
+            checked       : exampleComponent.dayNameFormat === 'short',
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'dayNameFormat', 'short')},
@@ -101,7 +102,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'short'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.dayNameFormat === 'long',
+            checked       : exampleComponent.dayNameFormat === 'long',
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'dayNameFormat', 'long')},
@@ -116,40 +117,40 @@ class MainContainer extends ConfigurationViewport {
             minValue  : 230,
             stepSize  : 10,
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            value     : exampleComponent.height
         }, {
             module          : DateField,
             labelText       : 'maxValue',
             listeners       : {change: me.onConfigChange.bind(me, 'maxValue')},
             matchPickerWidth: false,
-            value           : me.exampleComponent.maxValue
+            value           : exampleComponent.maxValue
         }, {
             module          : DateField,
             labelText       : 'minValue',
             listeners       : {change: me.onConfigChange.bind(me, 'minValue')},
             matchPickerWidth: false,
-            value           : me.exampleComponent.minValue
+            value           : exampleComponent.minValue
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.showCellBorders,
+            checked  : exampleComponent.showCellBorders,
             labelText: 'showCellBorders',
             listeners: {change: me.onConfigChange.bind(me, 'showCellBorders')},
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.showDisabledDays,
+            checked  : exampleComponent.showDisabledDays,
             labelText: 'showDisabledDays',
             listeners: {change: me.onConfigChange.bind(me, 'showDisabledDays')},
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.useAnimations,
+            checked  : exampleComponent.useAnimations,
             labelText: 'useAnimations',
             listeners: {change: me.onConfigChange.bind(me, 'useAnimations')},
             style    : {marginTop: '10px'}
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.weekStartDay === 6,
+            checked       : exampleComponent.weekStartDay === 6,
             hideValueLabel: false,
             labelText     : 'weekStartDay',
             listeners     : {change: me.onRadioChange.bind(me, 'weekStartDay', 6)},
@@ -158,7 +159,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '6 (Saturday)'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.weekStartDay === 0,
+            checked       : exampleComponent.weekStartDay === 0,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'weekStartDay', 0)},
@@ -166,7 +167,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: '0 (Sunday)'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.weekStartDay === 1,
+            checked       : exampleComponent.weekStartDay === 1,
             hideValueLabel: false,
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'weekStartDay', 1)},
@@ -181,7 +182,7 @@ class MainContainer extends ConfigurationViewport {
             minValue  : 240,
             stepSize  : 10,
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            value     : exampleComponent.width
         }];
     }
 
