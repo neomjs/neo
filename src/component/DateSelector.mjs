@@ -76,6 +76,14 @@ class DateSelector extends Component {
          */
         locale_: Neo.config.locale,
         /**
+         * @member {String|null} maxValue_=null
+         */
+        maxValue_: null,
+        /**
+         * @member {String|null} minValue_=null
+         */
+        minValue_: null,
+        /**
          * Used for wheel events. min value = 1.
          * A higher value means lesser sensitivity for wheel events
          * => you need to scroll "more" to trigger a month / year change
@@ -566,6 +574,8 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
+            maxDate         = me.maxValue && new Date(`${me.maxValue}T00:00:00.000Z`),
+            minDate         = me.minValue && new Date(`${me.minValue}T00:00:00.000Z`),
             valueDate       = new Date(`${me.value}T00:00:00.000Z`),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -612,23 +622,27 @@ class DateSelector extends Component {
                     config.cls.push('neo-weekend');
                 }
 
+                if (date > maxDate || date < minDate) {
+                    NeoArray.add(config.cn[0].cls, 'neo-disabled')
+                }
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    config.cn[0].cls.push('neo-today');
+                    config.cn[0].cls.push('neo-today')
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
                     config.cls.push('neo-selected');
-                    me.selectionModel.items = [cellId]; // silent update
+                    me.selectionModel.items = [cellId] // silent update
                 }
 
                 row.cn.push(config);
 
                 date.setDate(date.getDate() + 1);
 
-                day++;
+                day++
             }
 
-            centerEl.cn.push(row);
+            centerEl.cn.push(row)
         }
 
         !silent && me.update()
@@ -638,7 +652,7 @@ class DateSelector extends Component {
      *
      */
     focusCurrentItem() {
-        this.focus(this.selectionModel.items[0]);
+        this.focus(this.selectionModel.items[0])
     }
 
     /**

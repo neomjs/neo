@@ -176,7 +176,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(DateSelector, {
             height: 300,
             width : 300
-        });
+        })
     }
 
     onMonthRadioChange(value, opts) {
