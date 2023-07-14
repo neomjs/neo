@@ -25,9 +25,10 @@ class MainContainer extends Viewport {
                 }, {
                     ntype: 'component', flex: 1
                 }, {
-                    iconCls: 'fa fa-sun',
-                    handler: 'onToggleTheme',
-                    style  : {height: '100%',padding: '0 40px',borderWidth: 0,borderLeftWidth: '1px',borderRadius: 0}
+                    reference: 'theme-button',
+                    iconCls  : 'fa fa-sun',
+                    handler  : 'onToggleTheme',
+                    style    : {height: '100%',padding: '0 40px',borderWidth: 0,borderLeftWidth: '1px',borderRadius: 0}
                 }]
             }],
             items: [{
