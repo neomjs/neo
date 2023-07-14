@@ -1,0 +1,31 @@
+.neo-video {
+  position: relative;
+
+  & > * {
+    position: absolute;
+    inset: 0;
+  }
+
+  .neo-video-ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 100%;
+    width: 100%;
+    background-color: v(video-ghost-color);
+
+    .fa-solid {
+      height: v(video-ghost-size);
+      width: v(video-ghost-size);
+      font-size: v(video-ghost-size);
+      cursor: pointer;
+    }
+  }
+
+  .neo-video-media {
+    height: 100%;
+    width: 100%;
+    background: black;
+  }
+}
