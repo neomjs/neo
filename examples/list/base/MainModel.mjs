@@ -13,6 +13,9 @@ class MainModel extends Model {
             name: 'country',
             type: 'String'
         }, {
+            name: 'disabled',
+            type: 'Boolean'
+        }, {
             name: 'firstname',
             type: 'String'
         }, {
