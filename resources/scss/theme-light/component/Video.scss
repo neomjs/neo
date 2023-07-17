@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+        'video-ghost-color': rgba(50, 50, 50, 0.3),
+        'video-ghost-size' : 30px
+));
+
+@if $useCssVars == true {
+    :root .neo-theme-light { // .neo-video
+        --video-ghost-color: #{neo(video-ghost-color)};
+        --video-ghost-size: #{neo(video-ghost-size)};
+    }
+}

@@ -13,31 +13,37 @@ class MainStore extends Store {
 
         data: [{
             country  : 'Germany',
+            disabled : false,
             firstname: 'Tobias',
             githubId : 'tobiu',
             lastname : 'Uhlig'
         }, {
             country  : 'USA',
+            disabled : true,
             firstname: 'Rich',
             githubId : 'rwaters',
             lastname : 'Waters'
         }, {
             country  : 'Germany',
+            disabled : false,
             firstname: 'Nils',
             githubId : 'mrsunshine',
             lastname : 'Dehl'
         }, {
             country  : 'USA',
+            disabled : false,
             firstname: 'Gerard',
             githubId : 'camtnbikerrwc',
             lastname : 'Horan'
         }, {
             country  : 'Slovakia',
+            disabled : false,
             firstname: 'Jozef',
             githubId : 'jsakalos',
             lastname : 'Sakalos'
         }, {
             country  : 'Germany',
+            disabled : false,
             firstname: 'Bastian',
             githubId : 'bhaustein',
             lastname : 'Haustein'

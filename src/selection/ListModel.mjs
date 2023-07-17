@@ -83,9 +83,11 @@ class ListModel extends Model {
         if (item) {
             recordId = view.getItemRecordId(item);
             index    = store.indexOf(recordId) + step;
+            record   = store.getAt(index);
 
-            while (store.getAt(index)?.isHeader === true) {
+            while (record?.[view.disabledField] === true || record?.isHeader === true) {
                 index += step;
+                record = store.getAt(index)
             }
 
             if (index < 0) {

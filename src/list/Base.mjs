@@ -38,6 +38,12 @@ class Base extends Component {
          */
         baseCls: ['neo-list'],
         /**
+         * An optional record field to make items non-clickable and visually greyed out.
+         * The field expects the Boolean type.
+         * @member {String} disabledField='disabled'
+         */
+        disabledField: 'disabled',
+        /**
          * @member {Boolean} disableSelection_=false
          */
         disableSelection_: false,
@@ -373,8 +379,12 @@ class Base extends Component {
 
         if (!me.disableSelection && selectionModel) {
             if (selectionModel.isSelected(itemId)) {
-                cls.push(selectionModel.selectedCls);
+                cls.push(selectionModel.selectedCls)
             }
+        }
+
+        if (record[me.disabledField]) {
+            cls.push('neo-disabled')
         }
 
         item = {
