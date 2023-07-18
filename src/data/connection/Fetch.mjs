@@ -86,12 +86,12 @@ class Fetch extends Base {
 
     /**
      * @param {Object|String} url
-     * @param {Object} config
+     * @param {Object} config={}
      * @param {String} method
      * @param {Object} [data]
      * @returns {Promise<any>}
      */
-    request(url, config, method, data) {
+    request(url, config={}, method, data) {
         if (!Neo.isString(url)) {
             config = url;
             url    = config.url;
