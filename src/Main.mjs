@@ -385,7 +385,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Change the location.hash value
+     * Change a Neo.config from the app worker
      * @param {Object} data
      * @param {String} data.key
      * @param {*} data.value
@@ -437,7 +437,7 @@ class Main extends core.Base {
      * @param {String} data.windowFeatures
      * @param {String} data.windowName
      * @return {Boolean}
-     */    
+     */
     windowOpen(data) {
         let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
             success      = !!openedWindow;
