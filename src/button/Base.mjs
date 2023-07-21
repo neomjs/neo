@@ -247,7 +247,17 @@ class Base extends Component {
      * @protected
      */
     afterSetMenu(value, oldValue) {
-        console.log('afterSetMenu', value);
+        if (value) {
+            import('../menu/List.mjs').then(module => {
+                let list = Neo.create({
+                    module : module.default,
+                    appName: this.appName,
+                    items  : value
+                });
+
+                console.log('afterSetMenu', list);
+            })
+        }
     }
 
     /**
