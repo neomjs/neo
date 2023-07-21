@@ -79,6 +79,10 @@ class Base extends Component {
          */
         iconPosition_: 'left',
         /**
+         * @member {Object[]|null} menu_=null
+         */
+        menu_: null,
+        /**
          * The pressed state of the Button
          * @member {Boolean} pressed_=false
          */
@@ -234,6 +238,16 @@ class Base extends Component {
         NeoArray.add(cls, 'icon-' + value);
 
         this.cls = cls;
+    }
+
+    /**
+     * Triggered after the menu config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetMenu(value, oldValue) {
+        console.log('afterSetMenu', value);
     }
 
     /**
