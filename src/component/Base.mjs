@@ -1191,7 +1191,7 @@ class Base extends CoreBase {
     getMountedParentId() {
         let parentId  = this.parentId,
             parent    = Neo.getComponent(parentId),
-            itemsRoot = parent?.getVdomItemsRoot();
+            itemsRoot = parent?.getVdomItemsRoot?.();
 
         return itemsRoot ? itemsRoot.id : parentId
     }
