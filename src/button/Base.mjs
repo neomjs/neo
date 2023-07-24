@@ -250,10 +250,11 @@ class Base extends Component {
         if (value) {
             import('../menu/List.mjs').then(module => {
                 let list = Neo.create({
-                    module  : module.default,
-                    appName : this.appName,
-                    floating: true,
-                    items   : value
+                    module      : module.default,
+                    appName     : this.appName,
+                    displayField: 'text',
+                    floating    : true,
+                    items       : value
                 });
 
                 list.render(true);
