@@ -305,26 +305,27 @@ class List extends BaseList {
 
                 Object.assign(menuStyle, style);
 
-                subMenu.setSilent({style: menuStyle});
+                subMenu.setSilent({style: menuStyle})
             } else {
                 subMenuMap[subMenuMapId] = subMenu = Neo.create({
-                    module     : List,
-                    appName    : me.appName,
-                    floating   : true,
-                    items      : record.items,
-                    isRoot     : false,
-                    parentId   : Neo.apps[me.appName].mainView.id,
-                    parentIndex: store.indexOf(record),
-                    parentMenu : me,
+                    module      : List,
+                    appName     : me.appName,
+                    displayField: me.displayField,
+                    floating    : true,
+                    items       : record.items,
+                    isRoot      : false,
+                    parentId    : Neo.apps[me.appName].mainView.id,
+                    parentIndex : store.indexOf(record),
+                    parentMenu  : me,
                     style,
-                    zIndex     : me.zIndex + 1
-                });
+                    zIndex      : me.zIndex + 1
+                })
             }
 
             me.activeSubMenu = subMenu;
             me.subMenuMap    = subMenuMap;
 
-            subMenu.render(true);
+            subMenu.render(true)
         });
     }
 

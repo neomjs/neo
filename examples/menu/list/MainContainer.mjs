@@ -45,7 +45,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module      : MenuList,
-            displayField: 'name',
+            displayField: 'text',
             store       : MainStore
         });
     }
