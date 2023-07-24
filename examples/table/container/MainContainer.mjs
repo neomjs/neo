@@ -101,6 +101,7 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'githubId',  text: 'Github Id'},
                 {dataField: 'country',   text: 'Country'},
                 {
+                    text: 'Edit Action',
                     renderer: data => {
                         let button = Neo.create({
                             module  : Button,
