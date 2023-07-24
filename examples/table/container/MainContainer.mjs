@@ -79,9 +79,10 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Cell & Column & Row'
         }, {
             module   : Checkbox,
+            checked  : me.exampleComponent.sortable,
             labelText: 'sortable',
             listeners: {change: me.onConfigChange.bind(me, 'sortable')},
-            value    : me.exampleComponent.sortable
+            style    : {marginTop: '10px'}
         }];
     }
 
@@ -90,7 +91,6 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create(TableContainer, {
-            autoRender    : false,
             id            : 'myTableStoreContainer',
             selectionModel: CellModel,
             store         : MainStore,
