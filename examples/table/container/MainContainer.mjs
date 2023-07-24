@@ -1,3 +1,4 @@
+import Button                from '../../../src/button/Base.mjs';
 import CellColumnModel       from '../../../src/selection/table/CellColumnModel.mjs';
 import CellColumnRowModel    from '../../../src/selection/table/CellColumnRowModel.mjs';
 import CellModel             from '../../../src/selection/table/CellModel.mjs';
@@ -84,6 +85,9 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /**
+     * @returns {Neo.table.Container}
+     */
     createExampleComponent() {
         return Neo.create(TableContainer, {
             autoRender    : false,
@@ -95,9 +99,29 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
                 {dataField: 'githubId',  text: 'Github Id'},
-                {dataField: 'country',   text: 'Country'}
+                {dataField: 'country',   text: 'Country'},
+                {
+                    renderer: data => {
+                        let button = Neo.create({
+                            module  : Button,
+                            appName : this.appName,
+                            handler : this.editButtonHandler,
+                            parentId: 'myTableStoreContainer',
+                            text    : 'Edit'
+                        });
+
+                        return button.vdom
+                    }
+                }
             ]
         });
+    }
+
+    /**
+     * @param {Object} data
+     */
+    editButtonHandler(data) {
+        console.log(data)
     }
 }
 

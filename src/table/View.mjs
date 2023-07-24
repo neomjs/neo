@@ -59,11 +59,9 @@ class View extends Component {
             i          = 0,
             vdom       = me.vdom,
             cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
-            record, rendererValue, selectedRows, trCls;
+            record, rendererType, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
-
-        // console.log('createViewData', me.id, inputData);
 
         if (container.selectionModel.ntype === 'selection-table-rowmodel') {
             selectedRows = container.selectionModel.items || [];
@@ -113,17 +111,29 @@ class View extends Component {
                     value    : rendererValue
                 });
 
-                cellCls = rendererOutput?.cls || ['neo-table-cell'];
+                cellCls      = ['neo-table-cell'];
+                rendererType = Neo.typeOf(rendererOutput);
 
-                if (column.align !== 'left') {
-                    cellCls.push('neo-' + column.align);
+                switch (Neo.typeOf(rendererOutput)) {
+                    case 'Object': {
+                        if (rendererOutput.cls && rendererOutput.html) {
+                            cellCls.push(...rendererOutput.cls);
+                        } else {
+                            rendererOutput = [rendererOutput];
+                        }
+                        break;
+                    }
+                    case 'String': {
+                        rendererOutput = {
+                            cls : cellCls,
+                            html: rendererOutput?.toString()
+                        };
+                        break;
+                    }
                 }
 
-                if (!Neo.isObject(rendererOutput)) {
-                    rendererOutput = {
-                        cls : cellCls,
-                        html: rendererOutput?.toString()
-                    };
+                if (column.align !== 'left') {
+                    cellCls.push('neo-' + column.align)
                 }
 
                 // todo: remove the else part as soon as all tables use stores (examples table)
@@ -134,13 +144,18 @@ class View extends Component {
                 }
 
                 config = {
-                    tag      : 'td',
-                    id       : cellId,
-                    cls      : cellCls,
-                    innerHTML: rendererOutput.html  || '',
-                    style    : rendererOutput.style || {},
-                    tabIndex : '-1'
+                    tag     : 'td',
+                    id      : cellId,
+                    cls     : cellCls,
+                    style   : rendererOutput.style || {},
+                    tabIndex: '-1'
                 };
+
+                if (rendererType === 'String') {
+                    config.innerHTML = rendererOutput.html  || ''
+                } else {
+                    config.cn = rendererOutput
+                }
 
                 if (column.dock) {
                     config.cls = ['neo-locked', ...config.cls || []];
