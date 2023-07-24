@@ -174,15 +174,26 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module   : Button,
             badgeText: 'Badge',
+            handler  : data => console.log('button click =>', data.component.id),
             height   : 50,
             iconCls  : 'fa fa-home',
             text     : 'Hello World',
             ui       : 'primary',
             width    : 150,
 
-            handler: (data) => {
-                console.log('button click =>', data.component.id);
-            }
+            menu: [{
+                handler: data => console.log('menu item click =>', data.component.id),
+                iconCls: 'fa fa-home',
+                text   : 'Item 1'
+            }, {
+                handler: data => console.log('menu item click =>', data.component.id),
+                iconCls: 'fa fa-user',
+                text   : 'Item 2'
+            }, {
+                handler: data => console.log('menu item click =>', data.component.id),
+                iconCls: 'fa fa-play',
+                text   : 'Item 3'
+            }]
 
             /*tooltips: [{
                 text: 'Hello World Tooltip'

@@ -48,6 +48,7 @@ class Main extends core.Base {
             app: [
                 'alert',
                 'editRoute',
+                'getByPath',
                 'getWindowData',
                 'redirectTo',
                 'setNeoConfig',
@@ -148,6 +149,18 @@ class Main extends core.Base {
         });
 
         window.location.hash = hashArr.join('&');
+    }
+
+    /**
+     * Request specific accessible window attributes by path into the app worker.
+     * Keep in mind that this excludes anything DOM related or instances.
+     * Example: Neo.Main.getByPath({path: 'navigator.language'}).then(data => {})
+     * @param {Object} data
+     * @param {String} data.path
+     * @returns {*}
+     */
+    getByPath(data) {
+        return Neo.nsWithArrays(data.path)
     }
 
     /**
@@ -385,7 +398,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Change the location.hash value
+     * Change a Neo.config from the app worker
      * @param {Object} data
      * @param {String} data.key
      * @param {*} data.value
@@ -437,7 +450,7 @@ class Main extends core.Base {
      * @param {String} data.windowFeatures
      * @param {String} data.windowName
      * @return {Boolean}
-     */    
+     */
     windowOpen(data) {
         let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
             success      = !!openedWindow;

@@ -17,31 +17,31 @@ class Video extends BaseComponent {
          */
         className: 'Neo.component.Video',
         /*
-         * @member {String} ntype='neo-video'
+         * @member {String} ntype='video'
          * @protected
          */
         ntype: 'video',
         /*
-         * @member {[String]} cls=['neo-video']
+         * @member {String[]} baseCls=['neo-video']
          */
         baseCls: ['neo-video'],
-        /*
-         * @member {String} url=null
-         * @public
-         */
-        url_: null,
-
         /**
          * Current state of the video
-         * @member {boolean} playing=false
+         * @member {Boolean} playing=false
          */
         playing_: false,
         /**
          * Type of the video
-         * @member {boolean} type='video/mp4'
+         * @member {Boolean} type='video/mp4'
          */
         type: 'video/mp4',
-
+        /*
+         * @member {String} url=null
+         */
+        url_: null,
+        /**
+         * @member {Object} _vdom
+         */
         _vdom: {
             cn: [{
                 flag: 'ghost',
@@ -64,16 +64,11 @@ class Video extends BaseComponent {
         }
     }
 
-
     /**
-     * construct is earlier in component life cicle than init
-     *
-     * @param config
+     * @param {Object} config
      */
     construct(config) {
         super.construct(config);
-
-        console.log(this);
 
         let me           = this,
             domListeners = me.domListeners;
