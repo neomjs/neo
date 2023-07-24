@@ -170,6 +170,9 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /**
+     * @returns {Neo.component.Base}
+     */
     createExampleComponent() {
         return Neo.create({
             module   : Button,
