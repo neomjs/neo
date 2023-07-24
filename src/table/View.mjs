@@ -114,7 +114,7 @@ class View extends Component {
                 cellCls      = ['neo-table-cell'];
                 rendererType = Neo.typeOf(rendererOutput);
 
-                switch (Neo.typeOf(rendererOutput)) {
+                switch (rendererType) {
                     case 'Object': {
                         if (rendererOutput.cls && rendererOutput.html) {
                             cellCls.push(...rendererOutput.cls);
