@@ -981,10 +981,10 @@ class Text extends Base {
 
     /**
      * Calls focus() on the inputEl node instead
-     * @param {String} id=this.id
+     * @param {String} id
      * @override
      */
-    focus(id=this.id) {
+    focus(id) {
         super.focus(this.getInputElId())
     }
 
