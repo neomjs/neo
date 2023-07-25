@@ -1442,21 +1442,19 @@ class Text extends Base {
             }
         }
 
-        if (required && isEmpty) {
-            me._error = me.errorTextRequired;
-            returnValue = false;
-        } else if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-            if (required || !isEmpty) {
+        if (isEmpty) {
+            if (required) {
+                me._error = me.errorTextRequired;
+                returnValue = false;
+            }
+        } else {
+            if (Neo.isNumber(maxLength) && valueLength > maxLength) {
                 me._error = me.errorTextMaxLength(errorParam);
                 returnValue = false;
-            }
-        } else if (Neo.isNumber(minLength) && valueLength < minLength) {
-            if (required || !isEmpty) {
+            } else if (Neo.isNumber(minLength) && valueLength < minLength) {
                 me._error = me.errorTextMinLength(errorParam);
                 returnValue = false;
-            }
-        } else if (inputPattern && !inputPattern.test(value)) {
-            if (required || !isEmpty) {
+            } else if (inputPattern && !inputPattern.test(value)) {
                 me._error = me.errorTextInputPattern(errorParam);
                 returnValue = false;
             }
