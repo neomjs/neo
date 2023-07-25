@@ -349,7 +349,7 @@ class Base extends Component {
             textNode.innerHTML = value;
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -369,7 +369,7 @@ class Base extends Component {
             vdomRoot.tag = 'button';
         }
 
-        this.update();
+        this.update()
     }
 
     /**
@@ -384,14 +384,14 @@ class Base extends Component {
             rippleWrapper = me.getRippleWrapper();
 
         if (!value && oldValue) {
-            me.removeDomListeners(listener);
+            me.removeDomListeners(listener)
         } else if (value) {
-            me.addDomListeners(listener);
+            me.addDomListeners(listener)
         }
 
-        // setting the config to false should end running ripple animations
+        // setting the config to false ends running ripple animations
         rippleWrapper.removeDom = true;
-        me.update();
+        me.update()
     }
 
     /**
@@ -410,7 +410,7 @@ class Base extends Component {
             delete vdomRoot.target;
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -425,7 +425,7 @@ class Base extends Component {
             return iconCls.join(' ');
         }
 
-        return iconCls;
+        return iconCls
     }
 
     /**
@@ -436,7 +436,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetBadgePosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'badgePosition');
+        return this.beforeSetEnumValue(value, oldValue, 'badgePosition')
     }
 
     /**
@@ -451,7 +451,7 @@ class Base extends Component {
             value = value.split(' ').filter(Boolean);
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -471,9 +471,9 @@ class Base extends Component {
         let me = this;
 
         if (me.editRoute) {
-            Neo.Main.editRoute(me.route);
+            Neo.Main.editRoute(me.route)
         } else {
-            Neo.Main.setRoute({value: me.route});
+            Neo.Main.setRoute({value: me.route})
         }
     }
 
@@ -482,7 +482,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getBadgeNode() {
-        return this.getVdomRoot().cn[2];
+        return this.getVdomRoot().cn[2]
     }
 
     /**
@@ -490,7 +490,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getIconNode() {
-        return this.getVdomRoot().cn[0];
+        return this.getVdomRoot().cn[0]
     }
 
     /**
@@ -498,7 +498,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getRippleWrapper() {
-        return this.getVdomRoot().cn[3];
+        return this.getVdomRoot().cn[3]
     }
 
     /**
@@ -536,7 +536,7 @@ class Base extends Component {
                 me.#rippleTimeoutId = null;
 
                 rippleWrapper.removeDom = true;
-                me.update();
+                me.update()
             }
         }, rippleEffectDuration);
     }
