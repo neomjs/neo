@@ -28,7 +28,7 @@ class ListModel extends BaseListModel {
         if (parentMenu) {
             view.hideSubMenu();
             view.selectionModel.deselectAll();
-            parentMenu.selectionModel.selectAt(view.parentIndex);
+            parentMenu.selectionModel.selectAt(view.parentIndex)
         }
     }
 
@@ -39,7 +39,7 @@ class ListModel extends BaseListModel {
         let activeSubMenu = this.view.activeSubMenu;
 
         if (activeSubMenu) {
-            activeSubMenu.selectionModel.selectAt(0);
+            activeSubMenu.selectionModel.selectAt(0)
         }
     }
 }
