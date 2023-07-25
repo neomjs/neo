@@ -96,7 +96,12 @@ class List extends BaseList {
          * We are applying a z-index style which is 1 number higher to each sub-menu
          * @member {Number} zIndex_=100
          */
-        zIndex_: 100
+        zIndex_: 100,
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {tag: 'ul', tabIndex: -1, cn: []}
     }
 
     /**
@@ -138,6 +143,7 @@ class List extends BaseList {
             if (me.isRoot) {
                 if (!value) {
                     me.focusTimeoutId = setTimeout(() => {
+                        console.log('unmount'); // todo: does not hide a top-level floating menu
                         me[me.floating ? 'unmount' : 'hideSubMenu']();
                     }, 20);
                 } else {
@@ -305,26 +311,27 @@ class List extends BaseList {
 
                 Object.assign(menuStyle, style);
 
-                subMenu.setSilent({style: menuStyle});
+                subMenu.setSilent({style: menuStyle})
             } else {
                 subMenuMap[subMenuMapId] = subMenu = Neo.create({
-                    module     : List,
-                    appName    : me.appName,
-                    floating   : true,
-                    items      : record.items,
-                    isRoot     : false,
-                    parentId   : Neo.apps[me.appName].mainView.id,
-                    parentIndex: store.indexOf(record),
-                    parentMenu : me,
+                    module      : List,
+                    appName     : me.appName,
+                    displayField: me.displayField,
+                    floating    : true,
+                    items       : record.items,
+                    isRoot      : false,
+                    parentId    : Neo.apps[me.appName].mainView.id,
+                    parentIndex : store.indexOf(record),
+                    parentMenu  : me,
                     style,
-                    zIndex     : me.zIndex + 1
-                });
+                    zIndex      : me.zIndex + 1
+                })
             }
 
             me.activeSubMenu = subMenu;
             me.subMenuMap    = subMenuMap;
 
-            subMenu.render(true);
+            subMenu.render(true)
         });
     }
 
@@ -335,7 +342,7 @@ class List extends BaseList {
         this.selectionModel.deselectAll(true); // silent update
         this.hideSubMenu();
 
-        super.unmount();
+        super.unmount()
     }
 }
 

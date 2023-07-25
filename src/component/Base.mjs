@@ -1106,14 +1106,11 @@ class Base extends CoreBase {
      * @param {String} id=this.id
      */
     focus(id=this.id) {
-        let me = this;
-
-        // remote method access
         Neo.main.DomAccess.focus({
-            id: id || me.id
+            id
         }).catch(err => {
-            console.log('Error attempting to receive focus for component', err, me);
-        });
+            console.log('Error attempting to receive focus for component', err, this);
+        })
     }
 
     /**
@@ -1191,7 +1188,7 @@ class Base extends CoreBase {
     getMountedParentId() {
         let parentId  = this.parentId,
             parent    = Neo.getComponent(parentId),
-            itemsRoot = parent?.getVdomItemsRoot();
+            itemsRoot = parent?.getVdomItemsRoot?.();
 
         return itemsRoot ? itemsRoot.id : parentId
     }

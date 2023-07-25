@@ -186,6 +186,11 @@ class Base extends Component {
             click: value,
             scope: me.handlerScope || me
         });
+
+        me.menu && me.addDomListeners({
+            click: me.toggleMenu,
+            scope: me
+        })
     }
 
     /**
@@ -201,7 +206,7 @@ class Base extends Component {
         NeoArray.add(   iconNode.cls, value);
 
         iconNode.removeDom = !value || value === '';
-        this.update();
+        this.update()
     }
 
     /**
@@ -222,7 +227,7 @@ class Base extends Component {
         }
 
         iconNode.style.color = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -249,17 +254,48 @@ class Base extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let list = Neo.create({
-                    module  : module.default,
-                    appName : this.appName,
-                    floating: true,
-                    items   : value
+                let me = this;
+
+                me.menuList = Neo.create({
+                    module      : module.default,
+                    appName     : me.appName,
+                    displayField: 'text',
+                    floating    : true,
+                    hidden      : true,
+                    items       : value,
+                    parentId    : me.id
                 });
 
-                list.render(true);
-
-                console.log('afterSetMenu', list);
+                me.vdom.cn.push(me.menuList.vdom)
             })
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this,
+            style;
+
+        if (value && me.menu) {
+            setTimeout(() => {
+                me.getDomRect().then(rect => {
+                    style = me.menuList.style || {};
+
+                    Object.assign(style, {
+                        right: 0,
+                        top  : rect.height + 'px'
+                    });
+
+                    me.menuList.style = style
+                })
+            }, 50)
         }
     }
 
@@ -288,7 +324,7 @@ class Base extends Component {
         value && me.addDomListeners({
             click: me.changeRoute,
             scope: me
-        });
+        })
     }
 
     /**
@@ -503,6 +539,23 @@ class Base extends Component {
                 me.update();
             }
         }, rippleEffectDuration);
+    }
+
+    /**
+     *
+     */
+    toggleMenu() {
+        let menuList = this.menuList,
+            hidden   = !menuList.hidden;
+
+        menuList.hidden = hidden;
+
+        if (!hidden) {
+            setTimeout(() => {
+                console.log('focus'); // todo: does not activate the key nav
+                menuList.focus()
+            }, 500)
+        }
     }
 }
 

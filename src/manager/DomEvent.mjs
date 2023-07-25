@@ -106,7 +106,7 @@ class DomEvent extends Base {
 
                                 if (!preventFire) {
                                     // multiple listeners would change the reference of data.component
-                                    data = Neo.clone(data, true);
+                                    data = Neo.clone(data, true, true);
 
                                     data.component = component;
                                     listener.fn.apply(listener.scope || globalThis, [data]);

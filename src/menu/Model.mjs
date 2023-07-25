@@ -28,7 +28,7 @@ class Model extends BaseModel {
             name: 'items', // optional
             type: 'Array'
         }, {
-            name: 'name',
+            name: 'text',
             type: 'String'
         }]
     }

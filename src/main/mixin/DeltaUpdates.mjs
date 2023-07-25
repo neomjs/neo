@@ -127,12 +127,12 @@ class DeltaUpdates extends Base {
                 startTag  = `<!-- ${delta.id} -->`;
                 reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
-                node.innerHTML = node.innerHTML.replace(reg, '');
+                node.innerHTML = node.innerHTML.replace(reg, '')
             } else {
                 // console.warn('du_removeNode: dom node not found for id', delta.id);
             }
         } else {
-            node.parentNode.removeChild(node);
+            node.remove()
         }
     }
 

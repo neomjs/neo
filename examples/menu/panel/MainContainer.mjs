@@ -56,70 +56,70 @@ class MainContainer extends ConfigurationViewport {
             module: Menu,
 
             listConfig: {
-                displayField: 'name'
+                displayField: 'text'
             },
 
             listItems: [{
                 iconCls: 'fa fa-user',
                 id     : 1,
-                name   : 'Item 1'
+                text   : 'Item 1'
             }, {
                 iconCls: 'fa fa-home',
                 id     : 2,
-                name   : 'Group 1',
+                text   : 'Group 1',
                 items  : [{
                     iconCls: 'fa fa-home',
                     id     : 6,
-                    name   : 'Item 1'
+                    text   : 'Item 1'
                 }, {
                     iconCls: 'fa fa-home',
                     id     : 7,
-                    name   : 'Item 2'
+                    text   : 'Item 2'
                 }, {
                     iconCls: 'fa fa-home',
                     id     : 8,
-                    name   : 'Item 3'
+                    text   : 'Item 3'
                 }]
             }, {
                 iconCls: 'fa fa-cog',
                 id     : 3,
-                name   : 'Item 2'
+                text   : 'Item 2'
             }, {
                 iconCls: 'far fa-calendar',
                 id     : 4,
-                name   : 'Item 3'
+                text   : 'Item 3'
             }, {
                 iconCls: 'far fa-clock',
                 id     : 5,
-                name   : 'Group 2',
+                text   : 'Group 2',
                 items  : [{
                     iconCls: 'fa fa-clock',
                     id     : 9,
-                    name   : 'Item 1'
+                    text   : 'Item 1'
                 }, {
                     iconCls: 'fa fa-clock',
                     id     : 10,
-                    name   : 'Item 2'
+                    text   : 'Item 2'
                 }, {
                     iconCls: 'fa fa-clock',
                     id     : 11,
-                    name   : 'Group 1',
+                    text   : 'Group 1',
                     items  : [{
                         iconCls: 'far fa-clock',
                         id     : 12,
-                        name   : 'Item 1'
+                        text   : 'Item 1'
                     }, {
                         iconCls: 'far fa-clock',
                         id     : 13,
-                        name   : 'Item 2'
+                        text   : 'Item 2'
                     }, {
                         iconCls: 'far fa-clock',
                         id     : 14,
-                        name   : 'Item 3'
+                        text   : 'Item 3'
                     }]
                 }]
             }]
-        });
+        })
     }
 }
 
