@@ -59,7 +59,7 @@ class View extends Component {
             i          = 0,
             vdom       = me.vdom,
             cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
-            record, rendererType, rendererValue, selectedRows, trCls;
+            record, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
 
@@ -111,10 +111,9 @@ class View extends Component {
                     value    : rendererValue
                 });
 
-                cellCls      = ['neo-table-cell'];
-                rendererType = Neo.typeOf(rendererOutput);
+                cellCls = ['neo-table-cell'];
 
-                switch (rendererType) {
+                switch (Neo.typeOf(rendererOutput)) {
                     case 'Object': {
                         if (rendererOutput.cls && rendererOutput.html) {
                             cellCls.push(...rendererOutput.cls);
@@ -151,7 +150,7 @@ class View extends Component {
                     tabIndex: '-1'
                 };
 
-                if (rendererType === 'String') {
+                if (Neo.typeOf(rendererOutput) === 'Object') {
                     config.innerHTML = rendererOutput.html  || ''
                 } else {
                     config.cn = rendererOutput

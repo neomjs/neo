@@ -1963,7 +1963,12 @@ class Base extends CoreBase {
                 opts.appName = me.appName;
             }
 
-            Neo.vdom.Helper.update(opts).then(data => {
+            Neo.vdom.Helper.update(opts).catch(err => {
+                console.log('Error attempting to update component dom', err, me);
+                me.isVdomUpdating = false;
+
+                reject?.();
+            }).then(data => {
                 // console.log('Component vnode updated', data);
                 me.vnode          = data.vnode;
                 me.isVdomUpdating = false;
@@ -1987,12 +1992,7 @@ class Base extends CoreBase {
                         me.vdom = me.vdom;
                     }
                 }
-            }).catch(err => {
-                console.log('Error attempting to update component dom', err, me);
-                me.isVdomUpdating = false;
-
-                reject?.();
-            });
+            })
         }
     }
 }
