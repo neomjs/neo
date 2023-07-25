@@ -19,6 +19,9 @@ class Model extends BaseModel {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'handler',
+            type: 'Function'
+        }, {
             name: 'iconCls',
             type: 'String'
         }, {

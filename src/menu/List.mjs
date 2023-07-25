@@ -273,6 +273,16 @@ class List extends BaseList {
     }
 
     /**
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        data.record.handler?.call(this, data)
+    }
+
+    /**
      * @param {String[]} items
      */
     onSelect(items) {

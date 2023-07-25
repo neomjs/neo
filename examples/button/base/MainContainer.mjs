@@ -185,15 +185,15 @@ class MainContainer extends ConfigurationViewport {
             width    : 150,
 
             menu: [{
-                handler: data => console.log('menu item click =>', data.component.id),
+                handler: data => console.log('menu item 1 click =>', data),
                 iconCls: 'fa fa-home',
                 text   : 'Item 1'
             }, {
-                handler: data => console.log('menu item click =>', data.component.id),
+                handler: data => console.log('menu item 2 click =>', data),
                 iconCls: 'fa fa-user',
                 text   : 'Item 2'
             }, {
-                handler: data => console.log('menu item click =>', data.component.id),
+                handler: data => console.log('menu item 3 click =>', data),
                 iconCls: 'fa fa-play',
                 text   : 'Item 3'
             }]
@@ -201,7 +201,7 @@ class MainContainer extends ConfigurationViewport {
             /*tooltips: [{
                 text: 'Hello World Tooltip'
             }]*/
-        });
+        })
     }
 }
 
