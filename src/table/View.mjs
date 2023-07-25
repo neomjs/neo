@@ -296,12 +296,15 @@ class View extends Component {
             cellId   = me.getCellId(opts.record, field.name);
             cellNode = me.getVdomChild(cellId);
 
-            cellNode.innerHTML = field.value; // keep the vdom in sync
+            // the vdom might not exist yet => nothing to do in this case
+            if (cellNode) {
+                cellNode.innerHTML = field.value; // keep the vdom in sync
 
-            deltas.push({
-                id       : cellId,
-                innerHTML: field.value
-            })
+                deltas.push({
+                    id       : cellId,
+                    innerHTML: field.value
+                })
+            }
         });
 
         deltas.length > 0 && Neo.applyDeltas(me.appName, deltas);
