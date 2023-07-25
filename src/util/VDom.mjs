@@ -347,12 +347,11 @@ class VDom extends Base {
      */
     static syncVdomIds(vnode, vdom) {
         if (vnode && vdom) {
-            let childNodes = vdom.childNodes || vdom.cn,
+            let childNodes = vdom.cn,
                 cn, i, len;
 
             if (vnode.id && vnode.id !== vdom.id) {
                 vdom.id = vnode.id;
-                // console.log('vdom id set to', vnode.id);
             }
 
             if (childNodes) {
@@ -362,7 +361,7 @@ class VDom extends Base {
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
-                        VDom.syncVdomIds(vnode.childNodes[i], cn[i]);
+                        VDom.syncVdomIds(vnode.childNodes[i], cn[i])
                     }
                 }
             }
