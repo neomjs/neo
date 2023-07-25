@@ -97,7 +97,7 @@ class Base extends Container {
                 mouseleave: me.hideDelayed,
                 delegate  : me.delegate,
                 scope     : me
-            });
+            })
         }
     }
 
@@ -118,7 +118,7 @@ class Base extends Container {
             me.addDomListeners([
                 {mouseenter: me.onMouseEnter, scope: me},
                 {mouseleave: me.onMouseLeave, scope: me}
-            ]);
+            ])
         }
     }
 
@@ -177,7 +177,7 @@ class Base extends Container {
         let me = this;
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
-        me.mounted && me.unmount();
+        me.mounted && me.unmount()
     }
 
     /**
@@ -190,7 +190,7 @@ class Base extends Container {
         if (me.hideDelay) {
             me.hideDelayTaskId = setTimeout(me.hide.bind(me), me.hideDelay, data);
         } else {
-            me.hide(data);
+            me.hide(data)
         }
     }
 
@@ -233,7 +233,7 @@ class Base extends Container {
             me.dismissDelayTaskId = setTimeout(me.hide.bind(me), me.dismissDelay, data);
         }
 
-        !me.mounted && me.mount();
+        !me.mounted && me.render(true)
     }
 
     /**
@@ -244,9 +244,9 @@ class Base extends Container {
         let me = this;
 
         if (me.showDelay) {
-            me.showDelayTaskId = setTimeout(me.show.bind(me), me.showDelay, data);
+            me.showDelayTaskId = setTimeout(me.show.bind(me), me.showDelay, data)
         } else {
-            me.show(data);
+            me.show(data)
         }
     }
 }

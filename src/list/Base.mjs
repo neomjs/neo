@@ -641,6 +641,9 @@ class Base extends Component {
         let me     = this,
             record = me.store.get(me.getItemRecordId(node.id));
 
+        // pass the record to class extensions
+        data.record = record;
+
         if (!me.disableSelection && (!me.useHeaders || !record.isHeader)) {
             me.selectionModel?.select(node.id);
         }

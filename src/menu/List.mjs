@@ -114,7 +114,7 @@ class List extends BaseList {
         let cls = this.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-floating');
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -127,7 +127,7 @@ class List extends BaseList {
         let store = this.store;
 
         oldValue && store.remove(oldValue);
-        value    && store.add(value);
+        value    && store.add(value)
     }
 
     /**
@@ -164,7 +164,7 @@ class List extends BaseList {
      * @protected
      */
     afterSetZIndex(value, oldValue) {
-        this.style = {...this.style, zIndex: value};
+        this.style = {...this.style, zIndex: value}
     }
 
     /**
@@ -174,19 +174,20 @@ class List extends BaseList {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me     = this,
-            id     = record[me.store.keyProperty],
-            vdomCn = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
+        let me      = this,
+            iconCls = record.iconCls,
+            id      = record[me.store.keyProperty],
+            vdomCn  = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
 
-        if (record.iconCls && record.iconCls !== '') {
-            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', record.iconCls], id: me.getIconId(id)});
+        if (iconCls && iconCls !== '') {
+            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', iconCls], id: me.getIconId(id)});
         }
 
         if (me.hasChildren(record)) {
             vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'neo-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
         }
 
-        return vdomCn;
+        return vdomCn
     }
 
     /**
@@ -203,10 +204,10 @@ class List extends BaseList {
 
         Object.entries(subMenuMap).forEach(([key, value]) => {
             value.destroy();
-            subMenuMap[key] = null;
+            subMenuMap[key] = null
         });
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -214,7 +215,7 @@ class List extends BaseList {
      * @returns {String}
      */
     getArrowIconId(recordId) {
-        return `${this.id}__arrow_icon__${recordId}`;
+        return `${this.id}__arrow_icon__${recordId}`
     }
 
     /**
@@ -222,7 +223,7 @@ class List extends BaseList {
      * @returns {String}
      */
     getIconId(recordId) {
-        return `${this.id}__icon__${recordId}`;
+        return `${this.id}__icon__${recordId}`
     }
 
     /**
@@ -231,7 +232,7 @@ class List extends BaseList {
      * @returns {String}
      */
     getMenuMapId(recordId) {
-        return `menu__${recordId}`;
+        return `menu__${recordId}`
     }
 
     /**
@@ -240,7 +241,7 @@ class List extends BaseList {
      * @returns {Boolean}
      */
     hasChildren(record) {
-        return Array.isArray(record.items) && record.items.length > 0;
+        return Array.isArray(record.items) && record.items.length > 0
     }
 
     /**
@@ -252,7 +253,7 @@ class List extends BaseList {
 
         if (activeSubMenu) {
             activeSubMenu.unmount();
-            me.activeSubMenu = null;
+            me.activeSubMenu = null
         }
     }
 
@@ -261,7 +262,7 @@ class List extends BaseList {
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {
-        this.menuFocus = true;
+        this.menuFocus = true
     }
 
     /**
@@ -269,7 +270,17 @@ class List extends BaseList {
      * @param {Object[]} data.oldPath
      */
     onFocusLeave(data) {
-        this.menuFocus = false;
+        this.menuFocus = false
+    }
+
+    /**
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        data.record.handler?.call(this, data)
     }
 
     /**
@@ -283,7 +294,7 @@ class List extends BaseList {
 
         if (me.activeSubMenu !== me.subMenuMap?.[me.getMenuMapId(recordId)]) {
             me.hideSubMenu();
-            me.hasChildren(record) && me.showSubMenu(nodeId, record);
+            me.hasChildren(record) && me.showSubMenu(nodeId, record)
         }
     }
 
