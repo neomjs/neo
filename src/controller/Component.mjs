@@ -48,11 +48,11 @@ class Component extends Base {
         me.references = {};
 
         if (component.isConstructed) {
-            me.onComponentConstructed();
+            me.onComponentConstructed()
         } else {
             listenerId = component.on('constructed', () => {
                 component.un('constructed', listenerId);
-                me.onComponentConstructed();
+                me.onComponentConstructed()
             });
         }
     }
@@ -64,7 +64,7 @@ class Component extends Base {
      * @protected
      */
     beforeSetParent(value, oldValue) {
-        return value ? value : this.getParent();
+        return value || this.getParent()
     }
 
     /**
@@ -87,7 +87,7 @@ class Component extends Base {
      */
     getModel(sameLevelOnly=false) {
         let component = this.component;
-        return sameLevelOnly ? component.model : component.getModel();
+        return sameLevelOnly ? component.model : component.getModel()
     }
 
     /**
@@ -105,7 +105,7 @@ class Component extends Base {
         parentId        = me.component.parentId;
         parentComponent = parentId && Neo.getComponent(parentId);
 
-        return parentComponent?.getController() || null;
+        return parentComponent?.getController() || null
     }
 
     /**
@@ -125,7 +125,7 @@ class Component extends Base {
             }
         }
 
-        return component || null;
+        return component || null
     }
 
     /**
@@ -220,8 +220,8 @@ class Component extends Base {
                             }
                         }
                     }
-                });
-            });
+                })
+            })
         }
     }
 
@@ -241,7 +241,7 @@ class Component extends Base {
             }
         }
 
-        me.getParent()?.removeReference(component);
+        me.getParent()?.removeReference(component)
     }
 }
 
