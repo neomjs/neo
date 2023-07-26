@@ -1,7 +1,6 @@
 import Button                from '../../../src/button/Base.mjs';
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import Container             from '../../../src/container/Base.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import SelectField           from '../../../src/form/field/Select.mjs';
@@ -16,14 +15,7 @@ class MainContainer extends ConfigurationViewport {
         className           : 'Neo.examples.button.base.MainContainer',
         configItemLabelWidth: 160,
         configItemWidth     : 280,
-        layout              : {ntype: 'hbox', align: 'stretch'},
-
-        exampleContainerConfig: {
-            style: {
-                overflow: 'auto',
-                padding : '20px'
-            }
-        }
+        layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
@@ -183,39 +175,34 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create({
-            module: Container,
-            height: 2000,
-            layout: 'vbox',
+            module   : Button,
+            badgeText: 'Badge',
+            flex     : 'none',
+            handler  : data => console.log('button click =>', data.component.id),
+            height   : 50,
+            iconCls  : 'fa fa-home',
+            style    : {marginBottom: '1500px', marginTop: '500px'},
+            text     : 'Hello World',
+            ui       : 'primary',
+            width    : 150,
 
-            items: [{
-                module   : Button,
-                badgeText: 'Badge',
-                handler  : data => console.log('button click =>', data.component.id),
-                height   : 50,
-                iconCls  : 'fa fa-home',
-                style    : {marginTop: '500px'},
-                text     : 'Hello World',
-                ui       : 'primary',
-                width    : 150,
-
-                menu: [{
-                    handler: data => console.log('menu item 1 click =>', data),
-                    iconCls: 'fa fa-home',
-                    text   : 'Item 1'
-                }, {
-                    handler: data => console.log('menu item 2 click =>', data),
-                    iconCls: 'fa fa-user',
-                    text   : 'Item 2'
-                }, {
-                    handler: data => console.log('menu item 3 click =>', data),
-                    iconCls: 'fa fa-play',
-                    text   : 'Item 3'
-                }]
-
-                /*tooltips: [{
-                    text: 'Hello World Tooltip'
-                }]*/
+            menu: [{
+                handler: data => console.log('menu item 1 click =>', data),
+                iconCls: 'fa fa-home',
+                text   : 'Item 1'
+            }, {
+                handler: data => console.log('menu item 2 click =>', data),
+                iconCls: 'fa fa-user',
+                text   : 'Item 2'
+            }, {
+                handler: data => console.log('menu item 3 click =>', data),
+                iconCls: 'fa fa-play',
+                text   : 'Item 3'
             }]
+
+            /*tooltips: [{
+                text: 'Hello World Tooltip'
+            }]*/
         })
     }
 }

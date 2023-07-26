@@ -182,9 +182,9 @@ class List extends BaseList {
 
         if (value && parentRect) {
             Neo.main.addon.ScrollSync.register({
-                sourceId: me.id,
-                targetId: me.parentComponent.id
-            })
+                sourceId: me.parentComponent.id,
+                targetId: me.id
+            });
 
             me.getDomRect().then(rect => {
                 let style = me.style || {};
