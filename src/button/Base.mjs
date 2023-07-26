@@ -256,11 +256,8 @@ class Base extends Component {
                     displayField: 'text',
                     floating    : true,
                     hidden      : true,
-                    items       : value,
-                    parentId    : me.id
-                });
-
-                me.vdom.cn.push(me.menuList.vdom)
+                    items       : value
+                })
             })
         }
     }
