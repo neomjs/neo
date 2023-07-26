@@ -140,6 +140,20 @@ class Base extends Component {
     #rippleTimeoutId = null
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            click: me.onClick,
+            scope: me
+        })
+    }
+
+    /**
      * Triggered after the badgePosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -171,26 +185,6 @@ class Base extends Component {
         badgeNode.removeDom = !Boolean(value);
 
         this.update();
-    }
-
-    /**
-     * Triggered after the handler config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetHandler(value, oldValue) {
-        let me = this;
-
-        value && me.addDomListeners({
-            click: value,
-            scope: me.handlerScope || me
-        });
-
-        me.menu && me.addDomListeners({
-            click: me.toggleMenu,
-            scope: me
-        })
     }
 
     /**
@@ -499,6 +493,17 @@ class Base extends Component {
      */
     getRippleWrapper() {
         return this.getVdomRoot().cn[3]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onClick(data) {
+        let me = this;
+
+        me.handler?.call(me.handlerScope || me, data);
+
+        me.menu && me.toggleMenu();
     }
 
     /**
