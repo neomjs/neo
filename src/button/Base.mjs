@@ -271,20 +271,12 @@ class Base extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this,
-            style;
+        let me = this;
 
         if (value && me.menu) {
             setTimeout(() => {
                 me.getDomRect().then(rect => {
-                    style = me.menuList.style || {};
-
-                    Object.assign(style, {
-                        right: 0,
-                        top  : rect.height + 'px'
-                    });
-
-                    me.menuList.style = style
+                    me.menuList.parentRect = rect
                 })
             }, 50)
         }

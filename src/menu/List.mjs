@@ -105,6 +105,12 @@ class List extends BaseList {
     }
 
     /**
+     * If the menu is floating, it will anchor itself to the parentRect
+     * @member {Object|null} parentComponent=null
+     */
+    parentRect = null
+
+    /**
      * Triggered after the floating config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -154,6 +160,30 @@ class List extends BaseList {
                 // bubble the focus change upwards
                 me.parentMenu.menuFocus = value;
             }
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me         = this,
+            parentRect = me.parentRect;
+
+        if (value && parentRect) {
+            me.getDomRect().then(rect => {
+                let style = me.style || {};
+
+                style.left = `${parentRect.right - rect.width}px`;
+                style.top  = `${parentRect.bottom + 1}px`;
+
+                me.style = style
+            })
         }
     }
 
