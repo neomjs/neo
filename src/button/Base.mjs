@@ -307,21 +307,6 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the route config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetRoute(value, oldValue) {
-        let me = this;
-
-        value && me.addDomListeners({
-            click: me.changeRoute,
-            scope: me
-        })
-    }
-
-    /**
      * Triggered after the text config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -373,19 +358,9 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        let me            = this,
-            listener      = {click: me.showRipple, scope: me},
-            rippleWrapper = me.getRippleWrapper();
-
-        if (!value && oldValue) {
-            me.removeDomListeners(listener)
-        } else if (value) {
-            me.addDomListeners(listener)
-        }
-
         // setting the config to false ends running ripple animations
-        rippleWrapper.removeDom = true;
-        me.update()
+        this.getRippleWrapper().removeDom = true;
+        this.update()
     }
 
     /**
@@ -503,7 +478,9 @@ class Base extends Component {
 
         me.handler?.call(me.handlerScope || me, data);
 
-        me.menu && me.toggleMenu();
+        me.menu            && me.toggleMenu();
+        me.route           && me.changeRoute();
+        me.useRippleEffect && me.showRipple(data)
     }
 
     /**
