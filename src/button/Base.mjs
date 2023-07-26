@@ -264,26 +264,6 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        let me = this;
-
-        if (value && me.menu) {
-            setTimeout(() => {
-                me.getDomRect().then(rect => {
-                    me.menuList.parentRect = rect
-                })
-            }, 50)
-        }
-    }
-
-    /**
      * Triggered after the pressed config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

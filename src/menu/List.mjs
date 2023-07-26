@@ -177,20 +177,20 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me         = this,
-            parentRect = me.parentRect;
+        let me       = this,
+            parentId = me.parentComponent?.id;
 
-        if (value && parentRect) {
+        if (value && parentId) {
             Neo.main.addon.ScrollSync.register({
-                sourceId: me.parentComponent.id,
+                sourceId: parentId,
                 targetId: me.id
             });
 
-            me.getDomRect().then(rect => {
+            me.getDomRect([me.id, parentId]).then(rects => {
                 let style = me.style || {};
 
-                style.left = `${parentRect.right - rect.width}px`;
-                style.top  = `${parentRect.bottom + 1}px`;
+                style.left = `${rects[1].right - rects[0].width}px`;
+                style.top  = `${rects[1].bottom + 1}px`;
 
                 me.style = style
             })
