@@ -126,6 +126,7 @@ class View extends Component {
                         }
                         break;
                     }
+                    case 'Number':
                     case 'String': {
                         rendererOutput = {
                             cls : cellCls,
