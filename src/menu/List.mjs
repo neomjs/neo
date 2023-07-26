@@ -106,7 +106,12 @@ class List extends BaseList {
 
     /**
      * If the menu is floating, it will anchor itself to the parentRect
-     * @member {Object|null} parentComponent=null
+     * @member {Neo.component.Base|null} parentComponent=null
+     */
+    parentComponent = null
+    /**
+     * If the menu is floating, it will anchor itself to the parentRect
+     * @member {Object|null} parentRect=null
      */
     parentRect = null
 
@@ -176,6 +181,11 @@ class List extends BaseList {
             parentRect = me.parentRect;
 
         if (value && parentRect) {
+            Neo.main.addon.ScrollSync.register({
+                sourceId: me.id,
+                targetId: me.parentComponent.id
+            })
+
             me.getDomRect().then(rect => {
                 let style = me.style || {};
 

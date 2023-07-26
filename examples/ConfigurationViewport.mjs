@@ -49,7 +49,11 @@ class ConfigurationViewport extends Viewport {
         /**
          * @member {Number} exampleComponentFlex=1
          */
-        exampleComponentFlex: 2
+        exampleComponentFlex: 2,
+        /**
+         * @member {Number} exampleContainerConfig=null
+         */
+        exampleContainerConfig: null
     }
 
     /**
@@ -69,7 +73,8 @@ class ConfigurationViewport extends Viewport {
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
-            style : {padding: '20px'}
+            style : {padding: '20px'},
+            ...me.exampleContainerConfig
         }, {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],

@@ -251,12 +251,13 @@ class Base extends Component {
                 let me = this;
 
                 me.menuList = Neo.create({
-                    module      : module.default,
-                    appName     : me.appName,
-                    displayField: 'text',
-                    floating    : true,
-                    hidden      : true,
-                    items       : value
+                    module         : module.default,
+                    appName        : me.appName,
+                    displayField   : 'text',
+                    floating       : true,
+                    hidden         : true,
+                    items          : value,
+                    parentComponent: me
                 })
             })
         }
