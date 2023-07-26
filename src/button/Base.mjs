@@ -140,6 +140,20 @@ class Base extends Component {
     #rippleTimeoutId = null
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            click: me.onClick,
+            scope: me
+        })
+    }
+
+    /**
      * Triggered after the badgePosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -171,26 +185,6 @@ class Base extends Component {
         badgeNode.removeDom = !Boolean(value);
 
         this.update();
-    }
-
-    /**
-     * Triggered after the handler config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetHandler(value, oldValue) {
-        let me = this;
-
-        value && me.addDomListeners({
-            click: value,
-            scope: me.handlerScope || me
-        });
-
-        me.menu && me.addDomListeners({
-            click: me.toggleMenu,
-            scope: me
-        })
     }
 
     /**
@@ -313,21 +307,6 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the route config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetRoute(value, oldValue) {
-        let me = this;
-
-        value && me.addDomListeners({
-            click: me.changeRoute,
-            scope: me
-        })
-    }
-
-    /**
      * Triggered after the text config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -349,7 +328,7 @@ class Base extends Component {
             textNode.innerHTML = value;
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -369,7 +348,7 @@ class Base extends Component {
             vdomRoot.tag = 'button';
         }
 
-        this.update();
+        this.update()
     }
 
     /**
@@ -379,19 +358,9 @@ class Base extends Component {
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
-        let me            = this,
-            listener      = {click: me.showRipple, scope: me},
-            rippleWrapper = me.getRippleWrapper();
-
-        if (!value && oldValue) {
-            me.removeDomListeners(listener);
-        } else if (value) {
-            me.addDomListeners(listener);
-        }
-
-        // setting the config to false should end running ripple animations
-        rippleWrapper.removeDom = true;
-        me.update();
+        // setting the config to false ends running ripple animations
+        this.getRippleWrapper().removeDom = true;
+        this.update()
     }
 
     /**
@@ -410,7 +379,7 @@ class Base extends Component {
             delete vdomRoot.target;
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -425,7 +394,7 @@ class Base extends Component {
             return iconCls.join(' ');
         }
 
-        return iconCls;
+        return iconCls
     }
 
     /**
@@ -436,7 +405,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetBadgePosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'badgePosition');
+        return this.beforeSetEnumValue(value, oldValue, 'badgePosition')
     }
 
     /**
@@ -451,7 +420,7 @@ class Base extends Component {
             value = value.split(' ').filter(Boolean);
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -471,9 +440,9 @@ class Base extends Component {
         let me = this;
 
         if (me.editRoute) {
-            Neo.Main.editRoute(me.route);
+            Neo.Main.editRoute(me.route)
         } else {
-            Neo.Main.setRoute({value: me.route});
+            Neo.Main.setRoute({value: me.route})
         }
     }
 
@@ -482,7 +451,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getBadgeNode() {
-        return this.getVdomRoot().cn[2];
+        return this.getVdomRoot().cn[2]
     }
 
     /**
@@ -490,7 +459,7 @@ class Base extends Component {
      * @returns {Object}
      */
     getIconNode() {
-        return this.getVdomRoot().cn[0];
+        return this.getVdomRoot().cn[0]
     }
 
     /**
@@ -498,7 +467,20 @@ class Base extends Component {
      * @returns {Object}
      */
     getRippleWrapper() {
-        return this.getVdomRoot().cn[3];
+        return this.getVdomRoot().cn[3]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onClick(data) {
+        let me = this;
+
+        me.handler?.call(me.handlerScope || me, data);
+
+        me.menu            && me.toggleMenu();
+        me.route           && me.changeRoute();
+        me.useRippleEffect && me.showRipple(data)
     }
 
     /**
@@ -536,7 +518,7 @@ class Base extends Component {
                 me.#rippleTimeoutId = null;
 
                 rippleWrapper.removeDom = true;
-                me.update();
+                me.update()
             }
         }, rippleEffectDuration);
     }

@@ -111,6 +111,10 @@ class View extends Component {
                     value    : rendererValue
                 });
 
+                if (!rendererOutput) {
+                    rendererOutput = ''
+                }
+
                 cellCls = ['neo-table-cell'];
 
                 switch (Neo.typeOf(rendererOutput)) {
@@ -122,6 +126,7 @@ class View extends Component {
                         }
                         break;
                     }
+                    case 'Number':
                     case 'String': {
                         rendererOutput = {
                             cls : cellCls,

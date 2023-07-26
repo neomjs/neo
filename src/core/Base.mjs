@@ -24,7 +24,9 @@ class Base {
     static observable = false
     /**
      * Keep the overwritten methods
-     * @type {Object}
+     * @member {Object} overwrittenMethods={}
+     * @protected
+     * @static
      */
     static overwrittenMethods = {}
     /**
@@ -116,7 +118,7 @@ class Base {
             value     : true
         });
 
-        me.remote && setTimeout(me.initRemote.bind(me), 1);
+        me.remote && setTimeout(me.initRemote.bind(me), 1)
     }
 
     /**
@@ -133,9 +135,9 @@ class Base {
 
         if (oldValue) {
             if (hasManager) {
-                Neo.manager.Instance.unregister(oldValue);
+                Neo.manager.Instance.unregister(oldValue)
             } else {
-                delete Neo.idMap[oldValue];
+                delete Neo.idMap[oldValue]
             }
         }
 
@@ -143,7 +145,7 @@ class Base {
             Neo.manager.Instance.register(me);
         } else {
             Neo.idMap = Neo.idMap || {};
-            Neo.idMap[me.id] = me;
+            Neo.idMap[me.id] = me
         }
     }
 
@@ -169,8 +171,9 @@ class Base {
                     }
                 }
             }
+
             // Apply configs to prototype
-            overwrites && Object.assign(cfg, overwrites);
+            overwrites && Object.assign(cfg, overwrites)
         }
     }
 
@@ -187,10 +190,10 @@ class Base {
 
         if (!values.includes(value)) {
             console.error(`Supported values for ${name} are: ${values.join(', ')}`, this);
-            return oldValue;
+            return oldValue
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -217,7 +220,7 @@ class Base {
             regex      = Base.methodNameRegex,
             methodName = stack.match(regex)[1];
 
-        this.__proto__.constructor.overwrittenMethods[methodName].call(this, ...args);
+        this.__proto__.constructor.overwrittenMethods[methodName].call(this, ...args)
     }
 
     /**
@@ -238,14 +241,14 @@ class Base {
         let me = this;
 
         if (Base.instanceManagerAvailable === true) {
-            Neo.manager.Instance.unregister(me);
+            Neo.manager.Instance.unregister(me)
         } else if (Neo.idMap) {
-            delete Neo.idMap[me.id];
+            delete Neo.idMap[me.id]
         }
 
         Object.keys(me).forEach(key => {
             if (Object.getOwnPropertyDescriptor(me, key).writable) {
-                delete me[key];
+                delete me[key]
             }
         })
     }
@@ -299,7 +302,7 @@ class Base {
             listenerId;
 
         if (!me.singleton) {
-            throw new Error('Remote method access is only functional for Singleton classes ' + className);
+            throw new Error('Remote method access is only functional for Singleton classes ' + className)
         }
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
@@ -325,11 +328,11 @@ class Base {
             ctor = me.constructor;
 
         if (!ctor.config) {
-            throw new Error('Neo.applyClassConfig has not been run on ' + me.className);
+            throw new Error('Neo.applyClassConfig has not been run on ' + me.className)
         }
 
         if (!preventOriginalConfig) {
-            me.originalConfig = Neo.clone(config, true, true);
+            me.originalConfig = Neo.clone(config, true, true)
         }
 
         return {...ctor.config, ...config}
@@ -364,7 +367,7 @@ class Base {
 
         if (items) {
             if (!Array.isArray(items)) {
-                items = [items];
+                items = [items]
             }
 
             items.forEach(item => {
@@ -377,16 +380,16 @@ class Base {
                         ns      = Neo.ns(nsArray, false, me);
 
                         if (ns[nsKey] === undefined) {
-                            console.error('The used @config does not exist:', nsKey, nsArray.join('.'));
+                            console.error('The used @config does not exist:', nsKey, nsArray.join('.'))
                         } else {
                             symbolNs = Neo.ns(nsArray, false, me[configSymbol]);
 
                             // The config might not be processed yet, especially for configs
                             // not ending with an underscore, so we need to check the configSymbol first.
                             if (symbolNs && Object.hasOwn(symbolNs, nsKey)) {
-                                item[key] = symbolNs[nsKey];
+                                item[key] = symbolNs[nsKey]
                             } else {
-                                item[key] = ns[nsKey];
+                                item[key] = ns[nsKey]
                             }
                         }
                     }
@@ -414,7 +417,7 @@ class Base {
                 me[keys[0]] = me[configSymbol][keys[0]];
             }
 
-            // there is a delete call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
+            // there is a delete-call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
             // we need to keep this one for configs, which do not use getters (no trailing underscore)
             delete me[configSymbol][keys[0]];
 
@@ -439,7 +442,7 @@ class Base {
                     methods
                 })
             }
-        });
+        })
     }
 
     /**
@@ -455,7 +458,7 @@ class Base {
         // finish this one first before dropping new values into the configSymbol.
         // see: https://github.com/neomjs/neo/issues/2201
         if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
-            me.processConfigs();
+            me.processConfigs()
         }
 
         Object.assign(me[configSymbol], values);
@@ -476,11 +479,11 @@ class Base {
         Object.entries(config).forEach(([key, value]) => {
             if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(me, key)) {
                 me[key] = value;
-                delete config[key];
+                delete config[key]
             }
         })
 
-        return config;
+        return config
     }
 
     /**
