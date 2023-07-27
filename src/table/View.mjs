@@ -200,7 +200,7 @@ class View extends Component {
                 // this logic only works for selection.table.RowModel
                 Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0]});
             }
-        });
+        })
     }
 
     /**
@@ -219,6 +219,29 @@ class View extends Component {
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    }
+
+    /**
+     * Get a table column by a given field name
+     * @param {String} field
+     * @returns {Object|null}
+     */
+    getColumn(field) {
+        let container = Neo.getComponent(this.parentId),
+            columns   = container.columns,
+            i         = 0,
+            len       = columns.length,
+            column;
+
+        for (; i < len; i++) {
+            column = columns[i];
+
+            if (column.dataField === field) {
+                return column
+            }
+        }
+
+        return null
     }
 
     /**
@@ -292,9 +315,10 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange(opts) {
-        let me     = this,
-            deltas = [],
-            cellId, cellNode;
+        let me        = this,
+            deltas    = [],
+            container = Neo.getComponent(me.parentId),
+            cellId, cellNode, column, scope;
 
         opts.fields.forEach(field => {
             cellId   = me.getCellId(opts.record, field.name);
@@ -302,7 +326,12 @@ class View extends Component {
 
             // the vdom might not exist yet => nothing to do in this case
             if (cellNode) {
-                cellNode.innerHTML = field.value; // keep the vdom in sync
+                column = me.getColumn(field.name);
+                scope  = column.rendererScope || container;
+
+                // keep the vdom in sync
+                // cellNode.innerHTML = column.renderer.call(scope, field.value);
+                cellNode.innerHTML = field.value;
 
                 deltas.push({
                     id       : cellId,
