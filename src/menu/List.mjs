@@ -40,6 +40,11 @@ class List extends BaseList {
          */
         focusTimeoutId: null,
         /**
+         * Hides a floating list on leaf item click, in case it has a parentComponent
+         * @member {Boolean} hideOnLeafItemClick=true
+         */
+        hideOnLeafItemClick: true,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -337,7 +342,13 @@ class List extends BaseList {
     onItemClick(node, data) {
         super.onItemClick(node, data);
 
-        data.record.handler?.call(this, data)
+        let me = this;
+
+        data.record.handler?.call(me, data);
+
+        if (me.hideOnLeafItemClick && !data.record.items) {
+            me.unmount()
+        }
     }
 
     /**
