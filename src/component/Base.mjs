@@ -1828,6 +1828,7 @@ class Base extends CoreBase {
 
         me.vdom.removeDom = true;
 
+        me._hidden = true; // silent update
         me.mounted = false;
 
         Neo.currentWorker.promiseMessage('main', {

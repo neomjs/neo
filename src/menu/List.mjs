@@ -40,6 +40,11 @@ class List extends BaseList {
          */
         focusTimeoutId: null,
         /**
+         * Hides a floating list on leaf item click, in case it has a parentComponent
+         * @member {Boolean} hideOnLeafItemClick=true
+         */
+        hideOnLeafItemClick: true,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -109,11 +114,6 @@ class List extends BaseList {
      * @member {Neo.component.Base|null} parentComponent=null
      */
     parentComponent = null
-    /**
-     * If the menu is floating, it will anchor itself to the parentRect
-     * @member {Object|null} parentRect=null
-     */
-    parentRect = null
 
     /**
      * Triggered after the floating config got changed
@@ -154,7 +154,6 @@ class List extends BaseList {
             if (me.isRoot) {
                 if (!value) {
                     me.focusTimeoutId = setTimeout(() => {
-                        console.log('unmount'); // todo: does not hide a top-level floating menu
                         me[me.floating ? 'unmount' : 'hideSubMenu']();
                     }, 20);
                 } else {
@@ -178,22 +177,30 @@ class List extends BaseList {
         super.afterSetMounted(value, oldValue);
 
         let me       = this,
+            id       = me.id,
             parentId = me.parentComponent?.id;
 
-        if (value && parentId) {
-            Neo.main.addon.ScrollSync.register({
-                sourceId: parentId,
-                targetId: me.id
-            });
+        if (parentId) {
+            if (value) {
+                Neo.main.addon.ScrollSync.register({
+                    sourceId: parentId,
+                    targetId: id
+                });
 
-            me.getDomRect([me.id, parentId]).then(rects => {
-                let style = me.style || {};
+                me.getDomRect([id, parentId]).then(rects => {
+                    let style = me.style || {};
 
-                style.left = `${rects[1].right - rects[0].width}px`;
-                style.top  = `${rects[1].bottom + 1}px`;
+                    style.left = `${rects[1].right - rects[0].width}px`;
+                    style.top  = `${rects[1].bottom + 1}px`;
 
-                me.style = style
-            })
+                    me.style = style
+                })
+            } else if (oldValue !== undefined) {
+                Neo.main.addon.ScrollSync.unregister({
+                    sourceId: parentId,
+                    targetId: id
+                })
+            }
         }
     }
 
@@ -310,7 +317,22 @@ class List extends BaseList {
      * @param {Object[]} data.oldPath
      */
     onFocusLeave(data) {
-        this.menuFocus = false
+        let insideParent = false,
+            parentId     = this.parentComponent?.id,
+            item;
+
+        if (parentId) {
+            for (item of data.oldPath) {
+                if (item.id === parentId) {
+                    insideParent = true;
+                    break;
+                }
+            }
+        }
+
+        if (!insideParent) {
+            this.menuFocus = false
+        }
     }
 
     /**
@@ -320,7 +342,13 @@ class List extends BaseList {
     onItemClick(node, data) {
         super.onItemClick(node, data);
 
-        data.record.handler?.call(this, data)
+        let me = this;
+
+        data.record.handler?.call(me, data);
+
+        if (me.hideOnLeafItemClick && !data.record.items) {
+            me.unmount()
+        }
     }
 
     /**

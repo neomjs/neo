@@ -272,7 +272,7 @@ class Base extends Component {
     afterSetPressed(value, oldValue) {
         let cls = this.cls;
 
-        NeoArray[value === true ? 'add' : 'remove'](cls, 'pressed');
+        NeoArray.toggle(cls, 'pressed', value === true);
         this.cls = cls;
     }
 
@@ -284,18 +284,16 @@ class Base extends Component {
      */
     afterSetText(value, oldValue) {
         let me       = this,
+            isEmpty  = !value || value === '',
             vdomRoot = me.getVdomRoot(),
             textNode = vdomRoot.cn[1];
 
-        if (!value || value === '') {
-            NeoArray.add(me._cls,      'no-text');
-            NeoArray.add(vdomRoot.cls, 'no-text');
-            textNode.removeDom = true;
-        } else {
-            NeoArray.remove(me._cls,      'no-text');
-            NeoArray.remove(vdomRoot.cls, 'no-text');
-            textNode.removeDom = false;
-            textNode.innerHTML = value;
+        NeoArray.toggle(me._cls,      'no-text', isEmpty);
+        NeoArray.toggle(vdomRoot.cls, 'no-text', isEmpty);
+        textNode.removeDom = isEmpty;
+
+        if (!isEmpty) {
+            textNode.innerHTML = value
         }
 
         me.update()
@@ -400,7 +398,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetIconPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'iconPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'iconPosition')
     }
 
     /**
@@ -490,23 +488,21 @@ class Base extends Component {
                 rippleWrapper.removeDom = true;
                 me.update()
             }
-        }, rippleEffectDuration);
+        }, rippleEffectDuration)
     }
 
     /**
      *
      */
-    toggleMenu() {
+    async toggleMenu() {
         let menuList = this.menuList,
             hidden   = !menuList.hidden;
 
         menuList.hidden = hidden;
 
         if (!hidden) {
-            setTimeout(() => {
-                console.log('focus'); // todo: does not activate the key nav
-                menuList.focus()
-            }, 500)
+            await Neo.timeout(50);
+            menuList.focus()
         }
     }
 }
