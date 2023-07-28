@@ -46,20 +46,100 @@ class View extends Component {
     }
 
     /**
+     * @param {String} cellId
+     * @param {Object} column
+     * @param {Object} record
+     * @param {Number} index
+     * @param {Neo.table.Container} tableContainer
+     * @returns {Object}
+     */
+    applyRendererOutput(cellId, column, record, index, tableContainer) {
+        let me         = this,
+            cellCls    = ['neo-table-cell'],
+            dataField  = column.dataField,
+            fieldValue = record[dataField],
+            hasStore   = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
+            vdom       = me.vdom,
+            cellConfig, rendererOutput;
+
+        if (fieldValue === undefined) {
+            fieldValue = ''
+        }
+
+        rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
+            dataField,
+            index,
+            record,
+            value: fieldValue
+        });
+
+        switch (Neo.typeOf(rendererOutput)) {
+            case 'Object': {
+                if (rendererOutput.cls && rendererOutput.html) {
+                    cellCls.push(...rendererOutput.cls);
+                } else {
+                    rendererOutput = [rendererOutput];
+                }
+                break;
+            }
+            case 'Number':
+            case 'String': {
+                rendererOutput = {
+                    cls : cellCls,
+                    html: rendererOutput?.toString()
+                };
+                break;
+            }
+        }
+
+        if (rendererOutput === null || rendererOutput === undefined) {
+            rendererOutput = ''
+        }
+
+        if (column.align !== 'left') {
+            cellCls.push('neo-' + column.align)
+        }
+
+        if (!cellId) {
+            // todo: remove the else part as soon as all tables use stores (examples table)
+            if (hasStore) {
+                cellId = me.getCellId(record, column.dataField)
+            } else {
+                cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td')
+            }
+        }
+
+        cellConfig = {
+            tag     : 'td',
+            id      : cellId,
+            cls     : cellCls,
+            style   : rendererOutput.style || {},
+            tabIndex: '-1'
+        };
+
+        if (Neo.typeOf(rendererOutput) === 'Object') {
+            cellConfig.innerHTML = rendererOutput.html  || ''
+        } else {
+            cellConfig.cn = rendererOutput
+        }
+
+        return cellConfig
+    }
+
+    /**
      * @param {Array} inputData
      */
     createViewData(inputData) {
         let me         = this,
             amountRows = inputData.length,
             container  = Neo.getComponent(me.parentId),
-            hasStore   = container.store?.model, // todo: remove as soon as all tables use stores (examples table)
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
-            record, rendererValue, selectedRows, trCls;
+            config, column, dockLeftMargin, dockRightMargin, id, index, j,
+            record, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
 
@@ -97,69 +177,8 @@ class View extends Component {
             j = 0;
 
             for (; j < colCount; j++) {
-                column         = columns[j];
-                rendererValue  = record[column.dataField];
-
-                if (rendererValue === undefined) {
-                    rendererValue = '';
-                }
-
-                rendererOutput = column.renderer.call(column.rendererScope || container, {
-                    dataField: column.dataField,
-                    index    : i,
-                    record,
-                    value    : rendererValue
-                });
-
-                if (!rendererOutput) {
-                    rendererOutput = ''
-                }
-
-                cellCls = ['neo-table-cell'];
-
-                switch (Neo.typeOf(rendererOutput)) {
-                    case 'Object': {
-                        if (rendererOutput.cls && rendererOutput.html) {
-                            cellCls.push(...rendererOutput.cls);
-                        } else {
-                            rendererOutput = [rendererOutput];
-                        }
-                        break;
-                    }
-                    case 'Number':
-                    case 'String': {
-                        rendererOutput = {
-                            cls : cellCls,
-                            html: rendererOutput?.toString()
-                        };
-                        break;
-                    }
-                }
-
-                if (column.align !== 'left') {
-                    cellCls.push('neo-' + column.align)
-                }
-
-                // todo: remove the else part as soon as all tables use stores (examples table)
-                if (hasStore) {
-                    cellId = me.getCellId(record, column.dataField);
-                } else {
-                    cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td');
-                }
-
-                config = {
-                    tag     : 'td',
-                    id      : cellId,
-                    cls     : cellCls,
-                    style   : rendererOutput.style || {},
-                    tabIndex: '-1'
-                };
-
-                if (Neo.typeOf(rendererOutput) === 'Object') {
-                    config.innerHTML = rendererOutput.html  || ''
-                } else {
-                    config.cn = rendererOutput
-                }
+                column = columns[j];
+                config = me.applyRendererOutput(null, column, record, i, container);
 
                 if (column.dock) {
                     config.cls = ['neo-locked', ...config.cls || []];
@@ -315,32 +334,28 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange(opts) {
-        let me        = this,
-            deltas    = [],
-            container = Neo.getComponent(me.parentId),
-            cellId, cellNode, column, scope;
+        let me          = this,
+            container   = Neo.getComponent(me.parentId),
+            needsUpdate = false,
+            vdom        = me.vdom,
+            cellId, cellNode, column, index, scope;
 
         opts.fields.forEach(field => {
             cellId   = me.getCellId(opts.record, field.name);
-            cellNode = me.getVdomChild(cellId);
+            cellNode = VDomUtil.findVdomChild(vdom, cellId);
 
             // the vdom might not exist yet => nothing to do in this case
-            if (cellNode) {
-                column = me.getColumn(field.name);
-                scope  = column.rendererScope || container;
+            if (cellNode.vdom) {
+                column      = me.getColumn(field.name);
+                index       = cellNode.index;
+                needsUpdate = true;
+                scope       = column.rendererScope || container;
 
-                // keep the vdom in sync
-                // cellNode.innerHTML = column.renderer.call(scope, field.value);
-                cellNode.innerHTML = field.value;
-
-                deltas.push({
-                    id       : cellId,
-                    innerHTML: field.value
-                })
+                cellNode.parentNode.cn[index] = me.applyRendererOutput(cellId, column, opts.record, index, container)
             }
         });
 
-        deltas.length > 0 && Neo.applyDeltas(me.appName, deltas);
+        needsUpdate && me.update()
     }
 }
 
