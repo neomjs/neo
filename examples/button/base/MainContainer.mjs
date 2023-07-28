@@ -197,7 +197,35 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 handler: data => console.log('menu item 3 click =>', data),
                 iconCls: 'fa fa-play',
-                text   : 'Item 3'
+                text   : 'Item 3',
+
+                items: [{
+                    handler: data => console.log('menu item 4 click =>', data),
+                    iconCls: 'fa fa-home',
+                    text   : 'Item 4'
+                }, {
+                    handler: data => console.log('menu item 5 click =>', data),
+                    iconCls: 'fa fa-user',
+                    text   : 'Item 5'
+                }, {
+                    handler: data => console.log('menu item 6 click =>', data),
+                    iconCls: 'fa fa-play',
+                    text   : 'Item 6',
+
+                    items: [{
+                        handler: data => console.log('menu item 7 click =>', data),
+                        iconCls: 'fa fa-home',
+                        text   : 'Item 7'
+                    }, {
+                        handler: data => console.log('menu item 8 click =>', data),
+                        iconCls: 'fa fa-user',
+                        text   : 'Item 8'
+                    }, {
+                        handler: data => console.log('menu item 9 click =>', data),
+                        iconCls: 'fa fa-play',
+                        text   : 'Item 9'
+                    }]
+                }]
             }]
 
             /*tooltips: [{
