@@ -345,7 +345,7 @@ class View extends Component {
             cellNode = VDomUtil.findVdomChild(vdom, cellId);
 
             // the vdom might not exist yet => nothing to do in this case
-            if (cellNode.vdom) {
+            if (cellNode?.vdom) {
                 column      = me.getColumn(field.name);
                 index       = cellNode.index;
                 needsUpdate = true;
