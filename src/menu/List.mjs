@@ -149,7 +149,6 @@ class List extends BaseList {
             if (me.isRoot) {
                 if (!value) {
                     me.focusTimeoutId = setTimeout(() => {
-                        console.log('unmount'); // todo: does not hide a top-level floating menu
                         me[me.floating ? 'unmount' : 'hideSubMenu']();
                     }, 20);
                 } else {
@@ -313,7 +312,22 @@ class List extends BaseList {
      * @param {Object[]} data.oldPath
      */
     onFocusLeave(data) {
-        this.menuFocus = false
+        let insideParent = false,
+            parentId     = this.parentComponent?.id,
+            item;
+
+        if (parentId) {
+            for (item of data.oldPath) {
+                if (item.id === parentId) {
+                    insideParent = true;
+                    break;
+                }
+            }
+        }
+
+        if (!insideParent) {
+            this.menuFocus = false
+        }
     }
 
     /**
