@@ -494,17 +494,15 @@ class Base extends Component {
     /**
      *
      */
-    toggleMenu() {
+    async toggleMenu() {
         let menuList = this.menuList,
             hidden   = !menuList.hidden;
 
         menuList.hidden = hidden;
 
         if (!hidden) {
-            setTimeout(() => {
-                console.log('focus'); // todo: does not activate the key nav
-                menuList.focus()
-            }, 500)
+            await Neo.timeout(50);
+            menuList.focus()
         }
     }
 }
