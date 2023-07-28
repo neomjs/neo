@@ -109,11 +109,6 @@ class List extends BaseList {
      * @member {Neo.component.Base|null} parentComponent=null
      */
     parentComponent = null
-    /**
-     * If the menu is floating, it will anchor itself to the parentRect
-     * @member {Object|null} parentRect=null
-     */
-    parentRect = null
 
     /**
      * Triggered after the floating config got changed
