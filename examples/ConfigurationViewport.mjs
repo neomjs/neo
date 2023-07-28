@@ -69,16 +69,13 @@ class ConfigurationViewport extends Viewport {
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
-            style : {padding: '20px'}
+            style : {overflow: 'auto', padding: '20px'},
+            ...me.exampleContainerConfig
         }, {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
             flex  : me.configPanelFlex,
             style : {margin: '20px', minWidth: me.configPanelMinWidth},
-
-            containerConfig: {
-                style: {overflowY: 'scroll'}
-            },
 
             headers: [{
                 dock : 'top',
@@ -100,7 +97,7 @@ class ConfigurationViewport extends Viewport {
             items: [{
                 module: Container,
                 layout: {ntype: 'vbox'},
-                style : {padding: '10px'},
+                style : {overflowY: 'auto', padding: '10px'},
                 cls   : ['neo-configuration-panel-body'],
                 itemDefaults: {
                     clearToOriginalValue: true,

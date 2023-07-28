@@ -105,6 +105,17 @@ class List extends BaseList {
     }
 
     /**
+     * If the menu is floating, it will anchor itself to the parentRect
+     * @member {Neo.component.Base|null} parentComponent=null
+     */
+    parentComponent = null
+    /**
+     * If the menu is floating, it will anchor itself to the parentRect
+     * @member {Object|null} parentRect=null
+     */
+    parentRect = null
+
+    /**
      * Triggered after the floating config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -154,6 +165,35 @@ class List extends BaseList {
                 // bubble the focus change upwards
                 me.parentMenu.menuFocus = value;
             }
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me       = this,
+            parentId = me.parentComponent?.id;
+
+        if (value && parentId) {
+            Neo.main.addon.ScrollSync.register({
+                sourceId: parentId,
+                targetId: me.id
+            });
+
+            me.getDomRect([me.id, parentId]).then(rects => {
+                let style = me.style || {};
+
+                style.left = `${rects[1].right - rects[0].width}px`;
+                style.top  = `${rects[1].bottom + 1}px`;
+
+                me.style = style
+            })
         }
     }
 

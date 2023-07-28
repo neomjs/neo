@@ -251,45 +251,15 @@ class Base extends Component {
                 let me = this;
 
                 me.menuList = Neo.create({
-                    module      : module.default,
-                    appName     : me.appName,
-                    displayField: 'text',
-                    floating    : true,
-                    hidden      : true,
-                    items       : value,
-                    parentId    : me.id
-                });
-
-                me.vdom.cn.push(me.menuList.vdom)
-            })
-        }
-    }
-
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        let me = this,
-            style;
-
-        if (value && me.menu) {
-            setTimeout(() => {
-                me.getDomRect().then(rect => {
-                    style = me.menuList.style || {};
-
-                    Object.assign(style, {
-                        right: 0,
-                        top  : rect.height + 'px'
-                    });
-
-                    me.menuList.style = style
+                    module         : module.default,
+                    appName        : me.appName,
+                    displayField   : 'text',
+                    floating       : true,
+                    hidden         : true,
+                    items          : value,
+                    parentComponent: me
                 })
-            }, 50)
+            })
         }
     }
 
