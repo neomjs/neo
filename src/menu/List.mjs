@@ -176,9 +176,9 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me       = this,
-            id       = me.id,
-            parentId = me.parentComponent?.id;
+        let me           = this,
+            id           = me.id,
+            parentId     = me.parentComponent?.id;
 
         if (parentId) {
             if (value) {
@@ -187,7 +187,7 @@ class List extends BaseList {
                     targetId: id
                 });
 
-                me.getDomRect([id, parentId]).then(rects => {
+                !me.parentMenu && me.getDomRect([id, parentId]).then(rects => {
                     let style = me.style || {};
 
                     style.left = `${rects[1].right - rects[0].width}px`;
@@ -393,17 +393,18 @@ class List extends BaseList {
                 subMenu.setSilent({style: menuStyle})
             } else {
                 subMenuMap[subMenuMapId] = subMenu = Neo.create({
-                    module      : List,
-                    appName     : me.appName,
-                    displayField: me.displayField,
-                    floating    : true,
-                    items       : record.items,
-                    isRoot      : false,
-                    parentId    : Neo.apps[me.appName].mainView.id,
-                    parentIndex : store.indexOf(record),
-                    parentMenu  : me,
+                    module         : List,
+                    appName        : me.appName,
+                    displayField   : me.displayField,
+                    floating       : true,
+                    items          : record.items,
+                    isRoot         : false,
+                    parentComponent: me.parentComponent,
+                    parentId       : Neo.apps[me.appName].mainView.id,
+                    parentIndex    : store.indexOf(record),
+                    parentMenu     : me,
                     style,
-                    zIndex      : me.zIndex + 1
+                    zIndex         : me.zIndex + 1
                 })
             }
 

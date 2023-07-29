@@ -43,7 +43,7 @@ class ScrollSync extends Base {
     /**
      * @param {Object} config
      */
-    construct(config = {}) {
+    construct(config) {
         super.construct(config);
 
         document.addEventListener('scroll', this.onDocumentScroll.bind(this), true)
