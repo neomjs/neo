@@ -67,9 +67,10 @@ class GoogleMaps extends Base {
 
     /**
      * @param {Object} data
-     * @param {String} data.icon
+     * @param {Object} [data.anchorPoint] x & y
+     * @param {String} [data.icon]
      * @param {String} data.id
-     * @param {String} data.label
+     * @param {String} [data.label]
      * @param {String} data.mapId
      * @param {Object} data.position
      * @param {String} [data.title]
