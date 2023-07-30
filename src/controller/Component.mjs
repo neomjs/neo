@@ -1,7 +1,5 @@
-import Base             from './Base.mjs';
-import ComponentManager from '../manager/Component.mjs';
-import DomEventManager  from '../manager/DomEvent.mjs';
-import Logger           from '../util/Logger.mjs';
+import Base   from './Base.mjs';
+import Logger from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -121,7 +119,7 @@ class Component extends Base {
             component = me.component.down({reference: name});
 
             if (component) {
-                me.references[name] = component;
+                me.references[name] = component
             }
         }
 
@@ -139,10 +137,15 @@ class Component extends Base {
      */
     parseConfig(component=this.component) {
         let me        = this,
+            handler   = component.handler,
             listeners = component.listeners,
             reference = component.reference,
             validator = component.validator,
             eventHandler, handlerScope;
+
+        if (handler && typeof handler === 'string') {
+            component.handler = me.getHandlerScope(handler)[handler].bind(component.handlerScope || me)
+        }
 
         if (listeners) {
             Object.entries(listeners).forEach(([key, value]) => {
@@ -152,10 +155,10 @@ class Component extends Base {
                         handlerScope = me.getHandlerScope(eventHandler);
 
                         if (!handlerScope) {
-                            Logger.logError('Unknown event handler for', eventHandler, component);
+                            Logger.logError('Unknown event handler for', eventHandler, component)
                         } else {
                             listeners[key] = {};
-                            listeners[key].fn = handlerScope[eventHandler].bind(handlerScope);
+                            listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
                         }
                     } else {
                         value.forEach(listener => {
@@ -164,9 +167,9 @@ class Component extends Base {
                                 handlerScope = me.getHandlerScope(eventHandler);
 
                                 if (!handlerScope) {
-                                    Logger.logError('Unknown event handler for', eventHandler, component);
+                                    Logger.logError('Unknown event handler for', eventHandler, component)
                                 } else {
-                                    listener.fn = handlerScope[eventHandler].bind(handlerScope);
+                                    listener.fn = handlerScope[eventHandler].bind(handlerScope)
                                 }
                             }
                         });
@@ -179,14 +182,14 @@ class Component extends Base {
             handlerScope = me.getHandlerScope(validator);
 
             if (!handlerScope) {
-                Logger.logError('Unknown validator for', component.id, component);
+                Logger.logError('Unknown validator for', component.id, component)
             } else {
-                component.validator = handlerScope[validator].bind(handlerScope);
+                component.validator = handlerScope[validator].bind(handlerScope)
             }
         }
 
         if (reference) {
-            me.references[reference] = component;
+            me.references[reference] = component
         }
     }
 
@@ -214,9 +217,9 @@ class Component extends Base {
                             scope = me.getHandlerScope(eventHandler);
 
                             if (!scope) {
-                                Logger.logError('Unknown domEvent handler for', eventHandler, component);
+                                Logger.logError('Unknown domEvent handler for', eventHandler, component)
                             } else {
-                                domListener[key] = scope[eventHandler].bind(scope);
+                                domListener[key] = scope[eventHandler].bind(scope)
                             }
                         }
                     }
