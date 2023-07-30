@@ -67,7 +67,9 @@ class GoogleMaps extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.icon
      * @param {String} data.id
+     * @param {String} data.label
      * @param {String} data.mapId
      * @param {Object} data.position
      * @param {String} [data.title]
@@ -88,6 +90,8 @@ class GoogleMaps extends Base {
             Neo.ns(`${mapId}`, true, me.markers);
 
             me.markers[mapId][data.id] = marker = new google.maps.Marker({
+                icon    : data.icon,
+                label   : data.label,
                 map     : me.maps[mapId],
                 neoId   : data.id, // custom property
                 neoMapId: mapId,   // custom property

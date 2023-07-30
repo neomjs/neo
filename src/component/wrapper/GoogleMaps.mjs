@@ -31,11 +31,14 @@ class GoogleMaps extends Base {
         markerStore_: {
             model: {
                 fields: [{
+                    name: 'icon',
+                    type: 'String'
+                }, {
                     name: 'id',
                     type: 'String'
                 }, {
-                    name: 'icon',
-                    type: 'Object'
+                    name: 'label',
+                    type: 'String'
                 }, {
                     name: 'position',
                     type: 'Object'
@@ -104,7 +107,9 @@ class GoogleMaps extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.icon
      * @param {String} data.id
+     * @param {String} data.label
      * @param {String} data.mapId
      * @param {Object} data.position
      * @param {String} [data.title]
@@ -184,9 +189,9 @@ class GoogleMaps extends Base {
             setTimeout(() => {
                 Neo.main.addon.GoogleMaps.create(opts).then(() => {
                     me.mapCreated = true;
-                    me.onComponentMounted();
-                });
-            }, 50);
+                    me.onComponentMounted()
+                })
+            }, 50)
         }
     }
 
@@ -222,7 +227,7 @@ class GoogleMaps extends Base {
     beforeSetMarkerStore(value, oldValue) {
         oldValue?.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, Store, this.markerStoreConfig);
+        return ClassSystemUtil.beforeSetInstance(value, Store, this.markerStoreConfig)
     }
 
     /**
@@ -231,7 +236,7 @@ class GoogleMaps extends Base {
      */
     destroy(updateParentVdom=false, silent=false) {
         this.removeMap();
-        super.destroy(updateParentVdom, silent);
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
@@ -254,14 +259,14 @@ class GoogleMaps extends Base {
      * @param {Object} data
      */
     onMapZoomChange(data) {
-        this.zoom = data.value;
+        this.zoom = data.value
     }
 
     /**
      * @param {Object} record
      */
     onMarkerClick(record) {
-        console.log('onMarkerClick', record);
+        console.log('onMarkerClick', record)
     }
 
     /**
