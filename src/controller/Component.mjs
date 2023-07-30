@@ -144,7 +144,9 @@ class Component extends Base {
             eventHandler, handlerScope;
 
         if (handler && typeof handler === 'string') {
-            component.handler = me.getHandlerScope(handler)[handler].bind(component.handlerScope || me)
+            handlerScope = me.getHandlerScope(handler);
+
+            component.handler = handlerScope[handler].bind(component.handlerScope || handlerScope)
         }
 
         if (listeners) {
