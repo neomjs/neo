@@ -31,6 +31,9 @@ class GoogleMaps extends Base {
         markerStore_: {
             model: {
                 fields: [{
+                    name: 'anchorPoint',
+                    type: 'Object'
+                }, {
                     name: 'icon',
                     type: 'String'
                 }, {
