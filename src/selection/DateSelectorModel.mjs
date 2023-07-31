@@ -141,14 +141,12 @@ class DateSelectorModel extends Model {
             scope = {scope: me.id},
             view  = me.view;
 
-        if (view.keys) {
-            view.keys._keys.push(
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
-            );
-        }
+        view.keys?._keys.push(
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
+        );
     }
 
     /**
@@ -159,14 +157,12 @@ class DateSelectorModel extends Model {
             scope = {scope: me.id},
             view  = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
-            ]);
-        }
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
+        ]);
 
         super.unregister();
     }

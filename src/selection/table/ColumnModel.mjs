@@ -139,17 +139,10 @@ class ColumnModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys._keys.push({
-                fn   : 'onKeyDownLeft',
-                key  : 'Left',
-                scope: id
-            }, {
-                fn   : 'onKeyDownRight',
-                key  : 'Right',
-                scope: id
-            });
-        }
+        view.keys?._keys.push(
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id}
+        );
     }
 
 
@@ -161,17 +154,10 @@ class ColumnModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([{
-                fn   : 'onKeyDownLeft',
-                key  : 'Left',
-                scope: id
-            }, {
-                fn   : 'onKeyDownRight',
-                key  : 'Right',
-                scope: id
-            }]);
-        }
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id}
+        ]);
 
         super.unregister();
     }

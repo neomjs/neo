@@ -62,7 +62,7 @@ class View extends Component {
             vdom       = me.vdom,
             cellConfig, rendererOutput;
 
-        if (fieldValue === undefined) {
+        if (fieldValue === null || fieldValue === undefined) {
             fieldValue = ''
         }
 
