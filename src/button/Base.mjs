@@ -257,7 +257,8 @@ class Base extends Component {
                     floating       : true,
                     hidden         : true,
                     items          : value,
-                    parentComponent: me
+                    parentComponent: me,
+                    style          : {left: '-5000px', top: '-5000px'}
                 })
             })
         }
