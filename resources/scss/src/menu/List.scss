@@ -1,7 +1,7 @@
 .neo-menu-list {
-    border    : 1px solid v(menu-list-border-color);
-    overflow-y: auto;
-    width     : fit-content;
+    border     : 1px solid v(menu-list-border-color);
+    overflow-y : auto;
+    width      : fit-content;
 
     &.neo-floating {
         box-shadow: v(menu-list-box-shadow);
@@ -9,17 +9,24 @@
     }
 
     .neo-list-item {
-        align-items: center;
-        display    : flex;
+        align-items   : center;
+        color         : v(menu-list-item-color);
+        display       : flex;
+        font-family   : v(menu-list-item-font-family);
+        font-weight   : v(menu-list-item-font-weight);
+        height        : v(menu-list-item-height);
+        line-height   : v(menu-list-item-line-height);
+        padding       : v(menu-list-item-padding);
+        text-transform: v(menu-list-item-text-transform);
 
         &.neo-selected {
             .neo-icon {
-                color: v(menu-list-icon-color-selected);
+                color: v(menu-list-item-icon-color-selected);
             }
         }
 
         .neo-arrow-icon {
-            color      : v(menu-list-icon-color);
+            color      : v(menu-list-item-icon-color);
             margin-left: 1em;
         }
 
@@ -28,13 +35,13 @@
         }
 
         .neo-icon {
-            color          : v(menu-list-icon-color);
+            color          : v(menu-list-item-icon-color);
             display        : flex;
             justify-content: center;
         }
 
         .neo-menu-icon {
-            margin-right: .4em;
+            margin-right: v(menu-list-item-icon-gap);
             width       : 1.2em;
         }
     }
