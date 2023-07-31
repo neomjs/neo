@@ -177,7 +177,7 @@
 
         &:active {
             background-color: v(button-ghost-background-color-active) !important;
-            border          : v(button-ghost-border-active);
+            border          : v(button-ghost-border-active) !important;
 
             .neo-button-glyph {
                 color: v(button-ghost-glyph-color-active);
@@ -230,7 +230,7 @@
 
         &:active {
             background-color: v(button-secondary-background-color-active) !important;
-            border          : v(button-secondary-border-active);
+            border          : v(button-secondary-border-active) !important;
 
             .neo-button-glyph {
                 color: v(button-secondary-glyph-color-active);
@@ -283,7 +283,7 @@
 
         &:active {
             background-color: v(button-tertiary-background-color-active) !important;
-            border          : v(button-tertiary-border-active);
+            border          : v(button-tertiary-border-active) !important;
 
             .neo-button-glyph {
                 color: v(button-tertiary-glyph-color-active);
