@@ -24,7 +24,7 @@
 
         .neo-textfield-input {
             border-color: v(textfield-border-color-active);
-            outline     : v(textfield-outline-active);
+            outline     : v(textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
         }
     }
 

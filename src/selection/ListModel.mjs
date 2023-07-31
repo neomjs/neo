@@ -39,6 +39,12 @@ class ListModel extends Model {
     }
 
     /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
+     * @param {Object} data
+     */
+    onKeyDownEscape(data) {}
+
+    /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -136,11 +142,12 @@ class ListModel extends Model {
             view = me.view;
 
         view.keys?._keys.push(
-            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-            {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
-            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+            {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},
+            {fn: 'onKeyDownEnter'  ,key: 'Enter'  ,scope: id},
+            {fn: 'onKeyDownEscape' ,key: 'Escape' ,scope: id},
+            {fn: 'onKeyDownLeft'   ,key: 'Left'   ,scope: id},
+            {fn: 'onKeyDownRight'  ,key: 'Right'  ,scope: id},
+            {fn: 'onKeyDownUp'     ,key: 'Up'     ,scope: id}
         );
     }
 
@@ -167,11 +174,12 @@ class ListModel extends Model {
             view = me.view;
 
         view.keys?.removeKeys([
-            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-            {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
-            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+            {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},
+            {fn: 'onKeyDownEnter'  ,key: 'Enter'  ,scope: id},
+            {fn: 'onKeyDownEscape' ,key: 'Escape' ,scope: id},
+            {fn: 'onKeyDownLeft'   ,key: 'Left'   ,scope: id},
+            {fn: 'onKeyDownRight'  ,key: 'Right'  ,scope: id},
+            {fn: 'onKeyDownUp'     ,key: 'Up'     ,scope: id}
         ]);
 
         super.unregister();

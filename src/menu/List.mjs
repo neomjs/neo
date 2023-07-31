@@ -342,13 +342,47 @@ class List extends BaseList {
     onItemClick(node, data) {
         super.onItemClick(node, data);
 
-        let me = this;
+        let me     = this,
+            record = data.record;
 
-        data.record.handler?.call(me, data);
+        record.handler?.call(me, record);
 
-        if (me.hideOnLeafItemClick && !data.record.items) {
+        if (me.hideOnLeafItemClick && !record.items) {
             me.unmount()
         }
+    }
+
+    /**
+     * @param {String} nodeId
+     */
+    onKeyDownEnter(nodeId) {
+        if (nodeId) {
+            let me       = this,
+                recordId = me.getItemRecordId(nodeId),
+                record   = me.store.get(recordId),
+                submenu;
+
+            record.handler?.call(me, record);
+
+            if (me.hideOnLeafItemClick && !record.items) {
+                me.unmount()
+            }
+
+            if (record.items) {
+                submenu = me.subMenuMap[me.getMenuMapId(recordId)];
+
+                if (submenu) {
+                    me.toggleSubMenu(nodeId, record)
+                }
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onKeyDownEscape(data) {
+        this.floating && this.unmount()
     }
 
     /**
@@ -413,6 +447,22 @@ class List extends BaseList {
 
             subMenu.render(true)
         });
+    }
+
+    /**
+     * @param {String} nodeId
+     * @param {Object} record
+     */
+    toggleSubMenu(nodeId, record) {
+        let me       = this,
+            recordId = record[me.getKeyProperty()],
+            submenu  = me.subMenuMap[me.getMenuMapId(recordId)];
+
+        if (!submenu?.mounted) {
+            me.showSubMenu(nodeId, record)
+        } else {
+            me.hideSubMenu()
+        }
     }
 
     /**
