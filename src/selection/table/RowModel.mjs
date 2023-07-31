@@ -148,15 +148,10 @@ class RowModel extends Model {
         let id   = this.id,
             view = this.view;
 
-        view.keys?._keys.push({
-            fn   : 'onKeyDownDown',
-            key  : 'Down',
-            scope: id
-        }, {
-            fn   : 'onKeyDownUp',
-            key  : 'Up',
-            scope: id
-        });
+        view.keys?._keys.push(
+            {fn: 'onKeyDownDown', key: 'Down', scope: id},
+            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+        );
     }
 
     /**
@@ -166,15 +161,10 @@ class RowModel extends Model {
         let id   = this.id,
             view = this.view;
 
-        view.keys?.removeKeys([{
-            fn   : 'onKeyDownDown',
-            key  : 'Down',
-            scope: id
-        }, {
-            fn   : 'onKeyDownUp',
-            key  : 'Up',
-            scope: id
-        }]);
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownDown', key: 'Down', scope: id},
+            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+        ]);
 
         super.unregister();
     }

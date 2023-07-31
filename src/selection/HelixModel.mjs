@@ -206,14 +206,12 @@ class HelixModel extends Model {
             scope         : me
         });
 
-        if (view.keys) {
-            view.keys._keys.push(
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            );
-        }
+        view.keys?._keys.push(
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        );
     }
 
     /**
@@ -290,14 +288,12 @@ class HelixModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            ]);
-        }
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        ]);
 
         super.unregister();
     }
