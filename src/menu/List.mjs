@@ -306,6 +306,13 @@ class List extends BaseList {
 
     /**
      * @param {Object} data
+     */
+    onKeyDownEscape(data) {
+        this.floating && this.unmount()
+    }
+
+    /**
+     * @param {Object} data
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {

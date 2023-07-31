@@ -21,6 +21,13 @@ class ListModel extends BaseListModel {
     /**
      * @param {Object} data
      */
+    onKeyDownEscape(data) {
+        this.view.onKeyDownEscape(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
     onKeyDownLeft(data) {
         let view       = this.view,
             parentMenu = view.parentMenu;
