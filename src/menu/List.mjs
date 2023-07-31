@@ -356,22 +356,24 @@ class List extends BaseList {
      * @param {String} nodeId
      */
     onKeyDownEnter(nodeId) {
-        let me       = this,
-            recordId = me.getItemRecordId(nodeId),
-            record   = me.store.get(recordId),
-            submenu;
+        if (nodeId) {
+            let me       = this,
+                recordId = me.getItemRecordId(nodeId),
+                record   = me.store.get(recordId),
+                submenu;
 
-        record.handler?.call(me, record);
+            record.handler?.call(me, record);
 
-        if (me.hideOnLeafItemClick && !record.items) {
-            me.unmount()
-        }
+            if (me.hideOnLeafItemClick && !record.items) {
+                me.unmount()
+            }
 
-        if (record.items) {
-            submenu = me.subMenuMap[me.getMenuMapId(recordId)];
+            if (record.items) {
+                submenu = me.subMenuMap[me.getMenuMapId(recordId)];
 
-            if (submenu) {
-                me.toggleSubMenu(nodeId, record)
+                if (submenu) {
+                    me.toggleSubMenu(nodeId, record)
+                }
             }
         }
     }
