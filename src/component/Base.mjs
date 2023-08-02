@@ -735,8 +735,8 @@ class Base extends CoreBase {
                         me.vnode && me.updateVdom(me.vdom, me.vnode);
                     }, 50);
                 });
-            } else if (me.mounted) {
-                me.vnode && me.updateVdom(vdom, me.vnode);
+            } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
+                me.updateVdom(vdom, me.vnode);
             }
 
             me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
@@ -1373,6 +1373,29 @@ class Base extends CoreBase {
 
         me.getController()?.parseConfig(me);
         me.getModel()     ?.parseConfig(me);
+    }
+
+    /**
+     * Checks for vdom updates inside the parent chain and if found, registers the component for a vdom update once done
+     * @param {String} parentId=this.parentId
+     * @returns {Boolean}
+     */
+    isParentVdomUpdating(parentId=this.parentId) {
+        if (parentId !== 'document.body') {
+            let me     = this,
+                parent = Neo.getComponent(parentId);
+
+            if (parent) {
+                if (parent.isVdomUpdating) {
+                    console.warn('vdom parent update conflict with:', parent, 'for:', me);
+                    return true
+                } else {
+                    me.isParentVdomUpdating(parent.parentId)
+                }
+            }
+        }
+
+        return false
     }
 
     /**
