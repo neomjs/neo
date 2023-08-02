@@ -210,6 +210,8 @@ class Select extends Picker {
             if (me.list) {
                 me.list.store = value
             }
+
+            value.on('load', me.onStoreLoad, me)
         }
     }
 
@@ -575,6 +577,20 @@ class Select extends Picker {
     onSelectPreFirstItem() {
         this.record = null;
         this.focusInputEl()
+    }
+
+    /**
+     * Selecting a record, if required
+     * @param {Object[]} items
+     */
+    onStoreLoad(items) {
+        let me    = this,
+            value = me.value;
+
+        if (value) {
+            me._value = null; // silent update
+            me.value  = value
+        }
     }
 
     /**
