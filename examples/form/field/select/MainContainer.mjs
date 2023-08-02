@@ -135,6 +135,8 @@ class MainContainer extends ConfigurationViewport {
             labelPosition: 'inline',
             labelText    : 'US States',
             labelWidth   : 80,
+            value        : 'Arizona',
+            valueField   : 'abbreviation',
             width        : 200,
 
             store: {
