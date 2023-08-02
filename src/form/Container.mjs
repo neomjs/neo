@@ -284,7 +284,6 @@ class Container extends BaseContainer {
      */
     async setValues(values={}, suspendEvents=false) {
         Container.adjustTreeLeaves(values, 'value');
-        console.log(values);
 
         await this.setConfigs(values, suspendEvents)
     }
