@@ -131,7 +131,6 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module       : SelectField,
-            displayField : 'name',
             labelPosition: 'inline',
             labelText    : 'US States',
             labelWidth   : 80,
