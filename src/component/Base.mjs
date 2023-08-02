@@ -309,6 +309,11 @@ class Base extends CoreBase {
     }
 
     /**
+     * @member {String[]} childUpdateCache=[]
+     */
+    childUpdateCache = []
+
+    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -1388,6 +1393,7 @@ class Base extends CoreBase {
             if (parent) {
                 if (parent.isVdomUpdating) {
                     console.warn('vdom parent update conflict with:', parent, 'for:', me);
+                    NeoArray.add(parent.childUpdateCache, me.id);
                     return true
                 } else {
                     me.isParentVdomUpdating(parent.parentId)
@@ -1700,6 +1706,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Internal helper fn to resolve the Promise for updateVdom()
+     * @param {Function|undefined} resolve
+     * @protected
+     */
+    resolveVdomUpdate(resolve) {
+        let me = this;
+
+        resolve?.();
+
+        if (me.needsVdomUpdate) {
+            me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
+            me.needsVdomUpdate  = false;
+            me.vdom             = me.vdom // trigger the next update cycle
+        } else {
+            [...me.childUpdateCache].forEach(id => {
+                Neo.getComponent(id)?.update();
+                NeoArray.remove(me.childUpdateCache, id)
+            })
+        }
+    }
+
+    /**
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
      * @param {Boolean} [silent=false]
@@ -1991,7 +2019,7 @@ class Base extends CoreBase {
                 console.log('Error attempting to update component dom', err, me);
                 me.isVdomUpdating = false;
 
-                reject?.();
+                reject?.()
             }).then(data => {
                 // console.log('Component vnode updated', data);
                 me.vnode          = data.vnode;
@@ -2001,20 +2029,10 @@ class Base extends CoreBase {
 
                 if (!Neo.config.useVdomWorker && deltas.length > 0) {
                     Neo.applyDeltas(me.appName, deltas).then(() => {
-                        resolve?.();
-
-                        if (me.needsVdomUpdate) {
-                            me.needsVdomUpdate = false;
-                            me.vdom = me.vdom;
-                        }
+                        me.resolveVdomUpdate(resolve)
                     });
                 } else {
-                    resolve?.();
-
-                    if (me.needsVdomUpdate) {
-                        me.needsVdomUpdate = false;
-                        me.vdom = me.vdom;
-                    }
+                    me.resolveVdomUpdate(resolve)
                 }
             })
         }
