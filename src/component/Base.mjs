@@ -1399,7 +1399,7 @@ class Base extends CoreBase {
                     NeoArray.add(parent.childUpdateCache, me.id);
                     return true
                 } else {
-                    me.isParentVdomUpdating(parent.parentId)
+                    return me.isParentVdomUpdating(parent.parentId)
                 }
             }
         }
