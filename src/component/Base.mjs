@@ -1392,7 +1392,10 @@ class Base extends CoreBase {
 
             if (parent) {
                 if (parent.isVdomUpdating) {
-                    console.warn('vdom parent update conflict with:', parent, 'for:', me);
+                    if (Neo.config.logVdomUpdateCollisions) {
+                        console.warn('vdom parent update conflict with:', parent, 'for:', me)
+                    }
+
                     NeoArray.add(parent.childUpdateCache, me.id);
                     return true
                 } else {

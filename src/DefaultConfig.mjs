@@ -112,6 +112,15 @@ const DefaultConfig = {
      */
     logDeltaUpdates: false,
     /**
+     * true will log console warnings, in case a component tries to update() while a parent update is running.
+     * A parent update results in a short delay, so you might want to resolve these collisions.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.logVdomUpdateCollisions
+     * @type Boolean
+     */
+    logVdomUpdateCollisions: false,
+    /**
      * Add addons for the main thread
      * ./src/main/addon/ contains all framework related options.
      * You can also create your own addons within your workspace scope. Make sure to put them inside 'src/main/addon/'
