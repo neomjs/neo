@@ -31,7 +31,8 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Helper function used by setValues() which wraps the leaves of a tree structure into a new property
+     * Helper function used by setValues() which wraps the leaves of a tree structure into a new property.
+     * The logic assumes that field config values must not be objects (separation between the key & value realm).
      * @param {Object} values
      * @param {String} configName
      */
@@ -71,13 +72,13 @@ class Container extends BaseContainer {
     findNotLoadedModules(parent=this, modules=[]) {
         parent.items.forEach(item => {
             if (Neo.typeOf(item.module) === 'Function' && !item.isLoading) {
-                modules.push({item, parent});
+                modules.push({item, parent})
             } else {
-                item.items && this.findNotLoadedModules(item, modules);
+                item.items && this.findNotLoadedModules(item, modules)
             }
         });
 
-        return modules;
+        return modules
     }
 
     /**
@@ -94,12 +95,12 @@ class Container extends BaseContainer {
         for (field of fields) {
             if (field instanceof BaseField) {
                 if (field.name === name || field.id === name) {
-                    return field;
+                    return field
                 }
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -111,7 +112,7 @@ class Container extends BaseContainer {
 
         path.push(field.name || field.id);
 
-        return path.join('.');
+        return path.join('.')
     }
 
     /**
@@ -123,10 +124,10 @@ class Container extends BaseContainer {
         await this.loadModules();
 
         ComponentManager.getChildComponents(this).forEach(item => {
-            item instanceof BaseField && fields.push(item);
+            item instanceof BaseField && fields.push(item)
         });
 
-        return fields;
+        return fields
     }
 
     /**
@@ -152,7 +153,7 @@ class Container extends BaseContainer {
                 ns      = Neo.nsWithArrays(nsArray, true, values);
             } else {
                 key = item.id;
-                ns  = values;
+                ns  = values
             }
 
             /*
@@ -173,7 +174,7 @@ class Container extends BaseContainer {
             }
         });
 
-        return values;
+        return values
     }
 
     /**
@@ -187,11 +188,11 @@ class Container extends BaseContainer {
 
         for (; i < len; i++) {
             if (!fields[i].isValid()) {
-                return false;
+                return false
             }
         }
 
-        return true;
+        return true
     }
 
     /**
@@ -209,7 +210,7 @@ class Container extends BaseContainer {
 
         modules = await Promise.all(promises);
 
-        return modules;
+        return modules
     }
 
     /**
@@ -226,7 +227,7 @@ class Container extends BaseContainer {
             path  = me.getFieldPath(item);
             value = Neo.nsWithArrays(path, false, values);
 
-            item.reset(path ? value : null);
+            item.reset(path ? value : null)
         })
     }
 
@@ -246,7 +247,7 @@ class Container extends BaseContainer {
 
             if (fieldConfigs) {
                 if (suspendEvents) {
-                    item.suspendEvents = true;
+                    item.suspendEvents = true
                 }
 
                 isCheckBox = Neo.form.field?.CheckBox && item instanceof Neo.form.field.CheckBox;
@@ -271,7 +272,7 @@ class Container extends BaseContainer {
                 item.set(fieldConfigs)
 
                 if (suspendEvents) {
-                    delete item.suspendEvents;
+                    delete item.suspendEvents
                 }
             }
         })
@@ -302,11 +303,11 @@ class Container extends BaseContainer {
             validField = item.validate?.(false);
 
             if (!validField) {
-                isValid = false;
+                isValid = false
             }
         });
 
-        return isValid;
+        return isValid
     }
 }
 
