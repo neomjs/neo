@@ -3,11 +3,6 @@
     overflow-y : auto;
     width      : fit-content;
 
-    &.neo-floating {
-        box-shadow: v(menu-list-box-shadow);
-        position  : absolute;
-    }
-
     .neo-list-item {
         align-items     : center;
         background-color: v(menu-list-item-background-color);
@@ -19,12 +14,6 @@
         line-height     : v(menu-list-item-line-height);
         padding         : v(menu-list-item-padding);
         text-transform  : v(menu-list-item-text-transform);
-
-        &.neo-selected {
-            .neo-icon {
-                color: v(menu-list-item-icon-color-selected);
-            }
-        }
 
         .neo-arrow-icon {
             color      : v(menu-list-item-icon-color);
@@ -45,17 +34,36 @@
             margin-right: v(menu-list-item-icon-gap);
             width       : 1.2em;
         }
-    }
-}
 
-.neo-disabled {
-    .neo-menu-list {
-        .neo-list-item {
-            color: v(menu-list-item-color-disabled);
+        &:focus {
+            outline: v(menu-list-item-outline-focus);
+        }
+
+        &:hover {
+            background-color: v(menu-list-item-background-color-hover);
+        }
+
+        &.neo-disabled {
+            background-color: v(menu-list-item-background-color-disabled);
+            color           : v(menu-list-item-color-disabled);
+            opacity         : v(menu-list-item-opacity-disabled);
 
             .neo-icon {
                 color: v(menu-list-item-icon-color-disabled);
             }
         }
+
+        &.neo-selected {
+            background-color: v(menu-list-item-background-color-selected);
+
+            .neo-icon {
+                color: v(menu-list-item-icon-color-selected);
+            }
+        }
+    }
+
+    &.neo-floating {
+        box-shadow: v(menu-list-box-shadow);
+        position  : absolute;
     }
 }
