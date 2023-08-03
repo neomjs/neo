@@ -1,6 +1,6 @@
-import Base from '../../component/Base.mjs';
+import Base            from '../../component/Base.mjs';
 import ClassSystemUtil from '../../util/ClassSystem.mjs';
-import Store from '../../data/Store.mjs';
+import Store           from '../../data/Store.mjs';
 
 /**
  * @class Neo.component.wrapper.GoogleMaps
@@ -19,9 +19,9 @@ class GoogleMaps extends Base {
          */
         ntype: 'googlemaps',
         /**
-     * Specify lat & lng for the current focus position
-     * @member {Object} center_={lat: -34.397, lng: 150.644}
-     */
+         * Specify lat & lng for the current focus position
+         * @member {Object} center_={lat: -34.397, lng: 150.644}
+         */
         center_: {lat: -34.397, lng: 150.644},
         /**
          * Prefer to use markerStoreConfig instead.
@@ -70,27 +70,27 @@ class GoogleMaps extends Base {
      * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
      * @member {Boolean} mapCreated=false
      */
-    mapCreated = false
+    mapCreated        = false
     /**
      * Pass any options to the map instance which are not explicitly defined here
      * @member {Object} mapOptions={}
      */
-    mapOptions = {}
+    mapOptions        = {}
     /**
      * null => the maximum zoom from the current map type is used instead
      * @member {Number|null} maxZoom=null
      */
-    maxZoom = null
+    maxZoom           = null
     /**
      null => the minimum zoom from the current map type is used instead
      * @member {Number|null} minZoom=null
      */
-    minZoom = null
+    minZoom           = null
     /**
      * false hides the default zoom control
      * @member {Boolean} zoomControl=true
      */
-    zoomControl = true
+    zoomControl       = true
 
     /**
      * @param {Object} config
@@ -102,9 +102,9 @@ class GoogleMaps extends Base {
 
         me.addDomListeners({
             googleMapZoomChange: me.onMapZoomChange,
-            googleMarkerClick: me.parseMarkerClick,
-            local: false,
-            scope: me
+            googleMarkerClick  : me.parseMarkerClick,
+            local              : false,
+            scope              : me
         })
     }
 
@@ -122,7 +122,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.addMarker({
             appName: this.appName,
             ...data
-        });
+        })
     }
 
     /**
@@ -137,7 +137,7 @@ class GoogleMaps extends Base {
         if (me.mapCreated) {
             Neo.main.addon.GoogleMaps.setCenter({
                 appName: me.appName,
-                id: me.id,
+                id     : me.id,
                 value
             })
         }
@@ -153,7 +153,7 @@ class GoogleMaps extends Base {
         let me = this;
 
         value.on({
-            load: me.onMarkerStoreLoad,
+            load : me.onMarkerStoreLoad,
             scope: me
         });
 
@@ -179,15 +179,15 @@ class GoogleMaps extends Base {
 
         if (value) {
             let opts = {
-                appName: me.appName,
-                center: me.center,
+                appName          : me.appName,
+                center           : me.center,
                 fullscreenControl: me.fullscreenControl,
-                id: me.id,
-                mapOptions: me.mapOptions,
-                maxZoom: me.maxZoom,
-                minZoom: me.minZoom,
-                zoom: me.zoom,
-                zoomControl: me.zoomControl
+                id               : me.id,
+                mapOptions       : me.mapOptions,
+                maxZoom          : me.maxZoom,
+                minZoom          : me.minZoom,
+                zoom             : me.zoom,
+                zoomControl      : me.zoomControl
             };
 
             setTimeout(() => {
@@ -211,7 +211,7 @@ class GoogleMaps extends Base {
         if (me.mapCreated) {
             Neo.main.addon.GoogleMaps.setZoom({
                 appName: me.appName,
-                id: me.id,
+                id     : me.id,
                 value
             });
 
@@ -250,14 +250,15 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.hideMarker({
             appName: this.appName,
             id,
-            mapId: this.id
+            mapId  : this.id
         })
     }
 
     /**
      * Hook to use once the map instance got rendered
      */
-    onComponentMounted() {}
+    onComponentMounted() {
+    }
 
     /**
      * @param {Object} data
@@ -281,13 +282,13 @@ class GoogleMaps extends Base {
 
         Neo.main.addon.GoogleMaps.destroyMarkers({
             appName: me.appName,
-            id: me.id
+            id     : me.id
         });
 
         me.markerStore.items.forEach(item => {
             Neo.main.addon.GoogleMaps.addMarker({
                 appName: me.appName,
-                mapId: me.id,
+                mapId  : me.id,
                 ...item
             })
         })
@@ -301,7 +302,7 @@ class GoogleMaps extends Base {
     panTo(position) {
         Neo.main.addon.GoogleMaps.panTo({
             appName: this.appName,
-            mapId: this.id,
+            mapId  : this.id,
             position
         })
     }
@@ -330,7 +331,7 @@ class GoogleMaps extends Base {
     removeMap() {
         Neo.main.addon.GoogleMaps.removeMap({
             appName: this.appName,
-            mapId: this.id
+            mapId  : this.id
         })
     }
 
@@ -341,7 +342,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.removeMarker({
             appName: this.appName,
             id,
-            mapId: this.id
+            mapId  : this.id
         })
     }
 
@@ -352,7 +353,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.showMarker({
             appName: this.appName,
             id,
-            mapId: this.id
+            mapId  : this.id
         })
     }
 }
