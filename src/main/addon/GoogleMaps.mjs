@@ -1,6 +1,6 @@
-import Base       from '../../core/Base.mjs';
-import DomAccess  from '../DomAccess.mjs';
-import DomEvents  from '../DomEvents.mjs';
+import Base from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
+import DomEvents from '../DomEvents.mjs';
 import Observable from '../../core/Observable.mjs';
 
 /**
@@ -27,6 +27,7 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
+                'destroyMarkers',
                 'geocode',
                 'hideMarker',
                 'panTo',
@@ -76,7 +77,7 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        let me    = this,
+        let me = this,
             mapId = data.mapId,
             listenerId, marker;
 
@@ -91,13 +92,13 @@ class GoogleMaps extends Base {
             Neo.ns(`${mapId}`, true, me.markers);
 
             me.markers[mapId][data.id] = marker = new google.maps.Marker({
-                icon    : data.icon,
-                label   : data.label,
-                map     : me.maps[mapId],
-                neoId   : data.id, // custom property
+                icon: data.icon,
+                label: data.label,
+                map: me.maps[mapId],
+                neoId: data.id, // custom property
                 neoMapId: mapId,   // custom property
                 position: data.position,
-                title   : data.title,
+                title: data.title,
             });
 
             marker.addListener('click', me.onMarkerClick.bind(me, marker));
@@ -121,18 +122,30 @@ class GoogleMaps extends Base {
             map;
 
         me.maps[id] = map = new google.maps.Map(DomAccess.getElement(id), {
-            center           : data.center,
+            center: data.center,
             fullscreenControl: data.fullscreenControl,
-            maxZoom          : data.maxZoom,
-            minZoom          : data.minZoom,
-            zoom             : data.zoom,
-            zoomControl      : data.zoomControl,
+            maxZoom: data.maxZoom,
+            minZoom: data.minZoom,
+            zoom: data.zoom,
+            zoomControl: data.zoomControl,
             ...data.mapOptions
         });
 
         map.addListener('zoom_changed', me.onMapZoomChange.bind(me, map, id));
 
         me.fire('mapCreated', id);
+    }
+
+    /**
+     * Destroys all markers for the specified map ID.
+     * @param {Object} data
+     * @param {String} data.mapId
+     */
+    destroyMarkers(data) {
+        var me = this;
+        const markers = me.markers[data.mapId] || {};
+        Object.values(markers).forEach(marker => marker.setMap(null));
+        delete me.markers[mapId];
     }
 
     /**
@@ -181,11 +194,11 @@ class GoogleMaps extends Base {
      * @param {google.maps.Map} map
      * @param {String} mapId
      */
-    onMapZoomChange(map, mapId){
+    onMapZoomChange(map, mapId) {
         DomEvents.sendMessageToApp({
-            id   : mapId,
-            path : [{cls: [], id: mapId}],
-            type : 'googleMapZoomChange',
+            id: mapId,
+            path: [{cls: [], id: mapId}],
+            type: 'googleMapZoomChange',
             value: map.zoom
         })
     }
@@ -199,7 +212,7 @@ class GoogleMaps extends Base {
         let transformedEvent = DomEvents.getMouseEventData(event.domEvent);
 
         DomEvents.sendMessageToApp({
-            id  : marker.neoId,
+            id: marker.neoId,
             path: [{cls: [], id: marker.neoMapId}],
             type: 'googleMarkerClick',
             domEvent: transformedEvent
