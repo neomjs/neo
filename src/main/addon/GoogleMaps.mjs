@@ -27,6 +27,7 @@ class GoogleMaps extends Base {
             app: [
                 'addMarker',
                 'create',
+                'destroyMarkers',
                 'geocode',
                 'hideMarker',
                 'panTo',
@@ -51,11 +52,11 @@ class GoogleMaps extends Base {
     /**
      * @member {Object} maps={}
      */
-    maps = {}
+    maps     = {}
     /**
      * @member {Object} markers={}
      */
-    markers = {}
+    markers  = {}
 
     /**
      * @param {Object} config
@@ -136,6 +137,19 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * Destroys all markers for the specified map ID.
+     * @param {Object} data
+     * @param {String} data.mapId
+     */
+    destroyMarkers(data) {
+        let me      = this,
+            markers = me.markers[data.mapId] || {};
+
+        Object.values(markers).forEach(marker => marker.setMap(null));
+        delete me.markers[data.mapId];
+    }
+
+    /**
      * Use either address, location or placeId
      * @param {Object} data
      * @param {String} data.address
@@ -181,7 +195,7 @@ class GoogleMaps extends Base {
      * @param {google.maps.Map} map
      * @param {String} mapId
      */
-    onMapZoomChange(map, mapId){
+    onMapZoomChange(map, mapId) {
         DomEvents.sendMessageToApp({
             id   : mapId,
             path : [{cls: [], id: mapId}],
@@ -199,9 +213,9 @@ class GoogleMaps extends Base {
         let transformedEvent = DomEvents.getMouseEventData(event.domEvent);
 
         DomEvents.sendMessageToApp({
-            id  : marker.neoId,
-            path: [{cls: [], id: marker.neoMapId}],
-            type: 'googleMarkerClick',
+            id      : marker.neoId,
+            path    : [{cls: [], id: marker.neoMapId}],
+            type    : 'googleMarkerClick',
             domEvent: transformedEvent
         })
     }

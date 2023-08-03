@@ -18,7 +18,7 @@ class GoogleMaps extends Base {
          * @protected
          */
         ntype: 'googlemaps',
-            /**
+        /**
          * Specify lat & lng for the current focus position
          * @member {Object} center_={lat: -34.397, lng: 150.644}
          */
@@ -70,27 +70,27 @@ class GoogleMaps extends Base {
      * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
      * @member {Boolean} mapCreated=false
      */
-    mapCreated = false
+    mapCreated        = false
     /**
      * Pass any options to the map instance which are not explicitly defined here
      * @member {Object} mapOptions={}
      */
-    mapOptions = {}
+    mapOptions        = {}
     /**
      * null => the maximum zoom from the current map type is used instead
      * @member {Number|null} maxZoom=null
      */
-    maxZoom = null
+    maxZoom           = null
     /**
      null => the minimum zoom from the current map type is used instead
      * @member {Number|null} minZoom=null
      */
-    minZoom = null
+    minZoom           = null
     /**
      * false hides the default zoom control
      * @member {Boolean} zoomControl=true
      */
-    zoomControl = true
+    zoomControl       = true
 
     /**
      * @param {Object} config
@@ -122,7 +122,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.addMarker({
             appName: this.appName,
             ...data
-        });
+        })
     }
 
     /**
@@ -238,7 +238,7 @@ class GoogleMaps extends Base {
      * @param {Boolean} updateParentVdom=false
      * @param {Boolean} silent=false
      */
-    destroy(updateParentVdom=false, silent=false) {
+    destroy(updateParentVdom = false, silent = false) {
         this.removeMap();
         super.destroy(updateParentVdom, silent)
     }
@@ -257,7 +257,8 @@ class GoogleMaps extends Base {
     /**
      * Hook to use once the map instance got rendered
      */
-    onComponentMounted() {}
+    onComponentMounted() {
+    }
 
     /**
      * @param {Object} data
@@ -278,6 +279,11 @@ class GoogleMaps extends Base {
      */
     onMarkerStoreLoad() {
         let me = this;
+
+        Neo.main.addon.GoogleMaps.destroyMarkers({
+            appName: me.appName,
+            id     : me.id
+        });
 
         me.markerStore.items.forEach(item => {
             Neo.main.addon.GoogleMaps.addMarker({
