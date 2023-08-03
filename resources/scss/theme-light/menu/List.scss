@@ -1,10 +1,12 @@
 $neoMap: map-merge($neoMap, (
     'menu-list-border-color'            : #1c60a0,
     'menu-list-box-shadow'              : 0 5px 10px rgba(0,0,0,.4),
+    'menu-list-background-color'        : inherit,
     'menu-list-item-color'              : inherit,
     'menu-list-item-font-family'        : inherit,
     'menu-list-item-font-weight'        : inherit,
     'menu-list-item-icon-color'         : #1c60a0,
+    'menu-list-item-icon-color-disabled': #1c60a0,
     'menu-list-item-icon-color-selected': #1c60a0,
     'menu-list-item-icon-gap'           : .4em,
     'menu-list-item-height'             : inherit,
@@ -17,10 +19,12 @@ $neoMap: map-merge($neoMap, (
     :root .neo-theme-light { // .neo-menu-list
         --menu-list-border-color            : #{neo(menu-list-border-color)};
         --menu-list-box-shadow              : #{neo(menu-list-box-shadow)};
+        --menu-list-item-background-color   : #{neo(menu-list-item-background-color)};
         --menu-list-item-color              : #{neo(menu-list-item-color)};
         --menu-list-item-font-family        : #{neo(menu-list-item-font-family)};
         --menu-list-item-font-weight        : #{neo(menu-list-item-font-weight)};
         --menu-list-item-icon-color         : #{neo(menu-list-item-icon-color)};
+        --menu-list-item-icon-color-disabled: #{neo(menu-list-item-icon-color-disabled)};
         --menu-list-item-icon-color-selected: #{neo(menu-list-item-icon-color-selected)};
         --menu-list-item-icon-gap           : #{neo(menu-list-item-icon-gap)};
         --menu-list-item-height             : #{neo(menu-list-item-height)};
