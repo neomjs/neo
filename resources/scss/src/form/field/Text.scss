@@ -82,6 +82,12 @@
                 }
             }
         }
+
+        &:not(.label-inline, .neo-input-wrapper) {
+            .neo-textfield-input {
+                border-color: v(textfield-border-color-invalid);
+            }
+        }
     }
 
     &.neo-invalid:not(.neo-disabled, .neo-has-content) {
