@@ -2,6 +2,7 @@ import Base         from './Base.mjs';
 import BaseTrigger  from './trigger/Base.mjs';
 import ClearTrigger from './trigger/Clear.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
@@ -217,6 +218,11 @@ class Text extends Base {
          */
         validator: null,
         /**
+         * Out of the box textfields do not allow tags to be entered
+         * @member {Boolean} xssProtected=true
+         */
+        xssProtected: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -244,6 +250,20 @@ class Text extends Base {
         super.construct(config);
 
         let me = this;
+
+        if (Neo.isString(me.value)) {
+            // after initial run
+            if ((me.mounted && me.xssProtected)
+                // initial run and set on component
+                || me.originalConfig.xssProtected
+                // initial run and textfield preset is true
+                || (me.originalConfig.xssProtected === undefined && me.xssProtected)) {
+
+                me.suspendEvents = true;
+                me.value = StringUtil.escapeHtml(me.value);
+                me.suspendEvents = false;
+            }
+        }
 
         me.addDomListeners([
             {input     : me.onInputValueChange, scope: me},
@@ -1242,7 +1262,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-       me.value = me.inputValueAdjustor(value)
+        me.value = me.inputValueAdjustor(value);
     }
 
     /**
