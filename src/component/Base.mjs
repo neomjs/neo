@@ -2025,7 +2025,7 @@ class Base extends CoreBase {
                 me.isVdomUpdating = false;
 
                 reject?.()
-            }).then(data => {
+            }).then(data => {Logger.log('test');
                 // checking if the component got destroyed before the update cycle is done
                 if (me.id) {
                     // console.log('Component vnode updated', data);

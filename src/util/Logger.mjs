@@ -6,38 +6,6 @@ import Base from '../core/Base.mjs';
  * @singleton
  */
 class Logger extends Base {
-    /**
-     * Colors
-     * @property {Object} colors
-     */
-    logColors = {
-        error: 'indianred',
-        info : '#acacac',
-        log  : '#448888',
-        warn : '#6d6d00'
-    }
-    /**
-     * Character
-     * @property {Object} logChar
-     */
-    logChars = {
-        error: 'E',
-        info : 'I',
-        log  : 'L',
-        warn : 'W'
-    }
-    /**
-     * LogLevels
-     * @property {String[]} logLevels
-     */
-    logLevels = ['info', 'log', 'warn', 'error']
-
-    /**
-     * Timeout
-     * @property {Number} timeToStart in ms
-     */
-    timeToStartComponentLogger = 1500
-
     static config = {
         /**
          * @member {String} className='Neo.util.Logger'
@@ -73,11 +41,39 @@ class Logger extends Base {
          */
         level_: 'info',
         /**
-         * @member {boolean} enableLogs=true
+         * @member {Boolean} enableLogs=true
          * @protected
          */
         singleton: true
     }
+
+    /**
+     * @member {Object} logChar
+     */
+    logChars  = {
+        error: 'E',
+        info : 'I',
+        log  : 'L',
+        warn : 'W'
+    }
+    /**
+     * @member {Object} colors
+     */
+    logColors = {
+        error: 'indianred',
+        info : '#acacac',
+        log  : '#448888',
+        warn : '#6d6d00'
+    }
+    /**
+     * LogLevels
+     * @member {String[]} logLevels
+     */
+    logLevels = ['info', 'log', 'warn', 'error']
+    /**
+     * @member {Number} timeToStart in ms
+     */
+    timeToStartComponentLogger = 1500
 
     /**
      * @param config
@@ -85,7 +81,7 @@ class Logger extends Base {
     construct(config) {
         super.construct(config);
 
-        const me = this;
+        let me = this;
 
         // aliases
         Neo.applyFromNs(Neo, me, {
@@ -98,9 +94,9 @@ class Logger extends Base {
 
         setTimeout(() => {
             if (!me.enableLogsInProduction && Neo.config.environment === 'dist/production') {
-                me.write = Neo.emptyFn;
+                me.write = Neo.emptyFn
             }
-        }, 50);
+        }, 50)
     }
 
     /**
@@ -111,56 +107,93 @@ class Logger extends Base {
     afterSetEnableComponentLogger(value, oldValue) {
         setTimeout(() => {
             if (value) {
-                if (Neo.workerId !== 'app' || Neo.config.environment === 'dist/production') return;
+                if (Neo.workerId !== 'app' || Neo.config.environment === 'dist/production') {
+                    return;
+                }
 
-                const viewport = Neo.getComponent('neo-viewport-1') || Neo.getComponent('neo-configuration-viewport-1');
+                let viewport = Neo.getComponent('neo-viewport-1') || Neo.getComponent('neo-configuration-viewport-1');
+
                 if (!viewport) {
                     console.warn('[LOGGER] could not find viewport.');
                     return;
                 }
 
                 viewport.addDomListeners({
-                    contextmenu: (data) => {
+                    contextmenu: data => {
                         if (data.ctrlKey) {
-                            let isGroupSet = false;
+                            let isGroupSet = false,
+                                component;
 
-                            data.path.forEach((item) => {
-                                const component = Neo.getComponent(item.id);
+                            data.path.forEach(item => {
+                                component = Neo.getComponent(item.id);
 
                                 if (component) {
                                     if (!isGroupSet) {
                                         isGroupSet = true;
-                                        console.group(item.id);
+                                        console.group(item.id)
                                     }
-                                    console.log(component);
+
+                                    console.log(component)
                                 }
                             });
 
-                            if (isGroupSet) {
-                                console.groupEnd();
-                            }
+                            isGroupSet && console.groupEnd()
                         }
                     }
                 });
             }
-        }, this.timeToStartComponentLogger);
+        }, this.timeToStartComponentLogger)
     }
 
     /**
      * Set level to number based on position in logLevels
      * @param {String} value
      * @param {String|Number} oldValue
-     * @returns {number}
+     * @returns {Number}
      */
     beforeSetLevel(value, oldValue) {
-        return this.logLevels.indexOf(value);
+        return this.logLevels.indexOf(value)
     }
 
     /**
-     * @param value
+     * @param {String} value
      */
     error(value) {
-        throw new Error(value);
+        throw new Error(value)
+    }
+
+    /**
+     * internal helper to catch caller
+     * no known native way in modern JS to know what file that triggered the current method
+     * therefore we use Error, we can get the caller file from the stack trace string.
+     * @protected
+     * @returns {String}
+     */
+    getCaller() {
+        let caller_path = undefined,
+            err         = new Error(),
+            stack_lines = err.stack.split('\n'),
+            found_this  = false,
+            i, line;
+
+        for (i in stack_lines) {
+            line = stack_lines[i];
+
+            if (!found_this && /Logger\.mjs/.test(line)) {
+                found_this = true
+            } else if (found_this) {
+                if (!/Logger\.mjs/.test(line)) {
+                    // remove the closing )
+                    line        = line.replace(')', '');
+                    // get the part after the last /
+                    caller_path = line.match(/([^\/]+)$/)[1].match(/([^ ]+)$/)[1];
+
+                    break;
+                }
+            }
+        }
+
+        return caller_path
     }
 
     /**
@@ -168,7 +201,7 @@ class Logger extends Base {
      */
     info(...args) {
         args = this.resolveArgs(...args);
-        this.write(args, 'info');
+        this.write(args, 'info')
     }
 
     /**
@@ -176,7 +209,7 @@ class Logger extends Base {
      */
     log(...args) {
         args = this.resolveArgs(...args);
-        this.write(args, 'log');
+        this.write(args, 'log')
     }
 
     /**
@@ -184,7 +217,31 @@ class Logger extends Base {
      */
     logError(...args) {
         args = this.resolveArgs(...args);
-        this.write(args, 'error');
+        this.write(args, 'error')
+    }
+
+    /**
+     * Internal helper for args
+     * @param {Array} args
+     * @returns {Object}
+     * @protected
+     */
+    resolveArgs(...args) {
+        const identifier = args[0];
+        let argsObject   = {};
+
+        if (args.length === 1) {
+            if (Neo.isString(identifier)) {
+                argsObject.msg = args[0]
+            } else if (Neo.isObject(identifier)) {
+                argsObject = identifier
+            }
+        } else if (args.length === 2) {
+            argsObject.msg  = args[0];
+            argsObject.data = args[1]
+        }
+
+        return argsObject
     }
 
     /**
@@ -192,93 +249,35 @@ class Logger extends Base {
      */
     warn(...args) {
         args = this.resolveArgs(...args);
-        this.write(args, 'warn');
+        this.write(args, 'warn')
     }
 
     /**
      * Output method
-     * @param args
+     * @param {Object} args
      * @param {String} level
      * @protected
      */
     write(args, level) {
-        const me = this;
-        if (me.beforeSetLevel(level) < me.level) return;
+        let me = this;
 
-        const logColor = me.logColors[level],
-              logChar  = me.logChars[level],
-              bg       = `background-color:${logColor}; color: white; font-weight: 900;`,
-              color    = `color:${logColor};`,
-              msg      = `[${me.getCaller()}] ${args.msg}`;
+        if (me.beforeSetLevel(level) < me.level) {
+            return
+        }
+
+        let logColor = me.logColors[level],
+            logChar  = me.logChars[level],
+            bg       = `background-color:${logColor}; color: white; font-weight: 900;`,
+            color    = `color:${logColor};`,
+            msg      = `[${me.getCaller()}] ${args.msg}`;
 
         if (args.data) {
             console.groupCollapsed(`%c ${logChar} %c ${msg}`, bg, color)
             console.log(args.data);
-            console.groupEnd();
+            console.groupEnd()
         } else {
             console.log(`%c ${logChar} %c ${msg}`, bg, color)
         }
-    }
-
-    /**
-     * HELPER TO CATCH CALLER
-     * no known native way in modern JS to know what file that triggered the current method
-     * therefore we use Error, we can get the caller file from the stack trace string.
-     */
-    getCaller() {
-        let caller_path = undefined;
-
-        try {
-            throw Error();
-
-        } catch (err) {
-            const stack_lines = err.stack.split('\n');
-            let found_this = false;
-
-            for (let i in stack_lines) {
-                let line = stack_lines[i];
-
-                if (!found_this && /Logger\.mjs/.test(line)) {
-                    found_this = true
-
-                } else if (found_this) {
-                    if (!/Logger\.mjs/.test(line)) {
-                        // remove the closing )
-                        line = line.replace(')', '');
-                        // get the part after the last /
-                        caller_path = line.match(/([^\/]+)$/)[1].match(/([^ ]+)$/)[1];
-
-                        break;
-                    }
-                }
-
-            }
-
-            return caller_path
-        }
-    }
-
-    /**
-     * HELPER FOR ARGS
-     * @param {Array} args
-     * @return {Object}
-     */
-    resolveArgs(...args) {
-        const identifier = args[0];
-        let argsObject = {};
-
-        if (args.length === 1) {
-            if (Neo.isString(identifier)) {
-                argsObject.msg = args[0];
-            } else if (Neo.isObject(identifier)) {
-                argsObject = identifier;
-            }
-        } else if (args.length === 2) {
-            argsObject.msg = args[0];
-            argsObject.data = args[1];
-        }
-
-        return argsObject
     }
 }
 
