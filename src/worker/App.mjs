@@ -60,7 +60,7 @@ class App extends Base {
 
         // convenience shortcuts
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
-        Neo.setCssVariable = me.setCssVariable.bind(me);
+        Neo.setCssVariable = me.setCssVariable.bind(me)
     }
 
     /**
@@ -69,11 +69,7 @@ class App extends Base {
      * @returns {Promise<*>}
      */
     applyDeltas(appName, deltas) {
-         return this.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas
-        });
+         return this.promiseMessage('main', {action: 'updateDom', appName, deltas})
     }
 
     /**
@@ -82,7 +78,7 @@ class App extends Base {
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
-        this.resolveThemeFilesCache();
+        this.resolveThemeFilesCache()
     }
 
     /**
@@ -92,8 +88,8 @@ class App extends Base {
      */
     fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
-            Neo.apps[port.appName].mainViewInstance.fire(eventName, data);
-        });
+            Neo.apps[port.appName].mainViewInstance.fire(eventName, data)
+        })
     }
 
     /**
@@ -102,7 +98,7 @@ class App extends Base {
      */
     importApp(path) {
         if (path.endsWith('.mjs')) {
-            path = path.slice(0, -4);
+            path = path.slice(0, -4)
         }
 
         return import(
@@ -110,7 +106,7 @@ class App extends Base {
             /* webpackExclude: /[\\\/]node_modules/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
-        );
+        )
     }
 
     /**
@@ -130,7 +126,7 @@ class App extends Base {
                 classPath, classRoot, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
-                me.themeFilesCache.push([appName, proto]);
+                me.themeFilesCache.push([appName, proto])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
@@ -140,12 +136,12 @@ class App extends Base {
                     className[0] === 'view' && className.shift();
 
                     mapClassName = `apps.${Neo.apps[appName].appThemeFolder || classRoot}.${className.join('.')}`;
-                    className    = `apps.${lAppName}.${className.join('.')}`;
+                    className    = `apps.${lAppName}.${className.join('.')}`
                 }
 
                 if (parent && parent !== Neo.core.Base.prototype) {
                     if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
-                        me.insertThemeFiles(appName, parent);
+                        me.insertThemeFiles(appName, parent)
                     }
                 }
 
@@ -163,7 +159,7 @@ class App extends Base {
                         appName,
                         className: mapClassName || className,
                         folders  : themeFolders
-                    });
+                    })
                 }
             }
         }
@@ -174,7 +170,7 @@ class App extends Base {
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
     onDomEvent(data) {
-        DomEventManager.fire(data);
+        DomEventManager.fire(data)
     }
 
     /**
@@ -182,7 +178,7 @@ class App extends Base {
      * @param {Object} data parsed key-value pairs for each hash value
      */
     onHashChange(data) {
-        HashHistory.push(data.data);
+        HashHistory.push(data.data)
     }
 
     /**
@@ -192,25 +188,25 @@ class App extends Base {
     onLoadApplication(data) {
         let me     = this,
             config = Neo.config,
-            path;
+            app, path;
 
         if (data) {
             me.data = data;
-            config.resourcesPath = data.resourcesPath;
+            config.resourcesPath = data.resourcesPath
         }
 
         path = me.data.path;
 
         if (config.environment !== 'development') {
-            path = path.startsWith('/') ? path.substring(1) : path;
+            path = path.startsWith('/') ? path.substring(1) : path
         }
 
         me.importApp(path).then(module => {
-            module.onStart();
+            app = module.onStart();
 
             // short delay to ensure Component Controllers are ready
-            config.hash && setTimeout(() => HashHistory.push(config.hash), 5);
-        });
+            config.hash && setTimeout(() => HashHistory.push(config.hash), 5)
+        })
     }
 
     /**
@@ -223,15 +219,15 @@ class App extends Base {
             url    = `resources/theme-map${config.useCssVars ? '' : '-no-vars'}.json`;
 
         if (config.environment === 'development') {
-            url = `../../${url}`;
+            url = `../../${url}`
         }
 
         if (config.workerBasePath?.includes('node_modules')) {
-            url = `../../${url}`;
+            url = `../../${url}`
         }
 
         if (url[0] !== '.') {
-            url = `./${url}`;
+            url = `./${url}`
         }
 
         fetch(url)
@@ -239,7 +235,7 @@ class App extends Base {
             .then(data => {this.createThemeMap(data)});
 
         config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load());
-        !config.useVdomWorker && import('../vdom/Helper.mjs');
+        !config.useVdomWorker && import('../vdom/Helper.mjs')
     }
 
     /**
@@ -251,14 +247,14 @@ class App extends Base {
 
         port.onmessage = me.onMessage.bind(me);
 
-        me.channelPorts[msg.origin] = port;
+        me.channelPorts[msg.origin] = port
     }
 
     /**
      * @param {Object} data
      */
     onWindowPositionChange(data) {
-        this.fireMainViewsEvent('windowPositionChange', data.data);
+        this.fireMainViewsEvent('windowPositionChange', data.data)
     }
 
     /**
@@ -268,11 +264,7 @@ class App extends Base {
     registerApp(appName) {
         // register the name as fast as possible
         this.onRegisterApp({ appName });
-
-        this.sendMessage('main', {
-            action: 'registerAppName',
-            appName
-        });
+        this.sendMessage('main', {action: 'registerAppName', appName})
     }
 
     /**
@@ -281,7 +273,7 @@ class App extends Base {
      * @param {String} appName
      */
     removeAppFromThemeMap(appName) {
-        delete Neo.cssMap[appName.toLowerCase()];
+        delete Neo.cssMap[appName.toLowerCase()]
     }
 
     /**
@@ -291,10 +283,10 @@ class App extends Base {
         let me = this;
 
         me.themeFilesCache.forEach(item => {
-            me.insertThemeFiles(...item);
+            me.insertThemeFiles(...item)
         });
 
-        me.themeFilesCache = [];
+        me.themeFilesCache = []
     }
 
     /**
@@ -310,13 +302,13 @@ class App extends Base {
             theme = Neo.config.themes?.[0];
 
         if (!addon) {
-            return Promise.reject('Neo.main.addon.Stylesheet not imported');
+            return Promise.reject('Neo.main.addon.Stylesheet not imported')
         } else {
             if (theme.startsWith('neo-')) {
                 theme = theme.substring(4);
             }
 
-            return addon.setCssVariable({theme, ...data});
+            return addon.setCssVariable({theme, ...data})
         }
     }
 }
