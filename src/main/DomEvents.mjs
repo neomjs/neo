@@ -121,7 +121,7 @@ class DomEvents extends Base {
         window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
 
         if (Neo.config.useSharedWorkers) {
-            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
+            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
         }
     }
 
@@ -138,17 +138,17 @@ class DomEvents extends Base {
             event = data.events[i];
 
             if (!me[event.handler]) {
-                me[event.handler] = Neo.emptyFn;
+                me[event.handler] = Neo.emptyFn
             }
 
             id = event.vnodeId || data.vnodeId;
 
             if (id === 'document.body') {
-                targetNode = document.body;
+                targetNode = document.body
             } else if (Neo.config.useDomIds) {
-                targetNode = document.getElementById(id);
+                targetNode = document.getElementById(id)
             } else {
-                targetNode = document.querySelector(`[data-neo-id='${id}']`);
+                targetNode = document.querySelector(`[data-neo-id='${id}']`)
             }
 
             targetNode.addEventListener(event.name, me[event.handler].bind(me));
@@ -159,7 +159,7 @@ class DomEvents extends Base {
             data,
             replyId: data.id,
             success: true
-        });
+        })
     }
 
     /**
@@ -169,7 +169,7 @@ class DomEvents extends Base {
         let me = this;
 
         [...globalDomEvents].concat(Neo.config.useTouchEvents ? touchEvents : []).forEach(event => {
-            document.body.addEventListener(event.name, me[event.handler].bind(me), event.options);
+            document.body.addEventListener(event.name, me[event.handler].bind(me), event.options)
         });
     }
 
@@ -233,7 +233,7 @@ class DomEvents extends Base {
                 break;
         }
 
-        Neo.worker.Manager.sendMessage('app', config);
+        Neo.worker.Manager.sendMessage('app', config)
     }
 
     /**
@@ -323,11 +323,11 @@ class DomEvents extends Base {
 
             while (element.parentNode) {
                 path.push(element.parentNode);
-                element = element.parentNode;
+                element = element.parentNode
             }
         }
 
-        return path;
+        return path
     }
 
     /**
@@ -388,8 +388,8 @@ class DomEvents extends Base {
      * @returns {Touch}
      */
     getTouchCoords(event) {
-        const {touches, changedTouches} = event;
-        return touches?.[0] || changedTouches?.[0];
+        let {touches, changedTouches} = event;
+        return touches?.[0] || changedTouches?.[0]
     }
 
     /**
@@ -400,10 +400,7 @@ class DomEvents extends Base {
         let manager = Neo.worker.Manager;
 
         manager.appNames.forEach(appName => {
-            manager.broadcast({
-                action : 'disconnect',
-                appName
-            });
+            manager.broadcast({action : 'disconnect', appName})
         })
     }
 
@@ -424,10 +421,10 @@ class DomEvents extends Base {
 
         // input and change events can pass a FileList for input type file
         if (target.files) {
-            data.files = target.files;
+            data.files = target.files
         }
 
-        me.sendMessageToApp(data);
+        me.sendMessageToApp(data)
     }
 
     /**
@@ -438,7 +435,7 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        me.testPathInclusion(event, preventClickTargets) && event.preventDefault();
+        me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
     }
 
     /**
@@ -449,7 +446,9 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        me.testPathInclusion(event, preventContextmenuTargets) && event.preventDefault();
+        if (event.ctrlKey || me.testPathInclusion(event, preventContextmenuTargets)) {
+            event.preventDefault()
+        }
     }
 
     /**
@@ -457,7 +456,7 @@ class DomEvents extends Base {
      */
     onDomContentLoaded() {
         this.addGlobalDomListeners();
-        this.fire('domContentLoaded');
+        this.fire('domContentLoaded')
     }
 
     /**
@@ -468,29 +467,28 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        me.testPathInclusion(event, preventClickTargets) && event.preventDefault();
+        me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
     }
 
     /**
      * @param {Object} event
      */
     onDragOver(event) {
-        event.dataTransfer.dropEffect = 'move';
-        //console.log('onDragOver', event);
+        event.dataTransfer.dropEffect = 'move'
     }
 
     /**
      * @param {Object} event
      */
     onFocusIn(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onFocusOut(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
@@ -507,7 +505,7 @@ class DomEvents extends Base {
                 hash      : this.parseHash(hashString),
                 hashString
             }
-        });
+        })
     }
 
     /**
@@ -519,13 +517,13 @@ class DomEvents extends Base {
             isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
-            event.preventDefault();
+            event.preventDefault()
         } else {
             this.sendMessageToApp(this.getKeyboardEventData(event));
 
             if (!isInput) { // see: https://github.com/neomjs/neo/issues/1729
                 if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
-                    event.preventDefault();
+                    event.preventDefault()
                 }
             }
         }
@@ -535,14 +533,14 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onKeyUp(event) {
-        this.sendMessageToApp(this.getKeyboardEventData(event));
+        this.sendMessageToApp(this.getKeyboardEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onMouseDown(event) {
-        this.sendMessageToApp(this.getMouseEventData(event));
+        this.sendMessageToApp(this.getMouseEventData(event))
     }
 
     /**
@@ -553,7 +551,7 @@ class DomEvents extends Base {
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null};
 
         me.sendMessageToApp(appEvent);
-        me.fire('mouseEnter', appEvent);
+        me.fire('mouseEnter', appEvent)
     }
 
     /**
@@ -564,14 +562,14 @@ class DomEvents extends Base {
             appEvent = {...me.getMouseEventData(event), toElementId: event.toElement?.id || null};
 
         me.sendMessageToApp(appEvent);
-        me.fire('mouseLeave', appEvent);
+        me.fire('mouseLeave', appEvent)
     }
 
     /**
      * @param {Object} event
      */
     onMouseUp(event) {
-        this.sendMessageToApp(this.getMouseEventData(event));
+        this.sendMessageToApp(this.getMouseEventData(event))
     }
 
     /**
@@ -589,12 +587,12 @@ class DomEvents extends Base {
                 let date = new Date();
 
                 if (lastWheelEvent.date && lastWheelEvent.target === targetCls && date - lastWheelEvent.date < globalWheelTargetsBuffer[targetCls]) {
-                    preventUpdate = true;
+                    preventUpdate = true
                 } else {
                     Object.assign(lastWheelEvent, {
                         date,
                         target: targetCls
-                    });
+                    })
                 }
             }
 
@@ -610,11 +608,11 @@ class DomEvents extends Base {
                     deltaZ,
                     scrollLeft  : target.node.scrollLeft,
                     scrollTop   : target.node.scrollTop
-                });
+                })
             }
 
             if (!globalWheelTargetsKeepEvent.includes(targetCls)) {
-                event.preventDefault();
+                event.preventDefault()
             }
         }
     }
@@ -626,7 +624,7 @@ class DomEvents extends Base {
      */
     parseHash(str) {
         if (str === '') {
-            return {};
+            return {}
         }
 
         let pieces = str.split('&'),
@@ -637,7 +635,7 @@ class DomEvents extends Base {
             parts = pieces[i].split('=');
 
             if (parts.length < 2) {
-                parts.push('');
+                parts.push('')
             }
 
             key   = decodeURIComponent(parts[0]);
@@ -650,13 +648,13 @@ class DomEvents extends Base {
                     data[key] = [];
                 }
 
-                data[key].push(this.parseValue(value));
+                data[key].push(this.parseValue(value))
             } else {
-                data[key] = this.parseValue(value);
+                data[key] = this.parseValue(value)
             }
         }
 
-        return data;
+        return data
     }
 
     /**
@@ -667,11 +665,11 @@ class DomEvents extends Base {
      */
     parseValue(value) {
         if (value == parseInt(value)) {
-            value = parseInt(value);
+            value = parseInt(value)
         } else if (value === 'false') {
-            value = false;
+            value = false
         } else if (value === 'true') {
-            value = true;
+            value = true
         }
 
         return value
@@ -708,7 +706,7 @@ class DomEvents extends Base {
         }
 
         data.cls.forEach(cls => {
-            !preventArray.includes(cls) && preventArray.push(cls);
+            !preventArray.includes(cls) && preventArray.push(cls)
         });
     }
 
@@ -733,7 +731,7 @@ class DomEvents extends Base {
     stripHtml(value) {
         let doc = new DOMParser().parseFromString(value, 'text/html');
 
-        return doc.body.textContent || '';
+        return doc.body.textContent || ''
     }
 
     /**
