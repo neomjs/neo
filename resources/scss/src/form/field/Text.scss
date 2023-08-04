@@ -273,6 +273,7 @@
             border-color    : transparent;
             margin          : 0; // important for Safari => #1125
             padding-left    : 16px;
+            position        : relative; // overwriting the browser default static, to ensure the z-index gets applied
             z-index         : 1;
         }
 
