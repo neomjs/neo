@@ -1596,7 +1596,7 @@ class Base extends CoreBase {
         }
 
         return new Promise((resolve, reject) => {
-            if (me.mounted) {
+            if (me.mounted && me.vnode) {
                 me.updateVdom(vdom, vnode, resolve, reject);
             } else {
                 me.update();
@@ -1837,7 +1837,7 @@ class Base extends CoreBase {
 
         // keep the vnode parent tree in sync
         ComponentManager.getParents(me).forEach((component, index) => {
-            if(component.vnode) {
+            if (component.vnode) {
                 if (!me.vnode) {
                     if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
                         // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
