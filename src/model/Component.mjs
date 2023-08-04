@@ -45,6 +45,27 @@ class Component extends Base {
          */
         data_: null,
         /**
+         * @member {Object|null} formulas_=null
+         *
+         * @example
+         *     data: {
+         *         a: 1,
+         *         b: 2
+         *     }
+         *     formulas: {
+         *         aPlusB: {
+         *             bind: {
+         *                 foo: 'a',
+         *                 baa: 'b'
+         *             },
+         *             get(data) {
+         *                 return data.foo + data.baa
+         *             }
+         *         }
+         *     }
+         */
+        formulas_: null,
+        /**
          * @member {Neo.model.Component|null} parent_=null
          */
         parent_: null,
@@ -58,9 +79,16 @@ class Component extends Base {
      * @param {Object} config
      */
     construct(config) {
+        const me = this;
+
         Neo.currentWorker.isUsingViewModels = true;
         super.construct(config);
-        this.bindings = {};
+        me.bindings = {};
+
+        // to update Formulas
+        me.addListener({
+            dataPropertyChange: me.resolveFormulas
+        });
     }
 
     /**
@@ -77,7 +105,7 @@ class Component extends Base {
 
         Neo.ns(key, true, me.data);
 
-        data  = me.getDataScope(key);
+        data = me.getDataScope(key);
         scope = data.scope;
 
         scope[data.key] = value;
@@ -93,6 +121,16 @@ class Component extends Base {
      */
     afterSetData(value, oldValue) {
         value && this.createDataProperties(value, 'data');
+    }
+
+    /**
+     * Triggered after the formulas config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetFormulas(value, oldValue) {
+        value && this.resolveFormulas();
     }
 
     /**
@@ -137,7 +175,7 @@ class Component extends Base {
      * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
      * @returns {String}
      */
-    callFormatter(formatter, data=null) {
+    callFormatter(formatter, data = null) {
         if (!data) {
             data = this.getHierarchyData();
         }
@@ -217,7 +255,7 @@ class Component extends Base {
         Object.entries(config).forEach(([key, value]) => {
             if (!key.startsWith('_')) {
                 descriptor = Object.getOwnPropertyDescriptor(root, key);
-                newPath    = `${path}.${key}`
+                newPath = `${path}.${key}`
 
                 if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
                     keyValue = config[key];
@@ -237,7 +275,7 @@ class Component extends Base {
      * @param {String} path
      * @param {Object} [root=this.data]
      */
-    createDataProperty(key, path, root=this.data) {
+    createDataProperty(key, path, root = this.data) {
         let me = this;
 
         if (path?.startsWith('data.')) {
@@ -285,7 +323,7 @@ class Component extends Base {
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
      */
-    getData(key, originModel=this) {
+    getData(key, originModel = this) {
         let me      = this,
             data    = me.getDataScope(key),
             scope   = data.scope,
@@ -319,9 +357,9 @@ class Component extends Base {
             data    = me.data;
 
         if (key.includes('.')) {
-            key     = key.split('.');
+            key = key.split('.');
             keyLeaf = key.pop();
-            data    = Neo.ns(key.join('.'), false, data);
+            data = Neo.ns(key.join('.'), false, data);
         }
 
         return {
@@ -375,7 +413,7 @@ class Component extends Base {
      * @param {Object} data=this.getPlainData()
      * @returns {Object} data
      */
-    getHierarchyData(data=this.getPlainData()) {
+    getHierarchyData(data = this.getPlainData()) {
         let me     = this,
             parent = me.getParent();
 
@@ -395,7 +433,7 @@ class Component extends Base {
      * @param {Object} [data=this.data]
      * @returns {Object}
      */
-    getPlainData(data=this.data) {
+    getPlainData(data = this.data) {
         let plainData = {};
 
         Object.entries(data).forEach(([key, value]) => {
@@ -421,7 +459,7 @@ class Component extends Base {
             return me.parent;
         }
 
-        parentId        = me.component.parentId;
+        parentId = me.component.parentId;
         parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent?.getModel() || null;
@@ -433,7 +471,7 @@ class Component extends Base {
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
      */
-    getStore(key, originModel=this) {
+    getStore(key, originModel = this) {
         let me     = this,
             stores = me.stores,
             parentModel;
@@ -472,8 +510,8 @@ class Component extends Base {
                 me.internalSetData(dataKey, dataValue, originModel);
             });
         } else {
-            data    = me.getDataScope(key);
-            scope   = data.scope;
+            data = me.getDataScope(key);
+            scope = data.scope;
             keyLeaf = data.key;
 
             if (scope?.hasOwnProperty(keyLeaf)) {
@@ -532,8 +570,8 @@ class Component extends Base {
 
             Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
-                config    = {};
-                model     = component.getModel();
+                config = {};
+                model = component.getModel();
 
                 if (!hierarchyData[model.id]) {
                     hierarchyData[model.id] = model.getHierarchyData();
@@ -562,7 +600,7 @@ class Component extends Base {
      * It can not store bindings though, since child component ids most likely do not exist yet.
      * @param {Neo.component.Base} [component=this.component]
      */
-    parseConfig(component=this.component) {
+    parseConfig(component = this.component) {
         let me     = this,
             config = {};
 
@@ -600,6 +638,51 @@ class Component extends Base {
         });
 
         parentModel?.removeBindings(componentId);
+    }
+
+    /**
+     * Resolve the formulas initially and update, when data change
+     * @param {Object|undefined} e  data from event or undefined on initial call
+     */
+    resolveFormulas(e = undefined) {
+        const me         = this,
+              formulas   = me.formulas,
+              initialRun = !e;
+
+        if (!formulas) return;
+        if (!initialRun && (!e.key || !e.value)) {
+            console.warn('[ViewModel::forumals] missing key or value', key, value);
+        }
+
+        for (const [key, value] of Object.entries(formulas)) {
+            let affectFormula = true;
+
+            // Check if the change affects a formula
+            if (!initialRun) {
+                affectFormula = Object.values(value.bind).includes(e.key);
+            }
+
+            if (affectFormula) {
+                // Create Bind-Object and fill with new values
+                let bindObject = Neo.clone(value.bind),
+                    fn         = value.get,
+                    result;
+
+                Object.keys(bindObject).forEach(function (key, index) {
+                    bindObject[key] = me.getData(bindObject[key]);
+                });
+
+                // Calc the formula
+                result = fn(bindObject);
+
+                // Assign if no error or null
+                if (isNaN(result)) {
+                    me.setData(key, null);
+                } else {
+                    me.setData(key, result);
+                }
+            }
+        }
     }
 
     /**
