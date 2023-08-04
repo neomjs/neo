@@ -1837,22 +1837,24 @@ class Base extends CoreBase {
 
         // keep the vnode parent tree in sync
         ComponentManager.getParents(me).forEach((component, index) => {
-            if (!me.vnode) {
-                if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
-                    // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
-                    // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
+            if(component.vnode) {
+                if (!me.vnode) {
+                    if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
+                        // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
+                        // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
+                    }
                 }
-            }
 
-            // check for dynamically rendered components which get inserted into the component tree
-            else if (index === 0 && me.vnode.outerHTML) {
-                // console.log('dyn item', me.vnode, me.parentIndex);
-                component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode);
-            }
+                // check for dynamically rendered components which get inserted into the component tree
+                else if (index === 0 && me.vnode.outerHTML) {
+                    // console.log('dyn item', me.vnode, me.parentIndex);
+                    component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode);
+                }
 
-            else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
-                // todo: can happen for dynamically inserted container items
-                // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
+                else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
+                    // todo: can happen for dynamically inserted container items
+                    // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
+                }
             }
         });
 
