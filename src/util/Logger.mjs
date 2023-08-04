@@ -18,7 +18,7 @@ class Logger extends Base {
          *
          *     Neo.util.Logger.enableLogsInProduction = true;
          *
-         * @member {boolean} enableLogsInProduction=true
+         * @member {Boolean} enableLogsInProduction=true
          */
         enableLogsInProduction: false,
         /**
@@ -27,9 +27,9 @@ class Logger extends Base {
          *
          *      Neo.util.Logger.enableComponentLogger = true;
          *
-         * @member {boolean} enableComponentLogger_=true
+         * @member {Boolean} enableComponentLogger=true
          */
-        enableComponentLogger_: true,
+        enableComponentLogger: true,
         /**
          * Set the minimum level, which you want to output.
          * Change this at any time using a value of logLevels: ['info', 'log', 'warn', 'error']
@@ -184,7 +184,11 @@ class Logger extends Base {
      * @param {Object} data
      */
     onContextMenu(data) {
-        if (data.ctrlKey) {
+        if (
+            data.ctrlKey
+            && this.enableComponentLogger
+            && !(Neo.config.env === 'dist/production' && this.enableLogsInProduction)
+        ) {
             let isGroupSet = false,
                 component;
 
