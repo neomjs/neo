@@ -2026,18 +2026,21 @@ class Base extends CoreBase {
 
                 reject?.()
             }).then(data => {
-                // console.log('Component vnode updated', data);
-                me.vnode          = data.vnode;
-                me.isVdomUpdating = false;
+                // checking if the component got destroyed before the update cycle is done
+                if (me.id) {
+                    // console.log('Component vnode updated', data);
+                    me.vnode          = data.vnode;
+                    me.isVdomUpdating = false;
 
-                deltas = data.deltas;
+                    deltas = data.deltas;
 
-                if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                    Neo.applyDeltas(me.appName, deltas).then(() => {
+                    if (!Neo.config.useVdomWorker && deltas.length > 0) {
+                        Neo.applyDeltas(me.appName, deltas).then(() => {
+                            me.resolveVdomUpdate(resolve)
+                        });
+                    } else {
                         me.resolveVdomUpdate(resolve)
-                    });
-                } else {
-                    me.resolveVdomUpdate(resolve)
+                    }
                 }
             })
         }
