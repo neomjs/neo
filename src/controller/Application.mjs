@@ -1,5 +1,6 @@
 import Base            from './Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Logger          from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Application
@@ -72,7 +73,7 @@ class Application extends Base {
         Neo.currentWorker.registerApp(me.name);
 
         if (mainView) {
-            me.mainView = mainView;
+            me.mainView = mainView
         }
     }
 
@@ -82,11 +83,17 @@ class Application extends Base {
      * @param {Neo.component.Base|null} oldValue
      * @protected
      */
-    afterSetMainView(value, oldValue) {
-        // short delay to ensure changes from onHashChange() got applied
-        value && setTimeout(() => {
-            value.render(true);
-        }, Neo.config.hash ? 200 : 10);
+    async afterSetMainView(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            // short delay to ensure changes from onHashChange() got applied
+            await Neo.timeout(Neo.config.hash ? 200 : 10);
+
+            value.on('mounted', me.registerLoggerClickEvent, me);
+
+            value.render(true)
+        }
     }
 
     /**
@@ -101,10 +108,10 @@ class Application extends Base {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 appName : this.name,
                 parentId: this.parentId
-            });
+            })
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -113,7 +120,14 @@ class Application extends Base {
      */
     destroy(...args) {
         Neo.currentWorker.removeAppFromThemeMap(this.name);
-        super.destroy(...args);
+        super.destroy(...args)
+    }
+
+    /**
+     * @protected
+     */
+    registerLoggerClickEvent() {
+        Logger.addContextMenuListener(this.mainView)
     }
 }
 

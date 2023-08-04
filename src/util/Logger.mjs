@@ -70,10 +70,6 @@ class Logger extends Base {
      * @member {String[]} logLevels
      */
     logLevels = ['info', 'log', 'warn', 'error']
-    /**
-     * @member {Number} timeToStart in ms
-     */
-    timeToStartComponentLogger = 1500
 
     /**
      * @param config
@@ -101,48 +97,12 @@ class Logger extends Base {
 
     /**
      * Ctrl-Right Click will show the current component
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Neo.component.Base} view
      */
-    afterSetEnableComponentLogger(value, oldValue) {
-        setTimeout(() => {
-            if (value) {
-                if (Neo.workerId !== 'app' || Neo.config.environment === 'dist/production') {
-                    return;
-                }
-
-                let viewport = Neo.getComponent('neo-viewport-1') || Neo.getComponent('neo-configuration-viewport-1');
-
-                if (!viewport) {
-                    console.warn('[LOGGER] could not find viewport.');
-                    return;
-                }
-
-                viewport.addDomListeners({
-                    contextmenu: data => {
-                        if (data.ctrlKey) {
-                            let isGroupSet = false,
-                                component;
-
-                            data.path.forEach(item => {
-                                component = Neo.getComponent(item.id);
-
-                                if (component) {
-                                    if (!isGroupSet) {
-                                        isGroupSet = true;
-                                        console.group(item.id)
-                                    }
-
-                                    console.log(component)
-                                }
-                            });
-
-                            isGroupSet && console.groupEnd()
-                        }
-                    }
-                });
-            }
-        }, this.timeToStartComponentLogger)
+    addContextMenuListener(view) {
+        view.addDomListeners({
+            contextmenu: this.onContextMenu
+        })
     }
 
     /**
@@ -218,6 +178,31 @@ class Logger extends Base {
     logError(...args) {
         args = this.resolveArgs(...args);
         this.write(args, 'error')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onContextMenu(data) {
+        if (data.ctrlKey) {
+            let isGroupSet = false,
+                component;
+
+            data.path.forEach(item => {
+                component = Neo.getComponent(item.id);
+
+                if (component) {
+                    if (!isGroupSet) {
+                        isGroupSet = true;
+                        console.group(item.id)
+                    }
+
+                    console.log(component)
+                }
+            });
+
+            isGroupSet && console.groupEnd()
+        }
     }
 
     /**
