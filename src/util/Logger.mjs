@@ -101,7 +101,8 @@ class Logger extends Base {
      */
     addContextMenuListener(view) {
         view.addDomListeners({
-            contextmenu: this.onContextMenu
+            contextmenu: this.onContextMenu,
+            scope      : this
         })
     }
 
