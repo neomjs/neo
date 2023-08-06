@@ -1479,7 +1479,7 @@ class Base extends CoreBase {
 
             delete me.vdom.removeDom;
 
-            await Neo.timeout(30);
+            await me.timeout(30);
 
             me.mounted = true;
         }

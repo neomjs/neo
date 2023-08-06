@@ -93,7 +93,7 @@ class Dialog extends Base {
 
         iconNode.removeDom = !value || value === '';
         this.update();
-    } 
+    }
 
     /**
      * Triggered after the title config got changed
@@ -104,7 +104,7 @@ class Dialog extends Base {
     afterSetTitle(value, oldValue) {
         this.headerToolbar?.down({flag: 'panel-header-title'}).set({
             text: value
-        });
+        })
     }
 
     /**
@@ -149,7 +149,7 @@ class Dialog extends Base {
                 hidden: !me.title,
                 text  : me.title
             }, ...me.headerConfig.items || []],
-            
+
             ...headerConfigCopy
         });
 
@@ -190,11 +190,12 @@ class Dialog extends Base {
      */
     async show(modal = true) {
         let me = this;
-        await Neo.timeout(20);
+
+        await me.timeout(20);
 
         Neo.main.addon.Dialog[modal ? 'showModal': 'show']({
-            id: me.id,
-            appName: me.appName
+            appName: me.appName,
+            id     : me.id
         });
     }
 }

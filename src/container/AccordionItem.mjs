@@ -53,18 +53,19 @@ class AccordionContainer extends Base {
      * @protected
      */
     createItems() {
-        const me    = this,
-              items = me.items,
-              title = me.title;
-        let iconCls  = me.iconCls || ['no-icon'],
+        let me       = this,
             arrowCls = me.arrowCls || 'fa-caret-down',
+            iconCls  = me.iconCls || ['no-icon'],
+            items    = me.items,
+            title    = me.title,
             header, content;
 
         if (!Neo.isArray(iconCls)) {
-            iconCls = iconCls.split(' ');
+            iconCls = iconCls.split(' ')
         }
+
         if (!Neo.isArray(arrowCls)) {
-            arrowCls = arrowCls.split(' ');
+            arrowCls = arrowCls.split(' ')
         }
 
         header = Neo.create({
@@ -85,6 +86,7 @@ class AccordionContainer extends Base {
                 cls    : ['fa', ...arrowCls]
             }]
         });
+
         content = {
             ntype  : 'container',
             flag   : 'content',
@@ -98,7 +100,7 @@ class AccordionContainer extends Base {
 
         me.addDomListeners([
             {click: me.onExpandClick, delegate: 'neo-accordion-header-arrow'}
-        ]);
+        ])
     }
 
     /**
@@ -106,15 +108,15 @@ class AccordionContainer extends Base {
      * @param {Boolean} isExpanded
      */
     afterSetExpanded(isExpanded) {
-        const me  = this,
-              cls = me.cls,
-              fn  = isExpanded ? 'add' : 'remove';
+        let me  = this,
+            cls = me.cls,
+            fn  = isExpanded ? 'add' : 'remove';
 
         NeoArray[fn](cls, 'neo-expanded');
         me.cls = cls;
 
         // Ensure scrollbars are not flipping in and out
-        Neo.timeout(450).then(() => {
+        me.timeout(450).then(() => {
             NeoArray[fn](cls, 'neo-scrollable');
             me.cls = cls;
         })
@@ -133,7 +135,9 @@ class AccordionContainer extends Base {
         if (iconEl) {
             let cls = iconEl.cls;
 
-            if (!Neo.isArray(newValue)) newValue = newValue.split(' ');
+            if (!Neo.isArray(newValue)) {
+                newValue = newValue.split(' ')
+            }
 
             NeoArray.remove(cls, oldValue);
             NeoArray.add(cls, newValue);
@@ -158,9 +162,9 @@ class AccordionContainer extends Base {
      * Otherwise we set this.expanded to the new value.
      */
     onExpandClick() {
-        const me           = this,
-              currentState = me.expanded;
-        let parent = me.up('accordion');
+        let me           = this,
+            currentState = me.expanded,
+            parent       = me.up('accordion');
 
         if (parent.ntype === 'accordion') {
             parent.childExpandChange({
