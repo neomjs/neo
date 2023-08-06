@@ -21,6 +21,16 @@ class App extends Base {
          */
         className: 'Neo.worker.App',
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            main: [
+                'createNeoInstance'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -70,6 +80,28 @@ class App extends Base {
      */
     applyDeltas(appName, deltas) {
          return this.promiseMessage('main', {action: 'updateDom', appName, deltas})
+    }
+
+    /**
+     * Remote method to use inside main threads for creating neo based class instances.
+     * Be aware that you can only pass configs which can get converted into pure JSON.
+     *
+     * @example:
+     *     Neo.worker.App.createNeoInstance({
+     *         ntype     : 'button',
+     *         autoMount : true,
+     *         autoRender: true
+     *         text      : 'Hi Nige!'
+     *     }).then(id => console.log(id))
+     *
+     * @param {Object} config
+     * @returns {String} the instance id
+     */
+    createNeoInstance(config) {
+        let appName  = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
+            instance = Neo[config.ntype ? 'ntype' : 'create']({appName: appName, ...config});
+
+        return instance.id;
     }
 
     /**
