@@ -80,6 +80,13 @@ class Base {
     }
 
     /**
+     * Internal cache for all timeout ids when using this.timeout()
+     * @member {Number[]} timeoutIds=[]
+     * @private
+     */
+    #timeoutIds = []
+
+    /**
      * Applies the observable mixin if needed, grants remote access if needed.
      * @param {Object} config={}
      */
@@ -239,6 +246,10 @@ class Base {
      */
     destroy() {
         let me = this;
+
+        me.#timeoutIds.forEach(id => {
+            clearTimeout(id)
+        });
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me)
@@ -501,6 +512,20 @@ class Base {
         }
 
         return false
+    }
+
+    /**
+     * Stores timeoutIds internally, so that destroy() can clear them if needed
+     * @param {Number} time
+     * @returns {Promise<any>}
+     */
+    timeout(time) {
+        return new Promise(resolve => {
+            let timeoutIds = this.#timeoutIds,
+                timeoutId  = setTimeout(() => {timeoutIds.splice(timeoutIds.indexOf(timeoutId, 1)); resolve()}, time)
+
+            timeoutIds.push(timeoutId)
+        })
     }
 
     /**
