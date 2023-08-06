@@ -83,6 +83,10 @@ class Base extends Component {
          */
         menu_: null,
         /**
+         * @member {Object} menuListConfig=null
+         */
+        menuListConfig: null,
+        /**
          * The pressed state of the Button
          * @member {Boolean} pressed_=false
          */
@@ -258,7 +262,8 @@ class Base extends Component {
                     hidden         : true,
                     items          : value,
                     parentComponent: me,
-                    style          : {left: '-5000px', top: '-5000px'}
+                    style          : {left: '-5000px', top: '-5000px'},
+                    ...me.menuListConfig
                 })
             })
         }
