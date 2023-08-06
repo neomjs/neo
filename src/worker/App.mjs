@@ -87,6 +87,7 @@ class App extends Base {
      * Remote method to use inside main threads for creating neo based class instances.
      * Be aware that you can only pass configs which can get converted into pure JSON.
      *
+     * Rendering a component into the document.body
      * @example:
      *     Neo.worker.App.createNeoInstance({
      *         ntype     : 'button',
@@ -95,12 +96,45 @@ class App extends Base {
      *         text      : 'Hi Nige!'
      *     }).then(id => console.log(id))
      *
+     * Inserting a component into a container
+     * @example:
+     *     Neo.worker.App.createNeoInstance({
+     *         ntype      : 'button',
+     *         parentId   : 'neo-container-3',
+     *         parentIndex: 0
+     *         text       : 'Hi Nige!'
+     *     }).then(id => console.log(id))
+     *
      * @param {Object} config
+     * @param {String} [config.parentId] passing a parentId will put your instance into a container
+     * @param {Number} [config.parentIndex] if a parentId is passed, but no index, neo will use add()
      * @returns {String} the instance id
      */
     createNeoInstance(config) {
-        let appName  = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
-            instance = Neo[config.ntype ? 'ntype' : 'create']({appName: appName, ...config});
+        let appName   = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
+            Container = Neo.container?.Base,
+            index, instance, parent;
+
+        config = {appName: appName, ...config};
+
+        if (config.parentId) {
+            parent = Neo.getComponent(config.parentId);
+
+            if (Container && parent && parent instanceof Container) {
+                index = config.parentIndex;
+
+                delete config.parentId;
+                delete config.parentIndex;
+
+                if (Neo.isNumber(index)) {
+                    instance = parent.insert(index, config)
+                } else {
+                    instance = parent.add(config)
+                }
+            }
+        } else {
+            instance = Neo[config.ntype ? 'ntype' : 'create'](config)
+        }
 
         return instance.id
     }
