@@ -383,6 +383,10 @@ class Base extends Component {
             }
         }
 
+        if (record.cls) {
+            NeoArray.add(cls, record.cls)
+        }
+
         if (record[me.disabledField]) {
             cls.push('neo-disabled')
         }

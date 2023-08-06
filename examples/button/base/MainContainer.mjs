@@ -191,6 +191,7 @@ class MainContainer extends ConfigurationViewport {
                 iconCls: 'fa fa-home',
                 text   : 'Item 1'
             }, {
+                cls    : ['neo-red'],
                 handler: data => console.log('menu item 2 click =>', data),
                 iconCls: 'fa fa-user',
                 text   : 'Item 2'
