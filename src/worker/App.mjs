@@ -158,9 +158,19 @@ class App extends Base {
      * @returns {Boolean} returns true, in case the instance was found
      */
     destroyNeoInstance(id) {
-        let instance = Neo.get(id);
+        let instance = Neo.get(id),
+            parent;
 
         if (instance) {
+            if (instance.parentId) {
+                parent = Neo.getComponent(instance.parentId);
+
+                if (parent) {
+                    parent.remove(instance);
+                    return true
+                }
+            }
+
             instance.destroy(true, true);
             return true
         }
