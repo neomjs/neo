@@ -516,7 +516,7 @@ class Base {
 
     /**
      * Stores timeoutIds internally, so that destroy() can clear them if needed
-     * @param {Number} time
+     * @param {Number} time in milliseconds
      * @returns {Promise<any>}
      */
     timeout(time) {
