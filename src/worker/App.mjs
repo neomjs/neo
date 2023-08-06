@@ -27,7 +27,8 @@ class App extends Base {
          */
         remote: {
             main: [
-                'createNeoInstance'
+                'createNeoInstance',
+                'destroyNeoInstance'
             ]
         },
         /**
@@ -101,7 +102,7 @@ class App extends Base {
         let appName  = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
             instance = Neo[config.ntype ? 'ntype' : 'create']({appName: appName, ...config});
 
-        return instance.id;
+        return instance.id
     }
 
     /**
@@ -111,6 +112,26 @@ class App extends Base {
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
         this.resolveThemeFilesCache()
+    }
+
+    /**
+     * Remote method to use inside main threads for destroying neo based class instances.
+     *
+     * @example:
+     *     Neo.worker.App.destroyNeoInstance('neo-button-3').then(success => console.log(success))
+     *
+     * @param {String} id
+     * @returns {Boolean} returns true, in case the instance was found
+     */
+    destroyNeoInstance(id) {
+        let instance = Neo.get(id);
+
+        if (instance) {
+            instance.destroy(true, true);
+            return true
+        }
+
+        return false
     }
 
     /**
