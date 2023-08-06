@@ -522,7 +522,7 @@ class Base {
     timeout(time) {
         return new Promise(resolve => {
             let timeoutIds = this.#timeoutIds,
-                timeoutId  = setTimeout(() => {timeoutIds.splice(timeoutIds.indexOf(timeoutId, 1)); resolve()}, time)
+                timeoutId  = setTimeout(() => {timeoutIds.splice(timeoutIds.indexOf(timeoutId, 1)); resolve()}, time);
 
             timeoutIds.push(timeoutId)
         })
