@@ -90,7 +90,7 @@ class Application extends Base {
             // short delay to ensure changes from onHashChange() got applied
             await Neo.timeout(Neo.config.hash ? 200 : 10);
 
-            value.on('mounted', me.registerLoggerClickEvent, me);
+            Logger.addContextMenuListener(me.mainView);
 
             value.render(true)
         }
@@ -121,13 +121,6 @@ class Application extends Base {
     destroy(...args) {
         Neo.currentWorker.removeAppFromThemeMap(this.name);
         super.destroy(...args)
-    }
-
-    /**
-     * @protected
-     */
-    registerLoggerClickEvent() {
-        Logger.addContextMenuListener(this.mainView)
     }
 }
 
