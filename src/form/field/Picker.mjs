@@ -268,7 +268,7 @@ class Picker extends Text {
             picker = me.getPicker();
 
         // avoid breaking selection model cls updates
-        await Neo.timeout(30);
+        await me.timeout(30);
 
         if (me.pickerIsMounted) {
             picker.unmount();

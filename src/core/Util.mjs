@@ -200,14 +200,6 @@ class Util extends Base {
     }
 
     /**
-     * @param {Number} time in milliseconds
-     * @returns {Promise<unknown>}
-     */
-    static timeout(time) {
-        return new Promise(resolve => setTimeout(resolve, time));
-    }
-
-    /**
      * Converts any iterable (strings, numeric indices and a length property) into a true array
      * @param {Object|String} iterable
      * @param {Number} [start=0] start index
@@ -246,7 +238,6 @@ Neo.applyFromNs(Neo, Util, {
     isNumber         : 'isNumber',
     isObject         : 'isObject',
     isString         : 'isString',
-    timeout          : 'timeout',
     toArray          : 'toArray'
 }, true);
 

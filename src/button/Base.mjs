@@ -481,7 +481,7 @@ class Base extends Component {
         delete rippleWrapper.removeDom;
         me.update();
 
-        await Neo.timeout(1);
+        await me.timeout(1);
 
         rippleEl.style.animation = `ripple ${rippleEffectDuration}ms linear`;
         me.update();
@@ -507,7 +507,7 @@ class Base extends Component {
         menuList.hidden = hidden;
 
         if (!hidden) {
-            await Neo.timeout(50);
+            await this.timeout(50);
             menuList.focus()
         }
     }

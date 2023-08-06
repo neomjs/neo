@@ -74,7 +74,7 @@ class ScrollSync extends Base {
      */
     async register(data) {
         // short delay to ensure the target node got mounted
-        await Neo.timeout(50)
+        await this.timeout(50)
 
         let sourceId   = data.sourceId,
             sourceMap  = this.sourceMap,

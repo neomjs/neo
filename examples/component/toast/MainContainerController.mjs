@@ -50,8 +50,8 @@ class MainContainerController extends ComponentController {
 
             output.update();
 
-            await Neo.timeout(20)
-            me.syntaxHighlight();
+            await me.timeout(20);
+            me.syntaxHighlight()
         }
     }
 

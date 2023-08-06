@@ -452,7 +452,7 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false;
             }
 
-            await Neo.timeout(70);
+            await me.timeout(70);
 
             rect = await me.getDomRect(me.getColumnContainer().id);
 

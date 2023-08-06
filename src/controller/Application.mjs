@@ -88,7 +88,7 @@ class Application extends Base {
             let me = this;
 
             // short delay to ensure changes from onHashChange() got applied
-            await Neo.timeout(Neo.config.hash ? 200 : 10);
+            await me.timeout(Neo.config.hash ? 200 : 10);
 
             Logger.addContextMenuListener(me.mainView);
 

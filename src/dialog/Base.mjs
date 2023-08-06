@@ -298,7 +298,7 @@ class Base extends Panel {
 
         me.closeOrHide(false);
 
-        await Neo.timeout(30);
+        await me.timeout(30);
 
         await Neo.currentWorker.promiseMessage('main', {
             action: 'updateDom',
@@ -314,7 +314,7 @@ class Base extends Panel {
             }]
         });
 
-        await Neo.timeout(250);
+        await me.timeout(250);
 
         await Neo.currentWorker.promiseMessage('main', {
             action: 'updateDom',
@@ -340,7 +340,7 @@ class Base extends Panel {
             parentId: 'document.body'
         });
 
-        await Neo.timeout(30);
+        await me.timeout(30);
 
         await Neo.currentWorker.promiseMessage('main', {
             action: 'updateDom',
@@ -357,9 +357,9 @@ class Base extends Panel {
             }]
         });
 
-        await Neo.timeout(200);
+        await me.timeout(200);
 
-        me.show(false);
+        me.show(false)
     }
 
     /**
