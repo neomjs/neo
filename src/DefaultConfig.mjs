@@ -63,12 +63,12 @@ const DefaultConfig = {
     /**
      * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
-     * @default 'UA-153734404-1'
+     * @default 'G-DJ13071C55'
      * @memberOf! module:Neo
      * @name config.gtagId
      * @type String
      */
-    gtagId: 'UA-153734404-1',
+    gtagId: 'G-DJ13071C55',
     /**
      * Flag for running on https://neomjs.github.io/pages/
      * => to use local images paths instead of raw.githubusercontent.com
@@ -245,12 +245,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '5.14.2'
+     * @default '5.14.3'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '5.14.2'
+    version: '5.14.3'
 };
 
 Object.assign(DefaultConfig, {
