@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+        'cfileuploadfield-color': blue
+));
+
+@if $useCssVars == true {
+    :root .neo-theme-light { // .neo-checkboxfield
+        --fileuploadfield-color: #{neo(fileuploadfield-color)};
+    }
+}
