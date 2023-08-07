@@ -342,14 +342,7 @@ class List extends BaseList {
     onItemClick(node, data) {
         super.onItemClick(node, data);
 
-        let me     = this,
-            record = data.record;
-
-        record.handler?.call(me, record);
-
-        if (me.hideOnLeafItemClick && !record.items) {
-            me.unmount()
-        }
+        this.onKeyDownEnter(node.id)
     }
 
     /**
@@ -369,7 +362,7 @@ class List extends BaseList {
             }
 
             if (record.items) {
-                submenu = me.subMenuMap[me.getMenuMapId(recordId)];
+                submenu = me.subMenuMap?.[me.getMenuMapId(recordId)];
 
                 if (submenu) {
                     me.toggleSubMenu(nodeId, record)
@@ -456,9 +449,9 @@ class List extends BaseList {
     toggleSubMenu(nodeId, record) {
         let me       = this,
             recordId = record[me.getKeyProperty()],
-            submenu  = me.subMenuMap[me.getMenuMapId(recordId)];
+            submenu  = me.subMenuMap?.[me.getMenuMapId(recordId)];
 
-        if (!submenu?.mounted) {
+        if (!submenu || !submenu.mounted) {
             me.showSubMenu(nodeId, record)
         } else {
             me.hideSubMenu()
