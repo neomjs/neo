@@ -20,7 +20,12 @@ class FileUpload extends Base {
          * @member {String[]}} baseCls=['neo-file-upload-field']
          * @protected
          */
-        baseCls: ['neo-file-upload-field']
+        baseCls: ['neo-file-upload-field'],
+        /**
+         * @member {Object}} _vdom
+         */
+        _vdom:
+        {tag: 'input', type: 'file'}
     }
 }
 

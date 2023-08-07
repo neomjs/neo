@@ -35,7 +35,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(FileUploadField, {
             height:  50,
-            width : 150
+            width : 200
         })
     }
 }
