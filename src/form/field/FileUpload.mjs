@@ -12,15 +12,15 @@ class FileUpload extends Base {
          */
         className: 'Neo.form.field.FileUpload',
         /**
-         * @member {String} ntype='field-upload-field'
+         * @member {String} ntype='file-upload-field'
          * @protected
          */
-        ntype: 'field-upload-field',
+        ntype: 'file-upload-field',
         /**
-         * @member {String[]}} baseCls=['neo-field-upload-field']
+         * @member {String[]}} baseCls=['neo-file-upload-field']
          * @protected
          */
-        baseCls: ['neo-field-upload-field']
+        baseCls: ['neo-file-upload-field']
     }
 }
 

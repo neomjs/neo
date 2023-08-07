@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/form/field/fileupload/app.mjs",
+    "basePath"   : "../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
