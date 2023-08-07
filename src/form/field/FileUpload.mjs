@@ -15,7 +15,12 @@ class FileUpload extends Base {
          * @member {String} ntype='field-upload-field'
          * @protected
          */
-        ntype: 'field-upload-field'
+        ntype: 'field-upload-field',
+        /**
+         * @member {String[]}} baseCls=['neo-field-upload-field']
+         * @protected
+         */
+        baseCls: ['neo-field-upload-field']
     }
 }
 
