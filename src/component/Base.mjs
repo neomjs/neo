@@ -1720,7 +1720,6 @@ class Base extends CoreBase {
 
         if (me.needsVdomUpdate) {
             me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
-            me.needsVdomUpdate  = false;
             me.vdom             = me.vdom // trigger the next update cycle
         } else {
             [...me.childUpdateCache].forEach(id => {
@@ -2012,7 +2011,8 @@ class Base extends CoreBase {
         if (me.isVdomUpdating) {
             me.needsVdomUpdate = true;
         } else {
-            me.isVdomUpdating = true;
+            me.isVdomUpdating  = true;
+            me.needsVdomUpdate = false;
 
             opts = { vdom, vnode };
 
