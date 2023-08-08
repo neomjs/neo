@@ -631,11 +631,15 @@ class Base extends CoreBase {
                 if (me.domListeners?.length > 0) {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
-                        DomEventManager.mountDomListeners(me);
-                    }, 100);
+                        DomEventManager.mountDomListeners(me)
+                    }, 100)
                 }
 
                 me.fire('mounted', me.id);
+
+                if (me.needsVdomUpdate) {
+                    me.afterSetVdom(me.vdom, me.vdom)
+                }
             }
         }
     }
@@ -724,12 +728,12 @@ class Base extends CoreBase {
                 delete me._vdom[key];
             });
 
-            vdom = Object.assign(me._vdom, vdom);
+            vdom = Object.assign(me._vdom, vdom)
         }
 
         if (!me.needsParentUpdate()) {
             if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
+                me.needsVdomUpdate = true
             } else {
                 if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                     me.hasRenderingListener = true;
@@ -739,15 +743,17 @@ class Base extends CoreBase {
 
                         setTimeout(() => {
                             me.vnode && me.updateVdom(me.vdom, me.vnode);
-                        }, 50);
+                        }, 50)
                     });
+                } else if (!me.vnode) {
+                    me.needsVdomUpdate = true
                 } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
-                    me.updateVdom(vdom, me.vnode);
+                    me.updateVdom(vdom, me.vnode)
                 }
             }
         }
 
-        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
+        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
     }
 
     /**
