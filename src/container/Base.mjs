@@ -161,10 +161,13 @@ class Base extends Component {
     afterSetNeedsVdomUpdate(value, oldValue) {
         if (!value) {
             this.items.forEach(item => {
-                // we can not set the config directly => it could already be false,
-                // and we still want to pass it further into subtrees
-                item._needsVdomUpdate = false;
-                item.afterSetNeedsVdomUpdate?.(false, true)
+                // check for e.g. Toolbar items like '->'
+                if (typeof item !== 'string') {
+                    // we can not set the config directly => it could already be false,
+                    // and we still want to pass it further into subtrees
+                    item._needsVdomUpdate = false;
+                    item.afterSetNeedsVdomUpdate?.(false, true)
+                }
             })
         }
     }
