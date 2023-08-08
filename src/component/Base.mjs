@@ -318,10 +318,10 @@ class Base extends CoreBase {
      * @member {Object} listeners={}
      */
     get listeners() {
-        return this._listeners || {};
+        return this._listeners || {}
     }
     set listeners(value) {
-        this._listeners = value;
+        this._listeners = value
     }
 
     /**
@@ -330,7 +330,7 @@ class Base extends CoreBase {
      * @protected
      */
     get rendered() {
-        return this._rendered || false;
+        return this._rendered || false
     }
     set rendered(value) {
         let me = this;
@@ -338,7 +338,7 @@ class Base extends CoreBase {
         me._rendered = value;
 
         if (value === true) {
-            me.fire('rendered', me.id);
+            me.fire('rendered', me.id)
         }
     }
 
@@ -347,10 +347,10 @@ class Base extends CoreBase {
      * @member {Object} vdom=this._vdom
      */
     get vdom() {
-        return this._vdom;
+        return this._vdom
     }
     set vdom(value) {
-        this.afterSetVdom(value, value);
+        this.afterSetVdom(value, value)
     }
 
     /**
@@ -361,7 +361,7 @@ class Base extends CoreBase {
         let cls = this.cls;
 
         NeoArray.add(cls, value);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -370,14 +370,14 @@ class Base extends CoreBase {
      */
     addDomListeners(value) {
         if (!Array.isArray(value)) {
-            value = [value];
+            value = [value]
         }
 
         let domListeners = this.domListeners;
 
         domListeners.push(...value);
 
-        this.domListeners = domListeners;
+        this.domListeners = domListeners
     }
 
     /**
@@ -393,7 +393,7 @@ class Base extends CoreBase {
 
         // todo: add a check if something has changed
 
-        return this.style = Object.assign(this.style, value);
+        return this.style = Object.assign(this.style, value)
     }
 
     /**
@@ -403,7 +403,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**
@@ -422,18 +422,18 @@ class Base extends CoreBase {
 
         if (vdom !== vdomRoot) {
             // we are using a wrapper node
-            vdomRoot.cls = [...value];
+            vdomRoot.cls = [...value]
         } else {
             // we need to merge changes
             cls = NeoArray.union(me.wrapperCls, value);
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
-            vdom.cls = cls;
+            vdom.cls = cls
         }
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
+            me.needsVdomUpdate = true
         } else if (me.mounted && me.vnode) {
-            me.updateCls(value, oldValue, vdomRoot.id);
+            me.updateCls(value, oldValue, vdomRoot.id)
         }
     }
 
@@ -449,7 +449,7 @@ class Base extends CoreBase {
             let binding = this.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getModel()?.setData(binding.key, value);
+                this.getModel()?.setData(binding.key, value)
             }
         }
     }
@@ -464,7 +464,7 @@ class Base extends CoreBase {
         let cls = this.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-disabled');
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -478,7 +478,7 @@ class Base extends CoreBase {
 
         me.getController()?.parseDomListeners(me);
 
-        DomEventManager.updateDomListeners(me, value, oldValue);
+        DomEventManager.updateDomListeners(me, value, oldValue)
     }
 
     /**
@@ -497,8 +497,8 @@ class Base extends CoreBase {
                     appName: me.appName,
                     owner  : me,
                     ...me.dropZoneConfig
-                });
-            });
+                })
+            })
         }
     }
 
@@ -519,7 +519,7 @@ class Base extends CoreBase {
                 parent = Neo.getComponent(parentIds[i]);
 
                 if (parent) {
-                    parent._hasUnmountedVdomChanges = value; // silent update
+                    parent._hasUnmountedVdomChanges = value // silent update
                 }
             }
         }
@@ -532,7 +532,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHeight(value, oldValue) {
-        this.changeVdomRootKey('height', value);
+        this.changeVdomRootKey('height', value)
     }
 
     /**
@@ -545,9 +545,9 @@ class Base extends CoreBase {
         let me = this;
 
         if (value && oldValue === undefined && me.hideMode === 'removeDom') {
-            me.vdom.removeDom = true;
+            me.vdom.removeDom = true
         } else if (!(!value && oldValue === undefined)) {
-            me[value ? 'hide' : 'show']();
+            me[value ? 'hide' : 'show']()
         }
     }
 
@@ -558,7 +558,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHtml(value, oldValue) {
-        this.changeVdomRootKey('html', value);
+        this.changeVdomRootKey('html', value)
     }
 
     /**
@@ -572,7 +572,7 @@ class Base extends CoreBase {
         this.changeVdomRootKey('id', value);
 
         oldValue && ComponentManager.unregister(oldValue);
-        ComponentManager.register(this);
+        ComponentManager.register(this)
     }
 
     /**
@@ -582,7 +582,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxHeight(value, oldValue) {
-        this.changeVdomRootKey('maxHeight', value);
+        this.changeVdomRootKey('maxHeight', value)
     }
 
     /**
@@ -592,7 +592,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxWidth(value, oldValue) {
-        this.changeVdomRootKey('maxWidth', value);
+        this.changeVdomRootKey('maxWidth', value)
     }
 
     /**
@@ -602,7 +602,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinHeight(value, oldValue) {
-        this.changeVdomRootKey('minHeight', value);
+        this.changeVdomRootKey('minHeight', value)
     }
 
     /**
@@ -612,7 +612,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinWidth(value, oldValue) {
-        this.changeVdomRootKey('minWidth', value);
+        this.changeVdomRootKey('minWidth', value)
     }
 
     /**
@@ -638,7 +638,7 @@ class Base extends CoreBase {
                 me.fire('mounted', me.id);
 
                 if (me.needsVdomUpdate) {
-                    me.afterSetVdom(me.vdom, me.vdom)
+                    me.update()
                 }
             }
         }
@@ -651,7 +651,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetRole(value, oldValue) {
-        this.changeVdomRootKey('role', value);
+        this.changeVdomRootKey('role', value)
     }
 
     /**
@@ -662,7 +662,7 @@ class Base extends CoreBase {
      */
     afterSetStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
-            this.updateStyle(value, oldValue);
+            this.updateStyle(value, oldValue)
         }
     }
 
@@ -677,11 +677,11 @@ class Base extends CoreBase {
             let me = this;
 
             if (Neo.ns('Neo.tooltip.Base')) {
-                me.createTooltips(value);
+                me.createTooltips(value)
             } else {
                 import('../tooltip/Base.mjs').then((module) => {
-                    me.createTooltips(value);
-                });
+                    me.createTooltips(value)
+                })
             }
         }
     }
@@ -700,10 +700,10 @@ class Base extends CoreBase {
         NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`);
 
         if (value && value !== '') {
-            NeoArray.add(cls, `neo-${me.ntype}-${value}`);
+            NeoArray.add(cls, `neo-${me.ntype}-${value}`)
         }
 
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -725,7 +725,7 @@ class Base extends CoreBase {
             Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
 
             Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key];
+                delete me._vdom[key]
             });
 
             vdom = Object.assign(me._vdom, vdom)
@@ -742,7 +742,7 @@ class Base extends CoreBase {
                         app.un('mounted', listenerId);
 
                         setTimeout(() => {
-                            me.vnode && me.updateVdom(me.vdom, me.vnode);
+                            me.vnode && me.updateVdom(me.vdom, me.vnode)
                         }, 50)
                     });
                 } else if (!me.vnode) {
@@ -763,7 +763,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        oldValue !== undefined && this.syncVnodeTree();
+        oldValue !== undefined && this.syncVnodeTree()
     }
 
     /**
@@ -773,7 +773,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
-        this.changeVdomRootKey('width', value);
+        this.changeVdomRootKey('width', value)
     }
 
     /**
@@ -795,8 +795,7 @@ class Base extends CoreBase {
             // we need to merge changes
             cls = NeoArray.union(cls, value);
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
-            vdom.cls = cls;
-
+            vdom.cls = cls
         } else {
             // we are not using a wrapper => cls & wrapperCls share the same node
             value = value ? value : [];
@@ -805,14 +804,14 @@ class Base extends CoreBase {
             NeoArray.add(cls, value);
 
             if (vdom) {
-                vdom.cls = cls;
+                vdom.cls = cls
             }
         }
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
+            me.needsVdomUpdate = true
         } else if (me.mounted) {
-            me.updateCls(value, oldValue);
+            me.updateCls(value, oldValue)
         }
     }
 
@@ -829,9 +828,9 @@ class Base extends CoreBase {
 
             if (!vdom.id) {
                 vdom.style = value;
-                me.update();
+                me.update()
             } else {
-                me.updateStyle(value, oldValue, vdom.id);
+                me.updateStyle(value, oldValue, vdom.id)
             }
         }
     }
@@ -842,7 +841,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetCls(value) {
-        return value ? [...value]: [];
+        return value ? [...value] : []
     }
 
     /**
@@ -853,7 +852,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetData(value) {
-        return this.getModel().getHierarchyData();
+        return this.getModel().getHierarchyData()
     }
 
     /**
@@ -862,7 +861,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetStyle(value) {
-        return {...value};
+        return {...value}
     }
 
     /**
@@ -871,7 +870,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetWrapperCls(value) {
-        return value ? [...value]: [];
+        return value ? [...value]: []
     }
 
     /**
@@ -880,7 +879,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetWrapperStyle(value) {
-        return {...Object.assign(this.vdom.style || {}, value)};
+        return {...Object.assign(this.vdom.style || {}, value)}
     }
 
     /**
@@ -890,7 +889,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        return NeoArray.union(value || [], this.baseCls);
+        return NeoArray.union(value || [], this.baseCls)
     }
 
     /**
@@ -907,10 +906,10 @@ class Base extends CoreBase {
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 component: this
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -921,10 +920,10 @@ class Base extends CoreBase {
      */
     beforeSetDomListeners(value, oldValue) {
         if (Neo.isObject(value)) {
-            value = [value];
+            value = [value]
         }
 
-        return value || [];
+        return value || []
     }
 
     /**
@@ -934,7 +933,7 @@ class Base extends CoreBase {
      * @protected
      */
      beforeSetHideMode(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'hideMode');
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode')
     }
 
     /**
@@ -950,10 +949,10 @@ class Base extends CoreBase {
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
                 keys: value
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -972,13 +971,13 @@ class Base extends CoreBase {
                 defaultValues = {component: me};
 
             if (me.modelData) {
-                defaultValues.data = me.modelData;
+                defaultValues.data = me.modelData
             }
 
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', defaultValues);
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', defaultValues)
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -992,11 +991,11 @@ class Base extends CoreBase {
             value.forEach((item, index) => {
                 value[index] = ClassSystemUtil.beforeSetInstance(item, null, {
                     owner: this
-                });
-            });
+                })
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -1024,12 +1023,12 @@ class Base extends CoreBase {
             root = me.getVdomRoot();
 
         if (value) {
-            root[key] = value;
+            root[key] = value
         } else {
-            delete root[key];
+            delete root[key]
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -1055,10 +1054,10 @@ class Base extends CoreBase {
                 ...item
             });
 
-            tooltips.push(tip);
+            tooltips.push(tip)
         });
 
-        me._tooltips = tooltips; // silent update
+        me._tooltips = tooltips // silent update
     }
 
     /**
@@ -1085,23 +1084,23 @@ class Base extends CoreBase {
         me.bind && parentModel?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
-            plugin.destroy();
+            plugin.destroy()
         });
 
         if (updateParentVdom && parentId) {
             if (parentId === 'document.body') {
-                Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id});
+                Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id})
             } else {
                 parentVdom = parent.vdom;
 
                 VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
-                parent[silent ? '_vdom' : 'vdom'] = parentVdom;
+                parent[silent ? '_vdom' : 'vdom'] = parentVdom
             }
         }
 
         ComponentManager.unregister(me);
 
-        super.destroy();
+        super.destroy()
     }
 
     /**
@@ -1111,7 +1110,7 @@ class Base extends CoreBase {
      * @returns {Neo.component.Base|null} The matching instance or null
      */
     down(config, returnFirstMatch=true) {
-        return ComponentManager.down(this, config, returnFirstMatch);
+        return ComponentManager.down(this, config, returnFirstMatch)
     }
 
     /**
@@ -1122,7 +1121,7 @@ class Base extends CoreBase {
         Neo.main.DomAccess.focus({
             id
         }).catch(err => {
-            console.log('Error attempting to receive focus for component', err, this);
+            console.log('Error attempting to receive focus for component', err, this)
         })
     }
 
@@ -1131,7 +1130,7 @@ class Base extends CoreBase {
      * @returns {Neo.controller.Application}
      */
     getApp() {
-        return Neo.apps[this.appName];
+        return Neo.apps[this.appName]
     }
 
     /**
@@ -1148,18 +1147,18 @@ class Base extends CoreBase {
             parentComponent;
 
         if (config && (!ntype || ntype === config.ntype)) {
-            return config;
+            return config
         }
 
         if (me.parentId) {
             parentComponent = Neo.getComponent(me.parentId) || Neo.get(me.parentId);
 
             if (parentComponent) {
-                return parentComponent.getConfigInstanceByNtype(configName, ntype);
+                return parentComponent.getConfigInstanceByNtype(configName, ntype)
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -1168,7 +1167,7 @@ class Base extends CoreBase {
      * @returns {Neo.controller.Component|null}
      */
     getController(ntype) {
-        return this.getConfigInstanceByNtype('controller', ntype);
+        return this.getConfigInstanceByNtype('controller', ntype)
     }
 
     /**
@@ -1178,7 +1177,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({appName, id});
+        return Neo.main.DomAccess.getBoundingClientRect({appName, id})
     }
 
     /**
@@ -1188,10 +1187,10 @@ class Base extends CoreBase {
      */
     getModel(ntype) {
         if (!Neo.currentWorker.isUsingViewModels) {
-            return null;
+            return null
         }
 
-        return this.getConfigInstanceByNtype('model', ntype);
+        return this.getConfigInstanceByNtype('model', ntype)
     }
 
     /**
@@ -1236,7 +1235,7 @@ class Base extends CoreBase {
      * @returns {Neo.component.Base[]}
      */
     getParents() {
-        return ComponentManager.getParents(this);
+        return ComponentManager.getParents(this)
     }
 
     /**
@@ -1255,16 +1254,16 @@ class Base extends CoreBase {
             for (const key in opts) {
                 if (plugin[key] !== opts[key]) {
                     hasMatch = false;
-                    break;
+                    break
                 }
             }
 
             if (hasMatch) {
-                return plugin;
+                return plugin
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -1287,7 +1286,7 @@ class Base extends CoreBase {
 
         for (const item of me.cls || []) {
             if (item.startsWith(themeMatch)) {
-                return item;
+                return item
             }
         }
 
@@ -1300,13 +1299,13 @@ class Base extends CoreBase {
             for (const node of parentNodes || []) {
                 for (const item of node.cls || []) {
                     if (item.startsWith(themeMatch)) {
-                        return item;
+                        return item
                     }
                 }
             }
         }
 
-        return Neo.config.themes?.[0];
+        return Neo.config.themes?.[0]
     }
 
     /**
@@ -1350,13 +1349,13 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             let removeFn = function() {
-                me.unmount();
+                me.unmount()
             }
 
             if (timeout) {
-                setTimeout(removeFn, timeout);
+                setTimeout(removeFn, timeout)
             } else {
-                removeFn();
+                removeFn()
             }
         } else {
             let style = me.style;
@@ -1364,14 +1363,14 @@ class Base extends CoreBase {
             me.style = style;
         }
 
-        me._hidden = true;
+        me._hidden = true
     }
 
     /**
      *
      */
     init() {
-        this.autoRender && this.render();
+        this.autoRender && this.render()
     }
 
     /**
@@ -1385,7 +1384,7 @@ class Base extends CoreBase {
         let me = this;
 
         me.getController()?.parseConfig(me);
-        me.getModel()     ?.parseConfig(me);
+        me.getModel()     ?.parseConfig(me)
     }
 
     /**
@@ -1442,7 +1441,7 @@ class Base extends CoreBase {
         delete config.vdom;
         delete config.wrapperStyle;
 
-        return config;
+        return config
     }
 
     /**
@@ -1474,7 +1473,7 @@ class Base extends CoreBase {
             });
             // end todo
 
-            me.render(true);
+            me.render(true)
         } else {
             await Neo.currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
@@ -1489,7 +1488,7 @@ class Base extends CoreBase {
 
             await me.timeout(30);
 
-            me.mounted = true;
+            me.mounted = true
         }
     }
 
@@ -1520,7 +1519,7 @@ class Base extends CoreBase {
      */
     onConstructed() {
         super.onConstructed();
-        this.keys?.register(this);
+        this.keys?.register(this)
     }
 
     /**
@@ -1563,7 +1562,7 @@ class Base extends CoreBase {
             if (!app.rendered) {
                 app.rendering = false;
                 app.rendered  = true;
-                app.fire('render');
+                app.fire('render')
             }
 
             me.vnode = data;
@@ -1577,7 +1576,7 @@ class Base extends CoreBase {
                 child = Neo.getComponent(childIds[i]);
 
                 if (child) {
-                    child.rendered = true;
+                    child.rendered = true
                 }
             }
 
@@ -1591,7 +1590,7 @@ class Base extends CoreBase {
 
                 if (!app.mounted) {
                     app.mounted = true;
-                    app.fire('mounted');
+                    app.fire('mounted')
                 }
             }
         }
@@ -1618,21 +1617,21 @@ class Base extends CoreBase {
                 delete _vdom[key];
             });
 
-            vdom = Object.assign(me._vdom, vdom);
+            vdom = Object.assign(me._vdom, vdom)
         }
 
         if (me.silentVdomUpdate) {
-            return Promise.resolve();
+            return Promise.resolve()
         }
 
         return new Promise((resolve, reject) => {
             if (me.mounted && me.vnode) {
-                me.updateVdom(vdom, vnode, resolve, reject);
+                me.updateVdom(vdom, vnode, resolve, reject)
             } else {
                 me.update();
-                resolve();
+                resolve()
             }
-        });
+        })
     }
 
     /**
@@ -1643,7 +1642,7 @@ class Base extends CoreBase {
         let cls = this.cls;
 
         NeoArray.remove(cls, value);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -1665,12 +1664,12 @@ class Base extends CoreBase {
             for (; i < len; i++) {
                 if (Neo.isEqual(item, domListeners[i])) {
                     domListeners.splice(i, 1);
-                    break;
+                    break
                 }
             }
         });
 
-        me.domListeners = domListeners;
+        me.domListeners = domListeners
     }
 
     /**
@@ -1689,15 +1688,15 @@ class Base extends CoreBase {
         Object.entries(style).forEach(key => {
             if (value.indexOf(key) > -1) {
                 delete style[key];
-                doUpdate = true;
+                doUpdate = true
             }
         });
 
         if (doUpdate) {
-            this.style = style;
+            this.style = style
         }
 
-        return style;
+        return style
     }
 
     /**
@@ -1715,7 +1714,7 @@ class Base extends CoreBase {
         me.rendering = true;
 
         if (!app.rendered) {
-            app.rendering = true;
+            app.rendering = true
         }
 
         if (me.vdom) {
@@ -1733,8 +1732,8 @@ class Base extends CoreBase {
                 me.onRender(data, useVdomWorker ? autoMount : false);
                 me.isVdomUpdating = false;
 
-                autoMount && !useVdomWorker && me.mount();
-            });
+                autoMount && !useVdomWorker && me.mount()
+            })
         }
     }
 
@@ -1776,14 +1775,14 @@ class Base extends CoreBase {
         me.silentVdomUpdate = false;
 
         if (silent || !me.needsVdomUpdate) {
-            return Promise.resolve();
+            return Promise.resolve()
         } else {
             if (needsRendering) {
                 me.show();
-                return Promise.resolve();
+                return Promise.resolve()
             }
 
-            return me.promiseVdomUpdate();
+            return me.promiseVdomUpdate()
         }
     }
 
@@ -1792,7 +1791,7 @@ class Base extends CoreBase {
      * @param {Object} values={}
      */
     setSilent(values={}) {
-        return this.set(values, true);
+        return this.set(values, true)
     }
 
     /**
@@ -1807,17 +1806,17 @@ class Base extends CoreBase {
             delete me.vdom.removeDom;
 
             if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
+                me.needsVdomUpdate = true
             } else {
                 !me.mounted && me.render(true)
             }
         } else {
             let style = me.style;
             delete style.visibility;
-            me.style = style;
+            me.style = style
         }
 
-        me._hidden = false;
+        me._hidden = false
     }
 
     /**
@@ -1826,7 +1825,7 @@ class Base extends CoreBase {
      * @param {Object} [vdom=this.vdom]
      */
     syncVdomIds(vnode=this.vnode, vdom=this.vdom) {
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomIds(vnode, vdom)
     }
 
     /**
@@ -1839,7 +1838,7 @@ class Base extends CoreBase {
             childVnode, start;
 
         if (debug) {
-            start = performance.now();
+            start = performance.now()
         }
 
         me.syncVdomIds();
@@ -1853,12 +1852,12 @@ class Base extends CoreBase {
 
                 if (!component.rendered) {
                     component._rendered = true;
-                    component.fire('rendered', component.id);
+                    component.fire('rendered', component.id)
                 }
 
-                component.mounted = true;
+                component.mounted = true
             } else {
-                console.warn('syncVnodeTree: Could not replace the child vnode for', component.id);
+                console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
         });
 
@@ -1877,7 +1876,7 @@ class Base extends CoreBase {
                 // check for dynamically rendered components which get inserted into the component tree
                 else if (index === 0 && me.vnode.outerHTML) {
                     // console.log('dyn item', me.vnode, me.parentIndex);
-                    component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode);
+                    component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode)
                 }
 
                 else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
@@ -1889,7 +1888,7 @@ class Base extends CoreBase {
 
         if (debug) {
             let end = performance.now();
-            console.log('syncVnodeTree', me.id, end - start);
+            console.log('syncVnodeTree', me.id, end - start)
         }
     }
 
@@ -1902,7 +1901,7 @@ class Base extends CoreBase {
         let cls = this.cls;
 
         NeoArray.toggle(cls, value, add);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -1924,8 +1923,8 @@ class Base extends CoreBase {
                 id    : me.vdom.id
             }]
         }).catch(err => {
-            console.log('Error attempting to unmount component', err, me);
-        });
+            console.log('Error attempting to unmount component', err, me)
+        })
     }
 
     /**
@@ -1934,14 +1933,14 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base} The matching instance or null
      */
     up(config) {
-        return ComponentManager.up(this.id, config);
+        return ComponentManager.up(this.id, config)
     }
 
     /**
      *
      */
     update() {
-        this.afterSetVdom(this.vdom, null);
+        this.afterSetVdom(this.vdom, null)
     }
 
     /**
@@ -1954,9 +1953,9 @@ class Base extends CoreBase {
     updateCls(cls, oldCls, id=this.id) {
         let me          = this,
             vnode       = me.vnode,
-            vnodeTarget = VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
+            vnodeTarget = vnode && VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
 
-        if (!Neo.isEqual(cls, oldCls)) {
+        if (vnode && !Neo.isEqual(cls, oldCls)) {
             if (vnodeTarget) {
                 vnodeTarget.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
@@ -1968,7 +1967,7 @@ class Base extends CoreBase {
                     add   : NeoArray.difference(cls, oldCls),
                     remove: NeoArray.difference(oldCls, cls)
                 }
-            });
+            })
         }
     }
 
@@ -1988,13 +1987,13 @@ class Base extends CoreBase {
 
         if (delta) {
             if (!me.hasUnmountedVdomChanges) {
-                me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
+                me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
             }
 
             vdom.vdom.style = value; // keep the vdom in sync
 
             if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
+                me.needsVdomUpdate = true
             } else if (me.mounted) {
                 vnodeStyle = vnode.vnode.style;
 
@@ -2003,9 +2002,9 @@ class Base extends CoreBase {
                 // using vnode.vnode.style = style would lose them.
                 Object.entries(delta).forEach(([key, value]) => {
                     if (value === null) {
-                        delete vnode.vnode.style[key];
+                        delete vnode.vnode.style[key]
                     } else {
-                        vnodeStyle[key] = value;
+                        vnodeStyle[key] = value
                     }
                 });
 
@@ -2015,10 +2014,10 @@ class Base extends CoreBase {
                 };
 
                 if (Neo.currentWorker.isSharedWorker) {
-                    opts.appName = me.appName;
+                    opts.appName = me.appName
                 }
 
-                Neo.currentWorker.sendMessage('main', opts);
+                Neo.currentWorker.sendMessage('main', opts)
             }
         }
     }
@@ -2039,7 +2038,7 @@ class Base extends CoreBase {
         // console.log('updateVdom', me.id, me.isVdomUpdating);
 
         if (me.isVdomUpdating) {
-            me.needsVdomUpdate = true;
+            me.needsVdomUpdate = true
         } else {
             me.isVdomUpdating  = true;
             me.needsVdomUpdate = false;
@@ -2047,7 +2046,7 @@ class Base extends CoreBase {
             opts = { vdom, vnode };
 
             if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName;
+                opts.appName = me.appName
             }
 
             Neo.vdom.Helper.update(opts).catch(err => {
@@ -2067,7 +2066,7 @@ class Base extends CoreBase {
                     if (!Neo.config.useVdomWorker && deltas.length > 0) {
                         Neo.applyDeltas(me.appName, deltas).then(() => {
                             me.resolveVdomUpdate(resolve)
-                        });
+                        })
                     } else {
                         me.resolveVdomUpdate(resolve)
                     }
