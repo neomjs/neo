@@ -55,7 +55,7 @@ class MarkerDialog extends DialogBase {
 
         value.visualDate = me.calcVisualDate(value.timestamp);
 
-        me.title = `${value.humanReadableLocation}$ | ${value.size}`;
+        me.title = `${value.humanReadableLocation} | ${value.size}`;
         vdom.cn  = me.itemTpl(value);
     }
 
@@ -67,7 +67,7 @@ class MarkerDialog extends DialogBase {
             hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: false }),
             minute = date.toLocaleTimeString('en-US', { minute: 'numeric' });
 
-        return `${day}.${month}.<b>${year}</b> ${hour}:${minute}`
+        return `${day}. ${month} <b>${year}</b> ${hour}:${minute}`
     }
 
     async onRender(data, automount) {
