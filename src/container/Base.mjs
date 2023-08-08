@@ -160,7 +160,7 @@ class Base extends Component {
      */
     afterSetNeedsVdomUpdate(value, oldValue) {
         if (!value) {
-            this.items.forEach(item => {
+            this.items?.forEach(item => {
                 // check for e.g. Toolbar items like '->'
                 if (typeof item !== 'string') {
                     // we can not set the config directly => it could already be false,
