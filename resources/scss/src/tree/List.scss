@@ -7,6 +7,10 @@
 
     .neo-list {
         overflow: visible;
+
+        &:focus {
+            outline: none;
+        }
     }
 
     .neo-list-container {

@@ -1,6 +1,8 @@
-import Base       from '../list/Base.mjs';
-import Collection from '../collection/Base.mjs';
-import NeoArray   from '../util/Array.mjs';
+import Base            from '../list/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import TreeModel       from '../selection/TreeModel.mjs';
 
 /**
  * @class Neo.tree.List
@@ -23,10 +25,9 @@ class Tree extends Base {
          */
         baseCls: ['neo-tree-list'],
         /**
-         * todo: change the default to false once selection.TreeList is in place
-         * @member {Boolean} disableSelection=true
+         * @member {Boolean} disableSelection=false
          */
-        disableSelection: true,
+        disableSelection: false,
         /**
          * @member {Neo.draggable.tree.DragZone|null} dragZone=null
          */
@@ -56,7 +57,7 @@ class Tree extends Base {
          */
         _vdom:
         {cn: [
-            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], cn: []}
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
         ]}
     }
 
@@ -109,6 +110,18 @@ class Tree extends Base {
                 });
             }
         }
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @returns {Neo.selection.Model}
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+        return ClassSystemUtil.beforeSetInstance(value, TreeModel);
     }
 
     /**
