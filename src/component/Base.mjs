@@ -727,25 +727,27 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom);
         }
 
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-        } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
+        if (!me.needsParentUpdate()) {
+            if (me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+            } else {
+                if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                    me.hasRenderingListener = true;
 
-                listenerId = app.on('mounted', () => {
-                    app.un('mounted', listenerId);
+                    listenerId = app.on('mounted', () => {
+                        app.un('mounted', listenerId);
 
-                    setTimeout(() => {
-                        me.vnode && me.updateVdom(me.vdom, me.vnode);
-                    }, 50);
-                });
-            } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
-                me.updateVdom(vdom, me.vnode);
+                        setTimeout(() => {
+                            me.vnode && me.updateVdom(me.vdom, me.vnode);
+                        }, 50);
+                    });
+                } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
+                    me.updateVdom(vdom, me.vnode);
+                }
             }
-
-            me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
+
+        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
     }
 
     /**
