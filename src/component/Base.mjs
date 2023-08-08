@@ -1304,12 +1304,12 @@ class Base extends CoreBase {
     /**
      * Search a vdom child node by id for a given vdom tree
      * @param {String} id
-     * @param {Object} [vdom]
+     * @param {Object} vdom=this.vdom
      * @returns {Object}
      */
-    getVdomChild(id, vdom) {
-        let node = VDomUtil.findVdomChild(vdom || this.vdom, id);
-        return node?.vdom;
+    getVdomChild(id, vdom=this.vdom) {
+        let node = VDomUtil.findVdomChild(vdom, id);
+        return node?.vdom
     }
 
     /**
@@ -1318,7 +1318,7 @@ class Base extends CoreBase {
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
-        return this.vdom;
+        return this.vdom
     }
 
     /**
@@ -1327,7 +1327,7 @@ class Base extends CoreBase {
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {
-        return this.vnode;
+        return this.vnode
     }
 
     /**
