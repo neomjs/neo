@@ -432,7 +432,7 @@ class Base extends CoreBase {
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
-        } else if (me.mounted) {
+        } else if (me.mounted && me.vnode) {
             me.updateCls(value, oldValue, vdomRoot.id);
         }
     }
