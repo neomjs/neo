@@ -635,11 +635,7 @@ class Base extends CoreBase {
                     }, 100)
                 }
 
-                me.fire('mounted', me.id);
-
-                if (me.needsVdomUpdate) {
-                    me.update()
-                }
+                me.fire('mounted', me.id)
             }
         }
     }
@@ -745,8 +741,6 @@ class Base extends CoreBase {
                             me.vnode && me.updateVdom(me.vdom, me.vnode)
                         }, 50)
                     });
-                } else if (!me.vnode) {
-                    me.needsVdomUpdate = true
                 } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
                     me.updateVdom(vdom, me.vnode)
                 }
