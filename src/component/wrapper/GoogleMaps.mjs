@@ -35,10 +35,9 @@ class GoogleMaps extends Base {
                     type: 'Object'
                 }, {
                     name: 'icon',
-                    type: 'String'
+                    type: 'Object'
                 }, {
-                    name: 'id',
-                    type: 'String'
+                    name: 'id'
                 }, {
                     name: 'label',
                     type: 'String'
@@ -70,27 +69,27 @@ class GoogleMaps extends Base {
      * Internal flag. Gets set to true once Neo.main.addon.GoogleMaps.create() is finished.
      * @member {Boolean} mapCreated=false
      */
-    mapCreated        = false
+    mapCreated = false
     /**
      * Pass any options to the map instance which are not explicitly defined here
      * @member {Object} mapOptions={}
      */
-    mapOptions        = {}
+    mapOptions = {}
     /**
      * null => the maximum zoom from the current map type is used instead
      * @member {Number|null} maxZoom=null
      */
-    maxZoom           = null
+    maxZoom = null
     /**
      null => the minimum zoom from the current map type is used instead
      * @member {Number|null} minZoom=null
      */
-    minZoom           = null
+    minZoom = null
     /**
      * false hides the default zoom control
      * @member {Boolean} zoomControl=true
      */
-    zoomControl       = true
+    zoomControl = true
 
     /**
      * @param {Object} config
@@ -215,10 +214,7 @@ class GoogleMaps extends Base {
                 value
             });
 
-            me.fire('zoomChange', {
-                id: me.id,
-                value
-            })
+            me.fire('zoomChange', {id: me.id, value})
         }
     }
 
@@ -268,13 +264,6 @@ class GoogleMaps extends Base {
     }
 
     /**
-     * @param {Object} record
-     */
-    onMarkerClick(record) {
-        console.log('onMarkerClick', record)
-    }
-
-    /**
      *
      */
     onMarkerStoreLoad() {
@@ -317,12 +306,9 @@ class GoogleMaps extends Base {
 
         data.record = me.markerStore.get(data.id);
 
-        me.onMarkerClick(data);
+        me.onMarkerClick?.(data);
 
-        me.fire('markerClick', {
-            id: me.id,
-            data
-        })
+        me.fire('markerClick', {id: me.id, data})
     }
 
     /**

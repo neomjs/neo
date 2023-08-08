@@ -102,7 +102,7 @@ class ListModel extends Model {
                 } else {
                     preventSelection = true;
                     me.deselectAll();
-                    view.fire('selectPreFirstItem');
+                    view.fire('selectPreFirstItem')
                 }
             } else if (index >= maxItems) {
                 if (me.stayInList) {
@@ -114,11 +114,11 @@ class ListModel extends Model {
                 } else {
                     preventSelection = true;
                     me.deselectAll();
-                    view.fire('selectPostLastItem');
+                    view.fire('selectPostLastItem')
                 }
             }
         } else {
-            index = 0;
+            index = 0
         }
 
         if (!preventSelection) {
@@ -127,7 +127,7 @@ class ListModel extends Model {
 
             me.select(itemId);
             view.focus(itemId);
-            view.fire('itemNavigate', record);
+            view.fire('itemNavigate', record)
         }
     }
 
@@ -148,7 +148,7 @@ class ListModel extends Model {
             {fn: 'onKeyDownLeft'   ,key: 'Left'   ,scope: id},
             {fn: 'onKeyDownRight'  ,key: 'Right'  ,scope: id},
             {fn: 'onKeyDownUp'     ,key: 'Up'     ,scope: id}
-        );
+        )
     }
 
     /**
@@ -161,7 +161,7 @@ class ListModel extends Model {
 
         if (itemId) {
             this.select(itemId);
-            view.focus(itemId);
+            view.focus(itemId)
         }
     }
 
@@ -182,7 +182,7 @@ class ListModel extends Model {
             {fn: 'onKeyDownUp'     ,key: 'Up'     ,scope: id}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

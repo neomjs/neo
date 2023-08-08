@@ -135,7 +135,7 @@ class MainContainer extends ConfigurationViewport {
             labelText    : 'US States',
             labelWidth   : 80,
             store        : MainStore,
-            value        : 'Arizona',
+            value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
             width        : 200
         })
