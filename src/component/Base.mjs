@@ -1486,6 +1486,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Checks the needsVdomUpdate config inside the parent tree
+     * @param {String} parentId=this.parentId
+     * @returns {Boolean}
+     */
+    needsParentUpdate(parentId=this.parentId) {
+        if (parentId !== 'document.body') {
+            let me     = this,
+                parent = Neo.getComponent(parentId);
+
+            if (parent) {
+                if (parent.needsVdomUpdate) {
+                    return true
+                } else {
+                    return me.needsParentUpdate(parent.parentId)
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      *
      */
     onConstructed() {
