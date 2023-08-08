@@ -231,10 +231,10 @@ class Base extends CoreBase {
         mounted_: false,
         /**
          * Internal flag which will get set to true in case an update call arrives while another update is running
-         * @member {Boolean} needsVdomUpdate=false
+         * @member {Boolean} needsVdomUpdate_=false
          * @protected
          */
-        needsVdomUpdate: false,
+        needsVdomUpdate_: false,
         /**
          * The parent component id or document.body
          * @member {String} parentId='document.body'

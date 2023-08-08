@@ -153,6 +153,23 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the needsVdomUpdate config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetNeedsVdomUpdate(value, oldValue) {
+        if (!value) {
+            this.items.forEach(item => {
+                // we can not set the config directly => it could already be false,
+                // and we still want to pass it further into subtrees
+                item._needsVdomUpdate = false;
+                item.afterSetNeedsVdomUpdate?.(false, true)
+            })
+        }
+    }
+
+    /**
      * Triggered after the rendering config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
