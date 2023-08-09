@@ -1082,6 +1082,9 @@ class Base extends CoreBase {
             opts = {vdom, vnode},
             deltas;
 
+        me.isVdomUpdating  = true;
+        me.needsVdomUpdate = false;
+
         if (Neo.currentWorker.isSharedWorker) {
             opts.appName = me.appName
         }
@@ -1401,6 +1404,7 @@ class Base extends CoreBase {
                         console.warn('vdom parent update conflict with:', parent, 'for:', me)
                     }
 
+                    console.log('add cache', me.id);
                     NeoArray.add(parent.childUpdateCache, me.id);
                     return true
                 } else {
@@ -2021,23 +2025,25 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom)
         }
 
-        if (!me.needsParentUpdate()) {
-            if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true;
-                resolve?.()
-            } else {
-                if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                    me.hasRenderingListener = true;
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+            resolve?.()
+        } else {
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                me.hasRenderingListener = true;
 
-                    listenerId = app.on('mounted', () => {
-                        app.un('mounted', listenerId);
+                listenerId = app.on('mounted', () => {
+                    app.un('mounted', listenerId);
 
-                        setTimeout(() => {
-                            vnode && me.updateVdom(vdom, vnode, resolve, reject)
-                        }, 50)
+                    me.timeout(50).then(() => {
+                        me.vnode && me.updateVdom(me.vdom, me.vnode, resolve, reject)
                     })
-                } else if (me.mounted && vnode && !me.isParentVdomUpdating()) {
-                    this.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                })
+            } else {
+                if (me.mounted && vnode && !me.isParentVdomUpdating() && !me.needsParentUpdate()) {
+                    me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                } else {
+                    resolve?.()
                 }
             }
         }
