@@ -1070,6 +1070,48 @@ class Base extends CoreBase {
     }
 
     /**
+     * Internal method to send update requests to the vdom worker
+     * @param {Object} vdom
+     * @param {Neo.vdom.VNode} vnode
+     * @param {function} [resolve] used by promiseVdomUpdate()
+     * @param {function} [reject] used by promiseVdomUpdate()
+     * @private
+     */
+    #executeVdomUpdate(vdom, vnode, resolve, reject) {
+        let me   = this,
+            opts = {vdom, vnode},
+            deltas;
+
+        if (Neo.currentWorker.isSharedWorker) {
+            opts.appName = me.appName
+        }
+
+        Neo.vdom.Helper.update(opts).catch(err => {
+            console.log('Error attempting to update component dom', err, me);
+            me.isVdomUpdating = false;
+
+            reject?.()
+        }).then(data => {
+            // checking if the component got destroyed before the update cycle is done
+            if (me.id) {
+                // console.log('Component vnode updated', data);
+                me.vnode          = data.vnode;
+                me.isVdomUpdating = false;
+
+                deltas = data.deltas;
+
+                if (!Neo.config.useVdomWorker && deltas.length > 0) {
+                    Neo.applyDeltas(me.appName, deltas).then(() => {
+                        me.resolveVdomUpdate(resolve)
+                    })
+                } else {
+                    me.resolveVdomUpdate(resolve)
+                }
+            }
+        })
+    }
+
+    /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
      * @param {String} id=this.id
      */
@@ -1964,7 +2006,7 @@ class Base extends CoreBase {
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
         let me   = this,
             app  = Neo.apps[me.appName],
-            deltas, listenerId, opts;
+            listenerId;
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
         // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
@@ -1993,37 +2035,9 @@ class Base extends CoreBase {
                         setTimeout(() => {
                             vnode && me.updateVdom(vdom, vnode, resolve, reject)
                         }, 50)
-                    });
-                } else if (me.mounted && vnode && !me.isParentVdomUpdating()) {
-                    opts = {vdom, vnode};
-
-                    if (Neo.currentWorker.isSharedWorker) {
-                        opts.appName = me.appName
-                    }
-
-                    Neo.vdom.Helper.update(opts).catch(err => {
-                        console.log('Error attempting to update component dom', err, me);
-                        me.isVdomUpdating = false;
-
-                        reject?.()
-                    }).then(data => {
-                        // checking if the component got destroyed before the update cycle is done
-                        if (me.id) {
-                            // console.log('Component vnode updated', data);
-                            me.vnode          = data.vnode;
-                            me.isVdomUpdating = false;
-
-                            deltas = data.deltas;
-
-                            if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                                Neo.applyDeltas(me.appName, deltas).then(() => {
-                                    me.resolveVdomUpdate(resolve)
-                                })
-                            } else {
-                                me.resolveVdomUpdate(resolve)
-                            }
-                        }
                     })
+                } else if (me.mounted && vnode && !me.isParentVdomUpdating()) {
+                    this.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
         }
