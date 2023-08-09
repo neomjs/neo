@@ -1975,11 +1975,12 @@ class Base extends CoreBase {
     updateStyle(value, oldValue, id=this.id) {
         let me    = this,
             delta = Style.compareStyles(value, oldValue),
-            vdom  = VDomUtil.findVdomChild(me.vdom, id),
-            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id),
-            opts, vnodeStyle;
+            opts, vdom, vnode, vnodeStyle;
 
         if (delta) {
+            vdom  = VDomUtil.findVdomChild(me.vdom, id);
+            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
+
             if (!me.hasUnmountedVdomChanges) {
                 me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
             }
