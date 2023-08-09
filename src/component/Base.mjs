@@ -709,45 +709,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetVdom(value, oldValue) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
-            vdom = value,
-            listenerId;
-
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key]
-            });
-
-            vdom = Object.assign(me._vdom, vdom)
-        }
-
-        if (!me.needsParentUpdate()) {
-            if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true
-            } else {
-                if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                    me.hasRenderingListener = true;
-
-                    listenerId = app.on('mounted', () => {
-                        app.un('mounted', listenerId);
-
-                        setTimeout(() => {
-                            me.vnode && me.updateVdom(me.vdom, me.vnode)
-                        }, 50)
-                    });
-                } else if (me.mounted && me.vnode && !me.isParentVdomUpdating()) {
-                    me.updateVdom(vdom, me.vnode)
-                }
-            }
-        }
-
-        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
+        this.updateVdom(value)
     }
 
     /**
@@ -1597,34 +1559,8 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
-        let me    = this,
-            _vdom = me.vdom;
-
-        // todo: updateVdom() should handle this
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (_vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(_vdom).forEach(key => {
-                delete _vdom[key];
-            });
-
-            vdom = Object.assign(me._vdom, vdom)
-        }
-
-        if (me.silentVdomUpdate) {
-            return Promise.resolve()
-        }
-
         return new Promise((resolve, reject) => {
-            if (me.mounted && me.vnode) {
-                me.updateVdom(vdom, vnode, resolve, reject)
-            } else {
-                me.update();
-                resolve()
-            }
+            this.updateVdom(vdom, vnode, resolve, reject)
         })
     }
 
@@ -2019,55 +1955,80 @@ class Base extends CoreBase {
 
     /**
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
-     * @param {Object} vdom
-     * @param {Neo.vdom.VNode} vnode
+     * @param {Object} vdom=this.vdom
+     * @param {Neo.vdom.VNode} vnode=this.vnode
      * @param {function} [resolve] used by promiseVdomUpdate()
      * @param {function} [reject] used by promiseVdomUpdate()
      * @protected
      */
-    updateVdom(vdom, vnode, resolve, reject) {
-        let me = this,
-            deltas, opts;
+    updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
+        let me   = this,
+            app  = Neo.apps[me.appName],
+            deltas, listenerId, opts;
 
-        // console.log('updateVdom', me.id, Neo.clone(vdom, true), Neo.clone(vnode, true));
-        // console.log('updateVdom', me.id, me.isVdomUpdating);
+        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
+        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
+        // the content over seems to be the best strategy
+        if (me._vdom !== vdom) {
+            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
 
-        if (me.isVdomUpdating) {
-            me.needsVdomUpdate = true
-        } else {
-            me.isVdomUpdating  = true;
-            me.needsVdomUpdate = false;
+            Object.keys(me._vdom).forEach(key => {
+                delete me._vdom[key]
+            });
 
-            opts = { vdom, vnode };
-
-            if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName
-            }
-
-            Neo.vdom.Helper.update(opts).catch(err => {
-                console.log('Error attempting to update component dom', err, me);
-                me.isVdomUpdating = false;
-
-                reject?.()
-            }).then(data => {
-                // checking if the component got destroyed before the update cycle is done
-                if (me.id) {
-                    // console.log('Component vnode updated', data);
-                    me.vnode          = data.vnode;
-                    me.isVdomUpdating = false;
-
-                    deltas = data.deltas;
-
-                    if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                        Neo.applyDeltas(me.appName, deltas).then(() => {
-                            me.resolveVdomUpdate(resolve)
-                        })
-                    } else {
-                        me.resolveVdomUpdate(resolve)
-                    }
-                }
-            })
+            vdom = Object.assign(me._vdom, vdom)
         }
+
+        if (!me.needsParentUpdate()) {
+            if (me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+                resolve?.()
+            } else {
+                if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+                    me.hasRenderingListener = true;
+
+                    listenerId = app.on('mounted', () => {
+                        app.un('mounted', listenerId);
+
+                        setTimeout(() => {
+                            vnode && me.updateVdom(vdom, vnode, resolve, reject)
+                        }, 50)
+                    });
+                } else if (me.mounted && vnode && !me.isParentVdomUpdating()) {
+                    opts = {vdom, vnode};
+
+                    if (Neo.currentWorker.isSharedWorker) {
+                        opts.appName = me.appName
+                    }
+
+                    Neo.vdom.Helper.update(opts).catch(err => {
+                        console.log('Error attempting to update component dom', err, me);
+                        me.isVdomUpdating = false;
+
+                        reject?.()
+                    }).then(data => {
+                        // checking if the component got destroyed before the update cycle is done
+                        if (me.id) {
+                            // console.log('Component vnode updated', data);
+                            me.vnode          = data.vnode;
+                            me.isVdomUpdating = false;
+
+                            deltas = data.deltas;
+
+                            if (!Neo.config.useVdomWorker && deltas.length > 0) {
+                                Neo.applyDeltas(me.appName, deltas).then(() => {
+                                    me.resolveVdomUpdate(resolve)
+                                })
+                            } else {
+                                me.resolveVdomUpdate(resolve)
+                            }
+                        }
+                    })
+                }
+            }
+        }
+
+        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
     }
 }
 
