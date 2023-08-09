@@ -2040,7 +2040,7 @@ class Base extends CoreBase {
                     })
                 })
             } else {
-                if (me.mounted && vnode && !me.isParentVdomUpdating() && !me.needsParentUpdate()) {
+                if (me.mounted && vnode && !me.needsParentUpdate() && !me.isParentVdomUpdating()) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 } else {
                     resolve?.()
