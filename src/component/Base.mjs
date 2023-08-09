@@ -1082,8 +1082,12 @@ class Base extends CoreBase {
             opts = {vdom, vnode},
             deltas;
 
-        me.isVdomUpdating  = true;
-        me.needsVdomUpdate = false;
+        me.isVdomUpdating = true;
+
+        // we can not set the config directly => it could already be false,
+        // and we still want to pass it further into subtrees
+        me._needsVdomUpdate = false;
+        me.afterSetNeedsVdomUpdate?.(false, true)
 
         if (Neo.currentWorker.isSharedWorker) {
             opts.appName = me.appName
