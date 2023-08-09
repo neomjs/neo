@@ -1,9 +1,6 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import FileUploadField       from '../../../../src/form/field/FileUpload.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.text.MainContainer
@@ -29,14 +26,21 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
-        }]
+        }];
     }
 
     createExampleComponent() {
         return Neo.create(FileUploadField, {
-            height:  50,
-            width : 200
-        })
+            id        : 'my-test',
+            uploadUrl : 'file-upload-test',
+            height    :  50,
+            width     : 200,
+            types     : {
+                'image/png'       : 1,
+                'application/pdf' : 1
+            },
+            maxSize   : '10mb'
+        });
     }
 }
 
