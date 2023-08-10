@@ -66,6 +66,8 @@ class FileUpload extends Base {
 
         cls : [],
 
+        headers_ : {},
+
         /**
          * @member {String} state_=null
          */
@@ -97,9 +99,10 @@ class FileUpload extends Base {
 
     clear() {
         this.vdom.cn[3] = {
-            cls  : 'neo-file-upload-input',
-            tag  : 'input',
-            type : 'file'
+            cls   : 'neo-file-upload-input',
+            tag   : 'input',
+            type  : 'file',
+            value : ''
         };
         this.state = 'ready';
         this.error = '';
@@ -137,19 +140,20 @@ class FileUpload extends Base {
         this.state = 'uploading';
 
         const uploadResponse = await fetch(this.uploadUrl, {
-            method : "POST",
-            body   : file
+            method  : "POST",
+            body    : file,
+            headers : this.headers
         });
 
         // A 200 response means success
         if (Math.floor(uploadResponse.status / 100) === 2) {
 
         }
-        // An HTTP Fail means that we clear, which reverts back to the ready state
-        // But there's an error shown
+        // An HTTP Fail means that we clear, which reverts back to the ready state.
+        // But there's an error shown.
         else {
             this.clear();
-            this.error = `Upload error: ${uploadResponse.statusText}`;
+            this.error = `Upload error: ${uploadResponse.status} ${uploadResponse.statusText}`;
         }
     }
 

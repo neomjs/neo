@@ -32,9 +32,12 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(FileUploadField, {
             id        : 'my-test',
-            uploadUrl : 'file-upload-test',
-            height    :  50,
-            width     : 200,
+            uploadUrl : 'http://127.0.0.1:3000/file-upload-test',
+            headers   : {
+                "Access-Control-Allow-Origin" : "*"
+            },
+            height    : 50,
+            width     : 300,
             types     : {
                 'image/png'       : 1,
                 'application/pdf' : 1

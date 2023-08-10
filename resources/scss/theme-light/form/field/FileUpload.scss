@@ -60,7 +60,7 @@ $neoMap: map-merge($neoMap, (
     display            : none;
     position           : absolute;
     inset-inline-start : 0;
-    width              : 100%;
+    white-space        : nowrap;
     top                : 100%;
     padding            : 0.5em;
     color              : red;
