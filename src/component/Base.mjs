@@ -1408,7 +1408,6 @@ class Base extends CoreBase {
                         console.warn('vdom parent update conflict with:', parent, 'for:', me)
                     }
 
-                    console.log('add cache', me.id);
                     NeoArray.add(parent.childUpdateCache, me.id);
                     return true
                 } else {
