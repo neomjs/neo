@@ -45,7 +45,7 @@ class PreviewList extends List {
         });
 
         if (!silent) {
-            me.promiseVdomUpdate().then(() => {
+            me.promiseUpdate().then(() => {
                 me.fire('createItems');
             });
         }

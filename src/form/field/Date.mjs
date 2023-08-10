@@ -197,7 +197,7 @@ class DateField extends Picker {
         if (me.hidePickerOnSelect) {
             VDomUtil.removeVdomChild(vdom, me.getPickerId());
 
-            me.promiseVdomUpdate().then(data => {
+            me.promiseUpdate().then(data => {
                 me.value = opts.value;
             });
         } else {

@@ -255,7 +255,7 @@ class Circle extends Component {
                 me.createItems(oldValue, true);
                 me.updateItemPositions(true);
 
-                me.promiseVdomUpdate().then(() => {
+                me.promiseUpdate().then(() => {
                     if (!me.collapsed) {
                         me.updateItemOpacity(1, true, oldValue);
                         me.update();
@@ -720,7 +720,7 @@ class Circle extends Component {
 
             me.circleCenterHasTransitionCls = false;
 
-            me.promiseVdomUpdate().then(() => {
+            me.promiseUpdate().then(() => {
                 me.updateItemAngle(true);
                 circleCenterEl.style.transform = transform;
                 me.update();

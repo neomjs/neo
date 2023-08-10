@@ -1073,8 +1073,8 @@ class Base extends CoreBase {
      * Internal method to send update requests to the vdom worker
      * @param {Object} vdom
      * @param {Neo.vdom.VNode} vnode
-     * @param {function} [resolve] used by promiseVdomUpdate()
-     * @param {function} [reject] used by promiseVdomUpdate()
+     * @param {function} [resolve] used by promiseUpdate()
+     * @param {function} [reject] used by promiseUpdate()
      * @private
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
@@ -1607,7 +1607,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} [vnode= this.vnode]
      * @returns {Promise<any>}
      */
-    promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
+    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -1761,7 +1761,7 @@ class Base extends CoreBase {
                 return Promise.resolve()
             }
 
-            return me.promiseVdomUpdate()
+            return me.promiseUpdate()
         }
     }
 
@@ -2006,8 +2006,8 @@ class Base extends CoreBase {
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
      * @param {Object} vdom=this.vdom
      * @param {Neo.vdom.VNode} vnode=this.vnode
-     * @param {function} [resolve] used by promiseVdomUpdate()
-     * @param {function} [reject] used by promiseVdomUpdate()
+     * @param {function} [resolve] used by promiseUpdate()
+     * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {

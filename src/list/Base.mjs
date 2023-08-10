@@ -485,7 +485,7 @@ class Base extends Component {
                 listItem && vdom.cn.push(listItem);
             });
 
-            !silent && me.promiseVdomUpdate().then(() => {
+            !silent && me.promiseUpdate().then(() => {
                 me.fire('createItems');
             });
         }

@@ -261,7 +261,7 @@ class MainContainer extends Container {
             if (value) {
                 delete sideBar.vdom.removeDom;
 
-                me.promiseVdomUpdate().then(() => {
+                me.promiseUpdate().then(() => {
                     sideBar.mounted = true;
 
                     setTimeout(() => {
@@ -274,7 +274,7 @@ class MainContainer extends Container {
                 sideBar._style      = style; // silent update
                 sideBar._vdom.style = style; // silent update
 
-                me.promiseVdomUpdate().then(() => {
+                me.promiseUpdate().then(() => {
                     setTimeout(() => {
                         sideBar.vdom.removeDom = true;
                         sideBar.update();

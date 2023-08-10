@@ -422,7 +422,7 @@ class Base extends Component {
         }
 
         if (!silent) {
-            me.promiseVdomUpdate().then(() => {
+            me.promiseUpdate().then(() => {
                 me.fire('insert', { index, item });
             });
         }

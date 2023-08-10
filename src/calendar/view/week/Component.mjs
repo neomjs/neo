@@ -805,7 +805,7 @@ class Component extends BaseComponent {
             if (scrollValue) {
                 me.isUpdating = true;
 
-                me.promiseVdomUpdate().then(() => {
+                me.promiseUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
                         id       : me.getScrollContainer().id,
