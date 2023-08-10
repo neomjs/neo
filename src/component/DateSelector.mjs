@@ -447,7 +447,7 @@ class DateSelector extends Component {
                     vdom.cn[2].cn[0].cn[slideDirection === 'right'? 'unshift' : 'push'](vdom.cn[1]);
                     vdom.cn.splice(1, 1);
 
-                    me.promiseVdomUpdate().then(() => {
+                    me.promiseUpdate().then(() => {
                         me.changeMonthTransitionCallback({data: data[0], slideDirection: slideDirection});
                         me.updateHeaderMonthTransitionCallback(headerMonthOpts);
                         me.update();
@@ -533,7 +533,7 @@ class DateSelector extends Component {
                     vdom.cn[2].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[1]);
                     vdom.cn.splice(1, 1);
 
-                    me.promiseVdomUpdate(vdom).then(() => {
+                    me.promiseUpdate(vdom).then(() => {
                         y = scrollFromTop ? -data.height : 0;
                         vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
                         me.update();
@@ -844,7 +844,7 @@ class DateSelector extends Component {
 
             me.isUpdating = true;
 
-            me.promiseVdomUpdate(me.vdom).then(() => {
+            me.promiseUpdate(me.vdom).then(() => {
                 me.isUpdating = false;
             });
         }

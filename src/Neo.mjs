@@ -645,7 +645,10 @@ function autoGenerateGetSet(proto, key) {
                     me[_key] = value;
                 }
 
-                if (!Neo.isEqual(value, oldValue)) {
+                if (
+                    (key === 'vnode' && value !== oldValue) || // vnode trees can be huge, avoid a deep comparison
+                    !Neo.isEqual(value, oldValue)
+                ) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue);
                 }

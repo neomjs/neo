@@ -530,7 +530,7 @@ class Text extends Base {
                     delete me.getCenterBorderEl()?.width;
                 }
 
-                me.promiseVdomUpdate().then(() => {
+                me.promiseUpdate().then(() => {
                     me.updateCenterBorderElWidth(isEmpty)
                 })
             } else {
@@ -780,7 +780,7 @@ class Text extends Base {
             }
         }
 
-        me.promiseVdomUpdate().then(() => {
+        me.promiseUpdate().then(() => {
             me.updateTriggerVnodes()
         })
     }

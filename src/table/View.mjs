@@ -214,7 +214,7 @@ class View extends Component {
         container.dockLeftMargin  = dockLeftMargin;
         container.dockRightMargin = dockRightMargin;
 
-        me.promiseVdomUpdate().then(() => {
+        me.promiseUpdate().then(() => {
             if (selectedRows?.length > 0) {
                 // this logic only works for selection.table.RowModel
                 Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0]});
