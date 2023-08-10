@@ -314,6 +314,11 @@ class Base extends CoreBase {
     childUpdateCache = []
 
     /**
+     * @member {Function[]} resolveUpdateCache=[]
+     */
+    resolveUpdateCache = []
+
+    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -634,6 +639,8 @@ class Base extends CoreBase {
                         DomEventManager.mountDomListeners(me)
                     }, 100)
                 }
+
+                me.doResolveUpdateCache();
 
                 me.fire('mounted', me.id)
             }
@@ -1057,6 +1064,14 @@ class Base extends CoreBase {
         ComponentManager.unregister(me);
 
         super.destroy()
+    }
+
+    /**
+     * Triggers all stored resolve() callbacks
+     */
+    doResolveUpdateCache() {
+        this.resolveUpdateCache.forEach(item => item());
+        this.resolveUpdateCache = [];
     }
 
     /**
@@ -1701,6 +1716,9 @@ class Base extends CoreBase {
 
             delete me.vdom.removeDom;
 
+            me._needsVdomUpdate = false;
+            me.afterSetNeedsVdomUpdate?.(false, true)
+
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
@@ -1724,11 +1742,14 @@ class Base extends CoreBase {
     resolveVdomUpdate(resolve) {
         let me = this;
 
+        me.doResolveUpdateCache();
+
         resolve?.();
 
         if (me.needsVdomUpdate) {
             me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
-            me.vdom             = me.vdom // trigger the next update cycle
+
+            me.update()
         } else {
             [...me.childUpdateCache].forEach(id => {
                 Neo.getComponent(id)?.update();
@@ -2028,9 +2049,12 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom)
         }
 
+        if (resolve && me.isVdomUpdating) {
+            me.resolveUpdateCache.push(resolve)
+        }
+
         if (me.isVdomUpdating || me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-            resolve?.()
+            me.needsVdomUpdate = true
         } else {
             if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
@@ -2043,10 +2067,12 @@ class Base extends CoreBase {
                     })
                 })
             } else {
+                if (resolve && (!me.mounted || !vnode)) {
+                    me.resolveUpdateCache.push(resolve)
+                }
+
                 if (me.mounted && vnode && !me.needsParentUpdate() && !me.isParentVdomUpdating()) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
-                } else {
-                    resolve?.()
                 }
             }
         }
