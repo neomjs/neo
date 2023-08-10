@@ -2029,7 +2029,7 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom)
         }
 
-        if (me.silentVdomUpdate) {
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
             resolve?.()
         } else {
