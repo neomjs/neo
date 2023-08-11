@@ -43,15 +43,15 @@ class FileUpload extends Base {
                 },
                 {
                     cls : 'neo-file-upload-body',
-                    cn : [{
+                    cn  : [{
                         cls : 'neo-file-upload-filename'
                     }, {
                         cls : 'neo-file-upload-state'
                     }]
                 },
                 {
-                    cls : 'neo-file-upload-action-icon',
-                    tag : 'i'
+                    cls : 'neo-file-upload-action-button',
+                    tag : 'button'
                 },
                 {
                     cls  : 'neo-file-upload-input',
@@ -122,7 +122,7 @@ class FileUpload extends Base {
                 me.error = 'Invalid file type';
             }
             else if (file.size > me.maxSize) {
-                me.error = `File size exceeds ${me._maxSize}`;
+                me.error = `File size exceeds ${String(me._maxSize).toUpperCase()}`;
             }
             // If it passes the type and maxSize check, upload it
             else {
@@ -137,24 +137,72 @@ class FileUpload extends Base {
     }
 
     async upload(file) {
-        this.state = 'uploading';
+        const
+            me         = this,
+            xhr        = me.xhr = new XMLHttpRequest(),
+            { upload } = xhr,
+            fileData   = new FormData();
 
-        const uploadResponse = await fetch(this.uploadUrl, {
-            method  : "POST",
-            body    : file,
-            headers : this.headers
-        });
+        // Focus the action button
+        me.state = 'starting';
 
-        // A 200 response means success
-        if (Math.floor(uploadResponse.status / 100) === 2) {
+        // We hve to wait for the DOM to have changed, and the action button to be visible
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        me.focus(me.vdom.cn[2].id);
 
+        me.vdom.cn[1].cn[0].innerHTML = file.name;
+        me.update();
+        me.state = 'uploading';
+
+        fileData.append("file", file);
+
+        // React to upload state changes
+        upload.addEventListener('progress', me.onUploadProgress.bind(me));
+        upload.addEventListener('error',    me.onUploadError.bind(me));
+        xhr.addEventListener('loadend',     me.onUploadDone.bind(me));
+
+        xhr.open("POST", me.uploadUrl, true);
+
+        xhr.send(fileData);
+    }
+
+    onUploadProgress({ loaded, total }) {
+        const
+            progress = loaded / total,
+            { vdom } = this;
+
+        (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
+
+        vdom.cn[1].cn[1].innerHTML = `Uploading... (${Math.round(progress * 100)}%)`;
+
+        this.uploadSize = loaded;
+        this.update();
+    }
+
+    onUploadError(e) {
+        this.clear();
+        this.error = e.type;
+    }
+
+    onUploadDone({ target : xhr }) {
+        const
+            me       = this,
+            response = JSON.parse(xhr.response);
+
+        if (response.success) {
+            me.documentId = response.documentId;
+            me.state = 'processing';
+            me.vdom.cn[1].cn[1].innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
+            me.monitorDocumentState();
         }
-        // An HTTP Fail means that we clear, which reverts back to the ready state.
-        // But there's an error shown.
         else {
-            this.clear();
-            this.error = `Upload error: ${uploadResponse.status} ${uploadResponse.statusText}`;
+            me.clear();
+            me.error = response.message;
         }
+    }
+
+    monitorDocumentState() {
+
     }
 
     /**
@@ -205,6 +253,17 @@ class FileUpload extends Base {
 
         this.cls = cls;
         this.update();
+    }
+
+    formatSize(bytes, separator = '', postFix = '') {
+        if (bytes) {
+            const
+                sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'],
+                i     = Math.min(parseInt(Math.floor(Math.log(bytes) / Math.log(1024)).toString(), 10), sizes.length - 1);
+
+            return `${(bytes / (1024 ** i)).toFixed(i ? 1 : 0)}${separator}${sizes[i]}${postFix}`;
+        }
+        return 'n/a';
     }
 }
 

@@ -1,67 +1,13 @@
 $neoMap: map-merge($neoMap, (
     'fileuploadfield-background-color': rgb(42, 139, 0),
-    'fileuploadfield-color'           : #fff
+    'fileuploadfield-color'           : #fff,
+    'fileuploadfield-progress-color'  : #fff
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-fileuploadfield
         --fileuploadfield-background-color: #{neo(fileuploadfield-background-color)};
         --fileuploadfield-color           : #{neo(fileuploadfield-color)};
+        --fileuploadfield-progress-color  : #{neo(fileuploadfield-progress-color)};
     }
-}
-
-.neo-file-upload-field {
-    position: relative;
-
-    // Space for any error message
-    margin-bottom : 2em;
-
-    // The file input is only visible in the ready state
-    &:not(.neo-file-upload-state-ready) {
-        input[type="file"] {
-            display : none;
-        }
-    }
-
-    &.neo-invalid {
-        .neo-file-upload-error-message {
-            display : initial;
-        }
-    }
-}
-
-.neo-file-upload-state-ready {
-    // Only the input field is visible when in ready state
-    // It takes up the whole component, and is the only interactive item
-    :not(input[type="file"]) {
-        display : none;
-    }
-    input::file-selector-button {
-        position         : absolute;
-        border           : 0 none;
-        margin           : 0;
-        top              : 0;
-        left             : 0;
-        right            : 0;
-        bottom           : 0;
-        background-color : var(--fileuploadfield-background-color);
-        color            : var(--fileuploadfield-color);
-    }
-}
-
-.neo-file-upload-body {
-    display   : flex;
-    flex-flow : column nowrap;
-
-    
-}
-
-.neo-file-upload-error-message {
-    display            : none;
-    position           : absolute;
-    inset-inline-start : 0;
-    white-space        : nowrap;
-    top                : 100%;
-    padding            : 0.5em;
-    color              : red;
 }
