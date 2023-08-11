@@ -215,12 +215,14 @@ class DeltaUpdates extends Base {
                     case 'style':
                         if (Neo.isObject(value)) {
                             Object.entries(value).forEach(([key, val]) => {
+                                let important;
+
                                 if (Neo.isString(val) && val.includes('!important')) {
                                     val = val.replace('!important', '').trim();
-                                    node.style.setProperty(Neo.decamel(key), val, 'important');
-                                } else {
-                                    node.style[Neo.decamel(key)] = val;
+                                    important = 'important';
                                 }
+
+                                node.style.setProperty(Neo.decamel(key), val, important);
                             });
                         }
                         break;
