@@ -2039,8 +2039,9 @@ class Base extends CoreBase {
      * @protected
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
+        let me      = this,
+            app     = Neo.apps[me.appName],
+            mounted = me.mounted,
             listenerId;
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
@@ -2063,7 +2064,7 @@ class Base extends CoreBase {
         if (me.isVdomUpdating || me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+            if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
 
                 listenerId = app.on('mounted', () => {
@@ -2074,22 +2075,22 @@ class Base extends CoreBase {
                     })
                 })
             } else {
-                if (resolve && (!me.mounted || !vnode)) {
+                if (resolve && (!mounted || !vnode)) {
                     me.resolveUpdateCache.push(resolve)
                 }
 
                 if (
-                    me.mounted
+                    mounted
                     && vnode
                     && !me.needsParentUpdate(me.parentId, resolve)
-                    && !me.isParentVdomUpdating(resolve)
+                    && !me.isParentVdomUpdating(me.parentId, resolve)
                 ) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
         }
 
-        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
+        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 }
 
