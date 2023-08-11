@@ -1515,18 +1515,19 @@ class Base extends CoreBase {
     /**
      * Checks the needsVdomUpdate config inside the parent tree
      * @param {String} parentId=this.parentId
+     * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId) {
+    needsParentUpdate(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
-            let me     = this,
-                parent = Neo.getComponent(parentId);
+            let parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.needsVdomUpdate) {
+                    resolve && parent.resolveUpdateCache.push(resolve);
                     return true
                 } else {
-                    return me.needsParentUpdate(parent.parentId)
+                    return this.needsParentUpdate(parent.parentId)
                 }
             }
         }
@@ -2071,7 +2072,12 @@ class Base extends CoreBase {
                     me.resolveUpdateCache.push(resolve)
                 }
 
-                if (me.mounted && vnode && !me.needsParentUpdate() && !me.isParentVdomUpdating()) {
+                if (
+                    me.mounted
+                    && vnode
+                    && !me.needsParentUpdate(me.parentId, resolve)
+                    && !me.isParentVdomUpdating()
+                ) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
