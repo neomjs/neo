@@ -1411,63 +1411,63 @@ class Text extends Base {
     }
 
     /**
-     * Checks for client-side field errors
-     * @param {Boolean} silent=true
-     * @returns {Boolean} Returns true in case there are no client-side errors
-     */
-    validate(silent=true) {
-        let me           = this,
-            maxLength    = me.maxLength,
-            minLength    = me.minLength,
-            required     = me.required,
-            returnValue  = true,
-            value        = me.value,
-            valueLength  = value?.toString().length,
-            inputPattern = me.inputPattern,
-            isEmpty      = value !== 0 && (!value || valueLength < 1),
-            errorParam   = {inputPattern, maxLength, minLength, valueLength},
-            errorText;
+ * Checks for client-side field errors
+ * @param {Boolean} silent=true
+ * @returns {Boolean} Returns true in case there are no client-side errors
+ */
+validate(silent=true) {
+    let me           = this,
+        maxLength    = me.maxLength,
+        minLength    = me.minLength,
+        required     = me.required,
+        returnValue  = true,
+        value        = me.value,
+        valueLength  = value?.toString().length,
+        inputPattern = me.inputPattern,
+        isEmpty      = value !== 0 && (!value || valueLength < 1),
+        errorParam   = {inputPattern, maxLength, minLength, valueLength},
+        errorText;
 
-        if (!silent) {
-            // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
-            me.clean = false;
-        }
-
-        if (Neo.isFunction(me.validator)) {
-            errorText = me.validator(me);
-
-            if (errorText !== true) {
-                me._error = errorText;
-                returnValue = false;
-            }
-        }
-
-        if (isEmpty) {
-            if (required) {
-                me._error = me.errorTextRequired;
-                returnValue = false;
-            }
-        } else {
-            if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-                me._error = me.errorTextMaxLength(errorParam);
-                returnValue = false;
-            } else if (Neo.isNumber(minLength) && valueLength < minLength) {
-                me._error = me.errorTextMinLength(errorParam);
-                returnValue = false;
-            } else if (inputPattern && !inputPattern.test(value)) {
-                me._error = me.errorTextInputPattern(errorParam);
-                returnValue = false;
-            }
-        }
-
-        if (returnValue) {
-            me._error = null;
-        }
-
-        !me.clean && me.updateError(me._error, silent);
-
-        return !returnValue ? false : super.validate(silent)
+    if (!silent) {
+        // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
+        me.clean = false;
     }
+
+
+    if (isEmpty) {
+        if (required) {
+            me._error = me.errorTextRequired;
+            returnValue = false;
+        }
+    } else {
+        if (Neo.isNumber(maxLength) && valueLength > maxLength) {
+            me._error = me.errorTextMaxLength(errorParam);
+            returnValue = false;
+        } else if (Neo.isNumber(minLength) && valueLength < minLength) {
+            me._error = me.errorTextMinLength(errorParam);
+            returnValue = false;
+        } else if (inputPattern && !inputPattern.test(value)) {
+            me._error = me.errorTextInputPattern(errorParam);
+            returnValue = false;
+        } else {
+            if (Neo.isFunction(me.validator)) {
+                errorText = me.validator(me);
+
+                if (errorText !== true) {
+                    me._error = errorText;
+                    returnValue = false;
+                }
+            }
+        }
+    }
+
+    if (returnValue) {
+        me._error = null;
+    }
+
+    !me.clean && me.updateError(me._error, silent);
+
+    return !returnValue ? false : super.validate(silent)
 }
 
 Neo.applyClassConfig(Text);
