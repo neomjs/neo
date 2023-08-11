@@ -1,13 +1,15 @@
 $neoMap: map-merge($neoMap, (
-    'fileuploadfield-background-color': rgb(42, 139, 0),
-    'fileuploadfield-color'           : #fff,
-    'fileuploadfield-progress-color'  : #fff
+    'fileuploadfield-background-color': #fff,
+    'fileuploadfield-color'           : #000,
+    'fileuploadfield-border-color'    : #000,
+    'fileuploadfield-progress-color'  : #5d94f3
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-fileuploadfield
         --fileuploadfield-background-color: #{neo(fileuploadfield-background-color)};
         --fileuploadfield-color           : #{neo(fileuploadfield-color)};
+        --fileuploadfield-border-color    : #{neo(fileuploadfield-border-color)};
         --fileuploadfield-progress-color  : #{neo(fileuploadfield-progress-color)};
     }
 }

@@ -93,7 +93,8 @@ class FileUpload extends Base {
         let me = this;
 
         me.addDomListeners([
-            {input : me.onInputValueChange, scope: me}
+            { input : me.onInputValueChange, scope: me},
+            { click : me.onActionButtonClick, delegate : '.neo-file-upload-action-button', scope : me}
         ]);
     }
 
@@ -143,11 +144,11 @@ class FileUpload extends Base {
             { upload } = xhr,
             fileData   = new FormData();
 
-        // Focus the action button
+        // Show the action button
         me.state = 'starting';
 
-        // We hve to wait for the DOM to have changed, and the action button to be visible
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // We have to wait for the DOM to have changed, and the action button to be visible
+        await new Promise(resolve => setTimeout(resolve, 100));
         me.focus(me.vdom.cn[2].id);
 
         me.vdom.cn[1].cn[0].innerHTML = file.name;
@@ -180,6 +181,7 @@ class FileUpload extends Base {
     }
 
     onUploadError(e) {
+        this.xhr = null;
         this.clear();
         this.error = e.type;
     }
@@ -188,6 +190,8 @@ class FileUpload extends Base {
         const
             me       = this,
             response = JSON.parse(xhr.response);
+
+        this.me = null;
 
         if (response.success) {
             me.documentId = response.documentId;
@@ -199,6 +203,35 @@ class FileUpload extends Base {
             me.clear();
             me.error = response.message;
         }
+    }
+
+    onActionButtonClick() {
+        const
+            me        = this,
+            { state } = me;
+
+        switch (state) {
+            case 'uploading':
+                me.abortUpload();
+                break;
+            case 'upload-failed':
+                me.clear();
+                break;
+            case 'processing':
+            case 'finished-downloadable':
+            case 'finished-not-downloadable':
+                me.deleteDocument();
+                break;
+        }
+    }
+
+    abortUpload() {
+        this.xhr?.abort();
+        this.clear();
+    }
+
+    deleteDocument() {
+        // We ask the server to delete using our this.documentId
     }
 
     monitorDocumentState() {

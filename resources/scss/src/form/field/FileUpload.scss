@@ -1,16 +1,20 @@
 .neo-file-upload-field {
-    background-color: v(fileuploadfield-background-color);
-    color           : v(fileuploadfield-color);
+    background-color : v(fileuploadfield-background-color);
+    border-color     : v(fileuploadfield-border-color);
+    color            : v(fileuploadfield-color);
 }
 
 .neo-file-upload-field {
     --upload-icon-codepoint : "\f062";
     --cancel-icon-codepoint : "\f00d";
+    --delete-icon-codepoint : "\f1f8";
 
-    position : relative;
-    display  : flex;
-    padding  : 0.5rem;
-    gap      : 0.5rem;
+    min-height : 3.5rem;
+    position   : relative;
+    display    : flex;
+    padding    : 0.5rem;
+    gap        : 0.5rem;
+    border     : 1px solid;
 
     // Space for any error message
     margin-bottom : 2rem;
@@ -18,7 +22,7 @@
     // Icons
     i, button {
         font-style      : normal;
-        width           : 2rem;
+        flex            : 0 0 2rem;
         height          : 2rem;
         border-radius   : 50%;
         font-family     : var(--fa-style-family,"Font Awesome 6 Free");
@@ -41,7 +45,10 @@
     }
 
     .neo-file-upload-filename {
-        font-weight: bold;
+        font-weight   : bold;
+        white-space   : nowrap;
+        overflow      : hidden;
+        text-overflow : ellipsis;
     }
 
     // The file input is only visible in the ready state
@@ -127,6 +134,7 @@
     flex-flow   : column nowrap;
     line-height : 1;
     gap         : 0.2rem;
+    overflow    : hidden;
 }
 
 .neo-file-upload-error-message {

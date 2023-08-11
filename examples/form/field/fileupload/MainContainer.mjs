@@ -33,13 +33,14 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(FileUploadField, {
             id        : 'my-test',
             uploadUrl : 'http://127.0.0.1:3000/file-upload-test',
-            height    : 50,
             width     : 300,
             types     : {
                 'image/png'       : 1,
-                'application/pdf' : 1
+                'image/jpeg'      : 1,
+                'application/pdf' : 1,
+                'video/quicktime' : 1
             },
-            maxSize   : '10mb'
+            maxSize   : '100mb'
         });
     }
 }
