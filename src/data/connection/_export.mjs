@@ -1,4 +1,4 @@
-import Socket from './Socket.mjs';
-import Xhr    from './Xhr.mjs';
+import WebSocket from './WebSocket.mjs';
+import Xhr       from './Xhr.mjs';
 
-export {Socket, Xhr};
+export {WebSocket, Xhr};

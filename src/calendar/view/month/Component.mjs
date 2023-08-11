@@ -689,7 +689,7 @@ class Component extends BaseComponent {
                     week.header && container.cn.unshift(week.header);
                 }
 
-                me.promiseVdomUpdate(me.vdom).then(() => {
+                me.promiseUpdate(me.vdom).then(() => {
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,

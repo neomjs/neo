@@ -512,7 +512,7 @@ class YearComponent extends Component {
                     vdom.cn[1].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[0]);
                     vdom.cn.splice(0, 1);
 
-                    me.promiseVdomUpdate(vdom).then(() => {
+                    me.promiseUpdate(vdom).then(() => {
                         y = scrollFromTop ? -data.height : 0;
                         vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
                         me.update();
@@ -783,7 +783,7 @@ class YearComponent extends Component {
 
             me.isUpdating = true;
 
-            me.promiseVdomUpdate(me.vdom).then(() => {
+            me.promiseUpdate(me.vdom).then(() => {
                 me.isUpdating = false;
             });
         }

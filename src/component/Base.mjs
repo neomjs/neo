@@ -314,6 +314,11 @@ class Base extends CoreBase {
     childUpdateCache = []
 
     /**
+     * @member {Function[]} resolveUpdateCache=[]
+     */
+    resolveUpdateCache = []
+
+    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -634,6 +639,8 @@ class Base extends CoreBase {
                         DomEventManager.mountDomListeners(me)
                     }, 100)
                 }
+
+                me.doResolveUpdateCache();
 
                 me.fire('mounted', me.id)
             }
@@ -1060,6 +1067,14 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggers all stored resolve() callbacks
+     */
+    doResolveUpdateCache() {
+        this.resolveUpdateCache.forEach(item => item());
+        this.resolveUpdateCache = [];
+    }
+
+    /**
      * Convenience shortcut for Neo.manager.Component.down
      * @param {Object|String} config
      * @param {Boolean} returnFirstMatch=true
@@ -1073,8 +1088,8 @@ class Base extends CoreBase {
      * Internal method to send update requests to the vdom worker
      * @param {Object} vdom
      * @param {Neo.vdom.VNode} vnode
-     * @param {function} [resolve] used by promiseVdomUpdate()
-     * @param {function} [reject] used by promiseVdomUpdate()
+     * @param {function} [resolve] used by promiseUpdate()
+     * @param {function} [reject] used by promiseUpdate()
      * @private
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
@@ -1393,11 +1408,13 @@ class Base extends CoreBase {
     }
 
     /**
-     * Checks for vdom updates inside the parent chain and if found, registers the component for a vdom update once done
+     * Checks for vdom updates inside the parent chain and if found.
+     * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
+     * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId) {
+    isParentVdomUpdating(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1408,8 +1425,11 @@ class Base extends CoreBase {
                         console.warn('vdom parent update conflict with:', parent, 'for:', me)
                     }
 
-                    console.log('add cache', me.id);
                     NeoArray.add(parent.childUpdateCache, me.id);
+
+                    // Adding the resolve fn to its own cache, since the parent will trigger
+                    // a new update() directly on this cmp
+                    resolve && me.resolveUpdateCache.push(resolve)
                     return true
                 } else {
                     return me.isParentVdomUpdating(parent.parentId)
@@ -1501,15 +1521,19 @@ class Base extends CoreBase {
     /**
      * Checks the needsVdomUpdate config inside the parent tree
      * @param {String} parentId=this.parentId
+     * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId) {
+    needsParentUpdate(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.needsVdomUpdate) {
+                    parent.resolveUpdateCache.push(...me.resolveUpdateCache);
+                    resolve && parent.resolveUpdateCache.push(resolve);
+                    me.resolveUpdateCache = [];
                     return true
                 } else {
                     return me.needsParentUpdate(parent.parentId)
@@ -1608,7 +1632,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} [vnode= this.vnode]
      * @returns {Promise<any>}
      */
-    promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
+    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -1702,6 +1726,9 @@ class Base extends CoreBase {
 
             delete me.vdom.removeDom;
 
+            me._needsVdomUpdate = false;
+            me.afterSetNeedsVdomUpdate?.(false, true)
+
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
@@ -1725,11 +1752,14 @@ class Base extends CoreBase {
     resolveVdomUpdate(resolve) {
         let me = this;
 
+        me.doResolveUpdateCache();
+
         resolve?.();
 
         if (me.needsVdomUpdate) {
             me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
-            me.vdom             = me.vdom // trigger the next update cycle
+
+            me.update()
         } else {
             [...me.childUpdateCache].forEach(id => {
                 Neo.getComponent(id)?.update();
@@ -1762,7 +1792,7 @@ class Base extends CoreBase {
                 return Promise.resolve()
             }
 
-            return me.promiseVdomUpdate()
+            return me.promiseUpdate()
         }
     }
 
@@ -2007,13 +2037,14 @@ class Base extends CoreBase {
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
      * @param {Object} vdom=this.vdom
      * @param {Neo.vdom.VNode} vnode=this.vnode
-     * @param {function} [resolve] used by promiseVdomUpdate()
-     * @param {function} [reject] used by promiseVdomUpdate()
+     * @param {function} [resolve] used by promiseUpdate()
+     * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
+        let me      = this,
+            app     = Neo.apps[me.appName],
+            mounted = me.mounted,
             listenerId;
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
@@ -2029,11 +2060,14 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom)
         }
 
-        if (me.silentVdomUpdate) {
-            me.needsVdomUpdate = true;
-            resolve?.()
+        if (resolve && me.isVdomUpdating) {
+            me.resolveUpdateCache.push(resolve)
+        }
+
+        if (me.isVdomUpdating || me.silentVdomUpdate) {
+            me.needsVdomUpdate = true
         } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+            if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
 
                 listenerId = app.on('mounted', () => {
@@ -2044,15 +2078,22 @@ class Base extends CoreBase {
                     })
                 })
             } else {
-                if (me.mounted && vnode && !me.needsParentUpdate() && !me.isParentVdomUpdating()) {
+                if (resolve && (!mounted || !vnode)) {
+                    me.resolveUpdateCache.push(resolve)
+                }
+
+                if (
+                    mounted
+                    && vnode
+                    && !me.needsParentUpdate(me.parentId, resolve)
+                    && !me.isParentVdomUpdating(me.parentId, resolve)
+                ) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
-                } else {
-                    resolve?.()
                 }
             }
         }
 
-        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
+        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 }
 
