@@ -1526,14 +1526,17 @@ class Base extends CoreBase {
      */
     needsParentUpdate(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
-            let parent = Neo.getComponent(parentId);
+            let me     = this,
+                parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.needsVdomUpdate) {
+                    parent.resolveUpdateCache.push(...me.resolveUpdateCache);
                     resolve && parent.resolveUpdateCache.push(resolve);
+                    me.resolveUpdateCache = [];
                     return true
                 } else {
-                    return this.needsParentUpdate(parent.parentId)
+                    return me.needsParentUpdate(parent.parentId)
                 }
             }
         }
