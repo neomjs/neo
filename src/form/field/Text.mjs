@@ -23,7 +23,7 @@ class Text extends Base {
      * @protected
      * @static
      */
-    static labelPositions = ['bottom', 'inline', 'left', 'right', 'top']
+    static labelPositions       = ['bottom', 'inline', 'left', 'right', 'top']
 
     static config = {
         /**
@@ -220,14 +220,18 @@ class Text extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'label', cls: [], style: {}},
-            {tag: 'label', cls: []},
-            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
-            {cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
-                {cls: ['neo-textfield-error']}
-            ]}
-        ]}
+            {
+                cn: [
+                    {tag: 'label', cls: [], style: {}},
+                    {tag: 'label', cls: []},
+                    {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
+                    {
+                        cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
+                            {cls: ['neo-textfield-error']}
+                        ]
+                    }
+                ]
+            }
     }
 
     /**
@@ -246,9 +250,9 @@ class Text extends Base {
         let me = this;
 
         me.addDomListeners([
-            {input     : me.onInputValueChange, scope: me},
-            {mouseenter: me.onMouseEnter,       scope: me},
-            {mouseleave: me.onMouseLeave,       scope: me}
+            {input: me.onInputValueChange, scope: me},
+            {mouseenter: me.onMouseEnter, scope: me},
+            {mouseleave: me.onMouseLeave, scope: me}
         ]);
     }
 
@@ -637,7 +641,7 @@ class Text extends Base {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        let me = this,
+        let me  = this,
             cls = me.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-readonly');
@@ -663,7 +667,7 @@ class Text extends Base {
 
         me.validate(false);
         me.changeInputElKey('required', value ? value : null);
-        me.labelText        = me.labelText; // apply the optional text if needed
+        me.labelText = me.labelText; // apply the optional text if needed
 
         me.silentVdomUpdate = false;
 
@@ -753,10 +757,10 @@ class Text extends Base {
             });
 
             postTriggers.sort((a, b) => b.weight - a.weight); // DESC
-            preTriggers .sort((a, b) => a.weight - b.weight); // ASC
+            preTriggers.sort((a, b) => a.weight - b.weight); // ASC
 
             postTriggers = postTriggers.map(a => a.vdom);
-            preTriggers  = preTriggers .map(a => a.vdom);
+            preTriggers  = preTriggers.map(a => a.vdom);
 
             if (inputEl.tag === 'input') {
                 // wrap the input tag
@@ -774,8 +778,8 @@ class Text extends Base {
         } else {
             if (inputEl.tag !== 'input') {
                 // replacing the input wrapper div with the input tag
-                width = inputEl.width;
-                vdom.cn[2] = me.getInputEl();
+                width            = inputEl.width;
+                vdom.cn[2]       = me.getInputEl();
                 vdom.cn[2].width = width;
             }
         }
@@ -807,7 +811,7 @@ class Text extends Base {
         cls = me.cls;
 
         NeoArray[me.hasContent() ? 'add' : 'remove'](cls, 'neo-has-content');
-        NeoArray[isDirty         ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');
         me.cls = cls;
 
         me.silentVdomUpdate = false;
@@ -1242,7 +1246,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-       me.value = me.inputValueAdjustor(value)
+        me.value = me.inputValueAdjustor(value)
     }
 
     /**
@@ -1278,7 +1282,7 @@ class Text extends Base {
      * @param {Array} [triggerSource] pass a shallow copy of this.triggers
      * @returns {Boolean} true in case a trigger was found & removed
      */
-    removeTrigger(type, silent=false, triggerSource) {
+    removeTrigger(type, silent = false, triggerSource) {
         let me       = this,
             hasMatch = false,
             triggers = triggerSource || me.triggers || [],
@@ -1308,7 +1312,7 @@ class Text extends Base {
      * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
      * @param {String|null} [value=null]
      */
-    reset(value=null) {
+    reset(value = null) {
         let me = this;
 
         if (me.clearToOriginalValue) {
@@ -1331,7 +1335,7 @@ class Text extends Base {
      * @param {Boolean} [silent=false] true to get the value, but not apply it to the DOM
      * @protected
      */
-    updateCenterBorderElWidth(silent=false) {
+    updateCenterBorderElWidth(silent = false) {
         let me = this;
 
         me.mounted && me.getDomRect(me.getCenterBorderEl().id).then(data => {
@@ -1348,7 +1352,7 @@ class Text extends Base {
      @param {String|null} value
      @param {Boolean} silent=false
      */
-    updateError(value, silent=false) {
+    updateError(value, silent = false) {
         let me  = this,
             cls = me.cls,
             errorNode, errorWrapper;
@@ -1394,9 +1398,9 @@ class Text extends Base {
      * todo: this could be handled by component.Base
      */
     updateTriggerVnodes() {
-        let me           = this,
-            triggerRoot  = me.vnode?.childNodes[1],
-            childNodes   = triggerRoot?.childNodes || [],
+        let me          = this,
+            triggerRoot = me.vnode?.childNodes[1],
+            childNodes  = triggerRoot?.childNodes || [],
             trigger;
 
         childNodes.forEach(vnode => {
@@ -1415,7 +1419,7 @@ class Text extends Base {
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate(silent=true) {
+    validate(silent = true) {
         let me           = this,
             maxLength    = me.maxLength,
             minLength    = me.minLength,
@@ -1433,30 +1437,28 @@ class Text extends Base {
             me.clean = false;
         }
 
-        if (Neo.isFunction(me.validator)) {
-            errorText = me.validator(me);
-
-            if (errorText !== true) {
-                me._error = errorText;
-                returnValue = false;
-            }
-        }
-
         if (isEmpty) {
             if (required) {
-                me._error = me.errorTextRequired;
+                me._error   = me.errorTextRequired;
                 returnValue = false;
             }
         } else {
             if (Neo.isNumber(maxLength) && valueLength > maxLength) {
-                me._error = me.errorTextMaxLength(errorParam);
+                me._error   = me.errorTextMaxLength(errorParam);
                 returnValue = false;
             } else if (Neo.isNumber(minLength) && valueLength < minLength) {
-                me._error = me.errorTextMinLength(errorParam);
+                me._error   = me.errorTextMinLength(errorParam);
                 returnValue = false;
             } else if (inputPattern && !inputPattern.test(value)) {
-                me._error = me.errorTextInputPattern(errorParam);
+                me._error   = me.errorTextInputPattern(errorParam);
                 returnValue = false;
+            } else if (Neo.isFunction(me.validator)) {
+                errorText = me.validator(me);
+
+                if (errorText !== true) {
+                    me._error   = errorText;
+                    returnValue = false;
+                }
             }
         }
 
