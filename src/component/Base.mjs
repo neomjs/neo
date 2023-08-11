@@ -1408,11 +1408,13 @@ class Base extends CoreBase {
     }
 
     /**
-     * Checks for vdom updates inside the parent chain and if found, registers the component for a vdom update once done
+     * Checks for vdom updates inside the parent chain and if found.
+     * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
+     * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId) {
+    isParentVdomUpdating(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1424,6 +1426,10 @@ class Base extends CoreBase {
                     }
 
                     NeoArray.add(parent.childUpdateCache, me.id);
+
+                    // Adding the resolve fn to its own cache, since the parent will trigger
+                    // a new update() directly on this cmp
+                    resolve && me.resolveUpdateCache.push(resolve)
                     return true
                 } else {
                     return me.isParentVdomUpdating(parent.parentId)
@@ -1520,14 +1526,17 @@ class Base extends CoreBase {
      */
     needsParentUpdate(parentId=this.parentId, resolve) {
         if (parentId !== 'document.body') {
-            let parent = Neo.getComponent(parentId);
+            let me     = this,
+                parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.needsVdomUpdate) {
+                    parent.resolveUpdateCache.push(...me.resolveUpdateCache);
                     resolve && parent.resolveUpdateCache.push(resolve);
+                    me.resolveUpdateCache = [];
                     return true
                 } else {
-                    return this.needsParentUpdate(parent.parentId)
+                    return me.needsParentUpdate(parent.parentId)
                 }
             }
         }
@@ -2033,8 +2042,9 @@ class Base extends CoreBase {
      * @protected
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
-        let me   = this,
-            app  = Neo.apps[me.appName],
+        let me      = this,
+            app     = Neo.apps[me.appName],
+            mounted = me.mounted,
             listenerId;
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
@@ -2057,7 +2067,7 @@ class Base extends CoreBase {
         if (me.isVdomUpdating || me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
+            if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
 
                 listenerId = app.on('mounted', () => {
@@ -2068,22 +2078,22 @@ class Base extends CoreBase {
                     })
                 })
             } else {
-                if (resolve && (!me.mounted || !vnode)) {
+                if (resolve && (!mounted || !vnode)) {
                     me.resolveUpdateCache.push(resolve)
                 }
 
                 if (
-                    me.mounted
+                    mounted
                     && vnode
                     && !me.needsParentUpdate(me.parentId, resolve)
-                    && !me.isParentVdomUpdating()
+                    && !me.isParentVdomUpdating(me.parentId, resolve)
                 ) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
         }
 
-        me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
+        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 }
 

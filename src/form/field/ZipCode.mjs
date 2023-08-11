@@ -13,6 +13,8 @@ class ZipCode extends Text {
      * @static
      */
     static countryCodes = {
+        AT: /^\d{4}$/,
+        CH: /^\d{4}$/,
         DE: /^(?!01000|99999)(0[1-9]\d{3}|[1-9]\d{4})$/
     }
 
@@ -40,12 +42,12 @@ class ZipCode extends Text {
          * The data.Model field inside the related country field which provides the country code (e.g. 'DE')
          * @member {String} countryKeyProperty='id'
          */
-        countryKeyProperty: 'id',
+        countryKeyProperty: "id",
         /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
-         * @member {Function} errorTextInputPattern=data=>`Not a valid zip code`
+         * @member {Function} errorTextInputPattern=data=>'Not a valid zip code'
          */
-        errorTextInputPattern: data => `Not a valid zip code`
+        errorTextInputPattern: (data) => 'Not a valid zip code'
     }
 
     /**
@@ -59,7 +61,7 @@ class ZipCode extends Text {
 
         me.inputPattern = ZipCode.countryCodes[value] || null;
 
-        oldValue !== undefined && me.value && !me.clean && me.validate(false);
+        oldValue !== undefined && me.value && !me.clean && me.validate(false)
     }
 
     /**
@@ -99,14 +101,14 @@ class ZipCode extends Text {
             return me.up().getReference(value)
         }
 
-        return value;
+        return value
     }
 
     /**
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        this.countryCode = data.record?.[this.countryKeyProperty] || null;
+        this.countryCode = data.record?.[this.countryKeyProperty] || null
     }
 }
 
