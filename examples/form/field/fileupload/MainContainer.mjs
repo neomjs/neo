@@ -22,8 +22,8 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 50,
+            maxValue : 350,
+            minValue : 200,
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
