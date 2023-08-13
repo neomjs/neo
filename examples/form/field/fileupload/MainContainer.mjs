@@ -38,6 +38,7 @@ class MainContainer extends ConfigurationViewport {
                 id                : 'my-downloadable-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-downloadable',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -51,6 +52,7 @@ class MainContainer extends ConfigurationViewport {
                 id                : 'my-not-downloadable-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -64,6 +66,7 @@ class MainContainer extends ConfigurationViewport {
                 id                : 'my-upload-fail-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test-fail',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -77,6 +80,7 @@ class MainContainer extends ConfigurationViewport {
                 id                : 'my-scan-fail-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-fail',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {

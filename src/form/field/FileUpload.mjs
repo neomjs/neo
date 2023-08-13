@@ -352,28 +352,39 @@ class FileUpload extends Base {
     afterSetState(value, oldValue) {
         const
             me      = this,
-            { cls } = me,
-            anchor  = me.vdom.cn[1].cn[0];
+            {
+                cls,
+                vdom
+            } = me,
+            anchor  = vdom.cn[1].cn[0],
+            status  = vdom.cn[1].cn[1];
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
 
         switch (value) {
+            case 'ready':
+                anchor.id = '';
+                anchor.tag = 'div';
+                anchor.href = '';
+                break;
             case 'upload-failed':
-                me.vdom.cn[1].cn[1].innerHTML = `Upload failed... (${Math.round(me.progress * 100)}%)`;
+                status.innerHTML = `Upload failed... (${Math.round(me.progress * 100)}%)`;
                 break;
             case 'scan-failed':
-                me.vdom.cn[1].cn[1].innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
+                status.innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
                 break;
             case 'downloadable':
+                anchor.id = '';
                 anchor.tag = 'a';
                 anchor.href = `${me.downloadUrl}?documentid=${me.documentId}`;
-                me.vdom.cn[1].cn[1].innerHTML = me.fileSize;
+                status.innerHTML = me.fileSize;
                 break;
             case 'not-downloadable':
-                me.vdom.cn[1].cn[1].innerHTML = `Successfully uploaded \u2022 ${me.fileSize}`;
+                status.innerHTML = `Successfully uploaded \u2022 ${me.fileSize}`;
         }
 
+        me.update();
         me.cls = cls;
     }
 
