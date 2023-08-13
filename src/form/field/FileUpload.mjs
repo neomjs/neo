@@ -66,6 +66,52 @@ class FileUpload extends Base {
 
         cls : [],
 
+        /**
+         * The URL of the file upload service to which the selected file is sent.
+         *
+         * This service must return a JSON response of the form:
+         *
+         * ```json
+         * {
+         *     "success"    : true,
+         *     "message"    : "Only needed if the success property is false",
+         *     "documentId" : 1
+         * }
+         * ```
+         *
+         * The document id is needed so that this widget can follow up and request the results of the
+         * scan operation to see if the file was accepted, and whether it is to be subsequently downloadable.
+         *
+         * The document status request URL must be configured in {@link #member-documentStatusUrl}
+         * @member {String} uploadUrl
+         */
+        uploadUrl_ : null,
+
+        /**
+         * The URL from which the file may be downloaded after it has finished its scan.
+         *
+         * @member {String} downloadUrl
+         */
+        downloadUrl_ : null,
+
+        /**
+         * The URL of the file status reporting service.
+         *
+         * This widget will use this service after a successful upload to determine its next
+         * state.
+         *
+         * This service must return a JSON response of the form:
+         *
+         * ```json
+         * {
+         *     "status" : "scanning" or "scan-failed" or "downloadable or "not-downloadable"
+         * }
+         * ```
+         *
+         * @member {String} documentStatusUrl
+         */
+        documentStatusUrl : null,
+
         headers_ : {},
 
         /**
@@ -98,15 +144,21 @@ class FileUpload extends Base {
         ]);
     }
 
-    clear() {
-        this.vdom.cn[3] = {
+    async clear() {
+        const me = this;
+
+        me.vdom.cn[3] = {
             cls   : 'neo-file-upload-input',
             tag   : 'input',
             type  : 'file',
             value : ''
         };
-        this.state = 'ready';
-        this.error = '';
+        me.state = 'ready';
+        me.error = '';
+
+        // We have to wait for the DOM to have changed, and the input field to be visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        me.focus(me.vdom.cn[3].id);
     }
 
     /**
@@ -114,19 +166,25 @@ class FileUpload extends Base {
      * @protected
      */
     onInputValueChange({ files }) {
-        const me = this;
+        const
+            me        = this,
+            { types } = me;
 
         if (files.length) {
-            const file = files.item(0);
+            const
+                file     = files.item(0),
+                pointPos = file.name.lastIndexOf('.'),
+                type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
-            if (me.types && !me.types[file.type]) {
-                me.error = 'Invalid file type';
+            if (me.types && !types[type]) {
+                me.error = `Please use these file types: .${Object.keys(types).join(' .')}`;
             }
             else if (file.size > me.maxSize) {
                 me.error = `File size exceeds ${String(me._maxSize).toUpperCase()}`;
             }
             // If it passes the type and maxSize check, upload it
             else {
+                me.fileSize = me.formatSize(file.size);
                 me.error = '';
                 me.upload(file);
             }
@@ -160,6 +218,7 @@ class FileUpload extends Base {
         // React to upload state changes
         upload.addEventListener('progress', me.onUploadProgress.bind(me));
         upload.addEventListener('error',    me.onUploadError.bind(me));
+        upload.addEventListener('abort',    me.onUploadAbort.bind(me));
         xhr.addEventListener('loadend',     me.onUploadDone.bind(me));
 
         xhr.open("POST", me.uploadUrl, true);
@@ -169,7 +228,7 @@ class FileUpload extends Base {
 
     onUploadProgress({ loaded, total }) {
         const
-            progress = loaded / total,
+            progress = this.progress = loaded / total,
             { vdom } = this;
 
         (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
@@ -180,28 +239,34 @@ class FileUpload extends Base {
         this.update();
     }
 
-    onUploadError(e) {
+    onUploadAbort(e) {
         this.xhr = null;
         this.clear();
+    }
+
+    onUploadError(e) {
+        this.xhr = null;
+        this.state = 'upload-failed';
         this.error = e.type;
     }
 
-    onUploadDone({ target : xhr }) {
-        const
-            me       = this,
-            response = JSON.parse(xhr.response);
+    onUploadDone({ loaded, target : xhr }) {
+        const me = this;
 
-        this.me = null;
+        me.xhr = null;
 
-        if (response.success) {
-            me.documentId = response.documentId;
-            me.state = 'processing';
-            me.vdom.cn[1].cn[1].innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
-            me.monitorDocumentState();
-        }
-        else {
-            me.clear();
-            me.error = response.message;
+        if (loaded !== 0) {
+            const response = JSON.parse(xhr.response);
+
+            if (response.success) {
+                me.documentId = response.documentId;
+                me.state = 'processing';
+                me.vdom.cn[1].cn[1].innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
+                me.checkDocumentStatus();
+            }
+            else {
+                me.state = 'upload-failed';
+            }
         }
     }
 
@@ -210,16 +275,27 @@ class FileUpload extends Base {
             me        = this,
             { state } = me;
 
+        // When they click the action button, depending on which state we are in, we go to
+        // different states.
         switch (state) {
+            // During upload, its an abort
             case 'uploading':
                 me.abortUpload();
                 break;
+
+            // If the upload or the scan failed, the document will not have been
+            // saved, so we just go back to ready state
             case 'upload-failed':
+            case 'scan-failed':
                 me.clear();
+                me.state = 'ready';
                 break;
+
+            // During scanning and for stored documents, we need to tell the server the document
+            // is not required.
             case 'processing':
-            case 'finished-downloadable':
-            case 'finished-not-downloadable':
+            case 'downloadable':
+            case 'not-downloadable':
                 me.deleteDocument();
                 break;
         }
@@ -227,15 +303,44 @@ class FileUpload extends Base {
 
     abortUpload() {
         this.xhr?.abort();
-        this.clear();
     }
 
-    deleteDocument() {
+    async deleteDocument() {
         // We ask the server to delete using our this.documentId
+        const statusResponse = await fetch(`${this.documentStatusUrl}?delete&documentid=${this.documentId}`);
+
+        // Success
+        if (String(statusResponse.status).slice(0, 1) === '2') {
+            this.clear();
+            this.state = 'ready';
+        }
+        else {
+            this.error = `Document delete service error: ${statusResponse.statusText}`;
+        }
     }
 
-    monitorDocumentState() {
+    async checkDocumentStatus() {
+        const me = this;
 
+        if (this.state === 'processing') {
+            const statusResponse = await fetch(`${this.documentStatusUrl}?documentid=${this.documentId}`);
+
+            // Success
+            if (String(statusResponse.status).slice(0, 1) === '2') {
+                const status = (await statusResponse.json()).status;
+
+                switch (status) {
+                    case 'scanning':
+                        setTimeout(() => me.checkDocumentStatus(), 2000);
+                        break;
+                    default:
+                        me.state = status;
+                }
+            }
+            else {
+                this.error = `Document status service error: ${statusResponse.statusText}`;
+            }
+        }
     }
 
     /**
@@ -245,12 +350,31 @@ class FileUpload extends Base {
      * @protected
      */
     afterSetState(value, oldValue) {
-        const { cls } = this;
+        const
+            me      = this,
+            { cls } = me,
+            anchor  = me.vdom.cn[1].cn[0];
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
 
-        this.cls = cls;
+        switch (value) {
+            case 'upload-failed':
+                me.vdom.cn[1].cn[1].innerHTML = `Upload failed... (${Math.round(me.progress * 100)}%)`;
+                break;
+            case 'scan-failed':
+                me.vdom.cn[1].cn[1].innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
+                break;
+            case 'downloadable':
+                anchor.tag = 'a';
+                anchor.href = `${me.downloadUrl}?documentid=${me.documentId}`;
+                me.vdom.cn[1].cn[1].innerHTML = me.fileSize;
+                break;
+            case 'not-downloadable':
+                me.vdom.cn[1].cn[1].innerHTML = `Successfully uploaded \u2022 ${me.fileSize}`;
+        }
+
+        me.cls = cls;
     }
 
     beforeGetMaxSize(maxSize) {
