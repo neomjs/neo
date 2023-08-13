@@ -16,6 +16,27 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * @param {HTMLElement} node
+     * @param {String} nodeName
+     */
+    du_changeNodeName(node, nodeName) {
+        let attributes = node.attributes,
+            clone      = document.createElement(nodeName),
+            i          = 0,
+            len        = attributes.length,
+            attribute;
+
+        for (; i < len; i++) {
+            attribute = attributes.item(i);
+            clone.setAttribute(attribute.nodeName, attribute.nodeValue);
+        }
+
+        clone.innerHTML= node.innerHTML;
+
+        node.parentNode.replaceChild(clone, node)
+    }
+
+    /**
      * @param {Object} delta
      * @param {String} delta.id
      */
@@ -171,7 +192,8 @@ class DeltaUpdates extends Base {
      * @param {Object} [delta.style]
      */
     du_updateNode(delta) {
-        let node = this.getElementOrBody(delta.id);
+        let me   = this,
+            node = me.getElementOrBody(delta.id);
 
         if (!node) {
             console.warn('du_updateNode: node not found for id', delta.id);
@@ -180,7 +202,7 @@ class DeltaUpdates extends Base {
                 switch(prop) {
                     case 'attributes':
                         Object.entries(value).forEach(([key, val]) => {
-                            if (this.voidAttributes.includes(key)) {
+                            if (me.voidAttributes.includes(key)) {
                                 node[key] = val === 'true'; // vnode attribute values get converted into strings
                             } else if (val === null || val === '') {
                                 if (key === 'value') {
@@ -209,6 +231,9 @@ class DeltaUpdates extends Base {
                     case 'innerHTML':
                         node.innerHTML = value || '';
                         break;
+                    case 'nodeName':
+                        me.du_changeNodeName(node, value);
+                        break;
                     case 'outerHTML':
                         node.outerHTML = value || '';
                         break;
@@ -223,11 +248,11 @@ class DeltaUpdates extends Base {
                                 }
 
                                 node.style.setProperty(Neo.decamel(key), val, important);
-                            });
+                            })
                         }
                         break;
                 }
-            });
+            })
         }
     }
 
