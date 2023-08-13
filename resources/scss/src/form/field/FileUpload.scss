@@ -11,19 +11,30 @@
     --success-icon-codepoint  : "\f00c";
     --download-icon-codepoint : "\f019";
 
-    min-height  : 3.5rem;
-    position    : relative;
-    display     : flex;
-    align-items : center;
-    padding     : 0.5rem;
-    gap         : 0.5rem;
-    border      : 1px solid var(--fileuploadfield-border-color);
+    min-height    : 3.5rem;
+    position      : relative;
+    display       : flex;
+    align-items   : center;
+    padding       : 0.5rem;
+    gap           : 0.5rem;
+    border        : 1px solid var(--fileuploadfield-border-color);
+    border-radius : 2px;
 
     // Space for any error message
     margin-bottom : 2.5rem;
 
     &:focus-within {
-        outline: 1px solid var(--fileuploadfield-focus-color);
+        &::after {
+            content        : "";
+            pointer-events : none;
+            position       : absolute;
+            top            : -2px;
+            right          : -2px;
+            bottom         : -2px;
+            left           : -2px;
+            border         : 1px solid var(--fileuploadfield-focus-color);
+            border-radius  : 3px;
+        }
     }
 
     // Icons
@@ -70,7 +81,7 @@
         white-space   : nowrap;
         overflow      : hidden;
         text-overflow : ellipsis;
-
+        color         : inherit; // For when it becomes a link
     }
 
     // The file input is only visible in the ready state
@@ -175,7 +186,8 @@
         background-color: var(--fileuploadfield-pressed-color);
     }
     .neo-file-upload-state-icon {
-        border          : 0 none;
+        background-color : var(--fileuploadfield-downloadable-state-color);
+        border           : 0 none;
 
         &::after {
             content : var(--download-icon-codepoint);

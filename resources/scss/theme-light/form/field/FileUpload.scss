@@ -1,25 +1,27 @@
 $neoMap: map-merge($neoMap, (
-    'fileuploadfield-background-color': #fff,
-    'fileuploadfield-color'           : #000,
-    'fileuploadfield-border-color'    : #d5d5d5,
-    'fileuploadfield-progress-color'  : #5d94f3,
-    'fileuploadfield-error-color'     : #f00,
-    'fileuploadfield-success-color'   : rgb(71, 226, 71),
-    'fileuploadfield-hover-color'     : #f0f0f0,
-    'fileuploadfield-pressed-color'   : #e0e0e0,
-    'fileuploadfield-focus-color'     : #80d3f4
+    'fileuploadfield-background-color'         : #fff,
+    'fileuploadfield-color'                    : #000,
+    'fileuploadfield-border-color'             : #d5d5d5,
+    'fileuploadfield-progress-color'           : #5d94f3,
+    'fileuploadfield-error-color'              : #f00,
+    'fileuploadfield-success-color'            : rgb(112, 169, 112),
+    'fileuploadfield-hover-color'              : #f0f0f0,
+    'fileuploadfield-pressed-color'            : #e0e0e0,
+    'fileuploadfield-downloadable-state-color' : #d9d9d9,
+    'fileuploadfield-focus-color'              : #80d3f4
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-fileuploadfield
-        --fileuploadfield-background-color: #{neo(fileuploadfield-background-color)};
-        --fileuploadfield-color           : #{neo(fileuploadfield-color)};
-        --fileuploadfield-border-color    : #{neo(fileuploadfield-border-color)};
-        --fileuploadfield-progress-color  : #{neo(fileuploadfield-progress-color)};
-        --fileuploadfield-error-color     : #{neo(fileuploadfield-error-color)};
-        --fileuploadfield-success-color   : #{neo(fileuploadfield-success-color)};
-        --fileuploadfield-hover-color     : #{neo(fileuploadfield-hover-color)};
-        --fileuploadfield-pressed-color   : #{neo(fileuploadfield-pressed-color)};
-        --fileuploadfield-focus-color     : #{neo(fileuploadfield-focus-color)};
+        --fileuploadfield-background-color         : #{neo(fileuploadfield-background-color)};
+        --fileuploadfield-color                    : #{neo(fileuploadfield-color)};
+        --fileuploadfield-border-color             : #{neo(fileuploadfield-border-color)};
+        --fileuploadfield-progress-color           : #{neo(fileuploadfield-progress-color)};
+        --fileuploadfield-error-color              : #{neo(fileuploadfield-error-color)};
+        --fileuploadfield-success-color            : #{neo(fileuploadfield-success-color)};
+        --fileuploadfield-hover-color              : #{neo(fileuploadfield-hover-color)};
+        --fileuploadfield-pressed-color            : #{neo(fileuploadfield-pressed-color)};
+        --fileuploadfield-downloadable-state-color : #{neo(fileuploadfield-pressed-color)};
+        --fileuploadfield-focus-color              : #{neo(fileuploadfield-focus-color)};
     }
 }

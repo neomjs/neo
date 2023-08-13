@@ -136,7 +136,7 @@ class FileUpload extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        const me = this;
 
         me.addDomListeners([
             { input : me.onInputValueChange, scope: me},
@@ -261,8 +261,9 @@ class FileUpload extends Base {
             if (response.success) {
                 me.documentId = response.documentId;
                 me.state = 'processing';
-                me.vdom.cn[1].cn[1].innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
-                me.checkDocumentStatus();
+
+                // Give the UI time to update before we gather another change signal.
+                setTimeout(() => me.checkDocumentStatus(), 100);
             }
             else {
                 me.state = 'upload-failed';
@@ -370,6 +371,9 @@ class FileUpload extends Base {
                 break;
             case 'upload-failed':
                 status.innerHTML = `Upload failed... (${Math.round(me.progress * 100)}%)`;
+                break;
+            case 'processing':
+                status.innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
                 break;
             case 'scan-failed':
                 status.innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
