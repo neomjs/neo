@@ -324,12 +324,14 @@ jsdocx.parse(options)
             namespace.classData.push(item);
 
             if (item.description) {
-                item.description = item.description.replace(/\n/g, "<br />");
+                // todo: we could do a markdown => html conversion here
+                // item.description = item.description.replace(/\n/g, "<br />");
             }
 
             item.params?.forEach(param => {
                 if (param.description) {
-                    param.description = param.description.replace(/\n/g, "<br />");
+                    // todo: we could do a markdown => html conversion here
+                    // param.description = param.description.replace(/\n/g, "<br />");
                 }
             });
 

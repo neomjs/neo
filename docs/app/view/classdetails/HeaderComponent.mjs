@@ -44,9 +44,23 @@ class HeaderComponent extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && setTimeout(() => {
+            Neo.main.addon.HighlightJS.syntaxHighlightInit();
+        }, 100);
+    }
+
+    /**
      *
      */
-    onConstructed() {
+    async onConstructed() {
         super.onConstructed();
 
         let me         = this,
@@ -60,20 +74,26 @@ class HeaderComponent extends Component {
         for (; i < len; i++) {
             if (record.tags[i].title === 'singleton') {
                 singleton = true;
-                break;
+                break
             }
         }
 
         me.vdom.cn[0].innerHTML = singleton ? (className + ' → Singleton') : className;
 
         if (record.description) {
+            let html = await Neo.main.addon.Markdown.markdownToHtml(record.description);
+
             me.vdom.cn.push({
-                cls      : ['neo-docs-header-description'],
-                innerHTML: record.description
-            });
+                cls: ['neo-docs-header-description'],
+                html
+            })
         }
 
         me.update();
+
+        setTimeout(() => {
+            Neo.main.addon.HighlightJS.syntaxHighlightInit();
+        }, 100)
     }
 }
 

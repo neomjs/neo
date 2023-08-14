@@ -1,11 +1,6 @@
 import Base from '../../form/field/Base.mjs';
 import NeoArray from '../../util/Array.mjs';
 
-/**
- * @class Neo.form.field.FileUpload
- * @extends Neo.form.field.Base
- */
-
 const
     sizeRE         = /^(\d+)(kb|mb|gb)?$/i,
     sizeMultiplier = {
@@ -16,8 +11,6 @@ const
     };
 
 /**
- * @class Neo.form.field.FileUpload
- * @extends Neo.form.field.Base
  * An accessible file uploading widget which automatically commences an upload as soon as
  * a file is selected using the UI.
  *
@@ -30,6 +23,7 @@ const
  *     "documentId" : 1
  * }
  * ```
+ *
  * And the following form for unsuccessful uploads:
  *
  * ```json
@@ -38,7 +32,7 @@ const
  *     "message" : "Why the upload was rejected"
  * }
  * ```
- * 
+ *
  * The name of the `documentId` property is configured in {@link #member-documentIdParameter}.
  * It defaults to `'documentId'`.
  *
@@ -48,7 +42,7 @@ const
  * If the upload is successful, then the {@link #member-documentStatusUrl} is polled until the
  * malware scan. The document id returned from the upload is passed in the parameter named
  * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
- * 
+ *
  * This service must return a JSON status response in the following if the scan is still progressing:
  *
  * ```json
@@ -82,7 +76,8 @@ const
  *     "status" : "not-downloadable"
  * }
  * ```
- *
+ * @class Neo.form.field.FileUpload
+ * @extends Neo.form.field.Base
  */
 class FileUpload extends Base {
     static config = {
@@ -97,12 +92,12 @@ class FileUpload extends Base {
          */
         ntype: 'file-upload-field',
         /**
-         * @member {String[]}} baseCls=['neo-file-upload-field']
+         * @member {String[]} baseCls=['neo-file-upload-field']
          * @protected
          */
         baseCls: ['neo-file-upload-field'],
         /**
-         * @member {Object}} _vdom
+         * @member {Object} _vdom
          */
         _vdom: {
             cn : [
@@ -167,7 +162,7 @@ class FileUpload extends Base {
 
         /**
          * The URL from which the file may be downloaded after it has finished its scan.
-         * 
+         *
          * The document id returned from the {@link #member-uploadUrl upload} is passed in the parameter named
          * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
          *

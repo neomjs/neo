@@ -195,18 +195,22 @@ class MembersList extends Base {
     /**
      *
      */
-    createItems() {
+    async createItems() {
         let me                 = this,
             filterMembersRegEx = new RegExp(me.filterMembersQuery || '', 'gi'),
             hasExamples        = false,
             targetClassName    = me.targetClassName,
             vdom               = me.vdom,
-            headerText, itemAttributes, itemConfig, path;
+            description, headerText, itemAttributes, itemConfig, path;
 
         vdom.cn = [];
         vdom = me.applyConfigsHeader(me.store, vdom);
 
-        me.store.items.forEach((item, index) => {
+        let start = performance.now();
+
+        // todo: an async loop is expensive.
+        // we could use Promise.all() instead prior to the loop to trigger calls to the markdown addon in parallel
+        for await (const [index, item] of me.store.items.entries()) {
             vdom = me.applyEventsHeader( item, index, me.store, vdom);
             vdom = me.applyMethodsHeader(item, index, me.store, vdom);
 
@@ -272,6 +276,8 @@ class MembersList extends Base {
                 path = path.substr(path.indexOf('/neo/')     + 5);
             }
 
+            description = await Neo.main.addon.Markdown.markdownToHtml(item.description);
+
             itemConfig = {
                 cls: ['neo-list-item'],
                 cn : [{
@@ -296,7 +302,7 @@ class MembersList extends Base {
                         innerHTML: 'Source: ' + path + '/' + item.meta.filename + ' (Line ' + item.meta.lineno + ')'
                     }]
                 }, {
-                    innerHTML: item.description
+                    innerHTML: description
                 }]
             };
 
@@ -325,13 +331,16 @@ class MembersList extends Base {
             }
 
             vdom.cn.push(itemConfig);
-        });
+        }
+
+        // todo: remove testing log once fixed
+        console.log('time for async loop:', performance.now() - start, `id:${me.id}`);
 
         me.update();
 
         hasExamples && setTimeout(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100);
+            Neo.main.addon.HighlightJS.syntaxHighlightInit()
+        }, 100)
     }
 
     /**
