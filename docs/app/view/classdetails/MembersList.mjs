@@ -329,9 +329,9 @@ class MembersList extends Base {
 
         me.update();
 
-        hasExamples && setTimeout(() => {
+        setTimeout(() => {
             Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100);
+        }, 100)
     }
 
     /**
