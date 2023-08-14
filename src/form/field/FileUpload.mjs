@@ -15,6 +15,75 @@ const
         gb   : 1000000000
     };
 
+/**
+ * @class Neo.form.field.FileUpload
+ * @extends Neo.form.field.Base
+ * An accessible file uploading widget which automatically commences an upload as soon as
+ * a file is selected using the UI.
+ *
+ * The URL to which the file must be uploaded is specified in the {@link #member-uploadUrl} property.
+ * This service must return a JSON status response in the following form for successful uploads:
+ *
+ * ```json
+ * {
+ *     "success" : true,
+ *     "documentId" : 1
+ * }
+ * ```
+ * And the following form for unsuccessful uploads:
+ *
+ * ```json
+ * {
+ *     "success" : false,
+ *     "message" : "Why the upload was rejected"
+ * }
+ * ```
+ * 
+ * The name of the `documentId` property is configured in {@link #member-documentIdParameter}.
+ * It defaults to `'documentId'`.
+ *
+ * The `documentId` is used when requesting the document malware scan status, and when requesting
+ * that the document be deleted, or downloaded.
+ *
+ * If the upload is successful, then the {@link #member-documentStatusUrl} is polled until the
+ * malware scan. The document id returned from the upload is passed in the parameter named
+ * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
+ * 
+ * This service must return a JSON status response in the following if the scan is still progressing:
+ *
+ * ```json
+ * {
+ *     "status" : "scanning"
+ * }
+ * ```
+ *
+ * And the following form is malware was detected:
+ *
+ * ```json
+ * {
+ *     "status" : "scan-failed"
+ * }
+ * ```
+ *
+ * After a successful scan, a document may or may not be downloadable.
+ *
+ * For a downloadable document, the response must be:
+ *
+ * ```json
+ * {
+ *     "status" : "downloadable"
+ * }
+ * ```
+ *
+ * For a non-downloadable document, the response must be:
+ *
+ * ```json
+ * {
+ *     "status" : "not-downloadable"
+ * }
+ * ```
+ *
+ */
 class FileUpload extends Base {
     static config = {
         /**
@@ -88,7 +157,19 @@ class FileUpload extends Base {
         uploadUrl_ : null,
 
         /**
+         * The name of the JSON property in which the document id is returned in the upload response
+         * JSON packet and the HTTP parameter which is used when requesting a malware scan and a document
+         * deletion.
+         *
+         * @member {String} downloadUrl
+         */
+        documentIdParameter : 'documentId',
+
+        /**
          * The URL from which the file may be downloaded after it has finished its scan.
+         * 
+         * The document id returned from the {@link #member-uploadUrl upload} is passed in the parameter named
+         * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
          *
          * @member {String} downloadUrl
          */
@@ -111,6 +192,18 @@ class FileUpload extends Base {
          * @member {String} documentStatusUrl
          */
         documentStatusUrl : null,
+
+        /**
+         * The URL of the file deletion service.
+         *
+         * This widget will use this service after a successful upload to determine its next
+         * state.
+         *
+         * If this service yields an HTTP 200 status, the deletion is taken to have been successful.
+         *
+         * @member {String} documentDeleteUrl
+         */
+        documentDeleteUrl : null,
 
         headers_ : {},
 
@@ -259,13 +352,22 @@ class FileUpload extends Base {
             const response = JSON.parse(xhr.response);
 
             if (response.success) {
-                me.documentId = response.documentId;
-                me.state = 'processing';
+                me.documentId = response[me.documentIdParameter];
 
-                // Start polling the server to see when the scan has a result;
-                me.checkDocumentStatus();
+                // The status check phase is optional.
+                // If no URL specified, the file is taken to be downloadable.
+                if (me.documentStatusUrl) {
+                    me.state = 'processing';
+
+                    // Start polling the server to see when the scan has a result;
+                    me.checkDocumentStatus();
+                }
+                else {
+                    me.state = 'downloadable';
+                }
             }
             else {
+                me.error = response.message;
                 me.state = 'upload-failed';
             }
         }
@@ -308,7 +410,7 @@ class FileUpload extends Base {
 
     async deleteDocument() {
         // We ask the server to delete using our this.documentId
-        const statusResponse = await fetch(`${this.documentStatusUrl}?delete&documentid=${this.documentId}`);
+        const statusResponse = await fetch(`${this.documentDeleteUrl}?${this.documentIdParameter}=${this.documentId}`);
 
         // Success
         if (String(statusResponse.status).slice(0, 1) === '2') {
@@ -324,7 +426,7 @@ class FileUpload extends Base {
         const me = this;
 
         if (this.state === 'processing') {
-            const statusResponse = await fetch(`${this.documentStatusUrl}?documentid=${this.documentId}`);
+            const statusResponse = await fetch(`${this.documentStatusUrl}?${me.documentIdParameter}=${this.documentId}`);
 
             // Success
             if (String(statusResponse.status).slice(0, 1) === '2') {
@@ -354,18 +456,13 @@ class FileUpload extends Base {
         const
             me      = this,
             {
-                cls,
                 vdom
             } = me,
             anchor  = vdom.cn[1].cn[0],
             status  = vdom.cn[1].cn[1];
 
-        NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
-        NeoArray.add(cls, 'neo-file-upload-state-' + value);
-
         switch (value) {
             case 'ready':
-                anchor.id = '';
                 anchor.tag = 'div';
                 anchor.href = '';
                 break;
@@ -377,11 +474,11 @@ class FileUpload extends Base {
                 break;
             case 'scan-failed':
                 status.innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
+                me.error = 'Please check the file and try again';
                 break;
             case 'downloadable':
-                anchor.id = '';
                 anchor.tag = 'a';
-                anchor.href = `${me.downloadUrl}?documentid=${me.documentId}`;
+                anchor.href = `${me.downloadUrl}?${me.documentIdParameter}=${me.documentId}`;
                 status.innerHTML = me.fileSize;
                 break;
             case 'not-downloadable':
@@ -389,6 +486,12 @@ class FileUpload extends Base {
         }
 
         me.update();
+
+        // Processing above may mutate cls
+        const { cls } = me;
+
+        NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
+        NeoArray.add(cls, 'neo-file-upload-state-' + value);
         me.cls = cls;
     }
 

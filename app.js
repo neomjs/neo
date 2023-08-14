@@ -24,6 +24,11 @@ app.get('/document-status', async(req, res) => {
     res.send('{"status":"scanning"}');
 });
 
+app.get('/document-delete', async(req, res) => {
+    res.set('Content-Type', 'application/json');
+    res.send('');
+});
+
 app.get('/document-status-fail', async(req, res) => {
     res.set('Content-Type', 'application/json');
     res.send('{"status":"scan-failed"}');
