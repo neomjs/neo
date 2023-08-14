@@ -50,7 +50,7 @@ class MembersList extends Base {
          * @member {Object} _vdom={cn: []}
          */
         _vdom:
-        {cn: []}
+            {cn: []}
     }
 
     /**
@@ -195,22 +195,18 @@ class MembersList extends Base {
     /**
      *
      */
-    async createItems() {
+    createItems() {
         let me                 = this,
             filterMembersRegEx = new RegExp(me.filterMembersQuery || '', 'gi'),
             hasExamples        = false,
             targetClassName    = me.targetClassName,
             vdom               = me.vdom,
-            description, headerText, itemAttributes, itemConfig, path;
+            headerText, itemAttributes, itemConfig, path;
 
         vdom.cn = [];
         vdom = me.applyConfigsHeader(me.store, vdom);
 
-        let start = performance.now();
-
-        // todo: an async loop is expensive.
-        // we could use Promise.all() instead prior to the loop to trigger calls to the markdown addon in parallel
-        for await (const [index, item] of me.store.items.entries()) {
+        me.store.items.forEach((item, index) => {
             vdom = me.applyEventsHeader( item, index, me.store, vdom);
             vdom = me.applyMethodsHeader(item, index, me.store, vdom);
 
@@ -276,8 +272,6 @@ class MembersList extends Base {
                 path = path.substr(path.indexOf('/neo/')     + 5);
             }
 
-            description = await Neo.main.addon.Markdown.markdownToHtml(item.description);
-
             itemConfig = {
                 cls: ['neo-list-item'],
                 cn : [{
@@ -302,7 +296,7 @@ class MembersList extends Base {
                         innerHTML: 'Source: ' + path + '/' + item.meta.filename + ' (Line ' + item.meta.lineno + ')'
                     }]
                 }, {
-                    innerHTML: description
+                    innerHTML: item.description
                 }]
             };
 
@@ -331,16 +325,13 @@ class MembersList extends Base {
             }
 
             vdom.cn.push(itemConfig);
-        }
-
-        // todo: remove testing log once fixed
-        console.log('time for async loop:', performance.now() - start, `id:${me.id}`);
+        });
 
         me.update();
 
         hasExamples && setTimeout(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit()
-        }, 100)
+            Neo.main.addon.HighlightJS.syntaxHighlightInit();
+        }, 100);
     }
 
     /**
@@ -421,7 +412,7 @@ class MembersList extends Base {
                         cn : [{
                             innerHTML: description.innerHTML
                         },
-                        MembersList.createParametersTable(nestedParams)]
+                            MembersList.createParametersTable(nestedParams)]
                     }
                 }
 
@@ -434,7 +425,7 @@ class MembersList extends Base {
                         tag      : 'td',
                         innerHTML: param.type ? MembersList.escapeHtml(param.type.names.join(' | ')) : ''
                     },
-                    description]
+                        description]
                 });
 
                 if (hasDefaultValues) {

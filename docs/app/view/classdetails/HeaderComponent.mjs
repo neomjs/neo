@@ -38,29 +38,15 @@ class HeaderComponent extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'span', cls: ['neo-docs-header-text']}
-        ]}
-    }
-
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        value && setTimeout(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100);
+            {cn: [
+                    {tag: 'span', cls: ['neo-docs-header-text']}
+                ]}
     }
 
     /**
      *
      */
-    async onConstructed() {
+    onConstructed() {
         super.onConstructed();
 
         let me         = this,
@@ -74,26 +60,20 @@ class HeaderComponent extends Component {
         for (; i < len; i++) {
             if (record.tags[i].title === 'singleton') {
                 singleton = true;
-                break
+                break;
             }
         }
 
         me.vdom.cn[0].innerHTML = singleton ? (className + ' → Singleton') : className;
 
         if (record.description) {
-            let html = await Neo.main.addon.Markdown.markdownToHtml(record.description);
-
             me.vdom.cn.push({
-                cls: ['neo-docs-header-description'],
-                html
-            })
+                cls      : ['neo-docs-header-description'],
+                innerHTML: record.description
+            });
         }
 
         me.update();
-
-        setTimeout(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100)
     }
 }
 

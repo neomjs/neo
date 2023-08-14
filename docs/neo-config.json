@@ -3,5 +3,5 @@
     "basePath"        : "../",
     "environment"     : "development",
     "mainPath"        : "../src/Main.mjs",
-    "mainThreadAddons": ["DragDrop", "HighlightJS", "Markdown", "Stylesheet"]
+    "mainThreadAddons": ["DragDrop", "HighlightJS", "Stylesheet"]
 }
