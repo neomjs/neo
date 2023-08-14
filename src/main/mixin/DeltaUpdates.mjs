@@ -16,11 +16,32 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * @param {HTMLElement} node
+     * @param {String} nodeName
+     */
+    du_changeNodeName(node, nodeName) {
+        let attributes = node.attributes,
+            clone      = document.createElement(nodeName),
+            i          = 0,
+            len        = attributes.length,
+            attribute;
+
+        for (; i < len; i++) {
+            attribute = attributes.item(i);
+            clone.setAttribute(attribute.nodeName, attribute.nodeValue)
+        }
+
+        clone.innerHTML= node.innerHTML;
+
+        node.parentNode.replaceChild(clone, node)
+    }
+
+    /**
      * @param {Object} delta
      * @param {String} delta.id
      */
     du_focusNode(delta) {
-        this.getElement(delta.id).focus();
+        this.getElement(delta.id).focus()
     }
 
     /**
@@ -55,10 +76,10 @@ class DeltaUpdates extends Base {
                 for (; i < countChildren; i++) {
                     if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
                         if (i < realIndex) {
-                            realIndex++;
+                            realIndex++
                         }
 
-                        hasComments = true;
+                        hasComments = true
                     }
                 }
             }
@@ -68,23 +89,23 @@ class DeltaUpdates extends Base {
 
                 if (index > 0 && index >= countChildren) {
                     parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
-                    return;
+                    return
                 }
 
                 if (countChildren > 0 && countChildren > index) {
-                    parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
+                    parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML)
                 } else if (countChildren > 0) {
-                    parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML);
+                    parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML)
                 } else {
-                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML)
                 }
             } else {
                 node = this.htmlStringToElement(delta.outerHTML);
 
                 if (countChildren > 0 && countChildren > realIndex) {
-                    parentNode.insertBefore(node, parentNode.childNodes[realIndex]);
+                    parentNode.insertBefore(node, parentNode.childNodes[realIndex])
                 } else {
-                    parentNode.appendChild(node);
+                    parentNode.appendChild(node)
                 }
             }
         }
@@ -102,11 +123,11 @@ class DeltaUpdates extends Base {
             parentNode = this.getElement(delta.parentId);
 
         if (index >= parentNode.children.length) {
-            parentNode.appendChild(node);
+            parentNode.appendChild(node)
         } else {
             //index++; // todo?: increase the index in case same parent, oldIndex < newIndex, direct swap
             if (node && parentNode.children[index].id !== delta.id) {
-                parentNode.insertBefore(node, parentNode.children[index]);
+                parentNode.insertBefore(node, parentNode.children[index])
             }
         }
     }
@@ -124,12 +145,10 @@ class DeltaUpdates extends Base {
             node = this.getElementOrBody(delta.parentId);
 
             if (node) {
-                startTag  = `<!-- ${delta.id} -->`;
-                reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
+                startTag = `<!-- ${delta.id} -->`;
+                reg      = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
                 node.innerHTML = node.innerHTML.replace(reg, '')
-            } else {
-                // console.warn('du_removeNode: dom node not found for id', delta.id);
             }
         } else {
             node.remove()
@@ -146,7 +165,7 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElement(delta.parentId);
 
-        node.replaceChild(me.getElement(delta.toId), me.getElement(delta.fromId));
+        node.replaceChild(me.getElement(delta.toId), me.getElement(delta.fromId))
     }
 
     /**
@@ -158,7 +177,7 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElement(delta.id);
 
-        node.textContent = delta.value;
+        node.textContent = delta.value
     }
 
     /**
@@ -171,47 +190,51 @@ class DeltaUpdates extends Base {
      * @param {Object} [delta.style]
      */
     du_updateNode(delta) {
-        let node = this.getElementOrBody(delta.id);
+        let me   = this,
+            node = me.getElementOrBody(delta.id);
 
         if (!node) {
-            console.warn('du_updateNode: node not found for id', delta.id);
+            console.warn('du_updateNode: node not found for id', delta.id)
         } else {
             Object.entries(delta).forEach(([prop, value]) => {
                 switch(prop) {
                     case 'attributes':
                         Object.entries(value).forEach(([key, val]) => {
-                            if (this.voidAttributes.includes(key)) {
-                                node[key] = val === 'true'; // vnode attribute values get converted into strings
+                            if (me.voidAttributes.includes(key)) {
+                                node[key] = val === 'true' // vnode attribute values get converted into strings
                             } else if (val === null || val === '') {
                                 if (key === 'value') {
-                                    node[key] = ''; // input fields => pseudo attribute can not be removed
+                                    node[key] = '' // input fields => pseudo attribute can not be removed
                                 } else {
-                                    node.removeAttribute(key);
+                                    node.removeAttribute(key)
                                 }
                             } else if (key === 'id') {
-                                node[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = val;
+                                node[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = val
                             } else if (key === 'spellcheck' && val === 'false') {
                                 // see https://github.com/neomjs/neo/issues/1922
-                                node[key] = false;
+                                node[key] = false
                             } else {
                                 if (key === 'value') {
-                                    node[key] = val;
+                                    node[key] = val
                                 } else {
-                                    node.setAttribute(key, val);
+                                    node.setAttribute(key, val)
                                 }
                             }
                         });
-                        break;
+                        break
                     case 'cls':
                         node.classList.add(...value.add || []);
                         node.classList.remove(...value.remove || []);
-                        break;
+                        break
                     case 'innerHTML':
                         node.innerHTML = value || '';
-                        break;
+                        break
+                    case 'nodeName':
+                        me.du_changeNodeName(node, value);
+                        break
                     case 'outerHTML':
                         node.outerHTML = value || '';
-                        break;
+                        break
                     case 'style':
                         if (Neo.isObject(value)) {
                             Object.entries(value).forEach(([key, val]) => {
@@ -219,15 +242,15 @@ class DeltaUpdates extends Base {
 
                                 if (Neo.isString(val) && val.includes('!important')) {
                                     val = val.replace('!important', '').trim();
-                                    important = 'important';
+                                    important = 'important'
                                 }
 
-                                node.style.setProperty(Neo.decamel(key), val, important);
-                            });
+                                node.style.setProperty(Neo.decamel(key), val, important)
+                            })
                         }
-                        break;
+                        break
                 }
-            });
+            })
         }
     }
 
@@ -244,7 +267,7 @@ class DeltaUpdates extends Base {
             startTag  = `<!-- ${delta.id} -->`,
             reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
-        node.innerHTML = innerHTML.replace(reg, delta.value);
+        node.innerHTML = innerHTML.replace(reg, delta.value)
     }
 
     /**
@@ -254,7 +277,7 @@ class DeltaUpdates extends Base {
     htmlStringToElement(html) {
         const template = document.createElement('template');
         template.innerHTML = html;
-        return template.content;
+        return template.content
     }
 
     /**
@@ -267,7 +290,7 @@ class DeltaUpdates extends Base {
         let me     = this,
             deltas = data.deltas,
             i      = 0,
-            len;
+            len, map;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
@@ -275,14 +298,14 @@ class DeltaUpdates extends Base {
         if (Neo.config.logDeltaUpdates && len > 0) {
             me.countDeltas += len;
             me.countUpdates++;
-            console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true));
+            console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true))
         }
 
         if (Neo.config.renderCountDeltas && len > 0) {
-            me.countDeltasPer250ms += len;
+            me.countDeltasPer250ms += len
         }
 
-        const map = {
+        map = {
             focusNode     : me.du_focusNode,
             insertNode    : me.du_insertNode,
             moveNode      : me.du_moveNode,
@@ -294,14 +317,14 @@ class DeltaUpdates extends Base {
         };
 
         for (; i < len; i++) {
-            (map[deltas[i].action] || map['default']).call(me, deltas[i]);
+            (map[deltas[i].action] || map['default']).call(me, deltas[i])
         }
 
         Neo.worker.Manager.sendMessage(data.origin || 'app', {
             action : 'reply',
             replyId: data.id,
             success: true
-        });
+        })
     }
 }
 

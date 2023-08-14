@@ -121,18 +121,21 @@ class Table extends Container {
         if (oldValue !== undefined) {
             let me             = this,
                 selectionModel = me.selectionModel,
+                view           = me.getView(),
                 id;
 
-            if (value) {
-                id = `${me.getView().id}__tr__${value}`; // the store can not be loaded on the first selection
+            if (view) {
+                if (value) {
+                    id = `${view.id}__tr__${value}`; // the store can not be loaded on the first selection
 
-                if (!selectionModel.isSelected(id)) {
-                    selectionModel.select(id);
+                    if (!selectionModel.isSelected(id)) {
+                        selectionModel.select(id);
 
-                    me.mounted && Neo.main.DomAccess.scrollToTableRow({id: id});
+                        me.mounted && Neo.main.DomAccess.scrollToTableRow({id: id});
+                    }
+                } else {
+                    selectionModel.deselectAll();
                 }
-            } else {
-                selectionModel.deselectAll();
             }
         }
     }
