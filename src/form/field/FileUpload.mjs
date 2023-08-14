@@ -262,8 +262,8 @@ class FileUpload extends Base {
                 me.documentId = response.documentId;
                 me.state = 'processing';
 
-                // Give the UI time to update before we gather another change signal.
-                setTimeout(() => me.checkDocumentStatus(), 100);
+                // Start polling the server to see when the scan has a result;
+                me.checkDocumentStatus();
             }
             else {
                 me.state = 'upload-failed';
