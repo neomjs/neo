@@ -30,6 +30,7 @@ const globalDomEvents = [
     'mouseenter',
     'mouseleave',
     'mouseup',
+    'scroll',
     'wheel'
 ];
 
