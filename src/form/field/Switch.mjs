@@ -17,24 +17,24 @@ class Switch extends CheckBox {
          */
         ntype: 'switchfield',
         /**
-         * @member {String[]} baseCls=['neo-checkboxfield']
+         * @member {String[]} baseCls=['neo-switchfield']
          */
         baseCls: ['neo-switchfield'],
         /**
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                {tag: 'label', cls: ['neo-checkbox-label'], cn: [
-                    {tag: 'span', cls: []},
-                    {tag: 'input', cls: ['neo-checkbox-input']},
-                    {tag: 'i', cls: ['neo-checkbox-icon'], removeDom: true},
-                    {tag: 'span', cls: ['neo-checkbox-value-label']}
-                ]},
-                {cls: ['neo-error-wrapper'], removeDom: true, cn: [
-                    {cls: ['neo-error']}
-                ]}
+        {cn: [
+            {tag: 'label', cls: ['neo-checkbox-label'], cn: [
+                {tag: 'span', cls: []},
+                {tag: 'input', cls: ['neo-checkbox-input']},
+                {tag: 'i', cls: ['neo-checkbox-icon'], removeDom: true},
+                {tag: 'span', cls: ['neo-checkbox-value-label']}
+            ]},
+            {cls: ['neo-error-wrapper'], removeDom: true, cn: [
+                {cls: ['neo-error']}
             ]}
+        ]}
     }
 }
 

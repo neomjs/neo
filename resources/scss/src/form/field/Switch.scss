@@ -1,135 +1,105 @@
-.switchfield {
-  @keyframes switch-on-position {
-    0% {
-      left: 0;
-      right: 50%
-    }
-    25% {
-      left: 0;
-      right: 37.5%
-    }
-    100% {
-      left: 50%;
-      right: 0
-    }
-  }
-
-  @keyframes switch-off-position {
-    0% {
-      left: 50%;
-      right: 0
-    }
-    25% {
-      left: 37.5%;
-      right: 0
-    }
-    100% {
-      left: 0%;
-      right: 50%
-    }
-  }
-
-  @keyframes switch-on-transform {
-    0% {
-      transform: translate(0) scaleX(1)
-    }
-    25% {
-      transform: translate(0) scaleX(1.33)
-    }
-    100% {
-      transform: translate(100%) scaleX(1)
-    }
-  }
-
-  @keyframes switch-off-transform {
-    0% {
-      transform: translate(100%) scaleX(1)
-    }
-    25% {
-      transform: translate(100%) scaleX(1.33)
-    }
-    100% {
-      transform: translate(0) scaleX(1)
-    }
-  }
-
-  input[type="checkbox"] {
-    position: relative;
-    display: inline-block;
-    -webkit-appearance: none;
-    -webkit-tap-highlight-color: transparent;
-    height: 1.5em;
-    width: 3em;
-    font-size: 1.5em;
-
-    border-radius: 1.25em;
-    background-color: v(switchfield-background-color);
-    border-color: transparent;
-    background-clip: padding-box;
-    color: v(switchfield-inactive-color);
-    vertical-align: middle;
-    transition: all 0.25s linear 0.25s;
-
-
-    &::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      right: 50%;
-      background-color: v(switchfield-thumb-color);
-      border-radius: 100%;
-      border: 0.125em solid transparent;
-      background-clip: padding-box;
-      z-index: 2;
-      transform-origin: right center;
+.neo-switchfield {
+    @keyframes switch-on-position {
+          0% {left:  0;  right: 50%}
+         25% {left:  0;  right: 37.5%}
+        100% {left: 50%; right:  0}
     }
 
-    &::after {
-      position: absolute;
-      left: 0.5em;
-      top: 0.15em;
-      line-height: 1.5;
-      font-family: "Font Awesome 6 Free";
-      font-weight: 900;
-      content: "\f00c\f00d";
-      letter-spacing: 1em;
-      z-index: 1;
-      font-size: 1.25rem;
+    @keyframes switch-off-position {
+          0% {left: 50%;   right: 0}
+         25% {left: 37.5%; right: 0}
+        100% {left:  0;    right: 50%}
     }
 
-    &:focus {
-      color: v(switchfield-active-color);
-      border-color: transparent;
-      background-color: v(switchfield-background-color);
-      outline: none;
+    @keyframes switch-on-transform {
+          0% {transform: translate(0)    scaleX(1)}
+         25% {transform: translate(0)    scaleX(1.33)}
+        100% {transform: translate(100%) scaleX(1)}
     }
 
-    &:checked {
-      color: v(switchfield-inactive-color);
-      background-color: v(switchfield-checked);
-      border-color: transparent;
-
-      &::before {
-        transform-origin: left center;
-      }
+    @keyframes switch-off-transform {
+          0% {transform: translate(100%) scaleX(1)}
+         25% {transform: translate(100%) scaleX(1.33)}
+        100% {transform: translate(0)    scaleX(1)}
     }
-  }
 
-  input[type="checkbox"]::before {
-    animation: switch-off-position 0.25s ease-out forwards;
-  }
+    input[type="checkbox"] {
+        background-clip : padding-box;
+        background-color: v(switchfield-background-color);
+        border-color    : transparent;
+        border-radius   : 1.25em;
+        color           : v(switchfield-inactive-color);
+        display         : inline-block;
+        font-size       : 1.5em;
+        height          : 1.5em;
+        position        : relative;
+        transition      : transform 0.25s linear 0.25s;
+        vertical-align  : middle;
+        width           : 3em;
 
-  input[type="checkbox"]:checked::before {
-    animation: switch-on-position 0.25s ease-out forwards;
-  }
+        -webkit-appearance         : none;
+        -webkit-tap-highlight-color: transparent;
 
-  input[type="checkbox"]::before {
-    animation: switch-off-transform 0.25s ease-out forwards;
-  }
 
-  input[type="checkbox"]:checked::before {
-    animation: switch-on-transform 0.25s ease-out forwards;
-  }
+        &::before {
+            background-clip : padding-box;
+            background-color: v(switchfield-thumb-color);
+            border          : 0.125em solid transparent;
+            border-radius   : 100%;
+            bottom          : 0;
+            content         : "";
+            left            : 0;
+            position        : absolute;
+            right           : 50%;
+            top             : 0;
+            transform-origin: right center;
+            z-index         : 2;
+        }
+
+        &::after {
+            content       : "\f00c\f00d";
+            font-family   : "Font Awesome 6 Free";
+            font-size     : 1.25rem;
+            font-weight   : 900;
+            left          : 0.5em;
+            letter-spacing: 1em;
+            line-height   : 1.5;
+            position      : absolute;
+            top           : 0.15em;
+            z-index       : 1;
+        }
+
+        &:focus {
+            background-color: v(switchfield-background-color);
+            border-color    : transparent;
+            color           : v(switchfield-active-color);
+            outline         : none;
+        }
+
+        &:checked {
+            background-color: v(switchfield-checked);
+            border-color    : transparent;
+            color           : v(switchfield-inactive-color);
+
+            &::before {
+                transform-origin: left center;
+            }
+        }
+    }
+
+    input[type="checkbox"]::before {
+        animation: switch-off-position 0.25s ease-out forwards;
+    }
+
+    input[type="checkbox"]:checked::before {
+        animation: switch-on-position 0.25s ease-out forwards;
+    }
+
+    input[type="checkbox"]::before {
+        animation: switch-off-transform 0.25s ease-out forwards;
+    }
+
+    input[type="checkbox"]:checked::before {
+        animation: switch-on-transform 0.25s ease-out forwards;
+    }
 }

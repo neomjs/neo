@@ -6,6 +6,7 @@ import ExamplesTreeList        from './ExamplesTreeList.mjs';
 import HeaderContainer         from './HeaderContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import SourceViewComponent     from './classdetails/SourceViewComponent.mjs';
+import Splitter                from '../../../src/component/Splitter.mjs';
 import TutorialComponent       from './classdetails/TutorialComponent.mjs';
 import TutorialsTreeList       from './TutorialsTreeList.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -85,6 +86,15 @@ class MainContainer extends Viewport {
                         text   : 'Examples'
                     }
                 }]
+            }, {
+                module      : Splitter,
+                resizeTarget: 'previous',
+                size        : 5,
+
+                style: {
+                    borderTop: 'var(--tab-strip-height) solid var(--tab-strip-background-color)',
+                    marginTop: 'var(--tab-button-height)'
+                }
             }, {
                 module   : ContentTabContainer,
                 flex     : 1,
