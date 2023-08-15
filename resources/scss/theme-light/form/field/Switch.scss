@@ -8,10 +8,10 @@ $neoMap: map-merge($neoMap, (
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-switchfield
-        --neo-switchfield-checked                   : #{neo(switchfield-checked)};
-        --neo-switchfield-background-color          : #{neo(switchfield-background-color)};
-        --neo-switchfield-inactive-color            : #{neo(switchfield-inactive-color)};
-        --neo-switchfield-active-color              : #{neo(switchfield-active-color)};
-        --neo-switchfield-thumb-color-active-color  : #{neo(switchfield-thumb-color-active-color)};
+        --switchfield-checked                   : #{neo(switchfield-checked)};
+        --switchfield-background-color          : #{neo(switchfield-background-color)};
+        --switchfield-inactive-color            : #{neo(switchfield-inactive-color)};
+        --switchfield-active-color              : #{neo(switchfield-active-color)};
+        --switchfield-thumb-color               : #{neo(switchfield-thumb-color)};
     }
 }
