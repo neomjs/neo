@@ -112,6 +112,9 @@ class MainContainer extends Container {
                     record: '@config:structureData'
                 }]
             }, {
+                module: Splitter,
+                size  : 5
+            }, {
                 module       : HierarchyTreeList,
                 flex         : '0 0 auto',
                 minWidth     : 330,
