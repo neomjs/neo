@@ -77,7 +77,7 @@ class Splitter extends Component {
         me.addDomListeners([
             {'drag:end'  : me.onDragEnd,   scope: me},
             {'drag:start': me.onDragStart, scope: me}
-        ]);
+        ])
     }
 
     /**
@@ -87,20 +87,24 @@ class Splitter extends Component {
      * @protected
      */
     afterSetDirection(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me     = this,
+            cls    = me.cls,
+            height = value === 'vertical' ? null : me.size,
+            width  = value !== 'vertical' ? null : me.size;
 
         NeoArray.add(cls, `neo-${value}`);
 
         if (oldValue) {
-            NeoArray.remove(cls, `neo-${oldValue}`);
+            NeoArray.remove(cls, `neo-${oldValue}`)
         }
 
         me.set({
             cls,
-            height: value === 'vertical' ? null : me.size,
-            width : value !== 'vertical' ? null : me.size
-        });
+            height,
+            minHeight: height,
+            minWidth : width,
+            width
+        })
     }
 
     /**
@@ -110,7 +114,7 @@ class Splitter extends Component {
      * @protected
      */
     afterSetSize(value, oldValue) {
-        this[this.direction === 'vertical' ? 'width' : 'height'] = value;
+        this[this.direction === 'vertical' ? 'width' : 'height'] = value
     }
 
     /**
@@ -121,7 +125,7 @@ class Splitter extends Component {
      * @returns {String}
      */
     beforeSetDirection(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'direction');
+        return this.beforeSetEnumValue(value, oldValue, 'direction')
     }
 
     /**
@@ -132,7 +136,7 @@ class Splitter extends Component {
      * @returns {String}
      */
     beforeSetResizeTarget(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'resizeTarget');
+        return this.beforeSetEnumValue(value, oldValue, 'resizeTarget')
     }
 
     /**
@@ -166,21 +170,21 @@ class Splitter extends Component {
                 newSize = data.clientX - data.offsetX - size;
 
                 if (resizeNext) {
-                    newSize = parentRect.width - newSize;
+                    newSize = parentRect.width - newSize
                 } else {
-                    newSize += size;
+                    newSize += size
                 }
 
                 newSize = Math.min(Math.max(newSize, 0), parentRect.width - size);
 
-                style.width = `${newSize}px`;
+                style.width = `${newSize}px`
             } else {
                 newSize = data.clientY - data.offsetY - size;
 
                 if (resizeNext) {
-                    newSize = parentRect.height - newSize;
+                    newSize = parentRect.height - newSize
                 } else {
-                    newSize += size;
+                    newSize += size
                 }
 
                 newSize = Math.min(Math.max(newSize, 0), parentRect.height - size);
@@ -188,8 +192,8 @@ class Splitter extends Component {
                 style.height = `${newSize}px`;
             }
 
-            sibling.style = style;
-        });
+            sibling.style = style
+        })
     }
 
     /**
@@ -214,20 +218,20 @@ class Splitter extends Component {
                 owner              : me,
                 useProxyWrapper    : false,
                 ...me.dragZoneConfig
-            });
+            })
         } else {
             me.dragZone.set({
                 bodyCursorStyle: vertical ? 'ew-resize !important' : 'ns-resize !important',
                 moveHorizontal : vertical,
                 moveVertical   : !vertical
-            });
+            })
         }
 
         me.dragZone.dragStart(data);
 
         style.opacity = 0.5;
 
-        me.style = style;
+        me.style = style
     }
 }
 
