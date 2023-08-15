@@ -17,6 +17,7 @@ const globalDomEvents = [
     {name: 'mouseenter',  handler: 'onMouseEnter', options: {capture: true}},
     {name: 'mouseleave',  handler: 'onMouseLeave', options: {capture: true}},
     {name: 'mouseup',     handler: 'onMouseUp'},
+    {name: 'scroll',      handler: 'onScroll',     options: {capture: true}},
     {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
 ];
 
@@ -570,6 +571,21 @@ class DomEvents extends Base {
      */
     onMouseUp(event) {
         this.sendMessageToApp(this.getMouseEventData(event))
+    }
+
+    /**
+     * @param {Event} event
+     */
+    onScroll(event) {
+        let target = event.target;
+
+        this.sendMessageToApp({
+            ...this.getEventData(event),
+            clientHeight: target.clientHeight,
+            clientWidth : target.clientWidth,
+            scrollLeft  : target.scrollLeft,
+            scrollTop   : target.scrollTop
+        })
     }
 
     /**
