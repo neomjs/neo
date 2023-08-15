@@ -6,12 +6,12 @@ import SwitchField           from '../../../../src/form/field/Switch.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
- * @class Neo.examples.form.field.checkbox.MainContainer
+ * @class Neo.examples.form.field.switch.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.form.field.checkbox.MainContainer',
+        className           : 'Neo.examples.form.field.switch.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}
