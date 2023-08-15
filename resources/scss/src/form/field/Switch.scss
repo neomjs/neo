@@ -68,7 +68,7 @@
     background-clip: padding-box;
     color: v(switchfield-inactive-color);
     vertical-align: middle;
-    transition: all 0.25s linear 0.25s;
+    transition: transform 0.25s linear 0.25s;
 
 
     &::before {
