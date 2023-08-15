@@ -43,10 +43,11 @@ class MainContainer extends Container {
          * @member {Array} items=[//...]]
          */
         items: [{
-            ntype : 'container',
-            _cls  : ['neo-docs-classdetails-headercontainer'],
-            flex  : '1 0 auto',
-            layout: {ntype: 'hbox', align: 'stretch'},
+            ntype    : 'container',
+            cls      : ['neo-docs-classdetails-headercontainer'],
+            flex     : '1 1 auto',
+            layout   : {ntype: 'hbox', align: 'stretch'},
+            minHeight: 200,
 
             items: [{
                 module : Panel,
