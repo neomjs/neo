@@ -167,7 +167,7 @@ class Splitter extends Component {
             style.flex = 'none';
 
             if (me.direction === 'vertical') {
-                newSize = data.clientX - data.offsetX - size;
+                newSize = data.clientX - data.offsetX - size - parentRect.left;
 
                 if (resizeNext) {
                     newSize = parentRect.width - newSize
@@ -179,7 +179,7 @@ class Splitter extends Component {
 
                 style.width = `${newSize}px`
             } else {
-                newSize = data.clientY - data.offsetY - size;
+                newSize = data.clientY - data.offsetY - size - parentRect.top;
 
                 if (resizeNext) {
                     newSize = parentRect.height - newSize
