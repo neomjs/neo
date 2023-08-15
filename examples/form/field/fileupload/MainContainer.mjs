@@ -1,9 +1,7 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import FileUploadField       from '../../../../src/form/field/FileUpload.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import Panel                  from '../../../../src/container/Panel.mjs';
 
 /**
  * @class Neo.examples.form.field.text.MainContainer
@@ -24,19 +22,79 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 50,
+            maxValue : 350,
+            minValue : 200,
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
-        }]
+        }];
     }
 
     createExampleComponent() {
-        return Neo.create(FileUploadField, {
-            height:  50,
-            width : 200
-        })
+        return Neo.create(Panel, {
+            style : 'padding:1em',
+            items : [{
+                module            : FileUploadField,
+                id                : 'my-downloadable-test',
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-downloadable',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-not-downloadable-test',
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-upload-fail-test',
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test-fail',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-scan-fail-test',
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-fail',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }]
+        });
     }
 }
 

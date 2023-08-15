@@ -1,4 +1,250 @@
 .neo-file-upload-field {
-    background-color: v(fileuploadfield-background-color);
-    color           : v(fileuploadfield-color);
+    background-color : v(fileuploadfield-background-color);
+    border-color     : v(fileuploadfield-border-color);
+    color            : v(fileuploadfield-color);
+}
+
+.neo-file-upload-field {
+    --upload-icon-codepoint   : "\f062";
+    --cancel-icon-codepoint   : "\f00d";
+    --delete-icon-codepoint   : "\f014";
+    --success-icon-codepoint  : "\f00c";
+    --download-icon-codepoint : "\f019";
+
+    min-height    : 3.5rem;
+    position      : relative;
+    display       : flex;
+    align-items   : center;
+    padding       : 0.5rem;
+    gap           : 0.5rem;
+    border        : 1px solid var(--fileuploadfield-border-color);
+    border-radius : 2px;
+
+    // Space for any error message
+    margin-bottom : 2.5rem;
+
+    &:focus-within {
+        &::after {
+            content        : "";
+            pointer-events : none;
+            position       : absolute;
+            top            : -2px;
+            right          : -2px;
+            bottom         : -2px;
+            left           : -2px;
+            border         : 1px solid var(--fileuploadfield-focus-color);
+            border-radius  : 3px;
+        }
+    }
+
+    // Icons
+    i, button {
+        font-style      : normal;
+        font-size       : 18px;
+        flex            : 0 0 2rem;
+        height          : 2rem;
+        border-radius   : 50%;
+        font-family     : var(--fa-style-family,"Font Awesome 6 Free");
+        display         : flex;
+        align-items     : center;
+        justify-content : center;
+        border          : 0 none;
+        background      : transparent;
+        color           : inherit;
+
+        &::after {
+            font-weight      : var(--fa-style, 900);
+            display          : flex;
+            align-items      : center;
+            justify-content  : center;
+            aspect-ratio     : 1;
+            border-radius    : 50%;
+        }
+    }
+
+    // Cursor appearance is invitation to click
+    .neo-file-upload-action-button {
+        cursor : pointer;
+        &:hover {
+            background-color: var(--fileuploadfield-hover-color);
+        }
+        &:active {
+            background-color: var(--fileuploadfield-pressed-color);
+        }
+    }
+
+    .neo-file-upload-filename {
+        font-weight   : bold;
+    }
+
+    .neo-file-upload-filename, .neo-file-upload-state {
+        white-space   : nowrap;
+        overflow      : hidden;
+        text-overflow : ellipsis;
+        color         : inherit; // For when it becomes a link
+    }
+
+    // The file input is only visible in the ready state
+    &:not(.neo-file-upload-state-ready) {
+        input[type="file"] {
+            display : none;
+        }
+    }
+
+    &.neo-invalid {
+        .neo-file-upload-error-message {
+            display : initial;
+        }
+    }
+}
+
+// During upload, it's a progress circle.
+// Of the upload fails, the process circle stops but remains visible
+.neo-file-upload-state-uploading, .neo-file-upload-state-upload-failed {
+    .neo-file-upload-state-icon {
+        background-image : conic-gradient(
+            var(--fileuploadfield-progress-color) 0 var(--upload-progress),
+            transparent var(--upload-progress) 1turn
+        );
+
+        &::after {
+            background-color : var(--fileuploadfield-background-color);
+            content          : var(--upload-icon-codepoint);
+            flex             : 0 0 calc(100% - 6px);
+        }
+    }
+}
+
+.neo-file-upload-state-processing {
+    .neo-file-upload-state-icon {
+        background-image : conic-gradient(
+            from 0deg, transparent 0deg,
+            var(--fileuploadfield-progress-color) 180deg,
+            transparent 180deg
+        );
+        animation: spinner-rotation 3s linear infinite;
+
+        &::after {
+            content : "";
+            flex    : 0 0 calc(100% - 6px);
+        }
+    }
+}
+
+// While uploading and scanning, we can abort the whole upload/scan process
+.neo-file-upload-state-uploading, .neo-file-upload-state-processing {
+    .neo-file-upload-action-button {
+        &::after {
+            content : var(--cancel-icon-codepoint);
+        }
+    }
+}
+
+// If the upload or scan failed, we show an error UI and the action button cancels
+.neo-file-upload-state-upload-failed, .neo-file-upload-state-scan-failed {
+    --fileuploadfield-progress-color : var(--fileuploadfield-error-color);
+    border-color                     : var(--fileuploadfield-error-color);
+
+    .neo-file-upload-state-icon, .neo-file-upload-action-button  {
+        &::after {
+            content : var(--cancel-icon-codepoint );
+        }
+    }
+
+    .neo-file-upload-state-icon, .neo-file-upload-state {
+        color : var(--fileuploadfield-error-color);
+    }
+}
+
+.neo-file-upload-state-scan-failed {
+    .neo-file-upload-state-icon {
+        border : 3px solid var(--fileuploadfield-error-color);
+    }
+}
+
+.neo-file-upload-state-not-downloadable {
+    .neo-file-upload-state-icon {
+        color  : var(--fileuploadfield-success-color);
+        border : 3px solid var(--fileuploadfield-success-color);
+
+        &::after {
+            content : var(--success-icon-codepoint);
+        }
+    }
+    .neo-file-upload-action-button {
+        &::after {
+            content : var(--delete-icon-codepoint);
+        }
+    }
+}
+
+.neo-file-upload-state-downloadable {
+    &:has(.neo-file-upload-filename:hover) {
+        background-color: var(--fileuploadfield-hover-color);
+    }
+    &:has(.neo-file-upload-filename:active) {
+        background-color: var(--fileuploadfield-pressed-color);
+    }
+    .neo-file-upload-state-icon {
+        background-color : var(--fileuploadfield-downloadable-state-color);
+        border           : 0 none;
+
+        &::after {
+            content : var(--download-icon-codepoint);
+            background-color: transparent;
+        }
+    }
+    .neo-file-upload-action-button {
+        &::after {
+            content : var(--delete-icon-codepoint);
+        }
+    }
+}
+
+.neo-file-upload-state-ready {
+    // Only the input field is visible when in ready state
+    // It takes up the whole component, and is the only interactive item
+    :not(input[type="file"]) {
+        display : none;
+    }
+    input::file-selector-button {
+        position         : absolute;
+        border           : 0 none;
+        margin           : 0;
+        top              : 0;
+        left             : 0;
+        right            : 0;
+        bottom           : 0;
+        background-color : var(--fileuploadfield-background-color);
+        color            : var(--fileuploadfield-color);
+        cursor           : pointer;
+    }
+}
+
+.neo-file-upload-body {
+    flex        : 1 1 0%;
+    display     : flex;
+    flex-flow   : column nowrap;
+    line-height : 1;
+    gap         : 0.2rem;
+    overflow    : hidden;
+    align-items : flex-start;}
+
+.neo-file-upload-error-message {
+    display            : none;
+    position           : absolute;
+    inset-inline-start : 0;
+    white-space        : nowrap;
+    top                : 100%;
+    padding            : 0.5rem;
+    color              : var(--fileuploadfield-error-color);
+}
+
+@keyframes spinner-rotation {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
 }
