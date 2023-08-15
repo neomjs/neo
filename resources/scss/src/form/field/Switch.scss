@@ -102,4 +102,16 @@
     input[type="checkbox"]:checked::before {
         animation: switch-on-transform 0.25s ease-out forwards;
     }
+
+    .neo-error {
+        color      : v(textfield-border-color-invalid);
+        font-size  : 11px;
+        margin-top : .3em;
+        white-space: break-spaces;
+        word-break : break-word;
+
+        &.neo-absolute {
+            position: absolute;
+        }
+    }
 }
