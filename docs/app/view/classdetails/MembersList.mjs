@@ -50,7 +50,7 @@ class MembersList extends Base {
          * @member {Object} _vdom={cn: []}
          */
         _vdom:
-        {cn: []}
+            {cn: []}
     }
 
     /**
@@ -329,9 +329,9 @@ class MembersList extends Base {
 
         me.update();
 
-        hasExamples && setTimeout(() => {
+        setTimeout(() => {
             Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100);
+        }, 100)
     }
 
     /**
@@ -412,7 +412,7 @@ class MembersList extends Base {
                         cn : [{
                             innerHTML: description.innerHTML
                         },
-                        MembersList.createParametersTable(nestedParams)]
+                            MembersList.createParametersTable(nestedParams)]
                     }
                 }
 
@@ -425,7 +425,7 @@ class MembersList extends Base {
                         tag      : 'td',
                         innerHTML: param.type ? MembersList.escapeHtml(param.type.names.join(' | ')) : ''
                     },
-                    description]
+                        description]
                 });
 
                 if (hasDefaultValues) {
