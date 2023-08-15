@@ -108,6 +108,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(SwitchField, {
             labelText : 'Label',
             labelWidth: 70,
+            name      : 'mySwitch',
             width     : 200
         })
     }
