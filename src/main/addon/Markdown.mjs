@@ -44,7 +44,7 @@ class Markdown extends Base {
      */
     construct(config) {
         super.construct(config);
-        DomAccess.addScript({src: this.showdownPath});
+        DomAccess.addScript({src: this.showdownPath})
     }
 
     /**
@@ -55,7 +55,7 @@ class Markdown extends Base {
     markdownToHtml(markdown) {
         let converter = new showdown.Converter();
 
-        return converter.makeHtml(markdown);
+        return converter.makeHtml(markdown)
     }
 }
 
