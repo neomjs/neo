@@ -90,7 +90,11 @@ class MainContainer extends Viewport {
                 module      : Splitter,
                 resizeTarget: 'previous',
                 size        : 5,
-                style       : {marginTop: 'var(--tab-button-height)'}
+
+                style: {
+                    borderTop: 'var(--tab-strip-height) solid var(--tab-strip-background-color)',
+                    marginTop: 'var(--tab-button-height)'
+                }
             }, {
                 module   : ContentTabContainer,
                 flex     : 1,
