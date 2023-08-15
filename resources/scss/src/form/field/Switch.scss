@@ -23,7 +23,7 @@
         100% {transform: translate(0)    scaleX(1)}
     }
 
-    input[type="checkbox"] {
+    .neo-switchfield-input {
         background-clip : padding-box;
         background-color: v(switchfield-background-color);
         border-color    : transparent;
@@ -85,21 +85,21 @@
                 transform-origin: left center;
             }
         }
-    }
 
-    input[type="checkbox"]::before {
-        animation: switch-off-position 0.25s ease-out forwards;
-    }
+        &::before {
+            animation: switch-off-position 0.25s ease-out forwards;
+        }
 
-    input[type="checkbox"]:checked::before {
-        animation: switch-on-position 0.25s ease-out forwards;
-    }
+        &:checked::before {
+            animation: switch-on-position 0.25s ease-out forwards;
+        }
 
-    input[type="checkbox"]::before {
-        animation: switch-off-transform 0.25s ease-out forwards;
-    }
+        &::before {
+            animation: switch-off-transform 0.25s ease-out forwards;
+        }
 
-    input[type="checkbox"]:checked::before {
-        animation: switch-on-transform 0.25s ease-out forwards;
+        &:checked::before {
+            animation: switch-on-transform 0.25s ease-out forwards;
+        }
     }
 }

@@ -77,12 +77,6 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.labelWidth
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.readOnly,
-            labelText: 'readOnly',
-            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
-            style    : {marginTop: '10px'}
-        }, {
-            module   : CheckBox,
             checked  : me.exampleComponent.required,
             labelText: 'required',
             listeners: {change: me.onConfigChange.bind(me, 'required')},
@@ -114,6 +108,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(SwitchField, {
             labelText : 'Label',
             labelWidth: 70,
+            name      : 'mySwitch',
             width     : 200
         })
     }
