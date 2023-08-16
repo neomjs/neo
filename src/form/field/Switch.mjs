@@ -1,4 +1,5 @@
 import CheckBox from './CheckBox.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.Switch
@@ -17,24 +18,24 @@ class Switch extends CheckBox {
          */
         ntype: 'switchfield',
         /**
-         * @member {String[]} baseCls=['neo-checkboxfield']
+         * @member {String[]} baseCls=['neo-switchfield', 'neo-checkboxfield']
          */
-        baseCls: ['neo-switchfield'],
+        baseCls: ['neo-switchfield', 'neo-checkboxfield'],
         /**
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                {tag: 'label', cls: ['neo-checkbox-label'], cn: [
-                    {tag: 'span', cls: []},
-                    {tag: 'input', cls: ['neo-checkbox-input']},
-                    {tag: 'i', cls: ['neo-checkbox-icon'], removeDom: true},
-                    {tag: 'span', cls: ['neo-checkbox-value-label']}
-                ]},
-                {cls: ['neo-error-wrapper'], removeDom: true, cn: [
-                    {cls: ['neo-error']}
-                ]}
+        {cn: [
+            {tag: 'label', cls: ['neo-checkbox-label'], cn: [
+                {tag: 'span',  cls: []},
+                {tag: 'input', cls: ['neo-switchfield-input']},
+                {tag: 'i',     cls: ['neo-switchfield-icon'], removeDom: true},
+                {tag: 'span',  cls: ['neo-checkbox-value-label']}
+            ]},
+            {cls: ['neo-error-wrapper'], removeDom: true, cn: [
+                {cls: ['neo-error']}
             ]}
+        ]}
     }
 }
 

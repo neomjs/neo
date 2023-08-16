@@ -6,7 +6,8 @@
     position: relative;
 
     .neo-list {
-        overflow: visible;
+        overflow   : visible;
+        user-select: none;
 
         &:focus {
             outline: none;

@@ -5,6 +5,7 @@ import MainContainerController from './MainContainerController.mjs';
 import MembersList             from './MembersList.mjs';
 import Panel                   from '../../../../src/container/Panel.mjs';
 import SearchField             from '../../../../src/form/field/Search.mjs';
+import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
  * @class Docs.view.classdetails.MainContainer
@@ -42,10 +43,11 @@ class MainContainer extends Container {
          * @member {Array} items=[//...]]
          */
         items: [{
-            ntype : 'container',
-            _cls  : ['neo-docs-classdetails-headercontainer'],
-            flex  : '1 0 auto',
-            layout: {ntype: 'hbox', align: 'stretch'},
+            ntype    : 'container',
+            cls      : ['neo-docs-classdetails-headercontainer'],
+            flex     : '1 1 auto',
+            layout   : {ntype: 'hbox', align: 'stretch'},
+            minHeight: 200,
 
             items: [{
                 module : Panel,
@@ -110,11 +112,19 @@ class MainContainer extends Container {
                     record: '@config:structureData'
                 }]
             }, {
+                module: Splitter,
+                size  : 5
+            }, {
                 module       : HierarchyTreeList,
                 flex         : '0 0 auto',
                 minWidth     : 330,
                 structureData: '@config:structureData'
             }]
+        }, {
+            module      : Splitter,
+            direction   : 'horizontal',
+            resizeTarget: 'previous',
+            size        : 5
         }, {
             module   : MembersList,
             flex     : 1,
