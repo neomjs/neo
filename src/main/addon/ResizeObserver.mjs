@@ -62,7 +62,7 @@ class NeoResizeObserver extends Base {
 
             let borderBoxSize             = entry.borderBoxSize[0],
                 contentBoxSize            = entry.contentBoxSize[0],
-                devicePixelContentBoxSize = entry.devicePixelContentBoxSize?.[0] || {},
+                devicePixelContentBoxSize = entry.devicePixelContentBoxSize?.[0] || {}, // Not supported in Safari yet
                 path                      = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
 
             Neo.worker.Manager.sendMessage('app', {
