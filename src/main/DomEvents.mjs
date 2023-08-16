@@ -337,20 +337,7 @@ class DomEvents extends Base {
      */
     getTargetData(node) {
         let r    = node.getBoundingClientRect?.(),
-            rect = {};
-
-        if (r) {
-            Object.assign(rect, {
-                bottom: r.bottom,
-                height: r.height,
-                left  : r.left,
-                right : r.right,
-                top   : r.top,
-                width : r.width,
-                x     : r.x,
-                y     : r.y
-            })
-        }
+            rect = r && this.parseDomRect(r) || {};
 
         return {
             checked          : node.checked,
@@ -630,6 +617,24 @@ class DomEvents extends Base {
             if (!globalWheelTargetsKeepEvent.includes(targetCls)) {
                 event.preventDefault()
             }
+        }
+    }
+
+    /**
+     * DOMRects are not spreadable => {...DOMRect} => {}
+     * @param {DOMRect} rect
+     * @returns {Object}
+     */
+    parseDomRect(rect) {
+        return {
+            bottom: rect.bottom,
+            height: rect.height,
+            left  : rect.left,
+            right : rect.right,
+            top   : rect.top,
+            width : rect.width,
+            x     : rect.x,
+            y     : rect.y
         }
     }
 

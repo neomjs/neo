@@ -1,5 +1,6 @@
 import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs'
+import DomAccess from '../DomAccess.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * @class Neo.main.addon.ResizeObserver
@@ -54,7 +55,18 @@ class NeoResizeObserver extends Base {
      * @protected
      */
     onResize(entries, observer) {
-        console.log('onResize', entries)
+        entries.forEach(entry => {
+            Neo.worker.Manager.sendMessage('app', {
+                action   : 'domEvent',
+                eventName: 'resize',
+
+                data: {
+                    id  : entry.target.id,
+                    path: DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e)),
+                    rect: DomEvents.parseDomRect(entry.contentRect)
+                }
+            })
+        })
     }
 
     /**
