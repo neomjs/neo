@@ -9,11 +9,11 @@ app.use(cors());
 app.post('/file-upload-test', async (req, res) => {
 
     await new Promise(resolve => setTimeout(resolve, 3000));
-  
+
     res.set('Content-Type', 'application/json');
     res.send('{"success":true,"documentId":"1"}');
   })
-  
+
 app.post('/file-upload-test-fail', async (req, res) => {
     res.set('Content-Type', 'application/json');
     res.send('{"success":false,"message":"Something went wrong"}');
