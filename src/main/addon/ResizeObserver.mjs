@@ -44,7 +44,7 @@ class NeoResizeObserver extends Base {
 
         let me = this;
 
-        me.resizeObserver = new ResizeObserver(me.onResize.bind(me))
+        me.instance = new ResizeObserver(me.onResize.bind(me))
     }
 
     /**
