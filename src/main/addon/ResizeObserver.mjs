@@ -14,7 +14,7 @@ class ResizeObserver extends Base {
          */
         className: 'Neo.main.addon.ResizeObserver',
         /**
-         * @member {#ResizeObserver|null} instance=null
+         * @member {ResizeObserver|null} instance=null
          * @protected
          */
         instance: null,
