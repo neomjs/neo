@@ -144,6 +144,13 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @param {Object} data
+     */
+    onNavTabContainerResize(data) {
+        console.log('onNavTabContainerResize', data)
+    }
+
+    /**
      *
      */
     onSwitchSourceViewThemeButtonClick() {

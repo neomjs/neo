@@ -58,6 +58,10 @@ class MainContainer extends Viewport {
                 sortable: true,
                 width   : 290,
 
+                domListeners: {
+                    resize: 'onNavTabContainerResize'
+                },
+
                 items: [{
                     module   : ApiTreeList,
                     listeners: {leafItemClick: 'onApiListLeafClick'},

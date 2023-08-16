@@ -1,12 +1,13 @@
 import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs'
+import DomAccess from '../DomAccess.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * @class Neo.main.addon.ResizeObserver
  * @extends Neo.core.Base
  * @singleton
  */
-class ResizeObserver extends Base {
+class NeoResizeObserver extends Base {
     static config = {
         /**
          * @member {String} className='Neo.main.addon.ResizeObserver'
@@ -14,7 +15,7 @@ class ResizeObserver extends Base {
          */
         className: 'Neo.main.addon.ResizeObserver',
         /**
-         * @member {#ResizeObserver|null} instance=null
+         * @member {ResizeObserver|null} instance=null
          * @protected
          */
         instance: null,
@@ -40,9 +41,11 @@ class ResizeObserver extends Base {
      * @param {Object} config
      */
     construct(config) {
+        super.construct(config);
+
         let me = this;
 
-        me.resizeObserver = new ResizeObserver(me.onResize.bind(me))
+        me.instance = new ResizeObserver(me.onResize.bind(me))
     }
 
     /**
@@ -52,7 +55,18 @@ class ResizeObserver extends Base {
      * @protected
      */
     onResize(entries, observer) {
-        console.log('onResize', entries)
+        entries.forEach(entry => {
+            Neo.worker.Manager.sendMessage('app', {
+                action   : 'domEvent',
+                eventName: 'resize',
+
+                data: {
+                    id  : entry.target.id,
+                    path: DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e)),
+                    rect: DomEvents.parseDomRect(entry.contentRect)
+                }
+            })
+        })
     }
 
     /**
@@ -72,8 +86,6 @@ class ResizeObserver extends Base {
     }
 }
 
-Neo.applyClassConfig(ResizeObserver);
-
-let instance = Neo.applyClassConfig(ResizeObserver);
+let instance = Neo.applyClassConfig(NeoResizeObserver);
 
 export default instance;

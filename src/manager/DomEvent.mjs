@@ -64,6 +64,22 @@ class DomEvent extends Base {
     }
 
     /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {data} event
+     */
+    addResizeObserver(component, event) {
+        if (!Neo.main.addon.ResizeObserver) {
+            console.error('For using resize domListeners, you must include main.addon.ResizeObserver.', event)
+        }
+
+        Neo.main.addon.ResizeObserver.register({
+            appName: component.appName,
+            id     : component.id
+        })
+    }
+
+    /**
      * @param {Object} event
      * @protected
      */
@@ -216,16 +232,16 @@ class DomEvent extends Base {
                 value.forEach(event => {
                     eventName = event.eventName;
 
-                    if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
-                        // console.log('localEvents', eventName);
-
+                    if (eventName === 'resize') {
+                        this.addResizeObserver(component, event)
+                    } else if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
                         localEvents.push({
                             name   : eventName,
                             handler: 'domEventListener',
                             vnodeId: event.vnodeId
-                        });
+                        })
                     }
-                });
+                })
             });
 
             if (localEvents.length > 0) {
@@ -236,8 +252,8 @@ class DomEvent extends Base {
                 }).then(data => {
                     // console.log('added domListener', data);
                 }).catch(err => {
-                    console.log('App: Got error attempting to add a domListener', err);
-                });
+                    console.log('App: Got error attempting to add a domListener', err)
+                })
             }
         }
     }
@@ -288,13 +304,13 @@ class DomEvent extends Base {
                 ) {
                     alreadyRegistered = true;
                 }
-            });
+            })
         } else {
             listeners[id][eventName] = [];
         }
 
         if (alreadyRegistered === true) {
-            return false;
+            return false
         }
 
         // console.log('manager.DomEvent register', eventName, config);
@@ -323,9 +339,7 @@ class DomEvent extends Base {
 
         listeners[id][eventName].sort((a, b) => a.priority > b.priority);
 
-        // console.log(this.map);
-
-        return true;
+        return true
     }
 
     /**
@@ -377,7 +391,7 @@ class DomEvent extends Base {
                             }
                         }
                     }
-                });
+                })
             }
 
             // add new listeners
@@ -393,14 +407,14 @@ class DomEvent extends Base {
                             ownerId       : component.id,
                             scope         : domListener.scope || component,
                             vnodeId       : domListener.vnodeId || value.vnodeId || component.id
-                        });
+                        })
                     }
-                });
+                })
             });
 
             if (component.mounted) {
                 setTimeout(() => {
-                    me.mountDomListeners(component);
+                    me.mountDomListeners(component)
                 }, 100)
             }
         } else {
@@ -436,12 +450,12 @@ class DomEvent extends Base {
                 ) {
                     hasMatch = true;
                     targetId = path[j].id;
-                    break;
+                    break
                 }
             }
 
             if (!hasMatch) {
-                return false;
+                return false
             }
         }
 
@@ -452,7 +466,7 @@ class DomEvent extends Base {
             }
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -472,11 +486,11 @@ class DomEvent extends Base {
             // delegationVdom can be undefined when dragging a proxy over the node.
             // see issues/1137 for details.
             if (!delegationVdom || delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
-                return false;
+                return false
             }
         }
 
-        return true;
+        return true
     }
 }
 
