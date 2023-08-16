@@ -6,7 +6,7 @@ import DomAccess from '../DomAccess.mjs'
  * @extends Neo.core.Base
  * @singleton
  */
-class ResizeObserver extends Base {
+class NeoResizeObserver extends Base {
     static config = {
         /**
          * @member {String} className='Neo.main.addon.ResizeObserver'
@@ -40,6 +40,8 @@ class ResizeObserver extends Base {
      * @param {Object} config
      */
     construct(config) {
+        super.construct(config);
+
         let me = this;
 
         me.resizeObserver = new ResizeObserver(me.onResize.bind(me))
@@ -72,8 +74,6 @@ class ResizeObserver extends Base {
     }
 }
 
-Neo.applyClassConfig(ResizeObserver);
-
-let instance = Neo.applyClassConfig(ResizeObserver);
+let instance = Neo.applyClassConfig(NeoResizeObserver);
 
 export default instance;
