@@ -38,23 +38,23 @@ class StatusBadge extends Base {
         /**
         * @member {String} alertIcon='fa-triangle-exclamation'
         */
-        alertIcon_:'fa fa-triangle-exclamation',
+        iconAlert_:'fa fa-triangle-exclamation',
         /**
-        * @member {String} errorIcon='fa-xmark'
+        * @member {String} iconError='fa-xmark'
         */
-        errorIcon_:'fa fa-xmark',
+        iconError_:'fa fa-xmark',
         /**
-        * @member {String} infoIcon='fa-info'
+        * @member {String} iconInfo='fa-info'
         */
-        infoIcon_:'fa fa-info',
+        iconInfo_:'fa fa-info',
         /**
-        * @member {String} neutralIcon='fa-circle'
+        * @member {String} iconNeutral='fa-circle'
         */
-        neutralIcon_:'fa fa-circle',
+        iconNeutral_:'fa fa-circle',
         /**
-        * @member {String} successIcon='fa-check'
+        * @member {String} iconSuccess='fa-check'
         */
-        successIcon_:'fa fa-check',
+        iconSuccess_:'fa fa-check',
 
 
 
@@ -108,6 +108,17 @@ class StatusBadge extends Base {
             this.updateLabelNode(value);
         }
     }
+    /**
+     * Triggered after the iconAlert config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetIconAlert(value, oldValue) {
+        if (this.state === 'alert') {
+            this.updateStateIconNode(value);
+        }
+    }    
 
     /**
      * Triggered after the labelError config got changed
@@ -120,6 +131,18 @@ class StatusBadge extends Base {
             this.updateLabelNode(value);
         }
     }
+    /**
+    * Triggered after the iconError config got changed
+    * @param {String|null} value
+    * @param {String|null} oldValue
+    * @protected
+    */
+   afterSetIconError(value, oldValue) {
+       if (this.state === 'error') {
+           this.updateStateIconNode(value);
+       }
+   }    
+
 
     /**
      * Triggered after the labelInfo config got changed
@@ -132,6 +155,17 @@ class StatusBadge extends Base {
             this.updateLabelNode(value);
         }
     }
+    /**
+    * Triggered after the iconInfo config got changed
+    * @param {String|null} value
+    * @param {String|null} oldValue
+    * @protected
+    */
+    afterSetIconInfo(value, oldValue) {
+        if (this.state === 'info') {
+            this.updateStateIconNode(value);
+        }
+    }     
 
     /**
      * Triggered after the labelNeutral config got changed
@@ -144,6 +178,17 @@ class StatusBadge extends Base {
             this.updateLabelNode(value);
         }
     }
+    /**
+    * Triggered after the iconNeutral config got changed
+    * @param {String|null} value
+    * @param {String|null} oldValue
+    * @protected
+    */
+    afterSetIconNeutral(value, oldValue) {
+        if (this.state === 'neutral') {
+            this.updateStateIconNode(value);
+        }
+    } 
 
     /**
      * Triggered after the labelSuccess config got changed
@@ -156,7 +201,17 @@ class StatusBadge extends Base {
             this.updateLabelNode(value);
         }
     }
-
+    /**
+    * Triggered after the iconSuccess config got changed
+    * @param {String|null} value
+    * @param {String|null} oldValue
+    * @protected
+    */
+   afterSetIconSuccess(value, oldValue) {
+       if (this.state === 'success') {
+           this.updateStateIconNode(value);
+       }
+   } 
     /**
      * Triggered after the state config got changed
      * @param {String} value
@@ -185,23 +240,23 @@ class StatusBadge extends Base {
             switch (value) {
                 case 'alert':
                     showLabel = me.labelAlert;
-                    showStateIcon = me.alertIcon;
+                    showStateIcon = me.iconAlert;
                     break;
                 case 'error':
                     showLabel = me.labelError;
-                    showStateIcon = me.errorIcon;
+                    showStateIcon = me.iconError;
                     break;
                 case 'info':
                     showLabel = me.labelInfo;
-                    showStateIcon = me.infoIcon;
+                    showStateIcon = me.iconInfo;
                     break;
                 case 'neutral':
                     showLabel = me.labelNeutral;
-                    showStateIcon = me.neutralIcon;
+                    showStateIcon = me.iconNeutral;
                     break;
                 case 'success':
                     showLabel = me.labelSuccess;
-                    showStateIcon = me.successIcon;
+                    showStateIcon = me.iconSuccess;
                     break;
             }
             labelNode.innerHTML = showLabel;
