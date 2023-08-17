@@ -1,6 +1,18 @@
 .neo-status-badge {
+    &.neo-state-alert {
+        background-color: orange;
+    }
+
     &.neo-state-error {
         background-color: red;
+    }
+
+    &.neo-state-info {
+        background-color: lightblue;
+    }
+
+    &.neo-state-neutral {
+        background-color: white;
     }
 
     &.neo-state-success {

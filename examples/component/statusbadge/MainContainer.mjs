@@ -1,9 +1,9 @@
-import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import CheckBox from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import NumberField           from '../../../src/form/field/Number.mjs';
-import Radio                 from '../../../src/form/field/Radio.mjs';
-import StatusBadge           from '../../../src/component/StatusBadge.mjs';
-import TextField             from '../../../src/form/field/Text.mjs';
+import NumberField from '../../../src/form/field/Number.mjs';
+import Radio from '../../../src/form/field/Radio.mjs';
+import StatusBadge from '../../../src/component/StatusBadge.mjs';
+import TextField from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.component.statusbadge.MainContainer
@@ -11,58 +11,82 @@ import TextField             from '../../../src/form/field/Text.mjs';
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.component.statusbadge.MainContainer',
-        autoMount           : true,
+        className: 'Neo.examples.component.statusbadge.MainContainer',
+        autoMount: true,
         configItemLabelWidth: 110,
-        configItemWidth     : 230,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        configItemWidth: 230,
+        layout: { ntype: 'hbox', align: 'stretch' }
     }
 
     createConfigurationComponents() {
         let me = this;
 
         return [{
-            module   : CheckBox,
-            checked  : me.exampleComponent.closable,
+            module: CheckBox,
+            checked: me.exampleComponent.closable,
             labelText: 'closable',
-            listeners: {change: me.onConfigChange.bind(me, 'closable')}
+            listeners: { change: me.onConfigChange.bind(me, 'closable') }
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 100,
-            minValue  : 20,
-            stepSize  : 2,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            module: NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: { change: me.onConfigChange.bind(me, 'height') },
+            maxValue: 100,
+            minValue: 20,
+            stepSize: 2,
+            style: { marginTop: '10px' },
+            value: me.exampleComponent.height
         }, {
-            module        : Radio,
-            checked       : me.exampleComponent.state === 'error',
+            module: Radio,
+            checked: me.exampleComponent.state === 'alert',
             hideValueLabel: false,
-            labelText     : 'state',
-            listeners     : {change: me.onRadioChange.bind(me, 'state', 'error')},
-            name          : 'state',
-            style         : {marginTop: '10px'},
+            labelText: 'state',
+            listeners: { change: me.onRadioChange.bind(me, 'state', 'alert') },
+            name: 'state',
+            style: { marginTop: '10px' },
+            valueLabelText: 'alert'
+        }, {
+            module: Radio,
+            checked: me.exampleComponent.state === 'error',
+            hideValueLabel: false,
+            labelText: '',
+            listeners: { change: me.onRadioChange.bind(me, 'state', 'error') },
+            name: 'state',
             valueLabelText: 'error'
         }, {
-            module        : Radio,
-            checked       : me.exampleComponent.badgePosition === 'success',
+            module: Radio,
+            checked: me.exampleComponent.state === 'info',
             hideValueLabel: false,
-            labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'state', 'success')},
-            name          : 'state',
+            labelText: '',
+            listeners: { change: me.onRadioChange.bind(me, 'state', 'info') },
+            name: 'state',
+            valueLabelText: 'info'
+        }, {
+            module: Radio,
+            checked: me.exampleComponent.state === 'neutral',
+            hideValueLabel: false,
+            labelText: '',
+            listeners: { change: me.onRadioChange.bind(me, 'state', 'neutral') },
+            name: 'state',
+            valueLabelText: 'neutral'
+        }, {
+            module: Radio,
+            checked: me.exampleComponent.state === 'success',
+            hideValueLabel: false,
+            labelText: '',
+            listeners: { change: me.onRadioChange.bind(me, 'state', 'success') },
+            name: 'state',
             valueLabelText: 'success'
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            module: NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: { change: me.onConfigChange.bind(me, 'width') },
+            maxValue: 300,
+            minValue: 100,
+            stepSize: 5,
+            style: { marginTop: '10px' },
+            value: me.exampleComponent.width
         }]
     }
 
@@ -70,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module: StatusBadge,
             height: 30,
-            state : 'error'
+            state: 'error'
         })
     }
 }

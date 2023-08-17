@@ -8,11 +8,11 @@ import NeoArray from '../util/Array.mjs';
 class StatusBadge extends Base {
     /**
      * Valid values for state
-     * @member {String[]} states=['error','neutral','success']
+     * @member {String[]} states=['alert','error','info','neutral','success']
      * @protected
      * @static
      */
-    static states = ['error', 'neutral', 'success']
+    static states = ['alert', 'error', 'info', 'neutral', 'success']
 
     static config = {
         /**
