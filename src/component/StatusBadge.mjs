@@ -31,6 +31,34 @@ class StatusBadge extends Base {
          */
         baseCls: ['neo-status-badge'],
         /**
+        * @member {String[]} currentStateIcon=null
+        */
+        _currentStateIcon: null,
+
+        /**
+        * @member {String} alertIcon='fa-triangle-exclamation'
+        */
+        alertIcon_:'fa fa-triangle-exclamation',
+        /**
+        * @member {String} errorIcon='fa-xmark'
+        */
+        errorIcon_:'fa fa-xmark',
+        /**
+        * @member {String} infoIcon='fa-info'
+        */
+        infoIcon_:'fa fa-info',
+        /**
+        * @member {String} neutralIcon='fa-circle'
+        */
+        neutralIcon_:'fa fa-circle',
+        /**
+        * @member {String} successIcon='fa-check'
+        */
+        successIcon_:'fa fa-check',
+
+
+
+        /**
          * @member {String} labelAlert_='Alert'
         */
         labelAlert_: 'Alert',
@@ -127,7 +155,7 @@ class StatusBadge extends Base {
         if (this.state === 'success') {
             this.updateLabelNode(value);
         }
-    }    
+    }
 
     /**
      * Triggered after the state config got changed
@@ -141,7 +169,8 @@ class StatusBadge extends Base {
             me = this,
             isEmpty = !value || value === '',
             vdomRoot = me.getVdomRoot(),
-            labelNode = vdomRoot.cn[1]
+            labelNode = vdomRoot.cn[1],
+            stateIconNode = vdomRoot.cn[0];
 
         NeoArray.remove(cls, 'neo-state-' + oldValue);
         NeoArray.add(cls, 'neo-state-' + value);
@@ -152,24 +181,31 @@ class StatusBadge extends Base {
 
         if (!isEmpty) {
             let showLabel = '';
+            let showStateIcon = '';
             switch (value) {
                 case 'alert':
                     showLabel = me.labelAlert;
+                    showStateIcon = me.alertIcon;
                     break;
                 case 'error':
                     showLabel = me.labelError;
+                    showStateIcon = me.errorIcon;
                     break;
                 case 'info':
                     showLabel = me.labelInfo;
+                    showStateIcon = me.infoIcon;
                     break;
                 case 'neutral':
                     showLabel = me.labelNeutral;
+                    showStateIcon = me.neutralIcon;
                     break;
                 case 'success':
                     showLabel = me.labelSuccess;
+                    showStateIcon = me.successIcon;
                     break;
             }
             labelNode.innerHTML = showLabel;
+            this.updateStateIconNode(showStateIcon);
         }
 
         me.update();
@@ -191,14 +227,59 @@ class StatusBadge extends Base {
     * @returns {Object}
     */
     updateLabelNode(value) {
-        let alertLabelNode = this.getVdomRoot().cn[1];
+        let labelNode = this.getVdomRoot().cn[1];
 
-        alertLabelNode.innerHTML = value;
-        alertLabelNode.removeDom = !Boolean(value);
+        labelNode.innerHTML = value;
+        labelNode.removeDom = !Boolean(value);
 
         this.update();
     }
 
+    /**
+     * Convenience shortcut
+    * @returns {Object}
+    */
+    updateStateIconNode(value) {
+        let iconNode = this.getStateIconNode();
+        let currentValue = this._currentStateIcon;
+
+        if (value && !Array.isArray(value)) {
+            value = value.split(' ').filter(Boolean);
+        }
+        if (currentValue && !Array.isArray(currentValue)) {
+            currentValue = value.split(' ').filter(Boolean);
+        }
+
+        NeoArray.remove(iconNode.cls, currentValue);
+        NeoArray.add(iconNode.cls, value);
+
+        iconNode.removeDom = !value || value === '';
+
+        this._currentStateIcon = value;
+        this.update();
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getStateIconNode() {
+        return this.getVdomRoot().cn[0]
+    }
+
+
+    /**
+     * Triggered after the StateIcon config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+        afterSetStateIcon(value, oldValue) {
+            this.updateStateIconNode(value, oldValue)
+;            // if (this.state === 'success') {
+            //     this.updateLabelNode(value);
+            // }
+        }
 }
 
 Neo.applyClassConfig(StatusBadge);
