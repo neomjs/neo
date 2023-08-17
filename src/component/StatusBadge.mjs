@@ -5,6 +5,14 @@ import Base from '../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class StatusBadge extends Base {
+    /**
+     * Valid values for state
+     * @member {String[]} states=['error','neutral','success']
+     * @protected
+     * @static
+     */
+    static states = ['error', 'neutral', 'success']
+
     static config = {
         /**
          * @member {String} className='Neo.component.StatusBadge'
@@ -22,10 +30,35 @@ class StatusBadge extends Base {
          */
         baseCls: ['neo-status-badge'],
         /**
-         * @member {Object} _vdom
+         * @member {String} state_='neutral'
          */
-        _vdom:
+        state_: 'neutral',
+        /**
+         * @member {Object} vdom
+         */
+        vdom:
         {}
+    }
+
+    /**
+     * Triggered after the state config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetState(value, oldValue) {
+        console.log('afterSetState', value)
+    }
+
+    /**
+     * Triggered before the state config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetState(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'state')
     }
 }
 
