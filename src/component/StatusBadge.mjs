@@ -12,6 +12,16 @@ class StatusBadge extends Base {
          */
         className: 'Neo.component.StatusBadge',
         /**
+         * @member {String} ntype='status-badge'
+         * @protected
+         */
+        ntype: 'status-badge',
+        /**
+         * @member {String[]} baseCls=['neo-status-badge']
+         * @protected
+         */
+        baseCls: ['neo-status-badge'],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
