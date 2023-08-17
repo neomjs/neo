@@ -17,5 +17,26 @@
 
     &.neo-state-success {
         background-color: darkgreen;
+        color: white;
     }
+
+    .neo-state-glyph {
+        color         : v(button-glyph-color);
+        font-size     : 12px;
+        margin        : 0 6px 0 0;
+        pointer-events: none;
+        z-index       : 2;
+    }
+
+    .neo-state-text {
+        color         : v(button-text-color);
+        font-family   : v(button-text-font-family);
+        font-size     : v(button-text-font-size);
+        font-weight   : v(button-text-font-weight);
+        line-height   : v(button-text-line-height);
+        pointer-events: none;
+        text-transform: v(button-text-transform);
+        z-index       : 2;
+    }
+
 }

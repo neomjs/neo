@@ -1,4 +1,4 @@
-import Base     from '../component/Base.mjs';
+import Base from '../component/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -31,14 +31,42 @@ class StatusBadge extends Base {
          */
         baseCls: ['neo-status-badge'],
         /**
+         * @member {String} labelAlert_='Alert'
+        */
+        labelAlert_: 'Alert',
+        /**
+         * @member {String} labelError_='Error'
+        */
+        labelError_: 'Error',
+        /**
+         * @member {String} labelInfo_='Info'
+        */
+        labelInfo_: 'Info',
+        /**
+         * @member {String} labelNeutral_='Neutral'
+        */
+        labelNeutal_: 'Neutral',
+        /**
+         * @member {String} labelSuccess_='Success'
+        */
+        labelSuccess_: 'Success',
+
+
+        /**
          * @member {String} state_='neutral'
          */
         state_: 'neutral',
         /**
-         * @member {Object} vdom
+         * @member {Object} _vdom
          */
-        vdom:
-        {}
+        _vdom:
+        {
+            tag: 'div', type: 'div', cn: [
+                { tag: 'span', cls: ['neo-state-glyph'] },
+                { tag: 'span', cls: ['neo-state-text'] },
+                { tag: 'span', cls: ['neo-state-glyph'] }
+            ]
+        }
     }
 
     /**
@@ -48,12 +76,42 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetState(value, oldValue) {
-        let cls = this.cls;
+        let cls = this.cls,
+            me = this,
+            isEmpty = !value || value === '',
+            vdomRoot = me.getVdomRoot(),
+            labelNode = vdomRoot.cn[1]
 
         NeoArray.remove(cls, 'neo-state-' + oldValue);
         NeoArray.add(cls, 'neo-state-' + value);
 
         this.cls = cls
+
+        labelNode.removeDom = isEmpty;
+
+        if (!isEmpty) {
+            let showLabel = '';
+            switch (value) {
+                case 'alert':
+                    showLabel = me.labelAlert;
+                    break;
+                case 'error':
+                    showLabel = me.labelError;
+                    break;
+                case 'info':
+                    showLabel = me.labelInfo;
+                    break;
+                case 'neutral':
+                    showLabel = me.labelNeutal;
+                    break;
+                case 'success':
+                    showLabel = me.labelSuccess;
+                    break;
+            }
+            labelNode.innerHTML = showLabel;
+        }
+
+        me.update();
     }
 
     /**
