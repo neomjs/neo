@@ -37,9 +37,9 @@ class MainContainer extends ConfigurationViewport {
                 module            : FileUploadField,
                 id                : 'my-downloadable-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
-                documentStatusUrl : 'http://127.0.0.1:3000/document-status-downloadable',
-                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
-                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-downloadable?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -47,14 +47,19 @@ class MainContainer extends ConfigurationViewport {
                     jpg : 1,
                     xls : 1,
                     pdf : 1
+                },
+                listeners : {
+                    beforeRequest({ headers }) {
+                        headers['X-XSRF-TOKEN'] = 'my-xsrf-token'
+                    }
                 }
             }, {
                 module            : FileUploadField,
                 id                : 'my-not-downloadable-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
-                documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable',
-                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
-                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -67,9 +72,9 @@ class MainContainer extends ConfigurationViewport {
                 module            : FileUploadField,
                 id                : 'my-upload-fail-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test-fail',
-                documentStatusUrl : 'http://127.0.0.1:3000/document-status',
-                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
-                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
@@ -82,9 +87,41 @@ class MainContainer extends ConfigurationViewport {
                 module            : FileUploadField,
                 id                : 'my-scan-fail-test',
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
-                documentStatusUrl : 'http://127.0.0.1:3000/document-status-fail',
-                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete',
-                downloadUrl       : 'http://127.0.0.1:3000/getDocument',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-fail?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-existing-document-test',
+                documentId        : 2,
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-non-existing-document-test',
+                documentId        : 2,
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-non-existent?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
                 width             : 350,
                 maxSize           : '10mb',
                 types             : {
