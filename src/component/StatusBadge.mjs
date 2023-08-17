@@ -1,4 +1,5 @@
-import Base from '../component/Base.mjs';
+import Base     from '../component/Base.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.component.StatusBadge
@@ -47,7 +48,12 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetState(value, oldValue) {
-        console.log('afterSetState', value)
+        let cls = this.cls;
+
+        NeoArray.remove(cls, 'neo-state-' + oldValue);
+        NeoArray.add(cls, 'neo-state-' + value);
+
+        this.cls = cls
     }
 
     /**
