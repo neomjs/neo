@@ -49,21 +49,46 @@ class NeoResizeObserver extends Base {
     }
 
     /**
-     * Internal callback for the ResizeObserver instance
+     * Internal callback for the ResizeObserver instance.
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserverEntry
      * @param {HTMLElement[]} entries
      * @param {ResizeObserver} observer
      * @protected
      */
     onResize(entries, observer) {
         entries.forEach(entry => {
+            // the content of entry is not spreadable, so we need to manually convert it
+            // structuredClone(entry) throws a JS error => ResizeObserverEntry object could not be cloned.
+
+            let borderBoxSize             = entry.borderBoxSize[0],
+                contentBoxSize            = entry.contentBoxSize[0],
+                devicePixelContentBoxSize = entry.devicePixelContentBoxSize?.[0] || {}, // Not supported in Safari yet
+                path                      = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+
             Neo.worker.Manager.sendMessage('app', {
                 action   : 'domEvent',
                 eventName: 'resize',
 
                 data: {
-                    id  : entry.target.id,
-                    path: DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e)),
-                    rect: DomEvents.parseDomRect(entry.contentRect)
+                    contentRect: DomEvents.parseDomRect(entry.contentRect),
+                    id         : entry.target.id,
+                    path,
+                    rect       : path[0].rect,
+
+                    borderBoxSize: {
+                        blockSize : borderBoxSize.blockSize,
+                        inlineSize: borderBoxSize.inlineSize
+                    },
+
+                    contentBoxSize: {
+                        blockSize : contentBoxSize.blockSize,
+                        inlineSize: contentBoxSize.inlineSize
+                    },
+
+                    devicePixelContentBoxSize: {
+                        blockSize : devicePixelContentBoxSize.blockSize,
+                        inlineSize: devicePixelContentBoxSize.inlineSize
+                    }
                 }
             })
         })
