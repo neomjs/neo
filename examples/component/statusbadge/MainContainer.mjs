@@ -36,7 +36,33 @@ class MainContainer extends ConfigurationViewport {
             stepSize: 2,
             style: { marginTop: '10px' },
             value: me.exampleComponent.height
-        }, {
+        },  {
+            module: TextField,
+            labelText: 'label Alert',
+            listeners: { change: me.onConfigChange.bind(me, 'labelAlert') },
+            style: { marginTop: '10px' },
+            value: me.exampleComponent.labelAlert
+        },{
+            module: TextField,
+            labelText: 'label Error',
+            listeners: { change: me.onConfigChange.bind(me, 'labelError') },
+            value: me.exampleComponent.labelError
+        },{
+            module: TextField,
+            labelText: 'label Info',
+            listeners: { change: me.onConfigChange.bind(me, 'labelInfo') },
+            value: me.exampleComponent.labelInfo
+        },{
+            module: TextField,
+            labelText: 'label Neutral',
+            listeners: { change: me.onConfigChange.bind(me, 'labelNeutral') },
+            value: me.exampleComponent.labelNeutral
+        },{
+            module: TextField,
+            labelText: 'label Success',
+            listeners: { change: me.onConfigChange.bind(me, 'labelSuccess') },
+            value: me.exampleComponent.labelSuccess
+        },{
             module: Radio,
             checked: me.exampleComponent.state === 'alert',
             hideValueLabel: false,

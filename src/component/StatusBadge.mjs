@@ -45,7 +45,7 @@ class StatusBadge extends Base {
         /**
          * @member {String} labelNeutral_='Neutral'
         */
-        labelNeutal_: 'Neutral',
+        labelNeutral_: 'Neutral',
         /**
          * @member {String} labelSuccess_='Success'
         */
@@ -70,12 +70,73 @@ class StatusBadge extends Base {
     }
 
     /**
+     * Triggered after the labelAlert config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelAlert(value, oldValue) {
+        if (this.state === 'alert') {
+            this.updateLabelNode(value);
+        }
+    }
+
+    /**
+     * Triggered after the labelError config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelError(value, oldValue) {
+        if (this.state === 'error') {
+            this.updateLabelNode(value);
+        }
+    }
+
+    /**
+     * Triggered after the labelInfo config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelInfo(value, oldValue) {
+        if (this.state === 'info') {
+            this.updateLabelNode(value);
+        }
+    }
+
+    /**
+     * Triggered after the labelNeutral config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelNeutral(value, oldValue) {
+        if (this.state === 'neutral') {
+            this.updateLabelNode(value);
+        }
+    }
+
+    /**
+     * Triggered after the labelSuccess config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelSuccess(value, oldValue) {
+        if (this.state === 'success') {
+            this.updateLabelNode(value);
+        }
+    }    
+
+    /**
      * Triggered after the state config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetState(value, oldValue) {
+
         let cls = this.cls,
             me = this,
             isEmpty = !value || value === '',
@@ -102,7 +163,7 @@ class StatusBadge extends Base {
                     showLabel = me.labelInfo;
                     break;
                 case 'neutral':
-                    showLabel = me.labelNeutal;
+                    showLabel = me.labelNeutral;
                     break;
                 case 'success':
                     showLabel = me.labelSuccess;
@@ -124,6 +185,20 @@ class StatusBadge extends Base {
     beforeSetState(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'state')
     }
+
+    /**
+     * Convenience shortcut
+    * @returns {Object}
+    */
+    updateLabelNode(value) {
+        let alertLabelNode = this.getVdomRoot().cn[1];
+
+        alertLabelNode.innerHTML = value;
+        alertLabelNode.removeDom = !Boolean(value);
+
+        this.update();
+    }
+
 }
 
 Neo.applyClassConfig(StatusBadge);
