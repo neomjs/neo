@@ -637,7 +637,7 @@ class FileUpload extends Base {
      */
     createUrl(urlPattern, params) {
         for (const paramName in params) {
-            urlPattern = urlPattern.replace(new RegExp(`\{${paramName}\}`), params[paramName]);
+            urlPattern = urlPattern.replace(`{${paramName}}`, params[paramName]);
         }
         return urlPattern;
     }
