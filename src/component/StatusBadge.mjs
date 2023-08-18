@@ -34,15 +34,23 @@ class StatusBadge extends Base {
         * @member {String[]} currentStateIcon=null
         */
         _currentStateIcon: null,
-
+        /**
+        * @member {String[]} currentSideIcon=null
+        */
+        _currentSideIcon: null,
         /**
          * false calls Neo.Main.setRoute()
          * @member {Boolean} deactivateStateIcons=false
          */
         deactivateStateIcons_: false,
+        /**
+         * false calls Neo.Main.setRoute()
+         * @member {Boolean} deactivateSideIcons=false
+         */
+        deactivateSideIcons_: false,
 
         /**
-        * @member {String} alertIcon='fa-triangle-exclamation'
+        * @member {String} iconAlert='fa-triangle-exclamation'
         */
         iconAlert_: 'fa fa-triangle-exclamation',
         /**
@@ -61,6 +69,27 @@ class StatusBadge extends Base {
         * @member {String} iconSuccess='fa-check'
         */
         iconSuccess_: 'fa fa-check',
+
+        /**
+        * @member {String} sideIconAlert='fa fa-registered'
+        */
+        sideIconAlert_: 'fa fa-registered',
+        /**
+        * @member {String} sideIconError='fa fa-registered'
+        */
+        sideIconError_: 'fa fa-registered',
+        /**
+        * @member {String} sideIconInfo='fa fa-registered'
+        */
+        sideIconInfo_: 'fa fa-registered',
+        /**
+        * @member {String} sideIconNeutral='fa fa-registered'
+        */
+        sideIconNeutral_: 'fa fa-registered',
+        /**
+        * @member {String} sideIconSuccess='fa fa-registered'
+        */
+        sideIconSuccess_: 'fa fa-registered',
 
 
 
@@ -240,8 +269,7 @@ class StatusBadge extends Base {
             me = this,
             isEmpty = !value || value === '',
             vdomRoot = me.getVdomRoot(),
-            labelNode = vdomRoot.cn[1],
-            stateIconNode = vdomRoot.cn[0];
+            labelNode = vdomRoot.cn[1];
 
         NeoArray.remove(cls, 'neo-state-' + oldValue);
         NeoArray.add(cls, 'neo-state-' + value);
@@ -253,30 +281,38 @@ class StatusBadge extends Base {
         if (!isEmpty) {
             let showLabel = '';
             let showStateIcon = '';
+            let showSideIcon = '';
+
             switch (value) {
                 case 'alert':
                     showLabel = me.labelAlert;
                     showStateIcon = me.iconAlert;
+                    showSideIcon= me.sideIconAlert;
                     break;
                 case 'error':
                     showLabel = me.labelError;
                     showStateIcon = me.iconError;
+                    showSideIcon = me.sideIconError;
                     break;
                 case 'info':
                     showLabel = me.labelInfo;
                     showStateIcon = me.iconInfo;
+                    showSideIcon = me.sideIconInfo;
                     break;
                 case 'neutral':
                     showLabel = me.labelNeutral;
                     showStateIcon = me.iconNeutral;
+                    showSideIcon = me.sideIconNeutral;
                     break;
                 case 'success':
                     showLabel = me.labelSuccess;
                     showStateIcon = me.iconSuccess;
+                    showSideIcon = me.sideIconSuccess;
                     break;
             }
             labelNode.innerHTML = showLabel;
             this.updateStateIconNode(showStateIcon);
+            this.updateSideIconNode(showSideIcon);
         }
 
         me.update();
@@ -346,9 +382,51 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetStateIcon(value, oldValue) {
-        this.updateStateIconNode(value, oldValue)
-            ;           
+        this.updateStateIconNode(value, oldValue);           
     }
+
+    /**
+     * Convenience shortcut
+    * @returns {Object}
+    */
+    updateSideIconNode(value) {
+        let iconNode = this.getSideIconNode();
+        let currentValue = this._currentSideIcon;
+
+        if (value && !Array.isArray(value)) {
+            value = value.split(' ').filter(Boolean);
+        }
+        if (currentValue && !Array.isArray(currentValue)) {
+            currentValue = value.split(' ').filter(Boolean);
+        }
+
+        NeoArray.remove(iconNode.cls, currentValue);
+        NeoArray.add(iconNode.cls, value);
+
+        iconNode.removeDom = !value || value === '' || this.deactivateSideIcons;
+
+        this._currentSideIcon = value;
+        this.update();
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Object}
+     */
+    getSideIconNode() {
+        return this.getVdomRoot().cn[2]
+    }
+
+
+    /**
+     * Triggered after the StateIcon config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSideIcon(value, oldValue) {
+        this.updateSideIconNode(value, oldValue);           
+    }    
 }
 
 Neo.applyClassConfig(StatusBadge);
