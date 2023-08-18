@@ -758,9 +758,10 @@ class FileUpload extends Base {
      * @returns {Boolean}
      */
     validate() {
-        const isValid = this.isValid;
+        const { isValid, cls } = this;
 
-        this.cls = isValid ? this.cls.filter((item) => item !== 'neo-invalid') : [...this.cls, 'neo-invalid'];
+        NeoArray.toggle(cls, 'neo-invalid', !isValid);
+        this.cls = cls;
 
         return isValid;
     }
