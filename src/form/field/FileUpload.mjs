@@ -134,7 +134,7 @@ class FileUpload extends Base {
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
          * @member {Object} headers
          */
-        headers_ : {},
+        headers : {},
 
         /**
          * An Object which allows the status text returned from the {@link #property-documentStatusUrl} to be
@@ -143,11 +143,18 @@ class FileUpload extends Base {
          */
         documentStatusMap : {
             SCANNING         : 'scanning',
+
+            // The server doing its own secondary upload to the final storage location may return this.
+            // We enter the same state as scanning. A spinner shows for the duration of this state
+            UPLOADING        : 'scanning',
+
             MALWARE_DETECTED : 'scan-failed',
             UN_DOWNLOADABLE  : 'not-downloadable',
             DOWNLOADABLE     : 'downloadable',
             DELETED          : 'deleted'
         },
+
+        document_ : null,
 
         /**
          * If this widget should reference an existing document, configure the widget with a documentId
@@ -178,7 +185,7 @@ class FileUpload extends Base {
          * The document status request URL must be configured in {@link #member-documentStatusUrl}
          * @member {String} uploadUrl
          */
-        uploadUrl_ : null,
+        uploadUrl : null,
 
         /**
          * The name of the JSON property in which the document id is returned in the upload response
@@ -210,7 +217,7 @@ class FileUpload extends Base {
          *
          * @member {String} downloadUrl
          */
-        downloadUrl_ : null,
+        downloadUrl : null,
 
         /**
          * The URL of the file status reporting service.
@@ -274,8 +281,6 @@ class FileUpload extends Base {
          */
         documentDeleteUrl : null,
 
-        headers_ : {},
-
         /**
          * @member {String} state_=null
          */
@@ -289,7 +294,27 @@ class FileUpload extends Base {
         /**
          * @member {String|Number} maxSize
          */
-        maxSize_: null
+        maxSize_: null,
+
+        /**
+         * The error text to show below the widget
+         * @member {String} error
+         */
+        error_ : null,
+
+        // UI strings which can be overridden for other languages
+        documentText         : 'Document',
+        pleaseUseTheseTypes  : 'Please use these file types',
+        fileSizeMoreThan     : 'File size exceeds',
+        documentDeleteError  : 'Document delete service error',
+        isNoLongerAvailable  : 'is no longer available',
+        documentStatusError  : 'Document status service error',
+        uploadFailed         : 'Upload failed',
+        scanning             : 'Scanning',
+        malwareFoundInFile   : 'Malware found in file',
+        pleaseCheck          : 'Please check the file and try again',
+        successfullyUploaded : 'Successfully uploaded',
+        fileWasDeleted       : 'File was deleted'
     }
 
     /**
@@ -304,13 +329,13 @@ class FileUpload extends Base {
             { input : me.onInputValueChange, scope: me},
             { click : me.onActionButtonClick, delegate : '.neo-file-upload-action-button', scope : me}
         ]);
+    }
 
-        // If we are to reference an existing document, start by asking the server about its
-        // state. Widget state will proceed from there.
-        if (me.documentId) {
-            me.state = 'processing';
-            me.checkDocumentStatus();
-        }
+    /**
+     * @returns {Object}
+     */
+    getInputEl() {
+        return this.vdom.cn[3];
     }
 
     async clear() {
@@ -327,7 +352,7 @@ class FileUpload extends Base {
 
         // We have to wait for the DOM to have changed, and the input field to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
-        me.focus(me.vdom.cn[3].id);
+        me.focus(me.getInputEl().id);
     }
 
     /**
@@ -346,10 +371,10 @@ class FileUpload extends Base {
                 type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
             if (me.types && !types[type]) {
-                me.error = `Please use these file types: .${Object.keys(types).join(' .')}`;
+                me.error = `${me.pleaseUseTheseTypes}: .${Object.keys(types).join(' .')}`;
             }
             else if (file.size > me.maxSize) {
-                me.error = `File size exceeds ${String(me._maxSize).toUpperCase()}`;
+                me.error = `${me.fileSizeMoreThan} ${String(me._maxSize).toUpperCase()}`;
             }
             // If it passes the type and maxSize check, upload it
             else {
@@ -395,7 +420,6 @@ class FileUpload extends Base {
 
         /**
          * This event fires before every HTTP request is sent to the server via any of the configured URLs.
-         *
          * 
          * @event beforeRequest
          * @param {Object} event The event
@@ -480,6 +504,10 @@ class FileUpload extends Base {
                 me.abortUpload();
                 break;
 
+            // While processing we just have to wait until it's succeeded or failed..
+            case 'processing':
+                break;
+
             // If the upload or the scan failed, the document will not have been
             // saved, so we just go back to ready state
             case 'upload-failed':
@@ -488,12 +516,16 @@ class FileUpload extends Base {
                 me.state = 'ready';
                 break;
 
-            // During scanning and for stored documents, we need to tell the server the document
+            // For stored documents, we need to tell the server the document
             // is not required.
             case 'processing':
             case 'downloadable':
             case 'not-downloadable':
                 me.deleteDocument();
+                break;
+            case 'deleted':
+                me.clear();
+                me.state = 'ready';
                 break;
         }
     }
@@ -504,18 +536,15 @@ class FileUpload extends Base {
 
     async deleteDocument() {
         const
-            me      = this,
-            headers = { ...me.headers },
-            url     = me.createUrl(me.documentDeleteUrl, {
-                [me.documentIdParameter] : me.documentId
-            });
+            me          = this,
+            { headers } = me;
 
         me.fire('beforeRequest', {
             headers
         });
 
         // We ask the server to delete using our this.documentId
-        const statusResponse = await fetch(url, {
+        const statusResponse = await fetch(me.documentDeleteUrl, {
             headers
         });
 
@@ -525,24 +554,21 @@ class FileUpload extends Base {
             me.state = 'ready';
         }
         else {
-            me.error = `Document delete service error: ${statusResponse.statusText}`;
+            me.error = `${me.documentDeleteError}: ${statusResponse.statusText}`;
         }
     }
 
     async checkDocumentStatus() {
         const
-            me      = this,
-            headers = { ...me.headers },
-            url     = me.createUrl(me.documentStatusUrl, {
-                [me.documentIdParameter] : me.documentId
-            });
+            me          = this,
+            { headers } = me;
 
         if (me.state === 'processing') {
             me.fire('beforeRequest', {
                 headers
             });
 
-            const statusResponse = await fetch(url, {
+            const statusResponse = await fetch(me.documentStatusUrl, {
                 headers
             });
 
@@ -559,7 +585,7 @@ class FileUpload extends Base {
                         setTimeout(() => me.checkDocumentStatus(), me.statusScanInterval);
                         break;
                     case 'deleted':
-                        me.error = `Document ${me.documentId} is no longer available`;
+                        me.error = `${me.documentText} ${me.documentId} ${isNoLongerAvailable}`;
                         me.state = 'ready';
                         break;
                     default:
@@ -573,8 +599,21 @@ class FileUpload extends Base {
                 }
             }
             else {
-                me.error = `Document status service error: ${statusResponse.statusText}`;
+                me.error = `${documentStatusError}: ${statusResponse.statusText}`;
             }
+        }
+    }
+
+    afterSetDocument(document) {
+        if (document) {
+            const
+                me = this;
+
+            me.preExistingDocument = true;
+            me.documentId = document.id;
+            me.fileSize = me.formatSize(document.size);
+            me.vdom.cn[1].cn[0].innerHTML = document.fileName;
+            me.state = me.documentStatusMap[document.status];
         }
     }
 
@@ -593,20 +632,23 @@ class FileUpload extends Base {
             anchor  = vdom.cn[1].cn[0],
             status  = vdom.cn[1].cn[1];
 
+        delete vdom.inert;
+
         switch (value) {
             case 'ready':
                 anchor.tag = 'div';
                 anchor.href = '';
                 break;
             case 'upload-failed':
-                status.innerHTML = `Upload failed... (${Math.round(me.progress * 100)}%)`;
+                status.innerHTML = `${me.uploadFailed}... (${Math.round(me.progress * 100)}%)`;
                 break;
             case 'processing':
-                status.innerHTML = `Scanning... (${me.formatSize(me.uploadSize)})`;
+                status.innerHTML = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
+                vdom.inert = true;
                 break;
             case 'scan-failed':
-                status.innerHTML = `Malware found in file. \u2022 ${me.fileSize}`;
-                me.error = 'Please check the file and try again';
+                status.innerHTML = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
+                me.error = me.pleaseCheck;
                 break;
             case 'downloadable':
                 anchor.tag = 'a';
@@ -616,9 +658,14 @@ class FileUpload extends Base {
                 status.innerHTML = me.fileSize;
                 break;
             case 'not-downloadable':
-                status.innerHTML = `Successfully uploaded \u2022 ${me.fileSize}`;
+                status.innerHTML = me.preExistingDocument ?
+                me.fileSize : `${successfullyUploaded} \u2022 ${me.fileSize}`;
+                break;
+            case 'deleted':
+                status.innerHTML = me.fileWasDeleted;
         }
 
+        me.validate();
         me.update();
 
         // Processing above may mutate cls
@@ -642,6 +689,28 @@ class FileUpload extends Base {
         return urlPattern;
     }
 
+    beforeGetHeaders(headers) {
+        return { ...(headers || {}) }
+    }
+
+    beforeGetDocumentStatusUrl(documentStatusUrl) {
+        return typeof documentStatusUrl === 'function'? documentStatusUrl.call(me, me) : me.createUrl(documentStatusUrl, {
+            [me.documentIdParameter] : me.documentId
+        });
+    }
+
+    beforeGetDocumentDeleteUrl(documentDeleteUrl) {
+        return typeof documentDeleteUrl === 'function'? documentDeleteUrl.call(me, me) : me.createUrl(documentDeleteUrl, {
+            [me.documentIdParameter] : me.documentId
+        });
+    }
+
+    beforeGetDownloadUrl(downloadUrl) {
+        return typeof downloadUrl === 'function'? downloadUrl.call(me, me) : me.createUrl(downloadUrl, {
+            [me.documentIdParameter] : me.documentId
+        });
+    }
+
     beforeGetMaxSize(maxSize) {
         // Not configured means no limit
         if (maxSize == null) {
@@ -659,21 +728,18 @@ class FileUpload extends Base {
         }
     }
 
-    set error(text) {
-        const { cls } = this;
-
+    afterSetError(text) {
         if (text) {
             this.vdom.cn[4].cn = [{
                 vtype : 'text',
                 html  : text
             }];
-            NeoArray.add(cls, 'neo-invalid');
         }
         else {
-            NeoArray.remove(cls, 'neo-invalid');
+            this.vdom.cn[4].cn = [];
         }
 
-        this.cls = cls;
+        this.validate();
         this.update();
     }
 
@@ -686,6 +752,26 @@ class FileUpload extends Base {
             return `${(bytes / (1024 ** i)).toFixed(i ? 1 : 0)}${separator}${sizes[i]}${postFix}`;
         }
         return 'n/a';
+    }
+
+    /**
+     * @returns {Boolean}
+     */
+    validate() {
+        const isValid = this.isValid;
+
+        this.cls = isValid ? this.cls.filter((item) => item !== 'neo-invalid') : [...this.cls, 'neo-invalid'];
+
+        return isValid;
+    }
+
+    get isValid() {
+        const me = this;
+
+        return !me.error &&
+               ((me.state === 'ready' && !me.required) ||
+               (me.state === 'downloadable') ||
+               (me.state === 'not-downloadable'));
     }
 }
 
