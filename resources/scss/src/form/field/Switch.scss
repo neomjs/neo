@@ -1,26 +1,14 @@
 .neo-switchfield {
-    @keyframes switch-on-position {
-          0% {left:  0;  right: 50%}
-         25% {left:  0;  right: 37.5%}
-        100% {left: 50%; right:  0}
-    }
-
-    @keyframes switch-off-position {
-          0% {left: 50%;   right: 0}
-         25% {left: 37.5%; right: 0}
-        100% {left:  0;    right: 50%}
+    @keyframes switch-off-transform {
+          0% {transform: translate(100%) scaleX(1)}
+         25% {transform: translate(100%) scaleX(1.33)}
+        100% {transform: translate(0)    scaleX(1)}
     }
 
     @keyframes switch-on-transform {
           0% {transform: translate(0)    scaleX(1)}
          25% {transform: translate(0)    scaleX(1.33)}
         100% {transform: translate(100%) scaleX(1)}
-    }
-
-    @keyframes switch-off-transform {
-          0% {transform: translate(100%) scaleX(1)}
-         25% {transform: translate(100%) scaleX(1.33)}
-        100% {transform: translate(0)    scaleX(1)}
     }
 
     .neo-switchfield-input {
@@ -40,8 +28,21 @@
         -webkit-appearance         : none;
         -webkit-tap-highlight-color: transparent;
 
+        &::after {
+            content       : "\f00c\f00d";
+            font-family   : "Font Awesome 6 Free";
+            font-size     : 1.25rem;
+            font-weight   : 900;
+            left          : 0.5em;
+            letter-spacing: 1em;
+            line-height   : 1.5;
+            position      : absolute;
+            top           : 0.15em;
+            z-index       : 1;
+        }
 
         &::before {
+            animation       : switch-off-transform 0.25s ease-out forwards;
             background-clip : padding-box;
             background-color: v(switchfield-thumb-color);
             border          : 0.125em solid transparent;
@@ -56,50 +57,19 @@
             z-index         : 2;
         }
 
-        &::after {
-            content       : "\f00c\f00d";
-            font-family   : "Font Awesome 6 Free";
-            font-size     : 1.25rem;
-            font-weight   : 900;
-            left          : 0.5em;
-            letter-spacing: 1em;
-            line-height   : 1.5;
-            position      : absolute;
-            top           : 0.15em;
-            z-index       : 1;
-        }
-
-        &:focus {
-            background-color: v(switchfield-background-color);
-            border-color    : transparent;
-            color           : v(switchfield-active-color);
-            outline         : none;
-        }
-
         &:checked {
             background-color: v(switchfield-checked);
-            border-color    : transparent;
             color           : v(switchfield-inactive-color);
 
             &::before {
+                animation       : switch-on-transform 0.25s ease-out forwards;
                 transform-origin: left center;
             }
         }
 
-        &::before {
-            animation: switch-off-position 0.25s ease-out forwards;
-        }
-
-        &:checked::before {
-            animation: switch-on-position 0.25s ease-out forwards;
-        }
-
-        &::before {
-            animation: switch-off-transform 0.25s ease-out forwards;
-        }
-
-        &:checked::before {
-            animation: switch-on-transform 0.25s ease-out forwards;
+        &:focus {
+            color  : v(switchfield-active-color);
+            outline: none;
         }
     }
 }

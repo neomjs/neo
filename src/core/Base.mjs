@@ -293,6 +293,7 @@ class Base {
      * Applies all class configs to this instance
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @protected
      */
     initConfig(config, preventOriginalConfig) {
         let me = this;
@@ -304,6 +305,7 @@ class Base {
     /**
      * Does get triggered with a delay to ensure that Neo.workerId & Neo.worker.Manager are defined
      * Remote method access via promises
+     * @protected
      */
     initRemote() {
         let me            = this,
@@ -333,6 +335,7 @@ class Base {
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      * @returns {Object} config
+     * @protected
      */
     mergeConfig(config, preventOriginalConfig) {
         let me   = this,
@@ -413,6 +416,7 @@ class Base {
      * When using set(), configs without a trailing underscore can already be assigned,
      * so the hasOwnProperty() check will return true
      * @param {Boolean} [forceAssign=false]
+     * @protected
      */
     processConfigs(forceAssign=false) {
         let me   = this,
@@ -439,6 +443,7 @@ class Base {
     /**
      * @param {String} className
      * @param {Object} remote
+     * @protected
      */
     static sendRemotes(className, remote) {
         let origin;
@@ -482,6 +487,7 @@ class Base {
      * so that afterSet(), beforeGet() and beforeSet() methods can get the new values right away
      * @param {Object} config
      * @returns {Object}
+     * @protected
      */
     setFields(config) {
         let me          = this,

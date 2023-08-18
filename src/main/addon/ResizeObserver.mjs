@@ -1,12 +1,13 @@
 import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs'
+import DomAccess from '../DomAccess.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * @class Neo.main.addon.ResizeObserver
  * @extends Neo.core.Base
  * @singleton
  */
-class ResizeObserver extends Base {
+class NeoResizeObserver extends Base {
     static config = {
         /**
          * @member {String} className='Neo.main.addon.ResizeObserver'
@@ -14,7 +15,7 @@ class ResizeObserver extends Base {
          */
         className: 'Neo.main.addon.ResizeObserver',
         /**
-         * @member {#ResizeObserver|null} instance=null
+         * @member {ResizeObserver|null} instance=null
          * @protected
          */
         instance: null,
@@ -40,19 +41,57 @@ class ResizeObserver extends Base {
      * @param {Object} config
      */
     construct(config) {
+        super.construct(config);
+
         let me = this;
 
-        me.resizeObserver = new ResizeObserver(me.onResize.bind(me))
+        me.instance = new ResizeObserver(me.onResize.bind(me))
     }
 
     /**
-     * Internal callback for the ResizeObserver instance
+     * Internal callback for the ResizeObserver instance.
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserverEntry
      * @param {HTMLElement[]} entries
      * @param {ResizeObserver} observer
      * @protected
      */
     onResize(entries, observer) {
-        console.log('onResize', entries)
+        entries.forEach(entry => {
+            // the content of entry is not spreadable, so we need to manually convert it
+            // structuredClone(entry) throws a JS error => ResizeObserverEntry object could not be cloned.
+
+            let borderBoxSize             = entry.borderBoxSize[0],
+                contentBoxSize            = entry.contentBoxSize[0],
+                devicePixelContentBoxSize = entry.devicePixelContentBoxSize?.[0] || {}, // Not supported in Safari yet
+                path                      = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+
+            Neo.worker.Manager.sendMessage('app', {
+                action   : 'domEvent',
+                eventName: 'resize',
+
+                data: {
+                    contentRect: DomEvents.parseDomRect(entry.contentRect),
+                    id         : entry.target.id,
+                    path,
+                    rect       : path[0].rect,
+
+                    borderBoxSize: {
+                        blockSize : borderBoxSize.blockSize,
+                        inlineSize: borderBoxSize.inlineSize
+                    },
+
+                    contentBoxSize: {
+                        blockSize : contentBoxSize.blockSize,
+                        inlineSize: contentBoxSize.inlineSize
+                    },
+
+                    devicePixelContentBoxSize: {
+                        blockSize : devicePixelContentBoxSize.blockSize,
+                        inlineSize: devicePixelContentBoxSize.inlineSize
+                    }
+                }
+            })
+        })
     }
 
     /**
@@ -72,8 +111,6 @@ class ResizeObserver extends Base {
     }
 }
 
-Neo.applyClassConfig(ResizeObserver);
-
-let instance = Neo.applyClassConfig(ResizeObserver);
+let instance = Neo.applyClassConfig(NeoResizeObserver);
 
 export default instance;
