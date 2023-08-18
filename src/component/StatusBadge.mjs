@@ -36,25 +36,31 @@ class StatusBadge extends Base {
         _currentStateIcon: null,
 
         /**
+         * false calls Neo.Main.setRoute()
+         * @member {Boolean} deactivateStateIcons=false
+         */
+        deactivateStateIcons_: false,
+
+        /**
         * @member {String} alertIcon='fa-triangle-exclamation'
         */
-        iconAlert_:'fa fa-triangle-exclamation',
+        iconAlert_: 'fa fa-triangle-exclamation',
         /**
         * @member {String} iconError='fa-xmark'
         */
-        iconError_:'fa fa-xmark',
+        iconError_: 'fa fa-xmark',
         /**
         * @member {String} iconInfo='fa-info'
         */
-        iconInfo_:'fa fa-info',
+        iconInfo_: 'fa fa-info',
         /**
         * @member {String} iconNeutral='fa-circle'
         */
-        iconNeutral_:'fa fa-circle',
+        iconNeutral_: 'fa fa-circle',
         /**
         * @member {String} iconSuccess='fa-check'
         */
-        iconSuccess_:'fa fa-check',
+        iconSuccess_: 'fa fa-check',
 
 
 
@@ -98,6 +104,16 @@ class StatusBadge extends Base {
     }
 
     /**
+    * Triggered after the labelAlert config got changed
+    * @param {String|null} value
+    * @param {String|null} oldValue
+    * @protected
+    */
+    afterSetDeactivateStateIcons(value, oldValue) {
+        this.updateStateIconNode(this._currentStateIcon);
+    }
+
+    /**
      * Triggered after the labelAlert config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -118,7 +134,7 @@ class StatusBadge extends Base {
         if (this.state === 'alert') {
             this.updateStateIconNode(value);
         }
-    }    
+    }
 
     /**
      * Triggered after the labelError config got changed
@@ -137,11 +153,11 @@ class StatusBadge extends Base {
     * @param {String|null} oldValue
     * @protected
     */
-   afterSetIconError(value, oldValue) {
-       if (this.state === 'error') {
-           this.updateStateIconNode(value);
-       }
-   }    
+    afterSetIconError(value, oldValue) {
+        if (this.state === 'error') {
+            this.updateStateIconNode(value);
+        }
+    }
 
 
     /**
@@ -165,7 +181,7 @@ class StatusBadge extends Base {
         if (this.state === 'info') {
             this.updateStateIconNode(value);
         }
-    }     
+    }
 
     /**
      * Triggered after the labelNeutral config got changed
@@ -188,7 +204,7 @@ class StatusBadge extends Base {
         if (this.state === 'neutral') {
             this.updateStateIconNode(value);
         }
-    } 
+    }
 
     /**
      * Triggered after the labelSuccess config got changed
@@ -207,11 +223,11 @@ class StatusBadge extends Base {
     * @param {String|null} oldValue
     * @protected
     */
-   afterSetIconSuccess(value, oldValue) {
-       if (this.state === 'success') {
-           this.updateStateIconNode(value);
-       }
-   } 
+    afterSetIconSuccess(value, oldValue) {
+        if (this.state === 'success') {
+            this.updateStateIconNode(value);
+        }
+    }
     /**
      * Triggered after the state config got changed
      * @param {String} value
@@ -308,7 +324,7 @@ class StatusBadge extends Base {
         NeoArray.remove(iconNode.cls, currentValue);
         NeoArray.add(iconNode.cls, value);
 
-        iconNode.removeDom = !value || value === '';
+        iconNode.removeDom = !value || value === '' || this.deactivateStateIcons;
 
         this._currentStateIcon = value;
         this.update();
@@ -329,12 +345,10 @@ class StatusBadge extends Base {
      * @param {String|null} oldValue
      * @protected
      */
-        afterSetStateIcon(value, oldValue) {
-            this.updateStateIconNode(value, oldValue)
-;            // if (this.state === 'success') {
-            //     this.updateLabelNode(value);
-            // }
-        }
+    afterSetStateIcon(value, oldValue) {
+        this.updateStateIconNode(value, oldValue)
+            ;           
+    }
 }
 
 Neo.applyClassConfig(StatusBadge);

@@ -1,4 +1,6 @@
 .neo-status-badge {
+    display: flex;
+
     &.neo-state-alert {
         background-color: orange;
     }
@@ -36,6 +38,7 @@
         pointer-events: none;
         text-transform: v(button-text-transform);
         z-index       : 2;
+        flex: 1 1 auto;
     }
 
 }
