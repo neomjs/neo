@@ -59,6 +59,11 @@ class MainContainer extends ConfigurationViewport {
             value: me.exampleComponent.iconAlert
         }, {
             module: TextField,
+            labelText: 'side-icon Alert',
+            listeners: { change: me.onConfigChange.bind(me, 'sideIconAlert') },
+            value: me.exampleComponent.sideIconAlert
+        }, {
+            module: TextField,
             labelText: 'label Error',
             listeners: { change: me.onConfigChange.bind(me, 'labelError') },
             style: { marginTop: '10px' },
@@ -70,6 +75,11 @@ class MainContainer extends ConfigurationViewport {
             value: me.exampleComponent.iconError
         }, {
             module: TextField,
+            labelText: 'side-icon Error',
+            listeners: { change: me.onConfigChange.bind(me, 'sideIconError') },
+            value: me.exampleComponent.sideIconError
+        },{
+            module: TextField,
             labelText: 'label Info',
             listeners: { change: me.onConfigChange.bind(me, 'labelInfo') },
             style: { marginTop: '10px' },
@@ -79,6 +89,11 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'icon Info',
             listeners: { change: me.onConfigChange.bind(me, 'iconInfo') },
             value: me.exampleComponent.iconInfo
+        }, {
+            module: TextField,
+            labelText: 'side-icon Info',
+            listeners: { change: me.onConfigChange.bind(me, 'sideIconInfo') },
+            value: me.exampleComponent.sideIconInfo 
         }, {
             module: TextField,
             labelText: 'label Neutral',
@@ -92,6 +107,11 @@ class MainContainer extends ConfigurationViewport {
             value: me.exampleComponent.iconNeutral
         }, {
             module: TextField,
+            labelText: 'side-icon Neutral',
+            listeners: { change: me.onConfigChange.bind(me, 'sideIconNeutral') },
+            value: me.exampleComponent.sideIconNeutral
+        }, {
+            module: TextField,
             labelText: 'label Success',
             listeners: { change: me.onConfigChange.bind(me, 'labelSuccess') },
             style: { marginTop: '10px' },
@@ -102,11 +122,21 @@ class MainContainer extends ConfigurationViewport {
             listeners: { change: me.onConfigChange.bind(me, 'iconSuccess') },
             value: me.exampleComponent.iconSuccess
         }, {
+            module: TextField,
+            labelText: 'side-icon Success',
+            listeners: { change: me.onConfigChange.bind(me, 'sideIconSuccess') },
+            value: me.exampleComponent.sideIconSuccess
+        }, {
             module: CheckBox,
             checked: me.exampleComponent.deactivateStateIcons,
             labelText: 'deactivate State Icons',
             style: { marginTop: '20px' },
             listeners: { change: me.onConfigChange.bind(me, 'deactivateStateIcons') },
+        }, {
+            module: CheckBox,
+            checked: me.exampleComponent.deactivateSideIcons,
+            labelText: 'deactivate Side Icons',
+            listeners: { change: me.onConfigChange.bind(me, 'deactivateSideIcons') },
         }, {
             module: Radio,
             checked: me.exampleComponent.state === 'alert',
