@@ -1,0 +1,9 @@
+.neo-status-badge {
+    &.neo-state-error {
+        background-color: red;
+    }
+
+    &.neo-state-success {
+        background-color: darkgreen;
+    }
+}

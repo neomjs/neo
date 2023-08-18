@@ -125,8 +125,9 @@
         animation: spinner-rotation 3s linear infinite;
 
         &::after {
-            content : "";
-            flex    : 0 0 calc(100% - 6px);
+            content          : "";
+            flex             : 0 0 calc(100% - 6px);
+            background-color : var(--fileuploadfield-background-color);
         }
     }
 }
