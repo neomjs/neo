@@ -139,6 +139,7 @@ class AccordionTree extends TreeList {
     }
 
     /**
+     * @param {Object} item
      * @param {Object} data
      */
     onItemClick(item, data) {

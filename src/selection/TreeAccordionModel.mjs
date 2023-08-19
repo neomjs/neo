@@ -98,9 +98,8 @@ class TreeAccordionModel extends TreeModel {
      */
     checkNextParentSibling(record) {
         const parent = this.view.store.get(record.parentId);
-        let parentSibling = null;
+        let parentSibling = this.checkForSibling(parent, 1);
 
-        parentSibling = this.checkForSibling(parent, 1);
         if (!parentSibling && parent.parentId) this.checkNextParentSibling(parent);
 
         return parentSibling;
