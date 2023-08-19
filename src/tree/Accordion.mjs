@@ -1,5 +1,6 @@
 import TreeList           from '../tree/List.mjs';
 import TreeAccordionModel from "../selection/TreeAccordionModel.mjs";
+import NeoArray           from "../util/Array.mjs";
 import ClassSystemUtil    from "../util/ClassSystem.mjs";
 
 /**
@@ -27,6 +28,16 @@ class AccordionTree extends TreeList {
          */
         showCollapseExpandAllIcons: false,
         /**
+         * Set to false will auto expand root parent items and disallow collapsing
+         * @member {Boolean} rootParentIsCollapsible=false
+         */
+        rootParentsAreCollapsible_: false,
+        /**
+         * Set to false to hide the initial root item
+         * @member {Boolean} firstParentIsVisible=true
+         */
+        firstParentIsVisible_: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -45,6 +56,47 @@ class AccordionTree extends TreeList {
             focusin: me.onFocus,
             scope  : me
         })
+    }
+
+    /**
+     * Called when changing firstParentIsVisible
+     * First store item gets marked and additional css class
+     *
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetFirstParentIsVisible(value, oldValue) {
+        const toggleFn = !value ? 'addCls' : 'removeCls';
+
+        this[toggleFn]('first-parent-not-visible');
+
+        if (this.store.first()) {
+            this.store.first().visible = value;
+        }
+    }
+
+    /**
+     * Called when changing rootParentsAreCollapsible
+     * Ensures that root items are expanded if not collapsible
+     *
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetRootParentsAreCollapsible(value, oldValue) {
+        const me       = this,
+              toggleFn = !value ? 'addCls' : 'removeCls';
+
+        me[toggleFn]('root-not-collapsible');
+
+        if (me.rendered && value === false) {
+            const store = me.store;
+
+            store.items.forEach(record => {
+                if (record.parentId === null && !record.isLeaf) {
+                    me.expandItem(record);
+                }
+            })
+        }
     }
 
     /**
@@ -102,6 +154,13 @@ class AccordionTree extends TreeList {
                 } else {
                     cls.push(folderCls);
 
+                    if (!item.parentId && !me.rootParentsAreCollapsible) {
+
+                        cls.push('neo-not-collapsible');
+                        if (item.collapsed) {
+                            item.collapsed = false;
+                        }
+                    }
                     if (!item.collapsed) {
                         cls.push('neo-folder-open');
                     }
@@ -116,12 +175,17 @@ class AccordionTree extends TreeList {
                         cls      : ['neo-accordion-item-icon', item.iconCls],
                         removeDom: !item.isLeaf
                     }, {
-                        tag      : 'span',
-                        cls      : [itemCls + '-content'],
-                        innerHTML: item.name,
-                        style    : {
-                            pointerEvents: 'none'
-                        }
+                        cls  : [itemCls + '-content'],
+                        style: {pointerEvents: 'none'},
+                        cn   : [{
+                            tag      : 'span',
+                            cls      : [itemCls + '-content-header'],
+                            innerHTML: item.name
+                        }, {
+                            tag      : 'span',
+                            cls      : [itemCls + '-content-text'],
+                            innerHTML: item.content
+                        }]
                     }],
                     style: {
                         padding : '10px',
@@ -136,6 +200,22 @@ class AccordionTree extends TreeList {
         }
 
         return vdomRoot;
+    }
+
+
+    /**
+     * Expands an item based on the reord
+     * @param {Object} record
+     */
+    expandItem(record) {
+        const me     = this,
+              itemId = me.getItemId(record[me.getKeyProperty()]),
+              item   = me.getVdomChild(itemId);
+
+        record.collapsed = false;
+
+        NeoArray.add(item.cls, 'neo-folder-open');
+        me.update();
     }
 
     /**

@@ -139,12 +139,18 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        let me     = this,
-            view   = me.view,
-            itemId = me.getSelection()[0],
-            record = view.store.get(view.getItemRecordId(itemId));
+        const me     = this,
+              view   = me.view,
+              itemId = me.getSelection()[0];
 
-        if (record.isLeaf || record.collapsed) {
+        if (!itemId) {
+            me.selectRoot();
+            return;
+        }
+
+        const record = view.store.get(view.getItemRecordId(itemId));
+
+        if (record.isLeaf || record.collapsed || !view.rootParentsAreCollapsible) {
             me.onNavKey(data, -1);
         } else {
             me.toggleCollapsed(record, itemId, true);
@@ -156,10 +162,16 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        let me     = this,
-            view   = me.view,
-            itemId = me.getSelection()[0],
-            record = view.store.get(view.getItemRecordId(itemId));
+        const me     = this,
+              view   = me.view,
+              itemId = me.getSelection()[0];
+
+        if (!itemId) {
+            me.selectRoot();
+            return;
+        }
+
+        const record = view.store.get(view.getItemRecordId(itemId));
 
         if (record.isLeaf || !record.collapsed) {
             me.onNavKey(data, 1);
