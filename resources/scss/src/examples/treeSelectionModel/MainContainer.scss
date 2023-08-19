@@ -1,0 +1,24 @@
+.examples-container-accordion {
+  .neo-accordion-item-icon {
+    &.color-blue {
+      background-color: lightskyblue;
+      color: v(list-item-background-color);
+    }
+
+    &.color-red {
+      background-color: palevioletred;
+      color: v(list-item-background-color);
+    }
+
+    &.color-yellow {
+      background-color: goldenrod;
+      color: v(list-item-background-color);
+    }
+
+    &.color-green {
+      background-color: lightseagreen;
+      color: v(list-container-list-color);
+      color: v(list-item-background-color);
+    }
+  }
+}
