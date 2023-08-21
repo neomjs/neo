@@ -1,9 +1,49 @@
 .neo-status-badge {
+    display: flex;
+    padding: v(status-badge-padding);
+    align-items: v(status-badge-align-items);
+
+    &.neo-state-alert {
+        background-color: v(status-badge-state-alert-background-color);
+        color: v(status-badge-state-alert-text-color);
+    }
+
     &.neo-state-error {
-        background-color: red;
+        background-color: v(status-badge-state-error-background-color);
+        color: v(status-badge-state-error-text-color);
+    }
+
+    &.neo-state-info {
+        background-color: v(status-badge-state-info-background-color);
+        color: v(status-badge-state-info-text-color);
+    }
+
+    &.neo-state-neutral {
+        background-color: v(status-badge-state-neutral-background-color);
+        color: v(status-badge-state-neutral-text-color);
     }
 
     &.neo-state-success {
-        background-color: darkgreen;
+        background-color: v(status-badge-state-success-background-color);
+        color: v(status-badge-state-success-text-color);
+
     }
+
+    .neo-state-glyph {
+        font-size: v(status-badge-font-size);
+        pointer-events: none; 
+    }
+
+    .neo-state-text {
+        flex: 1 1 auto;
+        font-family: v(status-badge-font-family);
+        font-size: v(status-badge-font-size);
+        font-weight: v(status-badge-font-weight);
+        line-height: v(status-badge-line-height);
+        pointer-events: none;
+        text-align:  v(status-badge-align-items);
+        text-transform: v(status-badge-transform);
+    }
+
+
 }
