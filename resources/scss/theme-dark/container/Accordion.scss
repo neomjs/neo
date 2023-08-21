@@ -1,13 +1,5 @@
-$neoMap: map-merge($neoMap, (
-  --accordion-title-bg-color: #292929;
-  --accordion-title-color : #ccc;
-  --accordion-item-radius : 5px
-));
-
-@if $useCssVars == true {
-  :root .neo-theme-dark { // .neo-accordion
-    --accordion-title-bg-color: #{neo(accordion-title-bg-color)};
-    --accordion-title-color: #{neo(accordion-title-color)};
-    --accordion-item-radius: #{neo(accordion-item-radius)};
-  }
+:root .neo-theme-dark { // .neo-accordion
+    --accordion-item-radius   : 5px;
+    --accordion-title-bg-color: #292929;
+    --accordion-title-color   : #ccc;
 }

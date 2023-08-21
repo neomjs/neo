@@ -1,14 +1,5 @@
-$neoMap: map-merge($neoMap, (
-        --timer-color-start: #8a9b0f;
-        --timer-color-end: #940a3d;
-        --timer-dimension: --6rem
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-timer
-        --timer-color-start  : #{neo(timer-color-start)};
-        --timer-color-end    : #{neo(timer-color-end)};
-        --timer-dimension    : #{neo(timer-dimension)};
-        --timer-button-color : #{neo(container-color)};
-    }
+:root .neo-theme-dark { // .neo-timer
+    --timer-color-end  : #940a3d;
+    --timer-color-start: #8a9b0f;
+    --timer-dimension  : --6rem;
 }

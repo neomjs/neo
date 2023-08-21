@@ -1,21 +1,9 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-toast
     --toast-background-color        : lightblue;
     --toast-color                   : #083741;
     --toast-danger-background-color : #e6adad;
     --toast-danger-color            : #410808;
     --toast-shadow-color            : rgba(255, 255, 255, 0.15);
     --toast-success-background-color: #b7e6ad;
-    --toast-success-color           : #124108
-));
-
-@if $useCssVars == true {
-  :root .neo-theme-dark { // .neo-toast
-    --toast-background-color        : #{neo(toast-background-color)};
-    --toast-color                   : #{neo(toast-color)};
-    --toast-shadow-color            : #{neo(toast-shadow-color)};
-    --toast-danger-background-color : #{neo(toast-danger-background-color)};
-    --toast-danger-color            : #{neo(toast-danger-color)};
-    --toast-success-background-color: #{neo(toast-success-background-color)};
-    --toast-success-color           : #{neo(toast-success-color)};
-  }
+    --toast-success-color           : #124108;
 }
