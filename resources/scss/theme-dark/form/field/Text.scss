@@ -22,7 +22,7 @@
     --textfield-label-color-disabled           : #bbb;
     --textfield-label-color-readonly           : #bbb;
     --textfield-label-top-margin               : 0 0 3px;
-    --textfield-opacity-disabled               : #{neo(neo-disabled-opacity)};
+    --textfield-opacity-disabled               : var(--neo-disabled-opacity);
     --textfield-opacity-readonly               : 1;
     --textfield-outline-active                 : none;
     --textfield-outline-hovered                : none;

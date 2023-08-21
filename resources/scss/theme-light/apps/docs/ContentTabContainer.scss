@@ -2,10 +2,3 @@
     --docs-content-tabcontainer-tab-header-toolbar-background-color : #fff;
     --docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover: red;
 }
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .docs-content-tabcontainer
-        --docs-content-tabcontainer-tab-header-toolbar-background-color : #{neo(docs-content-tabcontainer-tab-header-toolbar-background-color)};
-        --docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover: #{neo(docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover)};
-    }
-}
