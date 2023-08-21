@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'docs-classdetails-headercomponent-background-color': #323232,
-    'docs-classdetails-headerpanel-border-right'        : 0
+    --docs-classdetails-headercomponent-background-color: #323232;
+    --docs-classdetails-headerpanel-border-right        : 0
 ));
 
 @if $useCssVars == true {

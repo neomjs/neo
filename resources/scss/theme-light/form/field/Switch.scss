@@ -1,9 +1,9 @@
 $neoMap: map-merge($neoMap, (
-    'switchfield-active-color'    : white,
-    'switchfield-background-color': darkgrey,
-    'switchfield-checked'         : green,
-    'switchfield-inactive-color'  : grey,
-    'switchfield-thumb-color'     : white
+    --switchfield-active-color    : white;
+    --switchfield-background-color: darkgrey;
+    --switchfield-checked         : green;
+    --switchfield-inactive-color  : grey;
+    --switchfield-thumb-color     : white
 ));
 
 @if $useCssVars == true {

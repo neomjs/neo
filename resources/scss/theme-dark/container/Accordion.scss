@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-  'accordion-title-bg-color': #292929,
-  'accordion-title-color' : #ccc,
-  'accordion-item-radius' : 5px
+  --accordion-title-bg-color: #292929;
+  --accordion-title-color : #ccc;
+  --accordion-item-radius : 5px
 ));
 
 @if $useCssVars == true {

@@ -1,10 +1,10 @@
 $neoMap: map-merge($neoMap, (
-    'covid-helix-background-color'             : #fff,
-    'covid-helix-border-color'                 : #ddd,
-    'covid-helix-item-border-color'            : rgba(73,120,184,.5),
-    'covid-helix-item-border-sides-width'      : 1px,
-    'covid-helix-item-box-shadow-selected'     : 0 0 35px #008dff,
-    'covid-helix-item-wrapper-background-color': rgba(73,120,184,.5)
+    --covid-helix-background-color             : #fff;
+    --covid-helix-border-color                 : #ddd;
+    --covid-helix-item-border-color            : rgba(73,120,184,.5);
+    --covid-helix-item-border-sides-width      : 1px;
+    --covid-helix-item-box-shadow-selected     : 0 0 35px #008dff;
+    --covid-helix-item-wrapper-background-color: rgba(73,120,184,.5)
 ));
 
 @if $useCssVars == true {

@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'panel-border-color'       : #ddd,
-    'panel-header-border-color': #ddd,
-    'panel-header-text-color'  : #666
+    --panel-border-color       : #ddd;
+    --panel-header-border-color: #ddd;
+    --panel-header-text-color  : #666
 ));
 
 @if $useCssVars == true {

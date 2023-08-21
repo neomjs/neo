@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'tree-list-color'          : #666,
-    'tree-list-menu-item-color': #1c60a0
+    --tree-list-color          : #666;
+    --tree-list-menu-item-color: #1c60a0
 ));
 
 @if $useCssVars == true {

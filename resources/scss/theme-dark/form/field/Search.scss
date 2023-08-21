@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'searchfield-glyph-color': #bbb
+    --searchfield-glyph-color: #bbb
 ));
 
 @if $useCssVars == true {

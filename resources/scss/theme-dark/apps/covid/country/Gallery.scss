@@ -1,9 +1,9 @@
 $neoMap: map-merge($neoMap, (
-    'covid-gallery-background-color'             : #000,
-    'covid-gallery-border-color'                 : #3c3f41,
-    'covid-gallery-item-border-color'            : rgba(0,0,0,.1),
-    'covid-gallery-item-border-sides-width'      : 0,
-    'covid-gallery-item-wrapper-background-color': rgba(73,160,154,.35)
+    --covid-gallery-background-color             : #000;
+    --covid-gallery-border-color                 : #3c3f41;
+    --covid-gallery-item-border-color            : rgba(0,0,0,.1);
+    --covid-gallery-item-border-sides-width      : 0;
+    --covid-gallery-item-wrapper-background-color: rgba(73,160,154,.35)
 ));
 
 @if $useCssVars == true {

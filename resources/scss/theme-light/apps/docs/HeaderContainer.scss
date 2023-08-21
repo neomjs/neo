@@ -1,12 +1,12 @@
 $neoMap: map-merge($neoMap, (
-    'docs-header-container-background-color'         : #fff,
-    'docs-header-container-background-image'         : none,
-    'docs-header-container-logo-text-background-clip': text,
-    'docs-header-container-logo-text-color'          : rgba(0,0,0,0.6),
-    'docs-header-container-logo-text-font-size'      : 28px,
-    'docs-header-container-logo-text-font-weight'    : 800,
-    'docs-header-container-logo-padding'             : 10px,
-    'docs-header-container-logo-text-shadow'         : 2px 2px 3px rgba(200,200,200,0.1)
+    --docs-header-container-background-color         : #fff;
+    --docs-header-container-background-image         : none;
+    --docs-header-container-logo-text-background-clip: text;
+    --docs-header-container-logo-text-color          : rgba(0,0,0,0.6);
+    --docs-header-container-logo-text-font-size      : 28px;
+    --docs-header-container-logo-text-font-weight    : 800;
+    --docs-header-container-logo-padding             : 10px;
+    --docs-header-container-logo-text-shadow         : 2px 2px 3px rgba(200,200,200,0.1)
 ));
 
 @if $useCssVars == true {

@@ -1,15 +1,15 @@
 $neoMap: map-merge($neoMap, (
-    'c-w-background-color'                  : #2b2b2b,
-    'c-w-border-color'                      : #3c3f41,
-    'c-w-event-resizable-color'             : #64B5F6,
-    'c-w-header-background-color'           : #2b2b2b,
-    'c-w-header-date-background-color-hover': #33343d,
-    'c-w-header-date-color'                 : #999,
-    'c-w-header-date-color-hover'           : #999,
-    'c-w-header-day-color'                  : #999,
-    'c-w-header-today-background-color'     : firebrick,
-    'c-w-header-today-color'                : #fff,
-    'c-w-weekend-background-color'          : rgba(50, 50, 60, .35)
+    --c-w-background-color                  : #2b2b2b;
+    --c-w-border-color                      : #3c3f41;
+    --c-w-event-resizable-color             : #64B5F6;
+    --c-w-header-background-color           : #2b2b2b;
+    --c-w-header-date-background-color-hover: #33343d;
+    --c-w-header-date-color                 : #999;
+    --c-w-header-date-color-hover           : #999;
+    --c-w-header-day-color                  : #999;
+    --c-w-header-today-background-color     : firebrick;
+    --c-w-header-today-color                : #fff;
+    --c-w-weekend-background-color          : rgba(50, 50, 60, .35)
 ));
 
 @if $useCssVars == true {

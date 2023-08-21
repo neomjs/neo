@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'rangefield-thumb-background': #bbb,
-    'rangefield-track-background': #3c3f41
+    --rangefield-thumb-background: #bbb;
+    --rangefield-track-background: #3c3f41
 ));
 
 @if $useCssVars == true {

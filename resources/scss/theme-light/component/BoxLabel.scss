@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'boxlabel-background-color': #fff,
-    'boxlabel-border'          : 1px solid #ddd,
-    'boxlabel-color'           : #000
+    --boxlabel-background-color: #fff;
+    --boxlabel-border          : 1px solid #ddd;
+    --boxlabel-color           : #000
 ));
 
 @if $useCssVars == true {

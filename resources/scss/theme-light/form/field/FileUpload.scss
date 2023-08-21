@@ -1,14 +1,14 @@
 $neoMap: map-merge($neoMap, (
-    'fileuploadfield-background-color'         : #fff,
-    'fileuploadfield-color'                    : #000,
-    'fileuploadfield-border-color'             : #d5d5d5,
-    'fileuploadfield-progress-color'           : #5d94f3,
-    'fileuploadfield-error-color'              : #f00,
-    'fileuploadfield-success-color'            : rgb(112, 169, 112),
-    'fileuploadfield-hover-color'              : #f0f0f0,
-    'fileuploadfield-pressed-color'            : #e0e0e0,
-    'fileuploadfield-downloadable-state-color' : #d9d9d9,
-    'fileuploadfield-focus-color'              : #80d3f4
+    --fileuploadfield-background-color         : #fff;
+    --fileuploadfield-color                    : #000;
+    --fileuploadfield-border-color             : #d5d5d5;
+    --fileuploadfield-progress-color           : #5d94f3;
+    --fileuploadfield-error-color              : #f00;
+    --fileuploadfield-success-color            : rgb(112, 169, 112);
+    --fileuploadfield-hover-color              : #f0f0f0;
+    --fileuploadfield-pressed-color            : #e0e0e0;
+    --fileuploadfield-downloadable-state-color : #d9d9d9;
+    --fileuploadfield-focus-color              : #80d3f4
 ));
 
 @if $useCssVars == true {

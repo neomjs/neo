@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'examples-tab-component-background-color': #fff
+    --examples-tab-component-background-color: #fff
 ));
 
 @if $useCssVars == true {

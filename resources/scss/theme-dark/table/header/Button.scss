@@ -1,9 +1,9 @@
 $neoMap: map-merge($neoMap, (
-    'table-header-button-background-color'       : #323232,
-    'table-header-button-background-image'       : linear-gradient(#3c3f41, #323232),
-    'table-header-button-color'                  : #bbb,
-    'table-header-button-glyph-color'            : #bbb,
-    'table-header-button-ripple-background-color': darken(#5d83a7, 10%),
+    --table-header-button-background-color       : #323232;
+    --table-header-button-background-image       : linear-gradient(#3c3f41, #323232);
+    --table-header-button-color                  : #bbb;
+    --table-header-button-glyph-color            : #bbb;
+    --table-header-button-ripple-background-color: darken(#5d83a7, 10%);
 ));
 
 @if $useCssVars == true {

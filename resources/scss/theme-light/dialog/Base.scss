@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'dialog-border-color': #ddd,
-    'dialog-header-color': #1c60a0,
-    'dialog-icon-color'  : #1c60a0
+    --dialog-border-color: #ddd;
+    --dialog-header-color: #1c60a0;
+    --dialog-icon-color  : #1c60a0
 ));
 
 @if $useCssVars == true {

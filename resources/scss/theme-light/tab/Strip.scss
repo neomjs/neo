@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'tab-indicator-background-color-active': #5d83a7,
-    'tab-strip-background-color'           : #ddd,
-    'tab-strip-height'                     : 3px
+    --tab-indicator-background-color-active: #5d83a7;
+    --tab-strip-background-color           : #ddd;
+    --tab-strip-height                     : 3px
 ));
 
 @if $useCssVars == true {

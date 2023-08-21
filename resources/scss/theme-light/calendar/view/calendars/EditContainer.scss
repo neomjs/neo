@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-edit-calendar-background-color': #fff,
-    'calendar-edit-calendar-border-color'    : #1c60a0,
-    'calendar-edit-calendar-box-shadow'      : 0 5px 10px rgba(0,0,0,.4)
+    --calendar-edit-calendar-background-color: #fff;
+    --calendar-edit-calendar-border-color    : #1c60a0;
+    --calendar-edit-calendar-box-shadow      : 0 5px 10px rgba(0,0,0,.4)
 ));
 
 @if $useCssVars == true {

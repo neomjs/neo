@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'examples-calendar-basic-header-background-color': #33343d,
-    'examples-calendar-basic-header-color'           : #ccc
+    --examples-calendar-basic-header-background-color: #33343d;
+    --examples-calendar-basic-header-color           : #ccc
 ));
 
 @if $useCssVars == true {

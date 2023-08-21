@@ -5,116 +5,116 @@ $border-width    : 1px;
 $text-color      : #bbb;
 
 $neoMap: map-merge($neoMap, (
-    'button-background-color'                   : $background-color,
-    'button-background-color-active'            : #373a3c,
-    'button-background-color-disabled'          : $background-color,
-    'button-background-color-hover'             : #3a3c3e,
-    'button-background-image'                   : linear-gradient(#434749, #323536),
-    'button-background-gradient-end'            : #323536,
-    'button-background-gradient-start'          : #434749,
-    'button-badge-background-color'             : #64b5f6,
-    'button-badge-color'                        : #282828,
-    'button-badge-margin-left'                  : -10px,
-    'button-badge-margin-top'                   : -10px,
-    'button-border'                             : 1px $border-style $border-color,
-    'button-border-active'                      : 1px $border-style #282828,
-    'button-border-disabled'                    : 1px $border-style $border-color,
-    'button-border-hover'                       : 1px $border-style #292929,
-    'button-border-pressed'                     : 1px $border-style #5d83a7,
-    'button-border-radius'                      : 0,
-    'button-border-width'                       : 1px,
-    'button-glyph-color'                        : $text-color,
-    'button-glyph-color-active'                 : $text-color,
-    'button-glyph-color-disabled'               : $text-color,
-    'button-glyph-color-hover'                  : $text-color,
-    'button-height'                             : inherit,
-    'button-margin'                             : 2px,
-    'button-opacity-disabled'                   : #{neo(neo-disabled-opacity)},
-    'button-outline-active'                     : none,
-    'button-padding'                            : 5px 12px 5px 12px,
-    'button-ripple-background-color'            : darken(#5d83a7, 10%),
-    'button-text-color'                         : $text-color,
-    'button-text-color-active'                  : $text-color,
-    'button-text-color-disabled'                : $text-color,
-    'button-text-color-hover'                   : $text-color,
-    'button-text-font-family'                   : #{neo(neo-font-family)},
-    'button-text-font-size'                     : 11px,
-    'button-text-font-weight'                   : 600,
-    'button-text-line-height'                   : 11px,
-    'button-text-transform'                     : none,
-    'button-use-gradients'                      : true,
+    --button-background-color                   : $background-color;
+    --button-background-color-active            : #373a3c;
+    --button-background-color-disabled          : $background-color;
+    --button-background-color-hover             : #3a3c3e;
+    --button-background-image                   : linear-gradient(#434749, #323536);
+    --button-background-gradient-end            : #323536;
+    --button-background-gradient-start          : #434749;
+    --button-badge-background-color             : #64b5f6;
+    --button-badge-color                        : #282828;
+    --button-badge-margin-left                  : -10px;
+    --button-badge-margin-top                   : -10px;
+    --button-border                             : 1px $border-style $border-color;
+    --button-border-active                      : 1px $border-style #282828;
+    --button-border-disabled                    : 1px $border-style $border-color;
+    --button-border-hover                       : 1px $border-style #292929;
+    --button-border-pressed                     : 1px $border-style #5d83a7;
+    --button-border-radius                      : 0;
+    --button-border-width                       : 1px;
+    --button-glyph-color                        : $text-color;
+    --button-glyph-color-active                 : $text-color;
+    --button-glyph-color-disabled               : $text-color;
+    --button-glyph-color-hover                  : $text-color;
+    --button-height                             : inherit;
+    --button-margin                             : 2px;
+    --button-opacity-disabled                   : #{neo(neo-disabled-opacity)};
+    --button-outline-active                     : none;
+    --button-padding                            : 5px 12px 5px 12px;
+    --button-ripple-background-color            : darken(#5d83a7, 10%);
+    --button-text-color                         : $text-color;
+    --button-text-color-active                  : $text-color;
+    --button-text-color-disabled                : $text-color;
+    --button-text-color-hover                   : $text-color;
+    --button-text-font-family                   : #{neo(neo-font-family)};
+    --button-text-font-size                     : 11px;
+    --button-text-font-weight                   : 600;
+    --button-text-line-height                   : 11px;
+    --button-text-transform                     : none;
+    --button-use-gradients                      : true;
 
-    // {module: Button, ui: 'ghost'}
-    'button-ghost-background-color'             : var(--button-text-color),
-    'button-ghost-background-color-active'      : #373a3c,
-    'button-ghost-background-color-disabled'    : inherit,
-    'button-ghost-background-color-hover'       : var(--button-text-color),
-    'button-ghost-background-image'             : none,
-    'button-ghost-badge-background-color'       : var(--button-badge-color),
-    'button-ghost-badge-color'                  : var(--button-badge-background-color),
-    'button-ghost-border'                       : 1px $border-style var(--button-background-color),
-    'button-ghost-border-active'                : 1px $border-style #282828,
-    'button-ghost-border-disabled'              : inherit,
-    'button-ghost-border-hover'                 : 1px $border-style #282828,
-    'button-ghost-border-pressed'               : 1px $border-style #5d83a7,
-    'button-ghost-glyph-color'                  : var(--button-background-color),
-    'button-ghost-glyph-color-active'           : var(--button-background-color),
-    'button-ghost-glyph-color-disabled'         : inherit,
-    'button-ghost-glyph-color-hover'            : var(--button-background-color),
-    'button-ghost-opacity-disabled'             : var(--neo-disabled-opacity),
-    'button-ghost-ripple-background-color'      : inherit,
-    'button-ghost-text-color'                   : var(--button-background-color),
-    'button-ghost-text-color-active'            : var(--button-background-color),
-    'button-ghost-text-color-disabled'          : inherit,
-    'button-ghost-text-color-hover'             : var(--button-background-color),
+    // {module: Button, ui: --ghost}
+    --button-ghost-background-color             : var(--button-text-color);
+    --button-ghost-background-color-active      : #373a3c;
+    --button-ghost-background-color-disabled    : inherit;
+    --button-ghost-background-color-hover       : var(--button-text-color);
+    --button-ghost-background-image             : none;
+    --button-ghost-badge-background-color       : var(--button-badge-color);
+    --button-ghost-badge-color                  : var(--button-badge-background-color);
+    --button-ghost-border                       : 1px $border-style var(--button-background-color);
+    --button-ghost-border-active                : 1px $border-style #282828;
+    --button-ghost-border-disabled              : inherit;
+    --button-ghost-border-hover                 : 1px $border-style #282828;
+    --button-ghost-border-pressed               : 1px $border-style #5d83a7;
+    --button-ghost-glyph-color                  : var(--button-background-color);
+    --button-ghost-glyph-color-active           : var(--button-background-color);
+    --button-ghost-glyph-color-disabled         : inherit;
+    --button-ghost-glyph-color-hover            : var(--button-background-color);
+    --button-ghost-opacity-disabled             : var(--neo-disabled-opacity);
+    --button-ghost-ripple-background-color      : inherit;
+    --button-ghost-text-color                   : var(--button-background-color);
+    --button-ghost-text-color-active            : var(--button-background-color);
+    --button-ghost-text-color-disabled          : inherit;
+    --button-ghost-text-color-hover             : var(--button-background-color);
 
-    // {module: Button, ui: 'secondary'}
-    'button-secondary-background-color'         : var(--button-text-color),
-    'button-secondary-background-color-active'  : #373a3c,
-    'button-secondary-background-color-disabled': inherit,
-    'button-secondary-background-color-hover'   : var(--button-text-color),
-    'button-secondary-background-image'         : none,
-    'button-secondary-badge-background-color'   : var(--button-badge-color),
-    'button-secondary-badge-color'              : var(--button-badge-background-color),
-    'button-secondary-border'                   : 1px $border-style var(--button-background-color),
-    'button-secondary-border-active'            : 1px $border-style #282828,
-    'button-secondary-border-disabled'          : inherit,
-    'button-secondary-border-hover'             : 1px $border-style #292929,
-    'button-secondary-border-pressed'           : 1px $border-style #5d83a7,
-    'button-secondary-glyph-color'              : var(--button-background-color),
-    'button-secondary-glyph-color-active'       : var(--button-background-color),
-    'button-secondary-glyph-color-disabled'     : inherit,
-    'button-secondary-glyph-color-hover'        : var(--button-background-color),
-    'button-secondary-opacity-disabled'         : var(--neo-disabled-opacity),
-    'button-secondary-ripple-background-color'  : inherit,
-    'button-secondary-text-color'               : var(--button-background-color),
-    'button-secondary-text-color-active'        : var(--button-background-color),
-    'button-secondary-text-color-disabled'      : inherit,
-    'button-secondary-text-color-hover'         : var(--button-background-color),
+    // {module: Button, ui: --secondary}
+    --button-secondary-background-color         : var(--button-text-color);
+    --button-secondary-background-color-active  : #373a3c;
+    --button-secondary-background-color-disabled: inherit;
+    --button-secondary-background-color-hover   : var(--button-text-color);
+    --button-secondary-background-image         : none;
+    --button-secondary-badge-background-color   : var(--button-badge-color);
+    --button-secondary-badge-color              : var(--button-badge-background-color);
+    --button-secondary-border                   : 1px $border-style var(--button-background-color);
+    --button-secondary-border-active            : 1px $border-style #282828;
+    --button-secondary-border-disabled          : inherit;
+    --button-secondary-border-hover             : 1px $border-style #292929;
+    --button-secondary-border-pressed           : 1px $border-style #5d83a7;
+    --button-secondary-glyph-color              : var(--button-background-color);
+    --button-secondary-glyph-color-active       : var(--button-background-color);
+    --button-secondary-glyph-color-disabled     : inherit;
+    --button-secondary-glyph-color-hover        : var(--button-background-color);
+    --button-secondary-opacity-disabled         : var(--neo-disabled-opacity);
+    --button-secondary-ripple-background-color  : inherit;
+    --button-secondary-text-color               : var(--button-background-color);
+    --button-secondary-text-color-active        : var(--button-background-color);
+    --button-secondary-text-color-disabled      : inherit;
+    --button-secondary-text-color-hover         : var(--button-background-color);
 
-    // {module: Button, ui: 'tertiary'}
-    'button-tertiary-background-color'          : transparent,
-    'button-tertiary-background-color-active'   : #373a3c,
-    'button-tertiary-background-color-disabled' : inherit,
-    'button-tertiary-background-color-hover'    : var(--button-background-color-hover),
-    'button-tertiary-background-image'          : none,
-    'button-tertiary-badge-background-color'    : var(--button-badge-background-color),
-    'button-tertiary-badge-color'               : var(--button-badge-color),
-    'button-tertiary-border'                    : 1px $border-style transparent,
-    'button-tertiary-border-active'             : 1px $border-style #282828,
-    'button-tertiary-border-disabled'           : inherit,
-    'button-tertiary-border-hover'              : 1px $border-style #292929,
-    'button-tertiary-border-pressed'            : 1px $border-style #5d83a7,
-    'button-tertiary-glyph-color'               : var(--button-glyph-color),
-    'button-tertiary-glyph-color-active'        : var(--button-glyph-color),
-    'button-tertiary-glyph-color-disabled'      : inherit,
-    'button-tertiary-glyph-color-hover'         : var(--button-glyph-color),
-    'button-tertiary-opacity-disabled'          : var(--neo-disabled-opacity),
-    'button-tertiary-ripple-background-color'   : inherit,
-    'button-tertiary-text-color'                : var(--button-text-color),
-    'button-tertiary-text-color-active'         : var(--button-text-color),
-    'button-tertiary-text-color-disabled'       : inherit,
-    'button-tertiary-text-color-hover'          : var(--button-text-color)
+    // {module: Button, ui: --tertiary}
+    --button-tertiary-background-color          : transparent;
+    --button-tertiary-background-color-active   : #373a3c;
+    --button-tertiary-background-color-disabled : inherit;
+    --button-tertiary-background-color-hover    : var(--button-background-color-hover);
+    --button-tertiary-background-image          : none;
+    --button-tertiary-badge-background-color    : var(--button-badge-background-color);
+    --button-tertiary-badge-color               : var(--button-badge-color);
+    --button-tertiary-border                    : 1px $border-style transparent;
+    --button-tertiary-border-active             : 1px $border-style #282828;
+    --button-tertiary-border-disabled           : inherit;
+    --button-tertiary-border-hover              : 1px $border-style #292929;
+    --button-tertiary-border-pressed            : 1px $border-style #5d83a7;
+    --button-tertiary-glyph-color               : var(--button-glyph-color);
+    --button-tertiary-glyph-color-active        : var(--button-glyph-color);
+    --button-tertiary-glyph-color-disabled      : inherit;
+    --button-tertiary-glyph-color-hover         : var(--button-glyph-color);
+    --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
+    --button-tertiary-ripple-background-color   : inherit;
+    --button-tertiary-text-color                : var(--button-text-color);
+    --button-tertiary-text-color-active         : var(--button-text-color);
+    --button-tertiary-text-color-disabled       : inherit;
+    --button-tertiary-text-color-hover          : var(--button-text-color)
 ));
 
 @if $useCssVars == true {

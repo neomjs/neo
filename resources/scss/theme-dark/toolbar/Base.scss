@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'toolbar-background-color': #323232,
-    'toolbar-padding'         : 5px
+    --toolbar-background-color: #323232;
+    --toolbar-padding         : 5px
 ));
 
 @if $useCssVars == true {

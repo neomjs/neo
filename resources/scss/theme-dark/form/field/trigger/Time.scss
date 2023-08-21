@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'trigger-time-background-color-hover': #64B5F6,
-    'trigger-time-pointer-color'         : #33343d
+    --trigger-time-background-color-hover: #64B5F6;
+    --trigger-time-pointer-color         : #33343d
 ));
 
 @if $useCssVars == true {

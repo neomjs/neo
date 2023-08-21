@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'calendars-list-edit-icon-color': #1c60a0
+    --calendars-list-edit-icon-color: #1c60a0
 ));
 
 @if $useCssVars == true {

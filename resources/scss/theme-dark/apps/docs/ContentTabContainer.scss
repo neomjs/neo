@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'docs-content-tabcontainer-tab-header-toolbar-background-color' : #343537,
-    'docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover': brown
+    --docs-content-tabcontainer-tab-header-toolbar-background-color : #343537;
+    --docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover: brown
 ));
 
 @if $useCssVars == true {

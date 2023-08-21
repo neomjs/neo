@@ -1,7 +1,7 @@
 $neoMap: map-merge($neoMap, (
-        'timer-color-start': #8a9b0f,
-        'timer-color-end': #940a3d,
-        'timer-dimension': '6rem'
+        --timer-color-start: #8a9b0f;
+        --timer-color-end: #940a3d;
+        --timer-dimension: --6rem
 ));
 
 @if $useCssVars == true {

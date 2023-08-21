@@ -1,11 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'selectfield-input-hint-color'              : #bbb,
-    'selectfield-input-hint-opacity'            : 0.6,
-    'selectfield-list-search-background-color'  : inherit,
-    'selectfield-list-search-color'             : #fff,
-    'selectfield-list-search-color-selected'    : #000,
-    'selectfield-picker-container-border'       : 1px solid #bbb,
-    'selectfield-picker-container-border-radius': 0
+    --selectfield-input-hint-color              : #bbb;
+    --selectfield-input-hint-opacity            : 0.6;
+    --selectfield-list-search-background-color  : inherit;
+    --selectfield-list-search-color             : #fff;
+    --selectfield-list-search-color-selected    : #000;
+    --selectfield-picker-container-border       : 1px solid #bbb;
+    --selectfield-picker-container-border-radius: 0
 ));
 
 @if $useCssVars == true {

@@ -1,9 +1,9 @@
 $neoMap: map-merge($neoMap, (
-    'grid-container-border-color'              : #2b2b2b,
-    'grid-container-cell-background-color'     : #3c3f41,
-    'grid-container-cell-background-color-even': #323232,
-    'grid-container-color'                     : #bbb,
-    'grid-container-header-cell-border-bottom' : 2px solid #2b2b2b
+    --grid-container-border-color              : #2b2b2b;
+    --grid-container-cell-background-color     : #3c3f41;
+    --grid-container-cell-background-color-even: #323232;
+    --grid-container-color                     : #bbb;
+    --grid-container-header-cell-border-bottom : 2px solid #2b2b2b
 ));
 
 @if $useCssVars == true {

@@ -1,12 +1,12 @@
 $neoMap: map-merge($neoMap, (
-    'c-y-cell-border-color'     : #ddd,
-    'c-y-cell-color'            : #555,
-    'c-y-month-color'           : #555,
-    'c-y-today-background-color': red,
-    'c-y-today-color'           : #fff,
-    'c-y-week-background-color' : #f2f2f2,
-    'c-y-week-color'            : #555,
-    'c-y-year-color'            : #1c60a0
+    --c-y-cell-border-color     : #ddd;
+    --c-y-cell-color            : #555;
+    --c-y-month-color           : #555;
+    --c-y-today-background-color: red;
+    --c-y-today-color           : #fff;
+    --c-y-week-background-color : #f2f2f2;
+    --c-y-week-color            : #555;
+    --c-y-year-color            : #1c60a0
 ));
 
 @if $useCssVars == true {

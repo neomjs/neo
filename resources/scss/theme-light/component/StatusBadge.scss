@@ -1,21 +1,21 @@
 $neoMap: map-merge($neoMap, (
-    'status-badge-padding'                          : 0px 5px 0px 5px,
-    'status-badge-align-items'                      : center,
-    'status-badge-state-alert-background-color'     : orange,
-    'status-badge-state-alert-text-color'           : black,
-    'status-badge-state-error-background-color'     : red,
-    'status-badge-state-error-text-color'           : white,
-    'status-badge-state-info-background-color'      : lightblue,
-    'status-badge-state-info-text-color'            : black,
-    'status-badge-state-neutral-background-color'   : white,
-    'status-badge-state-neutral-text-color'         : black,
-    'status-badge-state-success-background-color'   : green,
-    'status-badge-state-success-text-color'         : white,
-    'status-badge-font-size'                        : 11px,
-    'status-badge-font-family'                      : #{neo(neo-font-family)},
-    'status-badge-font-weight'                      : 600,
-    'status-badge-line-height'                      : 11px,
-    'status-badge-transform'                        : none
+    --status-badge-padding                          : 0px 5px 0px 5px;
+    --status-badge-align-items                      : center;
+    --status-badge-state-alert-background-color     : orange;
+    --status-badge-state-alert-text-color           : black;
+    --status-badge-state-error-background-color     : red;
+    --status-badge-state-error-text-color           : white;
+    --status-badge-state-info-background-color      : lightblue;
+    --status-badge-state-info-text-color            : black;
+    --status-badge-state-neutral-background-color   : white;
+    --status-badge-state-neutral-text-color         : black;
+    --status-badge-state-success-background-color   : green;
+    --status-badge-state-success-text-color         : white;
+    --status-badge-font-size                        : 11px;
+    --status-badge-font-family                      : #{neo(neo-font-family)};
+    --status-badge-font-weight                      : 600;
+    --status-badge-line-height                      : 11px;
+    --status-badge-transform                        : none
 ));
 
 @if $useCssVars == true {

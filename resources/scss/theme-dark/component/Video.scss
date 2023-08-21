@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-        'video-ghost-color': rgb(50, 50, 50),
-        'video-ghost-size' : 30px
+        --video-ghost-color: rgb(50, 50, 50);
+        --video-ghost-size : 30px
 ));
 
 @if $useCssVars == true {

@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'container-background-color': #2b2b2b,
-    'container-color'           : #bbb
+    --container-background-color: #2b2b2b;
+    --container-color           : #bbb
 ));
 
 @if $useCssVars == true {

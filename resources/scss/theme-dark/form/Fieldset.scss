@@ -1,8 +1,8 @@
 $neoMap: map-merge($neoMap, (
-    'fieldset-background-color' : '#2b2b2b',
-    'fieldset-border'           : 1px solid #424242,
-    'fieldset-legend-color'     : #bbb,
-    'fieldset-legend-icon-color': #64B5F6
+    --fieldset-background-color : --#2b2b2b;
+    --fieldset-border           : 1px solid #424242;
+    --fieldset-legend-color     : #bbb;
+    --fieldset-legend-icon-color: #64B5F6
 ));
 
 @if $useCssVars == true {

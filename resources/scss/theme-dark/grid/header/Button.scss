@@ -1,8 +1,8 @@
 $neoMap: map-merge($neoMap, (
-    'grid-header-button-background-color': #323232,
-    'grid-header-button-background-image': linear-gradient(#3c3f41, #323232),
-    'grid-header-button-color'           : #bbb,
-    'grid-header-button-glyph-color'     : #bbb
+    --grid-header-button-background-color: #323232;
+    --grid-header-button-background-image: linear-gradient(#3c3f41, #323232);
+    --grid-header-button-color           : #bbb;
+    --grid-header-button-glyph-color     : #bbb
 ));
 
 @if $useCssVars == true {

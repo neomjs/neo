@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'tab-container-content-border': 1px solid #ddd
+    --tab-container-content-border: 1px solid #ddd
 ));
 
 @if $useCssVars == true {

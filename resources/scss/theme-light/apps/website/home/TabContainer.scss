@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'website-home-color'   : #292929,
-    'website-home-h1-color': #292929
+    --website-home-color   : #292929;
+    --website-home-h1-color: #292929
 ));
 
 @if $useCssVars == true {

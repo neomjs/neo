@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'viewport-background-color': #fff
+    --viewport-background-color: #fff
 ));
 
 @if $useCssVars == true {

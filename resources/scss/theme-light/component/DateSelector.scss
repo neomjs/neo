@@ -1,26 +1,26 @@
 $neoMap: map-merge($neoMap, (
-    'dateselector-background-color'              : #323232,
-    'dateselector-border-color'                  : #ddd,
-    'dateselector-cell-background-color'         : #fff,
-    'dateselector-cell-background-color-disabled': #fff,
-    'dateselector-cell-color'                    : #000,
-    'dateselector-cell-color-disabled'           : #999,
-    'dateselector-cell-color-selected'           : #fff,
-    'dateselector-cell-opacity-disabled'         : 1,
-    'dateselector-cell-today-border-color'       : #5d83a7,
-    'dateselector-color'                         : #000,
-    'dateselector-content-border-top'            : none,
-    'dateselector-header-background-color'       : #fff,
-    'dateselector-header-border-bottom'          : none,
-    'dateselector-header-cell-background-color'  : #5d83a7,
-    'dateselector-header-cell-border-bottom'     : none,
-    'dateselector-header-cell-color'             : #fff,
-    'dateselector-header-month-text-color'       : #000,
-    'dateselector-header-year-text-color'        : #1c60a0,
-    'dateselector-nav-button-background-color'   : #fff,
-    'dateselector-nav-button-color'              : #bbb,
-    'dateselector-nav-button-color-hover'        : #1c60a0,
-    'dateselector-nav-button-inner-border'       : none
+    --dateselector-background-color              : #323232;
+    --dateselector-border-color                  : #ddd;
+    --dateselector-cell-background-color         : #fff;
+    --dateselector-cell-background-color-disabled: #fff;
+    --dateselector-cell-color                    : #000;
+    --dateselector-cell-color-disabled           : #999;
+    --dateselector-cell-color-selected           : #fff;
+    --dateselector-cell-opacity-disabled         : 1;
+    --dateselector-cell-today-border-color       : #5d83a7;
+    --dateselector-color                         : #000;
+    --dateselector-content-border-top            : none;
+    --dateselector-header-background-color       : #fff;
+    --dateselector-header-border-bottom          : none;
+    --dateselector-header-cell-background-color  : #5d83a7;
+    --dateselector-header-cell-border-bottom     : none;
+    --dateselector-header-cell-color             : #fff;
+    --dateselector-header-month-text-color       : #000;
+    --dateselector-header-year-text-color        : #1c60a0;
+    --dateselector-nav-button-background-color   : #fff;
+    --dateselector-nav-button-color              : #bbb;
+    --dateselector-nav-button-color-hover        : #1c60a0;
+    --dateselector-nav-button-inner-border       : none
 ));
 
 @if $useCssVars == true {

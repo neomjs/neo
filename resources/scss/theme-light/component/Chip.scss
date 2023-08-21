@@ -1,16 +1,16 @@
 $neoMap: map-merge($neoMap, (
-    'chip-align-items'             : center,
-    'chip-border'                  : 1px solid #ddd,
-    'chip-border-color-focus'      : #1c60a0,
-    'chip-border-radius'           : 15px,
-    'chip-close-button-color'      : #ddd,
-    'chip-close-button-color-hover': #1c60a0,
-    'chip-glyph-color'             : #1c60a0,
-    'chip-height'                  : 30px,
-    'chip-justify-content'         : center,
-    'chip-text-align'              : left,
-    'chip-text-color'              : #000,
-    'chip-text-font-size'          : 12px
+    --chip-align-items             : center;
+    --chip-border                  : 1px solid #ddd;
+    --chip-border-color-focus      : #1c60a0;
+    --chip-border-radius           : 15px;
+    --chip-close-button-color      : #ddd;
+    --chip-close-button-color-hover: #1c60a0;
+    --chip-glyph-color             : #1c60a0;
+    --chip-height                  : 30px;
+    --chip-justify-content         : center;
+    --chip-text-align              : left;
+    --chip-text-color              : #000;
+    --chip-text-font-size          : 12px
 ));
 
 @if $useCssVars == true {

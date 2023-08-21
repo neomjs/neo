@@ -1,8 +1,8 @@
 $neoMap: map-merge($neoMap, (
-    'trigger-background-color-hover': #33343d,
-    'trigger-border-width'          : 1px,
-    'trigger-color'                 : #bbb,
-    'trigger-color-hover'           : #ddd
+    --trigger-background-color-hover: #33343d;
+    --trigger-border-width          : 1px;
+    --trigger-color                 : #bbb;
+    --trigger-color-hover           : #ddd
 ));
 
 @if $useCssVars == true {

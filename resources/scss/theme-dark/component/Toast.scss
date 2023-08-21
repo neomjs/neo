@@ -1,11 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'toast-background-color'        : lightblue,
-    'toast-color'                   : #083741,
-    'toast-danger-background-color' : #e6adad,
-    'toast-danger-color'            : #410808,
-    'toast-shadow-color'            : rgba(255, 255, 255, 0.15),
-    'toast-success-background-color': #b7e6ad,
-    'toast-success-color'           : #124108
+    --toast-background-color        : lightblue;
+    --toast-color                   : #083741;
+    --toast-danger-background-color : #e6adad;
+    --toast-danger-color            : #410808;
+    --toast-shadow-color            : rgba(255, 255, 255, 0.15);
+    --toast-success-background-color: #b7e6ad;
+    --toast-success-color           : #124108
 ));
 
 @if $useCssVars == true {

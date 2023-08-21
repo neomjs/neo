@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'progress-label-color': #fff
+    --progress-label-color: #fff
 ));
 
 @if $useCssVars == true {

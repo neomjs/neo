@@ -1,5 +1,5 @@
 $neoMap: map-merge($neoMap, (
-    'covid-line-chart-background-color': #323232
+    --covid-line-chart-background-color: #323232
 ));
 
 @if $useCssVars == true {

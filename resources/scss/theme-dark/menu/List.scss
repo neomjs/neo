@@ -1,23 +1,23 @@
 $neoMap: map-merge($neoMap, (
-    'menu-list-border-color'                  : #3c3f41,
-    'menu-list-box-shadow'                    : 0 5px 10px rgba(0,0,0,.4),
-    'menu-list-item-background-color'         : inherit,
-    'menu-list-item-background-color-disabled': inherit,
-    'menu-list-item-background-color-hover'   : inherit,
-    'menu-list-item-background-color-selected': inherit,
-    'menu-list-item-color'                    : inherit,
-    'menu-list-item-font-family'              : inherit,
-    'menu-list-item-font-weight'              : inherit,
-    'menu-list-item-icon-color'               : #bbb,
-    'menu-list-item-icon-color-disabled'      : #bbb,
-    'menu-list-item-icon-color-selected'      : #2b2b2b,
-    'menu-list-item-icon-gap'                 : .4em,
-    'menu-list-item-height'                   : inherit,
-    'menu-list-item-line-height'              : inherit,
-    'menu-list-item-opacity-disabled'         : inherit,
-    'menu-list-item-outline-focus'            : none,
-    'menu-list-item-padding'                  : 5px,
-    'menu-list-item-text-transform'           : inherit
+    --menu-list-border-color                  : #3c3f41;
+    --menu-list-box-shadow                    : 0 5px 10px rgba(0,0,0,.4);
+    --menu-list-item-background-color         : inherit;
+    --menu-list-item-background-color-disabled: inherit;
+    --menu-list-item-background-color-hover   : inherit;
+    --menu-list-item-background-color-selected: inherit;
+    --menu-list-item-color                    : inherit;
+    --menu-list-item-font-family              : inherit;
+    --menu-list-item-font-weight              : inherit;
+    --menu-list-item-icon-color               : #bbb;
+    --menu-list-item-icon-color-disabled      : #bbb;
+    --menu-list-item-icon-color-selected      : #2b2b2b;
+    --menu-list-item-icon-gap                 : .4em;
+    --menu-list-item-height                   : inherit;
+    --menu-list-item-line-height              : inherit;
+    --menu-list-item-opacity-disabled         : inherit;
+    --menu-list-item-outline-focus            : none;
+    --menu-list-item-padding                  : 5px;
+    --menu-list-item-text-transform           : inherit
 ));
 
 @if $useCssVars == true {

@@ -1,6 +1,6 @@
 $neoMap: map-merge($neoMap, (
-    'docs-classdetails-tutorialcomponent-background-color': #323232,
-    'docs-classdetails-tutorialcomponent-color'           : #bbb
+    --docs-classdetails-tutorialcomponent-background-color: #323232;
+    --docs-classdetails-tutorialcomponent-color           : #bbb
 ));
 
 @if $useCssVars == true {
