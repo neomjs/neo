@@ -1,5 +1,5 @@
 .website-examples-list.neo-list {
-    transition: padding v(website-transition-duration) ease-out;
+    transition: padding var(--website-transition-duration) ease-out;
 
     .neo-list-item {
         cursor     : default;
@@ -7,7 +7,7 @@
         max-width  : 800px;
         overflow   : hidden;
         padding    : 0;
-        transition : height v(website-transition-duration) ease-out, margin-bottom v(website-transition-duration) ease-out;
+        transition : height var(--website-transition-duration) ease-out, margin-bottom var(--website-transition-duration) ease-out;
         white-space: normal;
         width      : 100%;
 
@@ -37,17 +37,17 @@
             display    : inline-block;
             margin-left: 10px;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition : font-size v(website-transition-duration) ease-out;
+            transition : font-size var(--website-transition-duration) ease-out;
         }
 
         .neo-inner-details {
-            transition: line-height v(website-transition-duration) ease-out;
+            transition: line-height var(--website-transition-duration) ease-out;
         }
 
         .neo-item-bottom-position {
             bottom    : 0;
             left      : 0;
-            transition: margin v(website-transition-duration) ease-out;
+            transition: margin var(--website-transition-duration) ease-out;
         }
 
         .neo-relative {
@@ -70,7 +70,7 @@
         .neo-top-20 {
             align-items: center;
             display    : flex;
-            transition : margin v(website-transition-duration) ease-out;
+            transition : margin var(--website-transition-duration) ease-out;
         }
 
         .preview-image {

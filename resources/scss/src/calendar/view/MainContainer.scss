@@ -123,10 +123,10 @@
 
         &.neo-focus {
             background-color: var(--event-yellow-background-color-focus);
-            color           : v(event-yellow-color-focus) !important;
+            color           : var(--event-yellow-color-focus) !important;
 
             .neo-resizable {
-                color: v(event-yellow-color-focus) !important;
+                color: var(--event-yellow-color-focus) !important;
             }
         }
 

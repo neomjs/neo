@@ -24,7 +24,7 @@
             font-weight  : 600;
             margin-bottom: -0.28em;
             margin-top   : 1em;
-            transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+            transition   : font-size var(--website-transition-duration) ease-out, line-height var(--website-transition-duration) ease-out;
         }
 
         li {
@@ -57,7 +57,7 @@
         p {
             margin-bottom: -0.46em;
             margin-top   : 0.86em;
-            transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+            transition   : font-size var(--website-transition-duration) ease-out, line-height var(--website-transition-duration) ease-out;
         }
 
 

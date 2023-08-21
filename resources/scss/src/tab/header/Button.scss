@@ -40,7 +40,7 @@
     }
 
     &:active {
-        background-color: v(tab-button-background-color-active) !important;
+        background-color: var(--tab-button-background-color-active) !important;
 
         .neo-button-glyph {
             color: var(--tab-button-glyph-color-active);
@@ -57,7 +57,7 @@
     }
 
     &.pressed {
-        background-image: v(tab-button-background-image-pressed) !important;
+        background-image: var(--tab-button-background-image-pressed) !important;
         border          : var(--tab-button-border-pressed);
         border-bottom   : var(--tab-button-border-bottom-pressed);
         cursor          : default;

@@ -16,8 +16,8 @@
     position        : absolute;
 
     tr {
-        height    : v(table-container-cell-height) !important;
-        max-height: v(table-container-cell-height) !important;
+        height    : var(--table-container-cell-height) !important;
+        max-height: var(--table-container-cell-height) !important;
     }
 
     tr:last-child {
@@ -51,8 +51,8 @@
         border-bottom   : var(--table-container-cell-border-bottom);
         border-right    : 1px solid var(--table-container-border-color);
         border-top      : 1px solid transparent;
-        height          : v(table-container-cell-height) !important;
-        max-height      : v(table-container-cell-height) !important;
+        height          : var(--table-container-cell-height) !important;
+        max-height      : var(--table-container-cell-height) !important;
         padding         : var(--table-container-cell-padding);
 
         &.neo-locked {

@@ -1,6 +1,6 @@
 .website-blog-container {
     .website-blog-searchfield {
-        transition: margin v(website-transition-duration) ease-out;
+        transition: margin var(--website-transition-duration) ease-out;
         width     : 240px;
 
         @media (max-height: 400px), (max-width: 600px) {

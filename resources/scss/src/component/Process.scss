@@ -96,8 +96,8 @@
       }
 
       .slit {
-        box-shadow: inset 0 100px 50px -40px v(process-background-color),
-        inset 0 -100px 50px -40px v(process-background-color),
+        box-shadow: inset 0 100px 50px -40px var(--process-background-color),
+        inset 0 -100px 50px -40px var(--process-background-color),
         inset 5px 0 10px -5px var(--process-shadow-color);
       }
 
@@ -133,8 +133,8 @@
       }
 
       .slit {
-        box-shadow: inset 80px 0 50px -40px v(process-background-color),
-        inset -80px 0 50px -40px v(process-background-color),
+        box-shadow: inset 80px 0 50px -40px var(--process-background-color),
+        inset -80px 0 50px -40px var(--process-background-color),
         inset 0 5px 10px -5px var(--process-shadow-color);
       }
 
@@ -173,8 +173,8 @@
         }
 
         .slit {
-          box-shadow: inset 80px 0 50px -40px v(process-background-color),
-          inset -80px 0 50px -40px v(process-background-color),
+          box-shadow: inset 80px 0 50px -40px var(--process-background-color),
+          inset -80px 0 50px -40px var(--process-background-color),
           inset 0 5px 10px -5px var(--process-shadow-color);
         }
 

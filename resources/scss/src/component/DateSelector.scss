@@ -63,7 +63,7 @@
             flex         : 1;
 
             &.neo-header-row {
-                border-bottom: v(dateselector-header-cell-border-bottom) !important;
+                border-bottom: var(--dateselector-header-cell-border-bottom) !important;
                 flex         : none;
                 height       : 30px;
 

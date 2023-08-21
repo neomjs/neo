@@ -12,7 +12,7 @@
             padding: 12px 6px;
 
             @if neo(button-use-gradients) == true {
-                background-image: linear-gradient(to right, #{var(--button-background-gradient-start)}, #{v(button-background-gradient-end)});
+                background-image: linear-gradient(to right, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
             }
 
             &.icon-left {
@@ -79,7 +79,7 @@
             padding: 12px 6px;
 
             @if neo(button-use-gradients) == true {
-                background-image: linear-gradient(to left, #{var(--button-background-gradient-start)}, #{v(button-background-gradient-end)});
+                background-image: linear-gradient(to left, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
             }
 
             &.icon-left {

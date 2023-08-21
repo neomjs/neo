@@ -3,7 +3,7 @@
     background-color     : #444;
     background-image     : linear-gradient(#ddd, #999), url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png');
     position             : relative;
-    transition           : background-position 700ms ease-out, height v(website-transition-duration) ease-out;
+    transition           : background-position 700ms ease-out, height var(--website-transition-duration) ease-out;
 
     .neo-absolute {
         position: absolute;
@@ -20,7 +20,7 @@
         .neo-button-glyph {
             color     : var(--website-header-button-glyph-color);
             margin    : 0 !important;
-            transition: font-size v(website-transition-duration) ease-out;
+            transition: font-size var(--website-transition-duration) ease-out;
         }
     }
 
@@ -30,7 +30,7 @@
     }
 
     .neo-inner-content {
-        transition: font-size v(website-transition-duration) ease-out, margin-top v(website-transition-duration) ease-out;
+        transition: font-size var(--website-transition-duration) ease-out, margin-top var(--website-transition-duration) ease-out;
         overflow  : hidden;
     }
 
@@ -49,7 +49,7 @@
     .neo-item-bottom-position {
         bottom    : 0;
         left      : 0;
-        transition: margin v(website-transition-duration) ease-out;
+        transition: margin var(--website-transition-duration) ease-out;
     }
 
     .neo-relative {
@@ -61,7 +61,7 @@
         font-weight: 600;
         line-height: 1;
         text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-        transition : font-size v(website-transition-duration) ease-out;
+        transition : font-size var(--website-transition-duration) ease-out;
     }
 
     .website-header-buttons {

@@ -1,14 +1,14 @@
 .neo-textfield {
     align-items  : center;
     display      : flex;
-    height       : calc(var(--textfield-input-height) + v(textfield-border-width) * 2);
+    height       : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
     margin-bottom: 5px;
     margin-top   : 5px;
     white-space  : nowrap;
 
     &.neo-focus {
         .neo-input-wrapper {
-            border-color: v(textfield-border-color-active) !important;
+            border-color: var(--textfield-border-color-active) !important;
             outline     : var(--textfield-outline-active);
 
             .neo-textfield-input {
@@ -24,7 +24,7 @@
 
         .neo-textfield-input {
             border-color: var(--textfield-border-color-active);
-            outline     : v(textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
+            outline     : var(--textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
         }
     }
 
@@ -32,7 +32,7 @@
         &:not(&.neo-focus) {
             &:not(&.label-inline) {
                 .neo-input-wrapper {
-                    border-color: v(textfield-border-color-hovered) !important;
+                    border-color: var(--textfield-border-color-hovered) !important;
                     outline     : var(--textfield-outline-hovered);
                 }
             }
@@ -214,7 +214,7 @@
             }
 
             .neo-textfield-label {
-                color    : v(textfield-border-color-active) !important;
+                color    : var(--textfield-border-color-active) !important;
                 transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
             }
         }
@@ -240,7 +240,7 @@
 
         .neo-label-wrapper {
             display : flex;
-            height  : calc(var(--textfield-input-height) + v(textfield-border-width) * 2);
+            height  : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
             position: absolute;
             width   : 100%;
 
@@ -359,8 +359,8 @@
         }
 
         &::-webkit-input-placeholder {
-            color  : v(textfield-input-placeholder-color) !important;
-            opacity: v(textfield-input-placeholder-opacity) !important;
+            color  : var(--textfield-input-placeholder-color) !important;
+            opacity: var(--textfield-input-placeholder-opacity) !important;
         }
 
         &.neo-invalid {

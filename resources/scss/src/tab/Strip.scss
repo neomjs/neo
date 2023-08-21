@@ -20,7 +20,7 @@
         .neo-active-tab-indicator {
             height             : inherit;
             transition-property: height, top;
-            width              : v(tab-strip-height) !important;
+            width              : var(--tab-strip-height) !important;
         }
     }
 }

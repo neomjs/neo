@@ -30,12 +30,12 @@
 
         .neo-highlight-search {
             background-color: var(--selectfield-list-search-background-color);
-            color           : v(selectfield-list-search-color) !important;
+            color           : var(--selectfield-list-search-color) !important;
         }
 
         .neo-selected {
             .neo-highlight-search {
-                color: v(selectfield-list-search-color-selected) !important;
+                color: var(--selectfield-list-search-color-selected) !important;
             }
         }
     }

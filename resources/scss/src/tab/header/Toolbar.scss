@@ -16,7 +16,7 @@
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-bottom) !important;
+                background-image: var(--tab-button-background-image-pressed-bottom) !important;
             }
         }
     }
@@ -38,7 +38,7 @@
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-left) !important;
+                background-image: var(--tab-button-background-image-pressed-left) !important;
                 width           : var(--tab-button-height-pressed);
             }
 
@@ -67,7 +67,7 @@
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-right) !important;
+                background-image: var(--tab-button-background-image-pressed-right) !important;
                 width           : var(--tab-button-height-pressed);
             }
 

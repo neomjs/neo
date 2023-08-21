@@ -25,8 +25,8 @@
         // selection.CellModel
         .neo-table-cell {
             &.neo-selected {
-                background-color: v(table-cellmodel-selected-cell-background-color) !important;
-                color           : v(table-cellmodel-selected-cell-color) !important;
+                background-color: var(--table-cellmodel-selected-cell-background-color) !important;
+                color           : var(--table-cellmodel-selected-cell-color) !important;
             }
 
             &.selected-column-cell {
