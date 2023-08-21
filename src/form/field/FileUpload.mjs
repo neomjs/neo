@@ -282,6 +282,14 @@ class FileUpload extends Base {
         documentDeleteUrl_ : null,
 
         /**
+         * The HTTP method to use when requesting a document deletion using the {@link #member-documentDeleteUrl}.
+         * 
+         * Defaults to `DELETE`.
+         * @member {String} documentDeleteMethod
+         */
+        documentDeleteMethod : 'DELETE',
+
+        /**
          * @member {String} state_=null
          */
         state_: 'ready',
@@ -545,6 +553,7 @@ class FileUpload extends Base {
 
         // We ask the server to delete using our this.documentId
         const statusResponse = await fetch(me.documentDeleteUrl, {
+            method : me.documentDeleteMethod,
             headers
         });
 
