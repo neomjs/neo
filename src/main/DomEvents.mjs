@@ -118,6 +118,7 @@ class DomEvents extends Base {
 
         let me = this;
 
+        document.addEventListener('selectionchange',  me.onSelectionChange .bind(me));
         document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
         window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
 
@@ -331,6 +332,16 @@ class DomEvents extends Base {
         return path
     }
 
+    getSelectionPath(path, target) {
+        if (target.parentNode && target.id.split('__').length > 1) {
+            path = this.getSelectionPath(path, target.parentNode);
+        }
+
+        path.push(this.getTargetData(target));
+
+        return path;
+    }
+
     /**
      * @param {Object} node
      * @returns {Object}
@@ -388,7 +399,7 @@ class DomEvents extends Base {
         let manager = Neo.worker.Manager;
 
         manager.appNames.forEach(appName => {
-            manager.broadcast({action : 'disconnect', appName})
+            manager.broadcast({action: 'disconnect', appName})
         })
     }
 
@@ -401,11 +412,11 @@ class DomEvents extends Base {
             tagName = target.tagName,
             value   = target.value,
 
-        data = {
-            ...me.getEventData(event),
-            valid: target.checkValidity(),
-            value: tagName === 'INPUT' ? StringUtil.escapeHtml(value) : tagName === 'TEXTAREA' ? me.stripHtml(value) : value
-        };
+            data    = {
+                ...me.getEventData(event),
+                valid: target.checkValidity(),
+                value: tagName === 'INPUT' ? StringUtil.escapeHtml(value) : tagName === 'TEXTAREA' ? me.stripHtml(value) : value
+            };
 
         // input and change events can pass a FileList for input type file
         if (target.files) {
@@ -489,8 +500,8 @@ class DomEvents extends Base {
         manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
-                appNames  : manager.appNames,
-                hash      : this.parseHash(hashString),
+                appNames: manager.appNames,
+                hash    : this.parseHash(hashString),
                 hashString
             }
         })
@@ -578,6 +589,33 @@ class DomEvents extends Base {
     /**
      * @param {Object} event
      */
+    onSelectionChange(event) {
+        const me     = this,
+              target = event.target.activeElement;
+
+        if (target.tagName === 'BODY') return;
+
+
+        const targetData  = me.getTargetData(target),
+              path        = me.getSelectionPath([], target),
+              outputEvent = {
+                  selection: {
+                      start    : target.selectionStart,
+                      end      : target.selectionEnd,
+                      direction: target.selectionDirection
+                  },
+                  path     : path,
+                  target   : targetData,
+                  timeStamp: event.timeStamp,
+                  type     : "selectionchange"
+              };
+
+        me.sendMessageToApp(outputEvent);
+    }
+
+    /**
+     * @param {Object} event
+     */
     onWheel(event) {
         let target        = this.testPathInclusion(event, globalWheelTargets),
             preventUpdate = false,
@@ -599,7 +637,7 @@ class DomEvents extends Base {
                 }
             }
 
-             if (!preventUpdate) {
+            if (!preventUpdate) {
                 let {deltaX, deltaY, deltaZ} = event;
 
                 this.sendMessageToApp({
@@ -659,7 +697,7 @@ class DomEvents extends Base {
                 parts.push('')
             }
 
-            key   = decodeURIComponent(parts[0]);
+            key = decodeURIComponent(parts[0]);
             value = decodeURIComponent(parts[1]);
 
             if (key.indexOf('[]') !== -1) {
@@ -770,10 +808,10 @@ class DomEvents extends Base {
         for (; i < len; i++) {
             node = path[i];
 
-            for (j=0; j < countTargets; j++) {
+            for (j = 0; j < countTargets; j++) {
                 if (node.classList?.contains(targetArray[j])) {
                     return {
-                        cls : targetArray[j],
+                        cls: targetArray[j],
                         node
                     };
                 }

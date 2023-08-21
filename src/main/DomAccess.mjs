@@ -509,8 +509,8 @@ class DomAccess extends Base {
      */
     selectNode(data) {
         let node  = this.getElement(data.id),
-            start = Neo.isNumber(data.start) || 0,
-            end   = Neo.isNumber(data.end)   || 99999;
+            start = Neo.isNumber(data.start) ? data.start : 0,
+            end   = Neo.isNumber(data.end)   ? data.end   : 99999;
 
         if (node) {
             node.select();
