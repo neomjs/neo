@@ -33,6 +33,10 @@ class Tree extends Base {
          */
         dragZone: null,
         /**
+         * @member {String} folderCls='neo-list-folder'
+         */
+        folderCls: 'neo-list-folder',
+        /**
          * @member {Boolean} showCollapseExpandAllIcons=true
          */
         showCollapseExpandAllIcons: true,
@@ -56,9 +60,11 @@ class Tree extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
-        ]}
+            {
+                cn: [
+                    {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
+                ]
+            }
     }
 
     /**
@@ -121,6 +127,7 @@ class Tree extends Base {
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
+
         return ClassSystemUtil.beforeSetInstance(value, TreeModel);
     }
 
@@ -146,7 +153,7 @@ class Tree extends Base {
      * Collapses all folders
      * @param {Boolean} [silent]=false Set silent to true to prevent a vnode update
      */
-    collapseAll(silent=false) {
+    collapseAll(silent = false) {
         let me       = this,
             vdom     = me.vdom,
             hasMatch = false,
@@ -176,8 +183,10 @@ class Tree extends Base {
      * @protected
      */
     createItems(parentId, vdomRoot, level) {
-        let me    = this,
-            items = me.store.find('parentId', parentId),
+        let me        = this,
+            items     = me.store.find('parentId', parentId),
+            itemCls   = me.itemCls,
+            folderCls = me.folderCls,
             cls, tmpRoot;
 
         if (items.length > 0) {
@@ -187,9 +196,9 @@ class Tree extends Base {
 
             if (parentId !== null) {
                 vdomRoot.cn.push({
-                    tag: 'ul',
-                    cls: ['neo-list'],
-                    cn : [],
+                    tag  : 'ul',
+                    cls  : ['neo-list'],
+                    cn   : [],
                     style: {
                         paddingLeft: '15px'
                     }
@@ -201,12 +210,12 @@ class Tree extends Base {
             }
 
             items.forEach(item => {
-                cls = ['neo-list-item'];
+                cls = [itemCls];
 
                 if (item.isLeaf) {
-                    cls.push(item.singleton ? 'neo-list-item-leaf-singleton' : 'neo-list-item-leaf');
+                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'));
                 } else {
-                    cls.push('neo-list-folder');
+                    cls.push(folderCls);
 
                     if (!item.collapsed) {
                         cls.push('neo-folder-open');
@@ -214,14 +223,14 @@ class Tree extends Base {
                 }
 
                 tmpRoot.cn.push({
-                    tag: 'li',
+                    tag  : 'li',
                     cls,
-                    id : me.getItemId(item.id),
-                    cn : [{
+                    id   : me.getItemId(item.id),
+                    cn   : [{
                         tag      : 'span',
-                        cls      : ['neo-list-item-content'],
+                        cls      : [itemCls + '-content', item.iconCls],
                         innerHTML: item.name,
-                        style: {
+                        style    : {
                             pointerEvents: 'none'
                         }
                     }],
@@ -244,7 +253,7 @@ class Tree extends Base {
      * Expands all folders
      * @param {Boolean} silent=false Set silent to true to prevent a vnode update
      */
-    expandAll(silent=false) {
+    expandAll(silent = false) {
         let me       = this,
             vdom     = me.vdom,
             hasMatch = false,
@@ -274,7 +283,7 @@ class Tree extends Base {
      * @param {Boolean} [parentMatch]=false In case a parent folder matches the filter, show its child items
      * @returns {Boolean} false if at least one child item is filtered
      */
-    filter(property, value, parentId, parentMatch=false) {
+    filter(property, value, parentId, parentMatch = false) {
         let me         = this,
             isFiltered = true,
             valueRegEx = new RegExp(value, 'gi'),
@@ -287,7 +296,7 @@ class Tree extends Base {
         me.store.items.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
-                node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
+                node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
                     directMatch = true;
@@ -379,13 +388,13 @@ class Tree extends Base {
 
             if (path.includes(vnodeId)) {
                 record = tmpItem;
-                item   = me.getVdomChild(vnodeId);
+                item = me.getVdomChild(vnodeId);
                 break;
             }
         }
 
         if (item) {
-            if (item.cls?.includes('neo-list-folder')) {
+            if (item.cls?.includes(me.folderCls)) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
                 me.update();
             } else {

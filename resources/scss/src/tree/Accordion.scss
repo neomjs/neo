@@ -1,0 +1,128 @@
+.neo-tree-list {
+  &.root-not-collapsible {
+    .neo-accordion-style {
+      .neo-list-folder.neo-not-collapsible {
+        pointer-events: none;
+        font-size: 1.2em;
+        font-weight: 100;
+
+        // needs to have double class call
+        .neo-list-item-content::before {
+          content: unset !important;
+        }
+      }
+    }
+  }
+
+  &.first-parent-not-visible {
+    .neo-accordion-style {
+      & > li:first-child {
+        display: none;
+      }
+    }
+  }
+
+  .neo-accordion-style {
+    .neo-list-item-content::before {
+      content: unset;
+    }
+
+    .neo-list-item:focus {
+      outline: unset;
+    }
+
+    // remove indentation
+    ul {
+      padding-left: 0 !important;
+    }
+
+    // base folder
+    & > .neo-list-folder {
+      & > .neo-list-item-content {
+        // folder closed
+        &::before {
+          content: "\f077" !important;
+          position: absolute;
+          right: 5px;
+          text-align: center;
+        }
+      }
+
+      // folder open
+      &.neo-folder-open {
+        .neo-list-item-content:before {
+          content: "\f078" !important;
+        }
+      }
+    }
+
+
+    // sub folder
+    ul {
+      .neo-list-folder {
+        // remove original folder icon
+        .neo-list-item-content::before {
+          content: unset !important;
+        }
+
+        // folder closed
+        &.neo-list-item:before {
+          color: var(--list-item-glyph-color);
+          display: inline-block;
+          font-family: var(--fa-style-family-classic);
+          font-weight: 900;
+
+          background-color: palevioletred;
+          content: "\f077" !important;
+          margin-right: .5em;
+          width: 25px;
+          height: 25px;
+          text-align: center;
+          line-height: 25px;
+        }
+
+        // folder open
+        &.neo-folder-open {
+          &.neo-list-item:before {
+            content: "\f078" !important;
+          }
+        }
+
+      }
+    }
+
+    .neo-list-item {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin-right: 0;
+      padding-right: 10px;
+
+      .neo-accordion-item-icon {
+        width: 25px;
+        height: 25px;
+        text-align: center;
+        line-height: 25px;
+        margin-right: .5em;
+      }
+
+      .neo-list-item-content {
+        display: flex;
+        flex-direction: column;
+        width: 85%;
+
+        .neo-list-item-content-header {
+          font-weight: 700;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
+          width: 100%;
+        }
+
+        .neo-list-item-content-text {
+          font-size: 0.8em;
+        }
+      }
+    }
+  }
+}
