@@ -31,7 +31,7 @@ $text-color      : #1c60a0;
     --button-opacity-disabled                   : var(--neo-disabled-opacity);
     --button-outline-active                     : none;
     --button-padding                            : 5px 12px 5px 12px;
-    --button-ripple-background-color            : lighten(#{$text-color}, 50%);
+    --button-ripple-background-color            : #{lighten($text-color, 50%)};
     --button-text-color                         : #{$text-color};
     --button-text-color-active                  : #{$text-color};
     --button-text-color-disabled                : #{$text-color};
