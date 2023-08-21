@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    --website-blog-toolbar-background-color: #f2f2f2
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .website-blog-container
-        --website-blog-toolbar-background-color: #{neo(website-blog-toolbar-background-color)};
-    }
+:root .neo-theme-light { // .website-blog-container
+    --website-blog-toolbar-background-color: #f2f2f2;
 }
