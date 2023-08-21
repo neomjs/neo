@@ -1,4 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-calendar-monthcomponent
     --c-m-background-color        : #fff;
     --c-m-border-color            : #ddd;
     --c-m-day-name-color          : #666;
@@ -6,18 +6,5 @@ $neoMap: map-merge($neoMap, (
     --c-m-month-name-color        : #444;
     --c-m-scroll-box-shadow       : --0 0 1.56em 0.78em #fff, 0 0 3.9em 1.95em #1c60a0;
     --c-m-weekend-background-color: rgba(240, 240, 240, .35);
-    --c-m-year-color              : #1c60a0
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-calendar-monthcomponent
-        --c-m-background-color        : #{neo(c-m-background-color)};
-        --c-m-border-color            : #{neo(c-m-border-color)};
-        --c-m-day-name-color          : #{neo(c-m-day-name-color)};
-        --c-m-day-number-color        : #{neo(c-m-day-number-color)};
-        --c-m-month-name-color        : #{neo(c-m-month-name-color)};
-        --c-m-scroll-box-shadow       : #{neo(c-m-scroll-box-shadow)};
-        --c-m-weekend-background-color: #{neo(c-m-weekend-background-color)};
-        --c-m-year-color              : #{neo(c-m-year-color)};
-    }
+    --c-m-year-color              : #1c60a0;
 }

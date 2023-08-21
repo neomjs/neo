@@ -1,13 +1,5 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-splitter
     --splitter-background-color: #f2f2f2;
     --splitter-border          : 1px solid #ddd;
     --splitter-hover-color     : #5d83a7
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-splitter
-        --splitter-background-color: #{neo(splitter-background-color)};
-        --splitter-border          : #{neo(splitter-border)};
-        --splitter-hover-color     : #{neo(splitter-hover-color)};
-    }
 }

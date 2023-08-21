@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-container
     --container-background-color: #fff;
-    --container-color           : #000
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-container
-        --container-background-color: #{neo(container-background-color)};
-        --container-color           : #{neo(container-color)};
-    }
+    --container-color           : #000;
 }
