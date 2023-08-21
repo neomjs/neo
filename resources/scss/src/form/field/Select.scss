@@ -17,9 +17,9 @@
 
         .neo-typeahead-input {
             border-color: transparent;
-            color       : v(selectfield-input-hint-color);
-            font        : v(textfield-input-font);
-            opacity     : v(selectfield-input-hint-opacity);
+            color       : var(--selectfield-input-hint-color);
+            font        : var(--textfield-input-font);
+            opacity     : var(--selectfield-input-hint-opacity);
         }
     }
 
@@ -29,7 +29,7 @@
         text-align: left;
 
         .neo-highlight-search {
-            background-color: v(selectfield-list-search-background-color);
+            background-color: var(--selectfield-list-search-background-color);
             color           : v(selectfield-list-search-color) !important;
         }
 
@@ -41,8 +41,8 @@
     }
 
     .neo-picker-container {
-        border       : v(selectfield-picker-container-border);
-        border-radius: v(selectfield-picker-container-border-radius);
+        border       : var(--selectfield-picker-container-border);
+        border-radius: var(--selectfield-picker-container-border-radius);
         font-weight  : 400;
     }
 }

@@ -1,10 +1,10 @@
 .neo-calendar-timeaxis {
-    background-color     : v(c-w-header-background-color);
+    background-color     : var(--c-w-header-background-color);
     background-position-x: 100%;
     background-position-y: 0;
     background-repeat    : repeat-y;
-    border-right         : 1px solid v(c-w-border-color);
-    box-shadow           : -1px 0 0 v(c-w-header-background-color); // hack for the annoying 1px gap
+    border-right         : 1px solid var(--c-w-border-color);
+    box-shadow           : -1px 0 0 var(--c-w-header-background-color); // hack for the annoying 1px gap
     flex                 : none;
     left                 : 0;
     margin-top           : -1px;
@@ -28,7 +28,7 @@
 .neo-timeaxis-end {
     .neo-calendar-timeaxis {
         background-position-x: 0;
-        border-left          : 1px solid v(c-w-border-color);
+        border-left          : 1px solid var(--c-w-border-color);
         border-right         : none;
         left                 : unset;
         right                : 0;

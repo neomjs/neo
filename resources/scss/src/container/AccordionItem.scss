@@ -1,11 +1,11 @@
 .neo-accordion-item {
-  box-shadow: v(accordion-item-shadow);
-  background-color: v(accordion-item-bg-color);
-  border: 1px solid v(accordion-item-border-color);
-  border-radius: v(accordion-item-radius);
+  box-shadow: var(--accordion-item-shadow);
+  background-color: var(--accordion-item-bg-color);
+  border: 1px solid var(--accordion-item-border-color);
+  border-radius: var(--accordion-item-radius);
 
   transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
-  max-height: v(accordion-item-header-height);
+  max-height: var(--accordion-item-header-height);
 
   overflow: hidden;
 
@@ -22,7 +22,7 @@
     transition: max-height 1s ease-in-out;
 
     .neo-toolbar {
-      border-bottom-color: v(accordion-item-border-color);
+      border-bottom-color: var(--accordion-item-border-color);
 
       .neo-accordion-header-arrow::before {
         transform: rotate(0deg);
@@ -37,8 +37,8 @@
   }
 
   .neo-toolbar {
-    max-height: v(accordion-item-header-height);
-    min-height: v(accordion-item-header-height);
+    max-height: var(--accordion-item-header-height);
+    min-height: var(--accordion-item-header-height);
     border-bottom: 1px solid transparent;
 
     .neo-accordion-header-icon {
@@ -57,11 +57,11 @@
     }
 
     .neo-accordion-header-arrow {
-      background-color: v(accordion-item-arrow-bg-color);
+      background-color: var(--accordion-item-arrow-bg-color);
       height: 30px;
       width: 30px;
-      border-radius: v(accordion-item-radius);
-      box-shadow: v(accordion-item-arrow-shadow);
+      border-radius: var(--accordion-item-radius);
+      box-shadow: var(--accordion-item-arrow-shadow);
       padding: 7px;
       text-align: center;
 
@@ -75,9 +75,9 @@
   }
 
   .neo-accordion-content {
-    background-color: v(accordion-item-content-bg-color);
-    border-bottom-left-radius: v(accordion-item-radius);
-    border-bottom-right-radius: v(accordion-item-radius);
+    background-color: var(--accordion-item-content-bg-color);
+    border-bottom-left-radius: var(--accordion-item-radius);
+    border-bottom-right-radius: var(--accordion-item-radius);
     padding: 15px;
   }
 }

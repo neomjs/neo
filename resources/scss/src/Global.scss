@@ -10,12 +10,12 @@ html, .neo-body-viewport {
 }
 
 .neo-body {
-    background-color: v(neo-background-color);
-    color           : v(neo-color);
-    font-family     : v(neo-font-family);
+    background-color: var(--neo-background-color);
+    color           : var(--neo-color);
+    font-family     : var(--neo-font-family);
     margin          : 0;
 
-    -webkit-font-smoothing: v(neo-font-smoothing);
+    -webkit-font-smoothing: var(--neo-font-smoothing);
 }
 
 .neo-body, .neo-body * {
@@ -23,7 +23,7 @@ html, .neo-body-viewport {
  }
 
 .neo-disabled {
-    opacity       : v(neo-disabled-opacity);
+    opacity       : var(--neo-disabled-opacity);
     pointer-events: none;
 }
 
@@ -32,10 +32,10 @@ html, .neo-body-viewport {
 }
 
 .neo-link-color {
-    color: v(neo-color);
+    color: var(--neo-color);
 
     a {
-        color: v(neo-color);
+        color: var(--neo-color);
     }
 }
 

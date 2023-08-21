@@ -4,7 +4,7 @@
 }
 
 .neo-docs-classdetails-headercomponent {
-    background-color: v(docs-classdetails-headercomponent-background-color);
+    background-color: var(--docs-classdetails-headercomponent-background-color);
     overflow-y      : auto;
     padding         : 15px;
 

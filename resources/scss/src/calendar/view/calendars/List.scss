@@ -63,7 +63,7 @@
         }
 
         .neo-edit-icon {
-            color       : v(calendars-list-edit-icon-color);
+            color       : var(--calendars-list-edit-icon-color);
             font-size   : 16px;
             font-weight : 600;
             height      : 1em;

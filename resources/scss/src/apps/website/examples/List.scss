@@ -27,7 +27,7 @@
         .neo-github-image {
             color                     : #ddd;
             text-decoration           : none;
-            transition-duration       : v(website-transition-duration);
+            transition-duration       : var(--website-transition-duration);
             transition-property       : font-size, height, width;
             transition-timing-function: ease-out;
         }

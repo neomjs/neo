@@ -1,5 +1,5 @@
 .docs-classhierarchy-memberslist {
-    background-color: v(docs-classhierarchy-memberslist-background-color);
+    background-color: var(--docs-classhierarchy-memberslist-background-color);
     overflow        : auto;
 
     .docs-param-table {
@@ -12,16 +12,16 @@
         width          : 100%;
 
         thead {
-            background-color: v(docs-param-table-thead-background-color);
-            background-image: v(docs-param-table-thead-background-image);
+            background-color: var(--docs-param-table-thead-background-color);
+            background-image: var(--docs-param-table-thead-background-image);
         }
 
         thead tr {
-            background-clip: v(docs-param-table-tr-background-clip);
+            background-clip: var(--docs-param-table-tr-background-clip);
             border-bottom  : 1px solid #282b2b;
-            color          : v(docs-param-table-tr-color);
+            color          : var(--docs-param-table-tr-color);
             font-weight    : 800;
-            text-shadow    : v(docs-param-table-tr-text-shadow);
+            text-shadow    : var(--docs-param-table-tr-text-shadow);
         }
 
         td, th {
@@ -37,9 +37,9 @@
     }
 
     .neo-docs-memberlist-group-header {
-        background-color: v(docs-memberlist-group-header-background-color);
+        background-color: var(--docs-memberlist-group-header-background-color);
         box-shadow      : 0 5px 10px rgba(0,0,0,.4);
-        color           : v(docs-memberlist-group-header-color);
+        color           : var(--docs-memberlist-group-header-color);
         margin          : 5px;
         padding         : 10px;
         position        : sticky;
@@ -47,8 +47,8 @@
     }
 
     .neo-list-item {
-        background-color: v(docs-param-table-list-item-background-color);
-        background-image: v(docs-param-table-list-item-background-image);
+        background-color: var(--docs-param-table-list-item-background-color);
+        background-image: var(--docs-param-table-list-item-background-image);
         font-size       : 14px;
         margin          : 5px;
         padding         : 10px;
@@ -58,23 +58,23 @@
         }
 
         .neo-list-item-header {
-            background-clip: v(docs-param-table-list-item-header-background-clip);
+            background-clip: var(--docs-param-table-list-item-header-background-clip);
             color          : rgba(0,0,0,0.6);
             font-size      : 20px;
             font-weight    : 800;
-            text-shadow    : v(docs-param-table-list-item-header-text-shadow);
+            text-shadow    : var(--docs-param-table-list-item-header-text-shadow);
 
             .neo-highlight-search {
-                color: v(docs-param-table-list-item-highlight-search-color);
+                color: var(--docs-param-table-list-item-highlight-search-color);
             }
         }
 
         .neo-docs-view-source-link {
-            color          : v(docs-param-table-source-link-color);
+            color          : var(--docs-param-table-source-link-color);
             text-decoration: none;
 
             &:hover {
-                color: v(docs-param-table-source-link-color-hover);
+                color: var(--docs-param-table-source-link-color-hover);
             }
         }
 

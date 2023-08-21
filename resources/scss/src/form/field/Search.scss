@@ -1,6 +1,6 @@
 .neo-searchfield {
     &::before {
-        color      : v(searchfield-glyph-color);
+        color      : var(--searchfield-glyph-color);
         content    : "\f002";
         display    : inline-block;
         font-family: var(--fa-style-family-classic);

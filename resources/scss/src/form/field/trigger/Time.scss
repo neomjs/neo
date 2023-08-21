@@ -6,27 +6,27 @@
 
     &:hover {
         .neo-clock {
-            background-color: v(trigger-time-background-color-hover);
+            background-color: var(--trigger-time-background-color-hover);
         }
     }
 
     .neo-clock {
-        background-color: v(trigger-color);
+        background-color: var(--trigger-color);
         background-image: none;
         height          : 16px;
         width           : 16px;
 
         .neo-hours,
         .neo-minutes {
-            background-color: v(trigger-time-pointer-color);
+            background-color: var(--trigger-time-pointer-color);
         }
 
         .neo-hours {
-            box-shadow: 0 -2em v(trigger-time-pointer-color), 0 -4em v(trigger-time-pointer-color);
+            box-shadow: 0 -2em var(--trigger-time-pointer-color), 0 -4em var(--trigger-time-pointer-color);
         }
 
         .neo-minutes {
-            box-shadow: 0 -3.4em v(trigger-time-pointer-color), 0 -6.8em v(trigger-time-pointer-color);
+            box-shadow: 0 -3.4em var(--trigger-time-pointer-color), 0 -6.8em var(--trigger-time-pointer-color);
         }
     }
 }

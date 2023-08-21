@@ -1,7 +1,7 @@
 .neo-file-upload-field {
-    background-color : v(fileuploadfield-background-color);
-    border-color     : v(fileuploadfield-border-color);
-    color            : v(fileuploadfield-color);
+    background-color : var(--fileuploadfield-background-color);
+    border-color     : var(--fileuploadfield-border-color);
+    color            : var(--fileuploadfield-color);
 }
 
 .neo-file-upload-field {
@@ -131,7 +131,7 @@
         }
     }
     // No interaction while scanning. We just have to wait.
-    // But 
+    // But
     .neo-file-upload-action-button {
         position : absolute;
         clip     : rect(0, 0, 0, 0);
