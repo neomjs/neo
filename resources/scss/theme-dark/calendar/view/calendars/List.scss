@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    --calendars-list-edit-icon-color: #ccc
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-calendars-list
-        --calendars-list-edit-icon-color: #{neo(calendars-list-edit-icon-color)};
-    }
+:root .neo-theme-dark { // .neo-calendars-list
+    --calendars-list-edit-icon-color: #ccc;
 }

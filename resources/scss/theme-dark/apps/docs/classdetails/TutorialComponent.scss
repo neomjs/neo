@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark {
     --docs-classdetails-tutorialcomponent-background-color: #323232;
-    --docs-classdetails-tutorialcomponent-color           : #bbb
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark {
-        --docs-classdetails-tutorialcomponent-background-color: #{neo(docs-classdetails-tutorialcomponent-background-color)};
-        --docs-classdetails-tutorialcomponent-color           : #{neo(docs-classdetails-tutorialcomponent-color)};
-    }
+    --docs-classdetails-tutorialcomponent-color           : #bbb;
 }

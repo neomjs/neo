@@ -1,4 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-calendar-weekcomponent
     --c-w-background-color                  : #2b2b2b;
     --c-w-border-color                      : #3c3f41;
     --c-w-event-resizable-color             : #64B5F6;
@@ -9,21 +9,5 @@ $neoMap: map-merge($neoMap, (
     --c-w-header-day-color                  : #999;
     --c-w-header-today-background-color     : firebrick;
     --c-w-header-today-color                : #fff;
-    --c-w-weekend-background-color          : rgba(50, 50, 60, .35)
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-calendar-weekcomponent
-        --c-w-background-color                  : #{neo(c-w-background-color)};
-        --c-w-border-color                      : #{neo(c-w-border-color)};
-        --c-w-event-resizable-color             : #{neo(c-w-event-resizable-color)};
-        --c-w-header-background-color           : #{neo(c-w-header-background-color)};
-        --c-w-header-date-background-color-hover: #{neo(c-w-header-date-background-color-hover)};
-        --c-w-header-date-color                 : #{neo(c-w-header-date-color)};
-        --c-w-header-date-color-hover           : #{neo(c-w-header-date-color-hover)};
-        --c-w-header-day-color                  : #{neo(c-w-header-day-color)};
-        --c-w-header-today-background-color     : #{neo(c-w-header-today-background-color)};
-        --c-w-header-today-color                : #{neo(c-w-header-today-color)};
-        --c-w-weekend-background-color          : #{neo(c-w-weekend-background-color)};
-    }
+    --c-w-weekend-background-color          : rgba(50, 50, 60, .35);
 }
