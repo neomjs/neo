@@ -9,11 +9,11 @@ app.use(cors());
 app.post('/file-upload-test', async (req, res) => {
 
     await new Promise(resolve => setTimeout(resolve, 3000));
-
+  
     res.set('Content-Type', 'application/json');
     res.send('{"success":true,"documentId":"1"}');
   })
-
+  
 app.post('/file-upload-test-fail', async (req, res) => {
     res.set('Content-Type', 'application/json');
     res.send('{"success":false,"message":"Something went wrong"}');
@@ -21,7 +21,7 @@ app.post('/file-upload-test-fail', async (req, res) => {
 
 app.get('/document-status', async(req, res) => {
     res.set('Content-Type', 'application/json');
-    res.send('{"status":"scanning"}');
+    res.send('{"status":"SCANNING"}');
 });
 
 app.get('/document-delete', async(req, res) => {
@@ -31,17 +31,27 @@ app.get('/document-delete', async(req, res) => {
 
 app.get('/document-status-fail', async(req, res) => {
     res.set('Content-Type', 'application/json');
-    res.send('{"status":"scan-failed"}');
+    res.send('{"status":"MALWARE_DETECTED"}');
 });
 
 app.get('/document-status-downloadable', async(req, res) => {
     res.set('Content-Type', 'application/json');
-    res.send('{"status":"downloadable"}');
+    res.send('{"status":"DOWNLOADABLE","fileName":"testfile.pdf","size":9653413}');
 });
 
 app.get('/document-status-not-downloadable', async(req, res) => {
     res.set('Content-Type', 'application/json');
-    res.send('{"status":"not-downloadable"}');
+    res.send('{"status":"UN_DOWNLOADABLE","fileName":"testfile.pdf","size":9653413}');
+});
+
+app.get('/document-status-non-existent', async(req, res) => {
+    res.set('Content-Type', 'application/json');
+    res.send('{"status":"DELETED","fileName":"testfile.pdf","size":9653413}');
+});
+
+app.get('/document-status-fails', async(req, res) => {
+    res.status(500);
+    res.send('');
 });
 
 app.listen(port, () => {
