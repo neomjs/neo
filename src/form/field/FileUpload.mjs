@@ -134,7 +134,7 @@ class FileUpload extends Base {
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
          * @member {Object} headers
          */
-        headers : {},
+        headers_ : {},
 
         /**
          * An Object which allows the status text returned from the {@link #property-documentStatusUrl} to be
@@ -217,7 +217,7 @@ class FileUpload extends Base {
          *
          * @member {String} downloadUrl
          */
-        downloadUrl : null,
+        downloadUrl_ : null,
 
         /**
          * The URL of the file status reporting service.
@@ -246,7 +246,7 @@ class FileUpload extends Base {
          *
          * @member {String} documentStatusUrl
          */
-        documentStatusUrl : null,
+        documentStatusUrl_ : null,
 
         /**
          * The polling interval *in milliseconds* to wait between asking the server how the document scan
@@ -279,7 +279,7 @@ class FileUpload extends Base {
          *
          * @member {String} documentDeleteUrl
          */
-        documentDeleteUrl : null,
+        documentDeleteUrl_ : null,
 
         /**
          * @member {String} state_=null
@@ -694,18 +694,24 @@ class FileUpload extends Base {
     }
 
     beforeGetDocumentStatusUrl(documentStatusUrl) {
+        const me = this;
+
         return typeof documentStatusUrl === 'function'? documentStatusUrl.call(me, me) : me.createUrl(documentStatusUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
 
     beforeGetDocumentDeleteUrl(documentDeleteUrl) {
+        const me = this;
+
         return typeof documentDeleteUrl === 'function'? documentDeleteUrl.call(me, me) : me.createUrl(documentDeleteUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
 
     beforeGetDownloadUrl(downloadUrl) {
+        const me = this;
+
         return typeof downloadUrl === 'function'? downloadUrl.call(me, me) : me.createUrl(downloadUrl, {
             [me.documentIdParameter] : me.documentId
         });
@@ -767,6 +773,10 @@ class FileUpload extends Base {
     }
 
     get isValid() {
+        return this.isValid();
+    }
+
+    isValid() {
         const me = this;
 
         return !me.error &&
