@@ -654,7 +654,7 @@ class FileUpload extends Base {
                 break;
             case 'not-downloadable':
                 status.innerHTML = me.preExistingDocument ?
-                me.fileSize : `${successfullyUploaded} \u2022 ${me.fileSize}`;
+                me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
                 break;
             case 'deleted':
                 status.innerHTML = me.fileWasDeleted;
@@ -772,10 +772,10 @@ class FileUpload extends Base {
     isValid() {
         const me = this;
 
-        return !me.error &&
-               ((me.state === 'ready' && !me.required) ||
-               (me.state === 'downloadable') ||
-               (me.state === 'not-downloadable'));
+        return !me.error &&  !(me.state === 'ready' && me.required) ||
+               (    (me.state === 'downloadable') ||
+                    (me.state === 'not-downloadable')
+               );
     }
 }
 
