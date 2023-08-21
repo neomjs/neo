@@ -31,7 +31,7 @@
 
     .neo-tab-button-indicator {
         background-color: transparent;
-        bottom          : calcVar(tab-strip-height, '*', -1);
+        bottom          : calc(var(--tab-strip-height) * -1);
         height          : var(--tab-strip-height);
         pointer-events  : none;
         position        : absolute;
