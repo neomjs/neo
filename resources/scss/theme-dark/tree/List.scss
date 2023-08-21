@@ -1,4 +1,4 @@
 :root .neo-theme-dark { // .neo-tree-list
     --tree-list-color          : #bbb;
-    --tree-list-menu-item-color: lighten(#33343d, 20%);
+    --tree-list-menu-item-color: #{lighten(#33343d, 20%)};
 }

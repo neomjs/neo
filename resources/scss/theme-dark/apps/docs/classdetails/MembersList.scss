@@ -3,7 +3,7 @@
     --docs-memberlist-group-header-background-color    : #33343d;
     --docs-memberlist-group-header-color               : #bbb;
     --docs-param-table-list-item-background-color      : #323232;
-    --docs-param-table-list-item-background-image      : linear-gradient(lighten(#323232, 2%), #323232);
+    --docs-param-table-list-item-background-image      : linear-gradient(#{lighten(#323232, 2%)}, #323232);
     --docs-param-table-list-item-header-background-clip: text;
     --docs-param-table-list-item-header-text-shadow    : 2px 2px 3px rgba(200,200,200,0.1);
     --docs-param-table-list-item-highlight-search-color: #ccc;
