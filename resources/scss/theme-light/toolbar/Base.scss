@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-toolbar
     --toolbar-background-color: #fff;
-    --toolbar-padding         : 5px
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-toolbar
-        --toolbar-background-color: #{neo(toolbar-background-color)};
-        --toolbar-padding         : #{neo(toolbar-padding)};
-    }
+    --toolbar-padding         : 5px;
 }

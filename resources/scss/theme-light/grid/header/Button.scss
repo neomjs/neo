@@ -1,15 +1,6 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-grid-header-button
     --grid-header-button-background-color: #5d83a7;
     --grid-header-button-background-image: none;
     --grid-header-button-color           : #fff;
-    --grid-header-button-glyph-color     : #fff
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-grid-header-button
-        --grid-header-button-background-color: #{neo(grid-header-button-background-color)};
-        --grid-header-button-background-image: #{neo(grid-header-button-background-image)};
-        --grid-header-button-color           : #{neo(grid-header-button-color)};
-        --grid-header-button-glyph-color     : #{neo(grid-header-button-glyph-color)};
-    }
+    --grid-header-button-glyph-color     : #fff;
 }

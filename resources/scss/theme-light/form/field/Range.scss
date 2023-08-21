@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-light { // .neo-rangefield
     --rangefield-thumb-background: #1c60a0;
-    --rangefield-track-background: #ddd
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-rangefield
-        --rangefield-thumb-background: #{neo(rangefield-thumb-background)};
-        --rangefield-track-background: #{neo(rangefield-track-background)};
-    }
+    --rangefield-track-background: #ddd;
 }
