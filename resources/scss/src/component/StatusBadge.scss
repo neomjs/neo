@@ -1,44 +1,50 @@
 .neo-status-badge {
     display: flex;
+    padding: 0px 5px 0px 5px;
+    align-items: center;
 
     &.neo-state-alert {
         background-color: orange;
+        color: darken(orange, 30%);
     }
 
     &.neo-state-error {
         background-color: red;
+        color: white;
     }
 
     &.neo-state-info {
         background-color: lightblue;
+        color: darken($alert-color, 30%);
     }
 
     &.neo-state-neutral {
-        background-color: white;
+        background-color: weiß;
+        color: v(button-text-color);
     }
 
     &.neo-state-success {
         background-color: green;
+        color: white;
     }
 
     .neo-state-glyph {
-        color         : v(button-glyph-color);
-        font-size     : 12px;
-        margin        : 0 6px 0 0;
+        font-size: 12px;
         pointer-events: none;
-        z-index       : 2;
+        z-index: 2;
     }
 
     .neo-state-text {
-        color         : v(button-text-color);
-        font-family   : v(button-text-font-family);
-        font-size     : v(button-text-font-size);
-        font-weight   : v(button-text-font-weight);
-        line-height   : v(button-text-line-height);
-        pointer-events: none;
-        text-transform: v(button-text-transform);
-        z-index       : 2;
         flex: 1 1 auto;
+        font-family: v(button-text-font-family);
+        font-size: v(button-text-font-size);
+        font-weight: v(button-text-font-weight);
+        line-height: v(button-text-line-height);
+        pointer-events: none;
+        text-align: center;
+        text-transform: v(button-text-transform);
+        z-index: 2;
     }
+
 
 }
