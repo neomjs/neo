@@ -1,49 +1,48 @@
 .neo-status-badge {
     display: flex;
-    padding: 0px 5px 0px 5px;
-    align-items: center;
+    padding: v(status-badge-padding);
+    align-items: v(status-badge-align-items);
 
     &.neo-state-alert {
-        background-color: orange;
-        color: darken(orange, 30%);
+        background-color: v(status-badge-state-alert-background-color);
+        color: v(status-badge-state-alert-text-color);
     }
 
     &.neo-state-error {
-        background-color: red;
-        color: white;
+        background-color: v(status-badge-state-error-background-color);
+        color: v(status-badge-state-error-text-color);
     }
 
     &.neo-state-info {
-        background-color: lightblue;
-        color: darken($alert-color, 30%);
+        background-color: v(status-badge-state-info-background-color);
+        color: v(status-badge-state-info-text-color);
     }
 
     &.neo-state-neutral {
-        background-color: weiß;
-        color: v(button-text-color);
+        background-color: v(status-badge-state-neutral-background-color);
+        color: v(status-badge-state-neutral-text-color);
     }
 
     &.neo-state-success {
-        background-color: green;
-        color: white;
+        background-color: v(status-badge-state-success-background-color);
+        color: v(status-badge-state-success-text-color);
+
     }
 
     .neo-state-glyph {
-        font-size: 12px;
-        pointer-events: none;
-        z-index: 2;
+        font-size: v(status-badge-font-size);
+        pointer-events: none; 
     }
 
     .neo-state-text {
         flex: 1 1 auto;
-        font-family: v(button-text-font-family);
-        font-size: v(button-text-font-size);
-        font-weight: v(button-text-font-weight);
-        line-height: v(button-text-line-height);
+        font-family: v(status-badge-font-family);
+        font-size: v(status-badge-font-size);
+        font-weight: v(status-badge-font-weight);
+        line-height: v(status-badge-line-height);
         pointer-events: none;
-        text-align: center;
-        text-transform: v(button-text-transform);
-        z-index: 2;
+        text-align:  v(status-badge-align-items);
+        text-transform: v(status-badge-transform);
     }
 
 
