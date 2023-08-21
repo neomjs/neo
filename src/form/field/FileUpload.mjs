@@ -589,17 +589,12 @@ class FileUpload extends Base {
                         me.state = 'ready';
                         break;
                     default:
-                        const { fileName, size } = serverJson;
-
-                        if (fileName) {
-                            me.vdom.cn[1].cn[0].innerHTML = fileName;
-                            me.fileSize = me.formatSize(size);
-                        }
                         me.state = status;
                 }
             }
             else {
-                me.error = `${documentStatusError}: ${statusResponse.statusText}`;
+                me.error = `${me.documentStatusError}: ${statusResponse.statusText || `Server error ${statusResponse.status}`}`;
+                me.state = 'deleted';
             }
         }
     }
@@ -764,16 +759,14 @@ class FileUpload extends Base {
      * @returns {Boolean}
      */
     validate() {
-        const { isValid, cls } = this;
+        const
+            { cls } = this,
+            isValid = this.isValid();
 
         NeoArray.toggle(cls, 'neo-invalid', !isValid);
         this.cls = cls;
 
         return isValid;
-    }
-
-    get isValid() {
-        return this.isValid();
     }
 
     isValid() {

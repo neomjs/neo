@@ -140,6 +140,21 @@ class MainContainer extends ConfigurationViewport {
                     xls : 1,
                     pdf : 1
                 }
+            }, {
+                module            : FileUploadField,
+                id                : 'my-failing-document-status-test',
+                uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
+                documentStatusUrl : 'http://127.0.0.1:3000/document-status-fails?documentId={documentId}',
+                documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
+                downloadUrl       : 'http://127.0.0.1:3000/getDocument?documentId={documentId}',
+                width             : 350,
+                maxSize           : '10mb',
+                types             : {
+                    png : 1,
+                    jpg : 1,
+                    xls : 1,
+                    pdf : 1
+                }
             }]
         });
     }
