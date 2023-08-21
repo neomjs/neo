@@ -1,19 +1,8 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-checkboxfield
     --checkboxfield-color           : #eee;
     --checkboxfield-color-checked   : #64B5F6;
     --checkboxfield-icon-font-family: var(--fa-style-family-classic);
     --checkboxfield-icon-font-size  : 14px;
     --checkboxfield-icon-margin     : 0;
-    --checkboxfield-label-top-margin: 0 0 3px
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-checkboxfield
-        --checkboxfield-color           : #{neo(checkboxfield-color)};
-        --checkboxfield-color-checked   : #{neo(checkboxfield-color-checked)};
-        --checkboxfield-icon-font-family: #{neo(checkboxfield-icon-font-family)};
-        --checkboxfield-icon-font-size  : #{neo(checkboxfield-icon-font-size)};
-        --checkboxfield-icon-margin     : #{neo(checkboxfield-icon-margin)};
-        --checkboxfield-label-top-margin: #{neo(checkboxfield-label-top-margin)};
-    }
+    --checkboxfield-label-top-margin: 0 0 3px;
 }

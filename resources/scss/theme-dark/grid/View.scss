@@ -1,4 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-grid-view
     --grid-cell-background-color-hover                    : #54595c;
     --grid-cellmodel-selected-cell-background-color       : #64B5F6;
     --grid-cellmodel-selected-cell-color                  : #2b2b2b;
@@ -9,21 +9,5 @@ $neoMap: map-merge($neoMap, (
     --grid-cellrowmodel-selected-row-cell-background-color: #4f558a;
     --grid-cellrowmodel-selected-row-cell-color           : #bbb;
     --grid-rowmodel-selected-cell-background-color        : #64B5F6;
-    --grid-rowmodel-selected-cell-color                   : #2b2b2b
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-grid-view
-        --grid-cell-background-color-hover                    : #{neo(grid-cell-background-color-hover)};
-        --grid-cellmodel-selected-cell-background-color       : #{neo(grid-cellmodel-selected-cell-background-color)};
-        --grid-cellmodel-selected-cell-color                  : #{neo(grid-cellmodel-selected-cell-color)};
-        --grid-cellmodel-selected-column-cell-background-color: #{neo(grid-cellmodel-selected-column-cell-background-color)};
-        --grid-cellmodel-selected-column-cell-color           : #{neo(grid-cellmodel-selected-column-cell-color)};
-        --grid-cellrowmodel-selected-cell-background-color    : #{neo(grid-cellrowmodel-selected-cell-background-color)};
-        --grid-cellrowmodel-selected-cell-color               : #{neo(grid-cellrowmodel-selected-cell-color)};
-        --grid-cellrowmodel-selected-row-cell-background-color: #{neo(grid-cellrowmodel-selected-row-cell-background-color)};
-        --grid-cellrowmodel-selected-row-cell-color           : #{neo(grid-cellrowmodel-selected-row-cell-color)};
-        --grid-rowmodel-selected-cell-background-color        : #{neo(grid-rowmodel-selected-cell-background-color)};
-        --grid-rowmodel-selected-cell-color                   : #{neo(grid-rowmodel-selected-cell-color)};
-    }
+    --grid-rowmodel-selected-cell-color                   : #2b2b2b;
 }

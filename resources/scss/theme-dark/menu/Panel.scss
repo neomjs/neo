@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    --menu-border-color: #3c3f41
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-menu
-        --menu-border-color: #{neo(menu-border-color)};
-    }
+:root .neo-theme-dark { // .neo-menu
+    --menu-border-color: #3c3f41;
 }

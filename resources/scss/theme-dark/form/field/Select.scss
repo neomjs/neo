@@ -1,21 +1,9 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-selectfield
     --selectfield-input-hint-color              : #bbb;
     --selectfield-input-hint-opacity            : 0.6;
     --selectfield-list-search-background-color  : inherit;
     --selectfield-list-search-color             : #fff;
     --selectfield-list-search-color-selected    : #000;
     --selectfield-picker-container-border       : 1px solid #bbb;
-    --selectfield-picker-container-border-radius: 0
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-selectfield
-        --selectfield-input-hint-color              : #{neo(selectfield-input-hint-color)};
-        --selectfield-input-hint-opacity            : #{neo(selectfield-input-hint-opacity)};
-        --selectfield-list-search-background-color  : #{neo(selectfield-list-search-background-color)};
-        --selectfield-list-search-color             : #{neo(selectfield-list-search-color)};
-        --selectfield-list-search-color-selected    : #{neo(selectfield-list-search-color-selected)};
-        --selectfield-picker-container-border       : #{neo(selectfield-picker-container-border)};
-        --selectfield-picker-container-border-radius: #{neo(selectfield-picker-container-border-radius)};
-    }
+    --selectfield-picker-container-border-radius: 0;
 }

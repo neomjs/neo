@@ -1,4 +1,4 @@
-$neoMap: map-merge($neoMap, (
+:root .neo-theme-dark { // .neo-textfield
     --textfield-border-color                   : #424242;
     --textfield-border-color-active            : #5d83a7;
     --textfield-border-color-disabled          : #424242;
@@ -28,40 +28,5 @@ $neoMap: map-merge($neoMap, (
     --textfield-outline-hovered                : none;
     --textfield-sublabel-color                 : #999;
     --textfield-sublabel-font-size             : 12px;
-    --textfield-sublabel-margin                : 0 0 5px
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-textfield
-        --textfield-border-color                   : #{neo(textfield-border-color)};
-        --textfield-border-color-active            : #{neo(textfield-border-color-active)};
-        --textfield-border-color-disabled          : #{neo(textfield-border-color-disabled)};
-        --textfield-border-color-hovered           : #{neo(textfield-border-color-hovered)};
-        --textfield-border-color-invalid           : #{neo(textfield-border-color-invalid)};
-        --textfield-border-color-readonly          : #{neo(textfield-border-color-readonly)};
-        --textfield-border-radius                  : #{neo(textfield-border-radius)};
-        --textfield-border-width                   : #{neo(textfield-border-width)};
-        --textfield-input-background-color         : #{neo(textfield-input-background-color)};
-        --textfield-input-background-color-disabled: #{neo(textfield-input-background-color-disabled)};
-        --textfield-input-background-color-readonly: #{neo(textfield-input-background-color-readonly)};
-        --textfield-input-color                    : #{neo(textfield-input-color)};
-        --textfield-input-color-disabled           : #{neo(textfield-input-color-disabled)};
-        --textfield-input-color-readonly           : #{neo(textfield-input-color-readonly)};
-        --textfield-input-font                     : #{neo(textfield-input-font)};
-        --textfield-input-height                   : #{neo(textfield-input-height)};
-        --textfield-input-padding                  : #{neo(textfield-input-padding)};
-        --textfield-input-placeholder-color        : #{neo(textfield-input-placeholder-color)};
-        --textfield-input-placeholder-opacity      : #{neo(textfield-input-placeholder-opacity)};
-        --textfield-label-color                    : #{neo(textfield-label-color)};
-        --textfield-label-color-disabled           : #{neo(textfield-label-color-disabled)};
-        --textfield-label-color-readonly           : #{neo(textfield-label-color-readonly)};
-        --textfield-label-top-margin               : #{neo(textfield-label-top-margin)};
-        --textfield-opacity-disabled               : #{neo(textfield-opacity-disabled)};
-        --textfield-opacity-readonly               : #{neo(textfield-opacity-readonly)};
-        --textfield-outline-active                 : #{neo(textfield-outline-active)};
-        --textfield-outline-hovered                : #{neo(textfield-outline-hovered)};
-        --textfield-sublabel-color                 : #{neo(textfield-sublabel-color)};
-        --textfield-sublabel-font-size             : #{neo(textfield-sublabel-font-size)};
-        --textfield-sublabel-margin                : #{neo(textfield-sublabel-margin)};
-    }
+    --textfield-sublabel-margin                : 0 0 5px;
 }
