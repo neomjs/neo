@@ -134,7 +134,7 @@ class FileUpload extends Base {
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
          * @member {Object} headers
          */
-        headers : {},
+        headers_ : {},
 
         /**
          * An Object which allows the status text returned from the {@link #property-documentStatusUrl} to be
@@ -217,7 +217,7 @@ class FileUpload extends Base {
          *
          * @member {String} downloadUrl
          */
-        downloadUrl : null,
+        downloadUrl_ : null,
 
         /**
          * The URL of the file status reporting service.
@@ -246,7 +246,7 @@ class FileUpload extends Base {
          *
          * @member {String} documentStatusUrl
          */
-        documentStatusUrl : null,
+        documentStatusUrl_ : null,
 
         /**
          * The polling interval *in milliseconds* to wait between asking the server how the document scan
@@ -279,7 +279,7 @@ class FileUpload extends Base {
          *
          * @member {String} documentDeleteUrl
          */
-        documentDeleteUrl : null,
+        documentDeleteUrl_ : null,
 
         /**
          * @member {String} state_=null
@@ -589,17 +589,12 @@ class FileUpload extends Base {
                         me.state = 'ready';
                         break;
                     default:
-                        const { fileName, size } = serverJson;
-
-                        if (fileName) {
-                            me.vdom.cn[1].cn[0].innerHTML = fileName;
-                            me.fileSize = me.formatSize(size);
-                        }
                         me.state = status;
                 }
             }
             else {
-                me.error = `${documentStatusError}: ${statusResponse.statusText}`;
+                me.error = `${me.documentStatusError}: ${statusResponse.statusText || `Server error ${statusResponse.status}`}`;
+                me.state = 'deleted';
             }
         }
     }
@@ -694,18 +689,24 @@ class FileUpload extends Base {
     }
 
     beforeGetDocumentStatusUrl(documentStatusUrl) {
+        const me = this;
+
         return typeof documentStatusUrl === 'function'? documentStatusUrl.call(me, me) : me.createUrl(documentStatusUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
 
     beforeGetDocumentDeleteUrl(documentDeleteUrl) {
+        const me = this;
+
         return typeof documentDeleteUrl === 'function'? documentDeleteUrl.call(me, me) : me.createUrl(documentDeleteUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
 
     beforeGetDownloadUrl(downloadUrl) {
+        const me = this;
+
         return typeof downloadUrl === 'function'? downloadUrl.call(me, me) : me.createUrl(downloadUrl, {
             [me.documentIdParameter] : me.documentId
         });
@@ -758,7 +759,9 @@ class FileUpload extends Base {
      * @returns {Boolean}
      */
     validate() {
-        const { isValid, cls } = this;
+        const
+            { cls } = this,
+            isValid = this.isValid();
 
         NeoArray.toggle(cls, 'neo-invalid', !isValid);
         this.cls = cls;
@@ -766,7 +769,7 @@ class FileUpload extends Base {
         return isValid;
     }
 
-    get isValid() {
+    isValid() {
         const me = this;
 
         return !me.error &&
