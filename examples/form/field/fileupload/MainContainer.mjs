@@ -101,7 +101,12 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 module            : FileUploadField,
                 id                : 'my-existing-document-test',
-                documentId        : 2,
+                document          : {
+                    id       : 2,
+                    fileName : 'test.pdf',
+                    size     : 10664885,
+                    status   : 'UN_DOWNLOADABLE'
+                },
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable?documentId={documentId}',
                 documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
@@ -117,7 +122,12 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 module            : FileUploadField,
                 id                : 'my-non-existing-document-test',
-                documentId        : 2,
+                document          : {
+                    id       : 2,
+                    fileName : 'test.pdf',
+                    size     : 10664885,
+                    status   : 'DELETED'
+                },
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-non-existent?documentId={documentId}',
                 documentDeleteUrl : 'http://127.0.0.1:3000/document-delete?documentId={documentId}',
