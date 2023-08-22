@@ -281,22 +281,39 @@ if (programOpts.info) {
                         inline: false,
                         prev  : map && JSON.stringify(map)
                     }
-                }).then(result => {
+                }).then(postcssResult => {
                     fs.mkdirpSync(folderPath);
                     fileCount[mode]['vars']++;
 
-                    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                    let map         = postcssResult.map,
+                        processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+
                     console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
+
                     fs.writeFileSync(
                         destPath,
-                        result.map ?
-                            `${result.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), result.opts.to + '.map')} */` :
-                            result.css,
+                        map ?
+                            `${postcssResult.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), postcssResult.opts.to + '.map')} */` :
+                            postcssResult.css,
                         () => true
                     );
 
-                    if (result.map) {
-                        fs.writeFileSync(result.opts.to + '.map', result.map.toString());
+                    if (map) {
+                        let mapString = map.toString(),
+                            jsonMap   = JSON.parse(mapString),
+                            sources   = jsonMap.sources;
+
+                        // Somehow files contain both: a relative & an absolute file url
+                        // We only want to keep the relative ones.
+                        [...sources].forEach((item, index) => {
+                            if (!item.startsWith('../')) {
+                                sources.splice(index, 1);
+                            }
+                        });
+
+                        map = JSON.stringify(jsonMap);
+
+                        fs.writeFileSync(postcssResult.opts.to + '.map', map);
                     }
 
                     if (fileCount[mode]['vars'] === totalFiles[mode]['vars']) {
