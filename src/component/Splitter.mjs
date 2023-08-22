@@ -170,7 +170,6 @@ class Splitter extends Component {
                 newSize = data.clientX - data.offsetX - size - parentRect.left;
 
                 if (resizeNext) {
-                    console.log(parentRect);
                     newSize = parentRect.width - newSize -  2 * size
                 } else {
                     newSize += size
