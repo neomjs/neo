@@ -261,8 +261,9 @@ if (programOpts.info) {
                     destPath   = path.resolve(folderPath, `${file.name}.css`);
 
                 let result = sass.compile(file.path, {
-                    outFile  : destPath,
-                    sourceMap: devMode
+                    outFile                : destPath,
+                    sourceMap              : devMode,
+                    sourceMapIncludeSources: true
                 });
 
                 const plugins = [autoprefixer];
@@ -277,7 +278,8 @@ if (programOpts.info) {
                     from: file.path,
                     to  : destPath,
                     map : !devMode ? null : {
-                        prev: map && JSON.stringify(map)
+                        inline: false,
+                        prev  : map && JSON.stringify(map)
                     }
                 }).then(result => {
                     fs.mkdirpSync(folderPath);
@@ -285,7 +287,11 @@ if (programOpts.info) {
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
                     console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
-                    fs.writeFileSync(destPath, result.css, () => true);
+                    fs.writeFileSync(
+                        destPath,
+                        `${result.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), result.opts.to + '.map')} */`,
+                        () => true
+                    );
 
                     if (result.map) {
                         fs.writeFileSync(result.opts.to + '.map', result.map.toString());
