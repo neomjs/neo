@@ -289,7 +289,9 @@ if (programOpts.info) {
                     console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
                     fs.writeFileSync(
                         destPath,
-                        `${result.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), result.opts.to + '.map')} */`,
+                        result.map ?
+                            `${result.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), result.opts.to + '.map')} */` :
+                            result.css,
                         () => true
                     );
 
