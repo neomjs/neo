@@ -1,8 +1,8 @@
 .neo-examples-calendar-maincontainer {
     .neo-header {
         align-items     : center;
-        background-color: v(examples-calendar-basic-header-background-color);
-        color           : v(examples-calendar-basic-header-color);
+        background-color: var(--examples-calendar-basic-header-background-color);
+        color           : var(--examples-calendar-basic-header-color);
         display         : flex;
         padding         : 0 10px;
 

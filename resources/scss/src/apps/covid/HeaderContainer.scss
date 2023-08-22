@@ -35,62 +35,62 @@
             }
 
             &.active {
-                background-color: v(covid-header-active-background-color);
+                background-color: var(--covid-header-active-background-color);
                 border-left     : 5px solid rgb(100, 181, 246);
 
                 &:after {
-                    background-color: v(covid-header-active-background-color);
+                    background-color: var(--covid-header-active-background-color);
                 }
 
                 &:before {
-                    border-bottom: 5px solid v(covid-header-active-background-color);
-                    border-right : 5px solid v(covid-header-active-background-color);
-                    border-color : v(covid-header-active-background-color) transparent transparent v(covid-header-active-background-color);
+                    border-bottom: 5px solid var(--covid-header-active-background-color);
+                    border-right : 5px solid var(--covid-header-active-background-color);
+                    border-color : var(--covid-header-active-background-color) transparent transparent var(--covid-header-active-background-color);
                 }
             }
 
             &.cases {
-                background-color: v(covid-header-cases-background-color);
+                background-color: var(--covid-header-cases-background-color);
                 border-left     : 5px solid rgb(187, 187, 187);
 
                 &:after {
-                    background-color: v(covid-header-cases-background-color);
+                    background-color: var(--covid-header-cases-background-color);
                 }
 
                 &:before {
-                    border-bottom: 5px solid v(covid-header-cases-background-color);
-                    border-right : 5px solid v(covid-header-cases-background-color);
-                    border-color : v(covid-header-cases-background-color) transparent transparent v(covid-header-cases-background-color);
+                    border-bottom: 5px solid var(--covid-header-cases-background-color);
+                    border-right : 5px solid var(--covid-header-cases-background-color);
+                    border-color : var(--covid-header-cases-background-color) transparent transparent var(--covid-header-cases-background-color);
                 }
             }
 
             &.deaths {
-                background-color: v(covid-header-deaths-background-color);
+                background-color: var(--covid-header-deaths-background-color);
                 border-left     : 5px solid rgb(251, 103, 103);
 
                 &:after {
-                    background-color: v(covid-header-deaths-background-color);
+                    background-color: var(--covid-header-deaths-background-color);
                 }
 
                 &:before {
-                    border-bottom: 5px solid v(covid-header-deaths-background-color);
-                    border-right : 5px solid v(covid-header-deaths-background-color);
-                    border-color : v(covid-header-deaths-background-color) transparent transparent v(covid-header-deaths-background-color);
+                    border-bottom: 5px solid var(--covid-header-deaths-background-color);
+                    border-right : 5px solid var(--covid-header-deaths-background-color);
+                    border-color : var(--covid-header-deaths-background-color) transparent transparent var(--covid-header-deaths-background-color);
                 }
             }
 
             &.recovered {
-                background-color: v(covid-header-recovered-background-color);
+                background-color: var(--covid-header-recovered-background-color);
                 border-left     : 5px solid rgb(40, 218, 111);
 
                 &:after {
-                    background-color: v(covid-header-recovered-background-color);
+                    background-color: var(--covid-header-recovered-background-color);
                 }
 
                 &:before {
-                    border-bottom: 5px solid v(covid-header-recovered-background-color);
-                    border-right : 5px solid v(covid-header-recovered-background-color);
-                    border-color : v(covid-header-recovered-background-color) transparent transparent v(covid-header-recovered-background-color);
+                    border-bottom: 5px solid var(--covid-header-recovered-background-color);
+                    border-right : 5px solid var(--covid-header-recovered-background-color);
+                    border-color : var(--covid-header-recovered-background-color) transparent transparent var(--covid-header-recovered-background-color);
                 }
             }
         }
@@ -100,19 +100,19 @@
             margin   : 5px 0;
 
             &.active {
-                color: v(covid-header-active-color);
+                color: var(--covid-header-active-color);
             }
 
             &.cases {
-                color: v(covid-header-cases-color);
+                color: var(--covid-header-cases-color);
             }
 
             &.deaths {
-                color: v(covid-header-deaths-color);
+                color: var(--covid-header-deaths-color);
             }
 
             &.recovered {
-                color: v(covid-header-recovered-color);
+                color: var(--covid-header-recovered-color);
             }
         }
     }

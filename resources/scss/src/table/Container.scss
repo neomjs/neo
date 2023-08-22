@@ -5,10 +5,10 @@
 }
 
 .neo-table-container {
-    border          : 1px solid v(table-container-border-color);
+    border          : 1px solid var(--table-container-border-color);
     border-top-width: 0;
     border-spacing  : 0;
-    color           : v(table-container-color);
+    color           : var(--table-container-color);
     font-size       : 13px;
     font-weight     : 400;
     line-height     : 19px;
@@ -16,8 +16,8 @@
     position        : absolute;
 
     tr {
-        height    : v(table-container-cell-height) !important;
-        max-height: v(table-container-cell-height) !important;
+        height    : var(--table-container-cell-height) !important;
+        max-height: var(--table-container-cell-height) !important;
     }
 
     tr:last-child {
@@ -28,7 +28,7 @@
 
     tr:nth-child(even) {
         td {
-            background-color: v(table-container-cell-background-color-even);
+            background-color: var(--table-container-cell-background-color-even);
         }
     }
 
@@ -47,13 +47,13 @@
     }
 
     td {
-        background-color: v(table-container-cell-background-color);
-        border-bottom   : v(table-container-cell-border-bottom);
-        border-right    : 1px solid v(table-container-border-color);
+        background-color: var(--table-container-cell-background-color);
+        border-bottom   : var(--table-container-cell-border-bottom);
+        border-right    : 1px solid var(--table-container-border-color);
         border-top      : 1px solid transparent;
-        height          : v(table-container-cell-height) !important;
-        max-height      : v(table-container-cell-height) !important;
-        padding         : v(table-container-cell-padding);
+        height          : var(--table-container-cell-height) !important;
+        max-height      : var(--table-container-cell-height) !important;
+        padding         : var(--table-container-cell-padding);
 
         &.neo-locked {
             z-index: 10;
@@ -61,10 +61,10 @@
     }
 
     th {
-        background-color: v(table-container-cell-background-color);
-        border-bottom   : v(table-container-header-cell-border-bottom);
-        border-right    : 1px solid v(table-container-border-color);
-        border-top      : 1px solid v(table-container-border-color);
+        background-color: var(--table-container-cell-background-color);
+        border-bottom   : var(--table-container-header-cell-border-bottom);
+        border-right    : 1px solid var(--table-container-border-color);
+        border-top      : 1px solid var(--table-container-border-color);
         padding         : 0;
         position        : sticky;
         top             : 0;
@@ -96,7 +96,7 @@
             background:rgba(0,0,0,0.1);
 
             &:vertical {
-                margin-top: v(table-container-cell-height);
+                margin-top: var(--table-container-cell-height);
             }
         }
 

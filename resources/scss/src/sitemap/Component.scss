@@ -1,5 +1,5 @@
 .neo-sitemap {
-    border : 1px solid v(panel-border-color);
+    border : 1px solid var(--panel-border-color);
     display: flex;
     padding: 30px 100px 60px;
 
@@ -38,7 +38,7 @@
         flex: 1;
 
         &:not(:last-child) {
-            border-right: 1px solid v(panel-border-color);
+            border-right: 1px solid var(--panel-border-color);
             margin-right: 25px;
         }
     }

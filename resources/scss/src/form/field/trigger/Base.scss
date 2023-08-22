@@ -1,12 +1,12 @@
 .neo-field-trigger {
     align-items    : center;
-    border-left    : v(trigger-border-width) solid v(textfield-border-color);
-    color          : v(trigger-color);
+    border-left    : var(--trigger-border-width) solid var(--textfield-border-color);
+    color          : var(--trigger-color);
     cursor         : pointer;
     display        : flex;
     flex-shrink    : 0;
     font-size      : 14px;
-    height         : v(textfield-input-height); // has to be 1px smaller to not overlap the bottom border on hover
+    height         : var(--textfield-input-height); // has to be 1px smaller to not overlap the bottom border on hover
     justify-content: center;
     line-height    : 26px;
     text-align     : center;
@@ -14,12 +14,12 @@
 
     &.neo-align-start {
         border-left : 0;
-        border-right: v(trigger-border-width) solid v(textfield-border-color);
+        border-right: var(--trigger-border-width) solid var(--textfield-border-color);
     }
 
     &:hover {
-        background-color: v(trigger-background-color-hover);
-        color           : v(trigger-color-hover);
+        background-color: var(--trigger-background-color-hover);
+        color           : var(--trigger-color-hover);
     }
 }
 

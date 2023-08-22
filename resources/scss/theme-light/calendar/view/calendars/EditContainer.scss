@@ -1,13 +1,5 @@
-$neoMap: map-merge($neoMap, (
-    'calendar-edit-calendar-background-color': #fff,
-    'calendar-edit-calendar-border-color'    : #1c60a0,
-    'calendar-edit-calendar-box-shadow'      : 0 5px 10px rgba(0,0,0,.4)
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-calendar-edit-container
-        --calendar-edit-calendar-background-color: #{neo(calendar-edit-calendar-background-color)};
-        --calendar-edit-calendar-border-color    : #{neo(calendar-edit-calendar-border-color)};
-        --calendar-edit-calendar-box-shadow      : #{neo(calendar-edit-calendar-box-shadow)};
-    }
+:root .neo-theme-light { // .neo-calendar-edit-container
+    --calendar-edit-calendar-background-color: #fff;
+    --calendar-edit-calendar-border-color    : #1c60a0;
+    --calendar-edit-calendar-box-shadow      : 0 5px 10px rgba(0,0,0,.4);
 }

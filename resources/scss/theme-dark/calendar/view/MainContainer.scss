@@ -1,49 +1,23 @@
-$neoMap: map-merge($neoMap, (
-    'calendar-border-color'              : #3c3f41,
-    'event-blue-background-color'        : rgba(104, 169, 217, 0.1),
-    'event-blue-background-color-focus'  : rgba(104, 169, 217, 0.6),
-    'event-blue-color'                   : rgb( 104, 169, 217),
-    'event-green-background-color'       : rgba(127, 255,   0, 0.1),
-    'event-green-background-color-focus' : rgba(127, 255,   0, 0.6),
-    'event-green-color'                  : rgb( 127, 255,   0),
-    'event-orange-background-color'      : rgba(255, 100,   0, 0.1),
-    'event-orange-background-color-focus': rgba(255, 100,   0, 0.6),
-    'event-orange-color'                 : rgb( 255, 100,   0),
-    'event-pink-background-color'        : rgba(255,  20, 147, 0.1),
-    'event-pink-background-color-focus'  : rgba(255,  20, 147, 0.6),
-    'event-pink-color'                   : rgb( 255,  20, 147),
-    'event-red-background-color'         : rgba(255,   0,   0, 0.1),
-    'event-red-background-color-focus'   : rgba(255,   0,   0, 0.6),
-    'event-red-color'                    : rgb( 255,   0,   0),
-    'event-yellow-background-color'      : rgba(255, 255,   0, 0.1),
-    'event-yellow-background-color-focus': rgba(255, 255,   0, 0.6),
-    'event-yellow-border-color'          : rgb( 255, 255,   0),
-    'event-yellow-color'                 : rgb( 255, 255,   0),
-    'event-yellow-color-focus'           : #fff
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-calendar-maincontainer
-        --calendar-border-color              : #{neo(calendar-border-color)};
-        --event-blue-background-color        : #{neo(event-blue-background-color)};
-        --event-blue-background-color-focus  : #{neo(event-blue-background-color-focus)};
-        --event-blue-color                   : #{neo(event-blue-color)};
-        --event-green-background-color       : #{neo(event-green-background-color)};
-        --event-green-background-color-focus : #{neo(event-green-background-color-focus)};
-        --event-green-color                  : #{neo(event-green-color)};
-        --event-orange-background-color      : #{neo(event-orange-background-color)};
-        --event-orange-background-color-focus: #{neo(event-orange-background-color-focus)};
-        --event-orange-color                 : #{neo(event-orange-color)};
-        --event-pink-background-color        : #{neo(event-pink-background-color)};
-        --event-pink-background-color-focus  : #{neo(event-pink-background-color-focus)};
-        --event-pink-color                   : #{neo(event-pink-color)};
-        --event-red-background-color         : #{neo(event-red-background-color)};
-        --event-red-background-color-focus   : #{neo(event-red-background-color-focus)};
-        --event-red-color                    : #{neo(event-red-color)};
-        --event-yellow-background-color      : #{neo(event-yellow-background-color)};
-        --event-yellow-background-color-focus: #{neo(event-yellow-background-color-focus)};
-        --event-yellow-border-color          : #{neo(event-yellow-border-color)};
-        --event-yellow-color                 : #{neo(event-yellow-color)};
-        --event-yellow-color-focus           : #{neo(event-yellow-color-focus)};
-    }
+:root .neo-theme-dark { // .neo-calendar-maincontainer
+    --calendar-border-color              : #3c3f41;
+    --event-blue-background-color        : rgba(104, 169, 217, 0.1);
+    --event-blue-background-color-focus  : rgba(104, 169, 217, 0.6);
+    --event-blue-color                   : rgb( 104, 169, 217);
+    --event-green-background-color       : rgba(127, 255,   0, 0.1);
+    --event-green-background-color-focus : rgba(127, 255,   0, 0.6);
+    --event-green-color                  : rgb( 127, 255,   0);
+    --event-orange-background-color      : rgba(255, 100,   0, 0.1);
+    --event-orange-background-color-focus: rgba(255, 100,   0, 0.6);
+    --event-orange-color                 : rgb( 255, 100,   0);
+    --event-pink-background-color        : rgba(255,  20, 147, 0.1);
+    --event-pink-background-color-focus  : rgba(255,  20, 147, 0.6);
+    --event-pink-color                   : rgb( 255,  20, 147);
+    --event-red-background-color         : rgba(255,   0,   0, 0.1);
+    --event-red-background-color-focus   : rgba(255,   0,   0, 0.6);
+    --event-red-color                    : rgb( 255,   0,   0);
+    --event-yellow-background-color      : rgba(255, 255,   0, 0.1);
+    --event-yellow-background-color-focus: rgba(255, 255,   0, 0.6);
+    --event-yellow-border-color          : rgb( 255, 255,   0);
+    --event-yellow-color                 : rgb( 255, 255,   0);
+    --event-yellow-color-focus           : #fff;
 }

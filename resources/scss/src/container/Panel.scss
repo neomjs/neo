@@ -1,13 +1,13 @@
 .neo-panel {
-    border: 1px solid v(panel-border-color);
+    border: 1px solid var(--panel-border-color);
 
     .neo-panel-header-text {
-        color      : v(panel-header-text-color);
+        color      : var(--panel-header-text-color);
         font-size  : 16px;
         font-weight: 600;
     }
 
     .neo-panel-header-toolbar {
-        border: 1px solid v(panel-header-border-color);
+        border: 1px solid var(--panel-header-border-color);
     }
 }

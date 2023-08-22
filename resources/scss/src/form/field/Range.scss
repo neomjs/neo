@@ -14,7 +14,7 @@
     }
 
     input[type=range]::-moz-range-track, {
-        background   : v(rangefield-track-background);
+        background   : var(--rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
@@ -23,7 +23,7 @@
     }
 
     input[type=range]::-webkit-slider-runnable-track {
-        background   : v(rangefield-track-background);
+        background   : var(--rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
@@ -32,7 +32,7 @@
     }
 
     input[type=range]::-moz-range-thumb {
-        background   : v(rangefield-thumb-background);
+        background   : var(--rangefield-thumb-background);
         border-color : #3c3f41;
         border-radius: 50%;
         cursor       : ew-resize;
@@ -47,7 +47,7 @@
     }
 
     input[type=range]::-webkit-slider-thumb {
-        background   : v(rangefield-thumb-background);
+        background   : var(--rangefield-thumb-background);
         border-color : #3c3f41;
         border-radius: 50%;
         cursor       : ew-resize;

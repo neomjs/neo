@@ -1,12 +1,12 @@
 .neo-list-wrapper {
-    background-color: v(list-container-background-color);
-    border          : v(list-container-border);
+    background-color: var(--list-container-background-color);
+    border          : var(--list-container-border);
     overflow        : hidden;
     position        : relative;
 }
 
 .neo-list {
-    color               : v(list-container-list-color);
+    color               : var(--list-container-list-color);
     list-style-type     : none;
     margin-block-start  : 0;
     margin-block-end    : 0;
@@ -17,7 +17,7 @@
 
     &.neo-use-checkicons {
         .neo-list-item:before {
-            color      : v(list-item-glyph-color);
+            color      : var(--list-item-glyph-color);
             content    : "\f0c8";
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
@@ -42,8 +42,8 @@
     }
 
     .neo-list-item {
-        background-color: v(list-item-background-color);
-        padding         : v(list-item-padding);
+        background-color: var(--list-item-background-color);
+        padding         : var(--list-item-padding);
         white-space     : nowrap;
 
         &:focus {
@@ -54,19 +54,19 @@
             cursor: pointer;
 
             &:hover {
-                background-color: v(list-item-background-color-hover);
-                color           : v(list-container-list-color);
+                background-color: var(--list-item-background-color-hover);
+                color           : var(--list-container-list-color);
             }
         }
 
         &.neo-selected {
-            background-color: v(list-item-background-color-selected) !important;
-            color           : v(list-item-color-selected) !important;
+            background-color: var(--list-item-background-color-selected) !important;
+            color           : var(--list-item-color-selected) !important;
             cursor          : default !important;
         }
 
         .neo-highlight-search {
-            color: v(list-item-highlight-search-color);
+            color: var(--list-item-highlight-search-color);
         }
     }
 }

@@ -1,22 +1,22 @@
 .neo-menu-list {
-    border     : 1px solid v(menu-list-border-color);
+    border     : 1px solid var(--menu-list-border-color);
     overflow-y : auto;
     width      : fit-content;
 
     .neo-list-item {
         align-items     : center;
-        background-color: v(menu-list-item-background-color);
-        color           : v(menu-list-item-color);
+        background-color: var(--menu-list-item-background-color);
+        color           : var(--menu-list-item-color);
         display         : flex;
-        font-family     : v(menu-list-item-font-family);
-        font-weight     : v(menu-list-item-font-weight);
-        height          : v(menu-list-item-height);
-        line-height     : v(menu-list-item-line-height);
-        padding         : v(menu-list-item-padding);
-        text-transform  : v(menu-list-item-text-transform);
+        font-family     : var(--menu-list-item-font-family);
+        font-weight     : var(--menu-list-item-font-weight);
+        height          : var(--menu-list-item-height);
+        line-height     : var(--menu-list-item-line-height);
+        padding         : var(--menu-list-item-padding);
+        text-transform  : var(--menu-list-item-text-transform);
 
         .neo-arrow-icon {
-            color      : v(menu-list-item-icon-color);
+            color      : var(--menu-list-item-icon-color);
             margin-left: 1em;
         }
 
@@ -25,45 +25,45 @@
         }
 
         .neo-icon {
-            color          : v(menu-list-item-icon-color);
+            color          : var(--menu-list-item-icon-color);
             display        : flex;
             justify-content: center;
         }
 
         .neo-menu-icon {
-            margin-right: v(menu-list-item-icon-gap);
+            margin-right: var(--menu-list-item-icon-gap);
             width       : 1.2em;
         }
 
         &:focus {
-            outline: v(menu-list-item-outline-focus);
+            outline: var(--menu-list-item-outline-focus);
         }
 
         &:hover {
-            background-color: v(menu-list-item-background-color-hover);
+            background-color: var(--menu-list-item-background-color-hover);
         }
 
         &.neo-disabled {
-            background-color: v(menu-list-item-background-color-disabled);
-            color           : v(menu-list-item-color-disabled);
-            opacity         : v(menu-list-item-opacity-disabled);
+            background-color: var(--menu-list-item-background-color-disabled);
+            color           : var(--menu-list-item-color-disabled);
+            opacity         : var(--menu-list-item-opacity-disabled);
 
             .neo-icon {
-                color: v(menu-list-item-icon-color-disabled);
+                color: var(--menu-list-item-icon-color-disabled);
             }
         }
 
         &.neo-selected {
-            background-color: v(menu-list-item-background-color-selected);
+            background-color: var(--menu-list-item-background-color-selected);
 
             .neo-icon {
-                color: v(menu-list-item-icon-color-selected);
+                color: var(--menu-list-item-icon-color-selected);
             }
         }
     }
 
     &.neo-floating {
-        box-shadow: v(menu-list-box-shadow);
+        box-shadow: var(--menu-list-box-shadow);
         position  : absolute;
     }
 }

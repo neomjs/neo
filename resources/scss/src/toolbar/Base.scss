@@ -1,7 +1,7 @@
 .neo-toolbar {
-    background-color: v(toolbar-background-color);
+    background-color: var(--toolbar-background-color);
     box-sizing      : border-box;
-    padding         : v(toolbar-padding);
+    padding         : var(--toolbar-padding);
 
     .neo-button {
         margin: 0;
@@ -12,7 +12,7 @@
             padding: 12px 6px;
 
             @if neo(button-use-gradients) == true {
-                background-image: linear-gradient(to right, #{v(button-background-gradient-start)}, #{v(button-background-gradient-end)});
+                background-image: linear-gradient(to right, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
             }
 
             &.icon-left {
@@ -29,31 +29,31 @@
             writing-mode: vertical-rl;
 
             &.neo-bottom-left {
-                bottom: v(button-badge-margin-top);
+                bottom: var(--button-badge-margin-top);
                 left  : unset;
-                right : v(button-badge-margin-left);
+                right : var(--button-badge-margin-left);
                 top   : unset;
             }
 
             &.neo-bottom-right {
                 bottom: unset;
                 left  : unset;
-                right : v(button-badge-margin-left);
-                top   : v(button-badge-margin-top);
+                right : var(--button-badge-margin-left);
+                top   : var(--button-badge-margin-top);
             }
 
             &.neo-top-left {
-                bottom: v(button-badge-margin-top);
-                left  : v(button-badge-margin-left);
+                bottom: var(--button-badge-margin-top);
+                left  : var(--button-badge-margin-left);
                 right : unset;
                 top   : unset;
             }
 
             &.neo-top-right {
                 bottom: unset;
-                left  : v(button-badge-margin-left);
+                left  : var(--button-badge-margin-left);
                 right : unset;
-                top   : v(button-badge-margin-top);
+                top   : var(--button-badge-margin-top);
             }
         }
 
@@ -79,7 +79,7 @@
             padding: 12px 6px;
 
             @if neo(button-use-gradients) == true {
-                background-image: linear-gradient(to left, #{v(button-background-gradient-start)}, #{v(button-background-gradient-end)});
+                background-image: linear-gradient(to left, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
             }
 
             &.icon-left {
@@ -96,14 +96,14 @@
 
             &.neo-bottom-left {
                 bottom: unset;
-                left  : v(button-badge-margin-left);
+                left  : var(--button-badge-margin-left);
                 right : unset;
-                top   : v(button-badge-margin-top);
+                top   : var(--button-badge-margin-top);
             }
 
             &.neo-bottom-right {
-                bottom: v(button-badge-margin-top);
-                left  : v(button-badge-margin-left);
+                bottom: var(--button-badge-margin-top);
+                left  : var(--button-badge-margin-left);
                 right : unset;
                 top   : unset;
             }
@@ -111,14 +111,14 @@
             &.neo-top-left {
                 bottom: unset;
                 left  : unset;
-                right : v(button-badge-margin-left);
-                top   : v(button-badge-margin-top);
+                right : var(--button-badge-margin-left);
+                top   : var(--button-badge-margin-top);
             }
 
             &.neo-top-right {
-                bottom: v(button-badge-margin-top);
+                bottom: var(--button-badge-margin-top);
                 left  : unset;
-                right : v(button-badge-margin-left);
+                right : var(--button-badge-margin-left);
                 top   : unset;
             }
         }

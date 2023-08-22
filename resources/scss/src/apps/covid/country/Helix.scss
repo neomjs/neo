@@ -1,6 +1,6 @@
 .neo-helix.covid-country-helix {
-    background-color: v(covid-helix-background-color);
-    border-color    : v(covid-helix-border-color);
+    background-color: var(--covid-helix-background-color);
+    border-color    : var(--covid-helix-border-color);
     color           : #000;
     text-align      : left;
 
@@ -37,19 +37,19 @@
     }
 
     .neo-helix-item {
-        background-color: v(covid-helix-item-wrapper-background-color);
+        background-color: var(--covid-helix-item-wrapper-background-color);
 
         &.neo-selected {
-            box-shadow: v(covid-helix-item-box-shadow-selected);
+            box-shadow: var(--covid-helix-item-box-shadow-selected);
         }
     }
 
     .neo-country-helix-item {
         background-color       : #fff;
         border-bottom          : 0;
-        border-color           : v(covid-helix-item-border-color);
-        border-left-width      : v(covid-helix-item-border-sides-width);
-        border-right-width     : v(covid-helix-item-border-sides-width);
+        border-color           : var(--covid-helix-item-border-color);
+        border-left-width      : var(--covid-helix-item-border-sides-width);
+        border-right-width     : var(--covid-helix-item-border-sides-width);
         border-style           : solid;
         border-top-left-radius : 10px;
         border-top-right-radius: 10px;

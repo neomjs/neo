@@ -1,15 +1,15 @@
 .neo-textfield {
     align-items  : center;
     display      : flex;
-    height       : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
+    height       : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
     margin-bottom: 5px;
     margin-top   : 5px;
     white-space  : nowrap;
 
     &.neo-focus {
         .neo-input-wrapper {
-            border-color: v(textfield-border-color-active) !important;
-            outline     : v(textfield-outline-active);
+            border-color: var(--textfield-border-color-active) !important;
+            outline     : var(--textfield-outline-active);
 
             .neo-textfield-input {
                 outline: none;
@@ -23,8 +23,8 @@
         }
 
         .neo-textfield-input {
-            border-color: v(textfield-border-color-active);
-            outline     : v(textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
+            border-color: var(--textfield-border-color-active);
+            outline     : var(--textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
         }
     }
 
@@ -32,27 +32,27 @@
         &:not(&.neo-focus) {
             &:not(&.label-inline) {
                 .neo-input-wrapper {
-                    border-color: v(textfield-border-color-hovered) !important;
-                    outline     : v(textfield-outline-hovered);
+                    border-color: var(--textfield-border-color-hovered) !important;
+                    outline     : var(--textfield-outline-hovered);
                 }
             }
 
             .neo-label-wrapper {
                 .neo-center-border, .neo-left-border, .neo-right-border {
-                    border-bottom-color: v(textfield-border-color-hovered);
-                    border-top-color   : v(textfield-border-color-hovered);
+                    border-bottom-color: var(--textfield-border-color-hovered);
+                    border-top-color   : var(--textfield-border-color-hovered);
                 }
 
                 .neo-left-border, .neo-right-border {
-                    border-top-color: v(textfield-border-color-hovered);
+                    border-top-color: var(--textfield-border-color-hovered);
                 }
 
                 .neo-left-border {
-                    border-left-color: v(textfield-border-color-hovered);
+                    border-left-color: var(--textfield-border-color-hovered);
                 }
 
                 .neo-right-border {
-                    border-right-color: v(textfield-border-color-hovered);
+                    border-right-color: var(--textfield-border-color-hovered);
                 }
             }
         }
@@ -60,32 +60,32 @@
 
     &.neo-invalid:not(.neo-disabled) {
         .neo-input-wrapper {
-            border-color: v(textfield-border-color-invalid);
+            border-color: var(--textfield-border-color-invalid);
         }
 
         &.label-inline {
             .neo-label-wrapper {
                 .neo-center-border, .neo-left-border, .neo-right-border {
-                    border-bottom-color: v(textfield-border-color-invalid);
+                    border-bottom-color: var(--textfield-border-color-invalid);
                 }
 
                 .neo-left-border, .neo-right-border {
-                    border-top-color: v(textfield-border-color-invalid);
+                    border-top-color: var(--textfield-border-color-invalid);
                 }
 
                 .neo-left-border {
-                    border-left-color: v(textfield-border-color-invalid);
+                    border-left-color: var(--textfield-border-color-invalid);
                 }
 
                 .neo-right-border {
-                    border-right-color: v(textfield-border-color-invalid);
+                    border-right-color: var(--textfield-border-color-invalid);
                 }
             }
         }
 
         &:not(.label-inline, .neo-input-wrapper) {
             .neo-textfield-input {
-                border-color: v(textfield-border-color-invalid);
+                border-color: var(--textfield-border-color-invalid);
             }
         }
     }
@@ -93,84 +93,84 @@
     &.neo-invalid:not(.neo-disabled, .neo-has-content) {
         .neo-label-wrapper {
             .neo-center-border {
-                border-top-color: v(textfield-border-color-invalid);
+                border-top-color: var(--textfield-border-color-invalid);
             }
         }
     }
 
     &.neo-disabled {
-        opacity: v(textfield-opacity-disabled);
+        opacity: var(--textfield-opacity-disabled);
 
         &.label-inline {
             .neo-label-wrapper {
                 .neo-center-border, .neo-left-border, .neo-right-border {
-                    border-bottom-color: v(textfield-border-color-disabled);
+                    border-bottom-color: var(--textfield-border-color-disabled);
                 }
 
                 .neo-left-border, .neo-right-border {
-                    border-top-color: v(textfield-border-color-disabled);
+                    border-top-color: var(--textfield-border-color-disabled);
                 }
 
                 .neo-left-border {
-                    border-left-color: v(textfield-border-color-disabled);
+                    border-left-color: var(--textfield-border-color-disabled);
                 }
 
                 .neo-right-border {
-                    border-right-color: v(textfield-border-color-disabled);
+                    border-right-color: var(--textfield-border-color-disabled);
                 }
             }
         }
 
         .neo-input-wrapper {
-            background-color: v(textfield-input-background-color-disabled);
-            border-color    : v(textfield-border-color-disabled);
+            background-color: var(--textfield-input-background-color-disabled);
+            border-color    : var(--textfield-border-color-disabled);
         }
 
         .neo-textfield-input {
-            background-color: v(textfield-input-background-color-disabled);
-            color           : v(textfield-input-color-disabled);
+            background-color: var(--textfield-input-background-color-disabled);
+            color           : var(--textfield-input-color-disabled);
         }
 
         .neo-textfield-label {
-            color: v(textfield-label-color-disabled);
+            color: var(--textfield-label-color-disabled);
         }
     }
 
     &.neo-readonly {
-        opacity: v(textfield-opacity-readonly);
+        opacity: var(--textfield-opacity-readonly);
 
         &.label-inline {
             .neo-label-wrapper {
                 .neo-center-border, .neo-left-border, .neo-right-border {
-                    border-bottom-color: v(textfield-border-color-readonly);
+                    border-bottom-color: var(--textfield-border-color-readonly);
                 }
 
                 .neo-left-border, .neo-right-border {
-                    border-top-color: v(textfield-border-color-readonly);
+                    border-top-color: var(--textfield-border-color-readonly);
                 }
 
                 .neo-left-border {
-                    border-left-color: v(textfield-border-color-readonly);
+                    border-left-color: var(--textfield-border-color-readonly);
                 }
 
                 .neo-right-border {
-                    border-right-color: v(textfield-border-color-readonly);
+                    border-right-color: var(--textfield-border-color-readonly);
                 }
             }
         }
 
         .neo-input-wrapper {
-            background-color: v(textfield-input-background-color-readonly);
-            border-color    : v(textfield-border-color-readonly);
+            background-color: var(--textfield-input-background-color-readonly);
+            border-color    : var(--textfield-border-color-readonly);
         }
 
         .neo-textfield-input {
-            background-color: v(textfield-input-background-color-readonly);
-            color           : v(textfield-input-color-readonly);
+            background-color: var(--textfield-input-background-color-readonly);
+            color           : var(--textfield-input-color-readonly);
         }
 
         .neo-textfield-label {
-            color: v(textfield-label-color-readonly);
+            color: var(--textfield-label-color-readonly);
         }
     }
 
@@ -193,11 +193,11 @@
         &.neo-focus {
             .neo-label-wrapper {
                 .neo-center-border, .neo-left-border, .neo-right-border {
-                    border-bottom-color: v(textfield-border-color-active);
+                    border-bottom-color: var(--textfield-border-color-active);
                 }
 
                 .neo-left-border, .neo-right-border {
-                    border-top-color: v(textfield-border-color-active);
+                    border-top-color: var(--textfield-border-color-active);
                 }
 
                 .neo-center-border {
@@ -205,17 +205,17 @@
                 }
 
                 .neo-left-border {
-                    border-left-color: v(textfield-border-color-active);
+                    border-left-color: var(--textfield-border-color-active);
                 }
 
                 .neo-right-border {
-                    border-right-color: v(textfield-border-color-active);
+                    border-right-color: var(--textfield-border-color-active);
                 }
             }
 
             .neo-textfield-label {
-                color    : v(textfield-border-color-active) !important;
-                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
+                color    : var(--textfield-border-color-active) !important;
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
             }
         }
 
@@ -226,7 +226,7 @@
 
             .neo-textfield-label {
                 color    : #777;
-                transform: translateX(4px) translateY(calc(-62% - 0.5 * v(textfield-border-width))) scale(.7);
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
             }
         }
 
@@ -240,30 +240,30 @@
 
         .neo-label-wrapper {
             display : flex;
-            height  : calc(v(textfield-input-height) + v(textfield-border-width) * 2);
+            height  : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
             position: absolute;
             width   : 100%;
 
             .neo-center-border {
-                border-bottom: v(textfield-border-width) solid v(textfield-border-color);
-                border-top   : v(textfield-border-width) solid v(textfield-border-color);
+                border-bottom: var(--textfield-border-width) solid var(--textfield-border-color);
+                border-top   : var(--textfield-border-width) solid var(--textfield-border-color);
                 flex         : 0 0 auto;
             }
 
             .neo-left-border {
-                border                   : v(textfield-border-width) solid v(textfield-border-color);
-                border-bottom-left-radius: v(textfield-border-radius);
+                border                   : var(--textfield-border-width) solid var(--textfield-border-color);
+                border-bottom-left-radius: var(--textfield-border-radius);
                 border-right             : 0;
-                border-top-left-radius   : v(textfield-border-radius);
+                border-top-left-radius   : var(--textfield-border-radius);
                 flex                     : 0 0 auto;
-                width                    : calc(11px + v(textfield-border-width));
+                width                    : calc(11px + var(--textfield-border-width));
             }
 
             .neo-right-border {
-                border                    : v(textfield-border-width) solid v(textfield-border-color);
-                border-bottom-right-radius: v(textfield-border-radius);
+                border                    : var(--textfield-border-width) solid var(--textfield-border-color);
+                border-bottom-right-radius: var(--textfield-border-radius);
                 border-left               : 0;
-                border-top-right-radius   : v(textfield-border-radius);
+                border-top-right-radius   : var(--textfield-border-radius);
                 flex                      : 1 0 auto;
             }
         }
@@ -300,19 +300,19 @@
         flex-direction: column;
 
         .neo-textfield-label {
-            margin: v(textfield-label-top-margin);
+            margin: var(--textfield-label-top-margin);
         }
     }
 
     .neo-input-wrapper {
         align-items     : stretch;
-        background-color: v(textfield-input-background-color);
-        border          : v(textfield-border-width) solid v(textfield-border-color);
-        border-radius   : v(textfield-border-radius);
+        background-color: var(--textfield-input-background-color);
+        border          : var(--textfield-border-width) solid var(--textfield-border-color);
+        border-radius   : var(--textfield-border-radius);
         display         : flex;
         flex            : 1 1 1px;
-        min-height      : v(textfield-input-height);
-        outline         : 0 solid v(textfield-outline-active);
+        min-height      : var(--textfield-input-height);
+        outline         : 0 solid var(--textfield-outline-active);
         overflow        : hidden;
         transition      : outline-width .1s ease-out;
 
@@ -322,12 +322,12 @@
             flex-grow    : 1;
             flex-shrink  : 1;
             margin       : 0; // important for Safari => #1125
-            min-height   : v(textfield-input-height);
+            min-height   : var(--textfield-input-height);
         }
     }
 
     .neo-textfield-error {
-        color      : v(textfield-border-color-invalid);
+        color      : var(--textfield-border-color-invalid);
         font-size  : 11px;
         margin-top : .3em;
         white-space: break-spaces;
@@ -343,14 +343,14 @@
     }
 
     .neo-textfield-input {
-        background-color: v(textfield-input-background-color);
-        border          : v(textfield-border-width) solid v(textfield-border-color);
-        border-radius   : v(textfield-border-radius);
-        color           : v(textfield-input-color);
-        font            : v(textfield-input-font);
-        min-height      : v(textfield-input-height);
+        background-color: var(--textfield-input-background-color);
+        border          : var(--textfield-border-width) solid var(--textfield-border-color);
+        border-radius   : var(--textfield-border-radius);
+        color           : var(--textfield-input-color);
+        font            : var(--textfield-input-font);
+        min-height      : var(--textfield-input-height);
         min-width       : 50px;
-        padding         : v(textfield-input-padding);
+        padding         : var(--textfield-input-padding);
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width           : 100%;
 
@@ -359,12 +359,12 @@
         }
 
         &::-webkit-input-placeholder {
-            color  : v(textfield-input-placeholder-color) !important;
-            opacity: v(textfield-input-placeholder-opacity) !important;
+            color  : var(--textfield-input-placeholder-color) !important;
+            opacity: var(--textfield-input-placeholder-opacity) !important;
         }
 
         &.neo-invalid {
-            border-color: v(textfield-border-color-invalid);
+            border-color: var(--textfield-border-color-invalid);
 
             &.neo-disabled {
                 border-color: inherit;
@@ -373,18 +373,18 @@
     }
 
     .neo-textfield-label {
-        color      : v(textfield-label-color);
+        color      : var(--textfield-label-color);
         display    : inline-block;
         flex       : 0 0 auto;
         user-select: none;
     }
 
     .neo-textfield-sublabel {
-        color      : v(textfield-sublabel-color);
+        color      : var(--textfield-sublabel-color);
         display    : inline-block;
         flex       : 0 0 auto;
-        font-size  : v(textfield-sublabel-font-size);
-        margin     : v(textfield-sublabel-margin);
+        font-size  : var(--textfield-sublabel-font-size);
+        margin     : var(--textfield-sublabel-margin);
         user-select: none;
         white-space: break-spaces;
     }

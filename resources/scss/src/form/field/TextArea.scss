@@ -29,7 +29,7 @@
 
     &.neo-invalid {
         .neo-textfield-input {
-            border-color: v(textfield-border-color-invalid);
+            border-color: var(--textfield-border-color-invalid);
         }
     }
 

@@ -1,21 +1,9 @@
-$neoMap: map-merge($neoMap, (
-  'process-arrow-color'     : #6d5f28,
-  'process-background-color': #2b2b2b,
-  'process-icon-color'      : #a3996f,
-  'process-icon-size'       : 2rem,
-  'process-shadow-color'    : rgba(0, 0, 0, .5),
-  'process-text-color'      : #bbb,
-  'process-title-color'     : #ccc
-));
-
-@if $useCssVars == true {
-  :root .neo-theme-dark {
-    --process-arrow-color     : #{neo(process-arrow-color)};
-    --process-background-color: #{neo(process-background-color)};
-    --process-icon-color      : #{neo(process-icon-color)};
-    --process-icon-size       : #{neo(process-icon-size)};
-    --process-shadow-color    : #{neo(process-shadow-color)};
-    --process-text-color      : #{neo(process-text-color)};
-    --process-title-color     : #{neo(process-title-color)};
-  }
+:root .neo-theme-dark {
+    --process-arrow-color     : #6d5f28;
+    --process-background-color: #2b2b2b;
+    --process-icon-color      : #a3996f;
+    --process-icon-size       : 2rem;
+    --process-shadow-color    : rgba(0, 0, 0, .5);
+    --process-text-color      : #bbb;
+    --process-title-color     : #ccc;
 }

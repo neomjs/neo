@@ -4,7 +4,7 @@
             margin-right: 30px;
 
             &::after {
-                color       : v(button-text-color);
+                color       : var(--button-text-color);
                 content     : "\f105";
                 display     : block;
                 font-family : var(--fa-style-family-classic);

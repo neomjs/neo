@@ -1,5 +1,5 @@
 .neo-calendar-settingscontainer {
-    border-left: 1px solid v(calendar-border-color);
+    border-left: 1px solid var(--calendar-border-color);
     transition : margin-right 350ms ease-out;
 
     .neo-layout-card-item {
@@ -14,8 +14,8 @@
 // todo: move into a better spot
 .neo-header {
     align-items     : center;
-    background-color: v(calendar-settings-header-background-color);
-    color           : v(calendar-settings-header-color);
+    background-color: var(--calendar-settings-header-background-color);
+    color           : var(--calendar-settings-header-color);
     display         : flex;
     padding         : 0 10px;
 

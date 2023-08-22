@@ -29,7 +29,7 @@
 }
 
 .neo-tab-content-container {
-    border  : v(tab-container-content-border);
+    border  : var(--tab-container-content-border);
     overflow: hidden;
 }
 

@@ -5,7 +5,7 @@
 
         &:checked {
             +.neo-checkbox-icon {
-                color: v(checkboxfield-color-checked);
+                color: var(--checkboxfield-color-checked);
             }
         }
 
@@ -15,28 +15,28 @@
     }
 
     .neo-checkbox-icon {
-        color      : v(checkboxfield-color);
+        color      : var(--checkboxfield-color);
         cursor     : pointer;
         display    : inline-block;
-        font-family: v(checkboxfield-icon-font-family);
-        font-size  : v(checkboxfield-icon-font-size);
-        margin     : v(checkboxfield-icon-margin);
+        font-family: var(--checkboxfield-icon-font-family);
+        font-size  : var(--checkboxfield-icon-font-size);
+        margin     : var(--checkboxfield-icon-margin);
         width      : 20px;
     }
 
     .neo-checkbox-label {
-        color      : v(textfield-label-color);
+        color      : var(--textfield-label-color);
         display    : inline-block;
         user-select: none;
     }
 
     .neo-checkbox-value-label {
-        color      : v(textfield-label-color);
+        color      : var(--textfield-label-color);
         user-select: none;
     }
 
     .neo-error {
-        color      : v(textfield-border-color-invalid);
+        color      : var(--textfield-border-color-invalid);
         font-size  : 11px;
         margin-top : .3em;
         white-space: break-spaces;
@@ -53,7 +53,7 @@
 
     &.neo-invalid {
         .neo-checkbox-icon {
-            color: v(textfield-border-color-invalid);
+            color: var(--textfield-border-color-invalid);
         }
     }
 
@@ -65,7 +65,7 @@
         .neo-checkbox-label {
             display  : flex;
             flex-flow: row wrap;
-            margin   : v(checkboxfield-label-top-margin);
+            margin   : var(--checkboxfield-label-top-margin);
 
             .neo-checkbox-label {
                 width: 100% !important;
