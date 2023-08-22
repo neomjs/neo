@@ -10,12 +10,12 @@
             color           : inherit;
 
             .neo-chip {
-                background-color: v(list-item-background-color-selected);
-                border-color    : v(chip-border-color-focus);
+                background-color: var(--list-item-background-color-selected);
+                border-color    : var(--chip-border-color-focus);
             }
 
             .neo-chip-close-button {
-                color: v(chip-close-button-color-hover);
+                color: var(--chip-close-button-color-hover);
             }
         }
     }

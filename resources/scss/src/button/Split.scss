@@ -1,6 +1,6 @@
 .neo-split-button {
-    border       : v(button-border-width) solid v(button-border-color);
-    border-radius: v(button-border-radius);
+    border       : var(--button-border-width) solid var(--button-border-color);
+    border-radius: var(--button-border-radius);
     display      : flex;
     width        : fit-content;
 
@@ -11,6 +11,6 @@
     }
 
     .neo-trigger-button {
-        border-left: v(button-border-width) solid v(button-border-color);
+        border-left: var(--button-border-width) solid var(--button-border-color);
     }
 }

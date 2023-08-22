@@ -1,17 +1,7 @@
-$neoMap: map-merge($neoMap, (
-    'switchfield-active-color'    : white,
-    'switchfield-background-color': darkgrey,
-    'switchfield-checked'         : green,
-    'switchfield-inactive-color'  : grey,
-    'switchfield-thumb-color'     : white
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-switchfield
-        --switchfield-active-color    : #{neo(switchfield-active-color)};
-        --switchfield-background-color: #{neo(switchfield-background-color)};
-        --switchfield-checked         : #{neo(switchfield-checked)};
-        --switchfield-inactive-color  : #{neo(switchfield-inactive-color)};
-        --switchfield-thumb-color     : #{neo(switchfield-thumb-color)};
-    }
+:root .neo-theme-dark { // .neo-switchfield
+    --switchfield-active-color    : white;
+    --switchfield-background-color: darkgrey;
+    --switchfield-checked         : green;
+    --switchfield-inactive-color  : grey;
+    --switchfield-thumb-color     : white;
 }

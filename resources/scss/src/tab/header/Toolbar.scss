@@ -1,78 +1,78 @@
 .neo-tab-header-toolbar {
     background-color: transparent;
-    height          : v(tab-button-height-pressed);
+    height          : var(--tab-button-height-pressed);
     padding         : 0;
 
     &.neo-dock-bottom {
         .neo-tab-header-button.neo-button {
             align-self      : start;
-            background-image: v(tab-button-background-image-bottom);
+            background-image: var(--tab-button-background-image-bottom);
 
             .neo-tab-button-indicator {
                 bottom: unset;
-                height: v(tab-strip-height);
+                height: var(--tab-strip-height);
                 top   : calcVar(tab-strip-height, '*', -1);
                 width : 100%;
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-bottom) !important;
+                background-image: var(--tab-button-background-image-pressed-bottom) !important;
             }
         }
     }
 
     &.neo-dock-left {
         height: unset;
-        width : v(tab-button-height-pressed);
+        width : var(--tab-button-height-pressed);
 
         .neo-tab-header-button.neo-button {
-            background-image: v(tab-button-background-image-left);
+            background-image: var(--tab-button-background-image-left);
             height          : unset;
-            width           : v(tab-button-height);
+            width           : var(--tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
                 right : calcVar(tab-strip-height, '*', -1);
-                width : v(tab-strip-height);
+                width : var(--tab-strip-height);
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-left) !important;
-                width           : v(tab-button-height-pressed);
+                background-image: var(--tab-button-background-image-pressed-left) !important;
+                width           : var(--tab-button-height-pressed);
             }
 
             &:not(:last-child) {
                 margin-right: unset;
-                margin-top  : v(tab-button-gap);
+                margin-top  : var(--tab-button-gap);
             }
         }
     }
 
     &.neo-dock-right {
         height: unset;
-        width : v(tab-button-height-pressed);
+        width : var(--tab-button-height-pressed);
 
         .neo-tab-header-button.neo-button {
             align-self      : start;
-            background-image: v(tab-button-background-image-right);
+            background-image: var(--tab-button-background-image-right);
             height          : unset;
-            width           : v(tab-button-height);
+            width           : var(--tab-button-height);
 
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
                 left  : calcVar(tab-strip-height, '*', -1);
-                width : v(tab-strip-height);
+                width : var(--tab-strip-height);
             }
 
             &.pressed {
-                background-image: v(tab-button-background-image-pressed-right) !important;
-                width           : v(tab-button-height-pressed);
+                background-image: var(--tab-button-background-image-pressed-right) !important;
+                width           : var(--tab-button-height-pressed);
             }
 
             &:not(:last-child) {
-                margin-bottom: v(tab-button-gap);
+                margin-bottom: var(--tab-button-gap);
                 margin-right : unset;
             }
         }

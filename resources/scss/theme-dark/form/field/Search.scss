@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    'searchfield-glyph-color': #bbb
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-searchfield
-        --searchfield-glyph-color: #{neo(searchfield-glyph-color)};
-    }
+:root .neo-theme-dark { // .neo-searchfield
+    --searchfield-glyph-color: #bbb;
 }

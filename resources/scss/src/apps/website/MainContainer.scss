@@ -1,5 +1,5 @@
 .website-main-container {
-    background-image: v(website-background-image);
+    background-image: var(--website-background-image);
     justify-content: center;
     min-width      : 310px;
 
@@ -8,7 +8,7 @@
     }
 
     .website-main-tabcontainer {
-        transition: margin v(website-transition-duration) ease-out;
+        transition: margin var(--website-transition-duration) ease-out;
 
         .neo-tab-content-container {
             border: none;

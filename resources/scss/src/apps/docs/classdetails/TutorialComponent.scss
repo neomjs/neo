@@ -3,9 +3,9 @@
     padding: 10px;
 
     .neo-header-text-container {
-        background-color: v(docs-classdetails-tutorialcomponent-background-color);
+        background-color: var(--docs-classdetails-tutorialcomponent-background-color);
         box-shadow      : 0 5px 10px rgba(0,0,0,.4);
-        color           : v(docs-classdetails-tutorialcomponent-color);
+        color           : var(--docs-classdetails-tutorialcomponent-color);
         padding-left    : 10px;
         position        : sticky;
         top             : -10px;

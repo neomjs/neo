@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
-    'trigger-time-background-color-hover': #64B5F6,
-    'trigger-time-pointer-color'         : #33343d
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark {
-        --trigger-time-background-color-hover: #{neo(trigger-time-background-color-hover)};
-        --trigger-time-pointer-color         : #{neo(trigger-time-pointer-color)};
-    }
+:root .neo-theme-dark {
+    --trigger-time-background-color-hover: #64B5F6;
+    --trigger-time-pointer-color         : #33343d;
 }

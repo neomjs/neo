@@ -1,7 +1,7 @@
 .neo-list {
     &.neo-dragproxy {
         .neo-draggable {
-            background-color: v(list-item-background-color-hover);
+            background-color: var(--list-item-background-color-hover);
         }
     }
 

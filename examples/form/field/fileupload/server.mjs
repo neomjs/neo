@@ -24,7 +24,7 @@ app.get('/document-status', async(req, res) => {
     res.send('{"status":"SCANNING"}');
 });
 
-app.get('/document-delete', async(req, res) => {
+app.delete('/document-delete', async(req, res) => {
     res.set('Content-Type', 'application/json');
     res.send('');
 });

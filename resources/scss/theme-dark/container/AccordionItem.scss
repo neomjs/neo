@@ -1,23 +1,10 @@
-$neoMap: map-merge($neoMap, (
-  'accordion-item-bg-color'        : #212121,
-  'accordion-item-content-bg-color': #050505,
-  'accordion-item-arrow-bg-color'  : #323232,
-  'accordion-item-border-color'    : #333,
-  'accordion-item-shadow'          : 0 4px 8px rgba(0 0 0 / .5),
-  'accordion-item-arrow-shadow'    : 0 4px 16px rgba(0 0 0 / .15),
-  'accordion-item-radius'          : 5px,
-  'accordion-item-header-height'   : 50px
-));
-
-@if $useCssVars == true {
-  :root .neo-theme-dark { // .neo-accordion-item
-    --accordion-item-bg-color        : #{neo(accordion-item-bg-color)};
-    --accordion-item-content-bg-color: #{neo(accordion-item-content-bg-color)};
-    --accordion-item-arrow-bg-color  : #{neo(accordion-item-arrow-bg-color)};
-    --accordion-item-border-color    : #{neo(accordion-item-border-color)};
-    --accordion-item-shadow          : #{neo(accordion-item-shadow)};
-    --accordion-item-arrrow-shadow   : #{neo(accordion-item-arrow-shadow)};
-    --accordion-item-radius          : #{neo(accordion-item-radius)};
-    --accordion-item-header-height   : #{neo(accordion-item-header-height)};
-  }
+:root .neo-theme-dark { // .neo-accordion-item
+    --accordion-item-arrow-bg-color  : #323232;
+    --accordion-item-arrow-shadow    : 0 4px 16px rgba(0 0 0 / .15);
+    --accordion-item-bg-color        : #212121;
+    --accordion-item-border-color    : #333;
+    --accordion-item-content-bg-color: #050505;
+    --accordion-item-header-height   : 50px;
+    --accordion-item-radius          : 5px;
+    --accordion-item-shadow          : 0 4px 8px rgba(0 0 0 / .5);
 }

@@ -1,9 +1,9 @@
 .neo-grid-header-button {
     align-items     : center;
-    background-color: v(grid-header-button-background-color);
-    background-image: v(grid-header-button-background-image);
+    background-color: var(--grid-header-button-background-color);
+    background-image: var(--grid-header-button-background-image);
     border-width    : 0;
-    color           : v(grid-header-button-color);
+    color           : var(--grid-header-button-color);
     cursor          : pointer;
     display         : flex;
     flex-direction  : row;
@@ -17,7 +17,7 @@
     white-space     : nowrap;
 
     &:not(:last-child) {
-        border-right: 1px solid v(grid-container-border-color);
+        border-right: 1px solid var(--grid-container-border-color);
     }
 
     &.neo-locked { // todo: for testing, will get removed once the header toolbar is outside of the scroll region
@@ -61,7 +61,7 @@
     }
 
     .neo-button-glyph {
-        color         : v(grid-header-button-glyph-color);
+        color         : var(--grid-header-button-glyph-color);
         font-size     : 12px;
         margin        : 0 6px 0 0;
         opacity       : 0;

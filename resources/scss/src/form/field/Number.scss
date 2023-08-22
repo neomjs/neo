@@ -28,8 +28,8 @@
 
     .neo-spin-button {
         align-items    : center;
-        border-left    : 1px solid v(textfield-border-color);
-        color          : v(trigger-color);
+        border-left    : 1px solid var(--textfield-border-color);
+        color          : var(--trigger-color);
         cursor         : pointer;
         display        : flex;
         font-size      : 10px;
@@ -40,7 +40,7 @@
         width          : 100%;
 
         &.neo-up {
-            border-bottom: 1px solid v(textfield-border-color);
+            border-bottom: 1px solid var(--textfield-border-color);
             height       : calc(50% + .5px); // honoring the bottom border
         }
 
@@ -50,8 +50,8 @@
         }
 
         &:hover {
-            background-color: v(trigger-background-color-hover);
-            color           : v(trigger-color-hover);
+            background-color: var(--trigger-background-color-hover);
+            color           : var(--trigger-color-hover);
         }
     }
 }

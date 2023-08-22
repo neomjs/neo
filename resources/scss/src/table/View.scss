@@ -10,28 +10,28 @@
     .neo-table-row {
         &:hover {
             .neo-table-cell {
-                background-color: v(table-cell-background-color-hover);
+                background-color: var(--table-cell-background-color-hover);
             }
         }
 
         // selection.RowModel
         &.neo-selected {
             .neo-table-cell {
-                background-color: v(table-rowmodel-selected-cell-background-color);
-                color           : v(table-rowmodel-selected-cell-color);
+                background-color: var(--table-rowmodel-selected-cell-background-color);
+                color           : var(--table-rowmodel-selected-cell-color);
             }
         }
 
         // selection.CellModel
         .neo-table-cell {
             &.neo-selected {
-                background-color: v(table-cellmodel-selected-cell-background-color) !important;
-                color           : v(table-cellmodel-selected-cell-color) !important;
+                background-color: var(--table-cellmodel-selected-cell-background-color) !important;
+                color           : var(--table-cellmodel-selected-cell-color) !important;
             }
 
             &.selected-column-cell {
-                background-color: v(table-cellmodel-selected-column-cell-background-color);
-                color           : v(table-cellmodel-selected-column-cell-color);
+                background-color: var(--table-cellmodel-selected-column-cell-background-color);
+                color           : var(--table-cellmodel-selected-column-cell-color);
             }
         }
     }
@@ -42,15 +42,15 @@
     .neo-table-row {
         &.neo-selected {
             .neo-table-cell {
-                background-color: v(table-cellrowmodel-selected-row-cell-background-color);
-                color           : v(table-cellrowmodel-selected-row-cell-color);
+                background-color: var(--table-cellrowmodel-selected-row-cell-background-color);
+                color           : var(--table-cellrowmodel-selected-row-cell-color);
             }
         }
 
         .neo-table-cell {
             &.neo-selected {
-                background-color: v(table-cellrowmodel-selected-cell-background-color);
-                color           : v(table-cellrowmodel-selected-cell-color);
+                background-color: var(--table-cellrowmodel-selected-cell-background-color);
+                color           : var(--table-cellrowmodel-selected-cell-color);
             }
         }
     }

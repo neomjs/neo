@@ -1,15 +1,6 @@
-$neoMap: map-merge($neoMap, (
-    'fieldset-background-color' : '#2b2b2b',
-    'fieldset-border'           : 1px solid #424242,
-    'fieldset-legend-color'     : #bbb,
-    'fieldset-legend-icon-color': #64B5F6
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-dark { // .neo-fieldset
-        --fieldset-background-color : #{neo(fieldset-background-color)};
-        --fieldset-border           : #{neo(fieldset-border)};
-        --fieldset-legend-color     : #{neo(fieldset-legend-color)};
-        --fieldset-legend-icon-color: #{neo(fieldset-legend-icon-color)};
-    }
+:root .neo-theme-dark { // .neo-fieldset
+    --fieldset-background-color : --#2b2b2b;
+    --fieldset-border           : 1px solid #424242;
+    --fieldset-legend-color     : #bbb;
+    --fieldset-legend-icon-color: #64B5F6;
 }
