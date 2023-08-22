@@ -94,9 +94,8 @@ if (programOpts.info) {
               themes     = answers.themes    || programOpts.themes  || 'all',
               insideNeo  = programOpts.framework || false,
               startDate  = new Date(),
-              fileCount  = {development: {vars: 0, noVars: 0}, production: {vars: 0, noVars: 0}},
-              totalFiles = {development: {vars: 0, noVars: 0}, production: {vars: 0, noVars: 0}},
-              sassThemes = [];
+              fileCount  = {development: 0, production: 0},
+              totalFiles = {development: 0, production: 0};
 
         let themeMap;
 
@@ -252,7 +251,7 @@ if (programOpts.info) {
             let devMode = mode === 'development',
                 map;
 
-            totalFiles[mode]['vars'] += files.length;
+            totalFiles[mode] += files.length;
 
             files.forEach(file => {
                 addItemToThemeMap(file, target);
@@ -283,12 +282,12 @@ if (programOpts.info) {
                     }
                 }).then(postcssResult => {
                     fs.mkdirpSync(folderPath);
-                    fileCount[mode]['vars']++;
+                    fileCount[mode]++;
 
                     let map         = postcssResult.map,
                         processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 
-                    console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
+                    console.log('Writing file:', (fileCount[mode] + fileCount[mode]), chalk.blue(`${processTime}s`), destPath);
 
                     fs.writeFileSync(
                         destPath,
@@ -316,7 +315,7 @@ if (programOpts.info) {
                         fs.writeFileSync(postcssResult.opts.to + '.map', map);
                     }
 
-                    if (fileCount[mode]['vars'] === totalFiles[mode]['vars']) {
+                    if (fileCount[mode] === totalFiles[mode]) {
                         fs.writeFileSync(
                             path.resolve(cwd, themeMapFile),
                             JSON.stringify(themeMap, null, 0)
