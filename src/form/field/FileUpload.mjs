@@ -151,6 +151,7 @@ class FileUpload extends Base {
             MALWARE_DETECTED : 'scan-failed',
             UN_DOWNLOADABLE  : 'not-downloadable',
             DOWNLOADABLE     : 'downloadable',
+            AVAILABLE        : 'not-downloadable',
             DELETED          : 'deleted'
         },
 
@@ -248,6 +249,8 @@ class FileUpload extends Base {
          */
         documentStatusUrl_ : null,
 
+        documentListUrl_ : null,
+
         /**
          * The polling interval *in milliseconds* to wait between asking the server how the document scan
          * is proceeding.
@@ -315,10 +318,12 @@ class FileUpload extends Base {
         pleaseUseTheseTypes  : 'Please use these file types',
         fileSizeMoreThan     : 'File size exceeds',
         documentDeleteError  : 'Document delete service error',
+        documentListError    : 'document list servcie error',
         isNoLongerAvailable  : 'is no longer available',
         documentStatusError  : 'Document status service error',
         uploadFailed         : 'Upload failed',
         scanning             : 'Scanning',
+        uploading            : 'Uploading...',
         malwareFoundInFile   : 'Malware found in file',
         pleaseCheck          : 'Please check the file and try again',
         successfullyUploaded : 'Successfully uploaded',
@@ -428,7 +433,7 @@ class FileUpload extends Base {
 
         /**
          * This event fires before every HTTP request is sent to the server via any of the configured URLs.
-         * 
+         *
          * @event beforeRequest
          * @param {Object} event The event
          * @param {Object} event.headers An object containing the configured {@link #property-headers}
@@ -448,11 +453,11 @@ class FileUpload extends Base {
     onUploadProgress({ loaded, total }) {
         const
             progress = this.progress = loaded / total,
-            { vdom } = this;
+            { vdom, uploading } = this;
 
         (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
 
-        vdom.cn[1].cn[1].innerHTML = `Uploading... (${Math.round(progress * 100)}%)`;
+        vdom.cn[1].cn[1].innerHTML = `${uploading}(${Math.round(progress * 100)}%)`;
 
         this.uploadSize = loaded;
         this.update();
@@ -567,6 +572,32 @@ class FileUpload extends Base {
         }
     }
 
+
+    async getDocument() {
+        const
+            me          = this,
+            { headers } = me;
+
+        me.fire('beforeRequest', {
+            headers
+        });
+        const statusResponse = await fetch(me.documentListUrl, {
+            headers
+        });
+        // Success
+        if (String(statusResponse.status).slice(0, 1) === '2') {
+            const documents = await statusResponse.json();
+            return documents[0];
+        } else if(statusResponse.status === 404) {
+            me.clear();
+            me.state = 'ready';
+        }
+        else {
+            me.error = `${me.documentListError}: ${statusResponse.statusText}`;
+        }
+
+    }
+
     async checkDocumentStatus() {
         const
             me          = this,
@@ -608,16 +639,16 @@ class FileUpload extends Base {
         }
     }
 
-    afterSetDocument(document) {
-        if (document) {
-            const
-                me = this;
-
+    async afterSetDocumentListUrl() {
+        const
+            me = this,
+            doc = await me.getDocument();
+        if(doc) {
             me.preExistingDocument = true;
-            me.documentId = document.id;
-            me.fileSize = me.formatSize(document.size);
-            me.vdom.cn[1].cn[0].innerHTML = document.fileName;
-            me.state = me.documentStatusMap[document.status];
+            me.documentId = doc.id;
+            me.fileSize = me.formatSize(doc.dateigroesse);
+            me.vdom.cn[1].cn[0].innerHTML = doc.dateiname;
+            me.state = me.documentStatusMap[doc.state] || doc.state;
         }
     }
 
