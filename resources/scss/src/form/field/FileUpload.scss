@@ -73,6 +73,20 @@
         }
     }
 
+    &
+    .neo-file-upload-label {
+        position         : absolute;
+        top              : 0;
+        left             : 0;
+        right            : 0;
+        bottom           : 0;
+        display          : flex;
+        align-items      : center;
+        justify-content  : center;
+        background-color : var(--fileuploadfield-background-color);
+        cursor           : pointer;
+    }
+
     .neo-file-upload-filename {
         font-weight   : bold;
     }
@@ -85,9 +99,9 @@
         flex          : 0 0 1.2rem;
     }
 
-    // The file input is only visible in the ready state
+    // The file input and label is only visible in the ready state
     &:not(.neo-file-upload-state-ready) {
-        input[type="file"] {
+        input[type="file"],label {
             display : none;
         }
     }
@@ -218,9 +232,9 @@
 }
 
 .neo-file-upload-state-ready {
-    // Only the input field is visible when in ready state
+    // Only the input field and its label is visible when in ready state
     // It takes up the whole component, and is the only interactive item
-    :not(input[type="file"]) {
+    :not(input[type="file"],label) {
         display : none;
     }
     input::file-selector-button {
@@ -233,7 +247,6 @@
         bottom           : 0;
         background-color : var(--fileuploadfield-background-color);
         color            : var(--fileuploadfield-color);
-        cursor           : pointer;
     }
 }
 

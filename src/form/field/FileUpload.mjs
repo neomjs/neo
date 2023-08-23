@@ -123,6 +123,10 @@ class FileUpload extends Base {
                     type : 'file'
                 },
                 {
+                    cls  : 'neo-file-upload-label',
+                    tag  : 'label'
+                },
+                {
                     cls : 'neo-file-upload-error-message'
                 }
             ]
@@ -311,6 +315,7 @@ class FileUpload extends Base {
         error_ : null,
 
         // UI strings which can be overridden for other languages
+        chooseFile           : 'Choose file',
         documentText         : 'Document',
         pleaseUseTheseTypes  : 'Please use these file types',
         fileSizeMoreThan     : 'File size exceeds',
@@ -340,6 +345,18 @@ class FileUpload extends Base {
         ]);
     }
 
+    afterSetId(value, oldValue) {
+        const
+            labelEl   = this.vdom.cn[4],
+            inputElId = `${this.id}-input`;
+
+        this.getInputEl().id =  labelEl.for = inputElId;
+        labelEl.html = this.chooseFile;
+
+        // silent vdom update, the super call will trigger the engine
+        super.afterSetId?.(value, oldValue);
+    }
+    
     /**
      * @returns {Object}
      */
@@ -453,7 +470,7 @@ class FileUpload extends Base {
 
         (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
 
-        vdom.cn[1].cn[1].innerHTML = `${me.uploading}... (${Math.round(progress * 100)}%)`;
+        vdom.cn[1].cn[1].innerHTML = `${this.uploading}... (${Math.round(progress * 100)}%)`;
 
         this.uploadSize = loaded;
         this.update();
@@ -741,13 +758,13 @@ class FileUpload extends Base {
 
     afterSetError(text) {
         if (text) {
-            this.vdom.cn[4].cn = [{
+            this.vdom.cn[5].cn = [{
                 vtype : 'text',
                 html  : text
             }];
         }
         else {
-            this.vdom.cn[4].cn = [];
+            this.vdom.cn[5].cn = [];
         }
 
         this.validate();
