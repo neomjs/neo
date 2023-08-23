@@ -105,7 +105,7 @@ class MainContainer extends ConfigurationViewport {
                     id       : 2,
                     fileName : 'test.pdf',
                     size     : 10664885,
-                    status   : 'UN_DOWNLOADABLE'
+                    status   : 'AVAILABLE'
                 },
                 uploadUrl         : 'http://127.0.0.1:3000/file-upload-test',
                 documentStatusUrl : 'http://127.0.0.1:3000/document-status-not-downloadable?documentId={documentId}',

@@ -15,7 +15,7 @@
     position      : relative;
     display       : flex;
     align-items   : center;
-    padding       : 0.5rem;
+    padding       : 0.4rem;
     gap           : 0.5rem;
     border        : 1px solid var(--fileuploadfield-border-color);
     border-radius : 2px;
@@ -73,6 +73,19 @@
         }
     }
 
+    .neo-file-upload-label {
+        position         : absolute;
+        top              : 0;
+        left             : 0;
+        right            : 0;
+        bottom           : 0;
+        display          : flex;
+        align-items      : center;
+        justify-content  : center;
+        background-color : var(--fileuploadfield-background-color);
+        cursor           : pointer;
+    }
+
     .neo-file-upload-filename {
         font-weight   : bold;
     }
@@ -82,11 +95,12 @@
         overflow      : hidden;
         text-overflow : ellipsis;
         color         : inherit; // For when it becomes a link
+        flex          : 0 0 1.2rem;
     }
 
-    // The file input is only visible in the ready state
+    // The file input and label is only visible in the ready state
     &:not(.neo-file-upload-state-ready) {
-        input[type="file"] {
+        input[type="file"],label {
             display : none;
         }
     }
@@ -217,9 +231,9 @@
 }
 
 .neo-file-upload-state-ready {
-    // Only the input field is visible when in ready state
+    // Only the input field and its label is visible when in ready state
     // It takes up the whole component, and is the only interactive item
-    :not(input[type="file"]) {
+    :not(input[type="file"],label) {
         display : none;
     }
     input::file-selector-button {
@@ -232,7 +246,6 @@
         bottom           : 0;
         background-color : var(--fileuploadfield-background-color);
         color            : var(--fileuploadfield-color);
-        cursor           : pointer;
     }
 }
 
@@ -240,10 +253,10 @@
     flex        : 1 1 0%;
     display     : flex;
     flex-flow   : column nowrap;
-    line-height : 1;
     gap         : 0.2rem;
     overflow    : hidden;
-    align-items : flex-start;}
+    align-items : flex-start;
+}
 
 .neo-file-upload-error-message {
     display            : none;
