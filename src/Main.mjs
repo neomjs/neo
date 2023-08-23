@@ -50,6 +50,7 @@ class Main extends core.Base {
                 'editRoute',
                 'getByPath',
                 'getWindowData',
+                'importAddon',
                 'redirectTo',
                 'setNeoConfig',
                 'setRoute',
@@ -198,6 +199,27 @@ class Main extends core.Base {
     }
 
     /**
+     * Import main thread addons at run-time from within the app worker
+     * @param {Object} data
+     * @param {String} data.name
+     * @returns {Boolean}
+     */
+    async importAddon(data) {
+        let name = data.name,
+            module;
+
+        if (name.startsWith('WS/')) {
+            module = await import(`../../../src/main/addon/${name.substring(3)}.mjs`)
+        } else {
+            module = await import(`./main/addon/${name}.mjs`)
+        }
+
+        this.addon[module.default.constructor.name] = module.default;
+
+        return true
+    }
+
+    /**
      *
      */
     async onDomContentLoaded() {
@@ -229,7 +251,7 @@ class Main extends core.Base {
 
         mainThreadAddons.forEach(addon => {
             if (addon.startsWith('WS/')) {
-                imports.push(import(`../../../src/main/addon/${addon.substr(3)}.mjs`));
+                imports.push(import(`../../../src/main/addon/${addon.substring(3)}.mjs`));
             } else {
                 imports.push(import(`./main/addon/${addon}.mjs`));
             }
@@ -245,7 +267,7 @@ class Main extends core.Base {
 
         WorkerManager.onWorkerConstructed({
             origin: 'main'
-        });
+        })
     }
 
     /**
@@ -258,7 +280,7 @@ class Main extends core.Base {
             action : 'reply',
             replyId: data.id,
             success: true
-        });
+        })
     }
 
     /**
