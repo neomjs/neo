@@ -1,10 +1,10 @@
 .neo-toast {
     z-index         : 20; // ensure to be on top of table headers
     align-items     : center;
-    background-color: v(toast-background-color);
+    background-color: var(--toast-background-color);
     border-radius   : 0.5rem;
-    box-shadow      : 0 0.25rem 0.5rem v(toast-shadow-color);
-    color           : v(toast-color);
+    box-shadow      : 0 0.25rem 0.5rem var(--toast-shadow-color);
+    color           : var(--toast-color);
     display         : flex;
     position        : fixed;
     transition      : bottom .3s ease-out, top .3s ease-out;
@@ -24,7 +24,7 @@
         }
 
         .neo-toast-icon {
-            border-right: 2px solid v(toast-color);
+            border-right: 2px solid var(--toast-color);
             flex        : 1;
             font-size   : 1.5em;
         }
@@ -57,15 +57,15 @@
 
 // ui: danger
 .neo-toast-danger {
-    background-color: v(toast-danger-background-color);
-    color: v(toast-danger-color);
+    background-color: var(--toast-danger-background-color);
+    color: var(--toast-danger-color);
 
     & > div {
 
         .neo-toast-inner {
 
             .neo-toast-icon {
-                border-right: 2px solid v(toast-danger-color);
+                border-right: 2px solid var(--toast-danger-color);
             }
         }
     }
@@ -73,15 +73,15 @@
 
 // ui: success
 .neo-toast-success {
-    background-color: v(toast-success-background-color);
-    color: v(toast-success-color);
+    background-color: var(--toast-success-background-color);
+    color: var(--toast-success-color);
 
     & > div {
 
         .neo-toast-inner {
 
             .neo-toast-icon {
-                border-right: 2px solid v(toast-success-color);
+                border-right: 2px solid var(--toast-success-color);
             }
         }
     }

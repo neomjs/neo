@@ -12,8 +12,8 @@
 
     .countdown {
         display: grid;
-        width: v(timer-dimension);
-        height: v(timer-dimension);
+        width: var(--timer-dimension);
+        height: var(--timer-dimension);
         container-type: size;
     }
 
@@ -36,7 +36,7 @@
             --k: calc(var(--neo-timer-current) / var(--neo-timer-full));
             transform: rotate(-90deg);
             stroke-linecap: round;
-            stroke: color-mix(in hsl shorter hue, v(timer-color-start) calc(var(--k) * 300%), v(timer-color-end));
+            stroke: color-mix(in hsl shorter hue, var(--timer-color-start) calc(var(--k) * 300%), var(--timer-color-end));
             stroke-dasharray: var(--k) 1
         }
     }
@@ -74,12 +74,12 @@
         /* Style the front side (fallback if image is missing) */
         .flip-card-front {
             & > input {
-                background-color: v(container-background-color);
-                color: v(container-color);
+                background-color: var(--container-background-color);
+                color: var(--container-color);
                 margin-top: 25%;
                 height:41%;
                 width: 100%;
-                font: calc(v(timer-dimension) * 0.25)/2 ubuntu mono, consolas, monaco, monospace;
+                font: calc(var(--timer-dimension) * 0.25)/2 ubuntu mono, consolas, monaco, monospace;
                 text-align: center;
                 border-width: 0 !important;
 
@@ -90,7 +90,7 @@
 
             & > button {
                 border: 0 none;
-                background-color: v(timer-button-color);
+                background-color: var(--timer-button-color);
                 height: 35%;
                 width: 100%;
                 font-size: 15cqh;
@@ -102,7 +102,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font: calc(v(timer-dimension)*.25)/ 2 ubuntu mono, consolas, monaco, monospace;
+            font: calc(var(--timer-dimension)*.25)/ 2 ubuntu mono, consolas, monaco, monospace;
             // initial transformation
             transform: rotateY(180deg);
         }

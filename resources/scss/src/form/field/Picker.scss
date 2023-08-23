@@ -11,9 +11,9 @@
 }
 
 .neo-picker-container {
-    background-color: v(pickerfield-container-background-color);
-    border          : v(pickerfield-container-border);
-    box-shadow      : v(pickerfield-container-box-shadow);
+    background-color: var(--pickerfield-container-background-color);
+    border          : var(--pickerfield-container-border);
+    box-shadow      : var(--pickerfield-container-box-shadow);
     position        : absolute;
     z-index         : 200;
 

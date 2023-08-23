@@ -1,8 +1,8 @@
 .neo-animate-dialog {
     // default styling to match buttons, since this is the most common use case
-    background-color: v(button-background-color);
-    background-image: v(button-background-image);
-    border          : v(button-border-active);
+    background-color: var(--button-background-color);
+    background-image: var(--button-background-image);
+    border          : var(--button-border-active);
 
     position: fixed;
     z-index : 1000;
@@ -44,7 +44,7 @@
 }
 
 .neo-dialog {
-    border        : 1px solid v(dialog-border-color);
+    border        : 1px solid var(--dialog-border-color);
     display       : flex;
     flex          : 1 0 auto;
     flex-direction: column;
@@ -53,12 +53,12 @@
     &.neo-panel {
         .neo-footer-toolbar {
             border    : none;
-            border-top: 1px solid v(dialog-border-color);
+            border-top: 1px solid var(--dialog-border-color);
         }
 
         .neo-header-toolbar {
             border       : none;
-            border-bottom: 1px solid v(dialog-border-color);
+            border-bottom: 1px solid var(--dialog-border-color);
 
             .neo-button {
                 border      : 0;
@@ -71,12 +71,12 @@
             }
 
             .neo-button-glyph {
-                color    : v(dialog-icon-color);
+                color    : var(--dialog-icon-color);
                 font-size: 1.8em;
             }
 
             .neo-panel-header-text {
-                color         : v(dialog-header-color);
+                color         : var(--dialog-header-color);
                 overflow      : hidden;
                 pointer-events: none;
                 text-overflow : ellipsis;

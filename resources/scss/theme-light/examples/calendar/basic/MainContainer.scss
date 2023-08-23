@@ -1,11 +1,4 @@
-$neoMap: map-merge($neoMap, (
-    'examples-calendar-basic-header-background-color': #f2f2f2,
-    'examples-calendar-basic-header-color'           : #1c60a0
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-examples-calendar-maincontainer
-        --examples-calendar-basic-header-background-color: #{neo(examples-calendar-basic-header-background-color)};
-        --examples-calendar-basic-header-color           : #{neo(examples-calendar-basic-header-color)};
-    }
+:root .neo-theme-light { // .neo-examples-calendar-maincontainer
+    --examples-calendar-basic-header-background-color: #f2f2f2;
+    --examples-calendar-basic-header-color           : #1c60a0;
 }

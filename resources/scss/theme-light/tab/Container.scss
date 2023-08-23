@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    'tab-container-content-border': 1px solid #ddd
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-tab-container
-        --tab-container-content-border: #{neo(tab-container-content-border)};
-    }
+:root .neo-theme-light { // .neo-tab-container
+    --tab-container-content-border: 1px solid #ddd;
 }

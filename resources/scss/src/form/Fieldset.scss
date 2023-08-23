@@ -1,6 +1,6 @@
 .neo-fieldset {
-    background-color: v(fieldset-background-color);
-    border          : v(fieldset-border);
+    background-color: var(--fieldset-background-color);
+    border          : var(--fieldset-border);
 
     &.neo-collapsed {
         background-color: inherit;
@@ -23,14 +23,14 @@
     }
 
     .neo-legend {
-        color        : v(fieldset-legend-color);
+        color        : var(--fieldset-legend-color);
         cursor       : default;
         font-weight  : 500;
         padding-right: 0.1em;
         user-select  : none;
 
         .neo-legend-icon {
-            color       : v(fieldset-legend-icon-color);
+            color       : var(--fieldset-legend-icon-color);
             font-weight : 600;
             margin-left : 0.1em;
             margin-right: 0.3em;

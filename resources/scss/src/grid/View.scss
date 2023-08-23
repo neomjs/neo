@@ -10,28 +10,28 @@
     .neo-grid-row {
              &:hover {
                  .neo-grid-cell {
-                     background-color: v(grid-cell-background-color-hover);
+                     background-color: var(--grid-cell-background-color-hover);
                  }
              }
 
              // selection.RowModel
              &.neo-selected {
                  .neo-grid-cell {
-                     background-color: v(grid-rowmodel-selected-cell-background-color);
-                     color           : v(grid-rowmodel-selected-cell-color);
+                     background-color: var(--grid-rowmodel-selected-cell-background-color);
+                     color           : var(--grid-rowmodel-selected-cell-color);
                  }
              }
 
              // selection.CellModel
              .neo-grid-cell {
                  &.neo-selected {
-                     background-color: v(grid-cellmodel-selected-cell-background-color) !important;
-                     color           : v(grid-cellmodel-selected-cell-color) !important;
+                     background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
+                     color           : var(--grid-cellmodel-selected-cell-color) !important;
                  }
 
                  &.selected-column-cell {
-                     background-color: v(grid-cellmodel-selected-column-cell-background-color);
-                     color           : v(grid-cellmodel-selected-column-cell-color);
+                     background-color: var(--grid-cellmodel-selected-column-cell-background-color);
+                     color           : var(--grid-cellmodel-selected-column-cell-color);
                  }
              }
          }
@@ -42,15 +42,15 @@
     .neo-grid-row {
         &.neo-selected {
             .neo-grid-cell {
-                background-color: v(grid-cellrowmodel-selected-row-cell-background-color);
-                color           : v(grid-cellrowmodel-selected-row-cell-color);
+                background-color: var(--grid-cellrowmodel-selected-row-cell-background-color);
+                color           : var(--grid-cellrowmodel-selected-row-cell-color);
             }
         }
 
         .neo-grid-cell {
             &.neo-selected {
-                background-color: v(grid-cellrowmodel-selected-cell-background-color);
-                color           : v(grid-cellrowmodel-selected-cell-color);
+                background-color: var(--grid-cellrowmodel-selected-cell-background-color);
+                color           : var(--grid-cellrowmodel-selected-cell-color);
             }
         }
     }

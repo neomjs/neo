@@ -31,7 +31,7 @@ class SortZone extends BaseSortZone {
      * @param {Number} toIndex
      */
     moveTo(fromIndex, toIndex) {
-        this.owner.up().moveTo(fromIndex, toIndex);
+        this.owner.up().moveTo(fromIndex, toIndex)
     }
 
     /**
@@ -47,7 +47,7 @@ class SortZone extends BaseSortZone {
 
             NeoArray.remove(cls, 'neo-no-animation');
             owner.cls = cls;
-        }, 300);
+        }, 300)
     }
 
     /**
@@ -61,7 +61,7 @@ class SortZone extends BaseSortZone {
         NeoArray.add(cls, 'neo-no-animation');
         owner.cls = cls;
 
-        super.onDragStart(data);
+        super.onDragStart(data)
     }
 }
 

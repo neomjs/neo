@@ -1,48 +1,48 @@
 .neo-status-badge {
     display: flex;
-    padding: v(status-badge-padding);
-    align-items: v(status-badge-align-items);
+    padding: var(--status-badge-padding);
+    align-items: var(--status-badge-align-items);
 
     &.neo-state-alert {
-        background-color: v(status-badge-state-alert-background-color);
-        color: v(status-badge-state-alert-text-color);
+        background-color: var(--status-badge-state-alert-background-color);
+        color: var(--status-badge-state-alert-text-color);
     }
 
     &.neo-state-error {
-        background-color: v(status-badge-state-error-background-color);
-        color: v(status-badge-state-error-text-color);
+        background-color: var(--status-badge-state-error-background-color);
+        color: var(--status-badge-state-error-text-color);
     }
 
     &.neo-state-info {
-        background-color: v(status-badge-state-info-background-color);
-        color: v(status-badge-state-info-text-color);
+        background-color: var(--status-badge-state-info-background-color);
+        color: var(--status-badge-state-info-text-color);
     }
 
     &.neo-state-neutral {
-        background-color: v(status-badge-state-neutral-background-color);
-        color: v(status-badge-state-neutral-text-color);
+        background-color: var(--status-badge-state-neutral-background-color);
+        color: var(--status-badge-state-neutral-text-color);
     }
 
     &.neo-state-success {
-        background-color: v(status-badge-state-success-background-color);
-        color: v(status-badge-state-success-text-color);
+        background-color: var(--status-badge-state-success-background-color);
+        color: var(--status-badge-state-success-text-color);
 
     }
 
     .neo-state-glyph {
-        font-size: v(status-badge-font-size);
-        pointer-events: none; 
+        font-size: var(--status-badge-font-size);
+        pointer-events: none;
     }
 
     .neo-state-text {
         flex: 1 1 auto;
-        font-family: v(status-badge-font-family);
-        font-size: v(status-badge-font-size);
-        font-weight: v(status-badge-font-weight);
-        line-height: v(status-badge-line-height);
+        font-family: var(--status-badge-font-family);
+        font-size: var(--status-badge-font-size);
+        font-weight: var(--status-badge-font-weight);
+        line-height: var(--status-badge-line-height);
         pointer-events: none;
-        text-align:  v(status-badge-align-items);
-        text-transform: v(status-badge-transform);
+        text-align:  var(--status-badge-align-items);
+        text-transform: var(--status-badge-transform);
     }
 
 

@@ -1,17 +1,7 @@
-$neoMap: map-merge($neoMap, (
-    'grid-container-border-color'              : #ddd,
-    'grid-container-cell-background-color'     : #fff,
-    'grid-container-cell-background-color-even': #f2f2f2,
-    'grid-container-color'                     : #666,
-    'grid-container-header-cell-border-bottom' : 1px solid #ddd
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-grid-container
-        --grid-container-border-color              : #{neo(grid-container-border-color)};
-        --grid-container-cell-background-color     : #{neo(grid-container-cell-background-color)};
-        --grid-container-cell-background-color-even: #{neo(grid-container-cell-background-color-even)};
-        --grid-container-color                     : #{neo(grid-container-color)};
-        --grid-container-header-cell-border-bottom : #{neo(grid-container-header-cell-border-bottom)};
-    }
+:root .neo-theme-light { // .neo-grid-container
+    --grid-container-border-color              : #ddd;
+    --grid-container-cell-background-color     : #fff;
+    --grid-container-cell-background-color-even: #f2f2f2;
+    --grid-container-color                     : #666;
+    --grid-container-header-cell-border-bottom : 1px solid #ddd;
 }

@@ -1,5 +1,5 @@
 .neo-circle-list.neo-list {
-    background-color: v(list-item-background-color);
+    background-color: var(--list-item-background-color);
 
     .neo-circle-component {
         background-color: transparent;
@@ -19,7 +19,7 @@
         padding         : 0;
 
         &.neo-selected {
-            background-color: v(list-item-background-color-hover);
+            background-color: var(--list-item-background-color-hover);
         }
     }
 }

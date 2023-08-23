@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    'examples-tab-component-background-color': #fff
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light {
-        --examples-tab-component-background-color: #{neo(examples-tab-component-background-color)};
-    }
+:root .neo-theme-light {
+    --examples-tab-component-background-color: #fff;
 }

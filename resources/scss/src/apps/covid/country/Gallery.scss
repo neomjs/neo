@@ -1,6 +1,6 @@
 .neo-gallery.covid-country-gallery {
-    background-color: v(covid-gallery-background-color);
-    border-color    : v(covid-gallery-border-color);
+    background-color: var(--covid-gallery-background-color);
+    border-color    : var(--covid-gallery-border-color);
     color           : #000;
     text-align      : left;
 
@@ -23,7 +23,7 @@
     }
 
     .neo-item-wrapper {
-        background-color   : v(covid-gallery-item-wrapper-background-color);
+        background-color   : var(--covid-gallery-item-wrapper-background-color);
         border-radius      : 10px;
         pointer-events     : none;
         transition-duration: .55s;
@@ -33,9 +33,9 @@
     .neo-country-gallery-item {
         background-color       : #fff;
         border-bottom          : 0;
-        border-color           : v(covid-gallery-item-border-color);
-        border-left-width      : v(covid-gallery-item-border-sides-width);
-        border-right-width     : v(covid-gallery-item-border-sides-width);
+        border-color           : var(--covid-gallery-item-border-color);
+        border-left-width      : var(--covid-gallery-item-border-sides-width);
+        border-right-width     : var(--covid-gallery-item-border-sides-width);
         border-style           : solid;
         border-top-left-radius : 10px;
         border-top-right-radius: 10px;

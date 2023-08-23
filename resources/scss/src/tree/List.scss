@@ -1,6 +1,6 @@
 .neo-tree-list {
     border  : none;
-    color   : v(tree-list-color);
+    color   : var(--tree-list-color);
     display : flex;
     overflow: hidden;
     position: relative;
@@ -15,8 +15,8 @@
     }
 
     .neo-list-container {
-        background-color: v(list-container-background-color);
-        border          : v(list-container-border);
+        background-color: var(--list-container-background-color);
+        border          : var(--list-container-border);
         overflow        : auto;
     }
 
@@ -50,7 +50,7 @@
         margin-right: 10px;
 
         .neo-list-item-content:before {
-            color      : v(list-item-glyph-color); // todo: tree-list var
+            color      : var(--list-item-glyph-color); // todo: tree-list var
             content    : "\f1f9";
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
@@ -78,7 +78,7 @@
         }
 
         .neo-treelist-menu-item-content:before {
-            color      : v(tree-list-menu-item-color);
+            color      : var(--tree-list-menu-item-color);
             display    : inline-block;
             font-family: var(--fa-style-family-classic);
             font-weight: 900;

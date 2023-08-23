@@ -43,8 +43,8 @@ class Toolbar extends BaseToolbar {
                     boundaryContainerId: me.id,
                     owner              : me,
                     ...me.sortZoneConfig
-                });
-            });
+                })
+            })
         }
     }
 
@@ -61,10 +61,10 @@ class Toolbar extends BaseToolbar {
             me.items.forEach(item => {
                 // silent updates
                 item._useActiveTabIndicator = value;
-                item.updateUseActiveTabIndicator(true);
+                item.updateUseActiveTabIndicator(true)
             });
 
-            me.update();
+            me.update()
         }
     }
 
@@ -78,7 +78,7 @@ class Toolbar extends BaseToolbar {
         defaults.useActiveTabIndicator = me.useActiveTabIndicator;
         me.itemDefaults = defaults;
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
@@ -116,7 +116,7 @@ class Toolbar extends BaseToolbar {
                 break;
         }
 
-        return layoutConfig;
+        return layoutConfig
     }
 
     /**
@@ -131,10 +131,10 @@ class Toolbar extends BaseToolbar {
         if (fromIndex !== toIndex) {
             this.items.forEach((item, index) => {
                 item.index = index;
-            });
+            })
         }
 
-        return returnValue;
+        return returnValue
     }
 }
 

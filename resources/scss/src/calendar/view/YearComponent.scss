@@ -4,11 +4,11 @@
 
     &.neo-show-cell-borders {
         .neo-calendar-week {
-            border-bottom: 1px solid v(c-y-cell-border-color);
+            border-bottom: 1px solid var(--c-y-cell-border-color);
         }
 
         .neo-cell {
-            border-right: 1px solid v(c-y-cell-border-color);
+            border-right: 1px solid var(--c-y-cell-border-color);
         }
 
         .neo-top-left-spacer {
@@ -21,7 +21,7 @@
         }
 
         .neo-weeknumber-cell {
-            border-left: 1px solid v(c-y-cell-border-color);
+            border-left: 1px solid var(--c-y-cell-border-color);
         }
     }
 
@@ -39,7 +39,7 @@
     }
 
     .neo-year-header {
-        color        : v(c-y-year-color);
+        color        : var(--c-y-year-color);
         display      : flex;
         font-size    : 1.3em;
         font-weight  : 600;
@@ -48,14 +48,14 @@
 
         .neo-nav-button {
             align-items     : center;
-            background-color: v(dateselector-nav-button-background-color);
+            background-color: var(--dateselector-nav-button-background-color);
             cursor          : pointer;
             display         : flex;
             justify-content : center;
             width           : 1.4em;
 
             &:before {
-                color      : v(dateselector-nav-button-color);
+                color      : var(--dateselector-nav-button-color);
                 font-family: var(--fa-style-family-classic);
                 font-weight: 900;
                 transition : color 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -63,7 +63,7 @@
 
             &:hover {
                 &:before {
-                    color: v(dateselector-nav-button-color-hover);
+                    color: var(--dateselector-nav-button-color-hover);
                 }
             }
         }
@@ -84,7 +84,7 @@
     }
 
     .neo-month-name {
-        color        : v(c-y-month-color);
+        color        : var(--c-y-month-color);
         font-size    : 1.3em;
         margin-bottom: .5em;
     }
@@ -109,7 +109,7 @@
 
         .neo-cell {
             align-items    : center;
-            color          : v(c-y-cell-color);
+            color          : var(--c-y-cell-color);
             display        : flex;
             flex           : 1;
             font-weight    : 400;
@@ -148,8 +148,8 @@
             justify-content: center;
 
             &.neo-today {
-                background-color: v(c-y-today-background-color);
-                color           : v(c-y-today-color);
+                background-color: var(--c-y-today-background-color);
+                color           : var(--c-y-today-color);
                 font-weight     : 900;
             }
         }
@@ -163,8 +163,8 @@
         }
 
         .neo-weeknumber-cell {
-            background-color: v(c-y-week-background-color);
-            color           : v(c-y-week-color);
+            background-color: var(--c-y-week-background-color);
+            color           : var(--c-y-week-color);
         }
     }
 }

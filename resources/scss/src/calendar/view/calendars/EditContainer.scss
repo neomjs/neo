@@ -1,7 +1,7 @@
 .neo-calendar-edit-container {
-    background-color: v(calendar-edit-calendar-background-color);
-    border          : 1px solid v(calendar-edit-calendar-border-color);
-    box-shadow      : v(calendar-edit-calendar-box-shadow);
+    background-color: var(--calendar-edit-calendar-background-color);
+    border          : 1px solid var(--calendar-edit-calendar-border-color);
+    box-shadow      : var(--calendar-edit-calendar-box-shadow);
     padding         : .7em;
     position        : absolute;
     top             : 0;
@@ -9,7 +9,7 @@
 
     &:before {
         border-bottom: 12px solid transparent;
-        border-right : 12px solid v(calendar-edit-calendar-border-color);
+        border-right : 12px solid var(--calendar-edit-calendar-border-color);
         border-top   : 12px solid transparent;
         content      : '';
         display      : block;

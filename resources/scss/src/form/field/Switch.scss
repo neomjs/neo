@@ -13,10 +13,10 @@
 
     .neo-switchfield-input {
         background-clip : padding-box;
-        background-color: v(switchfield-background-color);
+        background-color: var(--switchfield-background-color);
         border-color    : transparent;
         border-radius   : 1.25em;
-        color           : v(switchfield-inactive-color);
+        color           : var(--switchfield-inactive-color);
         display         : inline-block;
         font-size       : 1.5em;
         height          : 1.5em;
@@ -44,7 +44,7 @@
         &::before {
             animation       : switch-off-transform 0.25s ease-out forwards;
             background-clip : padding-box;
-            background-color: v(switchfield-thumb-color);
+            background-color: var(--switchfield-thumb-color);
             border          : 0.125em solid transparent;
             border-radius   : 100%;
             bottom          : 0;
@@ -58,8 +58,8 @@
         }
 
         &:checked {
-            background-color: v(switchfield-checked);
-            color           : v(switchfield-inactive-color);
+            background-color: var(--switchfield-checked);
+            color           : var(--switchfield-inactive-color);
 
             &::before {
                 animation       : switch-on-transform 0.25s ease-out forwards;
@@ -68,7 +68,7 @@
         }
 
         &:focus {
-            color  : v(switchfield-active-color);
+            color  : var(--switchfield-active-color);
             outline: none;
         }
     }

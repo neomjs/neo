@@ -1,9 +1,3 @@
-$neoMap: map-merge($neoMap, (
-    'docs-navigation-tab-container-background-color': #fff
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-docs-navigation-tab-container
-        --docs-navigation-tab-container-background-color: #{neo(docs-navigation-tab-container-background-color)};
-    }
+:root .neo-theme-light { // .neo-docs-navigation-tab-container
+    --docs-navigation-tab-container-background-color: #fff;
 }
