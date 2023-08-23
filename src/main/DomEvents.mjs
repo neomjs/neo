@@ -118,8 +118,8 @@ class DomEvents extends Base {
 
         let me = this;
 
-        document.addEventListener('selectionchange',  me.onSelectionChange .bind(me));
         document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
+        document.addEventListener('selectionchange',  me.onSelectionChange .bind(me));
         window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
 
         if (Neo.config.useSharedWorkers) {
@@ -332,6 +332,11 @@ class DomEvents extends Base {
         return path
     }
 
+    /**
+     * @param {Object[]} path
+     * @param {HTMLElement} target
+     * @returns {Object[]}
+     */
     getSelectionPath(path, target) {
         if (target.parentNode && target.id.split('__').length > 1) {
             path = this.getSelectionPath(path, target.parentNode);
@@ -343,7 +348,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} node
+     * @param {HTMLElement} node
      * @returns {Object}
      */
     getTargetData(node) {
