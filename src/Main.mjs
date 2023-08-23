@@ -193,11 +193,6 @@ class Main extends core.Base {
         };
     }
 
-    // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
-    globalResizeListener(event) {
-        console.log('globalResizeListener', event);
-    }
-
     /**
      * Import main thread addons at run-time from within the app worker
      * @param {Object} data
@@ -230,9 +225,6 @@ class Main extends core.Base {
             modules;
 
         DomAccess.onDomContentLoaded();
-
-        // not in use right now
-        // window.addEventListener('resize', me.globalResizeListener.bind(me));
 
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
