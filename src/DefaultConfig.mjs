@@ -153,7 +153,6 @@ const DefaultConfig = {
     renderCountDeltas: false,
     /**
      * Add themes you want to use here. The first theme will get applied.
-     * If config.useCssVars === true, other theme variables will get included as well
      * @default ['neo-theme-light', 'neo-theme-dark']
      * @memberOf! module:Neo
      * @name config.themes
@@ -168,14 +167,6 @@ const DefaultConfig = {
      * @type Boolean
      */
     unitTestMode: false,
-    /**
-     * Flag if CSS variable based stylesheets are in use (important for switching themes)
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useCssVars
-     * @type Boolean
-     */
-    useCssVars: true,
     /**
      * Experimental flag if an offscreen canvas worker should get created.
      * @default false

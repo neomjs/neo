@@ -192,20 +192,18 @@ class MainContainerController extends Component {
             theme      = 'neo-theme-dark';
         }
 
-        if (Neo.config.useCssVars) {
-            cls = [...view.cls];
+        cls = [...view.cls];
 
-            view.cls.forEach((item, index) => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item);
-                }
-            });
+        view.cls.forEach(item => {
+            if (item.includes('neo-theme')) {
+                NeoArray.remove(cls, item)
+            }
+        });
 
-            NeoArray.add(cls, theme);
-            view.cls = cls;
+        NeoArray.add(cls, theme);
+        view.cls = cls;
 
-            button.text = buttonText;
-        }
+        button.text = buttonText
     }
 
     /**
