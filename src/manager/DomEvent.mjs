@@ -31,6 +31,7 @@ const globalDomEvents = [
     'mouseleave',
     'mouseup',
     'scroll',
+    'selectionchange',
     'wheel'
 ];
 

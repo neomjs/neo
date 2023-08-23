@@ -41,7 +41,7 @@ app.get('/document-status-downloadable', async(req, res) => {
 
 app.get('/document-status-not-downloadable', async(req, res) => {
     res.set('Content-Type', 'application/json');
-    res.send('{"status":"UN_DOWNLOADABLE","fileName":"testfile.pdf","size":9653413}');
+    res.send('{"status":"AVAILABLE","fileName":"testfile.pdf","size":9653413}');
 });
 
 app.get('/document-status-non-existent', async(req, res) => {
