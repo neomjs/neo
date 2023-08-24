@@ -135,10 +135,7 @@ class AccordionTree extends TreeList {
                 vdomRoot.cn.push({
                     tag  : 'ul',
                     cls  : ['neo-list'],
-                    cn   : [],
-                    style: {
-                        paddingLeft: '15px'
-                    }
+                    cn   : []
                 });
 
                 tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
@@ -188,7 +185,6 @@ class AccordionTree extends TreeList {
                         }]
                     }],
                     style: {
-                        padding : '10px',
                         position: item.isLeaf ? null : 'sticky',
                         top     : item.isLeaf ? null : (level * 38) + 'px',
                         zIndex  : item.isLeaf ? null : (20 / (level + 1)),
@@ -267,8 +263,30 @@ class AccordionTree extends TreeList {
         if (!selection) selModel.selectRoot();
     }
 
-    // Todo Might be needed
-    onStoreLoad() {
+
+    /**
+     * After the store loaded, create the items for the list
+     *
+     * @param {Obejct[]} records
+     */
+    onStoreLoad(records) {
+        let me = this,
+            listenerId;
+
+        if (!me.mounted && me.rendering) {
+            listenerId = me.on('mounted', () => {
+                me.un('mounted', listenerId);
+                me.createItems(null, me.getListItemsRoot(), 0);
+                me.timeout(0).then(() => {
+                    me.update()
+                });
+            });
+        } else {
+            me.createItems(null, me.getListItemsRoot(), 0);
+            me.timeout(0).then(() => {
+                me.update()
+            });
+        }
     }
 
     onStoreRecordChange() {
