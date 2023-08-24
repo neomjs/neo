@@ -481,6 +481,8 @@ class CheckBox extends Base {
      * @returns {Boolean}
      */
     isValid() {
+        this.validate(true); // silent
+        
         return this.error ? false : super.isValid()
     }
 
