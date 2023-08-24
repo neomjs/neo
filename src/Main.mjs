@@ -50,6 +50,7 @@ class Main extends core.Base {
                 'editRoute',
                 'getByPath',
                 'getWindowData',
+                'importAddon',
                 'redirectTo',
                 'setNeoConfig',
                 'setRoute',
@@ -192,9 +193,25 @@ class Main extends core.Base {
         };
     }
 
-    // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
-    globalResizeListener(event) {
-        console.log('globalResizeListener', event);
+    /**
+     * Import main thread addons at run-time from within the app worker
+     * @param {Object} data
+     * @param {String} data.name
+     * @returns {Boolean}
+     */
+    async importAddon(data) {
+        let name = data.name,
+            module;
+
+        if (name.startsWith('WS/')) {
+            module = await import(`../../../src/main/addon/${name.substring(3)}.mjs`)
+        } else {
+            module = await import(`./main/addon/${name}.mjs`)
+        }
+
+        this.addon[module.default.constructor.name] = module.default;
+
+        return true
     }
 
     /**
@@ -208,9 +225,6 @@ class Main extends core.Base {
             modules;
 
         DomAccess.onDomContentLoaded();
-
-        // not in use right now
-        // window.addEventListener('resize', me.globalResizeListener.bind(me));
 
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
@@ -229,7 +243,7 @@ class Main extends core.Base {
 
         mainThreadAddons.forEach(addon => {
             if (addon.startsWith('WS/')) {
-                imports.push(import(`../../../src/main/addon/${addon.substr(3)}.mjs`));
+                imports.push(import(`../../../src/main/addon/${addon.substring(3)}.mjs`));
             } else {
                 imports.push(import(`./main/addon/${addon}.mjs`));
             }
@@ -245,7 +259,7 @@ class Main extends core.Base {
 
         WorkerManager.onWorkerConstructed({
             origin: 'main'
-        });
+        })
     }
 
     /**
@@ -258,7 +272,7 @@ class Main extends core.Base {
             action : 'reply',
             replyId: data.id,
             success: true
-        });
+        })
     }
 
     /**

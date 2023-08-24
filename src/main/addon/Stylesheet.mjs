@@ -72,7 +72,7 @@ class Stylesheet extends Base {
     addGlobalCss() {
         let config   = Neo.config,
             themes   = config.themes,
-            folders  = config.useCssVars ? ['src', ...themes] : [themes[0]],
+            folders  = ['src', ...themes],
             env      = config.environment,
             path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath = config.basePath.substr(6);
@@ -87,7 +87,7 @@ class Stylesheet extends Base {
             this.createStyleSheet(
                 null,
                 null,
-                `${rootPath}${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
+                `${rootPath}${path}css/${folder}/Global.css`
             );
         });
     }
@@ -112,19 +112,14 @@ class Stylesheet extends Base {
         className = className.split('.').join('/');
 
         data.folders.forEach(folder => {
-            if (
-                folder === 'src' && config.useCssVars || folder.includes('theme-') && (
-                     config.useCssVars && config.themes.includes(`neo-${folder}`) ||
-                    !config.useCssVars && config.themes[0] === `neo-${folder}`
-                )
-            ) {
+            if (folder === 'src' || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)) {
                 this.createStyleSheet(
                     null,
                     null,
-                    `${rootPath}${path}css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
-                );
+                    `${rootPath}${path}css/${folder}/${className}.css`
+                )
             }
-        });
+        })
     }
 
     /**
