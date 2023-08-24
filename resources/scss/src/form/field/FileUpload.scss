@@ -109,6 +109,9 @@
         .neo-file-upload-error-message {
             display : initial;
         }
+        input[type="file"],label {
+            display : none;
+        }
     }
 }
 
@@ -230,7 +233,7 @@
     }
 }
 
-.neo-file-upload-state-ready {
+.neo-file-upload-state-ready:not(.neo-invalid) {
     // Only the input field and its label is visible when in ready state
     // It takes up the whole component, and is the only interactive item
     :not(input[type="file"],label) {
