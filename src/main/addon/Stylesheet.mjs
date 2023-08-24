@@ -72,7 +72,7 @@ class Stylesheet extends Base {
     addGlobalCss() {
         let config   = Neo.config,
             themes   = config.themes,
-            folders  = [themes[0]],
+            folders  = ['src', ...themes],
             env      = config.environment,
             path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath = config.basePath.substr(6);
@@ -112,7 +112,7 @@ class Stylesheet extends Base {
         className = className.split('.').join('/');
 
         data.folders.forEach(folder => {
-            if (folder === 'src' && folder.includes('theme-') && config.themes[0] === `neo-${folder}`) {
+            if (folder === 'src' || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)) {
                 this.createStyleSheet(
                     null,
                     null,
