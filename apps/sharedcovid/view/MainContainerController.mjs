@@ -580,41 +580,22 @@ class MainContainerController extends ComponentController {
         logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
         logo.update();
 
+        [component.appName, ...me.connectedApps].forEach(appName => {
+            component = me.getMainView(appName);
 
-        if (Neo.config.useCssVars) {
-            [component.appName, ...me.connectedApps].forEach(appName => {
-                component = me.getMainView(appName);
+            cls = [...component.cls];
 
-                cls = [...component.cls];
-
-                component.cls.forEach(item => {
-                    if (item.includes('neo-theme')) {
-                        NeoArray.remove(cls, item);
-                    }
-                });
-
-                NeoArray.add(cls, theme);
-                component.cls = cls;
+            component.cls.forEach(item => {
+                if (item.includes('neo-theme')) {
+                    NeoArray.remove(cls, item)
+                }
             });
 
-            button.set({
-                iconCls,
-                text: buttonText
-            });
-        } else {
-            [component.appName, ...me.connectedApps].forEach(appName => {
-                Neo.main.addon.Stylesheet.swapStyleSheet({
-                    appName,
-                    href,
-                    id: 'neo-theme'
-                });
-            });
-        }
-
-        button.set({
-            iconCls,
-            text: buttonText
+            NeoArray.add(cls, theme);
+            component.cls = cls;
         });
+
+        button.set({iconCls, text: buttonText});
 
         if (mapView) {
             mapView.mapboxStyle = mapViewStyle;
