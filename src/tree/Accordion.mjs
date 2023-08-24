@@ -38,6 +38,18 @@ class AccordionTree extends TreeList {
          */
         firstParentIsVisible_: true,
         /**
+         * Currently selected item, which is bindable
+         * @member {Record[|null} selection=null
+         *
+         * @example
+         *     module: AccordionTree,
+         *     bind  : {selection: {twoWay: true, value: data => data.selection}}
+         *
+         *     ntype: 'component',
+         *     bind : {html: data => data.selection[0].name}
+         */
+        selection_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -133,9 +145,9 @@ class AccordionTree extends TreeList {
 
             if (parentId !== null) {
                 vdomRoot.cn.push({
-                    tag  : 'ul',
-                    cls  : ['neo-list'],
-                    cn   : []
+                    tag: 'ul',
+                    cls: ['neo-list'],
+                    cn : []
                 });
 
                 tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
@@ -253,6 +265,7 @@ class AccordionTree extends TreeList {
 
     /**
      * Accordion gaining focus without selection => setSelection
+     *
      * @param {Object} data
      */
     onFocus(data) {
@@ -263,11 +276,29 @@ class AccordionTree extends TreeList {
         if (!selection) selModel.selectRoot();
     }
 
+    /**
+     * Called from SelectionModel select()
+     *
+     * @param {String[]} value
+     */
+    onSelect(value) {
+        const me = this;
+        let records = [];
+
+        value.forEach((selectItemId) => {
+            let id     = me.getItemRecordId(selectItemId),
+                record = me.store.get(id);
+
+            records.push(record);
+        });
+
+        me.selection = records;
+    }
 
     /**
      * After the store loaded, create the items for the list
      *
-     * @param {Obejct[]} records
+     * @param {Record[]} records
      */
     onStoreLoad(records) {
         let me = this,
