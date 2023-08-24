@@ -317,6 +317,7 @@ class FileUpload extends Base {
         // UI strings which can be overridden for other languages
         chooseFile           : 'Choose file',
         documentText         : 'Document',
+        invalidFileFormat    : 'invalid file format',
         pleaseUseTheseTypes  : 'Please use these file types',
         fileSizeMoreThan     : 'File size exceeds',
         documentDeleteError  : 'Document delete service error',
@@ -388,7 +389,8 @@ class FileUpload extends Base {
     onInputValueChange({ files }) {
         const
             me        = this,
-            { types } = me;
+            { types } = me,
+            body      = me.vdom.cn[1];
 
         if (files.length) {
             const
@@ -397,9 +399,13 @@ class FileUpload extends Base {
                 type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
             if (me.types && !types[type]) {
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
                 me.error = `${me.pleaseUseTheseTypes}: .${Object.keys(types).join(' .')}`;
             }
             else if (file.size > me.maxSize) {
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = me.formatSize(file.size);
                 me.error = `${me.fileSizeMoreThan} ${String(me._maxSize).toUpperCase()}`;
             }
             // If it passes the type and maxSize check, upload it
