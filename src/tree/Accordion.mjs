@@ -137,6 +137,13 @@ class AccordionTree extends TreeList {
     }
 
     /**
+     * Remove all items from the selection
+     */
+    clearSelection() {
+        this.selectionModel.deselectAll();
+    }
+
+    /**
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -335,6 +342,37 @@ class AccordionTree extends TreeList {
     }
 
     onStoreRecordChange() {
+    }
+
+    /**
+     * Set the selection either bei record id or record.
+     * You can pass a record or a recordId as value
+     *
+     * @param {Record|Record[]|Number|Number[]|String|String[]} value
+     */
+    setSelection(value) {
+        if (value === null) {
+            this.clearSelection();
+            return;
+        }
+
+        // In case you pass in an array use only the first item
+        if (Neo.isArray(value)) value = value[0];
+
+        const me = this;
+        let recordKeyProperty, elId;
+
+        if (Neo.isObject(value)) {
+            // Record
+            recordKeyProperty = value[me.getKeyProperty()];
+        } else {
+            // RecordId
+            recordKeyProperty = value;
+        }
+
+        elId = me.getItemId(recordKeyProperty);
+
+        me.selectionModel.selectAndScrollIntoView(elId);
     }
 }
 
