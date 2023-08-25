@@ -153,6 +153,7 @@ class FileUpload extends Base {
             UPLOADING        : 'scanning',
 
             MALWARE_DETECTED : 'scan-failed',
+            UN_DOWNLOADABLE  : 'not-downloadable',
             AVAILABLE        : 'not-downloadable',
             DOWNLOADABLE     : 'downloadable',
             DELETED          : 'deleted'
