@@ -347,15 +347,18 @@ class FileUpload extends Base {
     }
 
     afterSetId(value, oldValue) {
-        const
-            labelEl   = this.vdom.cn[4],
-            inputElId = `${this.id}-input`;
+        const inputElId = `${this.id}-input`;
 
-        this.getInputEl().id =  labelEl.for = inputElId;
-        labelEl.html = this.chooseFile;
+        this.getInputEl().id =  this.vdom.cn[4].for = inputElId;
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId?.(value, oldValue);
+    }
+
+    onConstructed() {
+        super.onConstructed(...arguments);
+
+        this.vdom.cn[4].html = this.chooseFile;
     }
     
     /**
@@ -558,6 +561,9 @@ class FileUpload extends Base {
             case 'deleted':
                 me.clear();
                 me.state = 'ready';
+                break;
+            case 'ready':
+                me.clear();
                 break;
         }
     }
