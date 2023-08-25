@@ -559,6 +559,9 @@ class FileUpload extends Base {
                 me.clear();
                 me.state = 'ready';
                 break;
+            case 'ready':
+                me.clear();
+                break;
         }
     }
 
