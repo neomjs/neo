@@ -125,6 +125,18 @@ class AccordionTree extends TreeList {
     }
 
     /**
+     * Remove all items from the accordion
+     * If you do not need to update the view after clearing, set `withUpdate = false`
+     *
+     * @param {Boolean} [withUpdate=true]
+     */
+    clear(withUpdate = true) {
+        delete this.getVdomRoot().cn[0].cn
+
+        if (withUpdate) this.update();
+    }
+
+    /**
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -293,40 +305,6 @@ class AccordionTree extends TreeList {
         });
 
         me.selection = records;
-    }
-
-    beforeStoreLoad() {
-        debugger;
-    }
-
-    onBeforeStoreLoad() {
-        debugger;
-    }
-
-    afterSetStore(value, oldValue) {
-        let me = this;
-
-        value?.on({
-            filter      : 'onStoreFilter',
-            load        : 'onStoreLoad',
-            recordChange: 'onStoreRecordChange',
-            sort        : 'onStoreSort',
-            scope       : me
-        });
-
-        value?.getCount() > 0 && me.onStoreLoad();
-    }
-
-    /**
-     * Remove all items from the accordion
-     * If you do not need to update the view after clearing, set `withUpdate = false`
-     *
-     * @param {Boolean} [withUpdate=true]
-     */
-    clear(withUpdate = true) {
-        delete this.getVdomRoot().cn[0].cn
-
-        if (withUpdate) this.update();
     }
 
     /**
