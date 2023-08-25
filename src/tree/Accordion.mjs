@@ -295,6 +295,40 @@ class AccordionTree extends TreeList {
         me.selection = records;
     }
 
+    beforeStoreLoad() {
+        debugger;
+    }
+
+    onBeforeStoreLoad() {
+        debugger;
+    }
+
+    afterSetStore(value, oldValue) {
+        let me = this;
+
+        value?.on({
+            filter      : 'onStoreFilter',
+            load        : 'onStoreLoad',
+            recordChange: 'onStoreRecordChange',
+            sort        : 'onStoreSort',
+            scope       : me
+        });
+
+        value?.getCount() > 0 && me.onStoreLoad();
+    }
+
+    /**
+     * Remove all items from the accordion
+     * If you do not need to update the view after clearing, set `withUpdate = false`
+     *
+     * @param {Boolean} [withUpdate=true]
+     */
+    clear(withUpdate = true) {
+        delete this.getVdomRoot().cn[0].cn
+
+        if (withUpdate) this.update();
+    }
+
     /**
      * After the store loaded, create the items for the list
      *
@@ -304,18 +338,20 @@ class AccordionTree extends TreeList {
         let me = this,
             listenerId;
 
+        me.clear(false);
+
         if (!me.mounted && me.rendering) {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
                 me.createItems(null, me.getListItemsRoot(), 0);
                 me.timeout(0).then(() => {
-                    me.update()
+                    me.update();
                 });
             });
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
             me.timeout(0).then(() => {
-                me.update()
+                me.update();
             });
         }
     }
