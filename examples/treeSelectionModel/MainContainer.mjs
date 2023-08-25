@@ -1,9 +1,13 @@
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
 
-import Store         from '../../src/data/Store.mjs';
-import NumberField   from '../../src/form/field/Number.mjs';
-import AccordionTree from '../../src/tree/Accordion.mjs';
-import CheckBox      from "../../src/form/field/CheckBox.mjs";
+import AccordionTree  from '../../src/tree/Accordion.mjs';
+import CheckBox       from "../../src/form/field/CheckBox.mjs";
+import NumberField    from '../../src/form/field/Number.mjs';
+import Panel          from '../../src/container/Panel.mjs';
+import Store          from '../../src/data/Store.mjs';
+// Do not remove the ViewController nor ViewModel
+import ViewController from '../../src/controller/Component.mjs';
+import ViewModel      from '../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.treeSelectionModel.MainContainer
@@ -48,9 +52,9 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
             maxValue : 1200,
-            minValue : 400,
-            stepSize : 5,
-            value    : treeList.height,
+            minValue : 250,
+            stepSize : 50,
+            value    : 650,
             style    : {marginTop: '10px'}
         }, {
             module   : NumberField,
@@ -59,9 +63,9 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'width')},
             maxValue : 1200,
             minValue : 200,
-            stepSize : 5,
+            stepSize : 3,
             style    : {marginTop: '10px'},
-            value    : treeList.width
+            value    : 400
         }];
     }
 
@@ -69,69 +73,91 @@ class MainContainer extends ConfigurationViewport {
      * @returns {*}
      */
     createExampleComponent() {
-        const store = Neo.create(Store, {
-            keyProperty: 'id',
-            model      : {
-                fields: [
-                    {name: 'collapsed', type: 'Boolean'},
-                    {name: 'content', type: 'String'},
-                    {name: 'iconCls', type: 'String'},
-                    {name: 'id', type: 'Integer'},
-                    {name: 'isLeaf', type: 'Boolean'},
-                    {name: 'name', type: 'String'},
-                    {name: 'parentId', type: 'Integer'}
-                ]
-            }
-        });
+        const me    = this,
+              store = Neo.create(Store, {
+                  keyProperty: 'id',
+                  model      : {
+                      fields: [
+                          {name: 'collapsed', type: 'Boolean'},
+                          {name: 'content', type: 'String'},
+                          {name: 'iconCls', type: 'String'},
+                          {name: 'id', type: 'Integer'},
+                          {name: 'isLeaf', type: 'Boolean'},
+                          {name: 'name', type: 'String'},
+                          {name: 'parentId', type: 'Integer'}
+                      ]
+                  },
+
+                  autoLoad: true,
+                  url     : '../../examples/treeSelectionModel/tree.json'
+              });
 
         return Neo.ntype({
-            ntype : 'container',
+            ntype: 'container',
+
+            model: {
+                data: {
+                    selection: [{name: 'Please select something'}]
+                }
+            },
+
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
-                //     module: TextField,
-                //     label: 'Test',
-                //     plugin: {
-                //         Plugin: {
-                //             bold: true
-                //         }
-                //     }
-                // },{
                 module: AccordionTree,
-                store : store,
-                height: 800,
-                width : 400,
 
-                // ensure afterSetMounted runs only once
-                storeLoaded: false,
-                afterSetMounted() {
-                    if (!this.storeLoaded) {
-                        this.storeLoaded = true;
-                    } else {
-                        return;
-                    }
+                bind: {selection: {twoWay: true, value: data => data.selection}},
 
-                    let me = this;
+                store: store,
 
-                    Neo.Xhr.promiseJson({
-                        url: '../../examples/treeSelectionModel/tree.json'
-                    }).then(data => {
-                        const items      = data.json,
-                              colorArray = ['red', 'yellow', 'green'],
-                              iconArray  = ['home', 'industry', 'user'];
+                /**
+                 * We are using data-binding.
+                 * Here is an example for listener and controller
+                 */
+                // controller: {
+                //     module: ViewController,
+                //
+                //     onAccordionItemClick(record) {
+                //         let viewport = Neo.get('neo-configuration-viewport-1'),
+                //             outputEl = viewport.getReference('output');
+                //
+                //         outputEl.html = record.name;
+                //     }
+                // },
+                //
+                // listeners: {
+                //     leafItemClick: 'onAccordionItemClick'
+                // }
 
-                        // create random iconCls colors
-                        items.forEach((item) => {
-                            if (!item.iconCls) {
-                                const rand = Math.floor(Math.random() * 3);
-
-                                item.iconCls = 'fa fa-' + iconArray[rand] + ' color-' + colorArray[rand];
-                            }
-                        });
-
-                        me.store.data = data.json;
-                        me.createItems(null, me.getListItemsRoot(), 0);
-                    });
+                listeners: {
+                    selectPreFirstItem: () => Neo.log('listener selectPreFirstItem fired'),
+                    selectPostLastItem: () => Neo.log('listener selectPostLastItem fired')
                 }
+            }, {
+                module: Panel,
+                height: 150,
+                width : '100%',
+
+                itemDefaults: {
+                    style: {
+                        padding: '10px'
+                    }
+                },
+
+                headers: [{
+                    dock : 'top',
+                    style: {borderRightColor: 'transparent'},
+
+                    items: [{
+                        ntype: 'label',
+                        text : 'Accordion Selection'
+                    }]
+                }],
+
+                items: [{
+                    ntype    : 'component',
+                    reference: 'output',
+                    bind     : {html: data => data.selection[0].name}
+                }]
             }]
         });
     }

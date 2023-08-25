@@ -59,11 +59,11 @@ Neo = globalThis.Neo = Object.assign({
 
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
                 baseCfg = Neo.clone(ctor.config, true);
-                break;
+                break
             }
 
             protos.unshift(proto);
-            proto = proto.__proto__;
+            proto = proto.__proto__
         }
 
         config = baseCfg || {};
@@ -76,7 +76,7 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
 
             if (Neo.overwrites) {
-                ctor.applyOverwrites(cfg);
+                ctor.applyOverwrites(cfg)
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
@@ -84,7 +84,7 @@ Neo = globalThis.Neo = Object.assign({
                     delete cfg[key];
                     key = key.slice(0, -1);
                     cfg[key] = value;
-                    autoGenerateGetSet(element, key);
+                    autoGenerateGetSet(element, key)
                 }
 
                 // only apply properties which have no setters inside the prototype chain
@@ -94,7 +94,7 @@ Neo = globalThis.Neo = Object.assign({
                         enumerable: true,
                         value,
                         writable  : true
-                    });
+                    })
                 }
             });
 
@@ -104,7 +104,7 @@ Neo = globalThis.Neo = Object.assign({
                 // Running the docs app inside a workspace can pull in the same classes from different roots,
                 // so we want to check for different class names as well
                 if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
-                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`);
+                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`)
                 }
 
                 ntypeMap[ntype] = cfg.className;
@@ -113,11 +113,11 @@ Neo = globalThis.Neo = Object.assign({
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
 
             if (ctor.observable) {
-                mixins.push('Neo.core.Observable');
+                mixins.push('Neo.core.Observable')
             }
 
             if (Object.hasOwn(cfg, 'mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
-                mixins.push(...cfg.mixins);
+                mixins.push(...cfg.mixins)
             }
 
             if (mixins.length > 0) {
@@ -139,17 +139,17 @@ Neo = globalThis.Neo = Object.assign({
                 isClass           : true
             });
 
-            !config.singleton && this.applyToGlobalNs(cls);
+            !config.singleton && this.applyToGlobalNs(cls)
         });
 
         proto = cls.prototype || cls;
 
         if (proto.singleton) {
             cls = Neo.create(cls);
-            Neo.applyToGlobalNs(cls);
+            Neo.applyToGlobalNs(cls)
         }
 
-        return cls;
+        return cls
     },
 
     /**
@@ -177,10 +177,10 @@ Neo = globalThis.Neo = Object.assign({
             Object.entries(config).forEach(([key, value]) => {
                 fnName = namespace[value];
                 target[key] = bind ? fnName.bind(namespace) : fnName;
-            });
+            })
         }
 
-        return target;
+        return target
     },
 
     /**
@@ -199,7 +199,7 @@ Neo = globalThis.Neo = Object.assign({
             nsArray = className.split('.');
             key     = nsArray.pop();
             ns      = Neo.ns(nsArray, true);
-            ns[key] = cls;
+            ns[key] = cls
         }
     },
 
@@ -214,12 +214,12 @@ Neo = globalThis.Neo = Object.assign({
         if (target && Neo.typeOf(defaults) === 'Object') {
             Object.entries(defaults).forEach(([key, value]) => {
                 if (!Object.hasOwn(target, key)) {
-                    target[key] = value;
+                    target[key] = value
                 }
-            });
+            })
         }
 
-        return target;
+        return target
     },
 
     /**
@@ -243,7 +243,7 @@ Neo = globalThis.Neo = Object.assign({
                 out = {};
 
                 Object.entries(obj).forEach(([key, value]) => {
-                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances);
+                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
                 });
 
                 return out
@@ -263,7 +263,7 @@ Neo = globalThis.Neo = Object.assign({
         delete config._id;
         delete config.id;
 
-        return Neo.create(instance.className, config);
+        return Neo.create(instance.className, config)
     },
 
     /**
@@ -305,7 +305,7 @@ Neo = globalThis.Neo = Object.assign({
             cls, instance;
 
         if (type === 'NeoClass') {
-            cls = className;
+            cls = className
         } else {
             if (type === 'Object') {
                 config = className;
@@ -313,17 +313,17 @@ Neo = globalThis.Neo = Object.assign({
                 if (!config.className && !config.module) {
                     // using console.error instead of throw to show the config object
                     console.error('Class created with object configuration missing className or module property', config);
-                    return null;
+                    return null
                 }
 
                 className = config.className || config.module.prototype.className;
             }
 
             if (!exists(className)) {
-                throw new Error('Class ' + className + ' does not exist');
+                throw new Error('Class ' + className + ' does not exist')
             }
 
-            cls = Neo.ns(className);
+            cls = Neo.ns(className)
         }
 
         instance = new cls();
@@ -333,7 +333,7 @@ Neo = globalThis.Neo = Object.assign({
         instance.onAfterConstructed();
         instance.init();
 
-        return instance;
+        return instance
     },
 
     /**
@@ -435,7 +435,7 @@ Neo = globalThis.Neo = Object.assign({
                     return createArrayNs(true, current, prev);
                 }
 
-                prev[current] = {};
+                prev[current] = {}
             }
 
             if (prev) {
@@ -443,9 +443,9 @@ Neo = globalThis.Neo = Object.assign({
                     return createArrayNs(false, current, prev);
                 }
 
-                return prev[current];
+                return prev[current]
             }
-        }, scope || globalThis);
+        }, scope || globalThis)
     },
 
     /**
@@ -474,16 +474,17 @@ Neo = globalThis.Neo = Object.assign({
             if (!config.ntype) {
                 throw new Error('Class defined with object configuration missing ntype property. ' + config.ntype);
             }
-            ntype = config.ntype;
+
+            ntype = config.ntype
         }
 
         let className = Neo.ntypeMap[ntype];
 
         if (!className) {
-            throw new Error('ntype ' + ntype + ' does not exist');
+            throw new Error('ntype ' + ntype + ' does not exist')
         }
 
-        return Neo.create(className, config);
+        return Neo.create(className, config)
     },
 
     /**
@@ -492,7 +493,7 @@ Neo = globalThis.Neo = Object.assign({
      */
     typeOf(item) {
         if (item === null || item === undefined) {
-            return null;
+            return null
         }
 
         return {
@@ -626,7 +627,7 @@ function autoGenerateGetSet(proto, key) {
                 delete me[configSymbol][key];
 
                 if (key !== 'items') {
-                    value = Neo.clone(value, true, true);
+                    value = Neo.clone(value, true, true)
                 }
 
                 // we do want to store the value before the beforeSet modification as well,
@@ -639,7 +640,7 @@ function autoGenerateGetSet(proto, key) {
                     // If they don't return a value, that means no change
                     if (value === undefined) {
                         me[_key] = oldValue;
-                        return;
+                        return
                     }
 
                     me[_key] = value;
@@ -650,7 +651,7 @@ function autoGenerateGetSet(proto, key) {
                     !Neo.isEqual(value, oldValue)
                 ) {
                     me[afterSet]?.(value, oldValue);
-                    me.afterSetConfig?.(key, value, oldValue);
+                    me.afterSetConfig?.(key, value, oldValue)
                 }
             }
         };
@@ -672,9 +673,9 @@ function createArrayNs(create, current, prev) {
         arrItem, arrRoot;
 
     if (create) {
-        prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || [];
+        prev[arrDetails[0]] = arrRoot = prev[arrDetails[0]] || []
     } else {
-        arrRoot = prev[arrDetails[0]];
+        arrRoot = prev[arrDetails[0]]
     }
 
     if (!arrRoot) {
@@ -688,10 +689,10 @@ function createArrayNs(create, current, prev) {
             arrRoot[arrItem] = arrRoot[arrItem] || {};
         }
 
-        arrRoot = arrRoot[arrItem];
+        arrRoot = arrRoot[arrItem]
     }
 
-    return arrRoot;
+    return arrRoot
 }
 
 /**
@@ -704,9 +705,9 @@ function exists(className) {
     try {
         return !!className.split('.').reduce((prev, current) => {
             return prev[current];
-        }, globalThis);
+        }, globalThis)
     } catch(e) {
-        return false;
+        return false
     }
 }
 
@@ -725,8 +726,9 @@ function mixinProperty(proto, mixinProto) {
         if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
-                return;
+                return
             }
+
             throw new Error(
                 `${proto.className}: Multiple mixins defining same property (${mixinProto.className}, ${proto[key]._from}) => ${key}`
             );
@@ -737,7 +739,7 @@ function mixinProperty(proto, mixinProto) {
         Object.getOwnPropertyDescriptor(proto, key)._from = mixinProto.className;
 
         if (typeof proto[key] === 'function') {
-            proto[key]._name = key;
+            proto[key]._name = key
         }
     };
 }
@@ -749,8 +751,8 @@ function mixinProperty(proto, mixinProto) {
  */
 function mixReduce(mixinCls) {
     return (prev, current, idx, arr) => {
-        return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls;
-    };
+        return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls
+    }
 }
 
 /**
@@ -761,7 +763,7 @@ function mixReduce(mixinCls) {
 function parseArrayFromString(str) {
     return (extractArraysRegex.exec(str) || [null]).slice(1).reduce(
         (fun, args) => [fun].concat(args.match(charsRegex))
-    );
+    )
 }
 
 Neo.config = Neo.config || {};

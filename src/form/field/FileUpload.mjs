@@ -153,6 +153,7 @@ class FileUpload extends Base {
             UPLOADING        : 'scanning',
 
             MALWARE_DETECTED : 'scan-failed',
+            UN_DOWNLOADABLE  : 'not-downloadable',
             AVAILABLE        : 'not-downloadable',
             DOWNLOADABLE     : 'downloadable',
             DELETED          : 'deleted'
@@ -317,6 +318,7 @@ class FileUpload extends Base {
         // UI strings which can be overridden for other languages
         chooseFile           : 'Choose file',
         documentText         : 'Document',
+        invalidFileFormat    : 'invalid file format',
         pleaseUseTheseTypes  : 'Please use these file types',
         fileSizeMoreThan     : 'File size exceeds',
         documentDeleteError  : 'Document delete service error',
@@ -346,15 +348,18 @@ class FileUpload extends Base {
     }
 
     afterSetId(value, oldValue) {
-        const
-            labelEl   = this.vdom.cn[4],
-            inputElId = `${this.id}-input`;
+        const inputElId = `${this.id}-input`;
 
-        this.getInputEl().id =  labelEl.for = inputElId;
-        labelEl.html = this.chooseFile;
+        this.getInputEl().id =  this.vdom.cn[4].for = inputElId;
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId?.(value, oldValue);
+    }
+
+    onConstructed() {
+        super.onConstructed(...arguments);
+
+        this.vdom.cn[4].html = this.chooseFile;
     }
     
     /**
@@ -388,7 +393,8 @@ class FileUpload extends Base {
     onInputValueChange({ files }) {
         const
             me        = this,
-            { types } = me;
+            { types } = me,
+            body      = me.vdom.cn[1];
 
         if (files.length) {
             const
@@ -397,9 +403,13 @@ class FileUpload extends Base {
                 type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
             if (me.types && !types[type]) {
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
                 me.error = `${me.pleaseUseTheseTypes}: .${Object.keys(types).join(' .')}`;
             }
             else if (file.size > me.maxSize) {
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = me.formatSize(file.size);
                 me.error = `${me.fileSizeMoreThan} ${String(me._maxSize).toUpperCase()}`;
             }
             // If it passes the type and maxSize check, upload it
@@ -552,6 +562,9 @@ class FileUpload extends Base {
             case 'deleted':
                 me.clear();
                 me.state = 'ready';
+                break;
+            case 'ready':
+                me.clear();
                 break;
         }
     }
