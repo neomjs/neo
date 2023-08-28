@@ -98,14 +98,33 @@
         flex          : 0 0 1.2rem;
     }
 
-    // The file input and label is only visible in the ready state
-    &:not(.neo-file-upload-state-ready) {
+    // When we have a file selected, the file input and label are hidden
+    &:not(.neo-field-empty) {
         input[type="file"],label {
             display : none;
         }
     }
 
-    &.neo-invalid {
+    &.neo-field-empty {
+        // The input field and its label are visible when no file is selected.
+        // It takes up the whole component, and is the only interactive item
+        :not(input[type="file"],label) {
+            display : none;
+        }
+        input::file-selector-button {
+            position         : absolute;
+            border           : 0 none;
+            margin           : 0;
+            top              : 0;
+            left             : 0;
+            right            : 0;
+            bottom           : 0;
+            background-color : var(--fileuploadfield-background-color);
+            color            : var(--fileuploadfield-color);
+        }
+    }
+
+    &.neo-invalid:not(.neo-field-empty) {
         .neo-file-upload-error-message {
             display : initial;
         }
@@ -230,25 +249,6 @@
         &::after {
             content : var(--cancel-icon-codepoint );
         }
-    }
-}
-
-.neo-file-upload-state-ready:not(.neo-invalid) {
-    // Only the input field and its label is visible when in ready state
-    // It takes up the whole component, and is the only interactive item
-    :not(input[type="file"],label) {
-        display : none;
-    }
-    input::file-selector-button {
-        position         : absolute;
-        border           : 0 none;
-        margin           : 0;
-        top              : 0;
-        left             : 0;
-        right            : 0;
-        bottom           : 0;
-        background-color : var(--fileuploadfield-background-color);
-        color            : var(--fileuploadfield-color);
     }
 }
 
