@@ -125,6 +125,25 @@ class AccordionTree extends TreeList {
     }
 
     /**
+     * Remove all items from the accordion
+     * If you do not need to update the view after clearing, set `withUpdate = false`
+     *
+     * @param {Boolean} [withUpdate=true]
+     */
+    clear(withUpdate = true) {
+        delete this.getVdomRoot().cn[0].cn
+
+        if (withUpdate) this.update();
+    }
+
+    /**
+     * Remove all items from the selection
+     */
+    clearSelection() {
+        this.selectionModel.deselectAll();
+    }
+
+    /**
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -304,23 +323,56 @@ class AccordionTree extends TreeList {
         let me = this,
             listenerId;
 
+        me.clear(false);
+
         if (!me.mounted && me.rendering) {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
                 me.createItems(null, me.getListItemsRoot(), 0);
                 me.timeout(0).then(() => {
-                    me.update()
+                    me.update();
                 });
             });
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
             me.timeout(0).then(() => {
-                me.update()
+                me.update();
             });
         }
     }
 
     onStoreRecordChange() {
+    }
+
+    /**
+     * Set the selection either bei record id or record.
+     * You can pass a record or a recordId as value
+     *
+     * @param {Record|Record[]|Number|Number[]|String|String[]} value
+     */
+    setSelection(value) {
+        if (value === null) {
+            this.clearSelection();
+            return;
+        }
+
+        // In case you pass in an array use only the first item
+        if (Neo.isArray(value)) value = value[0];
+
+        const me = this;
+        let recordKeyProperty, elId;
+
+        if (Neo.isObject(value)) {
+            // Record
+            recordKeyProperty = value[me.getKeyProperty()];
+        } else {
+            // RecordId
+            recordKeyProperty = value;
+        }
+
+        elId = me.getItemId(recordKeyProperty);
+
+        me.selectionModel.selectAndScrollIntoView(elId);
     }
 }
 
