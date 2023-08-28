@@ -13,8 +13,8 @@
 
         &:before,
         &:after {
-            content       : "";
-            position      : absolute;
+            content : "";
+            position: absolute;
         }
 
         &:before {
@@ -40,16 +40,16 @@
             background-color: var(--switchfield-color-on-idle);
 
             &:before {
-                transform : translateX(100%);
+                transform: translateX(100%);
             }
 
             &:after {
-                bottom           : 8px;
-                right            : auto;
-                left             : 9px;
-                background-color : var(--switchfield-color-knob);
-                border           : 0;
-                width            : 1px;
+                bottom          : 8px;
+                right           : auto;
+                left            : 9px;
+                background-color: var(--switchfield-color-knob);
+                border          : 0;
+                width           : 1px;
             }
 
             &:hover {
@@ -62,15 +62,15 @@
         }
 
         &:focus {
-            outline  : var(--switchfield-borderwidth-focused) solid var(--switchfield-bordercolor-focused);
+            outline: var(--switchfield-borderwidth-focused) solid var(--switchfield-bordercolor-focused);
         }
     }
 
     &.neo-disabled .neo-switchfield-input {
-        background-color : var(--switchfield-color-off-disabled);
+        background-color: var(--switchfield-color-off-disabled);
 
         &:checked {
-            background-color : var(--switchfield-color-on-disabled);
+            background-color: var(--switchfield-color-on-disabled);
         }
     }
 }
