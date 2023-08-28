@@ -132,7 +132,7 @@ class FileUpload extends Base {
             ]
         },
 
-        cls : [],
+        cls : ['neo-field-empty'],
 
         /**
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
@@ -370,9 +370,15 @@ class FileUpload extends Base {
     }
 
     async clear() {
-        const me = this;
+        const
+            me      = this,
+            { cls } = me;
+
+        NeoArray.add(cls, 'neo-field-empty');
+        me.cls = cls;
 
         me.vdom.cn[3] = {
+            id    : `${me.id}-input`,
             cls   : 'neo-file-upload-input',
             tag   : 'input',
             type  : 'file',
@@ -380,6 +386,7 @@ class FileUpload extends Base {
         };
         me.state = 'ready';
         me.error = '';
+        me.file = me.document = null;
 
         // We have to wait for the DOM to have changed, and the input field to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -393,10 +400,16 @@ class FileUpload extends Base {
     onInputValueChange({ files }) {
         const
             me        = this,
-            { types } = me,
+            {
+                types,
+                cls
+            } = me,
             body      = me.vdom.cn[1];
 
         if (files.length) {
+            NeoArray.remove(cls, 'neo-field-empty');
+            me.cls = cls;
+            
             const
                 file     = files.item(0),
                 pointPos = file.name.lastIndexOf('.'),
@@ -434,6 +447,7 @@ class FileUpload extends Base {
             headers    = { ...me.headers };
 
         // Show the action button
+        me.file  = file;
         me.state = 'starting';
 
         // We have to wait for the DOM to have changed, and the action button to be visible
@@ -642,9 +656,12 @@ class FileUpload extends Base {
     afterSetDocument(document) {
         if (document) {
             const
-                me = this;
+                me      = this,
+                { cls } = me;
 
-            me.preExistingDocument = true;
+            NeoArray.remove(cls, 'neo-field-empty');
+            me.cls = cls;
+
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
             me.vdom.cn[1].cn[0].innerHTML = document.fileName;
@@ -693,8 +710,7 @@ class FileUpload extends Base {
                 status.innerHTML = me.fileSize;
                 break;
             case 'not-downloadable':
-                status.innerHTML = me.preExistingDocument ?
-                me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
+                status.innerHTML = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
                 break;
             case 'deleted':
                 status.innerHTML = me.fileWasDeleted;
@@ -708,6 +724,7 @@ class FileUpload extends Base {
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
+        NeoArray[me.file || me.document ? 'remove' : 'add', 'neo-field-empty'];
         me.cls = cls;
     }
 
