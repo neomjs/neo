@@ -1,39 +1,39 @@
 .neo-switchfield {
     .neo-switchfield-input {
-        position        : relative;
-        margin          : 0;
         background-color: var(--switchfield-color-off-idle);
         border-radius   : 999px;
         height          : var(--switchfield-height);
-        width           : var(--switchfield-width);
+        margin          : 0;
+        position        : relative;
         vertical-align  : middle;
+        width           : var(--switchfield-width);
 
         -webkit-appearance         : none;
         -webkit-tap-highlight-color: transparent;
 
-        &:before,
-        &:after {
+        &:after,
+        &:before {
             content : "";
             position: absolute;
         }
 
         &:before {
-            top             : 1.5px;
-            left            : 0;
             background-color: var(--switchfield-color-knob);
             border-radius   : 50%;
-            width           : var(--switchfield-knobsize);
             height          : var(--switchfield-knobsize);
-            transition       : transform 150ms ease-out;
+            left            : 0;
+            top             : 1.5px;
+            transition      : transform 150ms ease-out;
+            width           : var(--switchfield-knobsize);
         }
 
         &:after {
-            bottom       : 7px;
-            right        : 7px;
             border       : 1px solid var(--switchfield-color-knob);
             border-radius: 50%;
-            width        : 8px;
+            bottom       : 7px;
             height       : 8px;
+            right        : 7px;
+            width        : 8px;
         }
 
         &:checked {
@@ -44,11 +44,11 @@
             }
 
             &:after {
-                bottom          : 8px;
-                right           : auto;
-                left            : 9px;
                 background-color: var(--switchfield-color-knob);
                 border          : 0;
+                bottom          : 8px;
+                left            : 9px;
+                right           : auto;
                 width           : 1px;
             }
 
@@ -57,12 +57,12 @@
             }
         }
 
-        &:hover {
-            background-color: var(--switchfield-color-off-hovered);
-        }
-
         &:focus {
             outline: var(--switchfield-borderwidth-focused) solid var(--switchfield-bordercolor-focused);
+        }
+
+        &:hover {
+            background-color: var(--switchfield-color-off-hovered);
         }
     }
 
