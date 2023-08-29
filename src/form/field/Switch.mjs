@@ -1,5 +1,4 @@
 import CheckBox from './CheckBox.mjs';
-import NeoArray from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.Switch
