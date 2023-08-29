@@ -6,9 +6,10 @@ import { Command } from 'commander/esm.mjs';
 import envinfo from 'envinfo';
 import fs from 'fs-extra';
 import inquirer from 'inquirer';
-import os from 'os';
+// import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+//import {getScssClassName} from "./tools/utils.mjs";
 
 const
     __dirname = fileURLToPath(new URL('../', import.meta.url)),
@@ -49,6 +50,13 @@ program
     .parse(process.argv);
 
 const programOpts = program.opts();
+const className = programOpts.className;
+
+let ns = className.split('.');
+let file = ns.pop();
+let root = ns.shift();
+let rootLowerCase = root.toLowerCase();
+
 console.log('huhu');
 if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
@@ -136,8 +144,11 @@ if (programOpts.info) {
         process.exit(1);
     }
 
-    /*
-    const childProcess = spawnSync('node', [
+
+    //const scssClassName = getScssClassName(file, rootLowerCase);
+
+/*
+    let childProcess = spawnSync('node', [
         './buildScripts/createClass.mjs',
 //        '--',
         '-c',
@@ -145,11 +156,13 @@ if (programOpts.info) {
         '-b',
         baseClass,
         '-n',
-        singleton
+        singleton,
+        '-r',
+        getScssClassName(file, rootLowerCase)
     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
     childProcess.status && process.exit(childProcess.status);
 */
-    const childProcess = spawnSync('node', [
+    let childProcess = spawnSync('node', [
         './buildScripts/tools/createScss.mjs',
         //        '--',
         '-c',
@@ -160,6 +173,8 @@ if (programOpts.info) {
         singleton
     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
     childProcess.status && process.exit(childProcess.status);
+
+
 }
 
 function guessBaseClass(className) {
@@ -194,4 +209,14 @@ function guessBaseClass(className) {
     }
 
     return 'container.Base';
+}
+
+function getScssClassName(file, namespace) {
+    //template
+
+    let temp = file.split(/(?=[A-Z])/);
+    temp.splice(0, 0, namespace);
+    const scssClassName = temp.join('-').toLowerCase();
+
+    return scssClassName;
 }

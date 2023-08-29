@@ -51,29 +51,53 @@ let file = ns.pop();
 let root = ns.shift();
 let rootLowerCase = root.toLowerCase();
 
-//let classFolder = path.join(cwd,  '/src/', ns.join('/'));
+// let classFolder = path.join(cwd,  '/src/', ns.join('/'));
 let classFolder = path.join(cwd, 'resources/scss/src/', rootLowerCase === 'neo' ? `/${ns.join('/')}` : `apps/${rootLowerCase}`);
 console.log(className);
 console.log(classFolder);
 
-createScssSrcStub(classFolder, file, rootLowerCase);
-console.log('hier');
+const scssClassName = getScssClassName(file, rootLowerCase);
+const template = `.${scssClassName} {
+    // add css information here
+}`;
+ createScssStub(classFolder, file, template);
 
+// iterate over themes
+let themeFoldersPath = path.join(cwd, 'resources/scss/');
 
+const themeFolders = listDirectories(themeFoldersPath);
+themeFolders.forEach(theme => {
+    classFolder = path.join(cwd, 'resources/scss/',theme,rootLowerCase === 'neo' ? `/${ns.join('/')}` : `apps/${rootLowerCase}`);
+    const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
+        // add css theme information here
+}`;
+    createScssStub(classFolder, file, themeTemplate);
+    console.log(classFolder);
+})
 
-function createScssSrcStub(classFolder, file, namespace ) {
+function listDirectories(path) {
+    return fs.readdirSync(path, {withFileTypes: true})
+      .filter(dirent =>  dirent.isDirectory() && dirent.name.startsWith('theme'))
+      .map(dirent => dirent.name);
+  }
+
+function createScssStub(classFolder, file, template ) {
     //template
 
-    let temp = file.split(/(?=[A-Z])/);
-    temp.splice(0,0,namespace);
-    const scssClassName = temp.join('-').toLowerCase();
-
-    const template = `.${scssClassName} {
-        // add css information here
-    }`;
     const scssFile =  `${classFolder}/${file}.scss`;
 
     fs.writeFileSync(scssFile, `${template}${os.EOL}`);
-    console.log(scssClassName);
-    console.log('huhu');
+//    console.log(scssClassName);
+//    console.log('huhu');
+//    scssClassName;
+}
+
+function getScssClassName(file, namespace) {
+    //template
+
+    let temp = file.split(/(?=[A-Z])/);
+    temp.splice(0, 0, namespace);
+    const scssClassName = temp.join('-').toLowerCase();
+
+    return scssClassName;
 }
