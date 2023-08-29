@@ -1,4 +1,14 @@
 .neo-checkboxfield {
+    .neo-checkbox-icon {
+        color      : var(--checkboxfield-color);
+        cursor     : pointer;
+        display    : inline-block;
+        font-family: var(--checkboxfield-icon-font-family);
+        font-size  : var(--checkboxfield-icon-font-size);
+        margin     : var(--checkboxfield-icon-margin);
+        width      : 20px;
+    }
+
     .neo-checkbox-input {
         margin: 0;
         width: 0; // using display: none would break the keynav
@@ -14,19 +24,10 @@
         }
     }
 
-    .neo-checkbox-icon {
-        color      : var(--checkboxfield-color);
-        cursor     : pointer;
-        display    : inline-block;
-        font-family: var(--checkboxfield-icon-font-family);
-        font-size  : var(--checkboxfield-icon-font-size);
-        margin     : var(--checkboxfield-icon-margin);
-        width      : 20px;
-    }
-
     .neo-checkbox-label {
+        align-items: center;
         color      : var(--textfield-label-color);
-        display    : inline-block;
+        display    : flex;
         user-select: none;
     }
 
