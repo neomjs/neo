@@ -319,8 +319,9 @@ class FileUpload extends Base {
         chooseFile           : 'Choose file',
         documentText         : 'Document',
         invalidFileFormat    : 'invalid file format',
-        pleaseUseTheseTypes  : 'Please use these file types',
-        fileSizeMoreThan     : 'File size exceeds',
+        pleaseUseTheseTypes  : 'Please use these file types {allowedFileTypes}',
+        fileSizeMoreThan     : 'File size exceeds {allowedFileSize}',
+        uploadError          : 'Please try again',
         documentDeleteError  : 'Document delete service error',
         isNoLongerAvailable  : 'is no longer available',
         documentStatusError  : 'Document status service error',
@@ -418,12 +419,12 @@ class FileUpload extends Base {
             if (me.types && !types[type]) {
                 body.cn[0].innerHTML = file.name;
                 body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
-                me.error = `${me.pleaseUseTheseTypes}: .${Object.keys(types).join(' .')}`;
+                me.error = me.pleaseUseTheseTypes?.replace('{allowedFileTypes}', Object.keys(types).join(' .'))
             }
             else if (file.size > me.maxSize) {
                 body.cn[0].innerHTML = file.name;
                 body.cn[1].innerHTML = me.formatSize(file.size);
-                me.error = `${me.fileSizeMoreThan} ${String(me._maxSize).toUpperCase()}`;
+                me.error = me.fileSizeMoreThan?.replace('{allowedFileSize}', String(me._maxSize).toUpperCase());
             }
             // If it passes the type and maxSize check, upload it
             else {
@@ -508,7 +509,7 @@ class FileUpload extends Base {
     onUploadError(e) {
         this.xhr = null;
         this.state = 'upload-failed';
-        this.error = e.type;
+        this.error = `${this.uploadError}`;
     }
 
     onUploadDone({ loaded, target : xhr }) {
