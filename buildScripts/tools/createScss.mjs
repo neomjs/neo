@@ -36,7 +36,7 @@ console.log(process.argv);
 console.log(cwd);
 
 program
-    .name('huhu')
+    //    .name('huhu')
     .version(packageJson.version)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
@@ -52,7 +52,18 @@ let root = ns.shift();
 let rootLowerCase = root.toLowerCase();
 
 // let classFolder = path.join(cwd,  '/src/', ns.join('/'));
-let classFolder = path.join(cwd, 'resources/scss/src/', rootLowerCase === 'neo' ? `/${ns.join('/')}` : `apps/${rootLowerCase}`);
+const forNonNeoPathArray = ns.filter(f => f !== 'view');
+let nonNeoPath = `apps/${rootLowerCase}`;
+if (forNonNeoPathArray.length > 0) {
+    nonNeoPath = nonNeoPath.concat('/', forNonNeoPathArray.join('/'));
+}
+
+let classFolder = path.join(cwd, 'resources/scss/src/', rootLowerCase === 'neo' ? `/${ns.join('/')}` : nonNeoPath);
+
+if (!fs.existsSync(classFolder)) {
+    fs.mkdirpSync(classFolder, { recursive: true });
+}
+
 console.log(className);
 console.log(classFolder);
 
@@ -60,14 +71,22 @@ const scssClassName = getScssClassName(file, rootLowerCase);
 const template = `.${scssClassName} {
     // add css information here
 }`;
- createScssStub(classFolder, file, template);
+createScssStub(classFolder, file, template);
 
 // iterate over themes
 let themeFoldersPath = path.join(cwd, 'resources/scss/');
 
 const themeFolders = listDirectories(themeFoldersPath);
 themeFolders.forEach(theme => {
-    classFolder = path.join(cwd, 'resources/scss/',theme,rootLowerCase === 'neo' ? `/${ns.join('/')}` : `apps/${rootLowerCase}`);
+    const forNonNeoPathArray = ns.filter(f => f !== 'view');
+    let nonNeoPath = `apps/${rootLowerCase}`;
+    if (forNonNeoPathArray.length > 0) {
+        nonNeoPath = nonNeoPath.concat('/', forNonNeoPathArray.join('/'));
+    }
+    classFolder = path.join(cwd, 'resources/scss/', theme, rootLowerCase === 'neo' ? `/${ns.join('/')}` : nonNeoPath);
+    if (!fs.existsSync(classFolder)) {
+        fs.mkdirpSync(classFolder, { recursive: true });
+    }
     const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
         // add css theme information here
 }`;
@@ -76,20 +95,20 @@ themeFolders.forEach(theme => {
 })
 
 function listDirectories(path) {
-    return fs.readdirSync(path, {withFileTypes: true})
-      .filter(dirent =>  dirent.isDirectory() && dirent.name.startsWith('theme'))
-      .map(dirent => dirent.name);
-  }
+    return fs.readdirSync(path, { withFileTypes: true })
+        .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('theme'))
+        .map(dirent => dirent.name);
+}
 
-function createScssStub(classFolder, file, template ) {
+function createScssStub(classFolder, file, template) {
     //template
 
-    const scssFile =  `${classFolder}/${file}.scss`;
+    const scssFile = `${classFolder}/${file}.scss`;
 
     fs.writeFileSync(scssFile, `${template}${os.EOL}`);
-//    console.log(scssClassName);
-//    console.log('huhu');
-//    scssClassName;
+    //    console.log(scssClassName);
+    //    console.log('huhu');
+    //    scssClassName;
 }
 
 function getScssClassName(file, namespace) {
