@@ -65,12 +65,19 @@
             background-color: var(--switchfield-color-off-hovered);
         }
     }
+}
 
-    &.neo-disabled .neo-switchfield-input {
-        background-color: var(--switchfield-color-off-disabled);
+.neo-disabled {
+    .neo-switchfield,
+    &.neo-switchfield {
+        opacity: var(--switchfield-opacity-disabled);
 
-        &:checked {
-            background-color: var(--switchfield-color-on-disabled);
+        .neo-switchfield-input {
+            background-color: var(--switchfield-color-off-disabled);
+
+            &:checked {
+                background-color: var(--switchfield-color-on-disabled);
+            }
         }
     }
 }
