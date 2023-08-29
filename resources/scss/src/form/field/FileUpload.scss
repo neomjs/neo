@@ -194,14 +194,14 @@
         }
     }
 
-    .neo-file-upload-state-icon, .neo-file-upload-state {
-        color : var(--fileuploadfield-error-color);
-    }
-}
-
-.neo-file-upload-state-scan-failed {
     .neo-file-upload-state-icon {
+        background-image: none;
+        color : var(--fileuploadfield-error-color);
         border : 3px solid var(--fileuploadfield-error-color);
+    }
+    .neo-file-upload-state {
+        color : var(--fileuploadfield-error-color);
+
     }
 }
 
