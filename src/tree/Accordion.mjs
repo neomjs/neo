@@ -344,15 +344,11 @@ class AccordionTree extends TreeList {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
                 me.createItems(null, me.getListItemsRoot(), 0);
-                me.timeout(0).then(() => {
-                    me.update();
-                });
+                me.update()
             });
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
-            me.timeout(0).then(() => {
-                me.update();
-            });
+            me.update()
         }
     }
 
