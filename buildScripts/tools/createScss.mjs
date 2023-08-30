@@ -31,10 +31,6 @@ const
      */
     sourceRootDirs = ['apps'];
 
-console.log('cc argv');
-console.log(process.argv);
-console.log(cwd);
-
 program
     //    .name('huhu')
     .version(packageJson.version)
@@ -64,9 +60,6 @@ if (!fs.existsSync(classFolder)) {
     fs.mkdirpSync(classFolder, { recursive: true });
 }
 
-console.log(className);
-console.log(classFolder);
-
 const scssClassName = getScssClassName(file, rootLowerCase);
 const template = `.${scssClassName} {
     // add css information here
@@ -91,7 +84,6 @@ themeFolders.forEach(theme => {
         // add css theme information here
 }`;
     createScssStub(classFolder, file, themeTemplate);
-    console.log(classFolder);
 })
 
 function listDirectories(path) {
@@ -106,9 +98,7 @@ function createScssStub(classFolder, file, template) {
     const scssFile = `${classFolder}/${file}.scss`;
 
     fs.writeFileSync(scssFile, `${template}${os.EOL}`);
-    //    console.log(scssClassName);
-    //    console.log('huhu');
-    //    scssClassName;
+    console.log(`File ${scssFile} created.`)
 }
 
 function getScssClassName(file, namespace) {

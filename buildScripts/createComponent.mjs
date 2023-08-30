@@ -33,7 +33,6 @@ const
      */
     sourceRootDirs = ['apps'];
 
-console.log(process.argv);
 program
     .name(programName)
     .version(packageJson.version)
@@ -50,14 +49,7 @@ program
     .parse(process.argv);
 
 const programOpts = program.opts();
-const className = programOpts.className;
 
-let ns = className.split('.');
-let file = ns.pop();
-let root = ns.shift();
-let rootLowerCase = root.toLowerCase();
-
-console.log('huhu');
 if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
@@ -128,16 +120,21 @@ if (programOpts.info) {
 
     Object.assign(answers, answer);
 
+//    const className = programOpts.className;
+
+    
+
     let baseClass = programOpts.baseClass || answers.baseClass,
         className = programOpts.className || answers.className,
         singleton = programOpts.singleton || answers.singleton || 'no',
         //        isDrop      = programOpts.drop,
         isSingleton = singleton === 'yes';
-    //        startDate   = new Date(),
-    //        baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
-    console.log('---');
-    console.log(`classname: ${className}; baseClass: ${baseClass}; singleton: ${singleton}`)
-    console.log('---')
+
+        let ns = className.split('.');
+        let file = ns.pop();
+        let root = ns.shift();
+        let rootLowerCase = root.toLowerCase();
+              
 
     if (!baseClass && !className) {
         console.error(chalk.red('className and baseClass must be defined'));
