@@ -2,6 +2,7 @@ import TreeList           from '../tree/List.mjs';
 import TreeAccordionModel from "../selection/TreeAccordionModel.mjs";
 import NeoArray           from "../util/Array.mjs";
 import ClassSystemUtil    from "../util/ClassSystem.mjs";
+import VDomUtil           from "../util/VDom.mjs";
 
 /**
  * @class Neo.tree.Accordion
@@ -39,7 +40,7 @@ class AccordionTree extends TreeList {
         firstParentIsVisible_: true,
         /**
          * Currently selected item, which is bindable
-         * @member {Object[]|null} selection=null
+         * @member {Record[]|null} selection=null
          *
          * @example
          *     module: AccordionTree,
@@ -157,7 +158,7 @@ class AccordionTree extends TreeList {
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
             folderCls = me.folderCls,
-            cls, id, tmpRoot;
+            cls, id, itemIconCls, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -179,6 +180,12 @@ class AccordionTree extends TreeList {
 
             items.forEach(item => {
                 cls = [itemCls];
+
+                itemIconCls = ['neo-accordion-item-icon'];
+                if (item.iconCls) {
+                    NeoArray.add(itemIconCls, item.iconCls.split(' '));
+                }
+
 
                 if (item.isLeaf) {
                     cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'));
@@ -213,11 +220,13 @@ class AccordionTree extends TreeList {
                         id   : id + '__item-content',
                         style: {pointerEvents: 'none'},
                         cn   : [{
+                            flag     : 'name',
                             tag      : 'span',
                             cls      : [itemCls + '-content-header'],
                             id       : id + '__item-content-header',
                             innerHTML: item.name
                         }, {
+                            flag     : 'content',
                             tag      : 'span',
                             cls      : [itemCls + '-content-text'],
                             id       : id + '__item-content-text',
@@ -323,7 +332,7 @@ class AccordionTree extends TreeList {
 
     /**
      * After the store loaded, create the items for the list
-     * @param {Object[]} records
+     * @param {Record[]} records
      */
     onStoreLoad(records) {
         let me = this,
@@ -335,29 +344,51 @@ class AccordionTree extends TreeList {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
                 me.createItems(null, me.getListItemsRoot(), 0);
-                me.timeout(0).then(() => {
-                    me.update();
-                });
+                me.update()
             });
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
-            me.timeout(0).then(() => {
-                me.update();
-            });
+            me.update()
         }
     }
 
     /**
-     *
+     * Update a record
+     * @param {Object} data
+     * @param {Object} data.fields
+     * @param {Number} data.index
+     * @param {Model}  data.model
+     * @param {Record} data.record
      */
-    onStoreRecordChange() {
+    onStoreRecordChange(data) {
+        const me     = this,
+              record = data.record,
+              fields = data.fields,
+              itemId = me.getItemId(record[me.getKeyProperty()]),
+              vdom   = me.getVdomChild(itemId);
+
+        fields.forEach((field) => {
+            const itemVdom = VDomUtil.getByFlag(vdom, field.name);
+
+            if (field.name === 'iconCls') {
+                const clsItems = field.value.split(' '),
+                      cls      = ['neo-accordion-item-icon'];
+
+                NeoArray.add(cls, clsItems);
+                itemVdom.cls = cls;
+            } else {
+                itemVdom.html = field.value;
+            }
+        })
+
+        me.update();
     }
 
     /**
      * Set the selection either bei record id or record.
      * You can pass a record or a recordId as value
      *
-     * @param {Object|Object[]|Number|Number[]|String|String[]} value
+     * @param {Record|Record[]|Number|Number[]|String|String[]} value
      */
     setSelection(value) {
         if (value === null) {
