@@ -157,7 +157,7 @@ class AccordionTree extends TreeList {
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
             folderCls = me.folderCls,
-            cls, tmpRoot;
+            cls, id, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -168,7 +168,8 @@ class AccordionTree extends TreeList {
                 vdomRoot.cn.push({
                     tag: 'ul',
                     cls: ['neo-list'],
-                    cn : []
+                    cn : [],
+                    id : `${me.id}__${parentId}__ul`
                 });
 
                 tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
@@ -196,24 +197,30 @@ class AccordionTree extends TreeList {
                     }
                 }
 
+                id = me.getItemId(item.id);
+
                 tmpRoot.cn.push({
-                    tag  : 'li',
+                    tag: 'li',
                     cls,
-                    id   : me.getItemId(item.id),
-                    cn   : [{
+                    id,
+                    cn : [{
                         tag      : 'span',
                         cls      : ['neo-accordion-item-icon', item.iconCls],
+                        id       : id + '__item',
                         removeDom: !item.isLeaf
                     }, {
                         cls  : [itemCls + '-content'],
+                        id   : id + '__item-content',
                         style: {pointerEvents: 'none'},
                         cn   : [{
                             tag      : 'span',
                             cls      : [itemCls + '-content-header'],
+                            id       : id + '__item-content-header',
                             innerHTML: item.name
                         }, {
                             tag      : 'span',
                             cls      : [itemCls + '-content-text'],
+                            id       : id + '__item-content-text',
                             innerHTML: item.content
                         }]
                     }],

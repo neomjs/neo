@@ -122,12 +122,14 @@ class DeltaUpdates extends Base {
             node       = this.getElement(delta.id),
             parentNode = this.getElement(delta.parentId);
 
-        if (index >= parentNode.children.length) {
-            parentNode.appendChild(node)
-        } else {
-            //index++; // todo?: increase the index in case same parent, oldIndex < newIndex, direct swap
-            if (node && parentNode.children[index].id !== delta.id) {
-                parentNode.insertBefore(node, parentNode.children[index])
+        if (parentNode) {
+            if (index >= parentNode.children.length) {
+                parentNode.appendChild(node)
+            } else {
+                //index++; // todo?: increase the index in case same parent, oldIndex < newIndex, direct swap
+                if (node && parentNode.children[index].id !== delta.id) {
+                    parentNode.insertBefore(node, parentNode.children[index])
+                }
             }
         }
     }

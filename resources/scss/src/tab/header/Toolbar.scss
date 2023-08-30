@@ -11,7 +11,7 @@
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: var(--tab-strip-height);
-                top   : calcVar(tab-strip-height, '*', -1);
+                top   : calc(var(--tab-strip-height) * -1);
                 width : 100%;
             }
 
@@ -33,7 +33,7 @@
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
-                right : calcVar(tab-strip-height, '*', -1);
+                right : calc(var(--tab-strip-height) * -1);
                 width : var(--tab-strip-height);
             }
 
@@ -62,7 +62,7 @@
             .neo-tab-button-indicator {
                 bottom: unset;
                 height: 100%;
-                left  : calcVar(tab-strip-height, '*', -1);
+                left  : calc(var(--tab-strip-height) * -1);
                 width : var(--tab-strip-height);
             }
 
