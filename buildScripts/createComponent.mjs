@@ -120,21 +120,16 @@ if (programOpts.info) {
 
     Object.assign(answers, answer);
 
-//    const className = programOpts.className;
-
-    
-
     let baseClass = programOpts.baseClass || answers.baseClass,
         className = programOpts.className || answers.className,
         singleton = programOpts.singleton || answers.singleton || 'no',
-        //        isDrop      = programOpts.drop,
         isSingleton = singleton === 'yes';
 
-        let ns = className.split('.');
-        let file = ns.pop();
-        let root = ns.shift();
-        let rootLowerCase = root.toLowerCase();
-              
+    let ns = className.split('.');
+    let file = ns.pop();
+    let root = ns.shift();
+    let rootLowerCase = root.toLowerCase();
+
 
     if (!baseClass && !className) {
         console.error(chalk.red('className and baseClass must be defined'));
@@ -142,27 +137,24 @@ if (programOpts.info) {
     }
 
 
-    // const scssClassName = getScssClassName(file, rootLowerCase);
-    //     let childProcess = spawnSync('node', [
-    //         './buildScripts/createClass.mjs',
-    //        //'--',
-    //         '-c',
-    //         className,
-    //         '-b',
-    //         baseClass,
-    //         '-n',
-    //         singleton,
-    //         '-r',
-    //         getScssClassName(file, rootLowerCase)
-    //     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
-    //     childProcess.status && process.exit(childProcess.status);
+    let childProcess = spawnSync('node', [
+        './buildScripts/createClass.mjs',
+        '-c',
+        className,
+        '-b',
+        baseClass,
+        '-n',
+        singleton,
+        '-r',
+        getScssClassName(file, rootLowerCase)
+    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+    childProcess.status && process.exit(childProcess.status);
 
     //create scss stubs only if it is a NEO component or a view component 
-    const resultView = ns.filter(f => f==='view');
+    const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
             './buildScripts/tools/createScss.mjs',
-            //        '--',
             '-c',
             className,
             '-b',

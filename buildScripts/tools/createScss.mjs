@@ -98,7 +98,6 @@ function createScssStub(classFolder, file, template) {
     const scssFile = `${classFolder}/${file}.scss`;
 
     fs.writeFileSync(scssFile, `${template}${os.EOL}`);
-    console.log(`File ${scssFile} created.`)
 }
 
 function getScssClassName(file, namespace) {
