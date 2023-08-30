@@ -39,7 +39,7 @@ class AccordionTree extends TreeList {
         firstParentIsVisible_: true,
         /**
          * Currently selected item, which is bindable
-         * @member {Record[|null} selection=null
+         * @member {Object[]|null} selection=null
          *
          * @example
          *     module: AccordionTree,
@@ -53,15 +53,17 @@ class AccordionTree extends TreeList {
          * @member {Object} _vdom
          */
         _vdom:
-            {
-                cn: [
-                    {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], tabIndex: -1, cn: []}
-                ]
-            }
+        {cn: [
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], tabIndex: -1, cn: []}
+        ]}
     }
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
+
         let me = this;
 
         me.addDomListeners({
@@ -130,10 +132,10 @@ class AccordionTree extends TreeList {
      *
      * @param {Boolean} [withUpdate=true]
      */
-    clear(withUpdate = true) {
+    clear(withUpdate=true) {
         delete this.getVdomRoot().cn[0].cn
 
-        if (withUpdate) this.update();
+        withUpdate && this.update();
     }
 
     /**
@@ -231,7 +233,7 @@ class AccordionTree extends TreeList {
 
 
     /**
-     * Expands an item based on the reord
+     * Expands an item based on the record
      * @param {Object} record
      */
     expandItem(record) {
@@ -284,7 +286,6 @@ class AccordionTree extends TreeList {
 
     /**
      * Accordion gaining focus without selection => setSelection
-     *
      * @param {Object} data
      */
     onFocus(data) {
@@ -297,7 +298,6 @@ class AccordionTree extends TreeList {
 
     /**
      * Called from SelectionModel select()
-     *
      * @param {String[]} value
      */
     onSelect(value) {
@@ -316,8 +316,7 @@ class AccordionTree extends TreeList {
 
     /**
      * After the store loaded, create the items for the list
-     *
-     * @param {Record[]} records
+     * @param {Object[]} records
      */
     onStoreLoad(records) {
         let me = this,
@@ -341,6 +340,9 @@ class AccordionTree extends TreeList {
         }
     }
 
+    /**
+     *
+     */
     onStoreRecordChange() {
     }
 
@@ -348,7 +350,7 @@ class AccordionTree extends TreeList {
      * Set the selection either bei record id or record.
      * You can pass a record or a recordId as value
      *
-     * @param {Record|Record[]|Number|Number[]|String|String[]} value
+     * @param {Object|Object[]|Number|Number[]|String|String[]} value
      */
     setSelection(value) {
         if (value === null) {
