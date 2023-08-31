@@ -169,7 +169,7 @@ if (programOpts.info) {
             //        '--',
             '-c',
             className
-‚        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
         childProcess.status && process.exit(childProcess.status);
     }
 
