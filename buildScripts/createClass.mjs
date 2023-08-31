@@ -30,7 +30,7 @@ const
      * @type {String[]}
      */
     sourceRootDirs = ['apps'];
-
+console.log(`insideNeo:${insideNeo}`);
 program
     .name(programName)
     .version(packageJson.version)
@@ -604,7 +604,7 @@ if (programOpts.info) {
             `         * @member {String[]} baseCls=['${scssClass}']`,
             "         * @protected",
             "         */",
-            `         baseCls: ['${scssClass}'],`);
+            `         baseCls: ['${scssClass}']`);
 
         baseClass === 'table.Container' && addComma(classContent).push(
             "        /**",

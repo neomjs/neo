@@ -136,7 +136,6 @@ if (programOpts.info) {
         process.exit(1);
     }
 
-
     let childProcess = spawnSync('node', [
         './buildScripts/createClass.mjs',
         '-c',
@@ -150,6 +149,7 @@ if (programOpts.info) {
     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
     childProcess.status && process.exit(childProcess.status);
 
+    
     //create scss stubs only if it is a NEO component or a view component 
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
@@ -158,27 +158,27 @@ if (programOpts.info) {
             '-c',
             className,
             '-b',
-            baseClass,
-            '-n',
-            singleton
+            baseClass
+            // '-n',
+            // singleton
         ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
         childProcess.status && process.exit(childProcess.status);
     }
 
-    //create only example stub when it is a NEO component
-    // if (rootLowerCase === 'neo') {
-    //     let childProcess = spawnSync('node', [
-    //         './buildScripts/tools/createScss.mjs',
-    //         //        '--',
-    //         '-c',
-    //         className,
-    //         '-b',
-    //         baseClass,
-    //         '-n',
-    //         singleton
-    //     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
-    //     childProcess.status && process.exit(childProcess.status);
-    // }
+   // create only example stub when it is a NEO component
+    if (rootLowerCase === 'neo') {
+        let childProcess = spawnSync('node', [
+            './buildScripts/tools/createExample.mjs',
+            //        '--',
+            '-c',
+            className
+            // '-b',
+            // baseClass,
+            // '-n',
+            // singleton
+        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        childProcess.status && process.exit(childProcess.status);
+    }
 
 }
 

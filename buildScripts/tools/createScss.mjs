@@ -63,6 +63,7 @@ if (!fs.existsSync(classFolder)) {
 const scssClassName = getScssClassName(file, rootLowerCase);
 const template = `.${scssClassName} {
     // add css information here
+    background-color: var(--${file.toLowerCase()}-background-color); // this is an example
 }`;
 createScssStub(classFolder, file, template);
 
@@ -80,8 +81,10 @@ themeFolders.forEach(theme => {
     if (!fs.existsSync(classFolder)) {
         fs.mkdirpSync(classFolder, { recursive: true });
     }
+    const exampleColor = theme.includes('dark') ? 'darkgreen' : 'green';
     const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
         // add css theme information here
+        --${file.toLowerCase()}-background-color: ${exampleColor}; //example
 }`;
     createScssStub(classFolder, file, themeTemplate);
 })
