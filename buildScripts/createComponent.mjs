@@ -121,7 +121,7 @@ if (programOpts.info) {
     let baseClass = programOpts.baseClass || answers.baseClass,
         className = programOpts.className || answers.className,
         singleton = programOpts.singleton || answers.singleton || 'no';
- 
+
     let ns = className.split('.');
     ns.pop();
     let root = ns.shift();
@@ -162,7 +162,7 @@ if (programOpts.info) {
         childProcess.status && process.exit(childProcess.status);
     }
 
-   // create only example stub when it is a NEO component
+    // create only example stub when it is a NEO component
     if (rootLowerCase === 'neo') {
         let childProcess = spawnSync('node', [
             './buildScripts/tools/createExample.mjs',
@@ -173,6 +173,32 @@ if (programOpts.info) {
         childProcess.status && process.exit(childProcess.status);
     }
 
+    //re-build the themes
+    let buildThemes = spawnSync('node', [
+        './buildScripts/buildThemes.mjs',
+        //        '--',
+        '-f',
+        '-e',
+        'all',
+        '-n'
+    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+    buildThemes.status && process.exit(buildThemes.status);
+
+
+    // start the dev server
+    let temp = className.split('.');
+    temp.splice(0, 1); //remove Neo namespace
+    let componentPath = `/examples/${temp.join('/')}`;
+    componentPath = componentPath.toLowerCase();
+
+    let startServer = spawnSync('webpack', [
+        'serve',
+        '-c',
+        './buildScripts/webpack/webpack.server.config.mjs',
+        '--open',
+        `${(rootLowerCase === 'neo') ? componentPath : ''}`
+    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+    startServer.status && process.exit(startServer.status);
 }
 
 function guessBaseClass(className) {
@@ -215,7 +241,7 @@ function getScssClassName(className) {
 
     classItems.forEach(item => {
         let temp = item.split(/(?=[A-Z])/);
-        result.push(temp.join('-').toLowerCase());        
+        result.push(temp.join('-').toLowerCase());
     });
 
     const scssClassName = result.join('-');
