@@ -40,6 +40,8 @@ program
     .parse(process.argv);
 
 const programOpts = program.opts();
+
+console.log(`scss: ${programOpts}`);
 let className = programOpts.className;
 
 let ns = className.split('.');
@@ -60,10 +62,10 @@ if (!fs.existsSync(classFolder)) {
     fs.mkdirpSync(classFolder, { recursive: true });
 }
 
-const scssClassName = getScssClassName(file, rootLowerCase);
+const scssClassName = getScssClassName(className);
 const template = `.${scssClassName} {
     // add css information here
-    background-color: var(--${file.toLowerCase()}-background-color); // this is an example
+    background-color: var(--${scssClassName.toLowerCase()}-background-color); // this is an example
 }`;
 createScssStub(classFolder, file, template);
 
@@ -84,7 +86,7 @@ themeFolders.forEach(theme => {
     const exampleColor = theme.includes('dark') ? 'darkgreen' : 'green';
     const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
         // add css theme information here
-        --${file.toLowerCase()}-background-color: ${exampleColor}; //example
+        --${scssClassName.toLowerCase()}-background-color: ${exampleColor}; //example
 }`;
     createScssStub(classFolder, file, themeTemplate);
 })
@@ -103,12 +105,17 @@ function createScssStub(classFolder, file, template) {
     fs.writeFileSync(scssFile, `${template}${os.EOL}`);
 }
 
-function getScssClassName(file, namespace) {
+ function getScssClassName(className) {
     //template
+    let classItems = className.split('.');
+    let result = [];
 
-    let temp = file.split(/(?=[A-Z])/);
-    temp.splice(0, 0, namespace);
-    const scssClassName = temp.join('-').toLowerCase();
+    classItems.forEach(item => {
+        let temp = item.split(/(?=[A-Z])/);
+        result.push(temp.join('-').toLowerCase());        
+    });
 
+    const scssClassName = result.join('-');
     return scssClassName;
 }
+

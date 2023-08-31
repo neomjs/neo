@@ -6,10 +6,8 @@ import { Command } from 'commander/esm.mjs';
 import envinfo from 'envinfo';
 import fs from 'fs-extra';
 import inquirer from 'inquirer';
-// import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-//import {getScssClassName} from "./tools/utils.mjs";
 
 const
     __dirname = fileURLToPath(new URL('../', import.meta.url)),
@@ -122,11 +120,10 @@ if (programOpts.info) {
 
     let baseClass = programOpts.baseClass || answers.baseClass,
         className = programOpts.className || answers.className,
-        singleton = programOpts.singleton || answers.singleton || 'no',
-        isSingleton = singleton === 'yes';
-
+        singleton = programOpts.singleton || answers.singleton || 'no';
+ 
     let ns = className.split('.');
-    let file = ns.pop();
+    ns.pop();
     let root = ns.shift();
     let rootLowerCase = root.toLowerCase();
 
@@ -135,6 +132,8 @@ if (programOpts.info) {
         console.error(chalk.red('className and baseClass must be defined'));
         process.exit(1);
     }
+
+    const scssClassName = getScssClassName(className, rootLowerCase);
 
     let childProcess = spawnSync('node', [
         './buildScripts/createClass.mjs',
@@ -145,11 +144,11 @@ if (programOpts.info) {
         '-n',
         singleton,
         '-r',
-        getScssClassName(file, rootLowerCase)
+        scssClassName
     ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
     childProcess.status && process.exit(childProcess.status);
 
-    
+
     //create scss stubs only if it is a NEO component or a view component 
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
@@ -159,8 +158,6 @@ if (programOpts.info) {
             className,
             '-b',
             baseClass
-            // '-n',
-            // singleton
         ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
         childProcess.status && process.exit(childProcess.status);
     }
@@ -172,11 +169,7 @@ if (programOpts.info) {
             //        '--',
             '-c',
             className
-            // '-b',
-            // baseClass,
-            // '-n',
-            // singleton
-        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+‚        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
         childProcess.status && process.exit(childProcess.status);
     }
 
@@ -215,13 +208,16 @@ function guessBaseClass(className) {
 
     return 'container.Base';
 }
-
-function getScssClassName(file, namespace) {
+function getScssClassName(className) {
     //template
+    let classItems = className.split('.');
+    let result = [];
 
-    let temp = file.split(/(?=[A-Z])/);
-    temp.splice(0, 0, namespace);
-    const scssClassName = temp.join('-').toLowerCase();
+    classItems.forEach(item => {
+        let temp = item.split(/(?=[A-Z])/);
+        result.push(temp.join('-').toLowerCase());        
+    });
 
+    const scssClassName = result.join('-');
     return scssClassName;
 }
