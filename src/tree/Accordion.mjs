@@ -355,33 +355,36 @@ class AccordionTree extends TreeList {
     /**
      * Update a record
      * @param {Object} data
-     * @param {Object} data.fields
+     * @param {Object[]} data.fields
      * @param {Number} data.index
-     * @param {Model}  data.model
+     * @param {Neo.data.Model} data.model
      * @param {Record} data.record
      */
     onStoreRecordChange(data) {
-        const me     = this,
-              record = data.record,
-              fields = data.fields,
-              itemId = me.getItemId(record[me.getKeyProperty()]),
-              vdom   = me.getVdomChild(itemId);
+        let me     = this,
+            record = data.record,
+            fields = data.fields,
+            itemId = me.getItemId(record[me.getKeyProperty()]),
+            vdom   = me.getVdomChild(itemId),
+            itemVdom;
 
         fields.forEach((field) => {
-            const itemVdom = VDomUtil.getByFlag(vdom, field.name);
+            itemVdom = VDomUtil.getByFlag(vdom, field.name);
 
-            if (field.name === 'iconCls') {
-                const clsItems = field.value.split(' '),
-                      cls      = ['neo-accordion-item-icon'];
+            if (itemVdom) {
+                if (field.name === 'iconCls') {
+                    const clsItems = field.value.split(' '),
+                          cls      = ['neo-accordion-item-icon'];
 
-                NeoArray.add(cls, clsItems);
-                itemVdom.cls = cls;
-            } else {
-                itemVdom.html = field.value;
+                    NeoArray.add(cls, clsItems);
+                    itemVdom.cls = cls;
+                } else {
+                    itemVdom.html = field.value;
+                }
             }
-        })
+        });
 
-        me.update();
+        me.update()
     }
 
     /**
