@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.1.5",
+    "version": "6.2.0",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -19,6 +19,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
         "create-class": "node ./buildScripts/createClass.mjs",
+        "create-component": "node ./buildScripts/createComponent.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",

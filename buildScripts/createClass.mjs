@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import chalk           from 'chalk';
-import { Command }     from 'commander/esm.mjs';
+import {Command}       from 'commander/esm.mjs';
 import envinfo         from 'envinfo';
 import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
@@ -10,36 +10,37 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 const
-      __dirname   = fileURLToPath(new URL('../', import.meta.url)),
-      cwd         = process.cwd(),
-      requireJson = path => JSON.parse(fs.readFileSync((path))),
-      packageJson = requireJson(path.join(__dirname, 'package.json')),
-      insideNeo   = process.env.npm_package_name === 'neo.mjs',
-      program     = new Command(),
-      programName = `${packageJson.name} create-class`,
-      questions   = [],
-      /**
-       * Maintain a list of dir-names recognized as source root directories.
-       * When not using dot notation with a class-name, the program assumes
-       * that we want to create the class inside the cwd. The proper namespace
-       * is then looked up by traversing the directory path up to the first
-       * folder that matches an entry in "sourceRootDirs". The owning
-       * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
-       * namespace for this created class.
-       * Can be overwritten with the -s option.
-       * @type {String[]}
-       */
-      sourceRootDirs = ['apps'];
+    __dirname      = fileURLToPath(new URL('../', import.meta.url)),
+    cwd            = process.cwd(),
+    requireJson    = path => JSON.parse(fs.readFileSync((path))),
+    packageJson    = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo      = process.env.npm_package_name === 'neo.mjs',
+    program        = new Command(),
+    programName    = `${packageJson.name} create-class`,
+    questions      = [],
+    /**
+     * Maintain a list of dir-names recognized as source root directories.
+     * When not using dot notation with a class-name, the program assumes
+     * that we want to create the class inside the cwd. The proper namespace
+     * is then looked up by traversing the directory path up to the first
+     * folder that matches an entry in "sourceRootDirs". The owning
+     * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
+     * namespace for this created class.
+     * Can be overwritten with the -s option.
+     * @type {String[]}
+     */
+    sourceRootDirs = ['apps'];
 
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',              'print environment debug info')
-    .option('-d, --drop',              'drops class in the currently selected folder')
+    .option('-i, --info', 'print environment debug info')
+    .option('-d, --drop', 'drops class in the currently selected folder')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"')
-    .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
+    .option('-s, --source <value>', `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
+    .option('-r, --scss <value>')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -144,9 +145,11 @@ if (programOpts.info) {
         className   = programOpts.className || answers.className,
         singleton   = programOpts.singleton || answers.singleton || 'no',
         isDrop      = programOpts.drop,
+        scssClass   = programOpts.scss,
         isSingleton = singleton === 'yes',
         startDate   = new Date(),
-        baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
+        baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase,
+        viewFile;
 
     if (className.endsWith('.mjs')) {
         className = className.slice(0, -4);
@@ -241,7 +244,8 @@ if (programOpts.info) {
         file,
         folderDelta,
         ns,
-        root
+        root,
+        scssClass
     });
 
     if (baseClass === 'data.Model') {
@@ -259,7 +263,7 @@ if (programOpts.info) {
      * @param {Number} index=contentArray.length - 1
      * @returns {String[]}
      */
-    function addComma(contentArray, index=contentArray.length - 1) {
+    function addComma(contentArray, index = contentArray.length - 1) {
         contentArray[index] += ',';
         return contentArray;
     }
@@ -329,7 +333,7 @@ if (programOpts.info) {
         content.splice(i, 0, `import ${importName} from '${opts.importPath}';`);
 
         // find the longest import module name
-        for (i=0; i < len; i++) {
+        for (i = 0; i < len; i++) {
             codeLine = content[i];
 
             if (codeLine === '') {
@@ -340,7 +344,7 @@ if (programOpts.info) {
         }
 
         // adjust the block-formatting for imports
-        for (i=0; i < len; i++) {
+        for (i = 0; i < len; i++) {
             codeLine = content[i];
 
             if (codeLine === '') {
@@ -353,7 +357,7 @@ if (programOpts.info) {
             if (adjustSpaces > 0) {
                 spaces = '';
 
-                for (j=0; j < adjustSpaces; j++) {
+                for (j = 0; j < adjustSpaces; j++) {
                     spaces += ' ';
                 }
 
@@ -396,7 +400,7 @@ if (programOpts.info) {
                 }
 
                 if (className > configName) {
-                    for (j=i; j > 0; j--) {
+                    for (j = i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig({
                                 baseType,
@@ -444,7 +448,8 @@ if (programOpts.info) {
             file,
             folderDelta,
             ns,
-            root
+            root,
+            scssClass = undefined,
         } = opts, baseFileName;
 
         fs.mkdirpSync(classFolder, {recursive: true});
@@ -464,10 +469,11 @@ if (programOpts.info) {
             file,
             folderDelta,
             ns,
-            root
+            root,
+            scssClass
         }));
 
-        switch(baseClass) {
+        switch (baseClass) {
             case 'controller.Component': {
                 baseType   = 'Neo.controller.Component';
                 configName = 'controller';
@@ -555,7 +561,9 @@ if (programOpts.info) {
             isSingleton   = opts.isSingleton,
             file          = opts.file,
             i             = 0,
-            importDelta   = '';
+            importDelta   = '',
+            scssClass     = opts.scssClass,
+            isScss        = scssClass !== null && scssClass !== undefined;
 
         if (root === 'Neo') {
             if (className.startsWith('Neo.examples')) {
@@ -591,6 +599,13 @@ if (programOpts.info) {
             "         */",
             `        className: '${className}'`
         );
+
+        isScss && addComma(classContent).push(
+            "        /**",
+            `         * @member {String[]} baseCls=['${scssClass}']`,
+            "         * @protected",
+            "         */",
+            `         baseCls: ['${scssClass}']`);
 
         baseClass === 'table.Container' && addComma(classContent).push(
             "        /**",
