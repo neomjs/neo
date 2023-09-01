@@ -2,6 +2,7 @@ import TreeList           from '../tree/List.mjs';
 import TreeAccordionModel from "../selection/TreeAccordionModel.mjs";
 import NeoArray           from "../util/Array.mjs";
 import ClassSystemUtil    from "../util/ClassSystem.mjs";
+import VDomUtil           from "../util/VDom.mjs";
 
 /**
  * @class Neo.tree.Accordion
@@ -38,18 +39,32 @@ class AccordionTree extends TreeList {
          */
         firstParentIsVisible_: true,
         /**
+         * Currently selected item, which is bindable
+         * @member {Record[]|null} selection=null
+         *
+         * @example
+         *     module: AccordionTree,
+         *     bind  : {selection: {twoWay: true, value: data => data.selection}}
+         *
+         *     ntype: 'component',
+         *     bind : {html: data => data.selection[0].name}
+         */
+        selection_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
-            {
-                cn: [
-                    {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], tabIndex: -1, cn: []}
-                ]
-            }
+        {cn: [
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], tabIndex: -1, cn: []}
+        ]}
     }
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
+
         let me = this;
 
         me.addDomListeners({
@@ -113,6 +128,25 @@ class AccordionTree extends TreeList {
     }
 
     /**
+     * Remove all items from the accordion
+     * If you do not need to update the view after clearing, set `withUpdate = false`
+     *
+     * @param {Boolean} [withUpdate=true]
+     */
+    clear(withUpdate=true) {
+        delete this.getVdomRoot().cn[0].cn
+
+        withUpdate && this.update();
+    }
+
+    /**
+     * Remove all items from the selection
+     */
+    clearSelection() {
+        this.selectionModel.deselectAll();
+    }
+
+    /**
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -124,7 +158,7 @@ class AccordionTree extends TreeList {
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
             folderCls = me.folderCls,
-            cls, tmpRoot;
+            cls, id, itemIconCls, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -133,9 +167,10 @@ class AccordionTree extends TreeList {
 
             if (parentId !== null) {
                 vdomRoot.cn.push({
-                    tag  : 'ul',
-                    cls  : ['neo-list'],
-                    cn   : []
+                    tag: 'ul',
+                    cls: ['neo-list'],
+                    cn : [],
+                    id : `${me.id}__${parentId}__ul`
                 });
 
                 tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
@@ -145,6 +180,12 @@ class AccordionTree extends TreeList {
 
             items.forEach(item => {
                 cls = [itemCls];
+
+                itemIconCls = ['neo-accordion-item-icon'];
+                if (item.iconCls) {
+                    NeoArray.add(itemIconCls, item.iconCls.split(' '));
+                }
+
 
                 if (item.isLeaf) {
                     cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'));
@@ -163,24 +204,32 @@ class AccordionTree extends TreeList {
                     }
                 }
 
+                id = me.getItemId(item.id);
+
                 tmpRoot.cn.push({
-                    tag  : 'li',
+                    tag: 'li',
                     cls,
-                    id   : me.getItemId(item.id),
-                    cn   : [{
+                    id,
+                    cn : [{
                         tag      : 'span',
                         cls      : ['neo-accordion-item-icon', item.iconCls],
+                        id       : id + '__item',
                         removeDom: !item.isLeaf
                     }, {
                         cls  : [itemCls + '-content'],
+                        id   : id + '__item-content',
                         style: {pointerEvents: 'none'},
                         cn   : [{
+                            flag     : 'name',
                             tag      : 'span',
                             cls      : [itemCls + '-content-header'],
+                            id       : id + '__item-content-header',
                             innerHTML: item.name
                         }, {
+                            flag     : 'content',
                             tag      : 'span',
                             cls      : [itemCls + '-content-text'],
+                            id       : id + '__item-content-text',
                             innerHTML: item.content
                         }]
                     }],
@@ -200,7 +249,7 @@ class AccordionTree extends TreeList {
 
 
     /**
-     * Expands an item based on the reord
+     * Expands an item based on the record
      * @param {Object} record
      */
     expandItem(record) {
@@ -263,33 +312,110 @@ class AccordionTree extends TreeList {
         if (!selection) selModel.selectRoot();
     }
 
+    /**
+     * Called from SelectionModel select()
+     * @param {String[]} value
+     */
+    onSelect(value) {
+        const me = this;
+        let records = [];
+
+        value.forEach((selectItemId) => {
+            let id     = me.getItemRecordId(selectItemId),
+                record = me.store.get(id);
+
+            records.push(record);
+        });
+
+        me.selection = records;
+    }
 
     /**
      * After the store loaded, create the items for the list
-     *
-     * @param {Obejct[]} records
+     * @param {Record[]} records
      */
     onStoreLoad(records) {
         let me = this,
             listenerId;
 
+        me.clear(false);
+
         if (!me.mounted && me.rendering) {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
                 me.createItems(null, me.getListItemsRoot(), 0);
-                me.timeout(0).then(() => {
-                    me.update()
-                });
+                me.update()
             });
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
-            me.timeout(0).then(() => {
-                me.update()
-            });
+            me.update()
         }
     }
 
-    onStoreRecordChange() {
+    /**
+     * Update a record
+     * @param {Object} data
+     * @param {Object[]} data.fields
+     * @param {Number} data.index
+     * @param {Neo.data.Model} data.model
+     * @param {Record} data.record
+     */
+    onStoreRecordChange(data) {
+        let me     = this,
+            record = data.record,
+            fields = data.fields,
+            itemId = me.getItemId(record[me.getKeyProperty()]),
+            vdom   = me.getVdomChild(itemId),
+            itemVdom;
+
+        fields.forEach((field) => {
+            itemVdom = VDomUtil.getByFlag(vdom, field.name);
+
+            if (itemVdom) {
+                if (field.name === 'iconCls') {
+                    const clsItems = field.value.split(' '),
+                          cls      = ['neo-accordion-item-icon'];
+
+                    NeoArray.add(cls, clsItems);
+                    itemVdom.cls = cls;
+                } else {
+                    itemVdom.html = field.value;
+                }
+            }
+        });
+
+        me.update()
+    }
+
+    /**
+     * Set the selection either bei record id or record.
+     * You can pass a record or a recordId as value
+     *
+     * @param {Record|Record[]|Number|Number[]|String|String[]} value
+     */
+    setSelection(value) {
+        if (value === null) {
+            this.clearSelection();
+            return;
+        }
+
+        // In case you pass in an array use only the first item
+        if (Neo.isArray(value)) value = value[0];
+
+        const me = this;
+        let recordKeyProperty, elId;
+
+        if (Neo.isObject(value)) {
+            // Record
+            recordKeyProperty = value[me.getKeyProperty()];
+        } else {
+            // RecordId
+            recordKeyProperty = value;
+        }
+
+        elId = me.getItemId(recordKeyProperty);
+
+        me.selectionModel.selectAndScrollIntoView(elId);
     }
 }
 

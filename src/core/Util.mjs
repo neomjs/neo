@@ -42,7 +42,7 @@ class Util extends Base {
      * @returns {Boolean|String} Returns false for non string inputs
      */
     static capitalize(value) {
-        return Util.isString(value) && value[0].toUpperCase() + value.slice(1);
+        return value[0].toUpperCase() + value.slice(1)
     }
 
     /**
@@ -51,10 +51,6 @@ class Util extends Base {
      * @returns {Object} The camelcase styles object
      */
     static createStyleObject(string) {
-        if (!string) {
-            return null;
-        }
-
         let parts;
 
         // split(';') does fetch semicolons inside brackets
@@ -74,10 +70,11 @@ class Util extends Base {
                 parts[0] = parts[0].replace(/-([a-z])/g, (str, letter) => {
                     return letter.toUpperCase();
                 });
-                obj[parts[0]] = parts[1];
+
+                obj[parts[0]] = parts[1]
             }
             return obj;
-        }, {});
+        }, {})
     }
 
     /**
@@ -90,11 +87,11 @@ class Util extends Base {
 
         Object.entries(styles).forEach(([key, value]) => {
             if (value !== undefined && value !== null) {
-                style += Util.decamel(key) + ':' + value + ';';
+                style += Util.decamel(key) + ':' + value + ';'
             }
         });
 
-        return style;
+        return style
     }
 
     /**
@@ -104,7 +101,7 @@ class Util extends Base {
      * @returns {String} The lowercase output
      */
     static decamel(value) {
-        return value.replace(Util.decamelRegEx, '$1-$2').toLowerCase();
+        return value.replace(Util.decamelRegEx, '$1-$2').toLowerCase()
     }
 
     /**
@@ -122,7 +119,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isBoolean(value) {
-        return typeof value === 'boolean';
+        return typeof value === 'boolean'
     }
 
     /**
@@ -131,7 +128,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isDefined(value) {
-        return typeof value !== 'undefined';
+        return typeof value !== 'undefined'
     }
 
     /**
@@ -141,26 +138,26 @@ class Util extends Base {
      */
     static isEmpty(value) {
         if (value === null || value === undefined) {
-            return true;
+            return true
         }
 
         if (Array.isArray(value)) {
-            return value.length === 0;
+            return value.length === 0
         }
 
         if (value instanceof Date) {
-            return false;
+            return false
         }
 
         if (Util.isObject(value)) {
-            return Object.keys(value).length === 0;
+            return Object.keys(value).length === 0
         }
 
         if (Util.isString(value)) {
-            return value === '';
+            return value === ''
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -169,7 +166,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isFunction(value) {
-        return typeof value === 'function';
+        return typeof value === 'function'
     }
 
     /**
@@ -178,7 +175,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isNumber(value){
-        return typeof value === 'number' && isFinite(value);
+        return typeof value === 'number' && isFinite(value)
     }
 
     /**
@@ -187,7 +184,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isObject(value) {
-        return value !== null && typeof value === 'object' && !Array.isArray(value);
+        return value !== null && typeof value === 'object' && !Array.isArray(value)
     }
 
     /**
@@ -196,7 +193,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isString(value) {
-        return typeof value === 'string';
+        return typeof value === 'string'
     }
 
     /**
@@ -210,14 +207,14 @@ class Util extends Base {
         let len;
 
         if (!iterable || !(len = iterable.length)) {
-            return [];
+            return []
         }
 
         if (typeof iterable === 'string') {
-            return iterable.split('');
+            return iterable.split('')
         }
 
-        return Array.prototype.slice.call(iterable, start || 0, end || len);
+        return Array.prototype.slice.call(iterable, start || 0, end || len)
     }
 }
 

@@ -132,7 +132,7 @@ class FileUpload extends Base {
             ]
         },
 
-        cls : [],
+        cls : ['neo-field-empty'],
 
         /**
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
@@ -153,6 +153,7 @@ class FileUpload extends Base {
             UPLOADING        : 'scanning',
 
             MALWARE_DETECTED : 'scan-failed',
+            UN_DOWNLOADABLE  : 'not-downloadable',
             AVAILABLE        : 'not-downloadable',
             DOWNLOADABLE     : 'downloadable',
             DELETED          : 'deleted'
@@ -317,8 +318,10 @@ class FileUpload extends Base {
         // UI strings which can be overridden for other languages
         chooseFile           : 'Choose file',
         documentText         : 'Document',
-        pleaseUseTheseTypes  : 'Please use these file types',
-        fileSizeMoreThan     : 'File size exceeds',
+        invalidFileFormat    : 'invalid file format',
+        pleaseUseTheseTypes  : 'Please use these file types {allowedFileTypes}',
+        fileSizeMoreThan     : 'File size exceeds {allowedFileSize}',
+        uploadError          : 'Please try again',
         documentDeleteError  : 'Document delete service error',
         isNoLongerAvailable  : 'is no longer available',
         documentStatusError  : 'Document status service error',
@@ -346,15 +349,18 @@ class FileUpload extends Base {
     }
 
     afterSetId(value, oldValue) {
-        const
-            labelEl   = this.vdom.cn[4],
-            inputElId = `${this.id}-input`;
+        const inputElId = `${this.id}-input`;
 
-        this.getInputEl().id =  labelEl.for = inputElId;
-        labelEl.html = this.chooseFile;
+        this.getInputEl().id =  this.vdom.cn[4].for = inputElId;
 
         // silent vdom update, the super call will trigger the engine
         super.afterSetId?.(value, oldValue);
+    }
+
+    onConstructed() {
+        super.onConstructed(...arguments);
+
+        this.vdom.cn[4].html = this.chooseFile;
     }
     
     /**
@@ -365,9 +371,15 @@ class FileUpload extends Base {
     }
 
     async clear() {
-        const me = this;
+        const
+            me      = this,
+            { cls } = me;
+
+        NeoArray.add(cls, 'neo-field-empty');
+        me.cls = cls;
 
         me.vdom.cn[3] = {
+            id    : `${me.id}-input`,
             cls   : 'neo-file-upload-input',
             tag   : 'input',
             type  : 'file',
@@ -375,6 +387,7 @@ class FileUpload extends Base {
         };
         me.state = 'ready';
         me.error = '';
+        me.file = me.document = null;
 
         // We have to wait for the DOM to have changed, and the input field to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -388,19 +401,30 @@ class FileUpload extends Base {
     onInputValueChange({ files }) {
         const
             me        = this,
-            { types } = me;
+            {
+                types,
+                cls
+            } = me,
+            body      = me.vdom.cn[1];
 
         if (files.length) {
+            NeoArray.remove(cls, 'neo-field-empty');
+            me.cls = cls;
+            
             const
                 file     = files.item(0),
                 pointPos = file.name.lastIndexOf('.'),
                 type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
             if (me.types && !types[type]) {
-                me.error = `${me.pleaseUseTheseTypes}: .${Object.keys(types).join(' .')}`;
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
+                me.error = me.pleaseUseTheseTypes?.replace('{allowedFileTypes}', Object.keys(types).join(' .'))
             }
             else if (file.size > me.maxSize) {
-                me.error = `${me.fileSizeMoreThan} ${String(me._maxSize).toUpperCase()}`;
+                body.cn[0].innerHTML = file.name;
+                body.cn[1].innerHTML = me.formatSize(file.size);
+                me.error = me.fileSizeMoreThan?.replace('{allowedFileSize}', String(me._maxSize).toUpperCase());
             }
             // If it passes the type and maxSize check, upload it
             else {
@@ -424,6 +448,7 @@ class FileUpload extends Base {
             headers    = { ...me.headers };
 
         // Show the action button
+        me.file  = file;
         me.state = 'starting';
 
         // We have to wait for the DOM to have changed, and the action button to be visible
@@ -484,7 +509,7 @@ class FileUpload extends Base {
     onUploadError(e) {
         this.xhr = null;
         this.state = 'upload-failed';
-        this.error = e.type;
+        this.error = `${this.uploadError}`;
     }
 
     onUploadDone({ loaded, target : xhr }) {
@@ -552,6 +577,9 @@ class FileUpload extends Base {
             case 'deleted':
                 me.clear();
                 me.state = 'ready';
+                break;
+            case 'ready':
+                me.clear();
                 break;
         }
     }
@@ -629,9 +657,12 @@ class FileUpload extends Base {
     afterSetDocument(document) {
         if (document) {
             const
-                me = this;
+                me      = this,
+                { cls } = me;
 
-            me.preExistingDocument = true;
+            NeoArray.remove(cls, 'neo-field-empty');
+            me.cls = cls;
+
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
             me.vdom.cn[1].cn[0].innerHTML = document.fileName;
@@ -680,8 +711,7 @@ class FileUpload extends Base {
                 status.innerHTML = me.fileSize;
                 break;
             case 'not-downloadable':
-                status.innerHTML = me.preExistingDocument ?
-                me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
+                status.innerHTML = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
                 break;
             case 'deleted':
                 status.innerHTML = me.fileWasDeleted;
@@ -695,6 +725,7 @@ class FileUpload extends Base {
 
         NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
         NeoArray.add(cls, 'neo-file-upload-state-' + value);
+        NeoArray[me.file || me.document ? 'remove' : 'add', 'neo-field-empty'];
         me.cls = cls;
     }
 

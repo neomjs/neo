@@ -669,16 +669,9 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     parseDomRect(rect) {
-        return {
-            bottom: rect.bottom,
-            height: rect.height,
-            left  : rect.left,
-            right : rect.right,
-            top   : rect.top,
-            width : rect.width,
-            x     : rect.x,
-            y     : rect.y
-        }
+        let {bottom, height, left, right, top, width, x, y} = rect;
+
+        return {bottom, height, left, right, top, width, x, y}
     }
 
     /**

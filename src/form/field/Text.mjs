@@ -23,7 +23,7 @@ class Text extends Base {
      * @protected
      * @static
      */
-    static labelPositions       = ['bottom', 'inline', 'left', 'right', 'top']
+    static labelPositions = ['bottom', 'inline', 'left', 'right', 'top']
 
     static config = {
         /**
@@ -220,18 +220,14 @@ class Text extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-            {
-                cn: [
-                    {tag: 'label', cls: [], style: {}},
-                    {tag: 'label', cls: []},
-                    {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
-                    {
-                        cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
-                            {cls: ['neo-textfield-error']}
-                        ]
-                    }
-                ]
-            }
+        {cn: [
+            {tag: 'label', cls: [], style: {}},
+            {tag: 'label', cls: []},
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}},
+            {cls: ['neo-textfield-error-wrapper'], removeDom: true, cn: [
+                {cls: ['neo-textfield-error']}
+            ]}
+        ]}
     }
 
     /**
@@ -250,10 +246,10 @@ class Text extends Base {
         let me = this;
 
         me.addDomListeners([
-            {input: me.onInputValueChange, scope: me},
+            {input     : me.onInputValueChange, scope: me},
             {mouseenter: me.onMouseEnter, scope: me},
             {mouseleave: me.onMouseLeave, scope: me}
-        ]);
+        ])
     }
 
     /**
@@ -263,13 +259,11 @@ class Text extends Base {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        let me = this;
-
         super.afterSetAppName(value, oldValue);
 
-        value && me.triggers?.forEach(item => {
+        value && this.triggers?.forEach(item => {
             item.appName = value;
-        });
+        })
     }
 
     /**
@@ -279,7 +273,7 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoCapitalize(value, oldValue) {
-        this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value);
+        this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value)
     }
 
     /**
@@ -290,7 +284,7 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoComplete(value, oldValue) {
-        this.changeInputElKey('autocomplete', value ? null : 'no');
+        this.changeInputElKey('autocomplete', value ? null : 'no')
     }
 
     /**
@@ -306,9 +300,9 @@ class Text extends Base {
         if (value) {
             triggers = me.triggers || [];
             triggers.unshift(ClearTrigger);
-            me.triggers = triggers;
+            me.triggers = triggers
         } else {
-            me.removeTrigger('clear');
+            me.removeTrigger('clear')
         }
     }
 
@@ -505,7 +499,7 @@ class Text extends Base {
 
             !isEmpty && setTimeout(() => {
                 me.updateCenterBorderElWidth(false)
-            }, 20);
+            }, 20)
         } else {
             // changes from e.g. left to top
             me.updateInputWidth()
@@ -980,7 +974,7 @@ class Text extends Base {
             })
         }
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -1419,7 +1413,7 @@ class Text extends Base {
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate(silent = true) {
+    validate(silent=true) {
         let me           = this,
             maxLength    = me.maxLength,
             minLength    = me.minLength,

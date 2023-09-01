@@ -5,7 +5,9 @@ import CheckBox       from "../../src/form/field/CheckBox.mjs";
 import NumberField    from '../../src/form/field/Number.mjs';
 import Panel          from '../../src/container/Panel.mjs';
 import Store          from '../../src/data/Store.mjs';
+// Do not remove the ViewController nor ViewModel
 import ViewController from '../../src/controller/Component.mjs';
+import ViewModel      from '../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.treeSelectionModel.MainContainer
@@ -64,34 +66,6 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 3,
             style    : {marginTop: '10px'},
             value    : 400
-        }, {
-            module: Panel,
-            height: 150,
-            width : '100%',
-
-            itemDefaults: {
-                style: {
-                    padding: '10px'
-                }
-            },
-
-            headers: [{
-                dock : 'top',
-                style: {borderRightColor: 'transparent'},
-
-                items: [{
-                    ntype: 'label',
-                    text : 'Accordion Selection'
-                }]
-            }],
-
-            items: [{
-                ntype    : 'component',
-                reference: 'output',
-                vdom     : {
-                    innerHTML: 'please select an item'
-                }
-            }]
         }];
     }
 
@@ -119,27 +93,71 @@ class MainContainer extends ConfigurationViewport {
               });
 
         return Neo.ntype({
-            ntype : 'container',
+            ntype: 'container',
+
+            model: {
+                data: {
+                    selection: [{name: 'Please select something'}]
+                }
+            },
+
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
                 module: AccordionTree,
 
-                controller: {
-                    module: ViewController,
-
-                    onAccordionItemClick(record) {
-                        let viewport = Neo.get('neo-configuration-viewport-1'),
-                            outputEl = viewport.getReference('output');
-
-                        outputEl.html = record.name;
-                    }
-                },
+                bind: {selection: {twoWay: true, value: data => data.selection}},
 
                 store: store,
 
+                /**
+                 * We are using data-binding.
+                 * Here is an example for listener and controller
+                 */
+                // controller: {
+                //     module: ViewController,
+                //
+                //     onAccordionItemClick(record) {
+                //         let viewport = Neo.get('neo-configuration-viewport-1'),
+                //             outputEl = viewport.getReference('output');
+                //
+                //         outputEl.html = record.name;
+                //     }
+                // },
+                //
+                // listeners: {
+                //     leafItemClick: 'onAccordionItemClick'
+                // }
+
                 listeners: {
-                    leafItemClick: 'onAccordionItemClick'
+                    selectPreFirstItem: () => Neo.log('listener selectPreFirstItem fired'),
+                    selectPostLastItem: () => Neo.log('listener selectPostLastItem fired')
                 }
+            }, {
+                module: Panel,
+                height: 150,
+                width : '100%',
+
+                itemDefaults: {
+                    style: {
+                        padding: '10px'
+                    }
+                },
+
+                headers: [{
+                    dock : 'top',
+                    style: {borderRightColor: 'transparent'},
+
+                    items: [{
+                        ntype: 'label',
+                        text : 'Accordion Selection'
+                    }]
+                }],
+
+                items: [{
+                    ntype    : 'component',
+                    reference: 'output',
+                    bind     : {html: data => data.selection[0].name}
+                }]
             }]
         });
     }
