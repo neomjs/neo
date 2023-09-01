@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander/esm.mjs';
-import fs from 'fs-extra';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import {Command}       from 'commander/esm.mjs';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 
 const
-    __dirname = fileURLToPath(new URL('../../', import.meta.url)),
-    cwd = process.cwd(),
+    __dirname   = fileURLToPath(new URL('../../', import.meta.url)),
+    cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
-    program = new Command();
+    program     = new Command();
 
 program
     .version(packageJson.version)
@@ -21,28 +21,29 @@ program
     .parse(process.argv);
 
 const programOpts = program.opts();
-let className = programOpts.className;
+let className     = programOpts.className;
 
 let ns = className.split('.');
 ns.splice(0, 1); //remove Neo namespace
-let componentPath = ns.join('/');
-componentPath = componentPath.toLowerCase();
+let componentPath    = ns.join('/');
+componentPath        = componentPath.toLowerCase();
 const componentChunk = ns.join('.')
-const name = ns.pop();
-let classFolder = path.join(cwd, 'examples', `/${componentPath}`);
+const name           = ns.pop();
+let classFolder      = path.join(cwd, 'examples', `/${componentPath}`);
+
 if (!fs.existsSync(classFolder)) {
-    fs.mkdirpSync(classFolder, { recursive: true });
+    fs.mkdirpSync(classFolder, {recursive: true});
 }
 
 createAppMjs(classFolder, componentChunk);
 createIndexHtml(classFolder, name);
 createNeoConfig(classFolder, componentPath);
-createMainContainer(classFolder, componentPath, componentChunk,name);
+createMainContainer(classFolder, componentPath, componentChunk, name);
 
 
 function createAppMjs(classFolder, componentChunk) {
     let template = [];
-    
+
     template.push(
         "import MainContainer from './MainContainer.mjs';",
         "",
@@ -54,8 +55,10 @@ function createAppMjs(classFolder, componentChunk) {
     const file = `${classFolder}/app.mjs`;
     fs.writeFileSync(file, `${template.join(os.EOL)}${os.EOL}`);
 }
+
 function createIndexHtml(classFolder, title) {
     const template = [];
+
     template.push(
         '<!DOCTYPE HTML>',
         '<html>',
@@ -74,8 +77,8 @@ function createIndexHtml(classFolder, title) {
 }
 
 function createNeoConfig(classFolder, componentPath) {
-
     const template = [];
+
     template.push(
         '{',
         `   "appPath"    : "examples/${componentPath}/app.mjs",`,
@@ -91,8 +94,8 @@ function createNeoConfig(classFolder, componentPath) {
 
 
 function createMainContainer(classFolder, componentPath, componentChunk, name) {
-
     const template = [];
+
     template.push(
         "import ConfigurationViewport   from '../../ConfigurationViewport.mjs';",
         "import NumberField             from '../../../src/form/field/Number.mjs';",
@@ -134,14 +137,14 @@ function createMainContainer(classFolder, componentPath, componentChunk, name) {
         "           stepSize: 5,",
         "           style: { marginTop: '10px' },",
         "           value: me.exampleComponent.width",
-        "       }]",        
+        "       }]",
         "   }",
         "",
         "   createExampleComponent() {",
         "       return Neo.create({",
         `           module: ${name},`,
         "           height: 30,",
-        "           width:  100",  
+        "           width:  100",
         "           // property_xy: <value>",
         "       })",
         "   }",
@@ -153,5 +156,4 @@ function createMainContainer(classFolder, componentPath, componentChunk, name) {
     );
     const file = `${classFolder}/MainContainer.mjs`;
     fs.writeFileSync(file, `${template.join(os.EOL)}${os.EOL}`);
-
 }
