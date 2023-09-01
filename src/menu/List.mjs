@@ -357,9 +357,12 @@ class List extends BaseList {
 
             record.handler?.call(me, record);
 
-            if (me.hideOnLeafItemClick && !record.items) {
-                me.unmount()
-            }
+            record.route && Neo.Main.setRoute({
+                appName: me.appName,
+                value  : record.route
+            });
+
+            me.hideOnLeafItemClick && !record.items && me.unmount();
 
             if (record.items) {
                 submenu = me.subMenuMap?.[me.getMenuMapId(recordId)];
