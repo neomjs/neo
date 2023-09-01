@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 
-import chalk from 'chalk';
-import { spawnSync } from 'child_process';
-import { Command } from 'commander/esm.mjs';
-import envinfo from 'envinfo';
-import fs from 'fs-extra';
-import inquirer from 'inquirer';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import chalk           from 'chalk';
+import {spawnSync}     from 'child_process';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 
 const
-    __dirname = fileURLToPath(new URL('../', import.meta.url)),
-    cwd = process.cwd(),
+    __dirname   = fileURLToPath(new URL('../', import.meta.url)),
+    cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
-    program = new Command(),
+    program     = new Command(),
     programName = `${packageJson.name} create-class`,
-    questions = [],
+    questions   = [],
     /**
      * Maintain a list of dir-names recognized as source root directories.
      * When not using dot notation with a class-name, the program assumes
@@ -54,12 +54,12 @@ if (programOpts.info) {
 
     envinfo
         .run({
-            System: ['OS', 'CPU'],
-            Binaries: ['Node', 'npm', 'Yarn'],
-            Browsers: ['Chrome', 'Edge', 'Firefox', 'Safari'],
+            System     : ['OS', 'CPU'],
+            Binaries   : ['Node', 'npm', 'Yarn'],
+            Browsers   : ['Chrome', 'Edge', 'Firefox', 'Safari'],
             npmPackages: ['neo.mjs']
         }, {
-            duplicates: true,
+            duplicates  : true,
             showNotFound: true
         })
         .then(console.log);
@@ -71,8 +71,8 @@ if (programOpts.info) {
 
     if (!programOpts.className) {
         answer = await inquirer.prompt({
-            type: 'input',
-            name: 'className',
+            type   : 'input',
+            name   : 'className',
             message: 'Please choose the namespace for your class:',
             default: 'Covid.view.MyContainer'
         });
@@ -82,8 +82,8 @@ if (programOpts.info) {
 
     if (!programOpts.baseClass) {
         questions.push({
-            type: 'list',
-            name: 'baseClass',
+            type   : 'list',
+            name   : 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
             default: guessBaseClass(programOpts.className || answers.className),
 
@@ -105,8 +105,8 @@ if (programOpts.info) {
 
     if (!programOpts.singleton) {
         questions.push({
-            type: 'list',
-            name: 'singleton',
+            type   : 'list',
+            name   : 'singleton',
             message: 'Singleton?',
             default: 'no',
             choices: ['yes', 'no']
@@ -123,7 +123,7 @@ if (programOpts.info) {
 
     let ns = className.split('.');
     ns.pop();
-    let root = ns.shift();
+    let root          = ns.shift();
     let rootLowerCase = root.toLowerCase();
 
 
@@ -144,11 +144,11 @@ if (programOpts.info) {
         singleton,
         '-r',
         scssClassName
-    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+    ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
     childProcess.status && process.exit(childProcess.status);
 
 
-    //create scss stubs only if it is a NEO component or a view component 
+    //create scss stubs only if it is a NEO component or a view component
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
@@ -157,7 +157,7 @@ if (programOpts.info) {
             className,
             '-b',
             baseClass
-        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
         childProcess.status && process.exit(childProcess.status);
     }
 
@@ -168,7 +168,7 @@ if (programOpts.info) {
             //        '--',
             '-c',
             className
-        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
         childProcess.status && process.exit(childProcess.status);
     }
 
@@ -180,24 +180,24 @@ if (programOpts.info) {
         '-e',
         'all',
         '-n'
-    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+    ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
     buildThemes.status && process.exit(buildThemes.status);
 
 
     // start the dev server
-    if (rootLowerCase === 'neo'){
+    if (rootLowerCase === 'neo') {
         let temp = className.split('.');
         temp.splice(0, 1); //remove Neo namespace
         let componentPath = `/examples/${temp.join('/')}`;
-        componentPath = componentPath.toLowerCase();
-    
+        componentPath     = componentPath.toLowerCase();
+
         let startServer = spawnSync('webpack', [
             'serve',
             '-c',
             './buildScripts/webpack/webpack.server.config.mjs',
             '--open',
             componentPath
-        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
         startServer.status && process.exit(startServer.status);
     }
 }
@@ -235,16 +235,16 @@ function guessBaseClass(className) {
 
     return 'container.Base';
 }
+
 function getScssClassName(className) {
     //template
     let classItems = className.split('.');
-    let result = [];
+    let result     = [];
 
     classItems.forEach(item => {
         let temp = item.split(/(?=[A-Z])/);
         result.push(temp.join('-').toLowerCase());
     });
 
-    const scssClassName = result.join('-');
-    return scssClassName;
+    return result.join('-');
 }
