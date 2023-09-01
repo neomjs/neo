@@ -1,45 +1,46 @@
 #!/usr/bin/env node
 
-import chalk           from 'chalk';
-import { Command }     from 'commander/esm.mjs';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import chalk from 'chalk';
+import { Command } from 'commander/esm.mjs';
+import envinfo from 'envinfo';
+import fs from 'fs-extra';
+import inquirer from 'inquirer';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const
-      __dirname   = fileURLToPath(new URL('../', import.meta.url)),
-      cwd         = process.cwd(),
-      requireJson = path => JSON.parse(fs.readFileSync((path))),
-      packageJson = requireJson(path.join(__dirname, 'package.json')),
-      insideNeo   = process.env.npm_package_name === 'neo.mjs',
-      program     = new Command(),
-      programName = `${packageJson.name} create-class`,
-      questions   = [],
-      /**
-       * Maintain a list of dir-names recognized as source root directories.
-       * When not using dot notation with a class-name, the program assumes
-       * that we want to create the class inside the cwd. The proper namespace
-       * is then looked up by traversing the directory path up to the first
-       * folder that matches an entry in "sourceRootDirs". The owning
-       * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
-       * namespace for this created class.
-       * Can be overwritten with the -s option.
-       * @type {String[]}
-       */
-      sourceRootDirs = ['apps'];
-
+    __dirname = fileURLToPath(new URL('../', import.meta.url)),
+    cwd = process.cwd(),
+    requireJson = path => JSON.parse(fs.readFileSync((path))),
+    packageJson = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo = process.env.npm_package_name === 'neo.mjs',
+    program = new Command(),
+    programName = `${packageJson.name} create-class`,
+    questions = [],
+    /**
+     * Maintain a list of dir-names recognized as source root directories.
+     * When not using dot notation with a class-name, the program assumes
+     * that we want to create the class inside the cwd. The proper namespace
+     * is then looked up by traversing the directory path up to the first
+     * folder that matches an entry in "sourceRootDirs". The owning
+     * folder (parent of cwd, child of sourceRootDirs[n]) will then be used as the
+     * namespace for this created class.
+     * Can be overwritten with the -s option.
+     * @type {String[]}
+     */
+    sourceRootDirs = ['apps'];
+console.log(`insideNeo:${insideNeo}`);
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',              'print environment debug info')
-    .option('-d, --drop',              'drops class in the currently selected folder')
+    .option('-i, --info', 'print environment debug info')
+    .option('-d, --drop', 'drops class in the currently selected folder')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"')
-    .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
+    .option('-s, --source <value>', `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
     .option('-b, --baseClass <value>')
     .option('-c, --className <value>')
+    .option('-r, --scss <value>')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -56,12 +57,12 @@ if (programOpts.info) {
 
     envinfo
         .run({
-            System     : ['OS', 'CPU'],
-            Binaries   : ['Node', 'npm', 'Yarn'],
-            Browsers   : ['Chrome', 'Edge', 'Firefox', 'Safari'],
+            System: ['OS', 'CPU'],
+            Binaries: ['Node', 'npm', 'Yarn'],
+            Browsers: ['Chrome', 'Edge', 'Firefox', 'Safari'],
             npmPackages: ['neo.mjs']
         }, {
-            duplicates  : true,
+            duplicates: true,
             showNotFound: true
         })
         .then(console.log);
@@ -95,8 +96,8 @@ if (programOpts.info) {
 
     if (!programOpts.className) {
         answer = await inquirer.prompt({
-            type   : 'input',
-            name   : 'className',
+            type: 'input',
+            name: 'className',
             message: 'Please choose the namespace for your class:',
             default: 'Covid.view.MyContainer'
         });
@@ -106,8 +107,8 @@ if (programOpts.info) {
 
     if (!programOpts.baseClass) {
         questions.push({
-            type   : 'list',
-            name   : 'baseClass',
+            type: 'list',
+            name: 'baseClass',
             message: 'Please pick the base class, which you want to extend:',
             default: guessBaseClass(programOpts.className || answers.className),
 
@@ -128,8 +129,8 @@ if (programOpts.info) {
 
     if (!programOpts.singleton) {
         questions.push({
-            type   : 'list',
-            name   : 'singleton',
+            type: 'list',
+            name: 'singleton',
             message: 'Singleton?',
             default: 'no',
             choices: ['yes', 'no']
@@ -140,12 +141,13 @@ if (programOpts.info) {
 
     Object.assign(answers, answer);
 
-    let baseClass   = programOpts.baseClass || answers.baseClass,
-        className   = programOpts.className || answers.className,
-        singleton   = programOpts.singleton || answers.singleton || 'no',
-        isDrop      = programOpts.drop,
+    let baseClass = programOpts.baseClass || answers.baseClass,
+        className = programOpts.className || answers.className,
+        singleton = programOpts.singleton || answers.singleton || 'no',
+        isDrop = programOpts.drop,
+        scssClass = programOpts.scss,
         isSingleton = singleton === 'yes',
-        startDate   = new Date(),
+        startDate = new Date(),
         baseType, classFolder, configName, file, folderDelta, importName, importPath, index, ns, root, rootLowerCase, viewFile;
 
     if (className.endsWith('.mjs')) {
@@ -153,9 +155,9 @@ if (programOpts.info) {
     }
 
     if (!isDrop) {
-        ns            = className.split('.');
-        file          = ns.pop();
-        root          = ns.shift();
+        ns = className.split('.');
+        file = ns.pop();
+        root = ns.shift();
         rootLowerCase = root.toLowerCase();
     }
 
@@ -171,24 +173,24 @@ if (programOpts.info) {
         if (isDrop) {
             ns = [];
 
-            let pathInfo      = path.parse(cwd),
-                sep           = path.sep,
+            let pathInfo = path.parse(cwd),
+                sep = path.sep,
                 baseName, loc = baseName = '',
                 tmpNs;
 
             sourceRootDirs.some(dir => {
-                loc   = cwd;
+                loc = cwd;
                 tmpNs = [];
 
                 while (pathInfo.root !== loc) {
                     baseName = path.resolve(loc, './').split(sep).pop();
 
                     if (baseName === dir) {
-                        ns          = tmpNs.reverse();
+                        ns = tmpNs.reverse();
                         classFolder = path.resolve(loc, ns.join(sep));
-                        file        = className;
-                        className   = ns.concat(className).join('.');
-                        loc         = path.resolve(loc, ns.join(sep));
+                        file = className;
+                        className = ns.concat(className).join('.');
+                        loc = path.resolve(loc, ns.join(sep));
                         return true;
                     }
 
@@ -241,7 +243,8 @@ if (programOpts.info) {
         file,
         folderDelta,
         ns,
-        root
+        root,
+        scssClass
     });
 
     if (baseClass === 'data.Model') {
@@ -259,7 +262,7 @@ if (programOpts.info) {
      * @param {Number} index=contentArray.length - 1
      * @returns {String[]}
      */
-    function addComma(contentArray, index=contentArray.length - 1) {
+    function addComma(contentArray, index = contentArray.length - 1) {
         contentArray[index] += ',';
         return contentArray;
     }
@@ -299,14 +302,14 @@ if (programOpts.info) {
      * @param {String} opts.viewFile
      */
     function adjustView(opts) {
-        let baseType        = opts.baseType,
-            configName      = opts.configName,
-            importName      = opts.importName,
-            viewFile        = opts.viewFile,
-            content         = fs.readFileSync(viewFile).toString().split(os.EOL),
+        let baseType = opts.baseType,
+            configName = opts.configName,
+            importName = opts.importName,
+            viewFile = opts.viewFile,
+            content = fs.readFileSync(viewFile).toString().split(os.EOL),
             fromMaxPosition = 0,
-            i               = 0,
-            len             = content.length,
+            i = 0,
+            len = content.length,
             adjustSpaces, className, codeLine, existingImportName, fromPosition, importLength, j, nextLine, spaces;
 
         // find the index where we want to insert our import statement
@@ -319,7 +322,7 @@ if (programOpts.info) {
 
             existingImportName = codeLine.substr(7);
             existingImportName = existingImportName.substr(0, existingImportName.indexOf(' '));
-            importLength       = existingImportName.length;
+            importLength = existingImportName.length;
 
             if (existingImportName > importName) {
                 break;
@@ -329,7 +332,7 @@ if (programOpts.info) {
         content.splice(i, 0, `import ${importName} from '${opts.importPath}';`);
 
         // find the longest import module name
-        for (i=0; i < len; i++) {
+        for (i = 0; i < len; i++) {
             codeLine = content[i];
 
             if (codeLine === '') {
@@ -340,7 +343,7 @@ if (programOpts.info) {
         }
 
         // adjust the block-formatting for imports
-        for (i=0; i < len; i++) {
+        for (i = 0; i < len; i++) {
             codeLine = content[i];
 
             if (codeLine === '') {
@@ -353,7 +356,7 @@ if (programOpts.info) {
             if (adjustSpaces > 0) {
                 spaces = '';
 
-                for (j=0; j < adjustSpaces; j++) {
+                for (j = 0; j < adjustSpaces; j++) {
                     spaces += ' ';
                 }
 
@@ -361,7 +364,7 @@ if (programOpts.info) {
             }
         }
 
-        i   = 0;
+        i = 0;
         len = content.length;
 
         // find the starting point
@@ -378,17 +381,17 @@ if (programOpts.info) {
                 addComma(content, i - 1);
                 addConfig({
                     baseType,
-                    className   : importName,
+                    className: importName,
                     configName,
                     contentArray: content,
-                    index       : i,
+                    index: i,
                     isLastConfig: true
                 });
                 break;
             }
 
             if (codeLine.includes('*/')) {
-                nextLine  = content[i + 1]
+                nextLine = content[i + 1]
                 className = nextLine.substring(0, nextLine.indexOf(':')).trim();
 
                 if (className === 'className' || className === 'ntype') {
@@ -396,14 +399,14 @@ if (programOpts.info) {
                 }
 
                 if (className > configName) {
-                    for (j=i; j > 0; j--) {
+                    for (j = i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig({
                                 baseType,
-                                className   : importName,
+                                className: importName,
                                 configName,
                                 contentArray: content,
-                                index       : j,
+                                index: j,
                                 isLastConfig: false
                             });
                             break;
@@ -444,10 +447,11 @@ if (programOpts.info) {
             file,
             folderDelta,
             ns,
-            root
+            root,
+            scssClass = undefined,
         } = opts, baseFileName;
 
-        fs.mkdirpSync(classFolder, {recursive: true});
+        fs.mkdirpSync(classFolder, { recursive: true });
 
         baseFileName = baseClass.split('.').pop();
 
@@ -464,29 +468,30 @@ if (programOpts.info) {
             file,
             folderDelta,
             ns,
-            root
+            root,
+            scssClass
         }));
 
-        switch(baseClass) {
+        switch (baseClass) {
             case 'controller.Component': {
-                baseType   = 'Neo.controller.Component';
+                baseType = 'Neo.controller.Component';
                 configName = 'controller';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Controller');
+                index = file.indexOf('Controller');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, importName, importPath, viewFile});
+                        adjustView({ baseType, configName, importName, importPath, viewFile });
                     }
                 }
                 break;
             }
 
             case 'data.Store': {
-                baseType   = 'Neo.data.Model';
+                baseType = 'Neo.data.Model';
                 configName = 'model';
                 importName = className.replace('.store.', '.model.');
 
@@ -500,32 +505,32 @@ if (programOpts.info) {
                 viewFile.shift();
 
                 importPath = `../${viewFile.join('/')}.mjs`;
-                viewFile   = path.join(classFolder, importPath);
+                viewFile = path.join(classFolder, importPath);
 
                 // checking for the data.Model file
                 if (fs.existsSync(viewFile)) {
                     // adjusting the data.Store file
-                    viewFile   = path.join(classFolder, file + '.mjs');
+                    viewFile = path.join(classFolder, file + '.mjs');
                     importName = importName.split('.');
                     importName = importName.pop();
 
-                    adjustView({baseType, configName, importName, importPath, viewFile});
+                    adjustView({ baseType, configName, importName, importPath, viewFile });
                 }
                 break;
             }
 
             case 'model.Component': {
-                baseType   = 'Neo.model.Component';
+                baseType = 'Neo.model.Component';
                 configName = 'model';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Model');
+                index = file.indexOf('Model');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
-                        adjustView({baseType, configName, importName, importPath, viewFile});
+                        adjustView({ baseType, configName, importName, importPath, viewFile });
                     }
                 }
                 break;
@@ -547,15 +552,17 @@ if (programOpts.info) {
      * @returns {String}
      */
     function createContent(opts) {
-        let baseClass     = opts.baseClass,
-            baseFileName  = opts.baseFileName,
+        let baseClass = opts.baseClass,
+            baseFileName = opts.baseFileName,
             baseClassPath = baseClass.split('.').join('/'),
-            className     = opts.className,
-            importSrc     = 'src/',
-            isSingleton   = opts.isSingleton,
-            file          = opts.file,
-            i             = 0,
-            importDelta   = '';
+            className = opts.className,
+            importSrc = 'src/',
+            isSingleton = opts.isSingleton,
+            file = opts.file,
+            i = 0,
+            importDelta = '',
+            scssClass = opts.scssClass,
+            isScss = scssClass !== null && scssClass !== undefined;
 
         if (root === 'Neo') {
             if (className.startsWith('Neo.examples')) {
@@ -591,6 +598,13 @@ if (programOpts.info) {
             "         */",
             `        className: '${className}'`
         );
+
+        isScss && addComma(classContent).push(
+            "        /**",
+            `         * @member {String[]} baseCls=['${scssClass}']`,
+            "         * @protected",
+            "         */",
+            `         baseCls: ['${scssClass}']`);
 
         baseClass === 'table.Container' && addComma(classContent).push(
             "        /**",
