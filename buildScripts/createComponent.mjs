@@ -14,7 +14,6 @@ const
     cwd = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo = process.env.npm_package_name === 'neo.mjs',
     program = new Command(),
     programName = `${packageJson.name} create-class`,
     questions = [],
@@ -186,19 +185,21 @@ if (programOpts.info) {
 
 
     // start the dev server
-    let temp = className.split('.');
-    temp.splice(0, 1); //remove Neo namespace
-    let componentPath = `/examples/${temp.join('/')}`;
-    componentPath = componentPath.toLowerCase();
-
-    let startServer = spawnSync('webpack', [
-        'serve',
-        '-c',
-        './buildScripts/webpack/webpack.server.config.mjs',
-        '--open',
-        `${(rootLowerCase === 'neo') ? componentPath : ''}`
-    ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
-    startServer.status && process.exit(startServer.status);
+    if (rootLowerCase === 'neo'){
+        let temp = className.split('.');
+        temp.splice(0, 1); //remove Neo namespace
+        let componentPath = `/examples/${temp.join('/')}`;
+        componentPath = componentPath.toLowerCase();
+    
+        let startServer = spawnSync('webpack', [
+            'serve',
+            '-c',
+            './buildScripts/webpack/webpack.server.config.mjs',
+            '--open',
+            componentPath
+        ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        startServer.status && process.exit(startServer.status);
+    }
 }
 
 function guessBaseClass(className) {
