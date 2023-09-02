@@ -47,6 +47,14 @@ class MainContainer extends ConfigurationViewport {
             style         : {marginTop: '10px'},
             valueLabelText: 'firstParentIsVisible'
         }, {
+            module        : CheckBox,
+            checked       : treeList.showIcon,
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange.bind(me, 'showIcon')},
+            style         : {marginTop: '10px'},
+            valueLabelText: 'showIcon'
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'height',
