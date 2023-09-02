@@ -10,12 +10,12 @@ import ViewController from '../../src/controller/Component.mjs';
 import ViewModel      from '../../src/model/Component.mjs';
 
 /**
- * @class Neo.examples.treeSelectionModel.MainContainer
+ * @class Neo.examples.treeAccordion.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.treeSelectionModel.MainContainer',
+        className           : 'Neo.examples.treeAccordion.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 100,
         configItemWidth     : 230,
@@ -97,7 +97,7 @@ class MainContainer extends ConfigurationViewport {
                   },
 
                   autoLoad: true,
-                  url     : '../../examples/treeSelectionModel/tree.json'
+                  url     : '../../examples/treeAccordion/tree.json'
               });
 
         return Neo.ntype({
@@ -143,7 +143,7 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 module: Panel,
                 height: 150,
-                width : '100%',
+                flex : 1,
 
                 itemDefaults: {
                     style: {
