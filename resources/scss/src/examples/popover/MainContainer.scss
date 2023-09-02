@@ -1,0 +1,111 @@
+[popover] {
+  inset: unset;
+  border-radius: 5px;
+  box-shadow: 2px 2px 7px #111;
+  background-color: #222;
+
+  //&.neo-popover[popover] {
+  //  display: revert;
+  //}
+
+  &.bc-tc {
+    position-fallback: --bc-tc;
+    translate: -50%;
+    margin: .5rem 0;
+  }
+  &.tc-bc {
+    position-fallback: --tc-bc;
+    translate: -50%;
+    margin: .5rem 0;
+  }
+  &.tl-tr {
+    position-fallback: --tl-tr;
+    margin: 0 .5rem;
+  }
+  &.tr-tl {
+    position-fallback: --tl-tr;
+    margin: 0 .5rem;
+  }
+  &.cl-cr {
+    position-fallback: --cl-cr;
+    margin: 0 .25rem;
+    translate: 0 -50%;
+  }
+  &.cr-cl {
+    position-fallback: --cr-cl;
+    margin: 0 .25rem;
+    translate: 0 -50%;
+  }
+}
+
+@position-fallback --bc-tc {
+  @try {
+    bottom: anchor(top);
+    left: anchor(center);
+  }
+
+  @try {
+    top: anchor(bottom);
+    left: anchor(center);
+  }
+}
+
+@position-fallback --tc-bc {
+  @try {
+    top: anchor(bottom);
+    left: anchor(center);
+  }
+
+  @try {
+    bottom: anchor(top);
+    left: anchor(center);
+  }
+}
+
+@position-fallback --tl-tr {
+  @try {
+    top: anchor(top);
+    left: anchor(right);
+  }
+
+  @try {
+    top: anchor(top);
+    right: anchor(left);
+  }
+}
+
+@position-fallback --tr-tl {
+  @try {
+    top: anchor(top);
+    right: anchor(left);
+  }
+
+  @try {
+    top: anchor(top);
+    left: anchor(right);
+  }
+}
+
+@position-fallback --cr-cl {
+  @try {
+    top: anchor(center);
+    right: anchor(left);
+  }
+
+  @try {
+    top: anchor(center);
+    left: anchor(right);
+  }
+}
+
+@position-fallback --cl-cr {
+  @try {
+    top: anchor(center);
+    left: anchor(right);
+  }
+
+  @try {
+    top: anchor(center);
+    right: anchor(left);
+  }
+}
