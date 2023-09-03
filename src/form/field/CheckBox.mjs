@@ -192,7 +192,7 @@ class CheckBox extends Base {
         NeoArray.removeAdd(iconCls, oldCls, newCls);
 
         me.update();
-me.getGroupValue();
+
         if (oldValue !== undefined) {
             me.fireChangeEvent(me.getValue(), me.getOldValue())
         }
@@ -437,7 +437,7 @@ me.getGroupValue();
      * @returns {String[]}
      */
     getGroupValue() {
-        let fields = ComponentManager.find({path: this.path}),
+        let fields = ComponentManager.find({path: this.getPath()}),
             value  = [];
 
         fields.forEach(field => {
