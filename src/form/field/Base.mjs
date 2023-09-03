@@ -151,6 +151,24 @@ class Base extends Component {
     }
 
     /**
+     * Forms in neo can be nested. This method will return the closest parent which is a form.Container or null.
+     * @returns {Neo.form.Container|null}
+     */
+    getClosestForm() {
+        let me            = this,
+            FormContainer = Neo.form?.Container,
+            parent;
+
+        for (parent of ComponentManager.getParents(me)) {
+            if (FormContainer && parent instanceof FormContainer) {
+                return parent
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Override this method as needed
      * @returns {Object|null}
      */
