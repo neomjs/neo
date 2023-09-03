@@ -208,15 +208,17 @@ class Base extends Component {
         super.onFocusLeave?.(data);
 
         let me            = this,
-            FormContainer = Neo.form?.Container;
+            FormContainer = Neo.form?.Container,
+            opts          = {...data, component: me, value: me.getValue()};
+
+        if (Neo.isFunction(me.getGroupValue)) {
+            opts.groupValue = me.getGroupValue()
+        }
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
                 if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldFocusLeave', {
-                        ...data,
-                        component: me
-                    })
+                    parent.fire('fieldFocusLeave', opts)
                 }
             })
         }
