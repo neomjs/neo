@@ -45,6 +45,15 @@ class Radio extends CheckBox {
     }
 
     /**
+     * @returns {String[]}
+     */
+    getGroupValue() {
+        let value = super.getGroupValue();
+
+        return value.length > 0 ? value[0] : []
+    }
+
+    /**
      * Radios do not fire a change event for "uncheck", so we need to iterate over other radios with the same name.
      */
     uncheckGroupItems() {
