@@ -76,9 +76,7 @@ class Base extends Component {
      * @param {*} oldValue
      */
     afterSetValue(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.fireChangeEvent(value, oldValue)
-        }
+        oldValue !== undefined && this.fireChangeEvent(value, oldValue)
     }
 
     /**
