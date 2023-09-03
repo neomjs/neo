@@ -443,7 +443,7 @@ class CheckBox extends Base {
 
         fields.forEach(field => {
             if (field.checked && field.getClosestForm() === form) {
-                value.push(field.value)
+                NeoArray.add(value, field.value)
             }
         });
 
