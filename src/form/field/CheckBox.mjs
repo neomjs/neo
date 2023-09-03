@@ -437,11 +437,14 @@ class CheckBox extends Base {
      * @returns {String[]}
      */
     getGroupValue() {
-        let fields = ComponentManager.find({path: this.getPath()}),
+        let form   = this.getClosestForm(),
+            fields = ComponentManager.find({path: this.getPath()}),
             value  = [];
 
         fields.forEach(field => {
-            field.checked && value.push(field.value)
+            if (field.checked && field.getClosestForm() === form) {
+                value.push(field.value)
+            }
         });
 
         return value
