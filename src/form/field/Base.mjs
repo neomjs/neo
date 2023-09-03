@@ -132,22 +132,19 @@ class Base extends Component {
      */
     fireChangeEvent(value, oldValue) {
         let me            = this,
-            FormContainer = Neo.form?.Container;
+            FormContainer = Neo.form?.Container,
+            opts          = {component: me, oldValue, value};
 
-        me.fire('change', {
-            component: me,
-            oldValue,
-            value
-        });
+        if (Neo.isFunction(me.getGroupValue)) {
+            opts.groupValue = me.getGroupValue()
+        }
+
+        me.fire('change', opts);
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
                 if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldChange', {
-                        component: me,
-                        oldValue,
-                        value
-                    })
+                    parent.fire('fieldChange', opts)
                 }
             })
         }
