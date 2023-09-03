@@ -1,5 +1,5 @@
 {
-    "appPath"    : "examples/treeSelectionModel/app.mjs",
+    "appPath"    : "examples/treeAccordion/app.mjs",
     "basePath"   : "../../",
     "environment": "development",
     "mainPath"   : "./Main.mjs",

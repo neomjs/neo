@@ -76,9 +76,7 @@ class Base extends Component {
      * @param {*} oldValue
      */
     afterSetValue(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.fireChangeEvent(value, oldValue)
-        }
+        oldValue !== undefined && this.fireChangeEvent(value, oldValue)
     }
 
     /**
@@ -134,25 +132,40 @@ class Base extends Component {
      */
     fireChangeEvent(value, oldValue) {
         let me            = this,
-            FormContainer = Neo.form?.Container;
+            FormContainer = Neo.form?.Container,
+            opts          = {component: me, oldValue, value};
 
-        me.fire('change', {
-            component: me,
-            oldValue,
-            value
-        });
+        if (Neo.isFunction(me.getGroupValue)) {
+            opts.groupValue = me.getGroupValue()
+        }
+
+        me.fire('change', opts);
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
                 if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldChange', {
-                        component: me,
-                        oldValue,
-                        value
-                    })
+                    parent.fire('fieldChange', opts)
                 }
             })
         }
+    }
+
+    /**
+     * Forms in neo can be nested. This method will return the closest parent which is a form.Container or null.
+     * @returns {Neo.form.Container|null}
+     */
+    getClosestForm() {
+        let me            = this,
+            FormContainer = Neo.form?.Container,
+            parent;
+
+        for (parent of ComponentManager.getParents(me)) {
+            if (FormContainer && parent instanceof FormContainer) {
+                return parent
+            }
+        }
+
+        return null
     }
 
     /**
@@ -213,15 +226,17 @@ class Base extends Component {
         super.onFocusLeave?.(data);
 
         let me            = this,
-            FormContainer = Neo.form?.Container;
+            FormContainer = Neo.form?.Container,
+            opts          = {...data, component: me, value: me.getValue()};
+
+        if (Neo.isFunction(me.getGroupValue)) {
+            opts.groupValue = me.getGroupValue()
+        }
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
                 if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldFocusLeave', {
-                        ...data,
-                        component: me
-                    })
+                    parent.fire('fieldFocusLeave', opts)
                 }
             })
         }

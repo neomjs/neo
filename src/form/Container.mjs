@@ -135,6 +135,7 @@ class Container extends BaseContainer {
      */
     async getValues() {
         let fields = await this.getFields(),
+            Radio  = Neo.form.field.Radio,
             values = {},
             itemName, key, ns, nsArray, value;
 
@@ -156,12 +157,23 @@ class Container extends BaseContainer {
                 ns  = values
             }
 
+            // Ensuring that Radios will not return arrays
+            if (Radio && item instanceof Radio) {
+                // Only overwrite an existing value with a checked value
+                if (Object.hasOwn(ns, key)) {
+                    if (value !== item.uncheckedValue) {
+                        ns[key] = value
+                    }
+                } else {
+                    ns[key] = value
+                }
+            }
             /*
              * CheckBoxes need custom logic
              * => we only want to pass the uncheckedValue in case the field does not belong to a group
              * (multiple fields using the same name)
              */
-            if (Object.hasOwn(ns, key) && value !== undefined) {
+            else if (Object.hasOwn(ns, key) && value !== undefined) {
                 if (ns[key] === item.uncheckedValue) {
                     ns[key] = []
                 } else if (!Array.isArray(ns[key])) {

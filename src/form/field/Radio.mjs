@@ -45,10 +45,22 @@ class Radio extends CheckBox {
     }
 
     /**
-     * @returns {String|null}
+     * Radios should only fire change & fieldChange events if checked.
+     * If there was just 1 radio, you can not uncheck it.
+     * @param {*} value
+     * @param {*} oldValue
      */
-    getValue() {
-        return this.checked ? this.value : undefined
+    fireChangeEvent(value, oldValue) {
+        this.checked && super.fireChangeEvent(value, oldValue)
+    }
+
+    /**
+     * @returns {String[]}
+     */
+    getGroupValue() {
+        let value = super.getGroupValue();
+
+        return value.length > 0 ? value[0] : []
     }
 
     /**
