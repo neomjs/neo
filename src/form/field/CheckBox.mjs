@@ -194,7 +194,7 @@ class CheckBox extends Base {
         me.update();
 
         if (oldValue !== undefined) {
-            me.fireChangeEvent(me.getValue(), null)
+            me.fireChangeEvent(me.getValue(), me.getOldValue())
         }
     }
 
@@ -462,6 +462,17 @@ class CheckBox extends Base {
     }
 
     /**
+     * Counterpart to getValue(), returning the uncheckedValue if checked
+     * @returns {String|null}
+     */
+    getOldValue() {
+        let me = this;
+
+        return me.checked ? me.uncheckedValue : me.value
+    }
+
+    /**
+     * Returns this.value if checked, otherwise this.uncheckedValue
      * @returns {String|null}
      */
     getValue() {
@@ -482,7 +493,7 @@ class CheckBox extends Base {
      */
     isValid() {
         this.validate(true); // silent
-        
+
         return this.error ? false : super.isValid()
     }
 
