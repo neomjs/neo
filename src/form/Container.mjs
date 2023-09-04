@@ -263,9 +263,13 @@ class Container extends BaseContainer {
                 }
 
                 isCheckBox = Neo.form.field?.CheckBox && field instanceof Neo.form.field.CheckBox;
+                isRadio    = Neo.form.field?.Radio && field instanceof Neo.form.field.Radio;
                 value      = fieldConfigs.value;
 
-                if (isCheckBox) {
+                if (isRadio) {
+                    fieldConfigs.checked = field.value === value;
+                    delete fieldConfigs.value
+                } else if (isCheckBox) {
                     if (Neo.typeOf(value) === 'Array') {
                         if (value.includes(field.value)) {
                             fieldConfigs.checked = true
@@ -273,12 +277,8 @@ class Container extends BaseContainer {
                     } else {
                         fieldConfigs.checked = field.value === value
                     }
-                } else if (value !== undefined) {
-                    isRadio = Neo.form.field?.Radio && field instanceof Neo.form.field.Radio;
 
-                    if (isRadio) {
-                        fieldConfigs.checked = field.value === value
-                    }
+                    delete fieldConfigs.value
                 }
 
                 field.set(fieldConfigs)
