@@ -264,7 +264,7 @@ class AccordionTree extends TreeList {
                     cls,
                     id,
                     cn : [{
-                        flag     : 'icon',
+                        flag     : 'iconCls',
                         tag      : 'span',
                         cls      : ['neo-accordion-item-icon', item[me.fields.icon]],
                         id       : id + '__icon',
