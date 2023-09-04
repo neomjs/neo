@@ -263,22 +263,31 @@ class Container extends BaseContainer {
                 }
 
                 isCheckBox = Neo.form.field?.CheckBox && field instanceof Neo.form.field.CheckBox;
-                isRadio    = Neo.form.field?.Radio && field instanceof Neo.form.field.Radio;
+                isRadio    = Neo.form.field?.Radio    && field instanceof Neo.form.field.Radio;
                 value      = fieldConfigs.value;
 
-                if (isRadio) {
-                    fieldConfigs.checked = field.value === value;
-                    delete fieldConfigs.value
-                } else if (isCheckBox) {
-                    if (Neo.typeOf(value) === 'Array') {
-                        if (value.includes(field.value)) {
-                            fieldConfigs.checked = true
-                        }
-                    } else {
-                        fieldConfigs.checked = field.value === value
-                    }
+                if (isCheckBox || isRadio) {
+                    /*
+                     * we want to only change the checked state, in case a value is set.
+                     * since fields of the same group might need it too, we are cloning the fieldConfigs
+                     */
+                    if (Object.hasOwn(fieldConfigs, 'value')) {
+                        fieldConfigs = Neo.clone(fieldConfigs, true);
 
-                    delete fieldConfigs.value
+                        if (isRadio) {
+                            fieldConfigs.checked = field.value === value
+                        } else if (isCheckBox) {
+                            if (Neo.typeOf(value) === 'Array') {
+                                if (value.includes(field.value)) {
+                                    fieldConfigs.checked = true
+                                }
+                            } else {
+                                fieldConfigs.checked = field.value === value
+                            }
+                        }
+
+                        delete fieldConfigs.value
+                    }
                 }
 
                 field.set(fieldConfigs)
