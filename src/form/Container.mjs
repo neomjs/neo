@@ -123,8 +123,8 @@ class Container extends BaseContainer {
 
         await this.loadModules();
 
-        ComponentManager.getChildComponents(this).forEach(item => {
-            item instanceof BaseField && fields.push(item)
+        ComponentManager.getChildComponents(this).forEach(field => {
+            field instanceof BaseField && fields.push(field)
         });
 
         return fields
@@ -135,40 +135,52 @@ class Container extends BaseContainer {
      */
     async getValues() {
         let fields = await this.getFields(),
+            Radio  = Neo.form.field.Radio,
             values = {},
-            itemName, key, ns, nsArray, value;
+            fieldName, key, ns, nsArray, value;
 
-        fields.forEach(item => {
-            value = item.getValue();
+        fields.forEach(field => {
+            value = field.getValue();
 
-            if (item.name) {
-                itemName = item.name;
+            if (field.name) {
+                fieldName = field.name;
 
-                if (item.formGroup) {
-                    itemName = item.formGroup + '.' + itemName;
+                if (field.formGroup) {
+                    fieldName = field.formGroup + '.' + fieldName;
                 }
 
-                nsArray = itemName.split('.');
+                nsArray = fieldName.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.nsWithArrays(nsArray, true, values);
             } else {
-                key = item.id;
+                key = field.id;
                 ns  = values
             }
 
+            // Ensuring that Radios will not return arrays
+            if (Radio && field instanceof Radio) {
+                // Only overwrite an existing value with a checked value
+                if (Object.hasOwn(ns, key)) {
+                    if (value !== field.uncheckedValue) {
+                        ns[key] = value
+                    }
+                } else {
+                    ns[key] = value
+                }
+            }
             /*
              * CheckBoxes need custom logic
              * => we only want to pass the uncheckedValue in case the field does not belong to a group
              * (multiple fields using the same name)
              */
-            if (Object.hasOwn(ns, key) && value !== undefined) {
-                if (ns[key] === item.uncheckedValue) {
+            else if (Object.hasOwn(ns, key) && value !== undefined) {
+                if (ns[key] === field.uncheckedValue) {
                     ns[key] = []
                 } else if (!Array.isArray(ns[key])) {
                     ns[key] = [ns[key]]
                 }
 
-                value !== item.uncheckedValue && ns[key].unshift(value)
+                value !== field.uncheckedValue && ns[key].unshift(value)
             } else if (value !== undefined) {
                 ns[key] = value
             }
@@ -223,11 +235,11 @@ class Container extends BaseContainer {
             fields = await me.getFields(),
             path, value;
 
-        fields.forEach(item => {
-            path  = me.getFieldPath(item);
+        fields.forEach(field => {
+            path  = me.getFieldPath(field);
             value = Neo.nsWithArrays(path, false, values);
 
-            item.reset(path ? value : null)
+            field.reset(path ? value : null)
         })
     }
 
@@ -241,38 +253,38 @@ class Container extends BaseContainer {
             fields = await me.getFields(),
             fieldConfigs, isCheckBox, isRadio, path, value;
 
-        fields.forEach(item => {
-            path         = me.getFieldPath(item);
+        fields.forEach(field => {
+            path         = me.getFieldPath(field);
             fieldConfigs = Neo.nsWithArrays(path, false, configs);
 
             if (fieldConfigs) {
                 if (suspendEvents) {
-                    item.suspendEvents = true
+                    field.suspendEvents = true
                 }
 
-                isCheckBox = Neo.form.field?.CheckBox && item instanceof Neo.form.field.CheckBox;
+                isCheckBox = Neo.form.field?.CheckBox && field instanceof Neo.form.field.CheckBox;
                 value      = fieldConfigs.value;
 
                 if (isCheckBox) {
                     if (Neo.typeOf(value) === 'Array') {
-                        if (value.includes(item.value)) {
+                        if (value.includes(field.value)) {
                             fieldConfigs.checked = true
                         }
                     } else {
-                        fieldConfigs.checked = item.value === value
+                        fieldConfigs.checked = field.value === value
                     }
                 } else if (value !== undefined) {
-                    isRadio = Neo.form.field?.Radio && item instanceof Neo.form.field.Radio;
+                    isRadio = Neo.form.field?.Radio && field instanceof Neo.form.field.Radio;
 
                     if (isRadio) {
-                        fieldConfigs.checked = item.value === value
+                        fieldConfigs.checked = field.value === value
                     }
                 }
 
-                item.set(fieldConfigs)
+                field.set(fieldConfigs)
 
                 if (suspendEvents) {
-                    delete item.suspendEvents
+                    delete field.suspendEvents
                 }
             }
         })
@@ -299,8 +311,8 @@ class Container extends BaseContainer {
             fields  = await this.getFields(),
             validField;
 
-        fields.forEach(item => {
-            validField = item.validate?.(false);
+        fields.forEach(field => {
+            validField = field.validate?.(false);
 
             if (!validField) {
                 isValid = false

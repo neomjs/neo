@@ -57,7 +57,7 @@
     "id": 8,
     "name": "V01 . At vero eos et accusam",
     "parentId": 7,
-    "collapsed": true,
+    "collapsed": false,
     "isLeaf": false,
     "content": "Auswählliste",
     "iconCls": "fa fa-chevron-down color-red"

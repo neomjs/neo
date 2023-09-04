@@ -7,6 +7,20 @@ import VDomUtil           from "../util/VDom.mjs";
 /**
  * @class Neo.tree.Accordion
  * @extends Neo.tree.List
+ *
+ * Accordion Store expects the following fields
+ *
+ *      [
+ *          iconCls,        // can be defined in fields:icon
+ *          content,        // can be defined in fields:text
+ *          name,           // can be defined in fields:header
+ *
+ *          collapsed,      // collapsed state for non-leaf-items
+ *          isLeaf,         // defines it item is leaf-item
+ *          id,             // defines item id
+ *          parentId        // leaf or sub-items need a parentId
+ *      ]
+ *
  */
 class AccordionTree extends TreeList {
     static config = {
@@ -25,19 +39,24 @@ class AccordionTree extends TreeList {
          */
         baseCls: ['neo-tree-list'],
         /**
-         * @member {Boolean} showCollapseExpandAllIcons=true
+         * Set to false to hide the initial root item
+         * @member {Boolean} firstParentIsVisible=true
          */
-        showCollapseExpandAllIcons: false,
+        firstParentIsVisible_: true,
+        /**
+         * Define the field names for the store to show header, text and icon
+         * @member {Object} fields={header:'name',icon:'iconCls',text:'content'}
+         */
+        fields: {
+            header: 'name',
+            icon  : 'iconCls',
+            text  : 'content'
+        },
         /**
          * Set to false will auto expand root parent items and disallow collapsing
          * @member {Boolean} rootParentIsCollapsible=false
          */
         rootParentsAreCollapsible_: false,
-        /**
-         * Set to false to hide the initial root item
-         * @member {Boolean} firstParentIsVisible=true
-         */
-        firstParentIsVisible_: true,
         /**
          * Currently selected item, which is bindable
          * @member {Record[]|null} selection=null
@@ -50,6 +69,15 @@ class AccordionTree extends TreeList {
          *     bind : {html: data => data.selection[0].name}
          */
         selection_: null,
+        /**
+         * Set to false will hide the icons for all leaf items
+         * @member {Boolean} showIcon=true
+         */
+        showIcon_: true,
+        /**
+         * @member {Boolean} showCollapseExpandAllIcons=true
+         */
+        showCollapseExpandAllIcons: false,
         /**
          * @member {Object} _vdom
          */
@@ -112,6 +140,31 @@ class AccordionTree extends TreeList {
                 }
             })
         }
+    }
+
+    /**
+     * Called when changing showIcon
+     * Changes the display of the icons
+     *
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetShowIcon(value, oldValue) {
+        const me    = this,
+              store = me.store,
+              hide  = !value;
+
+        store.items.forEach((record) => {
+            const itemId   = me.getItemId(record[me.getKeyProperty()]),
+                  vdom     = me.getVdomChild(itemId),
+                  itemVdom = VDomUtil.getByFlag(vdom, 'icon');
+
+            if (record.isLeaf) {
+                itemVdom.removeDom = hide;
+            }
+        })
+
+        me.update()
     }
 
     /**
@@ -211,10 +264,11 @@ class AccordionTree extends TreeList {
                     cls,
                     id,
                     cn : [{
+                        flag     : 'icon',
                         tag      : 'span',
-                        cls      : ['neo-accordion-item-icon', item.iconCls],
-                        id       : id + '__item',
-                        removeDom: !item.isLeaf
+                        cls      : ['neo-accordion-item-icon', item[me.fields.icon]],
+                        id       : id + '__icon',
+                        removeDom: (!item.isLeaf || !me.showIcon)
                     }, {
                         cls  : [itemCls + '-content'],
                         id   : id + '__item-content',
@@ -224,13 +278,13 @@ class AccordionTree extends TreeList {
                             tag      : 'span',
                             cls      : [itemCls + '-content-header'],
                             id       : id + '__item-content-header',
-                            innerHTML: item.name
+                            innerHTML: item[me.fields.header]
                         }, {
                             flag     : 'content',
                             tag      : 'span',
                             cls      : [itemCls + '-content-text'],
                             id       : id + '__item-content-text',
-                            innerHTML: item.content
+                            innerHTML: item[me.fields.text]
                         }]
                     }],
                     style: {
@@ -273,7 +327,6 @@ class AccordionTree extends TreeList {
         const me             = this,
               selectionModel = me.selectionModel,
               itemId         = item.id,
-              // ! todo make it String
               id             = Number(itemId.split('__')[1]),
               record         = me.store.get(id);
 
@@ -354,11 +407,11 @@ class AccordionTree extends TreeList {
 
     /**
      * Update a record
-     * @param {Object} data
-     * @param {Object[]} data.fields
-     * @param {Number} data.index
+     * @param {Object}         data
+     * @param {Object[]}       data.fields
+     * @param {Number}         data.index
      * @param {Neo.data.Model} data.model
-     * @param {Record} data.record
+     * @param {Record}         data.record
      */
     onStoreRecordChange(data) {
         let me     = this,

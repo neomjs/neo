@@ -34,6 +34,9 @@ class Model extends BaseModel {
             name: 'items', // optional
             type: 'Array'
         }, {
+            name: 'route',
+            type: 'String'
+        }, {
             name: 'text',
             type: 'String'
         }]
