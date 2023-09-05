@@ -8,7 +8,6 @@ import NeoArray  from "../util/Array.mjs";
  * @extends Neo.plugin.Base
  *
  * @example
- *
  *     module : Button,
  *     width  : 200,
  *     text   : 'Click Me',
@@ -34,7 +33,7 @@ class Popover extends Base {
      * @protected
      * @static
      *
-     * todo add more
+     * todo: add more
      */
     static alignValues = ['bc-tc', 'tc-bc', 'tl-tr', 'tr-tl', 'cl-cr', 'cr-cl', null]
 
@@ -45,28 +44,26 @@ class Popover extends Base {
          */
         className: 'Neo.plugin.Popover',
         /**
-         * @member {String} ntype='popover'
+         * @member {String} ntype='plugin-popover'
          * @protected
          */
         ntype: 'plugin-popover',
-
-
         /**
-         * Define popover to popovertarget alignment
+         * Define popover to popover target alignment
          * Defaults to bottom center of popover is aligned to top center of owner
-         * @type {string} align='bc-tc'
+         * @member {String} align='bc-tc'
          */
         align_: 'bc-tc',
         /**
          * Custom cls to add to the owner component
-         * @member {String} ownerCls='neo-prefixfield'
-         */
-        popovertargetCls: 'neo-popover-target',
-        /**
-         * Custom cls to add to the owner component
-         * @member {String} ownerCls='neo-prefixfield'
+         * @member {String} popoverBaseCls='neo-popover'
          */
         popoverBaseCls: 'neo-popover',
+        /**
+         * Custom cls to add to the owner component
+         * @member {String} popovertargetCls='neo-popover-target'
+         */
+        popovertargetCls: 'neo-popover-target'
     }
 
     /**
@@ -83,11 +80,10 @@ class Popover extends Base {
         me.preparePopoverTarget();
         me.addPopover();
 
-        me.addListeners();
+        me.addListeners()
     }
 
     /**
-     * Add listeners
      * @protected
      */
     addListeners() {
@@ -95,8 +91,8 @@ class Popover extends Base {
 
         me.owner.addDomListeners([
             {mouseover: me.onTargetMouseOver, scope: me},
-            {mouseout: me.onTargetMouseOut, scope: me}
-        ]);
+            {mouseout : me.onTargetMouseOut,  scope: me}
+        ])
     }
 
     /**
@@ -124,7 +120,7 @@ class Popover extends Base {
                   }
               };
 
-        parent.add(popover);
+        parent.add(popover)
     }
 
     /**
@@ -135,7 +131,7 @@ class Popover extends Base {
      * @returns {String|null} value
      */
     beforeSetAlign(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'alignValues', 'align');
+        return this.testInputValue(value, oldValue, 'alignValues', 'align')
     }
 
     /**
@@ -144,7 +140,7 @@ class Popover extends Base {
      * @protected
      */
     onTargetMouseOut(data) {
-        Neo.main.addon.Popover.hide({id: data.component.id});
+        Neo.main.addon.Popover.hide({id: data.component.id})
     }
 
     /**
@@ -153,7 +149,7 @@ class Popover extends Base {
      * @protected
      */
     onTargetMouseOver(data) {
-        Neo.main.addon.Popover.show({id: data.component.id});
+        Neo.main.addon.Popover.show({id: data.component.id})
     }
 
     /**
@@ -165,7 +161,7 @@ class Popover extends Base {
               targetVdom = target.vdom;
 
         target.addCls(me.popovertargetCls);
-        targetVdom.popovertarget = me.popoverId;
+        targetVdom.popovertarget = me.popoverId
     }
 
     /**
@@ -182,10 +178,10 @@ class Popover extends Base {
 
         if (!NeoArray.hasItem(validValues, value)) {
             Neo.logError(this.id + ' -> layout: supported values for "' + propertyName + '" are', validValues);
-            return oldValue;
+            return oldValue
         }
 
-        return value;
+        return value
     }
 }
 

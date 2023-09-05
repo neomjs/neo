@@ -18,7 +18,6 @@ class MainContainer extends ConfigurationViewport {
         cls                 : ['examples-container-accordion']
     }
 
-
     /**
      * @returns {*}
      */
@@ -49,7 +48,7 @@ class MainContainer extends ConfigurationViewport {
                     }]
                 }]
             }]
-        });
+        })
     }
 }
 

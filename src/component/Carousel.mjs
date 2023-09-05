@@ -22,7 +22,7 @@ class Carousel extends Component {
     positionArray = ['neo-carousel--translate-x-full', 'neo-carousel-translate-x-0', 'neo-carousel-translate-x-full']
     /**
      * keeps track of the data for the onClickEvent
-     * @type {null}
+     * @member {Object} itemData={}
      */
     itemData = {}
 
