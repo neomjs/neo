@@ -251,7 +251,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      * @returns {Object}
      */
     getEventData(event) {
@@ -271,7 +271,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {KeyboardEvent} event
      * @returns {Object}
      */
     getKeyboardEventData(event) {
@@ -290,7 +290,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      * @returns {Object}
      */
     getMouseEventData(event) {
@@ -409,7 +409,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {InputEvent} event
      */
     onChange(event) {
         let me      = this,
@@ -432,7 +432,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onClick(event) {
         let me = this;
@@ -443,7 +443,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onContextMenu(event) {
         let me = this;
@@ -464,7 +464,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onDoubleClick(event) {
         let me = this;
@@ -482,14 +482,14 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {FocusEvent} event
      */
     onFocusIn(event) {
         this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
-     * @param {Object} event
+     * @param {FocusEvent} event
      */
     onFocusOut(event) {
         this.sendMessageToApp(this.getEventData(event))
@@ -513,7 +513,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
         let target  = event.target,
@@ -534,21 +534,21 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {KeyboardEvent} event
      */
     onKeyUp(event) {
         this.sendMessageToApp(this.getKeyboardEventData(event))
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onMouseDown(event) {
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onMouseEnter(event) {
         let me       = this,
@@ -559,7 +559,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onMouseLeave(event) {
         let me       = this,
@@ -570,7 +570,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MouseEvent} event
      */
     onMouseUp(event) {
         this.sendMessageToApp(this.getMouseEventData(event))
@@ -580,46 +580,44 @@ class DomEvents extends Base {
      * @param {Event} event
      */
     onScroll(event) {
-        let target = event.target;
+        let {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target;
 
         this.sendMessageToApp({
             ...this.getEventData(event),
-            clientHeight: target.clientHeight,
-            clientWidth : target.clientWidth,
-            scrollLeft  : target.scrollLeft,
-            scrollTop   : target.scrollTop
+            clientHeight,
+            clientWidth,
+            scrollLeft,
+            scrollTop
         })
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onSelectionChange(event) {
-        const me     = this,
-              target = event.target.activeElement;
+        let me      = this,
+            target  = event.target,
+            element = target.type ? target : target.activeElement,
+            path, targetData;
 
-        if (target.tagName === 'BODY') return;
+        if (target.tagName === 'BODY') {
+            return
+        }
 
+        path       = me.getSelectionPath([], element);
+        targetData = me.getTargetData(element);
 
-        const targetData  = me.getTargetData(target),
-              path        = me.getSelectionPath([], target),
-              outputEvent = {
-                  selection: {
-                      start    : target.selectionStart,
-                      end      : target.selectionEnd,
-                      direction: target.selectionDirection
-                  },
-                  path     : path,
-                  target   : targetData,
-                  timeStamp: event.timeStamp,
-                  type     : "selectionchange"
-              };
-
-        me.sendMessageToApp(outputEvent);
+        me.sendMessageToApp({
+            path,
+            selection: {direction: element.selectionDirection, end: element.selectionEnd, start: element.selectionStart},
+            target   : targetData,
+            timeStamp: event.timeStamp,
+            type     : 'selectionchange'
+        })
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onWheel(event) {
         let target        = this.testPathInclusion(event, globalWheelTargets),
@@ -764,7 +762,7 @@ class DomEvents extends Base {
 
         data.cls.forEach(cls => {
             !preventArray.includes(cls) && preventArray.push(cls)
-        });
+        })
     }
 
     /**
