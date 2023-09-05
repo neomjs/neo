@@ -82,7 +82,7 @@ class Base extends Component {
      */
     add(item) {
         let me = this;
-        return me.insert(me.items ? me.items.length : 0, item);
+        return me.insert(me.items ? me.items.length : 0, item)
     }
 
     /**
@@ -99,13 +99,13 @@ class Base extends Component {
         if (value && me.items) {
             me.items.forEach(item => {
                 if (Neo.isObject(item)) {
-                    item.appName = value;
+                    item.appName = value
                 }
-            });
+            })
         }
 
         if (value && me.layout) {
-            me.layout.appName = value;
+            me.layout.appName = value
         }
     }
 
@@ -123,8 +123,8 @@ class Base extends Component {
 
             me.items.forEach((item, index) => {
                 oldValue.removeChildAttributes(item, index);
-                value.applyChildAttributes(item, index);
-            });
+                value.applyChildAttributes(item, index)
+            })
         }
     }
 
@@ -145,7 +145,7 @@ class Base extends Component {
 
                 for (; i < len; i++) {
                     if (!items[i].vdom.removeDom) {
-                        items[i].mounted = value;
+                        items[i].mounted = value
                     }
                 }
             }, 1)
@@ -186,7 +186,7 @@ class Base extends Component {
 
             for (; i < len; i++) {
                 if (!items[i].vdom.removeDom) {
-                    items[i].rendering = value;
+                    items[i].rendering = value
                 }
             }
         }
@@ -199,7 +199,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetLayout(value, oldValue) {
-        return this.createLayout(value);
+        return this.createLayout(value)
     }
 
     /**
@@ -245,11 +245,11 @@ class Base extends Component {
 
             case 'Object': {
                 if (defaults) {
-                    Neo.assignDefaults(item, defaults);
+                    Neo.assignDefaults(item, defaults)
                 }
 
                 if (!item.module && !item.ntype && !item.className) {
-                    item.module = Component;
+                    item.module = Component
                 }
 
                 module = item.module;
@@ -257,23 +257,23 @@ class Base extends Component {
                 lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
 
                 if (module && !lazyLoadItem) {
-                    item.className = module.prototype.className;
+                    item.className = module.prototype.className
                 }
 
                 if (item.handlerScope === 'this') {
                     item.handlerScope = me;
 
                     if (Neo.typeOf(item.handler) === 'String' && Neo.typeOf(me[item.handler]) === 'Function') {
-                        item.handler = me[item.handler];
+                        item.handler = me[item.handler]
                     }
                 }
 
                 Object.assign(item, config);
 
                 if (!lazyLoadItem) {
-                    item = Neo[item.className ? 'create' : 'ntype'](item);
+                    item = Neo[item.className ? 'create' : 'ntype'](item)
                 } else {
-                    item.vdom = Object.assign(item.vdom || {}, {removeDom: true});
+                    item.vdom = Object.assign(item.vdom || {}, {removeDom: true})
                 }
 
                 break;
@@ -308,13 +308,13 @@ class Base extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                layout.applyChildAttributes(item, index);
+                layout.applyChildAttributes(item, index)
             }
 
-            itemsRoot.cn.push(item.vdom);
+            itemsRoot.cn.push(item.vdom)
         });
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -328,16 +328,16 @@ class Base extends Component {
         if (value) {
             if (value instanceof LayoutBase && value.isLayout) {
                 value.appName     = me.appName;
-                value.containerId = me.id;
+                value.containerId = me.id
             } else {
                 value = me.parseLayoutClass(value);
                 value.appName     = me.appName;
                 value.containerId = me.id;
-                value = Neo.ntype(value);
+                value = Neo.ntype(value)
             }
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -347,10 +347,10 @@ class Base extends Component {
      */
     destroy(updateParentVdom=false, silent=false) {
         this.items.forEach(item => {
-            item.destroy?.(false, true);
+            item.destroy?.(false, true)
         });
 
-        super.destroy(updateParentVdom, silent);
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
@@ -358,7 +358,7 @@ class Base extends Component {
      * @returns {Object} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.getVdomRoot();
+        return this.getVdomRoot()
     }
 
     /**
@@ -377,11 +377,11 @@ class Base extends Component {
 
         for (; i < len; i++) {
             if (me.items[i].id === itemId) {
-                return i;
+                return i
             }
         }
 
-        return -1;
+        return -1
     }
 
     /**
@@ -403,7 +403,7 @@ class Base extends Component {
 
             for (; i < len; i++) {
                 // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true))
             }
 
             item = returnArray;
@@ -418,13 +418,13 @@ class Base extends Component {
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, item.vdom);
+            me.getVdomItemsRoot().cn.splice(index, 0, item.vdom)
         }
 
         if (!silent) {
             me.promiseUpdate().then(() => {
-                me.fire('insert', { index, item });
-            });
+                me.fire('insert', { index, item })
+            })
         }
 
         return item;
@@ -442,15 +442,15 @@ class Base extends Component {
 
         if (config.itemDefaults) {
             me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
-            delete config.itemDefaults;
+            delete config.itemDefaults
         }
 
         if (config.items) {
             me._items = Neo.clone(config.items, true, true);
-            delete config.items;
+            delete config.items
         }
 
-        return config;
+        return config
     }
 
     /**
@@ -465,7 +465,7 @@ class Base extends Component {
 
         fromIndex !== toIndex && me.switchItems(toIndex, fromIndex);
 
-        return item;
+        return item
     }
 
     /**
@@ -481,7 +481,7 @@ class Base extends Component {
         super.onConstructed();
 
         me.parseItemConfigs(me.items);
-        me.createItems();
+        me.createItems()
     }
 
     /**
@@ -492,19 +492,19 @@ class Base extends Component {
     parseLayoutClass(config) {
         if (Neo.isObject(config)) {
             if (config.ntype.indexOf('layout-') < 0) {
-                config.ntype = 'layout-' + config.ntype;
+                config.ntype = 'layout-' + config.ntype
             }
         } else if (config.indexOf('layout-') < 0) {
             config = {
                 ntype: 'layout-' + config
-            };
+            }
         } else {
             config = {
                 ntype: config
-            };
+            }
         }
 
-        return config;
+        return config
     }
 
     /**
@@ -520,7 +520,7 @@ class Base extends Component {
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent);
+                this.removeAt(i, destroyItem, silent)
             }
         }
     }
@@ -563,7 +563,7 @@ class Base extends Component {
             item;
 
         if (index >= items.length) {
-            Neo.warn('Container.removeAt: index >= items.length. ' + me.id);
+            Neo.warn('Container.removeAt: index >= items.length. ' + me.id)
         } else {
             item = items[index];
 
@@ -574,9 +574,9 @@ class Base extends Component {
             me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy(true, silent);
+                item.destroy(true, silent)
             } else {
-                item.mounted = false;
+                item.mounted = false
             }
         }
     }
@@ -587,7 +587,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      */
     removeLast(destroyItem=true, silent=false) {
-        this.removeAt(this.items.length - 1, destroyItem, silent);
+        this.removeAt(this.items.length - 1, destroyItem, silent)
     }
 
     /**
@@ -599,7 +599,7 @@ class Base extends Component {
      */
     replaceAt(index, item, destroyItem=true, silent=false) {
         this.removeAt(index, destroyItem, true);
-        this.insert(index, item, silent);
+        this.insert(index, item, silent)
     }
 
     /**
@@ -616,7 +616,7 @@ class Base extends Component {
         NeoArray.move(me.items,                 item2Index, item1Index);
         NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
 
-        me.update();
+        me.update()
     }
 }
 
