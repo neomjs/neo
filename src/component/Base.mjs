@@ -551,7 +551,10 @@ class Base extends CoreBase {
 
         if (value && oldValue === undefined && me.hideMode === 'removeDom') {
             me.vdom.removeDom = true
-        } else if (!(!value && oldValue === undefined)) {
+        } else if (value && me.parentId !== 'document.body') {
+            me.vdom.removeDom = true;
+            me.update()
+        } else if (value || oldValue !== undefined) {
             me[value ? 'hide' : 'show']()
         }
     }
