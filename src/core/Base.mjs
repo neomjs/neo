@@ -13,7 +13,8 @@ class Base {
     /**
      * Regex to grab the MethodName from an error
      * which is a second generation function
-     * @type {*}
+     * @member {RegExp} methodNameRegex
+     * @static
      */
     static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/
     /**
