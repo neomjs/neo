@@ -144,7 +144,7 @@ class DeltaUpdates extends Base {
             reg, startTag;
 
         if (!node) { // could be a vtype: text
-            node = this.getElementOrBody(delta.parentId);
+            node = delta.parentId && this.getElementOrBody(delta.parentId);
 
             if (node) {
                 startTag = `<!-- ${delta.id} -->`;
