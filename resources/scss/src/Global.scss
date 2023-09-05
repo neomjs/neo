@@ -18,6 +18,10 @@ html, .neo-body-viewport {
     -webkit-font-smoothing: var(--neo-font-smoothing);
 }
 
+.neo-floating {
+    position : fixed;
+}
+
 .neo-body, .neo-body * {
     box-sizing: border-box;
  }

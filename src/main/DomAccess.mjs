@@ -2,6 +2,8 @@ import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
 import Observable   from '../core/Observable.mjs';
 
+const pxRE = /^(\d+)px$/;
+
 /**
  * @class Neo.main.DomAccess
  * @extends Neo.core.Base
@@ -170,7 +172,7 @@ class DomAccess extends Base {
      * @param {Object} data
      * @param {Array|String} data.id either an id or an array of ids
      * @param {Array|String} data.attributes either an attribute or an array of attributes
-     * @returns {Array|Object} In case id is an array, an array of atrrbute objects is returned, otherwise an object
+     * @returns {Array|Object} In case id is an array, an array of attribute objects is returned, otherwise an object
      */
     getAttributes(data) {
         let returnData;
@@ -220,12 +222,15 @@ class DomAccess extends Base {
             });
         } else {
             let node = this.getElementOrBody(data.id),
-                rect = {};
+                rect = {}, style, minWidth, minHeight;
 
             returnData = {};
 
             if (node) {
-                rect = node.getBoundingClientRect();
+                rect      = node.getBoundingClientRect();
+                style     = node.ownerDocument.defaultView.getComputedStyle(node);
+                minWidth  = style.getPropertyValue('min-width'),
+                minHeight = style.getPropertyValue('min-height');
 
                 // DomRect does not support spreading => {...DomRect} => {}
                 Object.assign(returnData, {
@@ -238,6 +243,14 @@ class DomAccess extends Base {
                     x     : rect.x,
                     y     : rect.y
                 });
+
+                // TODO: Measure minWidth/minHeight in other units like em/rem etc
+                if (minWidth = pxRE.exec(minWidth)?.[1]) {
+                    returnData.minWidth = parseInt(minWidth);
+                }
+                if (minHeight = pxRE.exec(minHeight)?.[1]) {
+                    returnData.minHeight = parseInt(minHeight);
+                }
             }
         }
 

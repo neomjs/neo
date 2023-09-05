@@ -31,7 +31,8 @@ project.configure({
 
 project.plan(
     './tests/CollectionBase.mjs',
-    './tests/VdomHelper.mjs'
+    './tests/VdomHelper.mjs',
+    './tests/Rectangle.mjs'
 );
 
 project.start();

@@ -1,4 +1,5 @@
 import Component    from '../../../src/controller/Component.mjs';
+import '../../../src/form/field/Select.mjs'
 
 /**
  * @class Neo.examples.container.dialog.MainContainerController
@@ -54,6 +55,15 @@ class MainContainerController extends Component {
                 items: [{
                     ntype: 'container',
                     html: 'text'
+                }, {
+                    ntype     : 'selectfield',
+                    labelText : 'Select',
+                    store     : {
+                        data : [{
+                            id   : 0,
+                            name : 'Option 1'
+                        }]
+                    }
                 }]
             })
         }

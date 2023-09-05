@@ -353,6 +353,20 @@ class Base {
         return {...ctor.config, ...config}
     }
 
+    merge(dest = {}, src) {
+        for (const key in src) {
+            const value = src[key];
+
+            if (typeof value === 'object') {
+                dest[key] = this.merge(dest[key], value);
+            }
+            else {
+                dest[key] = value;
+            }
+        }
+        return dest;
+    }
+
     /**
      *
      */

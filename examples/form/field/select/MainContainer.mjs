@@ -5,6 +5,7 @@ import NumberField           from '../../../../src/form/field/Number.mjs';
 import SelectField           from '../../../../src/form/field/Select.mjs';
 import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
+import Panel from '../../../../src/container/Panel.mjs';
 
 /**
  * @class Neo.examples.form.field.select.MainContainer
@@ -125,6 +126,18 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            module   : CheckBox,
+            checked  : false,
+            labelText: 'At end',
+            listeners: {change: value => {
+                this.exampleComponent.vdom.style = value ? {
+                    position : 'absolute',
+                    bottom : '1em'
+                } : {};
+                this.exampleComponent.update();
+            }},
+            style    : {marginTop: '10px'}
         }];
     }
 
@@ -137,7 +150,11 @@ class MainContainer extends ConfigurationViewport {
             store        : MainStore,
             value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
-            width        : 200
+            width        : 200,
+            style : {
+                position : 'absolute',
+                bottom : '1em'
+            }
         })
     }
 }

@@ -10,6 +10,7 @@ import Style            from '../util/Style.mjs';
 import Util             from '../core/Util.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
+import Rectangle from '../util/Rectangle.mjs';
 
 /**
  * @class Neo.component.Base
@@ -41,6 +42,11 @@ class Base extends CoreBase {
          * @protected
          */
         ntype: 'component',
+        /**
+         * True to render this component into the viewport outside of the document flow
+         * @member {Boolean} floating
+         */
+        floating: false,
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
@@ -305,7 +311,26 @@ class Base extends CoreBase {
          * The vdom markup for this component.
          * @member {Object} _vdom={}
          */
-        _vdom: {}
+        _vdom: {},
+        /**
+         * The default alignment specification to position this Component relative to some other
+         * Component, or Element or Rectangle.
+         */
+        align_ : {
+            edgeAlign   : 't-b',
+            constrainTo : 'document.body'
+        }
+    }
+
+    beforeSetAlign(align) {
+        // Just a simple 't-b'
+        if (typeof align === 'string') {
+            align = {
+                edgeAlign : align
+            };
+        }
+        // merge the incoming alignment specification into the configured default
+        return this.merge(this.merge({}, this.constructor.config.align), align);
     }
 
     /**
@@ -645,6 +670,10 @@ class Base extends CoreBase {
 
                 me.doResolveUpdateCache();
 
+                if (me.floating) {
+                    me.alignTo();
+                }
+    
                 me.fire('mounted', me.id)
             }
         }
@@ -739,7 +768,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
-        this.changeVdomRootKey('width', value)
+        //this.changeVdomRootKey('width', value)
     }
 
     /**
@@ -855,7 +884,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        return NeoArray.union(value || [], this.baseCls)
+        return NeoArray.union(value || [], this.baseCls, this.getBaseClass());
     }
 
     /**
@@ -1027,7 +1056,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Unregisters this instance from the ComponentManager
+     * Unregister this instance from the ComponentManager
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
      * todo: unregister events
@@ -1154,6 +1183,16 @@ class Base extends CoreBase {
      */
     getApp() {
         return Neo.apps[this.appName]
+    }
+
+    getBaseClass() {
+        const result = [];
+
+        if (this.floating) {
+            result.push('neo-floating');
+        }
+
+        return result;
     }
 
     /**
@@ -1712,7 +1751,7 @@ class Base extends CoreBase {
      * - or the autoMount config is set to true
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
-    render(mount) {
+    async render(mount) {
         let me            = this,
             autoMount     = mount || me.autoMount,
             app           = Neo.apps[me.appName],
@@ -1732,18 +1771,17 @@ class Base extends CoreBase {
             me._needsVdomUpdate = false;
             me.afterSetNeedsVdomUpdate?.(false, true)
 
-            Neo.vdom.Helper.create({
+            const data = await Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 ...me.vdom
-            }).then(data => {
-                me.onRender(data, useVdomWorker ? autoMount : false);
-                me.isVdomUpdating = false;
+            });
+            me.onRender(data, useVdomWorker ? autoMount : false);
+            me.isVdomUpdating = false;
 
-                autoMount && !useVdomWorker && me.mount()
-            })
+            autoMount && !useVdomWorker && me.mount()
         }
     }
 
@@ -1812,8 +1850,8 @@ class Base extends CoreBase {
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
      */
-    show() {
-        let me = this;
+    show(align) {
+        const me = this;
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
@@ -1829,7 +1867,45 @@ class Base extends CoreBase {
             me.style = style
         }
 
+        if (me.floating) {
+            me.alignTo(align);
+        }
+
         me._hidden = false
+    }
+
+    async alignTo(spec = {}) {
+        const
+            me            = this,
+            { vdom }      = me,
+            align         = {
+                ...me.align,
+                ...spec
+            },
+            myDomRect     = await me.getDomRect(),
+            myRect        = new Rectangle(myDomRect.x, myDomRect.y, myDomRect.width, myDomRect.height),
+            targetRect    = await me.getDomRect(align.target),
+            constrainRect = await me.getDomRect(align.constrainTo);
+
+        me.lastAlignSpec = align;
+        align.target = new Rectangle(targetRect.x, targetRect.y, targetRect.width, targetRect.height);
+        align.constrainTo = new Rectangle(constrainRect.x, constrainRect.y, constrainRect.width, constrainRect.height);
+
+        // Get an aligned clone of myRect aligned according to the align object
+        const result = myRect.alignTo(align);
+
+        vdom.style = {
+            top       : 0,
+            left      : 0,
+            transform : `translate(${result.x}px,${result.y}px)`
+        }
+        if (result.width !== myRect.width) {
+            vdom.style.width = `${result.width}px`;
+        }
+        if (result.height !== myRect.height) {
+            vdom.style.height = `${result.height}px`;
+        }
+        me.update();
     }
 
     /**

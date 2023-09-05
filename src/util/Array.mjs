@@ -132,29 +132,15 @@ class NeoArray extends Base {
     }
 
     /**
-     * Returns an array of items which are present in array1 and array2
+     * Returns an array of items which are present in the passed arrays.
+     * Multiple arrays may be passed.
      * Only supports primitive items
      * @param {Array} array1
      * @param {Array} array2
      * @returns {Array}
      */
-    static union(array1, array2) {
-        let result = [],
-            merge  = array1.concat(array2),
-            len    = merge.length,
-            assoc  = {},
-            item;
-
-        while (len--) {
-            item = merge[len];
-
-            if (!assoc[item]) {
-                result.unshift(item);
-                assoc[item] = true;
-            }
-        }
-
-        return result;
+    static union() {
+        return [...new Set(Array.prototype.concat(...arguments))];
     }
 
     /**
