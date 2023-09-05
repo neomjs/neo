@@ -768,7 +768,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
-        //this.changeVdomRootKey('width', value)
+        this.changeVdomRootKey('width', value)
     }
 
     /**
@@ -1902,11 +1902,13 @@ class Base extends CoreBase {
             transform : `translate(${result.x}px,${result.y}px)`
         }
         if (result.width !== myRect.width) {
-            vdom.style.width = `${result.width}px`;
+            me.width = result.width;
         }
+
         if (result.height !== myRect.height) {
-            vdom.style.height = `${result.height}px`;
+            me.height = result.height;
         }
+
         me.update();
     }
 
