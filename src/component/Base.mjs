@@ -1742,7 +1742,9 @@ class Base extends CoreBase {
                 me.onRender(data, useVdomWorker ? autoMount : false);
                 me.isVdomUpdating = false;
 
-                autoMount && !useVdomWorker && me.mount()
+                autoMount && !useVdomWorker && me.mount();
+
+                me.resolveVdomUpdate()
             })
         }
     }
