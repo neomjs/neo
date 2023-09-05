@@ -596,7 +596,7 @@ class DomEvents extends Base {
      */
     onSelectionChange(event) {
         const me     = this,
-              target = event.target.activeElement;
+              target = event.target.type ? event.target : event.target.activeElement;
 
         if (target.tagName === 'BODY') return;
 
