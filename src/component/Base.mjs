@@ -673,7 +673,7 @@ class Base extends CoreBase {
                 if (me.floating) {
                     me.alignTo();
                 }
-    
+
                 me.fire('mounted', me.id)
             }
         }
@@ -1781,7 +1781,9 @@ class Base extends CoreBase {
             me.onRender(data, useVdomWorker ? autoMount : false);
             me.isVdomUpdating = false;
 
-            autoMount && !useVdomWorker && me.mount()
+            autoMount && !useVdomWorker && me.mount();
+
+            me.resolveVdomUpdate()
         }
     }
 
