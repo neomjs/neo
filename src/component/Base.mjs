@@ -12,6 +12,8 @@ import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import Rectangle from '../util/Rectangle.mjs';
 
+const lengthRE = /^\d+\w+$/;
+
 /**
  * @class Neo.component.Base
  * @extends Neo.core.Base
@@ -562,6 +564,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHeight(value, oldValue) {
+        this.configuredHeight = value;
         this.changeVdomRootKey('height', value)
     }
 
@@ -615,6 +618,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxHeight(value, oldValue) {
+        this.configuredMaxHeight = value;
         this.changeVdomRootKey('maxHeight', value)
     }
 
@@ -625,6 +629,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxWidth(value, oldValue) {
+        this.configuredMaxWidth = value;
         this.changeVdomRootKey('maxWidth', value)
     }
 
@@ -635,6 +640,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinHeight(value, oldValue) {
+        this.configuredMinHeight = value;
         this.changeVdomRootKey('minHeight', value)
     }
 
@@ -645,6 +651,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinWidth(value, oldValue) {
+        this.configuredMinWidth = value;
         this.changeVdomRootKey('minWidth', value)
     }
 
@@ -747,8 +754,8 @@ class Base extends CoreBase {
      * @param {Object|null} oldValue
      * @protected
      */
-    afterSetVdom(value, oldValue) {
-        this.updateVdom(value)
+    async afterSetVdom(value, oldValue) {
+        await this.updateVdom(value)
     }
 
     /**
@@ -768,6 +775,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
+        this.configuredWidth = value;
         this.changeVdomRootKey('width', value)
     }
 
@@ -1129,23 +1137,30 @@ class Base extends CoreBase {
             opts = {vdom, vnode},
             deltas;
 
-        me.isVdomUpdating = true;
+        if (Neo.currentWorker.isSharedWorker) {
+            opts.appName = me.appName
+        }
+
+        /**
+         * If a VDOM update is in flight, this is the Promise that will resolve when
+         * the update is completed.
+         * @member {Promise} vdomUpdate
+         * @protected
+         */
+        me.vdomUpdate = Neo.vdom.Helper.update(opts);
 
         // we can not set the config directly => it could already be false,
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true)
 
-        if (Neo.currentWorker.isSharedWorker) {
-            opts.appName = me.appName
-        }
-
-        Neo.vdom.Helper.update(opts).catch(err => {
+        me.vdomUpdate.catch(err => {
+            me.vdomUpdate = null;
             console.log('Error attempting to update component dom', err, me);
-            me.isVdomUpdating = false;
 
             reject?.()
         }).then(data => {
+            me.vdomUpdate = null;
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
                 // console.log('Component vnode updated', data);
@@ -1162,7 +1177,14 @@ class Base extends CoreBase {
                     me.resolveVdomUpdate(resolve)
                 }
             }
-        })
+        });
+
+        return me.vdomUpdate;
+    }
+
+    get isVdomUpdating() {
+        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
+        return Boolean(this.vdomUpdate);
     }
 
     /**
@@ -1236,10 +1258,27 @@ class Base extends CoreBase {
      * Convenience shortcut
      * @param {String[]|String} id=this.id
      * @param {String} appName=this.appName
-     * @returns {Promise<*>}
+     * @returns {Promise<Neo.util.Rectangle>}
      */
-    getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({appName, id})
+    async getDomRect(id=this.id, appName=this.appName) {
+        const
+            {
+                x,
+                y,
+                width,
+                height,
+                minWidth,
+                minHeight
+            }      = await Neo.main.DomAccess.getBoundingClientRect({appName, id}),
+            result = new Rectangle(x, y, width, height);
+
+        if (minWidth) {
+            result.minWidth = minWidth;
+        }
+        if (minHeight) {
+            result.minHeight = minHeight;
+        }
+        return result;
     }
 
     /**
@@ -1877,39 +1916,85 @@ class Base extends CoreBase {
     }
 
     async alignTo(spec = {}) {
+        // Release any constrainTo or matchSize sizing which may have been imposed
+        // by a previous align call.
+        await this.resetDimensions();
+
         const
-            me            = this,
-            { vdom }      = me,
-            align         = {
+            me     = this,
+            {
+                style
+            }      = me,
+            align  = {
                 ...me.align,
                 ...spec
             },
-            myDomRect     = await me.getDomRect(),
-            myRect        = new Rectangle(myDomRect.x, myDomRect.y, myDomRect.width, myDomRect.height),
-            targetRect    = await me.getDomRect(align.target),
-            constrainRect = await me.getDomRect(align.constrainTo);
+            myRect = await me.getDomRect();
 
         me.lastAlignSpec = align;
-        align.target = new Rectangle(targetRect.x, targetRect.y, targetRect.width, targetRect.height);
-        align.constrainTo = new Rectangle(constrainRect.x, constrainRect.y, constrainRect.width, constrainRect.height);
+        align.target = await me.getDomRect(align.target);
+        align.constrainTo = await me.getDomRect(align.constrainTo);
 
         // Get an aligned clone of myRect aligned according to the align object
         const result = myRect.alignTo(align);
 
-        vdom.style = {
+        Object.assign(style, {
             top       : 0,
             left      : 0,
             transform : `translate(${result.x}px,${result.y}px)`
-        }
+        });
         if (result.width !== myRect.width) {
-            me.width = result.width;
+            style.width = `${result.width}px`;
         }
-
         if (result.height !== myRect.height) {
-            me.height = result.height;
+            style.height = `${result.height}px`;
         }
+        me.style = style;
 
         me.update();
+    }
+
+    /**
+     * Resets any DOM sizing configs to the last externally configured value.
+     *
+     * This is used during aligning to release any constraints applied by a previous alignment.
+     * @protected
+     */
+    async resetDimensions() {
+        const
+            me = this,
+            {
+                configuredWidth,
+                configuredHeight,
+                configuredMinWidth,
+                configuredMinHeight,
+                configuredMaxWidth,
+                configuredMaxHeight
+            }  = me;
+
+        me.width = configuredWidth;
+        me.height = configuredHeight;
+        me.minWidth = configuredMinWidth;
+        me.minHeight = configuredMinHeight;
+        me.maxWidth = configuredMaxWidth;
+        me.maxHeight = configuredMaxHeight;
+
+        await me.update();
+    }
+
+    async measure(value) {
+        if (value != null) {
+            if (value.endsWith('px')) {
+                value = parseFloat(value);
+            }
+            else if (lengthRE.test(value)) {
+                value = await Neo.main.DomAccess.measure({ value, id : this.id });
+            }
+            else if (!isNaN(value)) {
+                value = parseFloat(value);
+            }
+        }
+        return value;
     }
 
     /**
@@ -2032,8 +2117,8 @@ class Base extends CoreBase {
     /**
      *
      */
-    update() {
-        this.afterSetVdom(this.vdom, null)
+    async update() {
+        await this.afterSetVdom(this.vdom, null)
     }
 
     /**
@@ -2124,7 +2209,7 @@ class Base extends CoreBase {
      * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
-    updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
+    async updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
         let me      = this,
             app     = Neo.apps[me.appName],
             mounted = me.mounted,
@@ -2171,7 +2256,7 @@ class Base extends CoreBase {
                     && !me.needsParentUpdate(me.parentId, resolve)
                     && !me.isParentVdomUpdating(me.parentId, resolve)
                 ) {
-                    me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    await me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
         }

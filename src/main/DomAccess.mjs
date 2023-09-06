@@ -2,7 +2,22 @@ import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
 import Observable   from '../core/Observable.mjs';
 
-const pxRE = /^(\d+)px$/;
+const
+    lengthRE      = /^\d+\w+$/,
+    fontSizeProps = [
+        'font-size',
+        'font-size-adjust',
+        'font-style',
+        'font-weight',
+        'font-family',
+        'font-kerning',
+        'font-stretch',
+        'line-height',
+        'text-transform',
+        'text-decoration',
+        'letter-spacing',
+        'word-break'
+    ];
 
 /**
  * @class Neo.main.DomAccess
@@ -52,6 +67,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'measure',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -234,27 +250,60 @@ class DomAccess extends Base {
 
                 // DomRect does not support spreading => {...DomRect} => {}
                 Object.assign(returnData, {
-                    bottom: rect.bottom,
                     height: rect.height,
-                    left  : rect.left,
-                    right : rect.right,
-                    top   : rect.top,
                     width : rect.width,
                     x     : rect.x,
                     y     : rect.y
                 });
 
-                // TODO: Measure minWidth/minHeight in other units like em/rem etc
-                if (minWidth = pxRE.exec(minWidth)?.[1]) {
-                    returnData.minWidth = parseInt(minWidth);
+                // Measure minWidth/minHeight in other units like em/rem etc
+                // Note that 0px is what the DOM reports if no minWidth is specified
+                // so we do not report a minimum in these cases.
+                if (lengthRE.test(minWidth) && minWidth !== '0px') {
+                    returnData.minWidth = this.measure({ value : minWidth, id : node});
                 }
-                if (minHeight = pxRE.exec(minHeight)?.[1]) {
-                    returnData.minHeight = parseInt(minHeight);
+                if (lengthRE.test(minHeight) && minHeight !== '0px') {
+                    returnData.minHeight = this.measure({ value : minHeight, id : node });
                 }
             }
         }
 
         return returnData;
+    }
+
+    measure({ value, id }) {
+        // If it's any other CSS unit than px, it needs to be measured using the DOM
+        if (isNaN(value) && !value.endsWith('px')) {
+            const
+                node    = id.nodeType === 1 ? id : this.getElement(id),
+                elStyle = node.ownerDocument.defaultView.getComputedStyle(node);
+
+            let d = this._measuringDiv;
+
+            if (!d) {
+                d = this._measuringDiv = document.createElement('div');
+                d.style = 'position:fixed;top:-10000px;left:-10000px';
+            }
+            // In case a DOM update cleared it out
+            document.body.appendChild(d);
+
+            // Set all the font-size, font-weight etc style properties so that
+            // em/ex/rem etc units will match
+            fontSizeProps.forEach(prop => {
+                d.style[prop] = elStyle[prop];
+            });
+            d.className = node.className;
+            d.style.width = value;
+
+            // Read back the resulting computed pixel width
+            value = elStyle.width;
+    
+        }
+        // If it's a number, or ends with px, use the numeric value.
+        else {
+            value = parseFloat(value);
+        }
+        return value;
     }
 
     /**

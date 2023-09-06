@@ -19,6 +19,8 @@ html, .neo-body-viewport {
 }
 
 .neo-floating {
+    top      : -10000px;
+    left     : -10000px;
     position : fixed;
 }
 

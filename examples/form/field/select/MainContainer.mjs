@@ -150,10 +150,13 @@ class MainContainer extends ConfigurationViewport {
             store        : MainStore,
             value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
-            width        : 200,
+            width        : '12em',
             style : {
                 position : 'absolute',
                 bottom : '1em'
+            },
+            pickerConfig : {
+                minHeight : '6em'
             }
         })
     }
