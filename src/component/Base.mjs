@@ -581,9 +581,6 @@ class Base extends CoreBase {
 
         if (value && oldValue === undefined && me.hideMode === 'removeDom') {
             me.vdom.removeDom = true
-        } else if (value && me.parentId !== 'document.body') {
-            me.vdom.removeDom = true;
-            me.update()
         } else if (value || oldValue !== undefined) {
             me[value ? 'hide' : 'show']()
         }
@@ -1474,7 +1471,12 @@ class Base extends CoreBase {
 
         if (me.hideMode !== 'visibility') {
             let removeFn = function() {
-                me.unmount()
+                if(me.parentId !== 'document.body') {
+                    me.vdom.removeDom = true;
+                    Neo.getComponent(me.parentId).update()
+                } else {
+                    me.unmount()
+                }
             }
 
             if (timeout) {
@@ -1923,6 +1925,8 @@ class Base extends CoreBase {
 
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
+            } else if(me.parentId !== 'document.body') {
+                Neo.getComponent(me.parentId).update()
             } else {
                 !me.mounted && me.render(true)
             }
