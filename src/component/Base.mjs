@@ -12,7 +12,9 @@ import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import Rectangle from '../util/Rectangle.mjs';
 
-const lengthRE = /^\d+\w+$/;
+const
+    lengthRE = /^\d+\w+$/,
+    addUnits = value => isNaN(value) ? value : `${value}px`;
 
 /**
  * @class Neo.component.Base
@@ -564,7 +566,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHeight(value, oldValue) {
-        this.configuredHeight = value;
+        this.configuredHeight = addUnits(value);
         this.changeVdomRootKey('height', value)
     }
 
@@ -618,7 +620,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxHeight(value, oldValue) {
-        this.configuredMaxHeight = value;
+        this.configuredMaxHeight = addUnits(value);
         this.changeVdomRootKey('maxHeight', value)
     }
 
@@ -629,7 +631,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxWidth(value, oldValue) {
-        this.configuredMaxWidth = value;
+        this.configuredMaxWidth = addUnits(value);
         this.changeVdomRootKey('maxWidth', value)
     }
 
@@ -640,7 +642,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinHeight(value, oldValue) {
-        this.configuredMinHeight = value;
+        this.configuredMinHeight = addUnits(value);
         this.changeVdomRootKey('minHeight', value)
     }
 
@@ -651,7 +653,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinWidth(value, oldValue) {
-        this.configuredMinWidth = value;
+        this.configuredMinWidth = addUnits(value);
         this.changeVdomRootKey('minWidth', value)
     }
 
@@ -775,8 +777,22 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
-        this.configuredWidth = value;
+        this.configuredWidth = addUnits(value);
         this.changeVdomRootKey('width', value)
+    }
+
+    /**
+     * Triggered after the flex config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetFlex(value, oldValue) {
+        if (!isNaN(value)) {
+            value = `${value} ${value} 0%`;
+        }
+        this.configuredFlex = value;
+        this.changeVdomRootKey('flex', value);
     }
 
     /**
@@ -1916,70 +1932,20 @@ class Base extends CoreBase {
     }
 
     async alignTo(spec = {}) {
-        // Release any constrainTo or matchSize sizing which may have been imposed
-        // by a previous align call.
-        await this.resetDimensions();
+        const me = this;
 
-        const
-            me     = this,
-            {
-                style
-            }      = me,
-            align  = {
-                ...me.align,
-                ...spec
-            },
-            myRect = await me.getDomRect();
-
-        me.lastAlignSpec = align;
-        align.target = await me.getDomRect(align.target);
-        align.constrainTo = await me.getDomRect(align.constrainTo);
-
-        // Get an aligned clone of myRect aligned according to the align object
-        const result = myRect.alignTo(align);
-
-        Object.assign(style, {
-            top       : 0,
-            left      : 0,
-            transform : `translate(${result.x}px,${result.y}px)`
+        await Neo.main.DomAccess.align({
+            ...me.align,
+            ...spec,
+            id                  : me.id,
+            configuredFlex      : me.configuredFlex,
+            configuredWidth     : me.configuredWidth,
+            configuredHeight    : me.configuredHeight,
+            configuredMinWidth  : me.configuredMinWidth,
+            configuredMinHeight : me.configuredMinHeight,
+            configuredMaxWidth  : me.configuredMaxWidth,
+            configuredMaxHeight : me.configuredMaxHeight
         });
-        if (result.width !== myRect.width) {
-            style.width = `${result.width}px`;
-        }
-        if (result.height !== myRect.height) {
-            style.height = `${result.height}px`;
-        }
-        me.style = style;
-
-        me.update();
-    }
-
-    /**
-     * Resets any DOM sizing configs to the last externally configured value.
-     *
-     * This is used during aligning to release any constraints applied by a previous alignment.
-     * @protected
-     */
-    async resetDimensions() {
-        const
-            me = this,
-            {
-                configuredWidth,
-                configuredHeight,
-                configuredMinWidth,
-                configuredMinHeight,
-                configuredMaxWidth,
-                configuredMaxHeight
-            }  = me;
-
-        me.width = configuredWidth;
-        me.height = configuredHeight;
-        me.minWidth = configuredMinWidth;
-        me.minHeight = configuredMinHeight;
-        me.maxWidth = configuredMaxWidth;
-        me.maxHeight = configuredMaxHeight;
-
-        await me.update();
     }
 
     async measure(value) {

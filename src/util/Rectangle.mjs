@@ -251,10 +251,14 @@ export default class Rectangle extends DOMRect {
     }
 
     clone() {
-        const result = new Rectangle(this.x, this.y, this.width, this.height);
+        return Rectangle.clone(this);
+    }
 
-        result.minWidth = this.minWidth;
-        result.minHeight = this.minHeight;
+    static clone(r) {
+        const result = new Rectangle(r.x, r.y, r.width, r.height);
+
+        result.minWidth = r.minWidth;
+        result.minHeight = r.minHeight;
 
         return result;
     }

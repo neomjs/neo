@@ -1,6 +1,7 @@
 import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
 import Observable   from '../core/Observable.mjs';
+import Rectangle from '../util/Rectangle.mjs';
 
 const
     lengthRE      = /^\d+\w+$/,
@@ -61,6 +62,7 @@ class DomAccess extends Base {
         remote: {
             app: [
                 'addScript',
+                'align',
                 'applyBodyCls',
                 'blur',
                 'execCommand',
@@ -100,10 +102,13 @@ class DomAccess extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this,
-            node;
+        const
+            me             = this,
+            { syncAligns } = me;
 
         if (Neo.config.renderCountDeltas) {
+            let node;
+
             setInterval(() => {
                 node = document.getElementById('neo-delta-updates');
 
@@ -114,6 +119,10 @@ class DomAccess extends Base {
                 me.countDeltasPer250ms = 0;
             }, 250);
         }
+
+        // Set up our aligning callback which is called when things change which may
+        // mean that alignments need to be updated.
+        me.syncAligns = () => requestAnimationFrame(syncAligns.bind(me));
     }
 
     /**
@@ -249,12 +258,7 @@ class DomAccess extends Base {
                 minHeight = style.getPropertyValue('min-height');
 
                 // DomRect does not support spreading => {...DomRect} => {}
-                Object.assign(returnData, {
-                    height: rect.height,
-                    width : rect.width,
-                    x     : rect.x,
-                    y     : rect.y
-                });
+                returnData = Rectangle.clone(rect);
 
                 // Measure minWidth/minHeight in other units like em/rem etc
                 // Note that 0px is what the DOM reports if no minWidth is specified
@@ -271,12 +275,148 @@ class DomAccess extends Base {
         return returnData;
     }
 
+    async align(data) {
+        const
+            me              = this,
+            { constrainTo } = data,
+            subject         = data.subject = me.getElement(data.id),
+            { style }       = subject,
+            myRect          = me.getBoundingClientRect(data),
+            align           = {
+                ...data
+            };
+
+        // Release any constrainTo or matchSize sizing which may have been imposed
+        // by a previous align call.
+        me.resetDimensions(align);
+
+        // The Rectangle's align spec target and constrainTo must be Rectangles
+        align.target = me.getBoundingClientRect({ id : data.targetElement = me.getElementOrBody(data.target) });
+        if (constrainTo) {
+            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
+        }
+
+        // Get an aligned clone of myRect aligned according to the align object
+        const result = myRect.alignTo(align);
+
+        Object.assign(style, {
+            top       : 0,
+            left      : 0,
+            transform : `translate(${result.x}px,${result.y}px)`
+        });
+        if (result.width !== myRect.width) {
+            style.width = `${result.width}px`;
+        }
+        if (result.height !== myRect.height) {
+            style.height = `${result.height}px`;
+        }
+
+        // Register an alignment to be kept in sync
+        me.addAligned(data);
+    }
+
+    /**
+     * Resets any DOM sizing configs to the last externally configured value.
+     *
+     * This is used during aligning to release any constraints applied by a previous alignment.
+     * @protected
+     */
+    async resetDimensions(align) {
+        const { style } = this.getElement(align.id);
+
+        style.flex      = align.configuredFlex;
+        style.width     = align.configuredWidth;
+        style.height    = align.configuredHeight;
+        style.minWidth  = align.configuredMinWidth;
+        style.minHeight = align.configuredMinHeight;
+        style.maxWidth  = align.configuredMaxWidth;
+        style.maxHeight = align.configuredMaxHeight;
+    }
+
+    addAligned(alignSpec) {
+        const
+            me                     = this,
+            { id }                 = alignSpec,
+            aligns                 = me._aligns || (me._aligns = new Map()),
+            resizeObserver         = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
+            { constrainToElement } = alignSpec;
+
+        // Set up listeners which monitor for changes
+        if (!aligns.has(id)) {
+            // Realign when subject changes size
+            resizeObserver.observe(alignSpec.subject);
+
+            // Realign when target's layout-controlling element changes size
+            resizeObserver.observe(alignSpec.offsetParent = alignSpec.targetElement.offsetParent);
+
+            // Realign when align to target changes size
+            resizeObserver.observe(alignSpec.targetElement);
+
+            // Realign when constraining element changes size
+            if (constrainToElement) {
+                resizeObserver.observe(constrainToElement);
+            }
+        }
+
+        if (!me.hasDocumentScrollListener) {
+            document.addEventListener('scroll', me.syncAligns, {
+                capture : true,
+                passive : true
+            });
+            me.hasDocumentScrollListener = true;
+        }
+        if (!me.documentMutationObserver) {
+            me.documentMutationObserver = new MutationObserver(me.syncAligns);
+            me.documentMutationObserver.observe(document.body, {
+                childList : true,
+                subtree   : true
+            });
+        }
+
+        aligns.set(id, alignSpec);
+    }
+
+    syncAligns() {
+        const
+            me          = this,
+            { _aligns } = me;
+
+        // Keep all registered aligns aligned on any detected change
+        _aligns?.forEach(align => {
+            // Align subject and target still in the DOM - correct its alignment
+            if (document.contains(align.subject) && document.contains(align.targetElement)) {
+                me.align(align);
+            }
+            // Align subject or target no longer in the DOM - remove it.
+            else {
+                const
+                    { _alignResizeObserver } = me,
+                    { constrainToElement }   = align;
+
+                // Stop observing the align elements
+                _alignResizeObserver.unobserve(align.subject);
+                _alignResizeObserver.unobserve(align.offsetParent);
+                _alignResizeObserver.unobserve(align.targetElement);
+                if (constrainToElement) {
+                    _alignResizeObserver.unobserve(constrainToElement);
+                }
+
+                _aligns.delete(align.id);
+            }
+        });
+    }
+
     measure({ value, id }) {
+        const node = id.nodeType === 1 ? id : this.getElement(id);
+
+        if (value.endsWith('%')) {
+            const fraction = parseFloat(value) / 100;
+
+            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction;
+        }
         // If it's any other CSS unit than px, it needs to be measured using the DOM
-        if (isNaN(value) && !value.endsWith('px')) {
-            const
-                node    = id.nodeType === 1 ? id : this.getElement(id),
-                elStyle = node.ownerDocument.defaultView.getComputedStyle(node);
+        else if (isNaN(value) && !value.endsWith('px')) {
+            const elStyle = node.ownerDocument.defaultView.getComputedStyle(node);
 
             let d = this._measuringDiv;
 
@@ -307,29 +447,21 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {String} nodeId
+     * @param {String|HTMLElement} nodeId
      * @returns {HTMLElement}
      * @protected
      */
     getElement(nodeId) {
-        if (Neo.config.useDomIds) {
-            return document.getElementById(nodeId);
-        }
-
-        return document.querySelector(`[data-neo-id='${nodeId}']`);
+        return nodeId.nodeType ? nodeId : Neo.config.useDomIds ?  document.getElementById(nodeId) : document.querySelector(`[data-neo-id='${nodeId}']`);
     }
 
     /**
-     * @param {String} [nodeId='document.body']
+     * @param {String|HTMLElement} [nodeId='document.body']
      * @returns {HTMLElement}
      * @protected
      */
     getElementOrBody(nodeId='document.body') {
-        if (nodeId === 'body' || nodeId === 'document.body') {
-            return document.body;
-        }
-
-        return this.getElement(nodeId);
+        return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId);
     }
 
     /**

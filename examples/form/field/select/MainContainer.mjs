@@ -150,7 +150,7 @@ class MainContainer extends ConfigurationViewport {
             store        : MainStore,
             value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
-            width        : '12em',
+            width        : '25%',
             style : {
                 position : 'absolute',
                 bottom : '1em'
