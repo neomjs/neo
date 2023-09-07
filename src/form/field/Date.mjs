@@ -34,6 +34,10 @@ class DateField extends Picker {
          */
         dateSelectorConfig: null,
         /**
+         * @member {String} errorTextInvalidDate='Not a valid date'
+         */
+        errorTextInvalidDate: 'Not a valid date',
+        /**
          * True to hide the DatePicker when selecting a day
          * @member {Boolean} hidePickerOnSelect=false
          */
@@ -71,6 +75,11 @@ class DateField extends Picker {
         }]
     }
 
+    /**
+     * Internal flag to store the dom based validity of this field
+     * @member {Boolean} invalidInput=false
+     */
+    invalidInput = false
     /**
      * Setting the value to true will return a Date object when calling getValue()
      * @member {Boolean} submitDateObject=false
@@ -210,8 +219,12 @@ class DateField extends Picker {
      * @protected
      */
     onInputValueChange(data) {
+        this.invalidInput = !data.valid;
+
         if (data.valid === true) {
             super.onInputValueChange(data)
+        } else {
+            this.validate(false)
         }
     }
 
@@ -228,6 +241,27 @@ class DateField extends Picker {
         } else {
             super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector);
         }
+    }
+
+    /**
+     * Checks for client-side field errors
+     * @param {Boolean} silent=true
+     * @returns {Boolean} Returns true in case there are no client-side errors
+     */
+    validate(silent=true) {
+        let me          = this,
+            returnValue = super.validate(silent);
+
+        if (returnValue) {
+            if (me.invalidInput) {
+                me._error = me.errorTextInvalidDate;
+                returnValue = false
+            }
+        }
+
+        !returnValue && !me.clean && me.updateError(me._error, silent);
+
+        return returnValue
     }
 }
 

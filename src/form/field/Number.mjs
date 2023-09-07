@@ -404,7 +404,7 @@ class Number extends Text {
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
-    validate(silent = true) {
+    validate(silent=true) {
         let me          = this,
             value       = me.value,
             isNumber    = Neo.isNumber(value),
@@ -417,13 +417,13 @@ class Number extends Text {
         if (returnValue) {
             if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
                 me._error = me.errorTextMaxValue(errorParam);
-                returnValue = false;
+                returnValue = false
             } else if (Neo.isNumber(minValue) && isNumber && value < minValue) {
                 me._error = me.errorTextMinValue(errorParam);
-                returnValue = false;
+                returnValue = false
             } else if (!me.fitsStepSize(value)) {
                 me._error = me.errorTextStepSize(errorParam);
-                returnValue = false;
+                returnValue = false
             }
         }
 
