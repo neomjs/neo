@@ -70,6 +70,7 @@ class View extends Component {
             dataField,
             index,
             record,
+            tableContainer,
             value: fieldValue
         });
 
