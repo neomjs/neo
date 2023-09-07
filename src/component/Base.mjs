@@ -698,6 +698,14 @@ class Base extends CoreBase {
         this.changeVdomRootKey('role', value)
     }
 
+    beforeSetStyle(value) {
+        if (typeof value === 'object') {
+            // merge the incoming style specification into the configured default
+            value = this.merge(this.merge({}, this.constructor.config.style), value);
+        }
+        return value;
+    }
+
     /**
      * Triggered after the style config got changed
      * @param {Object} value
