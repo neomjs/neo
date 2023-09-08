@@ -41,14 +41,14 @@ class HashHistory extends Base {
      * @returns {Object}
      */
     first() {
-        return this.stack[0];
+        return this.stack[0] || null
     }
 
     /**
      * @returns {Number}
      */
     getCount() {
-        return this.stack.length;
+        return this.stack.length
     }
 
     /**
@@ -65,11 +65,18 @@ class HashHistory extends Base {
             stack.unshift(data);
 
             if (stack.length > me.maxItems) {
-                stack.pop();
+                stack.pop()
             }
 
             me.fire('change', data, stack[1] || null)
         }
+    }
+
+    /**
+     * @returns {Object}
+     */
+    second() {
+        return this.stack[1] || null
     }
 }
 
