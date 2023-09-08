@@ -22,6 +22,7 @@ html, .neo-body-viewport {
     top      : -10000px;
     left     : -10000px;
     position : fixed;
+    z-index  : 1000;
 }
 
 // Shadow at the top
