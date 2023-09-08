@@ -13,7 +13,6 @@
 .neo-picker-container {
     background-color: var(--pickerfield-container-background-color);
     border          : var(--pickerfield-container-border);
-    box-shadow      : var(--pickerfield-container-box-shadow);
 
     &:focus {
         outline: none;

@@ -103,8 +103,8 @@ class DomAccess extends Base {
         super.construct(config);
 
         const
-            me             = this,
-            { syncAligns } = me;
+            me              = this,
+            syncAligns      = me.syncAligns.bind(me);
 
         if (Neo.config.renderCountDeltas) {
             let node;
@@ -122,7 +122,7 @@ class DomAccess extends Base {
 
         // Set up our aligning callback which is called when things change which may
         // mean that alignments need to be updated.
-        me.syncAligns = () => requestAnimationFrame(syncAligns.bind(me));
+        me.syncAligns = () => requestAnimationFrame(syncAligns);
     }
 
     /**
@@ -281,10 +281,14 @@ class DomAccess extends Base {
             { constrainTo } = data,
             subject         = data.subject = me.getElement(data.id),
             { style }       = subject,
-            myRect          = me.getBoundingClientRect(data),
             align           = {
                 ...data
-            };
+            },
+            lastAlign       = me._aligns?.get(data.id);
+
+        if (lastAlign) {
+            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`);
+        }
 
         // Release any constrainTo or matchSize sizing which may have been imposed
         // by a previous align call.
@@ -292,12 +296,15 @@ class DomAccess extends Base {
 
         // The Rectangle's align spec target and constrainTo must be Rectangles
         align.target = me.getBoundingClientRect({ id : data.targetElement = me.getElementOrBody(data.target) });
+        data.offsetParent = data.targetElement.offsetParent
         if (constrainTo) {
             align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
         }
 
         // Get an aligned clone of myRect aligned according to the align object
-        const result = myRect.alignTo(align);
+        const
+            myRect = me.getBoundingClientRect(data),
+            result = data.result = myRect.alignTo(align);
 
         Object.assign(style, {
             top       : 0,
@@ -310,6 +317,9 @@ class DomAccess extends Base {
         if (result.height !== myRect.height) {
             style.height = `${result.height}px`;
         }
+
+        // Place box shadow at correct edge
+        subject.classList.add(`neo-aligned-${result.position}`);
 
         // Register an alignment to be kept in sync
         me.addAligned(data);
@@ -343,11 +353,8 @@ class DomAccess extends Base {
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
-            // Realign when subject changes size
-            resizeObserver.observe(alignSpec.subject);
-
             // Realign when target's layout-controlling element changes size
-            resizeObserver.observe(alignSpec.offsetParent = alignSpec.targetElement.offsetParent);
+            resizeObserver.observe(alignSpec.offsetParent);
 
             // Realign when align to target changes size
             resizeObserver.observe(alignSpec.targetElement);
@@ -366,7 +373,7 @@ class DomAccess extends Base {
             me.hasDocumentScrollListener = true;
         }
         if (!me.documentMutationObserver) {
-            me.documentMutationObserver = new MutationObserver(me.syncAligns);
+            me.documentMutationObserver = new MutationObserver(me.onDocumentMutation.bind(me));
             me.documentMutationObserver.observe(document.body, {
                 childList : true,
                 subtree   : true
@@ -374,6 +381,25 @@ class DomAccess extends Base {
         }
 
         aligns.set(id, alignSpec);
+    }
+
+    onDocumentMutation(mutations) {
+        const me = this;
+
+        // If the mutations are purely align subjects being added or removed, take no action.
+        if (!mutations.every(({ type, addedNodes, removedNodes }) => {
+            if (type === 'childList') {
+                const nodes = [...Array.from(addedNodes), ...Array.from(removedNodes)];
+
+                return nodes.every(a => me.isAlignSubject(a))
+            }
+        })) {
+            me.syncAligns();
+        }
+    }
+
+    isAlignSubject(el) {
+        return [...this._aligns?.values()].some(align => align.subject === el);
     }
 
     syncAligns() {
@@ -400,6 +426,9 @@ class DomAccess extends Base {
                 if (constrainToElement) {
                     _alignResizeObserver.unobserve(constrainToElement);
                 }
+
+                // Clear the last aligned class.
+                align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
 
                 _aligns.delete(align.id);
             }

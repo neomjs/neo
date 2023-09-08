@@ -14,7 +14,7 @@ import Rectangle from '../util/Rectangle.mjs';
 
 const
     lengthRE = /^\d+\w+$/,
-    addUnits = value => isNaN(value) ? value : `${value}px`;
+    addUnits = value => value == null ? value : isNaN(value) ? value : `${value}px`;
 
 /**
  * @class Neo.component.Base
@@ -1934,10 +1934,6 @@ class Base extends CoreBase {
             let style = me.style;
             delete style.visibility;
             me.style = style
-        }
-
-        if (me.floating) {
-            me.alignTo(align);
         }
 
         me._hidden = false

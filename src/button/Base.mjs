@@ -79,7 +79,11 @@ class Base extends Component {
          */
         iconPosition_: 'left',
         /**
-         * @member {Object[]|null} menu_=null
+         * An array representing the configuration of the menu items.
+         * 
+         * Or a configuration object which adds custom configuration to the menu to be 
+         * created and includes an `items` property to define the menu items.
+         * @member {Object|Object[]|null} menu_=null
          */
         menu_: null,
         /**
@@ -252,20 +256,27 @@ class Base extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me = this;
+                let me = this,
+                    isArray    = Array.isArray(value),
+                    items      = isArray ? value : value.items,
+                    menuConfig = isArray ? {} : value;
 
                 me.menuList = Neo.create({
+                    align          : {
+                        edgeAlign : 't0-b0',
+                        target    : this.id
+                    },
+                    ...menuConfig,
                     module         : module.default,
                     appName        : me.appName,
                     displayField   : 'text',
                     floating       : true,
                     hidden         : true,
-                    items          : value,
+                    items,
                     parentComponent: me,
-                    style          : {left: '-5000px', top: '-5000px'},
                     ...me.menuListConfig
-                })
-            })
+                });
+            });
         }
     }
 
@@ -504,12 +515,12 @@ class Base extends Component {
         let menuList = this.menuList,
             hidden   = !menuList.hidden;
 
-        menuList.hidden = hidden;
-
         if (!hidden) {
+            !menuList.rendered && menuList.render(true);
             await this.timeout(50);
             menuList.focus()
         }
+        menuList.hidden = hidden;
     }
 }
 

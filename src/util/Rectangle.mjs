@@ -71,6 +71,7 @@ const
         b : 2,
         l : 3
     },
+    zoneNames = ['top', 'right', 'bottom', 'left'],
     zoneEdges = ['t', 'r', 'b', 'l'],
     zoneDimension = ['width', 'height'],
     zoneCoord = [0, 1, 0, 1],
@@ -286,7 +287,7 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
-     * Checks if otRectangleher is fully contained inside this Rectangle
+     * Checks if the other Rectangle is fully contained inside this Rectangle
      * @param {Object} other
      * @returns {Boolean}
      */
@@ -397,6 +398,7 @@ export default class Rectangle extends DOMRect {
         // It is being places in, T,R,B or L - 0, 1, 2, 3
         // Some code may want to treat DOM elements differently depending on the zone
         result.zone = edges.theirEdgeZone;
+        result.position = zoneNames[result.zone];
 
         // Now we create the four Rectangles around the target, into which we may be constrained
         // Zones T,R,B,L 0 9, 1, 2, 3:
@@ -486,7 +488,7 @@ export default class Rectangle extends DOMRect {
                         break;
                     case 1:
                         // The zone is to the right of the target - zone 1/R
-                        c.changeX(targetRect.right * targetMargin[1]);
+                        c.changeX(targetRect.right + targetMargin[1]);
                         break;
                     case 2:
                         // The zone is below the target - zone 2/B
@@ -528,6 +530,7 @@ export default class Rectangle extends DOMRect {
                 // As soon as we find a zone into which the result is willing to be constrained. return it
                 if (solution) {
                     solution.zone = zone;
+                    solution.position = zoneNames[zone];
                     return solution;
                 }
             }

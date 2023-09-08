@@ -141,15 +141,17 @@ class Picker extends Text {
      * @returns {Neo.container.Base}
      */
     createPicker() {
-        let me              = this,
+        const
+            me              = this,
+            { pickerWidth } = me,
             pickerComponent = me.createPickerComponent();
 
         return Neo.create(Container, {
             parentId : 'document.body',
             floating : true,
             align    : {
-                edgeAlign : 't-b',
-                matchSize : true,
+                edgeAlign : pickerWidth ? 't0-b0' : 't-b',
+                matchSize : pickerWidth ? false : true,
                 axisLock  : true,
                 target    : me.getInputWrapperId()
             },
@@ -160,7 +162,7 @@ class Picker extends Text {
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
             vdom     : {cn: [], 'aria-activedescendant': me.id, tabIndex: -1},
-            width    : me.pickerWidth,
+            width    : pickerWidth,
             ...me.pickerConfig,
 
             // scoped to the field instance

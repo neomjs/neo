@@ -1,6 +1,5 @@
 import BaseList  from '../list/Base.mjs';
 import ListModel from '../selection/menu/ListModel.mjs';
-import NeoArray  from '../util/Array.mjs';
 import Store     from './Store.mjs';
 
 /**
@@ -28,11 +27,6 @@ class List extends BaseList {
          * @member {String[]} baseCls=['neo-menu-list','neo-list']
          */
         baseCls: ['neo-menu-list', 'neo-list'],
-        /**
-         * True will add 'neo-floating' to the instance cls list.
-         * @member {Boolean} floating_=false
-         */
-        floating_: false,
         /**
          * setTimeout() id after a focus-leave event.
          * @member {Number|null} focusTimeoutId=null
@@ -116,19 +110,6 @@ class List extends BaseList {
     parentComponent = null
 
     /**
-     * Triggered after the floating config got changed
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
-     * @protected
-     */
-    afterSetFloating(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-floating');
-        this.cls = cls
-    }
-
-    /**
      * Triggered after the items config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -163,43 +144,6 @@ class List extends BaseList {
             } else {
                 // bubble the focus change upwards
                 me.parentMenu.menuFocus = value;
-            }
-        }
-    }
-
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        let me           = this,
-            id           = me.id,
-            parentId     = me.parentComponent?.id;
-
-        if (parentId) {
-            if (value) {
-                Neo.main.addon.ScrollSync.register({
-                    sourceId: parentId,
-                    targetId: id
-                });
-
-                !me.parentMenu && me.getDomRect([id, parentId]).then(rects => {
-                    let style = me.style || {};
-
-                    style.left = `${rects[1].right - rects[0].width}px`;
-                    style.top  = `${rects[1].bottom + 1}px`;
-
-                    me.style = style
-                })
-            } else if (oldValue !== undefined) {
-                Neo.main.addon.ScrollSync.unregister({
-                    sourceId: parentId,
-                    targetId: id
-                })
             }
         }
     }
@@ -401,48 +345,34 @@ class List extends BaseList {
      * @param {Object} record
      */
     showSubMenu(nodeId, record) {
-        let me           = this,
+        const
+            me           = this,
             store        = me.store,
             recordId     = record[store.keyProperty],
-            subMenuMap   = me.subMenuMap || {},
+            subMenuMap   = me.subMenuMap || (me.subMenuMap = {}),
             subMenuMapId = me.getMenuMapId(recordId),
-            subMenu      = subMenuMap[subMenuMapId],
-            menuStyle, style;
+            subMenu      = subMenuMap[subMenuMapId] || (subMenuMap[subMenuMapId] = Neo.create({
+                align          : {
+                    target       : nodeId,
+                    edgeAlign    : 'l0-r0',
+                    axisLock     : true,
+                    targetMargin : me.subMenuGap
+                },
+                module         : List,
+                appName        : me.appName,
+                displayField   : me.displayField,
+                floating       : true,
+                items          : record.items,
+                isRoot         : false,
+                parentComponent: me.parentComponent,
+                parentId       : Neo.apps[me.appName].mainView.id,
+                parentIndex    : store.indexOf(record),
+                parentMenu     : me,
+                zIndex         : me.zIndex + 1
+            }));
 
-        me.getDomRect(nodeId).then(rect => {
-            style = {
-                left: `${rect.right + me.subMenuGap}px`,
-                top : `${rect.top - 1}px` // minus the border
-            };
-
-            if (subMenu) {
-                menuStyle = subMenu.style;
-
-                Object.assign(menuStyle, style);
-
-                subMenu.setSilent({style: menuStyle})
-            } else {
-                subMenuMap[subMenuMapId] = subMenu = Neo.create({
-                    module         : List,
-                    appName        : me.appName,
-                    displayField   : me.displayField,
-                    floating       : true,
-                    items          : record.items,
-                    isRoot         : false,
-                    parentComponent: me.parentComponent,
-                    parentId       : Neo.apps[me.appName].mainView.id,
-                    parentIndex    : store.indexOf(record),
-                    parentMenu     : me,
-                    style,
-                    zIndex         : me.zIndex + 1
-                })
-            }
-
-            me.activeSubMenu = subMenu;
-            me.subMenuMap    = subMenuMap;
-
-            subMenu.render(true)
-        });
+        me.activeSubMenu = subMenu;
+        subMenu.render(true)
     }
 
     /**
