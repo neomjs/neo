@@ -122,7 +122,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'typeAhead')},
             style    : {marginTop: '10px'}
         }, {
-            module   : NumberField,
+            module   : TextField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
             maxValue : 300,
