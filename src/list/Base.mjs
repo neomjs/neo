@@ -492,16 +492,16 @@ class Base extends Component {
     }
 
     /**
-     *
+     * @param args
      */
-    destroy() {
+    destroy(...args) {
         let me = this;
 
         me.selectionModel?.destroy();
 
         me.autoDestroyStore && me.store?.destroy();
 
-        super.destroy();
+        super.destroy(...args);
     }
 
     /**

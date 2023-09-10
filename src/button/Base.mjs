@@ -432,6 +432,15 @@ class Base extends Component {
     }
 
     /**
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
+     */
+    destroy(updateParentVdom=false, silent=false) {
+        this.menuList && this.menuList.destroy(true, false);
+        super.destroy(updateParentVdom, silent);
+    }
+
+    /**
      * Convenience shortcut
      * @returns {Object}
      */

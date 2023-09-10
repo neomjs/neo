@@ -187,9 +187,7 @@ class List extends BaseList {
     destroy(...args) {
         let me            = this,
             activeSubMenu = me.activeSubMenu,
-            subMenuMap    = me.subMenuMap;
-
-        me.store.destroy();
+            subMenuMap    = me.subMenuMap || {};
 
         activeSubMenu?.unmount();
 
