@@ -463,11 +463,10 @@ class Base extends CoreBase {
      * Clears the map & items array before the super call
      */
     destroy() {
-        let me    = this,
-            items = me._items;
+        let me = this;
 
-        items && items.splice(0, items.length);
-        me.map && me.map.clear();
+        me._items.splice(0, me._items.length);
+        me.map.clear();
 
         super.destroy();
     }
