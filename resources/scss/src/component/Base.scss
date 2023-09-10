@@ -1,0 +1,26 @@
+.neo-floating {
+    top      : -10000px;
+    left     : -10000px;
+    position : fixed;
+    z-index  : 1000;
+}
+
+// Shadow at the top
+.neo-aligned-top {
+    box-shadow : 0px -2px 10px rgba(0, 0, 0, 0.3);
+}
+
+// Shadow at the bottom
+.neo-aligned-bottom {
+    box-shadow : 0px 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+// Shadow at the left
+.neo-aligned-left {
+    box-shadow : -2px 0px 10px rgba(0, 0, 0, 0.3);
+}
+
+// Shadow at the right
+.neo-aligned-right {
+    box-shadow : 2px 0px 10px rgba(0, 0, 0, 0.3);
+}
