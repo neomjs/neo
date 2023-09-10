@@ -524,12 +524,12 @@ class Base extends Component {
         let menuList = this.menuList,
             hidden   = !menuList.hidden;
 
+        menuList.hidden = hidden;
+
         if (!hidden) {
-            !menuList.rendered && menuList.render(true);
             await this.timeout(50);
             menuList.focus()
         }
-        menuList.hidden = hidden;
     }
 }
 
