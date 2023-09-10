@@ -64,8 +64,8 @@ class ConfigurationViewport extends Viewport {
             delete me.exampleContainerConfig.style;
         }
 
-        me.configurationComponents = me.createConfigurationComponents() || [];
         me.exampleComponent        = me.createExampleComponent();
+        me.configurationComponents = me.createConfigurationComponents() || [];
 
         theme = me.exampleComponent.getTheme();
 
