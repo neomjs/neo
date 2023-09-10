@@ -56,15 +56,16 @@ class ConfigurationViewport extends Viewport {
      *
      */
     onConstructed() {
-        let me = this,
-            theme,
-            style = me.exampleContainerConfig?.style;
+        let me    = this,
+            style = me.exampleContainerConfig?.style,
+            theme;
 
         if (style) {
             delete me.exampleContainerConfig.style;
         }
-        me.exampleComponent        = me.createExampleComponent();
+
         me.configurationComponents = me.createConfigurationComponents() || [];
+        me.exampleComponent        = me.createExampleComponent();
 
         theme = me.exampleComponent.getTheme();
 

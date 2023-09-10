@@ -5,7 +5,6 @@ import NumberField           from '../../../../src/form/field/Number.mjs';
 import SelectField           from '../../../../src/form/field/Select.mjs';
 import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
-import Panel from '../../../../src/container/Panel.mjs';
 
 /**
  * @class Neo.examples.form.field.select.MainContainer

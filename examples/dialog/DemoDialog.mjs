@@ -1,5 +1,5 @@
-import Dialog from '../../src/dialog/Base.mjs';
-import '../../src/form/field/Select.mjs';
+import Dialog      from '../../src/dialog/Base.mjs';
+import SelectField from '../../src/form/field/Select.mjs';
 
 /**
  * @class Neo.examples.dialog.DemoDialog
@@ -8,18 +8,19 @@ import '../../src/form/field/Select.mjs';
 class DemoDialog extends Dialog {
     static config = {
         className: 'Neo.examples.dialog.DemoWindow',
+        modal    : true,
         title    : 'My Dialog',
-        modal : true,
 
         wrapperStyle: {
             width : '40%'
         },
 
         items : [{
-            ntype     : 'selectfield',
-            labelText : 'Select',
-            store     : {
-                data : (() => {
+            module   : SelectField,
+            labelText: 'Select',
+
+            store: {
+                data: (() => {
                     const result = [];
 
                     for (let i = 0; i < 20; i++) {
