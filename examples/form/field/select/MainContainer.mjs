@@ -134,6 +134,8 @@ class MainContainer extends ConfigurationViewport {
             module   : CheckBox,
             checked  : false,
             labelText: 'At end',
+            style    : {marginTop: '10px'},
+
             listeners: {change: ({ value }) => {
                 const
                     { exampleComponent } = this,
@@ -143,10 +145,9 @@ class MainContainer extends ConfigurationViewport {
                     bottom   : value ? '1em' : '',
                     position : value ? 'absolute' : ''
                 });
+
                 exampleComponent.style = style;
-                exampleComponent.update();
-            }},
-            style    : {marginTop: '10px'}
+            }}
         }];
     }
 
