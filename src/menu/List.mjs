@@ -334,7 +334,7 @@ class List extends BaseList {
      * @param {String} nodeId
      * @param {Object} record
      */
-    showSubMenu(nodeId, record) {console.log('showSubMenu', nodeId)
+    showSubMenu(nodeId, record) {
         const
             me           = this,
             store        = me.store,
