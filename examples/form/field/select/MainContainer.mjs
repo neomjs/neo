@@ -12,15 +12,11 @@ import TextField             from '../../../../src/form/field/Text.mjs';
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.form.field.select.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'},
-        exampleContainerConfig : {
-            style : {
-                position : 'relative'
-            }
-        }
+        className             : 'Neo.examples.form.field.select.MainContainer',
+        autoMount             : true,
+        configItemLabelWidth  : 160,
+        exampleContainerConfig: {style: {position: 'relative'}},
+        layout                : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
