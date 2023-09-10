@@ -1,4 +1,5 @@
-import Component    from '../../../src/controller/Component.mjs';
+import Component   from '../../../src/controller/Component.mjs';
+import SelectField from '../../../src/form/field/Select.mjs';
 
 /**
  * @class Neo.examples.container.dialog.MainContainerController
@@ -13,22 +14,14 @@ class MainContainerController extends Component {
         className: 'Neo.examples.container.dialog.MainContainerController'
     }
 
-    dialog = null;
-    title = 'example dialog';
-    height = 300;
-    width = 500;
+    dialog = null
+    title  = 'example dialog'
+    height = 300
+    width  = 500
 
     /**
-     * 
-     * @param {*} config 
-     */
-    construct(config) {
-        super.construct(config);
-    }
-
-    /**
-     * 
-     * @param {Object} data 
+     *
+     * @param {Object} data
      */
     async onButtonClick(data) {
         if (!this.dialog) {
@@ -42,7 +35,7 @@ class MainContainerController extends Component {
                 height: this.height,
                 width: this.width,
                 iconCls: ['fa', 'fa-home'],
-                
+
                 headerConfig: {
                     items: [{
                         ntype: 'button',
@@ -54,9 +47,20 @@ class MainContainerController extends Component {
                 items: [{
                     ntype: 'container',
                     html: 'text'
+                }, {
+                    module   : SelectField,
+                    labelText: 'Select',
+
+                    store: {
+                        data: [{
+                            id  : 0,
+                            name: 'Option 1'
+                        }]
+                    }
                 }]
             })
         }
+
         this.dialog.show();
 
         console.log(data, this);

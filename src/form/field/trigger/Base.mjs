@@ -29,7 +29,7 @@ class Base extends Component {
         /**
          * @member {String} align_='end'
          */
-        align_: 'end',
+        align: 'end',
         /**
          * @member {String[]} baseCls=['neo-field-trigger']
          */

@@ -56,11 +56,16 @@ class ConfigurationViewport extends Viewport {
      *
      */
     onConstructed() {
-        let me = this,
+        let me    = this,
+            style = me.exampleContainerConfig?.style,
             theme;
 
-        me.exampleComponent        = me.createExampleComponent();
+        if (style) {
+            delete me.exampleContainerConfig.style;
+        }
+
         me.configurationComponents = me.createConfigurationComponents() || [];
+        me.exampleComponent        = me.createExampleComponent();
 
         theme = me.exampleComponent.getTheme();
 
@@ -69,7 +74,7 @@ class ConfigurationViewport extends Viewport {
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
-            style : {overflow: 'auto', padding: '20px'},
+            style : {overflow: 'auto', padding: '20px', ...style},
             ...me.exampleContainerConfig
         }, {
             module: Panel,

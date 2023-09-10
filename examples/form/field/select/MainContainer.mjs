@@ -15,7 +15,12 @@ class MainContainer extends ConfigurationViewport {
         className           : 'Neo.examples.form.field.select.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        layout              : {ntype: 'hbox', align: 'stretch'},
+        exampleContainerConfig : {
+            style : {
+                position : 'relative'
+            }
+        }
     }
 
     createConfigurationComponents() {
@@ -125,6 +130,23 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            module   : CheckBox,
+            checked  : false,
+            labelText: 'At end',
+            listeners: {change: ({ value }) => {
+                const
+                    { exampleComponent } = this,
+                    { style } = exampleComponent;
+
+                Object.assign(style, {
+                    bottom   : value ? '1em' : '',
+                    position : value ? 'absolute' : ''
+                });
+                exampleComponent.style = style;
+                exampleComponent.update();
+            }},
+            style    : {marginTop: '10px'}
         }];
     }
 
@@ -137,7 +159,10 @@ class MainContainer extends ConfigurationViewport {
             store        : MainStore,
             value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
-            width        : 200
+            width        : '50%',
+            pickerConfig : {
+                minHeight : '6em'
+            }
         })
     }
 }

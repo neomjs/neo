@@ -9,11 +9,11 @@ import TextField  from '../../form/field/Text.mjs';
 class Button extends BaseButton {
     /**
      * Valid values for align
-     * @member {String[]} alignValues: ['left','center','right']
+     * @member {String[]} cellAlignValues: ['left','center','right']
      * @protected
      * @static
      */
-    static alignValues = ['left', 'center', 'right']
+    static cellAlignValues = ['left', 'center', 'right']
 
     static config = {
         /**
@@ -27,14 +27,14 @@ class Button extends BaseButton {
          */
         ntype: 'table-header-button',
         /**
-         * Alignment of the matching table cells. Valid values are left, center, right
-         * @member {String} align_='left'
-         */
-        align_: 'left',
-        /**
          * @member {String[]} baseCls=['neo-table-header-button']
          */
         baseCls: ['neo-table-header-button'],
+        /**
+         * Alignment of the matching table cells. Valid values are left, center, right
+         * @member {String} cellAlign_='left'
+         */
+        cellAlign_: 'left',
         /**
          * @member {String|null} dataField=null
          */
@@ -111,19 +111,17 @@ class Button extends BaseButton {
     construct(config) {
         super.construct(config);
 
-        let me        = this;
-        
-        if (me.draggable) {
-            me.addDomListeners({
-                dragend  : me.onDragEnd,
-                dragenter: me.onDragEnter,
-                dragleave: me.onDragLeave,
-                dragover : me.onDragOver,
-                dragstart: me.onDragStart,
-                drop     : me.onDrop,
-                scope    : me
-            });
-        }
+        let me = this;
+
+        me.draggable && me.addDomListeners({
+            dragend  : me.onDragEnd,
+            dragenter: me.onDragEnter,
+            dragleave: me.onDragLeave,
+            dragover : me.onDragOver,
+            dragstart: me.onDragStart,
+            drop     : me.onDrop,
+            scope    : me
+        })
     }
 
     /**
@@ -255,13 +253,13 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered before the align config gets changed
+     * Triggered before the cellAlign config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
-    beforeSetAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
+    beforeSetCellAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues');
     }
 
     /**

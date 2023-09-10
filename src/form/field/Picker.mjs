@@ -45,10 +45,6 @@ class Picker extends Text {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * @member {Boolean} matchPickerWidth=true
-         */
-        matchPickerWidth: true,
-        /**
          * @member {Object|null} picker=null
          * @protected
          */
@@ -75,9 +71,10 @@ class Picker extends Text {
         pickerMaxHeight: 200,
         /**
          * The width of the picker container. Defaults to px.
-         * @member {Number|null} pickerWidth=100
+         * By default, the width of the picker matches the width of the input wrap element.
+         * @member {Number|null} pickerWidth=null
          */
-        pickerWidth: 100,
+        pickerWidth: null,
         /**
          * @member {Boolean} showPickerOnFocus=false
          * @protected
@@ -141,38 +138,23 @@ class Picker extends Text {
     }
 
     /**
-     * @param {Boolean} silent
-     */
-    applyClientRects(silent) {
-        let me          = this,
-            rects       = me.clientRects,
-            inputRect   = rects[1],
-            parentRect  = rects[2],
-            triggerRect = rects[0],
-            vdom        = me.picker.vdom,
-            width       = me.matchPickerWidth ? inputRect.width : me.pickerWidth;
-
-        me.pickerWidth = width;
-
-        vdom.style = vdom.style || {};
-
-        Object.assign(vdom.style, {
-            left : `${inputRect.left}px`,
-            top  : `${inputRect.bottom + 1}px`,
-            width: `${width}px`
-        });
-
-        me.picker[silent ? '_vdom' : 'vdom'] = vdom;
-    }
-
-    /**
      * @returns {Neo.container.Base}
      */
     createPicker() {
-        let me              = this,
+        const
+            me              = this,
+            { pickerWidth } = me,
             pickerComponent = me.createPickerComponent();
 
         return Neo.create(Container, {
+            parentId : 'document.body',
+            floating : true,
+            align    : {
+                edgeAlign : pickerWidth ? 't0-b0' : 't-b',
+                matchSize : pickerWidth ? false : true,
+                axisLock  : true,
+                target    : me.getInputWrapperId()
+            },
             appName  : me.appName,
             cls      : ['neo-picker-container', 'neo-container'],
             height   : me.pickerHeight,
@@ -180,7 +162,7 @@ class Picker extends Text {
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
             vdom     : {cn: [], 'aria-activedescendant': me.id, tabIndex: -1},
-            width    : me.pickerWidth,
+            width    : pickerWidth,
             ...me.pickerConfig,
 
             // scoped to the field instance
@@ -223,20 +205,6 @@ class Picker extends Text {
 
         picker?.destroy();
         super.destroy(...args);
-    }
-
-    /**
-     * @param {Function} [callback]
-     * @param {Object} [callbackScope]
-     */
-    getClientRectsThenShow(callback, callbackScope) {
-        let me        = this,
-            triggerId = me.getTriggerId('picker');
-
-        me.getDomRect([triggerId, me.getInputWrapperId(), me.parentId]).then(data => {
-            me.clientRects = data;
-            me.showPicker(callback, callbackScope);
-        });
     }
 
     /**
@@ -291,7 +259,7 @@ class Picker extends Text {
 
         let me = this;
 
-        me.showPickerOnFocus && !me.pickerIsMounted && me.getClientRectsThenShow();
+        me.showPickerOnFocus && !me.pickerIsMounted && me.showPicker();
     }
 
     /**
@@ -330,7 +298,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        !this.pickerIsMounted && this.getClientRectsThenShow(callback, callbackScope);
+        !this.pickerIsMounted && this.showPicker(callback, callbackScope);
     }
 
     /**
@@ -361,8 +329,6 @@ class Picker extends Text {
         if (!me.pickerIsMounting) {
             me.pickerIsMounting = true;
 
-            me.applyClientRects(true);
-
             listenerId = picker.on('mounted', () => {
                 picker.un('mounted', listenerId);
 
@@ -389,7 +355,7 @@ class Picker extends Text {
         if (me.pickerIsMounted) {
             me.hidePicker();
         } else {
-            me.getClientRectsThenShow();
+            me.showPicker();
         }
     }
 }
