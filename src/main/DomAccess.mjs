@@ -117,12 +117,58 @@ class DomAccess extends Base {
                 }
 
                 me.countDeltasPer250ms = 0;
-            }, 250);
+            }, 250)
         }
 
         // Set up our aligning callback which is called when things change which may
         // mean that alignments need to be updated.
         me.syncAligns = () => requestAnimationFrame(syncAligns);
+    }
+
+    /**
+     * @param {Object} alignSpec
+     */
+    addAligned(alignSpec) {
+        const
+            me                     = this,
+            { id }                 = alignSpec,
+            aligns                 = me._aligns || (me._aligns = new Map()),
+            resizeObserver         = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
+            { constrainToElement } = alignSpec;
+
+        // Set up listeners which monitor for changes
+        if (!aligns.has(id)) {
+            // Realign when target's layout-controlling element changes size
+            resizeObserver.observe(alignSpec.offsetParent);
+
+            // Realign when align to target changes size
+            resizeObserver.observe(alignSpec.targetElement);
+
+            // Realign when constraining element changes size
+            if (constrainToElement) {
+                resizeObserver.observe(constrainToElement);
+            }
+        }
+
+        if (!me.hasDocumentScrollListener) {
+            document.addEventListener('scroll', me.syncAligns, {
+                capture: true,
+                passive: true
+            });
+
+            me.hasDocumentScrollListener = true;
+        }
+
+        if (!me.documentMutationObserver) {
+            me.documentMutationObserver = new MutationObserver(me.onDocumentMutation.bind(me));
+
+            me.documentMutationObserver.observe(document.body, {
+                childList: true,
+                subtree  : true
+            })
+        }
+
+        aligns.set(id, alignSpec)
     }
 
     /**
@@ -141,6 +187,58 @@ class DomAccess extends Base {
         Object.assign(script, data);
 
         document.head.appendChild(script);
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {Promise<void>}
+     */
+    async align(data) {
+        const
+            me              = this,
+            { constrainTo } = data,
+            subject         = data.subject = me.getElement(data.id),
+            { style }       = subject,
+            align           = {...data},
+            lastAlign       = me._aligns?.get(data.id);
+
+        if (lastAlign) {
+            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`);
+        }
+
+        // Release any constrainTo or matchSize sizing which may have been imposed
+        // by a previous align call.
+        me.resetDimensions(align);
+
+        // The Rectangle's align spec target and constrainTo must be Rectangles
+        align.target = me.getBoundingClientRect({ id : data.targetElement = me.getElementOrBody(data.target) });
+        data.offsetParent = data.targetElement.offsetParent
+        if (constrainTo) {
+            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
+        }
+
+        // Get an aligned clone of myRect aligned according to the align object
+        const
+            myRect = me.getBoundingClientRect(data),
+            result = data.result = myRect.alignTo(align);
+
+        Object.assign(style, {
+            top       : 0,
+            left      : 0,
+            transform : `translate(${result.x}px,${result.y}px)`
+        });
+        if (result.width !== myRect.width) {
+            style.width = `${result.width}px`;
+        }
+        if (result.height !== myRect.height) {
+            style.height = `${result.height}px`;
+        }
+
+        // Place box shadow at correct edge
+        subject.classList.add(`neo-aligned-${result.position}`);
+
+        // Register an alignment to be kept in sync
+        me.addAligned(data);
     }
 
     /**
@@ -275,114 +373,6 @@ class DomAccess extends Base {
         return returnData;
     }
 
-    async align(data) {
-        const
-            me              = this,
-            { constrainTo } = data,
-            subject         = data.subject = me.getElement(data.id),
-            { style }       = subject,
-            align           = {
-                ...data
-            },
-            lastAlign       = me._aligns?.get(data.id);
-
-        if (lastAlign) {
-            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`);
-        }
-
-        // Release any constrainTo or matchSize sizing which may have been imposed
-        // by a previous align call.
-        me.resetDimensions(align);
-
-        // The Rectangle's align spec target and constrainTo must be Rectangles
-        align.target = me.getBoundingClientRect({ id : data.targetElement = me.getElementOrBody(data.target) });
-        data.offsetParent = data.targetElement.offsetParent
-        if (constrainTo) {
-            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
-        }
-
-        // Get an aligned clone of myRect aligned according to the align object
-        const
-            myRect = me.getBoundingClientRect(data),
-            result = data.result = myRect.alignTo(align);
-
-        Object.assign(style, {
-            top       : 0,
-            left      : 0,
-            transform : `translate(${result.x}px,${result.y}px)`
-        });
-        if (result.width !== myRect.width) {
-            style.width = `${result.width}px`;
-        }
-        if (result.height !== myRect.height) {
-            style.height = `${result.height}px`;
-        }
-
-        // Place box shadow at correct edge
-        subject.classList.add(`neo-aligned-${result.position}`);
-
-        // Register an alignment to be kept in sync
-        me.addAligned(data);
-    }
-
-    /**
-     * Resets any DOM sizing configs to the last externally configured value.
-     *
-     * This is used during aligning to release any constraints applied by a previous alignment.
-     * @protected
-     */
-    async resetDimensions(align) {
-        const { style } = this.getElement(align.id);
-
-        style.flex      = align.configuredFlex;
-        style.width     = align.configuredWidth;
-        style.height    = align.configuredHeight;
-        style.minWidth  = align.configuredMinWidth;
-        style.minHeight = align.configuredMinHeight;
-        style.maxWidth  = align.configuredMaxWidth;
-        style.maxHeight = align.configuredMaxHeight;
-    }
-
-    addAligned(alignSpec) {
-        const
-            me                     = this,
-            { id }                 = alignSpec,
-            aligns                 = me._aligns || (me._aligns = new Map()),
-            resizeObserver         = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
-            { constrainToElement } = alignSpec;
-
-        // Set up listeners which monitor for changes
-        if (!aligns.has(id)) {
-            // Realign when target's layout-controlling element changes size
-            resizeObserver.observe(alignSpec.offsetParent);
-
-            // Realign when align to target changes size
-            resizeObserver.observe(alignSpec.targetElement);
-
-            // Realign when constraining element changes size
-            if (constrainToElement) {
-                resizeObserver.observe(constrainToElement);
-            }
-        }
-
-        if (!me.hasDocumentScrollListener) {
-            document.addEventListener('scroll', me.syncAligns, {
-                capture : true,
-                passive : true
-            });
-            me.hasDocumentScrollListener = true;
-        }
-        if (!me.documentMutationObserver) {
-            me.documentMutationObserver = new MutationObserver(me.onDocumentMutation.bind(me));
-            me.documentMutationObserver.observe(document.body, {
-                childList : true,
-                subtree   : true
-            });
-        }
-
-        aligns.set(id, alignSpec);
-    }
-
     onDocumentMutation(mutations) {
         const me = this;
 
@@ -396,83 +386,6 @@ class DomAccess extends Base {
         })) {
             me.syncAligns();
         }
-    }
-
-    isAlignSubject(el) {
-        return [...this._aligns?.values()].some(align => align.subject === el);
-    }
-
-    syncAligns() {
-        const
-            me          = this,
-            { _aligns } = me;
-
-        // Keep all registered aligns aligned on any detected change
-        _aligns?.forEach(align => {
-            // Align subject and target still in the DOM - correct its alignment
-            if (document.contains(align.subject) && document.contains(align.targetElement)) {
-                me.align(align);
-            }
-            // Align subject or target no longer in the DOM - remove it.
-            else {
-                const
-                    { _alignResizeObserver } = me,
-                    { constrainToElement }   = align;
-
-                // Stop observing the align elements
-                _alignResizeObserver.unobserve(align.subject);
-                _alignResizeObserver.unobserve(align.offsetParent);
-                _alignResizeObserver.unobserve(align.targetElement);
-                if (constrainToElement) {
-                    _alignResizeObserver.unobserve(constrainToElement);
-                }
-
-                // Clear the last aligned class.
-                align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
-
-                _aligns.delete(align.id);
-            }
-        });
-    }
-
-    measure({ value, id }) {
-        const node = id.nodeType === 1 ? id : this.getElement(id);
-
-        if (value.endsWith('%')) {
-            const fraction = parseFloat(value) / 100;
-
-            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction;
-        }
-        // If it's any other CSS unit than px, it needs to be measured using the DOM
-        else if (isNaN(value) && !value.endsWith('px')) {
-            const elStyle = node.ownerDocument.defaultView.getComputedStyle(node);
-
-            let d = this._measuringDiv;
-
-            if (!d) {
-                d = this._measuringDiv = document.createElement('div');
-                d.style = 'position:fixed;top:-10000px;left:-10000px';
-            }
-            // In case a DOM update cleared it out
-            document.body.appendChild(d);
-
-            // Set all the font-size, font-weight etc style properties so that
-            // em/ex/rem etc units will match
-            fontSizeProps.forEach(prop => {
-                d.style[prop] = elStyle[prop];
-            });
-            d.className = node.className;
-            d.style.width = value;
-
-            // Read back the resulting computed pixel width
-            value = elStyle.width;
-    
-        }
-        // If it's a number, or ends with px, use the numeric value.
-        else {
-            value = parseFloat(value);
-        }
-        return value;
     }
 
     /**
@@ -491,6 +404,14 @@ class DomAccess extends Base {
      */
     getElementOrBody(nodeId='document.body') {
         return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId);
+    }
+
+    /**
+     * @param {HTMLElement} el
+     * @returns {Boolean}
+     */
+    isAlignSubject(el) {
+        return [...this._aligns?.values()].some(align => align.subject === el);
     }
 
     /**
@@ -536,7 +457,53 @@ class DomAccess extends Base {
             });
 
             document.head.appendChild(link);
-        });
+        })
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number|String} data.value
+     * @returns {Number|String}
+     */
+    measure({ value, id }) {
+        const node = id.nodeType === 1 ? id : this.getElement(id);
+
+        if (value.endsWith('%')) {
+            const fraction = parseFloat(value) / 100;
+
+            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction;
+        }
+        // If it's any other CSS unit than px, it needs to be measured using the DOM
+        else if (isNaN(value) && !value.endsWith('px')) {
+            const elStyle = node.ownerDocument.defaultView.getComputedStyle(node);
+
+            let d = this._measuringDiv;
+
+            if (!d) {
+                d = this._measuringDiv = document.createElement('div');
+                d.style = 'position:fixed;top:-10000px;left:-10000px';
+            }
+            // In case a DOM update cleared it out
+            document.body.appendChild(d);
+
+            // Set all the font-size, font-weight etc style properties so that
+            // em/ex/rem etc units will match
+            fontSizeProps.forEach(prop => {
+                d.style[prop] = elStyle[prop];
+            });
+            d.className = node.className;
+            d.style.width = value;
+
+            // Read back the resulting computed pixel width
+            value = elStyle.width;
+
+        }
+        // If it's a number, or ends with px, use the numeric value.
+        else {
+            value = parseFloat(value);
+        }
+        return value;
     }
 
     /**
@@ -640,6 +607,24 @@ class DomAccess extends Base {
         if (typeof data === 'function') {
             data();
         }
+    }
+
+    /**
+     * Resets any DOM sizing configs to the last externally configured value.
+     *
+     * This is used during aligning to release any constraints applied by a previous alignment.
+     * @protected
+     */
+    async resetDimensions(align) {
+        const { style } = this.getElement(align.id);
+
+        style.flex      = align.configuredFlex;
+        style.width     = align.configuredWidth;
+        style.height    = align.configuredHeight;
+        style.minWidth  = align.configuredMinWidth;
+        style.minHeight = align.configuredMinHeight;
+        style.maxWidth  = align.configuredMaxWidth;
+        style.maxHeight = align.configuredMaxHeight;
     }
 
     /**
@@ -776,6 +761,42 @@ class DomAccess extends Base {
         }
 
         return {id: data.id};
+    }
+
+    /**
+     *
+     */
+    syncAligns() {
+        const
+            me          = this,
+            { _aligns } = me;
+
+        // Keep all registered aligns aligned on any detected change
+        _aligns?.forEach(align => {
+            // Align subject and target still in the DOM - correct its alignment
+            if (document.contains(align.subject) && document.contains(align.targetElement)) {
+                me.align(align);
+            }
+            // Align subject or target no longer in the DOM - remove it.
+            else {
+                const
+                    { _alignResizeObserver } = me,
+                    { constrainToElement }   = align;
+
+                // Stop observing the align elements
+                _alignResizeObserver.unobserve(align.subject);
+                _alignResizeObserver.unobserve(align.offsetParent);
+                _alignResizeObserver.unobserve(align.targetElement);
+                if (constrainToElement) {
+                    _alignResizeObserver.unobserve(constrainToElement);
+                }
+
+                // Clear the last aligned class.
+                align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
+
+                _aligns.delete(align.id);
+            }
+        })
     }
 
     /**
