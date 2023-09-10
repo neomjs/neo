@@ -249,8 +249,8 @@ class Base extends Component {
 
     /**
      * Triggered after the menu config got changed
-     * @param {Object[]|null} value
-     * @param {Object[]|null} oldValue
+     * @param {Object|Object[]|null} value
+     * @param {Object|Object[]|null} oldValue
      * @protected
      */
     afterSetMenu(value, oldValue) {
