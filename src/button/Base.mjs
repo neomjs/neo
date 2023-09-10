@@ -80,8 +80,8 @@ class Base extends Component {
         iconPosition_: 'left',
         /**
          * An array representing the configuration of the menu items.
-         * 
-         * Or a configuration object which adds custom configuration to the menu to be 
+         *
+         * Or a configuration object which adds custom configuration to the menu to be
          * created and includes an `items` property to define the menu items.
          * @member {Object|Object[]|null} menu_=null
          */
@@ -256,7 +256,7 @@ class Base extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me = this,
+                let me         = this,
                     isArray    = Array.isArray(value),
                     items      = isArray ? value : value.items,
                     menuConfig = isArray ? {} : value;
@@ -264,7 +264,7 @@ class Base extends Component {
                 me.menuList = Neo.create({
                     align          : {
                         edgeAlign : 't0-b0',
-                        target    : this.id
+                        target    : me.id
                     },
                     ...menuConfig,
                     module         : module.default,
@@ -275,8 +275,8 @@ class Base extends Component {
                     items,
                     parentComponent: me,
                     ...me.menuListConfig
-                });
-            });
+                })
+            })
         }
     }
 
