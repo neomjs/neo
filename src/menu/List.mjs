@@ -280,16 +280,6 @@ class List extends BaseList {
     }
 
     /**
-     * @param {Object} node
-     * @param {Object} data
-     */
-    onItemClick(node, data) {
-        super.onItemClick(node, data);
-
-        this.onKeyDownEnter(node.id)
-    }
-
-    /**
      * @param {String} nodeId
      */
     onKeyDownEnter(nodeId) {
@@ -344,7 +334,7 @@ class List extends BaseList {
      * @param {String} nodeId
      * @param {Object} record
      */
-    showSubMenu(nodeId, record) {
+    showSubMenu(nodeId, record) {console.log('showSubMenu', nodeId)
         const
             me           = this,
             store        = me.store,
