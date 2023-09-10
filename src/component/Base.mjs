@@ -6,11 +6,11 @@ import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
+import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
 import Util             from '../core/Util.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
-import Rectangle from '../util/Rectangle.mjs';
 
 const
     lengthRE = /^\d+\w+$/,
@@ -47,10 +47,13 @@ class Base extends CoreBase {
          */
         ntype: 'component',
         /**
-         * True to render this component into the viewport outside of the document flow
-         * @member {Boolean} floating
+         * The default alignment specification to position this Component relative to some other
+         * Component, or Element or Rectangle.
          */
-        floating: false,
+        align_ : {
+            edgeAlign   : 't-b',
+            constrainTo : 'document.body'
+        },
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
@@ -149,6 +152,11 @@ class Base extends CoreBase {
          * @member {Object} dropZoneConfig=null
          */
         dropZoneConfig: null,
+        /**
+         * True to render this component into the viewport outside of the document flow
+         * @member {Boolean} floating
+         */
+        floating: false,
         /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
@@ -315,26 +323,7 @@ class Base extends CoreBase {
          * The vdom markup for this component.
          * @member {Object} _vdom={}
          */
-        _vdom: {},
-        /**
-         * The default alignment specification to position this Component relative to some other
-         * Component, or Element or Rectangle.
-         */
-        align_ : {
-            edgeAlign   : 't-b',
-            constrainTo : 'document.body'
-        }
-    }
-
-    beforeSetAlign(align) {
-        // Just a simple 't-b'
-        if (typeof align === 'string') {
-            align = {
-                edgeAlign : align
-            };
-        }
-        // merge the incoming alignment specification into the configured default
-        return this.merge(this.merge({}, this.constructor.config.align), align);
+        _vdom: {}
     }
 
     /**
@@ -537,6 +526,21 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the flex config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetFlex(value, oldValue) {
+        if (!isNaN(value)) {
+            value = `${value} ${value} 0%`
+        }
+
+        this.configuredFlex = value;
+        this.changeVdomRootKey('flex', value)
+    }
+
+    /**
      * Triggered after the hasUnmountedVdomChanges config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -695,14 +699,6 @@ class Base extends CoreBase {
         this.changeVdomRootKey('role', value)
     }
 
-    beforeSetStyle(value) {
-        if (typeof value === 'object') {
-            // merge the incoming style specification into the configured default
-            value = this.merge(this.merge({}, this.constructor.config.style), value);
-        }
-        return value;
-    }
-
     /**
      * Triggered after the style config got changed
      * @param {Object} value
@@ -756,13 +752,13 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the vdom config got changed
+     * Triggered after the vdom pseudo-config got changed
      * @param {Object} value
      * @param {Object|null} oldValue
      * @protected
      */
-    async afterSetVdom(value, oldValue) {
-        await this.updateVdom(value)
+    afterSetVdom(value, oldValue) {
+        this.updateVdom(value)
     }
 
     /**
@@ -784,20 +780,6 @@ class Base extends CoreBase {
     afterSetWidth(value, oldValue) {
         this.configuredWidth = addUnits(value);
         this.changeVdomRootKey('width', value)
-    }
-
-    /**
-     * Triggered after the flex config got changed
-     * @param {Number|String|null} value
-     * @param {Number|String|null} oldValue
-     * @protected
-     */
-    afterSetFlex(value, oldValue) {
-        if (!isNaN(value)) {
-            value = `${value} ${value} 0%`;
-        }
-        this.configuredFlex = value;
-        this.changeVdomRootKey('flex', value);
     }
 
     /**
@@ -860,6 +842,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Aligns the top level node inside the main thread
+     * @param {Object} spec={}
+     * @returns {Promise<void>}
+     */
+    async alignTo(spec={}) {
+        const me = this;
+
+        await Neo.main.DomAccess.align({
+            ...me.align,
+            ...spec,
+            id                  : me.id,
+            configuredFlex      : me.configuredFlex,
+            configuredWidth     : me.configuredWidth,
+            configuredHeight    : me.configuredHeight,
+            configuredMinWidth  : me.configuredMinWidth,
+            configuredMinHeight : me.configuredMinHeight,
+            configuredMaxWidth  : me.configuredMaxWidth,
+            configuredMaxHeight : me.configuredMaxHeight
+        });
+    }
+
+    /**
      * Triggered when accessing the cls config
      * @param {String[]|null} value
      * @protected
@@ -904,6 +908,23 @@ class Base extends CoreBase {
      */
     beforeGetWrapperStyle(value) {
         return {...Object.assign(this.vdom.style || {}, value)}
+    }
+
+    /**
+     * @param {Object|String} align
+     * @returns {Object}
+     */
+    beforeSetAlign(align) {
+        let me = this;
+
+        // Just a simple 't-b'
+        if (typeof align === 'string') {
+            align = {
+                edgeAlign : align
+            };
+        }
+        // merge the incoming alignment specification into the configured default
+        return me.merge(me.merge({}, me.constructor.config.align), align);
     }
 
     /**
@@ -1035,6 +1056,17 @@ class Base extends CoreBase {
         }
 
         return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
+    }
+
+    beforeSetStyle(value) {
+        let me = this;
+
+        if (typeof value === 'object') {
+            // merge the incoming style specification into the configured default
+            value = me.merge(me.merge({}, me.constructor.config.style), value)
+        }
+
+        return value
     }
 
     /**
@@ -1203,11 +1235,6 @@ class Base extends CoreBase {
         return me.vdomUpdate;
     }
 
-    get isVdomUpdating() {
-        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
-        return Boolean(this.vdomUpdate);
-    }
-
     /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
      * @param {String} id=this.id
@@ -1228,6 +1255,10 @@ class Base extends CoreBase {
         return Neo.apps[this.appName]
     }
 
+    /**
+     * Override this method to add dynamic values into this.cls
+     * @returns {String[]}
+     */
     getBaseClass() {
         const result = [];
 
@@ -1548,6 +1579,35 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience method
+     * @returns {Boolean}
+     */
+    get isVdomUpdating() {
+        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
+        return Boolean(this.vdomUpdate)
+    }
+
+    /**
+     * @param {Number|String} value
+     * @returns {Promise<number>}
+     */
+    async measure(value) {
+        if (value != null) {
+            if (value.endsWith('px')) {
+                value = parseFloat(value);
+            }
+            else if (lengthRE.test(value)) {
+                value = await Neo.main.DomAccess.measure({ value, id : this.id });
+            }
+            else if (!isNaN(value)) {
+                value = parseFloat(value);
+            }
+        }
+
+        return value
+    }
+
+    /**
      * Override this method to change the order configs are applied to this instance.
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
@@ -1735,8 +1795,8 @@ class Base extends CoreBase {
 
     /**
      * Promise based vdom update
-     * @param {Object} [vdom=this.vdom]
-     * @param {Neo.vdom.VNode} [vnode= this.vnode]
+     * @param {Object} vdom=this.vdom
+     * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
     promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
@@ -1937,38 +1997,6 @@ class Base extends CoreBase {
         }
 
         me._hidden = false
-    }
-
-    async alignTo(spec = {}) {
-        const me = this;
-
-        await Neo.main.DomAccess.align({
-            ...me.align,
-            ...spec,
-            id                  : me.id,
-            configuredFlex      : me.configuredFlex,
-            configuredWidth     : me.configuredWidth,
-            configuredHeight    : me.configuredHeight,
-            configuredMinWidth  : me.configuredMinWidth,
-            configuredMinHeight : me.configuredMinHeight,
-            configuredMaxWidth  : me.configuredMaxWidth,
-            configuredMaxHeight : me.configuredMaxHeight
-        });
-    }
-
-    async measure(value) {
-        if (value != null) {
-            if (value.endsWith('px')) {
-                value = parseFloat(value);
-            }
-            else if (lengthRE.test(value)) {
-                value = await Neo.main.DomAccess.measure({ value, id : this.id });
-            }
-            else if (!isNaN(value)) {
-                value = parseFloat(value);
-            }
-        }
-        return value;
     }
 
     /**
@@ -2183,7 +2211,7 @@ class Base extends CoreBase {
      * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
-    async updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
+    updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
         let me      = this,
             app     = Neo.apps[me.appName],
             mounted = me.mounted,
@@ -2230,7 +2258,7 @@ class Base extends CoreBase {
                     && !me.needsParentUpdate(me.parentId, resolve)
                     && !me.isParentVdomUpdating(me.parentId, resolve)
                 ) {
-                    await me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }
             }
         }
