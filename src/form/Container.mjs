@@ -44,6 +44,8 @@ class Container extends BaseContainer {
             type   = Neo.typeOf(value);
 
             if (type === 'Array') {
+                assign = false;
+
                 value.forEach(item => {
                     if (Neo.typeOf(item) === 'Object') {
                         this.adjustTreeLeaves(item, configName)
