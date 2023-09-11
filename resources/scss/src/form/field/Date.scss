@@ -6,16 +6,20 @@
     input::-webkit-inner-spin-button,
     input::-webkit-calendar-picker-indicator,
     input::-webkit-outer-spin-button {
-        display           : none;
-        margin            : 0;
-        -webkit-appearance: none;
+        appearance: none;
+        display   : none;
+        margin    : 0;
     }
 
-    // Firefox => no luck => https://gitlab.com/tobiu/neoteric/issues/198
-    ::-moz-datetime-reset-button {
-        display: none;
-    }
     .datetime-reset-button {
         display: none;
+    }
+}
+
+@-moz-document url-prefix() {
+    .neo-datefield {
+        .neo-textfield-input {
+            clip-path: inset(0 2em 0 0);
+        }
     }
 }
