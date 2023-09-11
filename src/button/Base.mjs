@@ -273,7 +273,6 @@ class Base extends Component {
                     floating       : true,
                     hidden         : true,
                     items,
-                    style          : {left: '-10000px', top: '-10000px'},
                     parentComponent: me,
                     ...me.menuListConfig
                 })

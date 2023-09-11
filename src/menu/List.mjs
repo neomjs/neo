@@ -356,7 +356,6 @@ class List extends BaseList {
                 parentId       : Neo.apps[me.appName].mainView.id,
                 parentIndex    : store.indexOf(record),
                 parentMenu     : me,
-                style          : {left: '-10000px', top: '-10000px'},
                 zIndex         : me.zIndex + 1
             }));
 
