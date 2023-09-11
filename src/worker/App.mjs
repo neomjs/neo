@@ -28,7 +28,8 @@ class App extends Base {
         remote: {
             main: [
                 'createNeoInstance',
-                'destroyNeoInstance'
+                'destroyNeoInstance',
+                'setConfigs'
             ]
         },
         /**
@@ -384,6 +385,24 @@ class App extends Base {
         });
 
         me.themeFilesCache = []
+    }
+
+    /**
+     * Set configs of any app realm based Neo instance from main
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    setConfigs(data) {
+        let instance = Neo.get(data.id);
+
+        if (instance) {
+            delete data.id;
+            instance.set(data);
+
+            return true
+        }
+
+        return false
     }
 
     /**
