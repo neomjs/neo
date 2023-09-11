@@ -274,6 +274,7 @@ class Base extends Component {
                     hidden         : true,
                     items,
                     parentComponent: me,
+                    theme          : me.theme,
                     ...me.menuListConfig
                 })
             })
@@ -291,6 +292,20 @@ class Base extends Component {
 
         NeoArray.toggle(cls, 'pressed', value === true);
         this.cls = cls;
+    }
+
+    /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.menuList) {
+            this.menuList.theme = value
+        }
     }
 
     /**

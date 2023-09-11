@@ -742,7 +742,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the html config got changed
+     * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
