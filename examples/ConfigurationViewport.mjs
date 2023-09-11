@@ -177,7 +177,7 @@ class ConfigurationViewport extends Viewport {
     onSwitchTheme(target) {
         let me     = this,
             button = Neo.getComponent(me.id + (target !== 'cmp' ? '__' : '_cmp_') + 'switchThemeButton'),
-            cls, newTheme, oldTheme;
+            newTheme, oldTheme;
 
         if (button.text === 'Theme Light') {
             newTheme = 'neo-theme-light';
@@ -192,12 +192,7 @@ class ConfigurationViewport extends Viewport {
         }
 
         if (target === 'cmp') {
-            cls = me.exampleComponent.cls;
-
-            NeoArray.remove(cls, oldTheme);
-            NeoArray.add(cls, newTheme);
-
-            me.exampleComponent.cls = cls;
+            me.exampleComponent.theme = newTheme;
         } else {
             Neo.applyDeltas(me.appName, {
                 cls: {

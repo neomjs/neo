@@ -288,14 +288,19 @@ class Base extends CoreBase {
          */
         style_: null,
         /**
+         * You can pass an used theme directly to any component,
+         * to style specific component trees differently from your main view.
+         * @member {String|null} theme_=null
+         */
+        theme_: null,
+        /**
          * Add tooltip config objects
          * See tooltip/Base.mjs
          * @member {Array|Object} tooltips_=null
          */
         tooltips_: null,
         /**
-         * Add 'primary' and other attributes to make it
-         * an outstanding design
+         * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
          */
         ui_: null,
@@ -733,6 +738,23 @@ class Base extends CoreBase {
     afterSetStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
             this.updateStyle(value, oldValue)
+        }
+    }
+
+    /**
+     * Triggered after the html config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        if (value || oldValue !== undefined) {
+            let cls = this.cls;
+
+            NeoArray.remove(cls, oldValue);
+            value && NeoArray.add(cls, value);
+
+            this.cls = cls
         }
     }
 
@@ -1453,7 +1475,7 @@ class Base extends CoreBase {
     getTheme() {
         let me         = this,
             themeMatch = 'neo-theme-',
-            app, mainView, parentNodes;
+            mainView, parentNodes;
 
         for (const item of me.cls || []) {
             if (item.startsWith(themeMatch)) {
