@@ -5,7 +5,6 @@ import DomEventManager  from '../manager/DomEvent.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
-import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
 import Util             from '../core/Util.mjs';
@@ -1217,8 +1216,7 @@ class Base extends CoreBase {
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
                 // console.log('Component vnode updated', data);
-                me.vnode          = data.vnode;
-                me.isVdomUpdating = false;
+                me.vnode = data.vnode;
 
                 deltas = data.deltas;
 
@@ -1584,7 +1582,16 @@ class Base extends CoreBase {
      */
     get isVdomUpdating() {
         // The VDOM is being updated if we have the promise that executeVdomUpdate uses
-        return Boolean(this.vdomUpdate)
+        return Boolean(this.vdomUpdate);
+    }
+
+    // Allow the Component to be set to the isVdomUpdating state
+    set isVdomUpdating(isVdomUpdating) {
+        isVdomUpdating = Boolean(isVdomUpdating);
+
+        if (isVdomUpdating !== this.isVdomUpdating) {
+            this.vdomUpdate = isVdomUpdating;
+        }
     }
 
     /**
