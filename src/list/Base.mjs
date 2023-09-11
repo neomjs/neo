@@ -546,14 +546,6 @@ class Base extends Component {
     }
 
     /**
-     * @param {Number|String} recordId
-     * @returns {String}
-     */
-    getItemId(recordId) {
-        return `${this.id}__${recordId}`;
-    }
-
-    /**
      * Returns the index of a list item excluding item headers
      * @param {Number} index
      * @returns {Number}
@@ -570,6 +562,14 @@ class Base extends Component {
         }
 
         return headerlessIndex;
+    }
+
+    /**
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getItemId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
