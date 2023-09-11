@@ -8,11 +8,11 @@ import NeoArray   from '../../util/Array.mjs';
 class Button extends BaseButton {
     /**
      * Valid values for align
-     * @member {String[]} alignValues: ['left', 'center', 'right']
+     * @member {String[]} cellAlignValues: ['left', 'center', 'right']
      * @protected
      * @static
      */
-    static alignValues = ['left', 'center', 'right']
+    static cellAlignValues = ['left', 'center', 'right']
 
     static config = {
         /**
@@ -26,14 +26,14 @@ class Button extends BaseButton {
          */
         ntype: 'grid-header-button',
         /**
-         * Alignment of the matching table cells. Valid values are left, center, right
-         * @member {String} align_='left'
-         */
-        align_: 'left',
-        /**
          * @member {String[]} baseCls=['neo-grid-header-button']
          */
         baseCls: ['neo-grid-header-button'],
+        /**
+         * Alignment of the matching table cells. Valid values are left, center, right
+         * @member {String} cellAlign_='left'
+         */
+        cellAlign_: 'left',
         /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
          */
@@ -109,13 +109,13 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered before the align config gets changed
+     * Triggered before the cellAlign config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
-    beforeSetAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
+    beforeSetCellAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues');
     }
 
     /**

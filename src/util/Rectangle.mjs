@@ -1,11 +1,84 @@
-import Base from '../core/Base.mjs';
-
 /**
  * The class contains utility methods for working with DOMRect Objects
  * @class Neo.util.Rectangle
- * @extends Neo.core.Base
+ * @extends DOMRect
  */
-class Rectangle extends Base {
+
+const
+    emptyArray = Object.freeze([]),
+    // Convert edge array values into the [T,R,B,L] form.
+    parseEdgeValue = (e = 0) => {
+        if (!Array.isArray(e)) {
+            e = [e];
+        }
+        switch (e.length) {
+            case 1:
+                e.length = 4;
+                return e.fill(e[0], 1, 4);
+            case 2:// top&bottom, left&right
+                return [e[0], e[1], e[0], e[1]];
+            case 3:// top, left&right, bottom
+                return [e[0], e[1], e[2], e[1]];
+        }
+        return e;
+    },
+    parseEdgeAlign = edgeAlign => {
+        const
+            edgeParts     = edgeAlignRE.exec(edgeAlign),
+            ourEdgeZone   = edgeZone[edgeParts[1]],
+            theirEdgeZone = edgeZone[edgeParts[4]];
+
+        return {
+            ourEdge         : edgeParts[1],
+            ourEdgeOffset   : parseInt(edgeParts[2] || 50),
+            ourEdgeUnit     : edgeParts[3] || '%',
+            ourEdgeZone,
+            theirEdge       : edgeParts[4],
+            theirEdgeOffset : parseInt(edgeParts[5] || 50),
+            theirEdgeUnit   : edgeParts[6] || '%',
+            theirEdgeZone,
+
+            // Aligned to an edge, *outside* of the target.
+            // A normal align as a combo dropdown might request
+            edgeAligned     : (ourEdgeZone & 1) === (theirEdgeZone & 1) && ourEdgeZone !== theirEdgeZone
+        }
+    },
+    // The opposite of parseEdgeAlign, and it has to flip the edges
+    createReversedEdgeAlign = edges => {
+        const
+            ourEdge   = oppositeEdge[edges.ourEdge],
+            theirEdge = oppositeEdge[edges.theirEdge];
+
+        // reconstitute a rule string with the edges flipped to the opposite sides
+        return `${ourEdge}${edges.ourEdgeOffset}${edges.ourEdgeUnit}-${theirEdge}${edges.theirEdgeOffset}${edges.theirEdgeUnit}`
+
+    },
+    getElRect = el => {
+        const r = el instanceof DOMRect ? el : (el?.nodeType === 1 ? el : typeof el === 'string' ? document.getElementById(el) : null)?.getBoundingClientRect();
+
+        // Convert DOMRect into Rectangle
+        return r && new Rectangle(r.x, r.y, r.width, r.height);
+    },
+    oppositeEdge = {
+        t : 'b',
+        r : 'l',
+        b : 't',
+        l : 'r'
+    },
+    edgeZone = {
+        t : 0,
+        r : 1,
+        b : 2,
+        l : 3
+    },
+    zoneNames = ['top', 'right', 'bottom', 'left'],
+    zoneEdges = ['t', 'r', 'b', 'l'],
+    zoneDimension = ['width', 'height'],
+    zoneCoord = [0, 1, 0, 1],
+    zeroMargins = [0, 0, 0, 0],
+    edgeAlignRE = /^([trblc])(\d*)(%|px)?-([trblc])(\d*)(%|px)?$/;
+
+export default class Rectangle extends DOMRect {
     static config = {
         /**
          * @member {String} className='Neo.util.Rectangle'
@@ -147,8 +220,372 @@ class Rectangle extends Base {
 
         return movedRect;
     }
+
+    set bottom(b) {
+        this.height += b - this.bottom;
+    }
+    get bottom() {
+        return super.bottom;
+    }
+
+    set right(r) {
+        this.width += r - this.right;
+    }
+    get right() {
+        return super.right;
+    }
+
+    // Change the x without moving the Rectangle. The left side moves and the right side doesn't
+    changeX(x) {
+        const widthDelta = this.x - x;
+
+        this.x = x;
+        this.width += widthDelta;
+    }
+
+    // Change the y without moving the Rectangle. The top side moves and the bottom side doesn't
+    changeY(y) {
+        const heightDelta = this.y - y;
+
+        this.y = y;
+        this.height += heightDelta;
+    }
+
+    clone() {
+        return Rectangle.clone(this);
+    }
+
+    static clone(r) {
+        const result = new Rectangle(r.x, r.y, r.width, r.height);
+
+        result.minWidth = r.minWidth;
+        result.minHeight = r.minHeight;
+
+        return result;
+    }
+
+    intersects(other) {
+        const me = this;
+
+        if (other.height && other.width) {
+            const
+                left   = Math.max(me.x, other.x),
+                top    = Math.max(me.y, other.y),
+                right  = Math.min(me.x + me.width, other.x + other.width),
+                bottom = Math.min(me.y + me.height, other.y + other.height);
+        
+            if (left >= right || top >= bottom) {
+                return false;
+            }
+        
+            return new Rectangle(left, top, right - left, bottom - top);
+        }
+        // We're dealing with a point here - zero dimensions
+        else {
+            return (other.x >= me.x && other.y >= me.y && other.right <= me.right && other.bottom <= me.bottom);
+        }
+    }
+
+    /**
+     * Checks if the other Rectangle is fully contained inside this Rectangle
+     * @param {Object} other
+     * @returns {Boolean}
+     */
+    contains(other) {
+        return this.bottom >= other.bottom
+            && this.left   <= other.left
+            && this.right  >= other.right
+            && this.top    <= other.top;
+    }
+
+    /**
+     * Returns a clone of this Rectangle expanded according to the edges array.
+     * @param {Number}Number[]} edges 
+     * @returns 
+     */
+    expand(edges) {
+        edges = parseEdgeValue(edges);
+
+        return new this.constructor(this.x - edges[3], this.y - edges[0], this.width + edges[1] + edges[3], this.height + edges[0] + edges[2]);
+    }
+
+    moveBy(x = 0, y = 0) {
+        const result = this.clone();
+
+        if (Array.isArray(x)) {
+            y = x[1];
+            x = x[0];
+        }
+        result.x += x;
+        result.y += y;
+        return result;
+    }
+
+    /**
+     * Returns `true` if this Rectangle completely contains the other Rectangle
+     * @param {Rectangle} other 
+     */
+    contains(other) {
+        return this.constructor.includes(this, other);
+    }
+
+    /**
+     * Returns a copy of this Rectangle constrained to fit within the passed Rectangle
+     * @param {Rectangle} constrainTo
+     * @returns {Rectangle|Boolean} A new Rectangle constrained to te passed Rectangle, or false if it could not be constrained.
+     */
+    constrainTo(constrainTo) {
+        const
+            me        = this,
+            minWidth  = me.minWidth  || me.width,
+            minHeight = me.minHeight || me.height;
+
+        // Not possible, even when shrunk to minima
+        if (minHeight > constrainTo.height || minWidth > constrainTo.width) {
+            return false;
+        }
+
+        // We do not mutate this Rectangle, but return a constrained version
+        const result = me.clone();
+
+        // Translate result so that the top and left are visible
+        result.x = Math.max(me.x + Math.min(constrainTo.right  - result.right,  0), constrainTo.x);
+        result.y = Math.max(me.y + Math.min(constrainTo.bottom - result.bottom, 0), constrainTo.y);
+
+        // Pull in any resulting overflow
+        result.bottom = Math.min(result.bottom, constrainTo.bottom);
+        result.right = Math.min(result.right, constrainTo.right);
+
+        return result;
+    }
+
+    alignTo(align) {
+        const
+            me             = this,
+            {
+                minWidth,
+                minHeight
+            }              = me,
+            {
+                constrainTo,    // Element or Rectangle result must fit into
+                target,         // Element or Rectangle to align to
+                edgeAlign,      // t50-b50 type string
+                axisLock,       // true for flip, 'flexible' for flip, then try the other edges
+                offset,         // Final [x, y] vector to move the result by.
+                matchSize
+            }              = align,
+            targetMargin   = align.targetMargin ? parseEdgeValue(align.targetMargin) : zeroMargins,
+            targetRect     = getElRect(target),
+            constrainRect  = getElRect(constrainTo),
+            edges          = parseEdgeAlign(edgeAlign),
+            matchDimension = zoneDimension[edges.theirEdgeZone & 1];
+
+        let result = me.clone();
+
+        if (matchSize) {
+            result[matchDimension] = targetRect[matchDimension];
+        }
+
+        // Must do the calculations after the aligned side has been matched in size if requested.
+        const
+            myPoint     = result.getAnchorPoint(edges.ourEdgeZone, edges.ourEdgeOffset, edges.ourEdgeUnit),
+            targetPoint = targetRect.getAnchorPoint(edges.theirEdgeZone, edges.theirEdgeOffset, edges.theirEdgeUnit, targetMargin),
+            vector      = [targetPoint[0] - myPoint[0], targetPoint[1] - myPoint[1]];
+ 
+        result = result.moveBy(vector);
+
+        // A useful property in the resulting rectangle which specifies which zone of the target
+        // It is being places in, T,R,B or L - 0, 1, 2, 3
+        // Some code may want to treat DOM elements differently depending on the zone
+        result.zone = edges.theirEdgeZone;
+        result.position = zoneNames[result.zone];
+
+        // Now we create the four Rectangles around the target, into which we may be constrained
+        // Zones T,R,B,L 0 9, 1, 2, 3:
+        // +-----------------------------------------------------------------------------------+
+        // | +-------------------------+------------------------+----------------------------+ |
+        // | |          ^              |                        |             ^              | |
+        // | |          |              |                        |             |              | |
+        // | |  <-------+--------------+---------Zone 0---------+-------------+---------->   | |
+        // | |          |              |                        |             |              | |
+        // | |          |              |                        |             |              | |
+        // | +----------+--------------+------------------------+-------------+--------------+ |
+        // | |          |              | +--------------------+ |             |              | |
+        // | |          |              | |                    | |             |              | |
+        // | |          |              | |                    | |             |              | |
+        // | |       Zone 3            | |                    | |          Zone 1            | |
+        // | |          |              | |                    | |             |              | |
+        // | |          |              | |                    | |             |              | |
+        // | |          |              | +--------------------+ |             |              | |
+        // | ++---------+--------------+------------------------+-------------+--------------+ |
+        // | |          |              |                        |             |              | |
+        // | |          |              |                        |             |              | |
+        // | |          |              |                        |             |              | |
+        // | |  <-------+--------------+--------Zone 2----------+-------------+------------> | |
+        // | |          |              |                        |             |              | |
+        // | |          v              |                        |             v              | |
+        // | ++------------------------+------------------------+----------------------------+ |
+        // +-----------------------------------------------------------------------------------+
+        if (constrainRect && !constrainRect.contains(result)) {
+            // They asked to overlap the target, for example t0-t0
+            // In these cases, we just return the result
+            if (targetRect.intersects(result)) {
+                return result;
+            }
+
+            // This is the zone we try to fit into first, the one that was asked for
+            let zone = edges.theirEdgeZone;
+
+            // We create an array of four rectangles into which we try to fit with appropriate align specs.
+            // We must start with the requested zone, whatever that is.
+            const zonesToTry = [{
+                zone,
+                edgeAlign
+            }];
+
+            if (axisLock) {
+                // Flip to the opposite side for the second try.
+                // The alignment string has to be reversed
+                // so r20-l30 has to become l20-r30.
+                // The other two zones revert to centered so are easier
+                zonesToTry[1] = {
+                    zone      : zone = (zone + 2) % 4,
+                    edgeAlign : createReversedEdgeAlign(edges)
+                }
+
+                // Fall back to the other two zones if we are allowed to
+                if (axisLock === 'flexible') {
+                    zonesToTry.push({
+                        zone      : zone = (alignSpec.startZone + 1) % 4,
+                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                    });
+                    zonesToTry.push({
+                        zone      : zone = (zone + 2) % 4,
+                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                    });
+                }
+            }
+            else {
+                // go through the other zones in order
+                for (let i = 1; i < 4; i++) {
+                    zonesToTry.push({
+                        zone      : zone = (zone + 1) % 4,
+                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                    });
+                }
+            }
+
+            // Calculate the constraint Rectangle for each zone
+            for (let i = 0; i < zonesToTry.length; i++) {
+                // We clone the outer constraining rectangle
+                // and move it into position
+                const c = constrainRect.clone();
+
+                switch (zonesToTry[i].zone) {
+                    case 0:
+                        // The zone i2 above the target - zone 0/T
+                        c.bottom = targetRect.y - targetMargin[0];
+                        break;
+                    case 1:
+                        // The zone is to the right of the target - zone 1/R
+                        c.changeX(targetRect.right + targetMargin[1]);
+                        break;
+                    case 2:
+                        // The zone is below the target - zone 2/B
+                        c.changeY(targetRect.bottom + targetMargin[2]);
+                        break;
+                    case 3:
+                        // The zone is to the left of the target - zone 3/L
+                        c.right = targetRect.x - targetMargin[3];
+                        break;
+                }
+                zonesToTry[i].constrainRect = c;
+            }
+
+            // Now try to constrain our result into each zone's constraintZone
+            for (let i = 0; i < zonesToTry.length; i++) {
+                const
+                    {
+                        zone,
+                        edgeAlign,
+                        constrainRect
+                    }    = zonesToTry[i],
+                    edge = zoneEdges[zone];
+
+                if (matchSize) {
+                    // If we are aligning to the requested edge, or it's opposite edge then
+                    // match that edge size, else revert it to our own size
+                    result[matchDimension] = edge === edges.theirEdge || edge == oppositeEdge[edges.theirEdge] ? targetRect[matchDimension] : me[matchDimension];
+                }
+
+                // Do a simple align to the current edge
+                result = result.alignTo({
+                    target : targetRect,
+                    edgeAlign,
+                    targetMargin
+                });
+
+                let solution = result.constrainTo(constrainRect);
+
+                // As soon as we find a zone into which the result is willing to be constrained. return it
+                if (solution) {
+                    solution.zone = zone;
+                    solution.position = zoneNames[zone];
+                    return solution;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    getAnchorPoint(edgeZone, edgeOffset, edgeUnit, margin = emptyArray) {
+        const me = this;
+
+        let result;
+
+        // Edge zones go top, right, bottom, left
+        // Each one calculates the start point of that edge then moves along it by
+        // the edgeOffset, then moves *away* from it by the margin for that edge if there's a margin.
+        switch (edgeZone) {
+            case 0:
+                result = [me.x, me.y - (margin[0] || 0), me.width, 0];
+                break;
+            case 1:
+                result = [me.x + me.width + (margin[1] || 0), me.y, me.height, 1];
+                break;
+            case 2:
+                result = [me.x, me.y + me.height + (margin[2] || 0), me.width, 0];
+                break;
+            case 3:
+                result = [me.x - (margin[3] || 0), me.y, me.height, 1];
+        }
+        result[result[3]] += edgeUnit === '%' ? result[2] / 100 * edgeOffset : edgeOffset;
+        result.length = 2;
+        return result;
+    }
+
+    equals(other) {
+        return other instanceof DOMRect && 
+            other.x === this.x &&
+            other.y === this.y &&
+            other.height === this.height &&
+            other.width === this.width;
+    }
+
+    // For debugging purposes only
+    show(color = 'red') {
+        const div = document.createElement('div');
+
+        div.style = `
+            position:absolute;
+            transform:translate3d(${this.x}px, ${this.y}px, 0);
+            height:${this.height}px;
+            width:${this.width}px;
+            background-color:${color}
+        `;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 30000);
+        return div;
+    }
 }
-
-Neo.applyClassConfig(Rectangle);
-
-export default Rectangle;

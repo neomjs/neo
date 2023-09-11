@@ -79,7 +79,11 @@ class Base extends Component {
          */
         iconPosition_: 'left',
         /**
-         * @member {Object[]|null} menu_=null
+         * An array representing the configuration of the menu items.
+         *
+         * Or a configuration object which adds custom configuration to the menu to be
+         * created and includes an `items` property to define the menu items.
+         * @member {Object|Object[]|null} menu_=null
          */
         menu_: null,
         /**
@@ -245,24 +249,32 @@ class Base extends Component {
 
     /**
      * Triggered after the menu config got changed
-     * @param {Object[]|null} value
-     * @param {Object[]|null} oldValue
+     * @param {Object|Object[]|null} value
+     * @param {Object|Object[]|null} oldValue
      * @protected
      */
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me = this;
+                let me         = this,
+                    isArray    = Array.isArray(value),
+                    items      = isArray ? value : value.items,
+                    menuConfig = isArray ? {} : value;
 
                 me.menuList = Neo.create({
+                    align          : {
+                        edgeAlign : 't0-b0',
+                        target    : me.id
+                    },
+                    ...menuConfig,
                     module         : module.default,
                     appName        : me.appName,
                     displayField   : 'text',
                     floating       : true,
                     hidden         : true,
-                    items          : value,
+                    items,
                     parentComponent: me,
-                    style          : {left: '-5000px', top: '-5000px'},
+                    theme          : me.theme,
                     ...me.menuListConfig
                 })
             })
@@ -280,6 +292,20 @@ class Base extends Component {
 
         NeoArray.toggle(cls, 'pressed', value === true);
         this.cls = cls;
+    }
+
+    /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.menuList) {
+            this.menuList.theme = value
+        }
     }
 
     /**
@@ -418,6 +444,15 @@ class Base extends Component {
         } else {
             Neo.Main.setRoute({value: me.route})
         }
+    }
+
+    /**
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
+     */
+    destroy(updateParentVdom=false, silent=false) {
+        this.menuList && this.menuList.destroy(true, false);
+        super.destroy(updateParentVdom, silent);
     }
 
     /**

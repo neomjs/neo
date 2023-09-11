@@ -56,8 +56,13 @@ class ConfigurationViewport extends Viewport {
      *
      */
     onConstructed() {
-        let me = this,
+        let me    = this,
+            style = me.exampleContainerConfig?.style,
             theme;
+
+        if (style) {
+            delete me.exampleContainerConfig.style;
+        }
 
         me.exampleComponent        = me.createExampleComponent();
         me.configurationComponents = me.createConfigurationComponents() || [];
@@ -69,7 +74,7 @@ class ConfigurationViewport extends Viewport {
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
-            style : {overflow: 'auto', padding: '20px'},
+            style : {overflow: 'auto', padding: '20px', ...style},
             ...me.exampleContainerConfig
         }, {
             module: Panel,
@@ -172,22 +177,29 @@ class ConfigurationViewport extends Viewport {
     onSwitchTheme(target) {
         let me     = this,
             button = Neo.getComponent(me.id + (target !== 'cmp' ? '__' : '_cmp_') + 'switchThemeButton'),
-            cls    = target === 'cmp' ? me.exampleComponent.cls : me.cls;
+            newTheme, oldTheme;
 
         if (button.text === 'Theme Light') {
+            newTheme = 'neo-theme-light';
+            oldTheme = 'neo-theme-dark';
+
             button.text = 'Theme Dark';
-            NeoArray.remove(cls, 'neo-theme-dark');
-            NeoArray.add(cls, 'neo-theme-light');
         } else {
+            newTheme = 'neo-theme-dark';
+            oldTheme = 'neo-theme-light';
+
             button.text = 'Theme Light';
-            NeoArray.remove(cls, 'neo-theme-light');
-            NeoArray.add(cls, 'neo-theme-dark');
         }
 
         if (target === 'cmp') {
-            me.exampleComponent.cls = cls;
+            me.exampleComponent.theme = newTheme;
         } else {
-            me.cls = cls;
+            Neo.applyDeltas(me.appName, {
+                cls: {
+                    add   : [newTheme],
+                    remove: [oldTheme]
+                }
+            })
         }
     }
 }

@@ -89,10 +89,14 @@ class CopyToClipboard extends Base {
      * @param {Object} data
      */
     onTriggerClick(data) {
+        let me = this;
+
         Neo.main.DomAccess.selectNode({
-            id: this.field.getInputEl().id
+            appName: me.appName,
+            id     : me.field.getInputEl().id
         }).then(data => {
             Neo.main.DomAccess.execCommand({
+                appName: me.appName,
                 command: 'copy'
             });
         });

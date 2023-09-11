@@ -153,9 +153,12 @@ class View extends Component {
         me.promiseUpdate().then(() => {
             if (selectedRows?.length > 0) {
                 // this logic only works for selection.table.RowModel
-                Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0]});
+                Neo.main.DomAccess.scrollToTableRow({
+                    appName: me.appName,
+                    id     : selectedRows[0]
+                })
             }
-        });
+        })
     }
 
     /**

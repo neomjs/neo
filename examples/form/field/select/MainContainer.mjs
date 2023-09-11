@@ -12,10 +12,11 @@ import TextField             from '../../../../src/form/field/Text.mjs';
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.form.field.select.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className             : 'Neo.examples.form.field.select.MainContainer',
+        autoMount             : true,
+        configItemLabelWidth  : 160,
+        exampleContainerConfig: {style: {position: 'relative'}},
+        layout                : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
@@ -117,7 +118,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'typeAhead')},
             style    : {marginTop: '10px'}
         }, {
-            module   : NumberField,
+            module   : TextField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
             maxValue : 300,
@@ -125,6 +126,24 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            module   : CheckBox,
+            checked  : false,
+            labelText: 'At end',
+            style    : {marginTop: '10px'},
+
+            listeners: {change: ({ value }) => {
+                const
+                    { exampleComponent } = this,
+                    { style } = exampleComponent;
+
+                Object.assign(style, {
+                    bottom   : value ? '1em' : '',
+                    position : value ? 'absolute' : ''
+                });
+
+                exampleComponent.style = style;
+            }}
         }];
     }
 
@@ -137,7 +156,10 @@ class MainContainer extends ConfigurationViewport {
             store        : MainStore,
             value        : 'Arizona', // or 'AZ'
             valueField   : 'abbreviation',
-            width        : 200
+            width        : '50%',
+            pickerConfig : {
+                minHeight : '6em'
+            }
         })
     }
 }

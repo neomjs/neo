@@ -6,10 +6,15 @@ import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
+import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
 import Util             from '../core/Util.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
+
+const
+    lengthRE = /^\d+\w+$/,
+    addUnits = value => value == null ? value : isNaN(value) ? value : `${value}px`;
 
 /**
  * @class Neo.component.Base
@@ -41,6 +46,14 @@ class Base extends CoreBase {
          * @protected
          */
         ntype: 'component',
+        /**
+         * The default alignment specification to position this Component relative to some other
+         * Component, or Element or Rectangle.
+         */
+        align_ : {
+            edgeAlign   : 't-b',
+            constrainTo : 'document.body'
+        },
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
@@ -139,6 +152,11 @@ class Base extends CoreBase {
          * @member {Object} dropZoneConfig=null
          */
         dropZoneConfig: null,
+        /**
+         * True to render this component into the viewport outside of the document flow
+         * @member {Boolean} floating
+         */
+        floating: false,
         /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
@@ -270,14 +288,19 @@ class Base extends CoreBase {
          */
         style_: null,
         /**
+         * You can pass an used theme directly to any component,
+         * to style specific component trees differently from your main view.
+         * @member {String|null} theme_=null
+         */
+        theme_: null,
+        /**
          * Add tooltip config objects
          * See tooltip/Base.mjs
          * @member {Array|Object} tooltips_=null
          */
         tooltips_: null,
         /**
-         * Add 'primary' and other attributes to make it
-         * an outstanding design
+         * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
          */
         ui_: null,
@@ -317,6 +340,31 @@ class Base extends CoreBase {
      * @member {Function[]} resolveUpdateCache=[]
      */
     resolveUpdateCache = []
+
+    /**
+     * Convenience method to access the App this component belongs to
+     * @returns {Neo.controller.Application|null}
+     */
+    get app() {
+        return Neo.apps[this.appName] || null
+    }
+
+    /**
+     * Convenience method
+     * @returns {Boolean}
+     */
+    get isVdomUpdating() {
+        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
+        return Boolean(this.vdomUpdate);
+    }
+    // Allow the Component to be set to the isVdomUpdating state
+    set isVdomUpdating(isVdomUpdating) {
+        isVdomUpdating = Boolean(isVdomUpdating);
+
+        if (isVdomUpdating !== this.isVdomUpdating) {
+            this.vdomUpdate = isVdomUpdating;
+        }
+    }
 
     /**
      * Apply component based listeners
@@ -508,6 +556,21 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the flex config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetFlex(value, oldValue) {
+        if (!isNaN(value)) {
+            value = `${value} ${value} 0%`
+        }
+
+        this.configuredFlex = value;
+        this.changeVdomRootKey('flex', value)
+    }
+
+    /**
      * Triggered after the hasUnmountedVdomChanges config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -537,6 +600,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHeight(value, oldValue) {
+        this.configuredHeight = addUnits(value);
         this.changeVdomRootKey('height', value)
     }
 
@@ -587,6 +651,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxHeight(value, oldValue) {
+        this.configuredMaxHeight = addUnits(value);
         this.changeVdomRootKey('maxHeight', value)
     }
 
@@ -597,6 +662,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMaxWidth(value, oldValue) {
+        this.configuredMaxWidth = addUnits(value);
         this.changeVdomRootKey('maxWidth', value)
     }
 
@@ -607,6 +673,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinHeight(value, oldValue) {
+        this.configuredMinHeight = addUnits(value);
         this.changeVdomRootKey('minHeight', value)
     }
 
@@ -617,6 +684,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMinWidth(value, oldValue) {
+        this.configuredMinWidth = addUnits(value);
         this.changeVdomRootKey('minWidth', value)
     }
 
@@ -642,6 +710,10 @@ class Base extends CoreBase {
 
                 me.doResolveUpdateCache();
 
+                if (me.floating) {
+                    me.alignTo();
+                }
+
                 me.fire('mounted', me.id)
             }
         }
@@ -666,6 +738,23 @@ class Base extends CoreBase {
     afterSetStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
             this.updateStyle(value, oldValue)
+        }
+    }
+
+    /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        if (value || oldValue !== undefined) {
+            let cls = this.cls;
+
+            NeoArray.remove(cls, oldValue);
+            value && NeoArray.add(cls, value);
+
+            this.cls = cls
         }
     }
 
@@ -710,7 +799,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the vdom config got changed
+     * Triggered after the vdom pseudo-config got changed
      * @param {Object} value
      * @param {Object|null} oldValue
      * @protected
@@ -736,6 +825,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWidth(value, oldValue) {
+        this.configuredWidth = addUnits(value);
         this.changeVdomRootKey('width', value)
     }
 
@@ -799,6 +889,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Aligns the top level node inside the main thread
+     * @param {Object} spec={}
+     * @returns {Promise<void>}
+     */
+    async alignTo(spec={}) {
+        const me = this;
+
+        await Neo.main.DomAccess.align({
+            ...me.align,
+            ...spec,
+            id                  : me.id,
+            configuredFlex      : me.configuredFlex,
+            configuredWidth     : me.configuredWidth,
+            configuredHeight    : me.configuredHeight,
+            configuredMinWidth  : me.configuredMinWidth,
+            configuredMinHeight : me.configuredMinHeight,
+            configuredMaxWidth  : me.configuredMaxWidth,
+            configuredMaxHeight : me.configuredMaxHeight
+        });
+    }
+
+    /**
      * Triggered when accessing the cls config
      * @param {String[]|null} value
      * @protected
@@ -846,13 +958,30 @@ class Base extends CoreBase {
     }
 
     /**
+     * @param {Object|String} align
+     * @returns {Object}
+     */
+    beforeSetAlign(align) {
+        let me = this;
+
+        // Just a simple 't-b'
+        if (typeof align === 'string') {
+            align = {
+                edgeAlign : align
+            };
+        }
+        // merge the incoming alignment specification into the configured default
+        return me.merge(me.merge({}, me.constructor.config.align), align);
+    }
+
+    /**
      * Triggered before the cls config gets changed.
      * @param {String[]} value
      * @param {String[]} oldValue
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        return NeoArray.union(value || [], this.baseCls)
+        return NeoArray.union(value || [], this.baseCls, this.getBaseClass());
     }
 
     /**
@@ -976,6 +1105,17 @@ class Base extends CoreBase {
         return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
     }
 
+    beforeSetStyle(value) {
+        let me = this;
+
+        if (typeof value === 'object') {
+            // merge the incoming style specification into the configured default
+            value = me.merge(me.merge({}, me.constructor.config.style), value)
+        }
+
+        return value
+    }
+
     /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
@@ -1024,7 +1164,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Unregisters this instance from the ComponentManager
+     * Unregister this instance from the ComponentManager
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
      * todo: unregister events
@@ -1097,28 +1237,34 @@ class Base extends CoreBase {
             opts = {vdom, vnode},
             deltas;
 
-        me.isVdomUpdating = true;
+        if (Neo.currentWorker.isSharedWorker) {
+            opts.appName = me.appName
+        }
+
+        /**
+         * If a VDOM update is in flight, this is the Promise that will resolve when
+         * the update is completed.
+         * @member {Promise|null} vdomUpdate
+         * @protected
+         */
+        me.vdomUpdate = Neo.vdom.Helper.update(opts);
 
         // we can not set the config directly => it could already be false,
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true)
 
-        if (Neo.currentWorker.isSharedWorker) {
-            opts.appName = me.appName
-        }
-
-        Neo.vdom.Helper.update(opts).catch(err => {
+        me.vdomUpdate.catch(err => {
+            me.vdomUpdate = null;
             console.log('Error attempting to update component dom', err, me);
-            me.isVdomUpdating = false;
 
             reject?.()
         }).then(data => {
+            me.vdomUpdate = null;
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
                 // console.log('Component vnode updated', data);
-                me.vnode          = data.vnode;
-                me.isVdomUpdating = false;
+                me.vnode = data.vnode;
 
                 deltas = data.deltas;
 
@@ -1130,7 +1276,9 @@ class Base extends CoreBase {
                     me.resolveVdomUpdate(resolve)
                 }
             }
-        })
+        });
+
+        return me.vdomUpdate;
     }
 
     /**
@@ -1146,11 +1294,17 @@ class Base extends CoreBase {
     }
 
     /**
-     * Convenience method to access the App this component belongs to
-     * @returns {Neo.controller.Application}
+     * Override this method to add dynamic values into this.cls
+     * @returns {String[]}
      */
-    getApp() {
-        return Neo.apps[this.appName]
+    getBaseClass() {
+        const result = [];
+
+        if (this.floating) {
+            result.push('neo-floating');
+        }
+
+        return result;
     }
 
     /**
@@ -1194,10 +1348,29 @@ class Base extends CoreBase {
      * Convenience shortcut
      * @param {String[]|String} id=this.id
      * @param {String} appName=this.appName
-     * @returns {Promise<*>}
+     * @returns {Promise<Neo.util.Rectangle>}
      */
-    getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({appName, id})
+    async getDomRect(id=this.id, appName=this.appName) {
+        const
+            {
+                x,
+                y,
+                width,
+                height,
+                minWidth,
+                minHeight
+            }      = await Neo.main.DomAccess.getBoundingClientRect({appName, id}),
+            result = new Rectangle(x, y, width, height);
+
+        if (minWidth) {
+            result.minWidth = minWidth;
+        }
+
+        if (minHeight) {
+            result.minHeight = minHeight;
+        }
+
+        return result;
     }
 
     /**
@@ -1302,7 +1475,7 @@ class Base extends CoreBase {
     getTheme() {
         let me         = this,
             themeMatch = 'neo-theme-',
-            app, mainView, parentNodes;
+            mainView, parentNodes;
 
         for (const item of me.cls || []) {
             if (item.startsWith(themeMatch)) {
@@ -1310,8 +1483,7 @@ class Base extends CoreBase {
             }
         }
 
-        app      = Neo.apps[me.appName];
-        mainView = app?.mainView;
+        mainView = me.app?.mainView;
 
         if (mainView) {
             parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
@@ -1443,6 +1615,26 @@ class Base extends CoreBase {
         }
 
         return false
+    }
+
+    /**
+     * @param {Number|String} value
+     * @returns {Promise<number>}
+     */
+    async measure(value) {
+        if (value != null) {
+            if (value.endsWith('px')) {
+                value = parseFloat(value);
+            }
+            else if (lengthRE.test(value)) {
+                value = await Neo.main.DomAccess.measure({ value, id : this.id });
+            }
+            else if (!isNaN(value)) {
+                value = parseFloat(value);
+            }
+        }
+
+        return value
     }
 
     /**
@@ -1588,7 +1780,7 @@ class Base extends CoreBase {
      */
     onRender(data, autoMount) {
         let me  = this,
-            app = Neo.apps[me.appName];
+            app = me.app;
 
         me.rendering = false;
 
@@ -1633,8 +1825,8 @@ class Base extends CoreBase {
 
     /**
      * Promise based vdom update
-     * @param {Object} [vdom=this.vdom]
-     * @param {Neo.vdom.VNode} [vnode= this.vnode]
+     * @param {Object} vdom=this.vdom
+     * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
     promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
@@ -1714,10 +1906,10 @@ class Base extends CoreBase {
      * - or the autoMount config is set to true
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
-    render(mount) {
+    async render(mount) {
         let me            = this,
             autoMount     = mount || me.autoMount,
-            app           = Neo.apps[me.appName],
+            app           = me.app,
             useVdomWorker = Neo.config.useVdomWorker;
 
         me.rendering = true;
@@ -1732,22 +1924,22 @@ class Base extends CoreBase {
             delete me.vdom.removeDom;
 
             me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true)
+            me.afterSetNeedsVdomUpdate?.(false, true);
 
-            Neo.vdom.Helper.create({
+            const data = await Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 ...me.vdom
-            }).then(data => {
-                me.onRender(data, useVdomWorker ? autoMount : false);
-                me.isVdomUpdating = false;
+            });
 
-                autoMount && !useVdomWorker && me.mount();
+            me.onRender(data, useVdomWorker ? autoMount : false);
+            me.isVdomUpdating = false;
 
-                me.resolveVdomUpdate()
-            })
+            autoMount && !useVdomWorker && me.mount();
+
+            me.resolveVdomUpdate()
         }
     }
 
@@ -1816,8 +2008,8 @@ class Base extends CoreBase {
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
      */
-    show() {
-        let me = this;
+    show(align) {
+        const me = this;
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
@@ -1958,8 +2150,8 @@ class Base extends CoreBase {
     /**
      *
      */
-    update() {
-        this.afterSetVdom(this.vdom, null)
+    async update() {
+        await this.afterSetVdom(this.vdom, null)
     }
 
     /**
@@ -2052,7 +2244,7 @@ class Base extends CoreBase {
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
         let me      = this,
-            app     = Neo.apps[me.appName],
+            app     = me.app,
             mounted = me.mounted,
             listenerId;
 

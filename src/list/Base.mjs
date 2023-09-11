@@ -492,16 +492,16 @@ class Base extends Component {
     }
 
     /**
-     *
+     * @param args
      */
-    destroy() {
+    destroy(...args) {
         let me = this;
 
         me.selectionModel?.destroy();
 
         me.autoDestroyStore && me.store?.destroy();
 
-        super.destroy();
+        super.destroy(...args);
     }
 
     /**
@@ -511,10 +511,13 @@ class Base extends Component {
     focus(id) {
         super.focus(id);
 
-        id && this.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
+        let me = this;
+
+        id && me.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
+            appName : me.appName,
             behavior: 'auto',
-            id      : id || this.id
-        });
+            id      : id || me.id
+        })
     }
 
     /**
@@ -543,14 +546,6 @@ class Base extends Component {
     }
 
     /**
-     * @param {Number|String} recordId
-     * @returns {String}
-     */
-    getItemId(recordId) {
-        return `${this.id}__${recordId}`;
-    }
-
-    /**
      * Returns the index of a list item excluding item headers
      * @param {Number} index
      * @returns {Number}
@@ -567,6 +562,14 @@ class Base extends Component {
         }
 
         return headerlessIndex;
+    }
+
+    /**
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getItemId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
