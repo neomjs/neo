@@ -337,6 +337,23 @@ class Base extends CoreBase {
     resolveUpdateCache = []
 
     /**
+     * Convenience method
+     * @returns {Boolean}
+     */
+    get isVdomUpdating() {
+        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
+        return Boolean(this.vdomUpdate);
+    }
+    // Allow the Component to be set to the isVdomUpdating state
+    set isVdomUpdating(isVdomUpdating) {
+        isVdomUpdating = Boolean(isVdomUpdating);
+
+        if (isVdomUpdating !== this.isVdomUpdating) {
+            this.vdomUpdate = isVdomUpdating;
+        }
+    }
+
+    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -1197,7 +1214,7 @@ class Base extends CoreBase {
         /**
          * If a VDOM update is in flight, this is the Promise that will resolve when
          * the update is completed.
-         * @member {Promise} vdomUpdate
+         * @member {Promise|null} vdomUpdate
          * @protected
          */
         me.vdomUpdate = Neo.vdom.Helper.update(opts);
@@ -1326,9 +1343,11 @@ class Base extends CoreBase {
         if (minWidth) {
             result.minWidth = minWidth;
         }
+
         if (minHeight) {
             result.minHeight = minHeight;
         }
+
         return result;
     }
 
@@ -1575,24 +1594,6 @@ class Base extends CoreBase {
         }
 
         return false
-    }
-
-    /**
-     * Convenience method
-     * @returns {Boolean}
-     */
-    get isVdomUpdating() {
-        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
-        return Boolean(this.vdomUpdate);
-    }
-
-    // Allow the Component to be set to the isVdomUpdating state
-    set isVdomUpdating(isVdomUpdating) {
-        isVdomUpdating = Boolean(isVdomUpdating);
-
-        if (isVdomUpdating !== this.isVdomUpdating) {
-            this.vdomUpdate = isVdomUpdating;
-        }
     }
 
     /**
@@ -1911,6 +1912,7 @@ class Base extends CoreBase {
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 ...me.vdom
             });
+
             me.onRender(data, useVdomWorker ? autoMount : false);
             me.isVdomUpdating = false;
 
