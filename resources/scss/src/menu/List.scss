@@ -1,7 +1,8 @@
 .neo-menu-list {
-    border     : 1px solid var(--menu-list-border-color);
-    overflow-y : auto;
-    width      : fit-content;
+    background-color: var(--menu-list-background-color);
+    border          : 1px solid var(--menu-list-border-color);
+    overflow-y      : auto;
+    width           : fit-content;
 
     .neo-list-item {
         align-items     : center;
