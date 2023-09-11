@@ -337,6 +337,14 @@ class Base extends CoreBase {
     resolveUpdateCache = []
 
     /**
+     * Convenience method to access the App this component belongs to
+     * @returns {Neo.controller.Application|null}
+     */
+    get app() {
+        return Neo.apps[this.appName] || null
+    }
+
+    /**
      * Convenience method
      * @returns {Boolean}
      */
@@ -1261,14 +1269,6 @@ class Base extends CoreBase {
         }).catch(err => {
             console.log('Error attempting to receive focus for component', err, this)
         })
-    }
-
-    /**
-     * Convenience method to access the App this component belongs to
-     * @returns {Neo.controller.Application}
-     */
-    getApp() {
-        return Neo.apps[this.appName]
     }
 
     /**
