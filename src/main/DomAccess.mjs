@@ -352,7 +352,7 @@ class DomAccess extends Base {
             if (node) {
                 rect      = node.getBoundingClientRect();
                 style     = node.ownerDocument.defaultView.getComputedStyle(node);
-                minWidth  = style.getPropertyValue('min-width'),
+                minWidth  = style.getPropertyValue('min-width');
                 minHeight = style.getPropertyValue('min-height');
 
                 // DomRect does not support spreading => {...DomRect} => {}
