@@ -292,6 +292,16 @@ class List extends BaseList {
     }
 
     /**
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        this.onKeyDownEnter(node.id)
+    }
+
+    /**
      * @param {String} nodeId
      */
     onKeyDownEnter(nodeId) {
@@ -374,8 +384,10 @@ class List extends BaseList {
                 zIndex         : me.zIndex + 1
             }));
 
-        me.activeSubMenu = subMenu;
-        subMenu.render(true)
+        if (me.activeSubMenu !== subMenu) {
+            me.activeSubMenu = subMenu;
+            subMenu.render(true)
+        }
     }
 
     /**
