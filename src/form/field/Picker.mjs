@@ -138,6 +138,20 @@ class Picker extends Text {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.picker) {
+            this.picker.theme = value
+        }
+    }
+
+    /**
      * @returns {Neo.container.Base}
      */
     createPicker() {
@@ -161,6 +175,7 @@ class Picker extends Text {
             id       : me.getPickerId(),
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
+            theme    : me.theme,
             vdom     : {cn: [], 'aria-activedescendant': me.id, tabIndex: -1},
             width    : pickerWidth,
             ...me.pickerConfig,
