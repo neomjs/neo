@@ -1461,8 +1461,7 @@ class Base extends CoreBase {
             }
         }
 
-        app      = Neo.apps[me.appName];
-        mainView = app?.mainView;
+        mainView = me.app?.mainView;
 
         if (mainView) {
             parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
@@ -1759,7 +1758,7 @@ class Base extends CoreBase {
      */
     onRender(data, autoMount) {
         let me  = this,
-            app = Neo.apps[me.appName];
+            app = me.app;
 
         me.rendering = false;
 
@@ -1888,7 +1887,7 @@ class Base extends CoreBase {
     async render(mount) {
         let me            = this,
             autoMount     = mount || me.autoMount,
-            app           = Neo.apps[me.appName],
+            app           = me.app,
             useVdomWorker = Neo.config.useVdomWorker;
 
         me.rendering = true;
@@ -2223,7 +2222,7 @@ class Base extends CoreBase {
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
         let me      = this,
-            app     = Neo.apps[me.appName],
+            app     = me.app,
             mounted = me.mounted,
             listenerId;
 
