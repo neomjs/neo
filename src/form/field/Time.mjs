@@ -296,12 +296,11 @@ class Time extends Picker {
         let me = this;
 
         Neo.main.DomAccess.focus({
-            id: me.getInputElId()
+            appName: me.appName,
+            id     : me.getInputElId()
         }).then(() => {
-            if (callback) {
-                callback.apply(me);
-            }
-        });
+            callback?.apply(me)
+        })
     }
 
     /**
@@ -410,11 +409,12 @@ class Time extends Picker {
         list.selectionModel.select(id);
 
         if (!preventFocus) {
-            list.focus(id);
+            list.focus(id)
         } else {
             Neo.main.DomAccess.scrollIntoView({
-                id: id
-            });
+                appName: me.appName,
+                id     : id
+            })
         }
     }
 }

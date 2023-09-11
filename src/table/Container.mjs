@@ -1,6 +1,6 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Css             from '../util/Css.mjs';
+import CssUtil         from '../util/Css.mjs';
 import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/table/RowModel.mjs';
 import Store           from '../data/Store.mjs';
@@ -207,7 +207,7 @@ class Container extends BaseContainer {
             cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
         }
         if (cssRules.length > 0) {
-            Css.insertRules(cssRules);
+            CssUtil.insertRules(me.appName, cssRules);
         }
 
         me.scrollbarsCssApplied = true;

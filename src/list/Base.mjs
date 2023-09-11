@@ -511,10 +511,13 @@ class Base extends Component {
     focus(id) {
         super.focus(id);
 
-        id && this.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
+        let me = this;
+
+        id && me.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
+            appName : me.appName,
             behavior: 'auto',
-            id      : id || this.id
-        });
+            id      : id || me.id
+        })
     }
 
     /**

@@ -114,9 +114,9 @@ class Dialog extends Base {
         let me = this;
 
         Neo.main.addon.Dialog.close({
-            id: me.id,
-            appName: me.appName
-        });
+            appName: me.appName,
+            id     : me.id
+        })
     }
 
     /**

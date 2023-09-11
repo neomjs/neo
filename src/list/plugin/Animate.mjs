@@ -418,13 +418,13 @@ class Animate extends Base {
             easing   = me.transitionEasing,
             id       = me.owner.id;
 
-        deleteRule && CssUtil.deleteRules(`#${id} .neo-list-item`);
+        deleteRule && CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`);
 
-        CssUtil.insertRules([
+        CssUtil.insertRules(me.appName, [
             `#${id} .neo-list-item {`,
                 `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
             '}'
-        ].join(''));
+        ].join(''))
     }
 }
 

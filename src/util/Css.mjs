@@ -15,29 +15,27 @@ class Css extends Base {
 
     /**
      * Pass the selectorText of the rules which you want to remove
+     * @param {String} appName
      * @param {String[]|String} rules
      */
-    static deleteRules(rules) {
+    static deleteRules(appName, rules) {
         if (!Array.isArray(rules)) {
             rules = [rules];
         }
 
-        Neo.main.addon.Stylesheet.deleteCssRules({
-            rules: rules
-        });
+        Neo.main.addon.Stylesheet.deleteCssRules({appName, rules})
     }
 
     /**
+     * @param {String} appName
      * @param {String[]|String} rules
      */
-    static insertRules(rules) {
+    static insertRules(appName, rules) {
         if (!Array.isArray(rules)) {
             rules = [rules];
         }
 
-        Neo.main.addon.Stylesheet.insertCssRules({
-            rules: rules
-        });
+        Neo.main.addon.Stylesheet.insertCssRules({appName, rules})
     }
 }
 
