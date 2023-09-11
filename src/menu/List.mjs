@@ -149,6 +149,20 @@ class List extends BaseList {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        Object.values(this.subMenuMap || {}).forEach(menu => {
+            menu.theme = value
+        })
+    }
+
+    /**
      * Triggered after the zIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -356,6 +370,7 @@ class List extends BaseList {
                 parentId       : Neo.apps[me.appName].mainView.id,
                 parentIndex    : store.indexOf(record),
                 parentMenu     : me,
+                theme          : me.theme,
                 zIndex         : me.zIndex + 1
             }));
 

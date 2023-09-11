@@ -1924,7 +1924,7 @@ class Base extends CoreBase {
             delete me.vdom.removeDom;
 
             me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true)
+            me.afterSetNeedsVdomUpdate?.(false, true);
 
             const data = await Neo.vdom.Helper.create({
                 appName    : me.appName,
