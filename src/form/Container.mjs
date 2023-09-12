@@ -313,11 +313,15 @@ class Container extends BaseContainer {
      */
     async setValues(values={}, suspendEvents=false) {
         let fields     = await this.getFields(),
-            fieldPaths = [];
+            fieldPaths = [],
+            path;
 
         // Grouped CheckBoxes & Radios can have the same path
         // => using NeoArray to ensure they only get added once
-        fields.map(field => NeoArray.add(fieldPaths, field.getPath()));
+        fields.map(field => {
+            path = field.getPath();
+            path && NeoArray.add(fieldPaths, path)
+        });
 
         values = Neo.clone(values, true);
 
