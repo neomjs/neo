@@ -20,7 +20,7 @@ class Page4 extends FormPageContainer {
             groupRequired : true,
             labelText     : null,
             labelWidth    : 70,
-            name          : 'fruits',
+            name          : 'my.fruits[0].basket',
             showErrorTexts: false
         },
         /**
