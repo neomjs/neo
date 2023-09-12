@@ -273,11 +273,11 @@ export default class Rectangle extends DOMRect {
                 top    = Math.max(me.y, other.y),
                 right  = Math.min(me.x + me.width, other.x + other.width),
                 bottom = Math.min(me.y + me.height, other.y + other.height);
-        
+
             if (left >= right || top >= bottom) {
                 return false;
             }
-        
+
             return new Rectangle(left, top, right - left, bottom - top);
         }
         // We're dealing with a point here - zero dimensions
@@ -300,8 +300,8 @@ export default class Rectangle extends DOMRect {
 
     /**
      * Returns a clone of this Rectangle expanded according to the edges array.
-     * @param {Number}Number[]} edges 
-     * @returns 
+     * @param {Number}Number[]} edges
+     * @returns {Rectangle}
      */
     expand(edges) {
         edges = parseEdgeValue(edges);
@@ -323,7 +323,7 @@ export default class Rectangle extends DOMRect {
 
     /**
      * Returns `true` if this Rectangle completely contains the other Rectangle
-     * @param {Rectangle} other 
+     * @param {Rectangle} other
      */
     contains(other) {
         return this.constructor.includes(this, other);
@@ -391,7 +391,7 @@ export default class Rectangle extends DOMRect {
             myPoint     = result.getAnchorPoint(edges.ourEdgeZone, edges.ourEdgeOffset, edges.ourEdgeUnit),
             targetPoint = targetRect.getAnchorPoint(edges.theirEdgeZone, edges.theirEdgeOffset, edges.theirEdgeUnit, targetMargin),
             vector      = [targetPoint[0] - myPoint[0], targetPoint[1] - myPoint[1]];
- 
+
         result = result.moveBy(vector);
 
         // A useful property in the resulting rectangle which specifies which zone of the target
@@ -566,7 +566,7 @@ export default class Rectangle extends DOMRect {
     }
 
     equals(other) {
-        return other instanceof DOMRect && 
+        return other instanceof DOMRect &&
             other.x === this.x &&
             other.y === this.y &&
             other.height === this.height &&
