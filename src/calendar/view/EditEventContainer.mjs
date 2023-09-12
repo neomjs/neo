@@ -256,13 +256,13 @@ class EditEventContainer extends FormContainer {
     /**
      * @param {Object} data
      */
-    onFocusLeave(data) {
+    async onFocusLeave(data) {
         let me = this;
 
         // we need a short delay, since a TimeField picker could be open
-        setTimeout(() => {
-            me.mounted && me.unmount()
-        }, 100);
+        await me.timeout(100);
+
+        me.mounted && me.unmount()
     }
 
     /**
