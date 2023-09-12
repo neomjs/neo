@@ -83,6 +83,7 @@ class View extends Component {
                 }
 
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
+                    column,
                     field: column.field,
                     index: i,
                     record,
