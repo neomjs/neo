@@ -184,6 +184,13 @@ class Base extends Component {
         let me = this,
             path;
 
+        // fields could have formGroups, but no name.
+        // returning the namespace can confuse form.Container.adjustTreeLeaves(),
+        // since namespaces could be considered as field instances.
+        if (!me.name) {
+            return null
+        }
+
         if (!me.path) {
             path = me.formGroup ? me.formGroup.split('.') : [];
 
