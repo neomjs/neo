@@ -1352,7 +1352,7 @@ class Base extends CoreBase {
      */
     async getDomRect(id=this.id, appName=this.appName) {
         if (Array.isArray(id)) {
-            return Promise.all(id.map(id => this.getDomRect(id, appName)));
+            return await Neo.main.DomAccess.getBoundingClientRect({appName, id});
         }
         else {
             const
