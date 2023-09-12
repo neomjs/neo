@@ -322,7 +322,7 @@ class Container extends BaseContainer {
         values = Neo.clone(values, true);
 
         Container.adjustTreeLeaves(values, 'value', fieldPaths);
-console.log(values);
+
         await this.setConfigs(values, suspendEvents)
     }
 
