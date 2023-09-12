@@ -363,10 +363,6 @@ export default class Rectangle extends DOMRect {
         const
             me             = this,
             {
-                minWidth,
-                minHeight
-            }              = me,
-            {
                 constrainTo,    // Element or Rectangle result must fit into
                 target,         // Element or Rectangle to align to
                 edgeAlign,      // t50-b50 type string
@@ -453,17 +449,15 @@ export default class Rectangle extends DOMRect {
                     edgeAlign : createReversedEdgeAlign(edges)
                 }
 
-                // Fall back to the other two zones if we are allowed to
-                if (axisLock === 'flexible') {
-                    zonesToTry.push({
-                        zone      : zone = (alignSpec.startZone + 1) % 4,
-                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
-                    });
-                    zonesToTry.push({
-                        zone      : zone = (zone + 2) % 4,
-                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
-                    });
-                }
+                // Fall back to the other two zones.
+                zonesToTry.push({
+                    zone      : zone = (alignSpec.startZone + 1) % 4,
+                    edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                });
+                zonesToTry.push({
+                    zone      : zone = (zone + 2) % 4,
+                    edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                });
             }
             else {
                 // go through the other zones in order
@@ -534,6 +528,11 @@ export default class Rectangle extends DOMRect {
                     return solution;
                 }
             }
+        }
+
+        // Add the configurable finishing touch.
+        if (offset) {
+            result.moveBy(offset);
         }
 
         return result;
