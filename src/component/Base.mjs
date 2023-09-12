@@ -350,23 +350,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Convenience method
-     * @returns {Boolean}
-     */
-    get isVdomUpdating() {
-        // The VDOM is being updated if we have the promise that executeVdomUpdate uses
-        return Boolean(this.vdomUpdate);
-    }
-    // Allow the Component to be set to the isVdomUpdating state
-    set isVdomUpdating(isVdomUpdating) {
-        isVdomUpdating = Boolean(isVdomUpdating);
-
-        if (isVdomUpdating !== this.isVdomUpdating) {
-            this.vdomUpdate = isVdomUpdating;
-        }
-    }
-
-    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
@@ -967,7 +950,7 @@ class Base extends CoreBase {
         // Just a simple 't-b'
         if (typeof align === 'string') {
             align = {
-                edgeAlign : align
+                edgeAlign: align
             };
         }
         // merge the incoming alignment specification into the configured default
@@ -987,8 +970,8 @@ class Base extends CoreBase {
     /**
      * Triggered before the controller config gets changed.
      * Creates a controller.Component instance if needed.
-     * @param {Object} value
-     * @param {Object} oldValue
+     * @param {Neo.controller.Component|Object} value
+     * @param {Neo.controller.Component|null} oldValue
      * @returns {Neo.controller.Component}
      * @protected
      */
@@ -1105,7 +1088,14 @@ class Base extends CoreBase {
         return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
     }
 
-    beforeSetStyle(value) {
+    /**
+     * Triggered before the style config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Object}
+     * @protected
+     */
+    beforeSetStyle(value, oldValue) {
         let me = this;
 
         if (typeof value === 'object') {
@@ -1241,26 +1231,20 @@ class Base extends CoreBase {
             opts.appName = me.appName
         }
 
-        /**
-         * If a VDOM update is in flight, this is the Promise that will resolve when
-         * the update is completed.
-         * @member {Promise|null} vdomUpdate
-         * @protected
-         */
-        me.vdomUpdate = Neo.vdom.Helper.update(opts);
+        me.isVdomUpdating = true;
 
         // we can not set the config directly => it could already be false,
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true)
 
-        me.vdomUpdate.catch(err => {
-            me.vdomUpdate = null;
+        Neo.vdom.Helper.update(opts).catch(err => {
+            me.isVdomUpdating = false;
             console.log('Error attempting to update component dom', err, me);
 
             reject?.()
         }).then(data => {
-            me.vdomUpdate = null;
+            me.isVdomUpdating = false;
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
                 // console.log('Component vnode updated', data);
@@ -1276,9 +1260,7 @@ class Base extends CoreBase {
                     me.resolveVdomUpdate(resolve)
                 }
             }
-        });
-
-        return me.vdomUpdate;
+        })
     }
 
     /**
@@ -1351,26 +1333,31 @@ class Base extends CoreBase {
      * @returns {Promise<Neo.util.Rectangle>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
-        const
-            {
-                x,
-                y,
-                width,
-                height,
-                minWidth,
-                minHeight
-            }      = await Neo.main.DomAccess.getBoundingClientRect({appName, id}),
-            result = new Rectangle(x, y, width, height);
-
-        if (minWidth) {
-            result.minWidth = minWidth;
+        if (Array.isArray(id)) {
+            return await Neo.main.DomAccess.getBoundingClientRect({appName, id});
         }
+        else {
+            const
+                {
+                    x,
+                    y,
+                    width,
+                    height,
+                    minWidth,
+                    minHeight
+                }      = await Neo.main.DomAccess.getBoundingClientRect({appName, id}),
+                result = new Rectangle(x, y, width, height);
 
-        if (minHeight) {
-            result.minHeight = minHeight;
+            if (minWidth) {
+                result.minWidth = minWidth;
+            }
+
+            if (minHeight) {
+                result.minHeight = minHeight;
+            }
+
+            return result;
         }
-
-        return result;
     }
 
     /**
@@ -2284,10 +2271,10 @@ class Base extends CoreBase {
                 }
 
                 if (
-                    mounted
-                    && vnode
-                    && !me.needsParentUpdate(me.parentId, resolve)
+                    !me.needsParentUpdate(me.parentId, resolve)
                     && !me.isParentVdomUpdating(me.parentId, resolve)
+                    && mounted
+                    && vnode
                 ) {
                     me.#executeVdomUpdate(vdom, vnode, resolve, reject)
                 }

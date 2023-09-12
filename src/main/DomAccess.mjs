@@ -102,9 +102,7 @@ class DomAccess extends Base {
     construct(config) {
         super.construct(config);
 
-        const
-            me              = this,
-            syncAligns      = me.syncAligns.bind(me);
+        const me = this;
 
         if (Neo.config.renderCountDeltas) {
             let node;
@@ -122,7 +120,7 @@ class DomAccess extends Base {
 
         // Set up our aligning callback which is called when things change which may
         // mean that alignments need to be updated.
-        me.syncAligns = () => requestAnimationFrame(syncAligns);
+        me.syncAligns = me.syncAligns.bind(me);
     }
 
     /**
@@ -211,8 +209,14 @@ class DomAccess extends Base {
         me.resetDimensions(align);
 
         // The Rectangle's align spec target and constrainTo must be Rectangles
-        align.target = me.getBoundingClientRect({ id : data.targetElement = me.getElementOrBody(data.target) });
-        data.offsetParent = data.targetElement.offsetParent
+        align.target = me.getClippedRect({ id : data.targetElement = me.getElementOrBody(data.target) });
+
+        if (!align.target) {
+            // Set the Component with id data.id to hidden : true
+            return Neo.worker.App.setConfigs({ id : data.id, hidden : true });
+        }
+
+        data.offsetParent = data.targetElement.offsetParent;
         if (constrainTo) {
             align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
         }
@@ -338,13 +342,9 @@ class DomAccess extends Base {
         let returnData;
 
         if (Array.isArray(data.id)) {
-            returnData = [];
-
-            data.id.forEach(id => {
-                returnData.push(this.getBoundingClientRect({id: id}));
-            });
+            return data.id.map(id => this.getBoundingClientRect({ id }));
         } else {
-            let node = this.getElementOrBody(data.id),
+            let node = this.getElementOrBody(data.nodeType ? data : data.id),
                 rect = {}, style, minWidth, minHeight;
 
             returnData = {};
@@ -352,7 +352,7 @@ class DomAccess extends Base {
             if (node) {
                 rect      = node.getBoundingClientRect();
                 style     = node.ownerDocument.defaultView.getComputedStyle(node);
-                minWidth  = style.getPropertyValue('min-width'),
+                minWidth  = style.getPropertyValue('min-width');
                 minHeight = style.getPropertyValue('min-height');
 
                 // DomRect does not support spreading => {...DomRect} => {}
@@ -371,6 +371,20 @@ class DomAccess extends Base {
         }
 
         return returnData;
+    }
+
+    getClippedRect(data) {
+        let node            = this.getElement(typeof data === 'object' ? data.id : data),
+            { defaultView } = node.ownerDocument,
+            rect            = this.getBoundingClientRect(node);
+
+        for (let parentElement = node.offsetParent; rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
+            if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
+                rect = rect.intersects(this.getBoundingClientRect(parentElement));
+            }
+        }
+
+        return rect;
     }
 
     onDocumentMutation(mutations) {

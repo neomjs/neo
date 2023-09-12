@@ -83,6 +83,27 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'sortable',
             listeners: {change: me.onConfigChange.bind(me, 'sortable')},
             style    : {marginTop: '10px'}
+        }, {
+            module   : Checkbox,
+            checked  : false,
+            labelText: 'Fit width',
+            listeners: {
+                change({ value }) {
+                    const { style } = me.exampleComponent;
+
+                    if (value) {
+                        style.width = '100%';
+                        style.tableLayout = 'fixed';
+                    } else {
+                        style.width = '';
+                        style.tableLayout = '';
+                    }
+
+                    me.exampleComponent.style = style;
+                    me.exampleComponent.update();
+                }
+            },
+            style    : {marginTop: '10px'}
         }];
     }
 
@@ -102,16 +123,43 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'country',   text: 'Country'},
                 {
                     text: 'Edit Action',
-                    renderer: data => {
-                        let button = Neo.create({
-                            module  : Button,
-                            appName : this.appName,
-                            handler : this.editButtonHandler,
-                            parentId: 'myTableStoreContainer',
-                            text    : 'Edit'
-                        });
+                    renderer: ({ column, index }) => {
+                        const
+                            widgetId = `${column.id}-widget-${index}`,
+                            button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
+                                module  : Button,
+                                appName : this.appName,
+                                handler : this.editButtonHandler,
+                                parentId: 'myTableStoreContainer',
+                                text    : 'Edit'
+                            }));
 
-                        return button.vdom
+                        return button.vdom;
+                    }
+                },
+                {
+                    text : 'Menu',
+                    renderer({ column, record, index }) {
+                        const
+                            widgetId = `${column.id}-widget-${index}`,
+                            button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create('Neo.button.Base', {
+                                ntype   : 'button',
+                                appName : this.appName,
+                                text    : '\u22ee',
+                                menu    : {
+                                    items : [{
+                                        text : 'Menu option 1'
+                                    }, {
+                                        text : 'Menu option 2'
+                                    }, {
+                                        text : 'Menu option 3'
+                                    }, {
+                                        text : 'Menu option 4'
+                                    }]
+                                }
+                            }));
+
+                            return button.vdom;
                     }
                 }
             ]

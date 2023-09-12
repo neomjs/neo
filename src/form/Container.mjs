@@ -1,6 +1,7 @@
 import BaseContainer    from '../container/Base.mjs';
 import BaseField        from '../form/field/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
 
 /**
  * @class Neo.form.Container
@@ -35,25 +36,29 @@ class Container extends BaseContainer {
      * The logic assumes that field config values must not be objects (separation between the key & value realm).
      * @param {Object} values
      * @param {String} configName
+     * @param {String[]} fieldPaths
+     * @param {String} currentPath=''
      */
-    static adjustTreeLeaves(values={}, configName) {
-        let assign,type;
+    static adjustTreeLeaves(values={}, configName, fieldPaths, currentPath='') {
+        let assign, newPath, type;
 
         Object.entries(values).forEach(([key, value]) => {
-            assign = true;
-            type   = Neo.typeOf(value);
+            assign  = true;
+            newPath = currentPath === '' ? key : `${currentPath}.${key}`;
+            type    = Neo.typeOf(value);
 
-            if (type === 'Array') {
-                assign = false;
+            if (type === 'Array' || type === 'Object') {
+                assign = fieldPaths.includes(newPath);
 
-                value.forEach(item => {
-                    if (Neo.typeOf(item) === 'Object') {
-                        this.adjustTreeLeaves(item, configName)
-                    }
-                })
-            } else if (type === 'Object') {
-                assign = false;
-                this.adjustTreeLeaves(value, configName)
+                if (type === 'Array') {
+                    value.forEach((item, index) => {
+                        if (Neo.typeOf(item) === 'Object') {
+                            this.adjustTreeLeaves(item, configName, fieldPaths, `${newPath}[${index}]`)
+                        }
+                    })
+                } else if (type === 'Object') {
+                    this.adjustTreeLeaves(value, configName, fieldPaths, newPath)
+                }
             }
 
             if (assign) {
@@ -307,7 +312,16 @@ class Container extends BaseContainer {
      * @param {Boolean} suspendEvents=false
      */
     async setValues(values={}, suspendEvents=false) {
-        Container.adjustTreeLeaves(values, 'value');
+        let fields     = await this.getFields(),
+            fieldPaths = [];
+
+        // Grouped CheckBoxes & Radios can have the same path
+        // => using NeoArray to ensure they only get added once
+        fields.map(field => NeoArray.add(fieldPaths, field.getPath()));
+
+        values = Neo.clone(values, true);
+
+        Container.adjustTreeLeaves(values, 'value', fieldPaths);
 
         await this.setConfigs(values, suspendEvents)
     }

@@ -67,6 +67,7 @@ class View extends Component {
         }
 
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
+            column,
             dataField,
             index,
             record,

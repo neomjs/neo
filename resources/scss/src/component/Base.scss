@@ -1,8 +1,9 @@
 .neo-floating {
-    top      : -10000px;
-    left     : -10000px;
-    position : fixed;
-    z-index  : 1000;
+    top              : -10000px;
+    left             : -10000px;
+    position         : fixed;
+    z-index          : 1000;
+    background-color : var(--neo-background-color);
 }
 
 // Shadow at the top
