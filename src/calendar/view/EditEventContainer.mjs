@@ -81,7 +81,7 @@ class EditEventContainer extends FormContainer {
         super.construct(config);
 
         // focus trap, see: https://github.com/neomjs/neo/issues/2306
-        this.vdom.tabIndex = -1;
+        this.vdom.tabIndex = -1
     }
 
     /**
@@ -92,7 +92,7 @@ class EditEventContainer extends FormContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.getField('title').focus();
+        value && this.getField('title').then(field => field.focus())
     }
 
     /**
@@ -106,17 +106,17 @@ class EditEventContainer extends FormContainer {
             let me         = this,
                 timeFormat = me.intlFormat_time;
 
-            me.getField('endTime')  .minValue = me.getEndTimeMinValue(value);
-            me.getField('startTime').maxValue = me.getStartTimeMaxValue(value);
+            me.getField('endTime')  .then(field => field.minValue = me.getEndTimeMinValue(value));
+            me.getField('startTime').then(field => field.maxValue = me.getStartTimeMaxValue(value));
 
             me.reset({
                 calendarId: value.calendarId,
                 endTime   : timeFormat.format(value.endDate),
                 startTime : timeFormat.format(value.startDate),
                 title     : value.title
-            });
+            })
         } else if (value) {
-            this.createItems();
+            this.createItems()
         }
     }
 
@@ -205,7 +205,7 @@ class EditEventContainer extends FormContainer {
                 text   : 'Delete'
             }];
 
-            super.createItems();
+            super.createItems()
         }
     }
 
@@ -261,7 +261,7 @@ class EditEventContainer extends FormContainer {
 
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
-            me.mounted && me.unmount();
+            me.mounted && me.unmount()
         }, 100);
     }
 
@@ -282,9 +282,9 @@ class EditEventContainer extends FormContainer {
         record[field] = date;
 
         if (name === 'endTime') {
-            me.getField('startTime').maxValue = me.getStartTimeMaxValue(record);
+            me.getField('startTime').then(field => field.maxValue = me.getStartTimeMaxValue(record))
         } else {
-            me.getField('endTime')  .minValue = me.getEndTimeMinValue(record);
+            me.getField('endTime')  .then(field => field.minValue = me.getEndTimeMinValue(record))
         }
     }
 
