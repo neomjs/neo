@@ -1,6 +1,7 @@
 import BaseContainer    from '../container/Base.mjs';
 import BaseField        from '../form/field/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
 
 /**
  * @class Neo.form.Container
@@ -35,8 +36,9 @@ class Container extends BaseContainer {
      * The logic assumes that field config values must not be objects (separation between the key & value realm).
      * @param {Object} values
      * @param {String} configName
+     * @param {String[]} fieldPaths
      */
-    static adjustTreeLeaves(values={}, configName) {
+    static adjustTreeLeaves(values={}, configName, fieldPaths) {
         let assign,type;
 
         Object.entries(values).forEach(([key, value]) => {
@@ -48,12 +50,12 @@ class Container extends BaseContainer {
 
                 value.forEach(item => {
                     if (Neo.typeOf(item) === 'Object') {
-                        this.adjustTreeLeaves(item, configName)
+                        this.adjustTreeLeaves(item, configName, fieldPaths)
                     }
                 })
             } else if (type === 'Object') {
                 assign = false;
-                this.adjustTreeLeaves(value, configName)
+                this.adjustTreeLeaves(value, configName, fieldPaths)
             }
 
             if (assign) {
@@ -307,7 +309,14 @@ class Container extends BaseContainer {
      * @param {Boolean} suspendEvents=false
      */
     async setValues(values={}, suspendEvents=false) {
-        Container.adjustTreeLeaves(values, 'value');
+        let fields     = await this.getFields(),
+            fieldPaths = [];
+
+        // Grouped CheckBoxes & Radios can have the same path
+        // => using NeoArray to ensure they only get added once
+        fields.map(field => NeoArray.add(fieldPaths, field.getPath()));
+
+        Container.adjustTreeLeaves(values, 'value', fieldPaths);
 
         await this.setConfigs(values, suspendEvents)
     }
