@@ -91,3 +91,24 @@ export function intercept(target, targetMethodName, interceptFunction, scope, pr
             : targetMethod.apply(target, arguments)
     })
 }
+
+/**
+ * @param {Function} callback
+ * @param {Neo.core.Base} scope
+ * @param {Number} delay=300
+ * @returns {Function}
+ */
+export function throttle(callback, scope, delay=300) {
+    let wait = false;
+
+    return function(...args) {
+        if (!wait) {
+            wait = true;
+
+            // we need to check if the scope (instance) did not get destroyed yet
+            scope?.id && callback.apply(scope, args);
+
+            setTimeout(() => {wait = false}, delay)
+        }
+    }
+}
