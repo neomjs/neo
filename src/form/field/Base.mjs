@@ -130,7 +130,7 @@ class Base extends Component {
      * @param {*} value
      * @param {*} oldValue
      */
-    fireChangeEvent(value, oldValue) {
+    fireChangeEvent(value, oldValue, isUserChange = false) {
         let me            = this,
             FormContainer = Neo.form?.Container,
             opts          = {component: me, oldValue, value};
@@ -139,7 +139,7 @@ class Base extends Component {
             opts.groupValue = me.getGroupValue()
         }
 
-        me.fire('change', opts);
+        me.fire(isUserChange ? 'userChange' : 'change', opts);
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
