@@ -525,11 +525,9 @@ class CheckBox extends Base {
         // keep the vdom & vnode in sync for future updates
         me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
-        if(checked === me.checked) {
-            console.log('Programmatic change');
-        }
+        me.checked = checked;
 
-        me.checked = checked
+        me.fireChangeEvent(me.getValue(), me.getOldValue(), true);
     }
 
     /**
