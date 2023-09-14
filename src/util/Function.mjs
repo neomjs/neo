@@ -47,7 +47,7 @@ export function createSequence(target, methodName, fn, scope) {
 /**
  * @param {Function} func
  * @param {Neo.core.Base} scope
- * @param {Number} timeout
+ * @param {Number} timeout=300
  * @returns {Function}
  */
 export function debounce(func, scope, timeout=300) {
