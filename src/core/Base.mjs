@@ -1,3 +1,4 @@
+import {debounce}  from '../util/Function.mjs';
 import IdGenerator from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
@@ -17,6 +18,20 @@ class Base {
      * @static
      */
     static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/
+    /**
+     * You can define methods which should get delayed
+     * @example
+     *  delayable: {
+     *      fireChangeEvent: {
+     *          type : 'debounce',
+     *          timer: 300
+     *      }
+     *  }
+     * @member {Object} delayable={}
+     * @protected
+     * @static
+     */
+    static delayable = {}
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=false
@@ -126,6 +141,8 @@ class Base {
             value     : true
         });
 
+        me.applyDelayable();
+
         me.remote && setTimeout(me.initRemote.bind(me), 1)
     }
 
@@ -155,6 +172,23 @@ class Base {
             Neo.idMap = Neo.idMap || {};
             Neo.idMap[me.id] = me
         }
+    }
+
+    /**
+     * Adjusts all methods inside static delayable
+     */
+    applyDelayable() {
+        let me = this;
+
+        Object.entries(me.constructor.delayable).forEach(([key, value]) => {
+            let map = {
+                debounce() {
+                    me[key] = new debounce(me[key], me, value.timer)
+                }
+            };
+
+            map[value.type]?.()
+        })
     }
 
     /**

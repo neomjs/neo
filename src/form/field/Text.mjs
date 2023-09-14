@@ -18,6 +18,17 @@ class Text extends Base {
      */
     static autoCapitalizeValues = ['characters', 'none', 'on', 'off', 'sentences', 'words']
     /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        fireChangeEvent: {
+            type : 'debounce',
+            timer: 300
+        }
+    }
+    /**
      * Valid values for labelPosition
      * @member {String[]} labelPositions=['bottom','inline','left','right','top']
      * @protected
