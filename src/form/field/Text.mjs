@@ -1251,7 +1251,8 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
-        me.value = me.inputValueAdjustor(value)
+        me.fireChangeEvent(value, me._value, true);
+        me.value = me.inputValueAdjustor(value);
     }
 
     /**
