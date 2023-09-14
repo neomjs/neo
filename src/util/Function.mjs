@@ -53,13 +53,23 @@ export function createSequence(target, methodName, fn, scope) {
 export function debounce(func, scope, timeout=300) {
     let debounceTimer;
 
-    return async function(...args) {
-        clearTimeout(debounceTimer);
-
-        debounceTimer = setTimeout(() => {
+    return function(...args) {
+        // leading edge => trigger the first call right away
+        if (!Neo.isNumber(debounceTimer)) {
             // we need to check if the scope (instance) did not get destroyed yet
             scope?.id && func.apply(scope, args);
-        },  timeout)
+
+            // we still want to start a timer, do delay the 2nd+ update
+            debounceTimer = setTimeout(() => {debounceTimer = null},  timeout)
+        } else {
+            clearTimeout(debounceTimer);
+
+            debounceTimer = setTimeout(() => {
+                // we need to check if the scope (instance) did not get destroyed yet
+                scope?.id && func.apply(scope, args);
+                debounceTimer = setTimeout(() => {debounceTimer = null},  timeout)
+            },  timeout)
+        }
     }
 }
 
