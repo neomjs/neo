@@ -451,11 +451,11 @@ export default class Rectangle extends DOMRect {
 
                 // Fall back to the other two zones.
                 zonesToTry.push({
-                    zone      : zone = (alignSpec.startZone + 1) % 4,
+                    zone      : zone = (edges.theirEdgeZone + 1) % 4,
                     edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
                 });
                 zonesToTry.push({
-                    zone      : zone = (zone + 2) % 4,
+                    zone      : zone = (edges.theirEdgeZone + 3) % 4,
                     edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
                 });
             }

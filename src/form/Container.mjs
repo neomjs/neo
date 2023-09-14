@@ -33,7 +33,6 @@ class Container extends BaseContainer {
 
     /**
      * Helper function used by setValues() which wraps the leaves of a tree structure into a new property.
-     * The logic assumes that field config values must not be objects (separation between the key & value realm).
      * @param {Object} values
      * @param {String} configName
      * @param {String[]} fieldPaths

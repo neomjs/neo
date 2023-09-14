@@ -1,3 +1,4 @@
+import Button            from '../../../../src/button/Base.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
 import TextField         from '../../../../src/form/field/Text.mjs';
 
@@ -31,7 +32,20 @@ class Page1 extends FormPageContainer {
             name     : 'status',
             readOnly : true,
             value    : 'Active'
+        }, {
+            module : Button,
+            handler: Page1.buttonHandler,
+            style  : {marginTop: '2em', maxWidth: '300px'},
+            text   : 'Change values'
         }]
+    }
+
+    static buttonHandler(data) {
+        let container = data.component.up();
+
+        container.items[0].value = Math.random();
+        container.items[1].value = Math.random();
+        container.items[2].value = Math.random()
     }
 }
 
