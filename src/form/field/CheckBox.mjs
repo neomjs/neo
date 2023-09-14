@@ -526,7 +526,6 @@ class CheckBox extends Base {
         me.vnode.childNodes[0].childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.checked = checked;
-
         me.fireChangeEvent(me.getValue(), me.getOldValue(), true);
     }
 
