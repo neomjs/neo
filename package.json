@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.5.2",
+    "version": "6.5.3",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -53,11 +53,11 @@
         "envinfo": "^7.10.0",
         "fs-extra": "^11.1.1",
         "highlightjs-line-numbers.js": "^2.8.0",
-        "inquirer": "^9.2.10",
+        "inquirer": "^9.2.11",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
         "postcss": "^8.4.29",
-        "sass": "^1.66.1",
+        "sass": "^1.67.0",
         "showdown": "^2.1.0",
         "webpack": "^5.88.2",
         "webpack-cli": "^5.1.4",
@@ -67,7 +67,7 @@
     },
     "devDependencies": {
         "siesta-lite": "5.5.2",
-        "url": "^0.11.1"
+        "url": "^0.11.2"
     },
     "funding": {
         "type": "GitHub Sponsors",

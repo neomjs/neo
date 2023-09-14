@@ -7,6 +7,16 @@ import ComponentManager from '../../manager/Component.mjs';
  * @extends Neo.component.Base
  */
 class Base extends Component {
+    /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        fireChangeEvent    : {type: 'debounce', timer: 300},
+        fireUserChangeEvent: {type: 'debounce', timer: 300}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.form.field.Base'
@@ -127,27 +137,47 @@ class Base extends Component {
 
     /**
      * Override this method as needed
-     * @param {*} value
-     * @param {*} oldValue
+     * @param {*}      value
+     * @param {*}      oldValue
+     * @param {String} eventName
      */
-    fireChangeEvent(value, oldValue) {
+    doFireChangeEvent(value, oldValue, eventName) {
         let me            = this,
             FormContainer = Neo.form?.Container,
+            formEvent     = 'field' + Neo.capitalize(eventName),
             opts          = {component: me, oldValue, value};
 
         if (Neo.isFunction(me.getGroupValue)) {
             opts.groupValue = me.getGroupValue()
         }
 
-        me.fire('change', opts);
+        me.fire(eventName, opts);
 
         if (!me.suspendEvents) {
             ComponentManager.getParents(me).forEach(parent => {
                 if (FormContainer && parent instanceof FormContainer) {
-                    parent.fire('fieldChange', opts)
+                    parent.fire(formEvent, opts)
                 }
             })
         }
+    }
+
+    /**
+     * Override this method as needed
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    fireChangeEvent(value, oldValue) {
+        this.doFireChangeEvent(value, oldValue, 'change')
+    }
+
+    /**
+     * Override this method as needed
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    fireUserChangeEvent(value, oldValue) {
+        this.doFireChangeEvent(value, oldValue, 'userChange')
     }
 
     /**

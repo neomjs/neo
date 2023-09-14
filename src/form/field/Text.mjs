@@ -1242,16 +1242,19 @@ class Text extends Base {
      * @protected
      */
     onInputValueChange(data) {
-        let me    = this,
-            value = data.value,
-            vnode = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+        let me       = this,
+            oldValue = me.value,
+            value    = data.value,
+            vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
             // required for validation -> revert a wrong user input
             vnode.vnode.attributes.value = value;
         }
 
-        me.value = me.inputValueAdjustor(value)
+        me.value = me.inputValueAdjustor(value);
+
+        me.fireUserChangeEvent(value, oldValue)
     }
 
     /**

@@ -19,12 +19,10 @@ class FormContainerController extends Component {
     onComponentConstructed() {
         super.onComponentConstructed();
 
-        this.component.on('fieldFocusLeave', data => {
-            console.log('fieldFocusLeave', data);
-        })
-
-        this.component.on('fieldChange', data => {
-            console.log('fieldChange', data);
+        this.component.on({
+            fieldChange    : data => console.log('fieldChange'    , data),
+            fieldFocusLeave: data => console.log('fieldFocusLeave', data),
+            fieldUserChange: data => console.log('fieldUserChange', data)
         })
     }
 
