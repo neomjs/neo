@@ -1,6 +1,6 @@
-import Base        from '../../core/Base.mjs';
-import NeoFunction from '../../util/Function.mjs';
-import Observable  from '../../core/Observable.mjs';
+import Base                from '../../core/Base.mjs';
+import {createInterceptor} from '../../util/Function.mjs';
+import Observable          from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.WebSocket
@@ -120,7 +120,7 @@ class Socket extends Base {
                 onopen   : me.onOpen   .bind(me)
             });
 
-            NeoFunction.createInterceptor(value, 'send', me.beforeSend, me);
+            createInterceptor(value, 'send', me.beforeSend, me);
         }
 
         return value;
