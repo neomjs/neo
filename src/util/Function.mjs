@@ -23,7 +23,7 @@ class NeoFunction extends Base {
               args = [].slice.call(arguments).slice(1);
 
         return function() {
-            return fn.apply(scope, [].slice.call(arguments).concat(args));
+            return fn.apply(scope, [].slice.call(arguments).concat(args))
         }
     }
 
@@ -39,8 +39,8 @@ class NeoFunction extends Base {
         let targetMethod = target[targetMethodName];
 
         return (target[targetMethodName] = function(value) {
-            return targetMethod.call(target, interceptFunction.call(scope || target, value));
-        });
+            return targetMethod.call(target, interceptFunction.call(scope || target, value))
+        })
     }
 
     /**
@@ -56,7 +56,26 @@ class NeoFunction extends Base {
         return (target[methodName] = function() {
             method.apply(this, arguments);
             return fn.apply(scope || this, arguments);
-        });
+        })
+    }
+
+    /**
+     * @param {Function} func
+     * @param {Neo.core.Base} scope
+     * @param {Number} timeout
+     * @returns {Function}
+     */
+    static debounce(func, scope, timeout=300) {
+        let debounceTimer;
+
+        return async function(...args) {
+            clearTimeout(debounceTimer);
+
+            debounceTimer = setTimeout(() => {
+                // we need to check if the scope (instance) did not get destroyed yet
+                scope?.id && func.apply(scope, args);
+            },  timeout)
+        }
     }
 
     /**
@@ -74,8 +93,8 @@ class NeoFunction extends Base {
         return (target[targetMethodName] = function() {
             return (interceptFunction.apply(scope || target, arguments) === false)
                 ? preventedReturnValue
-                : targetMethod.apply(target, arguments);
-        });
+                : targetMethod.apply(target, arguments)
+        })
     }
 }
 
