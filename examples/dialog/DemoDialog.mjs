@@ -1,5 +1,6 @@
 import Dialog      from '../../src/dialog/Base.mjs';
 import SelectField from '../../src/form/field/Select.mjs';
+import Button      from '../../src/button/Base.mjs';
 
 /**
  * @class Neo.examples.dialog.DemoDialog
@@ -13,9 +14,15 @@ class DemoDialog extends Dialog {
 
         wrapperStyle: {
             width : '40%'
-        },
+        }
+    }
 
-        items : [{
+    construct() {
+        super.construct(...arguments);
+
+        const me = this;
+
+        me.items = [{
             module   : SelectField,
             labelText: 'Select',
 
@@ -33,7 +40,33 @@ class DemoDialog extends Dialog {
                     return result;
                 })()
             }
-        }]
+        }, {
+            module : Button,
+            handler: me.createDialog.bind(me),
+            iconCls: 'fa fa-window-maximize',
+            text   : 'Create new modal Dialog',
+        }];
+    }
+
+    createDialog(data) {
+        let me = this;
+
+        data.component.disabled = true;
+
+        me.dialog = Neo.create(DemoDialog, {
+            appName            : me.appName,
+            boundaryContainerId: me.boundaryContainerId,
+            listeners          : {close: me.onWindowClose, scope: me},
+            modal              : true
+        });
+    }
+
+    onWindowClose() {
+        let button = this.down({
+            text: 'Create new modal Dialog'
+        });
+
+        button.disabled = false;
     }
 }
 

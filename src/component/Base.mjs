@@ -902,20 +902,24 @@ class Base extends CoreBase {
      * @returns {Promise<void>}
      */
     async alignTo(spec={}) {
-        const me = this;
+        const
+            me    = this,
+            align = {
+                ...me.align,
+                ...spec,
+                id                  : me.id,
+                configuredFlex      : me.configuredFlex,
+                configuredWidth     : me.configuredWidth,
+                configuredHeight    : me.configuredHeight,
+                configuredMinWidth  : me.configuredMinWidth,
+                configuredMinHeight : me.configuredMinHeight,
+                configuredMaxWidth  : me.configuredMaxWidth,
+                configuredMaxHeight : me.configuredMaxHeight
+            };
 
-        await Neo.main.DomAccess.align({
-            ...me.align,
-            ...spec,
-            id                  : me.id,
-            configuredFlex      : me.configuredFlex,
-            configuredWidth     : me.configuredWidth,
-            configuredHeight    : me.configuredHeight,
-            configuredMinWidth  : me.configuredMinWidth,
-            configuredMinHeight : me.configuredMinHeight,
-            configuredMaxWidth  : me.configuredMaxWidth,
-            configuredMaxHeight : me.configuredMaxHeight
-        });
+        if (align.target) {
+            await Neo.main.DomAccess.align(align);
+        }
     }
 
     /**

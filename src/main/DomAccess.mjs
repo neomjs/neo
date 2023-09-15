@@ -77,6 +77,7 @@ class DomAccess extends Base {
                 'selectNode',
                 'setBodyCls',
                 'setStyle',
+                'syncModalMask',
                 'windowScrollTo'
             ]
         },
@@ -811,6 +812,37 @@ class DomAccess extends Base {
                 _aligns.delete(align.id);
             }
         })
+    }
+
+    syncModalMask({ id, modal }) {
+        const el = id && this.getElement(id);
+
+        // If we are visible and modal, the mask needs to be just below this element.
+        if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
+            document.body.insertBefore(this.modalMask, el);
+        }
+        // Otherwise, the mask needs to be blow the next topmost modal dialog if possible, or hidden
+        else {
+            const
+                modals       = document.querySelectorAll('.neo-modal'),
+                topmostModal = modals[modals.length - 1];
+
+            // Move the mask under the next topmost modal now modal "id" is gone.
+            if (topmostModal) {
+                this.syncModalMask({ id : topmostModal.id, modal : true })
+            }
+            else {
+                this._modalMask?.remove();
+            }
+        }
+    }
+
+    get modalMask() {
+        if (!this._modalMask) {
+            this._modalMask = document.createElement('div');
+            this._modalMask.className = 'neo-dialog-modal-mask';
+        }
+        return this._modalMask;
     }
 
     /**
