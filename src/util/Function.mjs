@@ -59,7 +59,7 @@ export function debounce(callback, scope, delay=300) {
             // we need to check if the scope (instance) did not get destroyed yet
             scope?.id && callback.apply(scope, args);
 
-            // we still want to start a timer, do delay the 2nd+ update
+            // we still want to start a timer to delay the 2nd+ update
             debounceTimer = setTimeout(() => {debounceTimer = null},  delay)
         } else {
             clearTimeout(debounceTimer);
