@@ -116,13 +116,12 @@ class Base extends Panel {
          * @member {String|null} title_=null
          */
         title_: null,
-        /**
-         * @member {Object} _vdom
-         */
-        _vdom:
-        {cls: ['neo-dialog-wrapper'], cn: [
-            {cn: []}
-        ]}
+
+        floating : true,
+
+        modal_ : null,
+
+        autoShow : true
     }
 
     /**
@@ -133,11 +132,14 @@ class Base extends Panel {
 
         let me = this;
 
-        me.vdom.id = me.getWrapperId();
-
         me.createHeader();
 
-        me.animateTargetId && me.animateShow();
+        if (me.animateTargetId) {
+            me.animateShow();
+        }
+        else if (me.autoShow) {
+            me.show();
+        }
     }
 
     /**
@@ -224,22 +226,15 @@ class Base extends Panel {
         me.update();
     }
 
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
+    afterSetModal(modal) {
+        const
+            me      = this,
+            { cls } = me.vdom;
 
-        let me = this;
-
-        if (value && me.animateTargetId) {
-            Neo.applyDeltas(me.appName, {
-                action: 'removeNode',
-                id    : me.getAnimateTargetId()
-            })
+        NeoArray[modal ? 'add' : 'remove'](cls, 'neo-modal');
+        me.update();
+        if (me.rendered) {
+            me.syncModalMask();
         }
     }
 
@@ -286,17 +281,23 @@ class Base extends Panel {
     async animateHide() {
         let me      = this,
             appName = me.appName,
-            id      = me.getAnimateTargetId(),
-            rects   = await me.getDomRect([me.id, me.animateTargetId]);
+            { id }  = me,
+            rects   = await me.getDomRect([id, me.animateTargetId]);
 
         await Neo.currentWorker.promiseMessage('main', {
-            action  : 'mountDom',
+            action: 'updateDom',
             appName,
-            html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
-            parentId: 'document.body'
+            deltas: [{
+                id,
+                style: {
+                    height    : `${rects[0].height}px`,
+                    left      : `${rects[0].left  }px`,
+                    top       : `${rects[0].top   }px`,
+                    width     : `${rects[0].width }px`,
+                    transform : 'none'
+                }
+            }]
         });
-
-        me.closeOrHide(false);
 
         await me.timeout(30);
 
@@ -310,16 +311,29 @@ class Base extends Panel {
                     left  : `${rects[1].left  }px`,
                     top   : `${rects[1].top   }px`,
                     width : `${rects[1].width }px`
+                },
+                cls: {
+                    add : ['animated-hiding-showing']
                 }
             }]
         });
 
         await me.timeout(250);
 
+        me.closeOrHide(false);
+
         await Neo.currentWorker.promiseMessage('main', {
             action: 'updateDom',
             appName,
-            deltas: [{action: 'removeNode', id}]
+            deltas: [{
+                id,
+                cls : {
+                    remove : ['animated-hiding-showing']
+                }
+            }, {
+                id,
+                action: 'removeNode'
+            }]
         });
     }
 
@@ -327,37 +341,64 @@ class Base extends Panel {
      *
      */
     async animateShow() {
-        let me           = this,
-            appName      = me.appName,
-            id           = me.getAnimateTargetId(),
-            wrapperStyle = me.wrapperStyle,
-            rect         = await me.getDomRect(me.animateTargetId);
+        let me        = this,
+            appName   = me.appName,
+            { style } = me,
+            rect      = await me.getDomRect(me.animateTargetId);
 
-        await Neo.currentWorker.promiseMessage('main', {
-            action  : 'mountDom',
-            appName,
-            html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
-            parentId: 'document.body'
-        });
+        await me.render(true);
 
-        await me.timeout(30);
-
+        // Move to cover the animation target
         await Neo.currentWorker.promiseMessage('main', {
             action: 'updateDom',
             appName,
             deltas: [{
-                id,
-                style: {
-                    height   : wrapperStyle?.height    || '50%',
-                    left     : wrapperStyle?.left      || '50%',
-                    top      : wrapperStyle?.top       || '50%',
-                    transform: wrapperStyle?.transform || 'translate(-50%, -50%)',
-                    width    : wrapperStyle?.width     || '50%'
+                id    : me.id,
+                style : {
+                    top    : `${rect.top}px`,
+                    left   : `${rect.left}px`,
+                    width  : `${rect.width}px`,
+                    height : `${rect.height}px`
+                }
+            }]
+        });
+
+        // Wait for the element to achieve its initial rectangle
+        await me.timeout(50);
+
+        // Expand to final state
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id    : me.id,
+                style : {
+                    height   : style?.height    || '',
+                    left     : style?.left      || '50%',
+                    top      : style?.top       || '50%',
+                    transform: style?.transform || 'translate(-50%, -50%)',
+                    width    : style?.width     || '50%'
+                },
+                cls: {
+                    add   : ['animated-hiding-showing'],
+                    remove: []
                 }
             }]
         });
 
         await me.timeout(200);
+
+        // Remove the animation class
+        await Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            appName,
+            deltas: [{
+                id  : me.id,
+                cls : {
+                    remove : ['animated-hiding-showing']
+                }
+            }]
+        });
 
         me.show(false)
     }
@@ -389,8 +430,12 @@ class Base extends Panel {
     /**
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
-    closeOrHide(animate=!!this.animateTargetId) {
+    async closeOrHide(animate=!!this.animateTargetId) {
+        const { id } = this;
+
         this[this.closeAction](animate);
+        await this.timeout(30);
+        this.syncModalMask(id);
     }
 
     /**
@@ -461,39 +506,13 @@ class Base extends Panel {
     getProxyVdom() {
         let vdom = VDomUtil.clone(this.vdom);
 
-        // this call expects a fixed dialog structure
-        // todo: a panel content container could get a flag which we can query for instead
-        vdom.cn[0].cn[1].cn = [];
-
         return vdom;
-    }
-
-    /**
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
-     * Returns the id of the header toolbar
-     * @returns {String}
-     */
-    getWrapperId() {
-        return this.id + '-wrapper';
     }
 
     /**
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
-    hide(animate=!!this.animateTargetId) {
+    async hide(animate=!!this.animateTargetId) {
         let me = this;
 
         if (animate) {
@@ -502,6 +521,8 @@ class Base extends Panel {
             me.unmount();
             me.fire('hide');
         }
+        await me.timeout(30);
+        me.syncModalMask();
     }
 
     /**
@@ -533,13 +554,13 @@ class Base extends Panel {
      */
     onDragEnd(data) {
         let me = this,
-            initialTransitionProperty, wrapperStyle;
+            initialTransitionProperty, style;
 
         if (!me.maximized) {
             me.getDomRect(me.dragZone.dragProxy.id).then(rect => {
-                wrapperStyle = me.wrapperStyle;
+                style = me.style;
 
-                Object.assign(wrapperStyle, {
+                Object.assign(style, {
                     height   : `${rect.height}px`,
                     left     : `${rect.left}px`,
                     opacity  : 1,
@@ -549,20 +570,20 @@ class Base extends Panel {
                 });
 
                 if (!me.animateOnDragEnd) {
-                    initialTransitionProperty = wrapperStyle.transitionProperty || null;
+                    initialTransitionProperty = style.transitionProperty || null;
 
-                    wrapperStyle.transitionProperty = 'none';
+                    style.transitionProperty = 'none';
 
                     setTimeout(() => {
-                        wrapperStyle = me.wrapperStyle;
+                        style = me.style;
 
-                        wrapperStyle.transitionProperty = initialTransitionProperty;
+                        style.transitionProperty = initialTransitionProperty;
 
-                        me.wrapperStyle = wrapperStyle;
+                        me.style = style;
                     }, 50);
                 }
 
-                me.wrapperStyle = wrapperStyle;
+                me.style = style;
 
                 me.dragZone.dragEnd(data);
 
@@ -585,8 +606,8 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me           = this,
-            wrapperStyle = me.wrapperStyle || {},
+        let me    = this,
+            style = me.style || {},
             resizablePlugin;
 
         if (!me.maximized) {
@@ -621,9 +642,9 @@ class Base extends Panel {
 
             me.dragZone.dragStart(data);
 
-            wrapperStyle.opacity = 0.7;
+            style.opacity = 0.7;
 
-            me.wrapperStyle = wrapperStyle;
+            me.style = style;
         }
     }
 
@@ -636,9 +657,17 @@ class Base extends Panel {
         if (animate) {
             me.animateShow();
         } else {
-            me.render(true);
+            if (!me.rendered) {
+                me.render(true);
+            }
             me.fire('show');
         }
+        me.syncModalMask();
+    }
+
+    syncModalMask(id = this.id) {
+        // This should sync the visibility and position of the modal mask element.
+        Neo.main.DomAccess.syncModalMask({ id, modal : this.modal });
     }
 }
 

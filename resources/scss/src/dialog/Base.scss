@@ -17,20 +17,33 @@
     }
 }
 
-.neo-dialog-wrapper {
-    display : flex;
-    position: absolute;
-    z-index : 20; // ensure to be on top of table headers
+.neo-dialog-modal-mask {
+    position         : fixed;
+    top              : 0;
+    left             : 0;
+    bottom           : 0;
+    right            : 0;
+    background-color : rgba(100, 100, 100, 0.5);
+    backdrop-filter  : blur(1px);
+    z-index          : 1000;
+}
 
-    transition-duration       : 200ms;
-    transition-property       : height, left, top, transform, width;
-    transition-timing-function: ease-out;
+.neo-dialog {
+    border        : 1px solid var(--dialog-border-color);
+    display       : flex;
+    flex-direction: column;
+
+    &.animated-hiding-showing {
+        transition-duration       : 200ms;
+        transition-property       : height, left, top, transform, width;
+        transition-timing-function: ease-out;
+    }
 
     &.neo-maximized {
         height   : 98% !important;
         left     : 1%  !important;
         top      : 1%  !important;
-        transform: none;
+        transform: none!important;
         width    : 98% !important;
 
         &.neo-panel {
@@ -41,14 +54,6 @@
             }
         }
     }
-}
-
-.neo-dialog {
-    border        : 1px solid var(--dialog-border-color);
-    display       : flex;
-    flex          : 1 0 auto;
-    flex-direction: column;
-    position      : relative;
 
     &.neo-panel {
         .neo-footer-toolbar {
