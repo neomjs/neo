@@ -99,16 +99,25 @@ export function intercept(target, targetMethodName, interceptFunction, scope, pr
  * @returns {Function}
  */
 export function throttle(callback, scope, delay=300) {
-    let wait = false;
+    let lastRanDate, timeoutId;
 
     return function(...args) {
-        if (!wait) {
-            wait = true;
-
+        if (!lastRanDate) {
             // we need to check if the scope (instance) did not get destroyed yet
             scope?.id && callback.apply(scope, args);
 
-            setTimeout(() => {wait = false}, delay)
+            lastRanDate = Date.now()
+        } else {
+            clearTimeout(timeoutId)
+
+            timeoutId = setTimeout(function() {
+                if ((Date.now() - lastRanDate) >= delay) {
+                    // we need to check if the scope (instance) did not get destroyed yet
+                    scope?.id && callback.apply(scope, args);
+
+                    lastRanDate = Date.now()
+                }
+            }, delay - (Date.now() - lastRanDate))
         }
     }
 }
