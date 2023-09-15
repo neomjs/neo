@@ -759,15 +759,17 @@ class DateSelector extends Component {
      */
     onComponentWheel(data) {
         let me         = this,
+            deltaX     = data.deltaX,
+            deltaY     = data.deltaY,
             wheelDelta = me.mouseWheelDelta,
             date, monthIncrement, yearIncrement;
 
-        if (Math.abs(data.deltaY) >= Math.abs(data.deltaX)) {
-                 if (data.deltaY >=  wheelDelta) {yearIncrement  =  1;}
-            else if (data.deltaY <= -wheelDelta) {yearIncrement  = -1;}
+        if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+                 if (deltaY >=  wheelDelta) {yearIncrement  =  1;}
+            else if (deltaY <= -wheelDelta) {yearIncrement  = -1;}
         } else {
-                 if (data.deltaX >=  wheelDelta) {monthIncrement =  1;}
-            else if (data.deltaX <= -wheelDelta) {monthIncrement = -1;}
+                 if (deltaX >=  wheelDelta) {monthIncrement =  1;}
+            else if (deltaX <= -wheelDelta) {monthIncrement = -1;}
         }
 
         if (monthIncrement) {
