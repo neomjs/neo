@@ -1,5 +1,5 @@
-import {debounce}  from '../util/Function.mjs';
-import IdGenerator from './IdGenerator.mjs'
+import {debounce, throttle} from '../util/Function.mjs';
+import IdGenerator          from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -182,9 +182,8 @@ class Base {
 
         Object.entries(me.constructor.delayable).forEach(([key, value]) => {
             let map = {
-                debounce() {
-                    me[key] = new debounce(me[key], me, value.timer)
-                }
+                debounce() {me[key] = new debounce(me[key], me, value.timer)},
+                throttle() {me[key] = new throttle(me[key], me, value.timer)}
             };
 
             map[value.type]?.()

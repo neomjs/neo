@@ -45,30 +45,30 @@ export function createSequence(target, methodName, fn, scope) {
 }
 
 /**
- * @param {Function} func
+ * @param {Function} callback
  * @param {Neo.core.Base} scope
- * @param {Number} timeout=300
+ * @param {Number} delay=300
  * @returns {Function}
  */
-export function debounce(func, scope, timeout=300) {
+export function debounce(callback, scope, delay=300) {
     let debounceTimer;
 
     return function(...args) {
         // leading edge => trigger the first call right away
         if (!Neo.isNumber(debounceTimer)) {
             // we need to check if the scope (instance) did not get destroyed yet
-            scope?.id && func.apply(scope, args);
+            scope?.id && callback.apply(scope, args);
 
             // we still want to start a timer, do delay the 2nd+ update
-            debounceTimer = setTimeout(() => {debounceTimer = null},  timeout)
+            debounceTimer = setTimeout(() => {debounceTimer = null},  delay)
         } else {
             clearTimeout(debounceTimer);
 
             debounceTimer = setTimeout(() => {
                 // we need to check if the scope (instance) did not get destroyed yet
-                scope?.id && func.apply(scope, args);
-                debounceTimer = setTimeout(() => {debounceTimer = null},  timeout)
-            },  timeout)
+                scope?.id && callback.apply(scope, args);
+                debounceTimer = setTimeout(() => {debounceTimer = null},  delay)
+            },  delay)
         }
     }
 }
@@ -90,4 +90,34 @@ export function intercept(target, targetMethodName, interceptFunction, scope, pr
             ? preventedReturnValue
             : targetMethod.apply(target, arguments)
     })
+}
+
+/**
+ * @param {Function} callback
+ * @param {Neo.core.Base} scope
+ * @param {Number} delay=300
+ * @returns {Function}
+ */
+export function throttle(callback, scope, delay=300) {
+    let lastRanDate, timeoutId;
+
+    return function(...args) {
+        if (!lastRanDate) {
+            // we need to check if the scope (instance) did not get destroyed yet
+            scope?.id && callback.apply(scope, args);
+
+            lastRanDate = Date.now()
+        } else {
+            clearTimeout(timeoutId)
+
+            timeoutId = setTimeout(function() {
+                if ((Date.now() - lastRanDate) >= delay) {
+                    // we need to check if the scope (instance) did not get destroyed yet
+                    scope?.id && callback.apply(scope, args);
+
+                    lastRanDate = Date.now()
+                }
+            }, delay - (Date.now() - lastRanDate))
+        }
+    }
 }
