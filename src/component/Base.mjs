@@ -265,6 +265,13 @@ class Base extends CoreBase {
          */
         plugins_: null,
         /**
+         * Set a reference for accessing the component inside view controllers.
+         * References will also get mapped into the vdom root (data-ref: value).
+         * @member {String|null} reference_=null
+         * @protected
+         */
+        reference_: null,
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
@@ -700,6 +707,16 @@ class Base extends CoreBase {
                 me.fire('mounted', me.id)
             }
         }
+    }
+
+    /**
+     * Triggered after the reference config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetReference(value, oldValue) {
+        value && this.changeVdomRootKey('data-ref', value)
     }
 
     /**
