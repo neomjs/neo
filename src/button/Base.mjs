@@ -87,10 +87,6 @@ class Base extends Component {
          */
         menu_: null,
         /**
-         * @member {Object} menuListConfig=null
-         */
-        menuListConfig: null,
-        /**
          * The pressed state of the Button
          * @member {Boolean} pressed_=false
          */
@@ -259,24 +255,25 @@ class Base extends Component {
                 let me         = this,
                     isArray    = Array.isArray(value),
                     items      = isArray ? value : value.items,
-                    menuConfig = isArray ? {} : value;
+                    menuConfig = isArray ? {} : value,
 
-                me.menuList = Neo.create({
-                    align          : {
-                        edgeAlign : 't0-b0',
-                        target    : me.id
-                    },
-                    ...menuConfig,
+                config = {
                     module         : module.default,
+                    align          : {edgeAlign : 't0-b0', target: me.id},
                     appName        : me.appName,
                     displayField   : 'text',
                     floating       : true,
                     hidden         : true,
-                    items,
                     parentComponent: me,
                     theme          : me.theme,
-                    ...me.menuListConfig
-                })
+                    ...menuConfig
+                };
+
+                if (items) {
+                    config.items = items
+                }
+
+                me.menuList = Neo.create(config)
             })
         }
     }
