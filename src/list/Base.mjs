@@ -163,7 +163,7 @@ class Base extends Component {
         me.addDomListeners({
             click: me.onClick,
             scope: me
-        });
+        })
     }
 
     /**
@@ -178,10 +178,10 @@ class Base extends Component {
 
         if (Neo.isNumber(value)) {
             selectionModel?.selectAt(value);
-            me.headerlessActiveIndex = me.getHeaderlessIndex(value);
+            me.headerlessActiveIndex = me.getHeaderlessIndex(value)
         } else if (Neo.isNumber(oldValue)) {
             selectionModel.deselectAll();
-            me.headerlessActiveIndex = null;
+            me.headerlessActiveIndex = null
         }
     }
 
@@ -203,8 +203,8 @@ class Base extends Component {
                 ...me.pluginAnimateConfig
             });
 
-            me.plugins = plugins;
-        });
+            me.plugins = plugins
+        })
     }
 
     /**
@@ -214,7 +214,7 @@ class Base extends Component {
      * @protected
      */
     afterSetDisableSelection(value, oldValue) {
-        value && this.rendered && this.selectionModel?.deselectAll();
+        value && this.rendered && this.selectionModel?.deselectAll()
     }
 
     /**
@@ -233,8 +233,8 @@ class Base extends Component {
                     appName: me.appName,
                     owner  : me,
                     ...me.dragZoneConfig
-                });
-            });
+                })
+            })
         }
     }
 
@@ -251,9 +251,9 @@ class Base extends Component {
         if (Neo.isNumber(value)) {
             activeIndex = me.getActiveIndex(value);
 
-            me.activeIndex = activeIndex;
+            me.activeIndex = activeIndex
         } else if (Neo.isNumber(oldValue)) {
-            me.activeIndex = null;
+            me.activeIndex = null
         }
     }
 
@@ -264,7 +264,7 @@ class Base extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this);
+        this.rendered && value.register(this)
     }
 
     /**
@@ -284,7 +284,7 @@ class Base extends Component {
             scope       : me
         });
 
-        value?.getCount() > 0 && me.onStoreLoad();
+        value?.getCount() > 0 && me.onStoreLoad()
     }
 
     /**
@@ -297,8 +297,8 @@ class Base extends Component {
         let me  = this,
             cls = me.cls;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
-        me.cls = cls;
+        NeoArray.toggle(cls, 'neo-use-checkicons', !!value);
+        me.cls = cls
     }
 
     /**
@@ -312,7 +312,7 @@ class Base extends Component {
             let me = this;
 
             me.vdom.tag = 'dl';
-            me.itemTagName = 'dd';
+            me.itemTagName = 'dd'
         }
     }
 
@@ -331,7 +331,7 @@ class Base extends Component {
         NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
 
         me.wrapperCls = wrapperCls;
-        me.cls        = cls;
+        me.cls        = cls
     }
 
     /**
@@ -343,7 +343,7 @@ class Base extends Component {
      */
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, ListModel);
+        return ClassSystemUtil.beforeSetInstance(value, ListModel)
     }
 
     /**
@@ -355,7 +355,7 @@ class Base extends Component {
      */
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, Store);
+        return ClassSystemUtil.beforeSetInstance(value, Store)
     }
 
     /**
@@ -399,7 +399,7 @@ class Base extends Component {
         };
 
         if (me.itemRole) {
-            item.role = me.itemRole;
+            item.role = me.itemRole
         }
 
         switch (Neo.typeOf(itemContent)) {
@@ -427,15 +427,15 @@ class Base extends Component {
             item.style = item.style || {};
 
             if (hasItemHeight && !item.hasOwnProperty('height')) {
-                item.style.height = `${me.itemHeight}px`;
+                item.style.height = `${me.itemHeight}px`
             }
 
             if (hasItemWidth && !item.hasOwnProperty('width')) {
-                item.style.width = `${me.itemWidth}px`;
+                item.style.width = `${me.itemWidth}px`
             }
         }
 
-        return item;
+        return item
     }
 
     /**
@@ -454,12 +454,12 @@ class Base extends Component {
 
             if (filter && filter.value !== null && filter.value !== '') {
                 itemText = itemText.replace(new RegExp(filter.value, 'gi'), function(match) {
-                    return '<span class="neo-highlight-search">' + match + '</span>';
-                });
+                    return '<span class="neo-highlight-search">' + match + '</span>'
+                })
             }
         }
 
-        return itemText;
+        return itemText
     }
 
     /**
@@ -474,7 +474,7 @@ class Base extends Component {
         // in case we set headerlessActiveIndex before the store was loaded, activeIndex can be null
         // and the wanted selection is not initially there
         if (Neo.isNumber(headerlessActiveIndex) && !Neo.isNumber(me.activeIndex)) {
-            me.afterSetHeaderlessActiveIndex(headerlessActiveIndex, null);
+            me.afterSetHeaderlessActiveIndex(headerlessActiveIndex, null)
         }
 
         if (!(me.animate && !me.getPlugin('animate'))) {
@@ -482,12 +482,12 @@ class Base extends Component {
 
             me.store.items.forEach((item, index) => {
                 listItem = me.createItem(item, index);
-                listItem && vdom.cn.push(listItem);
+                listItem && vdom.cn.push(listItem)
             });
 
             !silent && me.promiseUpdate().then(() => {
-                me.fire('createItems');
-            });
+                me.fire('createItems')
+            })
         }
     }
 
@@ -501,7 +501,7 @@ class Base extends Component {
 
         me.autoDestroyStore && me.store?.destroy();
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -532,17 +532,17 @@ class Base extends Component {
             len     = headerlessIndex;
 
         if (records.length < 1) {
-            return null;
+            return null
         }
 
         for (; i <= len; i++) {
             if (records[i].isHeader) {
                 delta++;
-                len++;
+                len++
             }
         }
 
-        return headerlessIndex + delta;
+        return headerlessIndex + delta
     }
 
     /**
@@ -557,11 +557,11 @@ class Base extends Component {
 
         for (; i < index; i++) {
             if (!records[i].isHeader) {
-                headerlessIndex++;
+                headerlessIndex++
             }
         }
 
-        return headerlessIndex;
+        return headerlessIndex
     }
 
     /**
@@ -569,7 +569,7 @@ class Base extends Component {
      * @returns {String}
      */
     getItemId(recordId) {
-        return `${this.id}__${recordId}`;
+        return `${this.id}__${recordId}`
     }
 
     /**
@@ -583,10 +583,10 @@ class Base extends Component {
             keyType  = keyField?.type?.toLowerCase();
 
         if (keyType === 'integer' || keyType === 'number') {
-            itemId = parseInt(itemId);
+            itemId = parseInt(itemId)
         }
 
-        return itemId;
+        return itemId
     }
 
     /**
@@ -594,7 +594,7 @@ class Base extends Component {
      * @returns {String}
      */
     getKeyProperty() {
-        return this.store.keyProperty || this.store.model.keyProperty;
+        return this.store.keyProperty || this.store.model.keyProperty
     }
 
     /**
@@ -605,12 +605,12 @@ class Base extends Component {
             item;
 
         if (data.path[0].id === me.id) {
-            me.onContainerClick(data);
+            me.onContainerClick(data)
         } else {
             for (item of data.path) {
                 if (item.cls.includes(me.itemCls)) {
                     me.onItemClick(item, data);
-                    break;
+                    break
                 }
             }
         }
@@ -622,7 +622,7 @@ class Base extends Component {
     onConstructed() {
         super.onConstructed();
 
-        this.selectionModel?.register(this);
+        this.selectionModel?.register(this)
     }
 
     /**
@@ -637,7 +637,7 @@ class Base extends Component {
          * @param {String[]} path the event path
          * @returns {Object}
          */
-        this.fire('containerClick', data);
+        this.fire('containerClick', data)
     }
 
     /**
@@ -652,7 +652,7 @@ class Base extends Component {
         data.record = record;
 
         if (!me.disableSelection && (!me.useHeaders || !record.isHeader)) {
-            me.selectionModel?.select(node.id);
+            me.selectionModel?.select(node.id)
         }
 
         /**
@@ -661,14 +661,14 @@ class Base extends Component {
          * @param {String} id the record matching the list item
          * @returns {Object}
          */
-        me.fire('itemClick', record);
+        me.fire('itemClick', record)
     }
 
     /**
      *
      */
     onStoreFilter() {
-        this.createItems();
+        this.createItems()
     }
 
     /**
@@ -681,10 +681,10 @@ class Base extends Component {
         if (!me.mounted && me.rendering) {
             listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
-                me.createItems();
+                me.createItems()
             });
         } else {
-            me.createItems();
+            me.createItems()
         }
     }
 
@@ -703,7 +703,7 @@ class Base extends Component {
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {
             me.vdom.cn[index] = me.createItem(data.record, index);
-            me.update();
+            me.update()
         }
     }
 
@@ -714,7 +714,7 @@ class Base extends Component {
      * @param {Neo.data.Store} data.scope
      */
     onStoreSort(data) {
-        this.createItems();
+        this.createItems()
     }
 
     /**
@@ -722,7 +722,7 @@ class Base extends Component {
      * @param {Number} index
      */
     selectItem(index) {
-        !this.disableSelection && this.selectionModel?.selectAt(index);
+        !this.disableSelection && this.selectionModel?.selectAt(index)
     }
 }
 
