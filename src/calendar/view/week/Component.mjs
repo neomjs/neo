@@ -444,7 +444,7 @@ class Component extends BaseComponent {
         super.afterSetMounted(value, oldValue);
 
         let me = this,
-            rect;
+            scrollContainerId, rect;
 
         if (value) {
             if (me.needsEventUpdate) {
@@ -452,14 +452,15 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false;
             }
 
-            await me.timeout(70);
+            await me.timeout(100);
 
-            rect = await me.getDomRect(me.getColumnContainer().id);
+            rect              = await me.getDomRect(me.getColumnContainer().id);
+            scrollContainerId = me.getScrollContainer().id;
 
-            Neo.main.DomAccess.scrollBy({
+            scrollContainerId && Neo.main.DomAccess.scrollBy({
                 appName  : me.appName,
                 direction: 'left',
-                id       : me.getScrollContainer().id,
+                id       : scrollContainerId,
                 value    : rect.width * me.columnsBuffer / me.columnsVisible / 3
             });
         }
