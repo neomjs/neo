@@ -118,7 +118,7 @@ class List extends BaseList {
     afterSetItems(value, oldValue) {
         let store = this.store;
 
-        oldValue && store.remove(oldValue);
+        oldValue && store.clear(); // we can not use remove() here, since items are no records => often no id
         value    && store.add(value)
     }
 
