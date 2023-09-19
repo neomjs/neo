@@ -364,13 +364,13 @@ class List extends BaseList {
             subMenuMap   = me.subMenuMap || (me.subMenuMap = {}),
             subMenuMapId = me.getMenuMapId(recordId),
             subMenu      = subMenuMap[subMenuMapId] || (subMenuMap[subMenuMapId] = Neo.create({
+                module         : List,
                 align          : {
                     target       : nodeId,
                     edgeAlign    : 'l0-r0',
                     axisLock     : true,
                     targetMargin : me.subMenuGap
                 },
-                module         : List,
                 appName        : me.appName,
                 displayField   : me.displayField,
                 floating       : true,
