@@ -256,6 +256,7 @@ class Base extends Component {
                     isArray    = Array.isArray(value),
                     items      = isArray ? value : value.items,
                     menuConfig = isArray ? {} : value,
+                    model      = me.getModel(),
 
                 config = {
                     module         : module.default,
@@ -271,6 +272,10 @@ class Base extends Component {
 
                 if (items) {
                     config.items = items
+                }
+
+                if (model) {
+                    config.model = {parent: model}
                 }
 
                 me.menuList = Neo.create(config)
