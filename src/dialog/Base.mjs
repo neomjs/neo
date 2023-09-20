@@ -46,6 +46,10 @@ class Base extends Panel {
          */
         autoRender: true,
         /**
+         * @member {Boolean} autoShow=true
+         */
+        autoShow: true,
+        /**
          * @member {String[]} baseCls=['neo-dialog','neo-panel','neo-container']
          * @protected
          */
@@ -80,6 +84,10 @@ class Base extends Panel {
          */
         dragZoneConfig: null,
         /**
+         * @member {Boolean} floating=true
+         */
+        floating: true,
+        /**
          * @member {Object} headerConfig=null
          */
         headerConfig: null,
@@ -105,6 +113,10 @@ class Base extends Panel {
          */
         minimizeCls: 'far fa-window-minimize',
         /**
+         * @member {Boolean} modal_=false
+         */
+        modal_: false,
+        /**
          * @member {Boolean} resizable_=true
          */
         resizable_: true,
@@ -115,13 +127,7 @@ class Base extends Panel {
         /**
          * @member {String|null} title_=null
          */
-        title_: null,
-
-        floating : true,
-
-        modal_ : null,
-
-        autoShow : true
+        title_: null
     }
 
     /**
@@ -134,12 +140,7 @@ class Base extends Panel {
 
         me.createHeader();
 
-        if (me.animateTargetId) {
-            me.animateShow();
-        }
-        else if (me.autoShow) {
-            me.show();
-        }
+        me.autoShow && me.show()
     }
 
     /**
@@ -150,7 +151,7 @@ class Base extends Panel {
      */
     afterSetAnimateTargetId(value, oldValue) {
         this.autoMount  = !value;
-        this.autoRender = !value;
+        this.autoRender = !value
     }
 
     /**
@@ -164,14 +165,14 @@ class Base extends Panel {
             resizable = me.getPlugin({flag: 'resizable'});
 
         if (me.dragZone) {
-            me.dragZone.appName = value;
+            me.dragZone.appName = value
         }
 
         if (resizable) {
-            resizable.appName = value;
+            resizable.appName = value
         }
 
-        super.afterSetAppName(value, oldValue);
+        super.afterSetAppName(value, oldValue)
     }
 
     /**
@@ -188,7 +189,7 @@ class Base extends Panel {
         if (oldValue !== undefined && me.headerToolbar) {
             cls = me.headerToolbar.cls;
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
-            me.headerToolbar.cls = cls;
+            me.headerToolbar.cls = cls
         }
 
         value && import('../draggable/DragZone.mjs').then(module => {
@@ -207,9 +208,9 @@ class Base extends Panel {
                 }
 
                 me.domListeners       = domListeners;
-                me.dragListenersAdded = true;
+                me.dragListenersAdded = true
             }
-        });
+        })
     }
 
     /**
@@ -219,22 +220,29 @@ class Base extends Panel {
      * @protected
      */
     afterSetMaximized(value, oldValue) {
-        let me   = this,
-            cls  = me.vdom.cls; // todo: using wrapperCls
+        let me  = this,
+            cls = me.vdom.cls; // todo: using wrapperCls
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
+        NeoArray.toggle(cls, 'neo-maximized', value);
         me.update();
     }
 
-    afterSetModal(modal) {
+    /**
+     * Triggered after the modal config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetModal(value, oldValue) {
         const
             me      = this,
             { cls } = me.vdom;
 
-        NeoArray[modal ? 'add' : 'remove'](cls, 'neo-modal');
+        NeoArray.toggle(cls, 'neo-modal', value);
         me.update();
+
         if (me.rendered) {
-            me.syncModalMask();
+            me.syncModalMask()
         }
     }
 
@@ -258,9 +266,9 @@ class Base extends Panel {
                     ...me.resizablePluginConfig
                 });
 
-                me.plugins = plugins;
+                me.plugins = plugins
             }
-        });
+        })
     }
 
     /**
@@ -271,7 +279,7 @@ class Base extends Panel {
      */
     afterSetTitle(value, oldValue) {
         if (this.headerToolbar) {
-            this.headerToolbar.title = value;
+            this.headerToolbar.title = value
         }
     }
 
@@ -334,7 +342,7 @@ class Base extends Panel {
                 id,
                 action: 'removeNode'
             }]
-        });
+        })
     }
 
     /**
@@ -414,28 +422,28 @@ class Base extends Panel {
     }
 
     /**
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @param {Boolean} animate=!!this.animateTargetId
      */
     close(animate=!!this.animateTargetId) {
         let me = this;
 
         if (animate) {
-            me.animateHide();
+            me.animateHide()
         } else {
             me.fire('close');
-            me.destroy(true);
+            me.destroy(true)
         }
     }
 
     /**
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @param {Boolean} animate=!!this.animateTargetId
      */
     async closeOrHide(animate=!!this.animateTargetId) {
         const { id } = this;
 
         this[this.closeAction](animate);
         await this.timeout(30);
-        this.syncModalMask(id);
+        this.syncModalMask(id)
     }
 
     /**
@@ -462,7 +470,7 @@ class Base extends Panel {
 
         headers.unshift(me.headerToolbar);
 
-        me.headers = headers;
+        me.headers = headers
     }
 
     /**
@@ -489,7 +497,7 @@ class Base extends Panel {
      * @returns {String}
      */
     getAnimateTargetId() {
-        return this.id + '-animate';
+        return this.id + '-animate'
     }
 
     /**
@@ -497,32 +505,32 @@ class Base extends Panel {
      * @returns {String}
      */
     getHeaderToolbarId() {
-        return this.id + '-header-toolbar';
+        return this.id + '-header-toolbar'
     }
 
     /**
      * @returns {Object} vdom
      */
     getProxyVdom() {
-        let vdom = VDomUtil.clone(this.vdom);
-
-        return vdom;
+        return VDomUtil.clone(this.vdom);
     }
 
     /**
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @param {Boolean} animate=!!this.animateTargetId
      */
     async hide(animate=!!this.animateTargetId) {
         let me = this;
 
         if (animate) {
-            me.animateHide();
+            me.animateHide()
         } else {
             me.unmount();
-            me.fire('hide');
+            me.fire('hide')
         }
+
         await me.timeout(30);
-        me.syncModalMask();
+
+        me.syncModalMask()
     }
 
     /**
@@ -546,7 +554,7 @@ class Base extends Panel {
 
         me.headerToolbar = me.down({
             id: me.getHeaderToolbarId()
-        });
+        })
     }
 
     /**
@@ -649,7 +657,7 @@ class Base extends Panel {
     }
 
     /**
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @param {Boolean} animate=!!this.animateTargetId
      */
     show(animate=!!this.animateTargetId) {
         let me = this;
@@ -658,11 +666,13 @@ class Base extends Panel {
             me.animateShow();
         } else {
             if (!me.rendered) {
-                me.render(true);
+                me.render(true)
             }
-            me.fire('show');
+
+            me.fire('show')
         }
-        me.syncModalMask();
+
+        me.syncModalMask()
     }
 
     syncModalMask(id = this.id) {
