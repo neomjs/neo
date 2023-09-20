@@ -368,6 +368,14 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience method to access the parent component
+     * @returns {Neo.component.Base|null}
+     */
+    get parent() {
+        return this.parentId !== 'document.body' ? Neo.getComponent(this.parentId) : null
+    }
+
+    /**
      * True after the component render() method was called. Also fires the rendered event.
      * @member {Boolean} rendered=false
      * @protected
