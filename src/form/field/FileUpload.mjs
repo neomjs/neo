@@ -459,6 +459,10 @@ class FileUpload extends Base {
         me.update();
         me.state = 'uploading';
 
+        // This means no progress as opposed to zero, but still during a currently successful ongoing upload.
+        // When it is NaN, the error display does not attempt to show progress.
+        me.progress = NaN;
+
         fileData.append("file", file);
 
         // React to upload state changes
@@ -517,28 +521,38 @@ class FileUpload extends Base {
 
         me.xhr = null;
 
-        if (loaded !== 0) {
-            const response = JSON.parse(xhr.response);
+        // Successful network request.
+        // Check the resulting JSON packet for details and any error.
+        if (String(xhr.status).startsWith('2')) {
+            if (loaded !== 0) {
+                const response = JSON.parse(xhr.response);
 
-            if (response.success) {
-                me.documentId = response[me.documentIdParameter];
+                if (response.success) {
+                    me.documentId = response[me.documentIdParameter];
 
-                // The status check phase is optional.
-                // If no URL specified, the file is taken to be downloadable.
-                if (me.documentStatusUrl) {
-                    me.state = 'processing';
+                    // The status check phase is optional.
+                    // If no URL specified, the file is taken to be downloadable.
+                    if (me.documentStatusUrl) {
+                        me.state = 'processing';
 
-                    // Start polling the server to see when the scan has a result;
-                    me.checkDocumentStatus();
+                        // Start polling the server to see when the scan has a result;
+                        me.checkDocumentStatus();
+                    }
+                    else {
+                        me.state = 'downloadable';
+                    }
                 }
                 else {
-                    me.state = 'downloadable';
+                    me.error = response.message;
+                    me.state = 'upload-failed';
                 }
             }
-            else {
-                me.error = response.message;
-                me.state = 'upload-failed';
-            }
+        }
+        // Failed network request
+        else {
+            me.progress = NaN;
+            me.error = `HTTP status : ${xhr.statusText}`;
+            me.state = 'upload-failed';
         }
     }
 
@@ -693,7 +707,7 @@ class FileUpload extends Base {
                 anchor.href = '';
                 break;
             case 'upload-failed':
-                status.innerHTML = `${me.uploadFailed}... (${Math.round(me.progress * 100)}%)`;
+                status.innerHTML = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
                 break;
             case 'processing':
                 status.innerHTML = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
@@ -806,9 +820,9 @@ class FileUpload extends Base {
         if (bytes) {
             const
                 sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'],
-                i     = Math.min(parseInt(Math.floor(Math.log(bytes) / Math.log(1024)).toString(), 10), sizes.length - 1);
+                i     = Math.min(parseInt(Math.floor(Math.log(bytes) / Math.log(1000)).toString(), 10), sizes.length - 1);
 
-            return `${(bytes / (1024 ** i)).toFixed(i ? 1 : 0)}${separator}${sizes[i]}${postFix}`;
+            return `${(bytes / (1000 ** i)).toFixed(i ? 1 : 0)}${separator}${sizes[i]}${postFix}`;
         }
         return 'n/a';
     }

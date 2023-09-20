@@ -445,17 +445,13 @@ class Component extends Base {
      * @returns {Neo.model.Component|null}
      */
     getParent() {
-        let me = this,
-            parentComponent, parentId;
+        let me = this;
 
         if (me.parent) {
             return me.parent
         }
 
-        parentId = me.component.parentId;
-        parentComponent = parentId && Neo.getComponent(parentId);
-
-        return parentComponent?.getModel() || null
+        return me.component.parent?.getModel() || null
     }
 
     /**

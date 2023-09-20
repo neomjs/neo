@@ -1,22 +1,22 @@
 import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
 import Observable   from '../core/Observable.mjs';
-import Rectangle from '../util/Rectangle.mjs';
+import Rectangle    from '../util/Rectangle.mjs';
 
 const
     lengthRE      = /^\d+\w+$/,
     fontSizeProps = [
-        'font-size',
-        'font-size-adjust',
-        'font-style',
-        'font-weight',
         'font-family',
         'font-kerning',
+        'font-size',
+        'font-size-adjust',
         'font-stretch',
-        'line-height',
-        'text-transform',
-        'text-decoration',
+        'font-style',
+        'font-weight',
         'letter-spacing',
+        'line-height',
+        'text-decoration',
+        'text-transform',
         'word-break'
     ];
 
@@ -77,6 +77,7 @@ class DomAccess extends Base {
                 'selectNode',
                 'setBodyCls',
                 'setStyle',
+                'syncModalMask',
                 'windowScrollTo'
             ]
         },
@@ -97,6 +98,20 @@ class DomAccess extends Base {
     }
 
     /**
+     * @returns {HTMLElement}
+     */
+    get modalMask() {
+        let me = this;
+
+        if (!me._modalMask) {
+            me._modalMask = document.createElement('div');
+            me._modalMask.className = 'neo-dialog-modal-mask';
+        }
+
+        return me._modalMask;
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -111,16 +126,16 @@ class DomAccess extends Base {
                 node = document.getElementById('neo-delta-updates');
 
                 if (node) {
-                   node.innerHTML = String(me.countDeltasPer250ms * 4);
+                   node.innerHTML = String(me.countDeltasPer250ms * 4)
                 }
 
-                me.countDeltasPer250ms = 0;
+                me.countDeltasPer250ms = 0
             }, 250)
         }
 
         // Set up our aligning callback which is called when things change which may
         // mean that alignments need to be updated.
-        me.syncAligns = me.syncAligns.bind(me);
+        me.syncAligns = me.syncAligns.bind(me)
     }
 
     /**
@@ -144,7 +159,7 @@ class DomAccess extends Base {
 
             // Realign when constraining element changes size
             if (constrainToElement) {
-                resizeObserver.observe(constrainToElement);
+                resizeObserver.observe(constrainToElement)
             }
         }
 
@@ -154,7 +169,7 @@ class DomAccess extends Base {
                 passive: true
             });
 
-            me.hasDocumentScrollListener = true;
+            me.hasDocumentScrollListener = true
         }
 
         if (!me.documentMutationObserver) {
@@ -179,12 +194,12 @@ class DomAccess extends Base {
         let script = document.createElement('script');
 
         if (!data.hasOwnProperty('async')) {
-            data.async = true;
+            data.async = true
         }
 
         Object.assign(script, data);
 
-        document.head.appendChild(script);
+        document.head.appendChild(script)
     }
 
     /**
@@ -627,18 +642,19 @@ class DomAccess extends Base {
      * Resets any DOM sizing configs to the last externally configured value.
      *
      * This is used during aligning to release any constraints applied by a previous alignment.
+     * @param {Object} align
      * @protected
      */
-    async resetDimensions(align) {
-        const { style } = this.getElement(align.id);
-
-        style.flex      = align.configuredFlex;
-        style.width     = align.configuredWidth;
-        style.height    = align.configuredHeight;
-        style.minWidth  = align.configuredMinWidth;
-        style.minHeight = align.configuredMinHeight;
-        style.maxWidth  = align.configuredMaxWidth;
-        style.maxHeight = align.configuredMaxHeight;
+    resetDimensions(align) {
+        Object.assign(this.getElement(align.id).style, {
+            flex     : align.configuredFlex,
+            width    : align.configuredWidth,
+            height   : align.configuredHeight,
+            minWidth : align.configuredMinWidth,
+            minHeight: align.configuredMinHeight,
+            maxWidth : align.configuredMaxWidth,
+            maxHeight: align.configuredMaxHeight
+        })
     }
 
     /**
@@ -655,7 +671,7 @@ class DomAccess extends Base {
             node[`scroll${Neo.capitalize(data.direction)}`] += data.value;
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -669,15 +685,13 @@ class DomAccess extends Base {
     scrollIntoView(data) {
         let node = this.getElement(data.id);
 
-        if (node) {
-            node.scrollIntoView({
-                behavior: data.behavior || 'smooth',
-                block   : data.block    || 'start',
-                inline  : data.inline   || 'nearest'
-            });
-        }
+        node?.scrollIntoView({
+            behavior: data.behavior || 'smooth',
+            block   : data.block    || 'start',
+            inline  : data.inline   || 'nearest'
+        });
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -694,7 +708,7 @@ class DomAccess extends Base {
             node[`scroll${Neo.capitalize(data.direction)}`] = data.value;
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -714,12 +728,12 @@ class DomAccess extends Base {
                 top         = node.getBoundingClientRect().top;
 
             wrapperNode.scrollTo({
-                top     : top - tableTop - (data.hasOwnProperty('offset') ? data.offset : 34),
-                behavior: data.behavior || 'smooth'
-            });
+                behavior: data.behavior || 'smooth',
+                top     : top - tableTop - (data.hasOwnProperty('offset') ? data.offset : 34)
+            })
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -739,7 +753,7 @@ class DomAccess extends Base {
             node.setSelectionRange(start, end);
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -767,14 +781,14 @@ class DomAccess extends Base {
             Object.entries(data.style).forEach(([key, value]) => {
                 if (Neo.isString(value) && value.includes('!important')) {
                     value = value.replace('!important', '').trim();
-                    node.style.setProperty(Neo.decamel(key), value, 'important');
+                    node.style.setProperty(Neo.decamel(key), value, 'important')
                 } else {
-                    node.style[Neo.decamel(key)] = value;
+                    node.style[Neo.decamel(key)] = value
                 }
-            });
+            })
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -802,15 +816,38 @@ class DomAccess extends Base {
                 _alignResizeObserver.unobserve(align.offsetParent);
                 _alignResizeObserver.unobserve(align.targetElement);
                 if (constrainToElement) {
-                    _alignResizeObserver.unobserve(constrainToElement);
+                    _alignResizeObserver.unobserve(constrainToElement)
                 }
 
                 // Clear the last aligned class.
                 align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
 
-                _aligns.delete(align.id);
+                _aligns.delete(align.id)
             }
         })
+    }
+
+    syncModalMask({ id, modal }) {
+        const el = id && this.getElement(id);
+
+        // If we are visible and modal, the mask needs to be just below this element.
+        if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
+            document.body.insertBefore(this.modalMask, el);
+        }
+        // Otherwise, the mask needs to be blow the next topmost modal dialog if possible, or hidden
+        else {
+            const
+                modals       = document.querySelectorAll('.neo-modal'),
+                topmostModal = modals[modals.length - 1];
+
+            // Move the mask under the next topmost modal now modal "id" is gone.
+            if (topmostModal) {
+                this.syncModalMask({ id : topmostModal.id, modal : true })
+            }
+            else {
+                this._modalMask?.remove()
+            }
+        }
     }
 
     /**
@@ -824,7 +861,7 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
-        });
+        })
     }
 
     /**
@@ -836,7 +873,7 @@ class DomAccess extends Base {
             index    : data.parentIndex,
             outerHTML: data.html || data.outerHTML,
             parentId : data.parentId
-        });
+        })
     }
 }
 

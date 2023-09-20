@@ -97,7 +97,7 @@ class MainContainer extends TabContainer {
                     text   : 'Move Fields',
                     handler: function () {
                         let field  = Neo.getComponent('firstNameField'),
-                            parent = Neo.getComponent(field.parentId),
+                            parent = field.parent,
                             cn     = parent.vdom.cn,
                             tmp    = cn[1];
 
@@ -114,7 +114,7 @@ class MainContainer extends TabContainer {
                     text   : 'Insert Textfield',
                     handler: function () {
                         let button = Neo.getComponent('firstNameField'),
-                            parent = Neo.getComponent(button.parentId);
+                            parent = button.parent;
 
                         // global variable for testing
                         if (!this.fieldCount) {

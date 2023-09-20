@@ -50,6 +50,13 @@ class MainContainer extends Viewport {
                 listeners     : {change: me.onDragLimitChange, scope: me},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
+            }, {
+                module        : CheckBox,
+                checked       : true,
+                hideLabel     : true,
+                hideValueLabel: false,
+                style         : {marginLeft: '3em'},
+                valueLabelText: 'Modal'
             }, '->', {
                 module : Button,
                 handler: me.switchTheme.bind(me),
@@ -71,7 +78,8 @@ class MainContainer extends Viewport {
             animateTargetId    : data.component.id,
             appName            : me.appName,
             boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me}
+            listeners          : {close: me.onWindowClose, scope: me},
+            modal              : me.down({ valueLabelText : 'Modal' }).checked
         });
     }
 
