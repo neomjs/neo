@@ -642,7 +642,7 @@ class Base extends Panel {
      */
     syncModalMask(id=this.id) {
         // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({ id, modal : this.modal });
+        Neo.main.DomAccess.syncModalMask({ id, modal: this.modal });
     }
 }
 
