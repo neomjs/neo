@@ -292,121 +292,86 @@ class Base extends Panel {
             { id }  = me,
             rects   = await me.getDomRect([id, me.animateTargetId]);
 
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id,
-                style: {
-                    height    : `${rects[0].height}px`,
-                    left      : `${rects[0].left  }px`,
-                    top       : `${rects[0].top   }px`,
-                    width     : `${rects[0].width }px`,
-                    transform : 'none'
-                }
-            }]
+        await Neo.applyDeltas(appName, {
+            id,
+            style: {
+                height   : `${rects[0].height}px`,
+                left     : `${rects[0].left  }px`,
+                top      : `${rects[0].top   }px`,
+                transform: 'none',
+                width    : `${rects[0].width }px`
+            }
         });
 
         await me.timeout(30);
 
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id,
-                style: {
-                    height: `${rects[1].height}px`,
-                    left  : `${rects[1].left  }px`,
-                    top   : `${rects[1].top   }px`,
-                    width : `${rects[1].width }px`
-                },
-                cls: {
-                    add : ['animated-hiding-showing']
-                }
-            }]
+        await Neo.applyDeltas(appName, {
+            id,
+            cls: {
+                add: ['animated-hiding-showing']
+            },
+            style: {
+                height: `${rects[1].height}px`,
+                left  : `${rects[1].left  }px`,
+                top   : `${rects[1].top   }px`,
+                width : `${rects[1].width }px`
+            }
         });
 
         await me.timeout(250);
 
         me.closeOrHide(false);
 
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id,
-                cls : {
-                    remove : ['animated-hiding-showing']
-                }
-            }, {
-                id,
-                action: 'removeNode'
-            }]
-        })
+        await Neo.applyDeltas(appName, [
+            {id, cls: {remove: ['animated-hiding-showing']}},
+            {id, action: 'removeNode'}
+        ])
     }
 
     /**
      *
      */
     async animateShow() {
-        let me        = this,
-            appName   = me.appName,
-            { style } = me,
-            rect      = await me.getDomRect(me.animateTargetId);
+        let me            = this,
+            appName       = me.appName,
+            { id, style } = me,
+            rect          = await me.getDomRect(me.animateTargetId);
 
         await me.render(true);
 
         // Move to cover the animation target
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id    : me.id,
-                style : {
-                    top    : `${rect.top}px`,
-                    left   : `${rect.left}px`,
-                    width  : `${rect.width}px`,
-                    height : `${rect.height}px`
-                }
-            }]
+        await Neo.applyDeltas(appName, {
+            id,
+            style : {
+                height: `${rect.height}px`,
+                left  : `${rect.left  }px`,
+                top   : `${rect.top   }px`,
+                width : `${rect.width }px`
+            }
         });
 
         // Wait for the element to achieve its initial rectangle
         await me.timeout(50);
 
         // Expand to final state
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id    : me.id,
-                style : {
-                    height   : style?.height    || '',
-                    left     : style?.left      || '50%',
-                    top      : style?.top       || '50%',
-                    transform: style?.transform || 'translate(-50%, -50%)',
-                    width    : style?.width     || '50%'
-                },
-                cls: {
-                    add   : ['animated-hiding-showing'],
-                    remove: []
-                }
-            }]
+        await Neo.applyDeltas(appName, {
+            id,
+            cls: {
+                add: ['animated-hiding-showing']
+            },
+            style: {
+                height   : style?.height    || '',
+                left     : style?.left      || '50%',
+                top      : style?.top       || '50%',
+                transform: style?.transform || 'translate(-50%, -50%)',
+                width    : style?.width     || '50%'
+            }
         });
 
         await me.timeout(200);
 
         // Remove the animation class
-        await Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            appName,
-            deltas: [{
-                id  : me.id,
-                cls : {
-                    remove : ['animated-hiding-showing']
-                }
-            }]
-        });
+        await Neo.applyDeltas(appName, {id, cls: {remove: ['animated-hiding-showing']}});
 
         me.show(false)
     }
