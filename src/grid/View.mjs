@@ -29,7 +29,7 @@ class View extends Component {
     createViewData(inputData) {
         let me         = this,
             amountRows = inputData.length,
-            container  = Neo.getComponent(me.parentId),
+            container  = me.parent,
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],

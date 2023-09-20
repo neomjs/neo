@@ -93,17 +93,13 @@ class Component extends Base {
      * @returns {Neo.controller.Component|null}
      */
     getParent() {
-        let me = this,
-            parentComponent, parentId;
+        let me = this;
 
         if (me.parent) {
             return me.parent;
         }
 
-        parentId        = me.component.parentId;
-        parentComponent = parentId && Neo.getComponent(parentId);
-
-        return parentComponent?.getController() || null
+        return me.component.parent?.getController() || null
     }
 
     /**

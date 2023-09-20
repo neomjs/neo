@@ -255,10 +255,10 @@ class MainContainerController extends ComponentController {
 
         console.log('onAppConnect', name);
 
-        switch (name) {
+        switch(name) {
             case 'SharedCovidChart':
-                view = me.getReference('controls-panel');
-                parentView = Neo.getComponent(view.parentId);
+                view       = me.getReference('controls-panel');
+                parentView = view.parent;
                 parentView.storeReferences();
 
                 toolbar = me.getReference('controls-panel-header');

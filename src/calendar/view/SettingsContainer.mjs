@@ -57,7 +57,7 @@ class SettingsContainer extends Container {
         me._style      = style; // silent update
         me._vdom.style = style; // silent update
 
-        Neo.getComponent(me.parentId).promiseUpdate().then(() => {
+        me.parent.promiseUpdate().then(() => {
             setTimeout(() => {
                 me.collapsed = true;
 
@@ -145,7 +145,7 @@ class SettingsContainer extends Container {
 
         delete me.vdom.removeDom;
 
-        Neo.getComponent(me.parentId).promiseUpdate().then(() => {
+        me.parent.promiseUpdate().then(() => {
             me.collapsed = false;
             me.mounted   = true;
 
