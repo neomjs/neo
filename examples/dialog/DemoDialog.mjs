@@ -1,6 +1,6 @@
+import Button      from '../../src/button/Base.mjs';
 import Dialog      from '../../src/dialog/Base.mjs';
 import SelectField from '../../src/form/field/Select.mjs';
-import Button      from '../../src/button/Base.mjs';
 
 /**
  * @class Neo.examples.dialog.DemoDialog
@@ -17,8 +17,11 @@ class DemoDialog extends Dialog {
         }
     }
 
-    construct() {
-        super.construct(...arguments);
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
 
         const me = this;
 
@@ -48,6 +51,9 @@ class DemoDialog extends Dialog {
         }];
     }
 
+    /**
+     * @param {Object} data
+     */
     createDialog(data) {
         let me = this;
 
