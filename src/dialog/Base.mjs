@@ -1,5 +1,5 @@
-import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
+import Panel    from '../container/Panel.mjs';
 import Toolbar  from './header/Toolbar.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
@@ -204,7 +204,7 @@ class Base extends Panel {
                 if (me.dragZoneConfig?.alwaysFireDragMove) {
                     domListeners.push(
                         {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
-                    );
+                    )
                 }
 
                 me.domListeners       = domListeners;
@@ -383,7 +383,7 @@ class Base extends Panel {
      * @protected
      */
     beforeSetCloseAction(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'closeAction');
+        return this.beforeSetEnumValue(value, oldValue, 'closeAction')
     }
 
     /**
@@ -404,11 +404,13 @@ class Base extends Panel {
      * @param {Boolean} animate=!!this.animateTargetId
      */
     async closeOrHide(animate=!!this.animateTargetId) {
-        const { id } = this;
+        const
+            me     = this,
+            { id } = me;
 
-        this[this.closeAction](animate);
-        await this.timeout(30);
-        this.syncModalMask(id)
+        me[me.closeAction](animate);
+        await me.timeout(30);
+        me.syncModalMask(id)
     }
 
     /**
@@ -477,7 +479,7 @@ class Base extends Panel {
      * @returns {Object} vdom
      */
     getProxyVdom() {
-        return VDomUtil.clone(this.vdom);
+        return VDomUtil.clone(this.vdom)
     }
 
     /**
@@ -506,7 +508,7 @@ class Base extends Panel {
 
         data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
 
-        me.maximized = !me.maximized;
+        me.maximized = !me.maximized
     }
 
     /**
@@ -552,8 +554,8 @@ class Base extends Panel {
 
                         style.transitionProperty = initialTransitionProperty;
 
-                        me.style = style;
-                    }, 50);
+                        me.style = style
+                    }, 50)
                 }
 
                 me.style = style;
@@ -562,8 +564,8 @@ class Base extends Panel {
 
                 // we need a reset, otherwise we do not get a change event for the next onDragStart() call
                 me.dragZone.boundaryContainerId = null;
-                me.isDragging                   = false;
-            });
+                me.isDragging                   = false
+            })
         }
     }
 
@@ -572,7 +574,7 @@ class Base extends Panel {
      * @param data
      */
     onDragMove(data) {
-        this.dragZone.dragMove(data);
+        this.dragZone.dragMove(data)
     }
 
     /**
@@ -580,17 +582,12 @@ class Base extends Panel {
      */
     onDragStart(data) {
         let me    = this,
-            style = me.style || {},
-            resizablePlugin;
+            style = me.style || {};
 
         if (!me.maximized) {
             me.isDragging = true;
 
-            resizablePlugin = me.getPlugin({flag: 'resizable'});
-
-            if (resizablePlugin) {
-                resizablePlugin.removeAllNodes();
-            }
+            me.getPlugin({flag: 'resizable'})?.removeAllNodes();
 
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
@@ -608,16 +605,16 @@ class Base extends Panel {
                 me.fire('dragZoneCreated', {
                     dragZone: me.dragZone,
                     id      : me.id
-                });
+                })
             } else {
-                me.dragZone.boundaryContainerId = me.boundaryContainerId;
+                me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
 
             me.dragZone.dragStart(data);
 
             style.opacity = 0.7;
 
-            me.style = style;
+            me.style = style
         }
     }
 
@@ -640,7 +637,10 @@ class Base extends Panel {
         me.syncModalMask()
     }
 
-    syncModalMask(id = this.id) {
+    /**
+     * @param {String} id=this.id
+     */
+    syncModalMask(id=this.id) {
         // This should sync the visibility and position of the modal mask element.
         Neo.main.DomAccess.syncModalMask({ id, modal : this.modal });
     }
