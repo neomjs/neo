@@ -801,12 +801,19 @@ class DomAccess extends Base {
 
         // Keep all registered aligns aligned on any detected change
         _aligns?.forEach(align => {
+            const targetPresent = document.contains(align.targetElement);
+
             // Align subject and target still in the DOM - correct its alignment
-            if (document.contains(align.subject) && document.contains(align.targetElement)) {
+            if (document.contains(align.subject) && targetPresent) {
                 me.align(align);
             }
             // Align subject or target no longer in the DOM - remove it.
             else {
+                // If target is no longer in the DOM, hide the subject component
+                if (!targetPresent) {
+                    Neo.worker.App.setConfigs({ id : align.id, hidden : true });
+                }
+
                 const
                     { _alignResizeObserver } = me,
                     { constrainToElement }   = align;
