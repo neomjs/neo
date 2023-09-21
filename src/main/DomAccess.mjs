@@ -811,7 +811,7 @@ class DomAccess extends Base {
             else {
                 // If target is no longer in the DOM, hide the subject component
                 if (!targetPresent) {
-                    Neo.worker.App.setConfigs({ id : align.id, hidden : true });
+                    Neo.worker.App.setConfigs({ id: align.id, hidden: true });
                 }
 
                 const
