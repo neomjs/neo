@@ -12,13 +12,6 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * Regex to grab the MethodName from an error
-     * which is a second generation function
-     * @member {RegExp} methodNameRegex
-     * @static
-     */
-    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/
-    /**
      * You can define methods which should get delayed
      * @example
      *  delayable: {
@@ -32,6 +25,13 @@ class Base {
      * @static
      */
     static delayable = {}
+    /**
+     * Regex to grab the MethodName from an error
+     * which is a second generation function
+     * @member {RegExp} methodNameRegex
+     * @static
+     */
+    static methodNameRegex = /\n.*\n\s+at\s+.*\.(\w+)\s+.*/
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=false
