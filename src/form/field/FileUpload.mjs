@@ -97,42 +97,24 @@ class FileUpload extends Base {
          */
         baseCls: ['neo-file-upload-field'],
         /**
+         * @member {String[]} cls=['neo-field-empty']
+         */
+        cls: ['neo-field-empty'],
+        /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn : [
-                {
-                    tag : 'i',
-                    cls : 'neo-file-upload-state-icon'
-                },
-                {
-                    cls : 'neo-file-upload-body',
-                    cn  : [{
-                        cls : 'neo-file-upload-filename'
-                    }, {
-                        cls : 'neo-file-upload-state'
-                    }]
-                },
-                {
-                    cls : 'neo-file-upload-action-button',
-                    tag : 'button'
-                },
-                {
-                    cls  : 'neo-file-upload-input',
-                    tag  : 'input',
-                    type : 'file'
-                },
-                {
-                    cls  : 'neo-file-upload-label',
-                    tag  : 'label'
-                },
-                {
-                    cls : 'neo-file-upload-error-message'
-                }
-            ]
-        },
-
-        cls: ['neo-field-empty'],
+        _vdom:
+        {cn: [
+            {tag: 'i', cls: 'neo-file-upload-state-icon'},
+            {cls: 'neo-file-upload-body', cn: [
+                {cls: 'neo-file-upload-filename'},
+                {cls: 'neo-file-upload-state'}
+            ]},
+            {tag: 'button', cls: 'neo-file-upload-action-button'},
+            {tag: 'input', cls: 'neo-file-upload-input', type: 'file'},
+            {tag: 'label', cls: 'neo-file-upload-label'},
+            {cls: 'neo-file-upload-error-message'}
+        ]},
 
         /**
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
