@@ -398,6 +398,10 @@ class Base extends Component {
             tabIndex: -1
         };
 
+        if (record.hidden) {
+            item.removeDom = true
+        }
+
         if (me.itemRole) {
             item.role = me.itemRole
         }
