@@ -156,7 +156,7 @@ class DateSelector extends Component {
         me.addDomListeners([
             {click: me.onComponentClick, scope: me},
             {wheel: me.onComponentWheel, scope: me}
-        ]);
+        ])
     }
 
     /**
@@ -176,12 +176,12 @@ class DateSelector extends Component {
 
             if (monthIncrement !== 0) { // gets used when month & year changed as well
                 method       = 'changeMonth';
-                methodParams = [monthIncrement, yearIncrement];
+                methodParams = [monthIncrement, yearIncrement]
             } else if (yearIncrement !== 0) {
                 method       = 'changeYear';
-                methodParams = [yearIncrement];
+                methodParams = [yearIncrement]
             } else if (dayIncrement !== 0) {
-                me.selectionModel.select(me.id + '__' + DateUtil.convertToyyyymmdd(value));
+                me.selectionModel.select(me.id + '__' + DateUtil.convertToyyyymmdd(value))
             }
 
             if (method) {
@@ -189,10 +189,10 @@ class DateSelector extends Component {
                     Neo.main.DomAccess.focus({
                         id: me.id
                     }).then(data => {
-                        me[method](...methodParams);
-                    });
+                        me[method](...methodParams)
+                    })
                 } else {
-                    me[method](...methodParams);
+                    me[method](...methodParams)
                 }
             }
         } else if (value) {
@@ -209,7 +209,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
-        this.updateHeaderDays(value, oldValue);
+        this.updateHeaderDays(value, oldValue)
     }
 
     /**
@@ -223,10 +223,10 @@ class DateSelector extends Component {
             let me = this;
 
             if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00.000Z`)) {
-                me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate));
+                me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
-            me.cachedUpdate = null;
+            me.cachedUpdate = null
         }
     }
 
@@ -238,14 +238,14 @@ class DateSelector extends Component {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                dt   = new Intl.DateTimeFormat(me.locale, {month: 'short'});
+            let me = this,
+                dt = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
             me.updateHeaderDays(me.dayNameFormat, '', true);
 
             me.getHeaderMonthEl().html = dt.format(me.currentDate);
 
-            me.update();
+            me.update()
         }
     }
 
@@ -279,8 +279,8 @@ class DateSelector extends Component {
         let me  = this,
             cls = me.cls;
 
-        NeoArray[value ? 'remove' : 'add'](cls, 'neo-hide-inner-borders');
-        me.cls = cls;
+        NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
+        me.cls = cls
     }
 
     /**
@@ -313,9 +313,9 @@ class DateSelector extends Component {
 
                         if (item.cls.includes('neo-weekend')) {
                             if (value) {
-                                delete item.removeDom;
+                                delete item.removeDom
                             } else {
-                                item.removeDom = true;
+                                item.removeDom = true
                             }
                         }
                     }
@@ -366,7 +366,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        oldValue !== undefined && this.recreateDayViewContent(false, false);
+        oldValue !== undefined && this.recreateDayViewContent(false, false)
     }
 
     /**
@@ -376,7 +376,7 @@ class DateSelector extends Component {
      * @protected
      */
     beforeSetDayNameFormat(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats)
     }
 
     /**
@@ -388,7 +388,7 @@ class DateSelector extends Component {
     beforeSetSelectionModel(value, oldValue) {
         oldValue && oldValue.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, DateSelectorModel);
+        return ClassSystemUtil.beforeSetInstance(value, DateSelectorModel)
     }
 
     /**
@@ -398,7 +398,7 @@ class DateSelector extends Component {
      * @protected
      */
     beforeSetWeekStartDay(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays);
+        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays)
     }
 
     /**
@@ -407,7 +407,7 @@ class DateSelector extends Component {
      * @protected
      */
     cacheUpdate(date=this.currentDate) {
-        this.cachedUpdate = date;
+        this.cachedUpdate = date
     }
 
     /**
@@ -420,7 +420,7 @@ class DateSelector extends Component {
             headerMonthOpts, vdom, x;
 
         if (!me.useAnimations) {
-            me.recreateContent(increment, yearIncrement);
+            me.recreateContent(increment, yearIncrement)
         } else {
             if (!me.isUpdating) {
                 me.isUpdating = true;
@@ -440,7 +440,7 @@ class DateSelector extends Component {
                     headerMonthOpts = me.updateHeaderMonth(increment, yearIncrement, true, data[1]);
 
                     if (yearIncrement !== 0) {
-                        me.updateHeaderYear(increment, true);
+                        me.updateHeaderYear(increment, true)
                     }
 
                     me.createDayViewContent(true, vdom.cn[2].cn[0].cn[0]);
@@ -455,12 +455,12 @@ class DateSelector extends Component {
                         setTimeout(() => {
                             me.changeMonthWrapperCallback(slideDirection);
                             me.updateHeaderMonthWrapperCallback(headerMonthOpts);
-                            me.triggerVdomUpdate();
+                            me.triggerVdomUpdate()
                         }, 300);
                     });
                 });
             } else {
-                me.cacheUpdate();
+                me.cacheUpdate()
             }
         }
     }
@@ -474,12 +474,11 @@ class DateSelector extends Component {
      */
     changeMonthTransitionCallback(opts) {
         let me   = this,
-            vdom = me.vdom,
             {data, slideDirection} = opts,
             x;
 
         x = slideDirection === 'right' ? -data.width : 0;
-        vdom.cn[1].cn[0].style.transform = `translateX(${x}px)`;
+        me.vdom.cn[1].cn[0].style.transform = `translateX(${x}px)`
     }
 
     /**
@@ -488,10 +487,9 @@ class DateSelector extends Component {
      * @protected
      */
     changeMonthWrapperCallback(slideDirection) {
-        let me   = this,
-            vdom = me.vdom;
+        let vdom = this.vdom;
 
-        vdom.cn[1] = vdom.cn[1].cn[0].cn[slideDirection === 'right' ? 1 : 0];
+        vdom.cn[1] = vdom.cn[1].cn[0].cn[slideDirection === 'right' ? 1 : 0]
     }
 
     /**
@@ -502,7 +500,7 @@ class DateSelector extends Component {
             scrollFromTop, style, vdom, y;
 
         if (!me.useAnimations) {
-            me.recreateContent(0, increment);
+            me.recreateContent(0, increment)
         } else {
             if (!me.isUpdating) {
                 me.isUpdating = true;
@@ -540,12 +538,12 @@ class DateSelector extends Component {
 
                         setTimeout(() => {
                             vdom.cn[1] = vdom.cn[1].cn[0].cn[scrollFromTop ? 1 : 0];
-                            me.triggerVdomUpdate();
-                        }, 300);
+                            me.triggerVdomUpdate()
+                        }, 300)
                     });
                 });
             } else {
-                me.cacheUpdate();
+                me.cacheUpdate()
             }
         }
     }
@@ -572,15 +570,15 @@ class DateSelector extends Component {
             day = date.getDay();
 
             if (!me.showWeekends && (day === 0 || day === 6)) {
-                config.removeDom = true;
+                config.removeDom = true
             }
 
             row.cn.push(config);
 
-            date.setDate(date.getDate() + 1);
+            date.setDate(date.getDate() + 1)
         }
 
-        return row;
+        return row
     }
 
     /**
@@ -636,7 +634,7 @@ class DateSelector extends Component {
 
                 if (dateDay === 0 || dateDay === 6) {
                     if (!me.showWeekends) {
-                        config.removeDom = true;
+                        config.removeDom = true
                     }
 
                     config.cls.push('neo-weekend');
@@ -685,37 +683,37 @@ class DateSelector extends Component {
         day = day.toString();
 
         if (day.length < 2) {
-            day = '0' + day;
+            day = '0' + day
         }
 
         month = month.toString();
 
         if (month.length < 2) {
-            month = '0' + month;
+            month = '0' + month
         }
 
-        return this.id + '__' + year + '-' + month + '-' + day;
+        return this.id + '__' + year + '-' + month + '-' + day
     }
 
     /**
      * @returns {Object}
      */
     getCenterContentEl() {
-        return this.vdom.cn[1];
+        return this.vdom.cn[1]
     }
 
     /**
      * @returns {Object}
      */
     getHeaderMonthEl() {
-        return this.vdom.cn[0].cn[1].cn[0];
+        return this.vdom.cn[0].cn[1].cn[0]
     }
 
     /**
      * @returns {Object}
      */
     getHeaderYearEl() {
-        return this.vdom.cn[0].cn[1].cn[1];
+        return this.vdom.cn[0].cn[1].cn[1]
     }
 
     /**
@@ -732,7 +730,7 @@ class DateSelector extends Component {
         // We want to always trigger a change event.
         // Reason: A form.field.Date can have a null value, and we want to select the current date.
         me._value = date;
-        me.afterSetValue(date, null);
+        me.afterSetValue(date, null)
     }
 
     /**
@@ -743,14 +741,14 @@ class DateSelector extends Component {
             cls = data.path[0].cls,
             date, monthIncrement;
 
-             if (cls.includes('neo-cell'))        {me.onCellClick(data);}
-        else if (cls.includes('neo-next-button')) {monthIncrement =  1;}
-        else if (cls.includes('neo-prev-button')) {monthIncrement = -1;}
+             if (cls.includes('neo-cell'))        {me.onCellClick(data)}
+        else if (cls.includes('neo-next-button')) {monthIncrement =  1}
+        else if (cls.includes('neo-prev-button')) {monthIncrement = -1}
 
         if (monthIncrement) {
             date = me.currentDate; // cloned
             date.setMonth(date.getMonth() + monthIncrement);
-            me.value = DateUtil.convertToyyyymmdd(date);
+            me.value = DateUtil.convertToyyyymmdd(date)
         }
     }
 
@@ -765,21 +763,21 @@ class DateSelector extends Component {
             date, monthIncrement, yearIncrement;
 
         if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-                 if (deltaY >=  wheelDelta) {yearIncrement  =  1;}
-            else if (deltaY <= -wheelDelta) {yearIncrement  = -1;}
+                 if (deltaY >=  wheelDelta) {yearIncrement  =  1}
+            else if (deltaY <= -wheelDelta) {yearIncrement  = -1}
         } else {
-                 if (deltaX >=  wheelDelta) {monthIncrement =  1;}
-            else if (deltaX <= -wheelDelta) {monthIncrement = -1;}
+                 if (deltaX >=  wheelDelta) {monthIncrement =  1}
+            else if (deltaX <= -wheelDelta) {monthIncrement = -1}
         }
 
         if (monthIncrement) {
             date = me.currentDate; // cloned
             date.setMonth(date.getMonth() + monthIncrement);
-            me.value = DateUtil.convertToyyyymmdd(date);
+            me.value = DateUtil.convertToyyyymmdd(date)
         } else if (yearIncrement) {
             date = me.currentDate; // cloned
             date.setFullYear(date.getFullYear() + yearIncrement);
-            me.value = DateUtil.convertToyyyymmdd(date);
+            me.value = DateUtil.convertToyyyymmdd(date)
         }
     }
 
@@ -846,7 +844,7 @@ class DateSelector extends Component {
             me.isUpdating = true;
 
             me.promiseUpdate().then(() => {
-                me.isUpdating = false;
+                me.isUpdating = false
             })
         }
     }
@@ -864,7 +862,6 @@ class DateSelector extends Component {
         if (oldValue !== undefined) {
             let centerEl = me.getCenterContentEl().cn[0],
                 date     = me.currentDate, // cloned
-                vdom     = me.vdom,
                 i        = 0,
                 day, node;
 
@@ -878,15 +875,15 @@ class DateSelector extends Component {
                 day = date.getDay();
 
                 if (!me.showWeekends && (day === 0 || day === 6)) {
-                    node.removeDom = true;
+                    node.removeDom = true
                 } else {
-                    delete node.removeDom;
+                    delete node.removeDom
                 }
 
-                date.setDate(date.getDate() + 1);
+                date.setDate(date.getDate() + 1)
             }
 
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            !silent && me.update()
         }
     }
 
@@ -908,8 +905,8 @@ class DateSelector extends Component {
 
         if (!me.mounted || !me.useAnimations) {
             monthEl.html = currentMonth;
-            !silent && me.update()
-            return null;
+            !silent && me.update();
+            return null
         } else {
             y = slideDirection === 'top' ? 0 : -monthElDomRect.height;
 
@@ -940,14 +937,14 @@ class DateSelector extends Component {
             headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 'unshift' : 'push'](headerCenterEl.cn[1]);
             headerCenterEl.cn.splice(1, 1);
 
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            !silent && me.update();
 
             return {
                 data: monthElDomRect,
                 headerCenterEl,
                 increment,
                 yearIncrement
-            };
+            }
         }
     }
 
@@ -966,7 +963,7 @@ class DateSelector extends Component {
             y;
 
         y = slideDirection === 'top' ? -data.height : 0;
-        headerCenterEl.cn[0].cn[0].style.transform = `translateY(${y}px)`;
+        headerCenterEl.cn[0].cn[0].style.transform = `translateY(${y}px)`
     }
 
     /**
@@ -981,7 +978,7 @@ class DateSelector extends Component {
         let {headerCenterEl, increment, yearIncrement} = opts,
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom';
 
-        headerCenterEl.cn[0] = headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 1 : 0];
+        headerCenterEl.cn[0] = headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 1 : 0]
     }
 
     /**
