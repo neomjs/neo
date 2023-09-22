@@ -242,6 +242,7 @@ const DefaultConfig = {
      * @type String
      */
     version: '6.6.3'
+};
 
 Object.assign(DefaultConfig, {
     /**
