@@ -189,13 +189,19 @@ class Helper extends Base {
             } else {
                 // console.log('top level removed node', oldVnode.id, oldVnode);
 
-                let removedNodeDetails = me.findVnode(oldVnodeRoot, oldVnode.id);
+                delta = {
+                    action: 'removeNode',
+                    id    : oldVnode.id
+                };
 
-                deltas.push({
-                    action  : 'removeNode',
-                    id      : oldVnode.id,
-                    parentId: removedNodeDetails?.parentNode.id
-                })
+                // We only need a parentId for vtype text
+                if (oldVnode.vtype === 'text') {
+                    let removedNodeDetails = me.findVnode(oldVnodeRoot, oldVnode.id);
+
+                    delta.parentId = removedNodeDetails?.parentNode.id
+                }
+
+                deltas.push(delta)
             }
         } else {
             if (newVnode && oldVnode && newVnode.id !== oldVnode.id) {
