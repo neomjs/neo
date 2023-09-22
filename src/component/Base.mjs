@@ -2050,9 +2050,10 @@ class Base extends CoreBase {
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
+     * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom) {
-        VDomUtil.syncVdomIds(vnode, vdom)
+    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
+        VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
     /**

@@ -828,9 +828,8 @@ class DateSelector extends Component {
         me.getCenterContentEl().cn = [];
         me.createDayViewContent(true);
 
-        if (syncIds) {
-            me.syncVdomIds()
-        }
+        // using force => we do want to keep the same ids
+        syncIds && me.syncVdomIds(me.vnode, me.vdom, true);
 
         me.triggerVdomUpdate(silent)
     }
@@ -846,9 +845,9 @@ class DateSelector extends Component {
 
             me.isUpdating = true;
 
-            me.promiseUpdate(me.vdom).then(() => {
+            me.promiseUpdate().then(() => {
                 me.isUpdating = false;
-            });
+            })
         }
     }
 

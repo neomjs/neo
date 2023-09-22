@@ -15,23 +15,23 @@ class VDom extends Base {
 
     /**
      * @param {Object} vdom
-     * @param {Boolean} [removeIds=true]
+     * @param {Boolean} removeIds=true
      * @returns {Object} cloned vdom
      */
     static clone(vdom, removeIds=true) {
         const clone = Neo.clone(vdom, true);
 
         if (removeIds) {
-            delete clone.id;
+            delete clone.id
         }
 
         if (clone.cn) {
             clone.cn.forEach((item, index) => {
-                clone.cn[index] = VDom.clone(item, removeIds);
-            });
+                clone.cn[index] = VDom.clone(item, removeIds)
+            })
         }
 
-        return clone;
+        return clone
     }
 
     /**
@@ -64,39 +64,39 @@ class VDom extends Base {
                     case 'cls':
                         if (typeof value === 'string' && Neo.isArray(vdom[key])) {
                             if (vdom[key].includes(value)) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else if (typeof value === 'string' && typeof vdom[key] === 'string') {
                             if (vdom[key] === value) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else if (Neo.isArray(value) && Neo.isArray(vdom[key])) {
                             // todo: either search the vdom array for all keys or compare if the arrays are equal.
-                            throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays');
+                            throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays')
                         }
                         break;
                     case 'style':
                         if (typeof value === 'string' && typeof vdom[key] === 'string') {
                             if (vdom[key] === value) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else if (Neo.isObject(value) && Neo.isObject(vdom[key])) {
                             Object.entries(value).forEach(([styleKey, styleValue]) => {
                                 if (!(vdom[key].hasOwnProperty(styleKey) && vdom[key][styleKey] === styleValue)) {
-                                    styleMatch = false;
+                                    styleMatch = false
                                 }
                             });
 
                             if (styleMatch) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else {
-                            throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)');
+                            throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)')
                         }
                         break;
                     default:
                         if (vdom[key] === value) {
-                            matchArray.push(true);
+                            matchArray.push(true)
                         }
                         break;
                 }
@@ -118,13 +118,13 @@ class VDom extends Base {
                             parentNode: subChild.parentNode,
                             vdom      : subChild.vdom
                         };
-                        break;
+                        break
                     }
                 }
             }
         }
 
-        return child;
+        return child
     }
 
     /**
@@ -135,7 +135,7 @@ class VDom extends Base {
      */
     static getByFlag(vdom, flag) {
         let node = VDom.findVdomChild(vdom, {flag: flag});
-        return node?.vdom;
+        return node?.vdom
     }
 
     /**
@@ -149,13 +149,13 @@ class VDom extends Base {
 
         childNodes.forEach(childNode => {
             if (childNode.id) {
-                childIds.push(childNode.id);
+                childIds.push(childNode.id)
             }
 
-            childIds = VDom.getChildIds(childNode, childIds);
+            childIds = VDom.getChildIds(childNode, childIds)
         });
 
-        return childIds;
+        return childIds
     }
 
     /**
@@ -169,12 +169,12 @@ class VDom extends Base {
         if (vdom.cn) {
             vdom.cn.forEach(row => {
                 if (row.cn?.[index]) {
-                    columnNodes.push(row.cn[index]);
+                    columnNodes.push(row.cn[index])
                 }
-            });
+            })
         }
 
-        return columnNodes;
+        return columnNodes
     }
 
     /**
@@ -183,7 +183,7 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getColumnNodesIds(vdom, index) {
-        return VDom.getColumnNodes(vdom, index).map(e => e.id);
+        return VDom.getColumnNodes(vdom, index).map(e => e.id)
     }
 
     /**
@@ -197,19 +197,19 @@ class VDom extends Base {
             matchArray = [];
 
             if (vdom.flag === flag) {
-                matchArray.push(vdom);
+                matchArray.push(vdom)
             }
         }
 
         (vdom?.cn || []).forEach(childNode => {
             if (childNode.flag === flag) {
-                matchArray.push(childNode);
+                matchArray.push(childNode)
             }
 
-            matchArray = VDom.getFlags(childNode, flag, matchArray);
+            matchArray = VDom.getFlags(childNode, flag, matchArray)
         });
 
-        return matchArray;
+        return matchArray
     }
 
     /**
@@ -224,7 +224,7 @@ class VDom extends Base {
             len     = vdom.cn?.length || 0;
 
         if (vdom.id === id) {
-            return [];
+            return []
         }
 
         for (; i < len; i++) {
@@ -232,15 +232,15 @@ class VDom extends Base {
 
             if (parents) {
                 parents.push(vdom.cn[i]);
-                break;
+                break
             }
         }
 
         if (topLevel && parents) {
-            parents.push(vdom);
+            parents.push(vdom)
         }
 
-        return parents;
+        return parents
     }
 
     /**
@@ -251,7 +251,7 @@ class VDom extends Base {
      * @returns {Boolean}
      */
     static insertAfterNode(vdom, nodeToInsert, targetNodeId) {
-        return VDom.insertNode(vdom, nodeToInsert, targetNodeId, false);
+        return VDom.insertNode(vdom, nodeToInsert, targetNodeId, false)
     }
 
     /**
@@ -262,7 +262,7 @@ class VDom extends Base {
      * @returns {Boolean}
      */
     static insertBeforeNode(vdom, nodeToInsert, targetNodeId) {
-        return VDom.insertNode(vdom, nodeToInsert, targetNodeId, true);
+        return VDom.insertNode(vdom, nodeToInsert, targetNodeId, true)
     }
 
     /**
@@ -275,7 +275,7 @@ class VDom extends Base {
      */
     static insertNode(vdom, nodeToInsert, targetNodeId, insertBefore) {
         if (Neo.isObject(targetNodeId)) {
-            targetNodeId = targetNodeId.id;
+            targetNodeId = targetNodeId.id
         }
 
         let targetNode = VDom.findVdomChild(vdom, {id: targetNodeId}),
@@ -284,10 +284,10 @@ class VDom extends Base {
         if (targetNode) {
             index = insertBefore ? targetNode.index : targetNode.index + 1;
             targetNode.parentNode.cn.splice(index, 0, nodeToInsert);
-            return true;
+            return true
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -301,10 +301,10 @@ class VDom extends Base {
 
         if (child) {
             child.parentNode.cn.splice(child.index, 1);
-            return true;
+            return true
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -321,7 +321,7 @@ class VDom extends Base {
             childNode;
 
         if (vdom.id === id) {
-            throw new Error('replaceVdomChild: target id matches the root vnode id: ' + id);
+            throw new Error('replaceVdomChild: target id matches the root vnode id: ' + id)
         }
 
         for (; i < len; i++) {
@@ -329,11 +329,11 @@ class VDom extends Base {
 
             if (childNode.id === id) {
                 cn[i] = newChildNode;
-                return true;
+                return true
             }
 
             if (VDom.replaceVdomChild(childNode, id, newChildNode)) {
-                return true;
+                return true
             }
         }
 
@@ -345,16 +345,23 @@ class VDom extends Base {
      * so we need to sync them into the vdom.
      * @param {Neo.vdom.VNode} vnode
      * @param {Object} vdom
+     * @param {Boolean} force=false The force param will enforce overwriting different ids
      */
-    static syncVdomIds(vnode, vdom) {
+    static syncVdomIds(vnode, vdom, force=false) {
         if (vnode && vdom) {
             let childNodes = vdom.cn,
                 cn, i, len;
 
-            // we only want to change vdom ids in case there is not already an own id
-            // (think of adding & removing nodes in parallel)
-            if (!vdom.id && vnode.id) {
-                vdom.id = vnode.id;
+            if (force) {
+                if (vnode.id && vdom.id !== vnode.id) {
+                    vdom.id = vnode.id
+                }
+            } else {
+                // we only want to change vdom ids in case there is not already an own id
+                // (think of adding & removing nodes in parallel)
+                if (!vdom.id && vnode.id) {
+                    vdom.id = vnode.id
+                }
             }
 
             if (childNodes) {
@@ -364,7 +371,7 @@ class VDom extends Base {
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
-                        VDom.syncVdomIds(vnode.childNodes[i], cn[i])
+                        VDom.syncVdomIds(vnode.childNodes[i], cn[i], force)
                     }
                 }
             }
