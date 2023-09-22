@@ -97,69 +97,54 @@ class FileUpload extends Base {
          */
         baseCls: ['neo-file-upload-field'],
         /**
+         * @member {String[]} cls=['neo-field-empty']
+         */
+        cls: ['neo-field-empty'],
+        /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn : [
-                {
-                    tag : 'i',
-                    cls : 'neo-file-upload-state-icon'
-                },
-                {
-                    cls : 'neo-file-upload-body',
-                    cn  : [{
-                        cls : 'neo-file-upload-filename'
-                    }, {
-                        cls : 'neo-file-upload-state'
-                    }]
-                },
-                {
-                    cls : 'neo-file-upload-action-button',
-                    tag : 'button'
-                },
-                {
-                    cls  : 'neo-file-upload-input',
-                    tag  : 'input',
-                    type : 'file'
-                },
-                {
-                    cls  : 'neo-file-upload-label',
-                    tag  : 'label'
-                },
-                {
-                    cls : 'neo-file-upload-error-message'
-                }
-            ]
-        },
-
-        cls : ['neo-field-empty'],
+        _vdom:
+        {cn: [
+            {tag: 'i', cls: 'neo-file-upload-state-icon'},
+            {cls: 'neo-file-upload-body', cn: [
+                {cls: 'neo-file-upload-filename'},
+                {cls: 'neo-file-upload-state'}
+            ]},
+            {tag: 'button', cls: 'neo-file-upload-action-button'},
+            {tag: 'input', cls: 'neo-file-upload-input', type: 'file'},
+            {tag: 'label', cls: 'neo-file-upload-label'},
+            {cls: 'neo-file-upload-error-message'}
+        ]},
 
         /**
          * An Object containing a default set of headers to be passed to the server on every HTTP request.
          * @member {Object} headers
          */
-        headers_ : {},
+        headers_: {},
 
         /**
          * An Object which allows the status text returned from the {@link #property-documentStatusUrl} to be
          * mapped to the corresponding next widget state.
          * @member {Object} documentStatusMap
          */
-        documentStatusMap : {
+        documentStatusMap: {
             SCANNING         : 'scanning',
 
             // The server doing its own secondary upload to the final storage location may return this.
             // We enter the same state as scanning. A spinner shows for the duration of this state
-            UPLOADING        : 'scanning',
+            UPLOADING       : 'scanning',
 
-            MALWARE_DETECTED : 'scan-failed',
-            UN_DOWNLOADABLE  : 'not-downloadable',
-            AVAILABLE        : 'not-downloadable',
-            DOWNLOADABLE     : 'downloadable',
-            DELETED          : 'deleted'
+            MALWARE_DETECTED: 'scan-failed',
+            UN_DOWNLOADABLE : 'not-downloadable',
+            AVAILABLE       : 'not-downloadable',
+            DOWNLOADABLE    : 'downloadable',
+            DELETED         : 'deleted'
         },
 
-        document_ : null,
+        /**
+         * @member {String|null} document_=null
+         */
+        document_: null,
 
         /**
          * If this widget should reference an existing document, configure the widget with a documentId
@@ -169,7 +154,7 @@ class FileUpload extends Base {
          * the id returned from the {@link #property-uploadUrl}.
          * @member {String|Number} documentId
          */
-        documentId : null,
+        documentId: null,
 
         /**
          * The URL of the file upload service to which the selected file is sent.
@@ -188,9 +173,9 @@ class FileUpload extends Base {
          * scan operation to see if the file was accepted, and whether it is to be subsequently downloadable.
          *
          * The document status request URL must be configured in {@link #member-documentStatusUrl}
-         * @member {String} uploadUrl
+         * @member {String|null} uploadUrl=null
          */
-        uploadUrl : null,
+        uploadUrl: null,
 
         /**
          * The name of the JSON property in which the document id is returned in the upload response
@@ -199,18 +184,18 @@ class FileUpload extends Base {
          *
          * Defaults fro `documentId`
          *
-         * @member {String} downloadUrl
+         * @member {String} documentIdParameter='documentId'
          */
-        documentIdParameter : 'documentId',
+        documentIdParameter: 'documentId',
 
         /**
          * The URL from which the file may be downloaded after it has finished its scan.
          *
          * This must contain a substitution token named the same as the {@link #property-documentIdParameter}
          * which is used when creating a URL
-         * 
+         *
          * for example:
-         * 
+         *
          * ```json
          * {
          *     downloadUrl : '/getDocument/${documentId}'
@@ -220,18 +205,18 @@ class FileUpload extends Base {
          * The document id returned from the {@link #member-uploadUrl upload} is passed in the parameter named
          * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
          *
-         * @member {String} downloadUrl
+         * @member {String|null} downloadUrl_=null
          */
-        downloadUrl_ : null,
+        downloadUrl_: null,
 
         /**
          * The URL of the file status reporting service.
          *
          * This must contain a substitution token named the same as the {@link #property-documentIdParameter}
          * which is used when creating a URL
-         * 
+         *
          * for example:
-         * 
+         *
          * ```json
          * {
          *     documentStatusUrl : '/getDocumentStatus/${documentId}'
@@ -249,9 +234,9 @@ class FileUpload extends Base {
          * }
          * ```
          *
-         * @member {String} documentStatusUrl
+         * @member {String|null} documentStatusUrl_=null
          */
-        documentStatusUrl_ : null,
+        documentStatusUrl_: null,
 
         /**
          * The polling interval *in milliseconds* to wait between asking the server how the document scan
@@ -259,18 +244,18 @@ class FileUpload extends Base {
          *
          * Defaults to 2000ms
          *
-         * @member {String} documentDeleteUrl
+         * @member {Number} statusScanInterval=2000
          */
-        statusScanInterval : 2000,
+        statusScanInterval: 2000,
 
         /**
          * The URL of the file deletion service.
          *
          * This must contain a substitution token named the same as the {@link #property-documentIdParameter}
          * which is used when creating a URL
-         * 
+         *
          * for example:
-         * 
+         *
          * ```json
          * {
          *     documentDeleteUrl : '/deleteDocument/${documentId}'
@@ -282,17 +267,17 @@ class FileUpload extends Base {
          *
          * If this service yields an HTTP 200 status, the deletion is taken to have been successful.
          *
-         * @member {String} documentDeleteUrl
+         * @member {String|null} documentDeleteUrl_=null
          */
-        documentDeleteUrl_ : null,
+        documentDeleteUrl_: null,
 
         /**
          * The HTTP method to use when requesting a document deletion using the {@link #member-documentDeleteUrl}.
-         * 
+         *
          * Defaults to `DELETE`.
-         * @member {String} documentDeleteMethod
+         * @member {String} documentDeleteMethod='DELETE'
          */
-        documentDeleteMethod : 'DELETE',
+        documentDeleteMethod: 'DELETE',
 
         /**
          * @member {String} state_=null
@@ -302,16 +287,16 @@ class FileUpload extends Base {
         /**
          * @member {Object} types=null
          */
-        types_ : null,
+        types_: null,
 
         /**
-         * @member {String|Number} maxSize
+         * @member {String|Number|null} maxSize=null
          */
         maxSize_: null,
 
         /**
          * The error text to show below the widget
-         * @member {String} error
+         * @member {String|null} error_=null
          */
         error_ : null,
 
@@ -362,7 +347,7 @@ class FileUpload extends Base {
 
         this.vdom.cn[4].html = this.chooseFile;
     }
-    
+
     /**
      * @returns {Object}
      */
@@ -410,7 +395,7 @@ class FileUpload extends Base {
         if (files.length) {
             NeoArray.remove(cls, 'neo-field-empty');
             me.cls = cls;
-            
+
             const
                 file     = files.item(0),
                 pointPos = file.name.lastIndexOf('.'),
@@ -643,7 +628,7 @@ class FileUpload extends Base {
 
             // Success
             if (String(statusResponse.status).slice(0, 1) === '2') {
-                const 
+                const
                     serverJson   = await statusResponse.json(),
                     serverStatus = serverJson.status,
                     // Map the server's states codes to our own status codes
@@ -746,8 +731,8 @@ class FileUpload extends Base {
     /**
      * Creates a URL substituting the passed parameter names in at the places where the name
      * occurs within `{}` in the pattern.
-     * @param {String} urlPattern 
-     * @param {Object} params 
+     * @param {String} urlPattern
+     * @param {Object} params
      */
     createUrl(urlPattern, params) {
         for (const paramName in params) {

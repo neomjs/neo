@@ -189,10 +189,13 @@ class Helper extends Base {
             } else {
                 // console.log('top level removed node', oldVnode.id, oldVnode);
 
+                let removedNodeDetails = me.findVnode(oldVnodeRoot, oldVnode.id);
+
                 deltas.push({
-                    action: 'removeNode',
-                    id    : oldVnode.id
-                });
+                    action  : 'removeNode',
+                    id      : oldVnode.id,
+                    parentId: removedNodeDetails?.parentNode.id
+                })
             }
         } else {
             if (newVnode && oldVnode && newVnode.id !== oldVnode.id) {

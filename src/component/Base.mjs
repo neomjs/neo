@@ -2166,8 +2166,8 @@ class Base extends CoreBase {
     /**
      *
      */
-    async update() {
-        await this.afterSetVdom(this.vdom, null)
+    update() {
+        this.afterSetVdom(this.vdom, null)
     }
 
     /**
