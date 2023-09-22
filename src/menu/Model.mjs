@@ -25,6 +25,9 @@ class Model extends BaseModel {
             name: 'handler',
             type: 'Function'
         }, {
+            name: 'hidden',
+            type: 'Boolean'
+        }, {
             name: 'iconCls',
             type: 'String'
         }, {
