@@ -2050,13 +2050,17 @@ class Base extends CoreBase {
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
+     * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom) {
-        VDomUtil.syncVdomIds(vnode, vdom)
+    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
+        VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
     /**
-     * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
+     * In case a component receives a new vnode, we want to do:
+     * - sync the vdom ids
+     * - setting rendered to true for child components
+     * - updating the parent component to ensure that the vnode tree stays persistent
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
     syncVnodeTree(vnode=this.vnode) {
