@@ -341,7 +341,8 @@ class VDom extends Base {
     }
 
     /**
-     * Neo.vdom.Helper will create ids for each vnode, so we need to sync them into the vdom
+     * Neo.vdom.Helper will create ids for each vnode which does not already have one,
+     * so we need to sync them into the vdom.
      * @param {Neo.vdom.VNode} vnode
      * @param {Object} vdom
      */
@@ -350,7 +351,9 @@ class VDom extends Base {
             let childNodes = vdom.cn,
                 cn, i, len;
 
-            if (vnode.id && vnode.id !== vdom.id) {
+            // we only want to change vdom ids in case there is not already an own id
+            // (think of adding & removing nodes in parallel)
+            if (!vdom.id && vnode.id) {
                 vdom.id = vnode.id;
             }
 
