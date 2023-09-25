@@ -4,6 +4,12 @@ import {bindAppend} from '../src/util/Function.mjs';
 import Panel        from '../src/container/Panel.mjs';
 import Viewport     from '../src/container/Viewport.mjs';
 
+// add custom themes here
+const themes = [
+    {name: 'neo-theme-dark',  label: 'Theme Dark'},
+    {name: 'neo-theme-light', label: 'Theme Light'}
+]
+
 /**
  * Base class for example Apps which should be configurable
  * @class Neo.examples.ConfigurationViewport
@@ -175,21 +181,22 @@ class ConfigurationViewport extends Viewport {
      * @param {String} target
      */
     onSwitchTheme(data, target) {
-        let me     = this,
-            button = data.component,
-            newTheme, oldTheme;
+        let me          = this,
+            button      = data.component,
+            countThemes = themes.length,
+            newTheme, oldIndex, oldTheme, themeIndex;
 
-        if (button.text === 'Theme Light') {
-            newTheme = 'neo-theme-light';
-            oldTheme = 'neo-theme-dark';
+        themes.forEach((theme, index) => {
+            if (button.text === theme.label) {
+                newTheme   = theme.name;
+                themeIndex = index;
+            }
+        });
 
-            button.text = 'Theme Dark';
-        } else {
-            newTheme = 'neo-theme-dark';
-            oldTheme = 'neo-theme-light';
+        oldIndex = (themeIndex + 1) % countThemes;
+        oldTheme = themes[oldIndex].name;
 
-            button.text = 'Theme Light';
-        }
+        button.text = themes[oldIndex].label;
 
         if (target === 'cmp') {
             me.exampleComponent.theme = newTheme;
