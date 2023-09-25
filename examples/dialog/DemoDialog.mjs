@@ -44,11 +44,12 @@ class DemoDialog extends Dialog {
                 })()
             }
         }, {
-            module : Button,
-            handler: me.createDialog.bind(me),
-            iconCls: 'fa fa-window-maximize',
-            text   : 'Create new modal Dialog',
-        }];
+            module   : Button,
+            handler  : me.createDialog.bind(me),
+            iconCls  : 'fa fa-window-maximize',
+            reference: 'create-second-dialog-button',
+            text     : 'Create new modal Dialog',
+        }]
     }
 
     /**
@@ -63,16 +64,16 @@ class DemoDialog extends Dialog {
             appName            : me.appName,
             boundaryContainerId: me.boundaryContainerId,
             listeners          : {close: me.onWindowClose, scope: me},
-            modal              : true
+            modal              : true,
+            title              : 'Second Dialog'
         });
     }
 
+    /**
+     *
+     */
     onWindowClose() {
-        let button = this.down({
-            text: 'Create new modal Dialog'
-        });
-
-        button.disabled = false;
+        this.getReference('create-second-dialog-button').disabled = false;
     }
 }
 
