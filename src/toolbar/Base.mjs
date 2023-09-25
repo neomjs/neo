@@ -39,7 +39,8 @@ class Base extends Container {
          * @member {Object} itemDefaults={ntype:'button'}
          */
         itemDefaults: {
-            ntype: 'button'
+            ntype: 'button',
+            ui: 'tertiary'
         },
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'center', pack : 'start'}
