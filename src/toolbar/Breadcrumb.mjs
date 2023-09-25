@@ -28,6 +28,13 @@ class Breadcrumb extends Toolbar {
          */
         baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
         /**
+         * @member {Object} itemDefaults={ntype:'button', ui: 'tertiary'}
+         */
+        itemDefaults: {
+            ntype: 'button',
+            ui   : 'tertiary'
+        },
+        /**
          * @member {Neo.data.Store|Object} store_=null
          */
         store_: null
