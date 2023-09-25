@@ -1,8 +1,8 @@
-import Button    from '../src/button/Base.mjs';
-import Container from '../src/container/Base.mjs';
-import NeoArray  from '../src/util/Array.mjs';
-import Panel     from '../src/container/Panel.mjs';
-import Viewport  from '../src/container/Viewport.mjs';
+import Button       from '../src/button/Base.mjs';
+import Container    from '../src/container/Base.mjs';
+import {bindAppend} from '../src/util/Function.mjs';
+import Panel        from '../src/container/Panel.mjs';
+import Viewport     from '../src/container/Viewport.mjs';
 
 /**
  * Base class for example Apps which should be configurable
@@ -112,8 +112,7 @@ class ConfigurationViewport extends Viewport {
 
                 items: [...me.configurationComponents, {
                     module : Button,
-                    handler: me.onSwitchTheme.bind(me, 'cmp'),
-                    id     : me.id + '_cmp_' + 'switchThemeButton',
+                    handler: bindAppend(me.onSwitchTheme, me, 'cmp'),
                     style  : {marginTop: '20px'},
                     text   : theme === 'neo-theme-dark' ? 'Theme Light' : 'Theme Dark',
                     width  : 100
@@ -172,11 +171,12 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
+     * @param {Object} data
      * @param {String} target
      */
-    onSwitchTheme(target) {
+    onSwitchTheme(data, target) {
         let me     = this,
-            button = Neo.getComponent(me.id + (target !== 'cmp' ? '__' : '_cmp_') + 'switchThemeButton'),
+            button = data.component,
             newTheme, oldTheme;
 
         if (button.text === 'Theme Light') {
