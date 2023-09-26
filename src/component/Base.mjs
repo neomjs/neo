@@ -2161,7 +2161,7 @@ class Base extends CoreBase {
     /**
      * Convenience shortcut for Neo.manager.Component.up
      * @param {Object|String} config
-     * @returns {Neo.core.Base} The matching instance or null
+     * @returns {Neo.component.Base|null} The matching instance or null
      */
     up(config) {
         return ComponentManager.up(this.id, config)
