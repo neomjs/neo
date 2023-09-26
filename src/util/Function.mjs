@@ -1,11 +1,11 @@
 /**
  * Append args instead of prepending them
+ * @param {Function} fn
  * @param {Object} scope
  * @returns {Function}
  */
-export function bindAppend(scope) {
-    const fn   = this,
-          args = [].slice.call(arguments).slice(1);
+export function bindAppend(fn, scope) {
+    const args = [].slice.call(arguments).slice(2);
 
     return function() {
         return fn.apply(scope, [].slice.call(arguments).concat(args))

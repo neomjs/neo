@@ -13,8 +13,8 @@ class Base extends Component {
      * @static
      */
     static delayable = {
-        fireChangeEvent    : {type: 'debounce', timer: 300},
-        fireUserChangeEvent: {type: 'debounce', timer: 300}
+        fireChangeEvent    : {type: 'debounce', timer: 1000},
+        fireUserChangeEvent: {type: 'debounce', timer: 1000}
     }
 
     static config = {
