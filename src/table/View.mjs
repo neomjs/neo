@@ -134,7 +134,7 @@ class View extends Component {
     createViewData(inputData) {
         let me         = this,
             amountRows = inputData.length,
-            container  = Neo.getComponent(me.parentId),
+            container  = me.parent,
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],
@@ -337,7 +337,7 @@ class View extends Component {
      */
     onStoreRecordChange(opts) {
         let me          = this,
-            container   = Neo.getComponent(me.parentId),
+            container   = me.parent,
             needsUpdate = false,
             vdom        = me.vdom,
             cellId, cellNode, column, index, scope;

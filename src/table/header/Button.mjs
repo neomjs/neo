@@ -369,9 +369,9 @@ class Button extends BaseButton {
      */
     onDrop(data) {
         let me             = this,
-            headerToolbar  = Neo.getComponent(me.parentId),
+            headerToolbar  = me.parent,
             style          = me.style,
-            tableContainer = Neo.getComponent(headerToolbar.parentId);
+            tableContainer = headerToolbar.parent;
 
         me.onDragLeave();
         headerToolbar.switchItems(me.id, data.srcId);

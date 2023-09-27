@@ -1336,7 +1336,7 @@ class Base extends CoreBase {
         }
 
         if (me.parentId) {
-            parentComponent = Neo.getComponent(me.parentId) || Neo.get(me.parentId);
+            parentComponent = me.parent || Neo.get(me.parentId);
 
             if (parentComponent) {
                 return parentComponent.getConfigInstanceByNtype(configName, ntype)
@@ -1559,7 +1559,7 @@ class Base extends CoreBase {
             let removeFn = function() {
                 if(me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
-                    Neo.getComponent(me.parentId).update()
+                    me.parent.update()
                 } else {
                     me.unmount()
                 }
@@ -2033,7 +2033,7 @@ class Base extends CoreBase {
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if(me.parentId !== 'document.body') {
-                Neo.getComponent(me.parentId).update()
+                me.parent.update()
             } else {
                 !me.mounted && me.render(true)
             }
