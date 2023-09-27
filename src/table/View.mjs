@@ -248,8 +248,8 @@ class View extends Component {
      * @returns {Object|null}
      */
     getColumn(field) {
-        let container = Neo.getComponent(this.parentId),
-            columns   = container.columns,
+        let container = this.parent,
+            columns   = container.items[0].items, // todo: we need a shortcut for accessing the header toolbar
             i         = 0,
             len       = columns.length,
             column;

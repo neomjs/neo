@@ -1419,7 +1419,7 @@ class Base extends CoreBase {
      * @returns {Number|undefined}
      */
     getMountedParentIndex() {
-        let parent = Neo.getComponent(this.parentId),
+        let parent = this.parent,
             items  = parent?.items || [],
             i      = 0,
             index  = 0,
