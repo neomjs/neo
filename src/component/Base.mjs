@@ -1336,7 +1336,7 @@ class Base extends CoreBase {
         }
 
         if (me.parentId) {
-            parentComponent = Neo.getComponent(me.parentId) || Neo.get(me.parentId);
+            parentComponent = me.parent || Neo.get(me.parentId);
 
             if (parentComponent) {
                 return parentComponent.getConfigInstanceByNtype(configName, ntype)
@@ -1419,7 +1419,7 @@ class Base extends CoreBase {
      * @returns {Number|undefined}
      */
     getMountedParentIndex() {
-        let parent = Neo.getComponent(this.parentId),
+        let parent = this.parent,
             items  = parent?.items || [],
             i      = 0,
             index  = 0,
@@ -1559,7 +1559,7 @@ class Base extends CoreBase {
             let removeFn = function() {
                 if(me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
-                    Neo.getComponent(me.parentId).update()
+                    me.parent.update()
                 } else {
                     me.unmount()
                 }
@@ -2033,7 +2033,7 @@ class Base extends CoreBase {
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if(me.parentId !== 'document.body') {
-                Neo.getComponent(me.parentId).update()
+                me.parent.update()
             } else {
                 !me.mounted && me.render(true)
             }
@@ -2161,7 +2161,7 @@ class Base extends CoreBase {
     /**
      * Convenience shortcut for Neo.manager.Component.up
      * @param {Object|String} config
-     * @returns {Neo.core.Base} The matching instance or null
+     * @returns {Neo.component.Base|null} The matching instance or null
      */
     up(config) {
         return ComponentManager.up(this.id, config)

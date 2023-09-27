@@ -142,7 +142,7 @@ class Container extends BaseContainer {
 
         me.vdom.id = me.getWrapperId();
 
-        me.createColumns(me.columns);
+        me.createColumns(me.columns)
     }
 
     /**
@@ -152,7 +152,7 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this);
+        this.rendered && value.register(this)
     }
 
     /**
@@ -163,7 +163,7 @@ class Container extends BaseContainer {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            Neo.getComponent(this.headerToolbarId).showHeaderFilters = value;
+            Neo.getComponent(this.headerToolbarId).showHeaderFilters = value
         }
     }
 
@@ -175,7 +175,7 @@ class Container extends BaseContainer {
      */
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
-            Neo.getComponent(this.headerToolbarId).sortable = value;
+            Neo.getComponent(this.headerToolbarId).sortable = value
         }
     }
 
@@ -187,7 +187,7 @@ class Container extends BaseContainer {
      */
     afterSetUseCustomScrollbars(value, oldValue) {
         if (value === true) {
-            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar']);
+            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar'])
         }
     }
 
@@ -200,17 +200,17 @@ class Container extends BaseContainer {
             cssRules = [];
 
         if (me.dockLeftMargin) {
-            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}')
         }
 
         if (me.dockRightMargin) {
-            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}');
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}')
         }
         if (cssRules.length > 0) {
-            CssUtil.insertRules(me.appName, cssRules);
+            CssUtil.insertRules(me.appName, cssRules)
         }
 
-        me.scrollbarsCssApplied = true;
+        me.scrollbarsCssApplied = true
     }
 
     /**
@@ -221,10 +221,10 @@ class Container extends BaseContainer {
      */
     beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
-            return this.createColumns(value);
+            return this.createColumns(value)
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -234,7 +234,7 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetHeaderToolbarId(value, oldValue) {
-        return value ? value : oldValue;
+        return value || oldValue
     }
 
     /**
@@ -246,7 +246,7 @@ class Container extends BaseContainer {
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, RowModel);
+        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -270,20 +270,20 @@ class Container extends BaseContainer {
 
             if (value instanceof Store) {
                 value.on(listeners);
-                value.getCount() > 0 && me.onStoreLoad(value.items);
+                value.getCount() > 0 && me.onStoreLoad(value.items)
             } else {
                 value = ClassSystemUtil.beforeSetInstance(value, Store, {
                     listeners
-                });
+                })
             }
 
             // in case we dynamically change the store, the view needs to get the new reference
             if (me.view) {
-                me.view.store = value;
+                me.view.store = value
             }
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -293,7 +293,7 @@ class Container extends BaseContainer {
      * @protected
      */
     beforeSetViewId(value, oldValue) {
-        return value ? value : oldValue;
+        return value || oldValue
     }
 
     /**
@@ -325,26 +325,26 @@ class Container extends BaseContainer {
 
             if (sorters?.[0]) {
                 if (column.dataField === sorters[0].property) {
-                    column.isSorted = sorters[0].direction;
+                    column.isSorted = sorters[0].direction
                 }
             }
 
             column.listeners = {
                 sort : me.onSortColumn,
                 scope: me
-            };
+            }
         });
 
         me.items[0].items = columns;
 
-        return columns;
+        return columns
     }
 
     /**
      * @param {Number} countRows
      */
     createRandomViewData(countRows) {
-        this.loadData(countRows);
+        this.loadData(countRows)
     }
 
     /**
@@ -360,7 +360,7 @@ class Container extends BaseContainer {
             me.applyCustomScrollbarsCss();
         }
 
-        me.items = items;
+        me.items = items
     }
 
     /**
@@ -368,21 +368,21 @@ class Container extends BaseContainer {
      * @returns {*}
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
      * @returns {Object[]} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
      * @returns {Neo.table.View}
      */
     getView() {
-        return Neo.getComponent(this.viewId) || Neo.get(this.viewId);
+        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
     }
 
     /**
@@ -390,14 +390,14 @@ class Container extends BaseContainer {
      * @returns {Neo.vdom.VNode}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 
     /**
      * @returns {String}
      */
     getWrapperId() {
-        return `${this.id}__wrapper`;
+        return `${this.id}__wrapper`
     }
 
     /**
@@ -409,8 +409,8 @@ class Container extends BaseContainer {
             countColumns = columns.length;
 
         Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
-            me.createViewData(data);
-        });
+            me.createViewData(data)
+        })
     }
 
     /**
@@ -426,8 +426,8 @@ class Container extends BaseContainer {
         if (me.createRandomData) {
             // todo: if mounting apply after mount
             setTimeout(() => {
-                me.createRandomViewData(me.amountRows);
-            }, 50);
+                me.createRandomViewData(me.amountRows)
+            }, 50)
         }
     }
 
@@ -442,14 +442,14 @@ class Container extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        me.onStoreLoad(me.store.items);
+        me.onStoreLoad(me.store.items)
     }
 
     /**
      *
      */
     onStoreFilter() {
-        this.onStoreLoad(this.store.items);
+        this.onStoreLoad(this.store.items)
     }
 
     /**
@@ -464,14 +464,14 @@ class Container extends BaseContainer {
             me.createViewData(data);
 
             if (me.store.sorters.length < 1) {
-                me.removeSortingCss();
+                me.removeSortingCss()
             }
         } else {
             listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
                 setTimeout(() => {
-                    me.createViewData(data);
-                }, 50);
+                    me.createViewData(data)
+                }, 50)
             });
         }
     }
@@ -487,7 +487,7 @@ class Container extends BaseContainer {
      * @param {*} opts.value
      */
     onStoreRecordChange(opts) {
-        Neo.getComponent(this.viewId).onStoreRecordChange(opts);
+        Neo.getComponent(this.viewId).onStoreRecordChange(opts)
     }
 
     /**
@@ -497,9 +497,9 @@ class Container extends BaseContainer {
     removeSortingCss(dataField) {
         this.items[0].items.forEach(column => {
             if (column.dataField !== dataField) {
-                column.removeSortingCss();
+                column.removeSortingCss()
             }
-        });
+        })
     }
 }
 
