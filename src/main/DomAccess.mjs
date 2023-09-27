@@ -351,16 +351,19 @@ class DomAccess extends Base {
      * Returns node.getBoundingClientRect() for a given dom node id
      * @param {Object} data
      * @param {Array|String} data.id either an id or an array of ids
-     * @returns {Array|Object} In case id is an array, an array of DomRects is returned, otherwise an DomRect object
+     * @returns {DOMRect|DOMRect[]} In case id is an array, an array of DomRects is returned, otherwise an DomRect object
      */
     getBoundingClientRect(data) {
-        let returnData;
+        let me = this,
+            returnData;
 
         if (Array.isArray(data.id)) {
-            return data.id.map(id => this.getBoundingClientRect({ id }));
+            console.log(data.id.map(id => me.getBoundingClientRect({ id })));
+            return data.id.map(id => me.getBoundingClientRect({ id }));
         } else {
-            let node = this.getElementOrBody(data.nodeType ? data : data.id),
-                rect = {}, style, minWidth, minHeight;
+            let node = me.getElementOrBody(data.nodeType ? data : data.id),
+                rect = {},
+                minWidth, minHeight, style;
 
             returnData = {};
 
@@ -377,15 +380,15 @@ class DomAccess extends Base {
                 // Note that 0px is what the DOM reports if no minWidth is specified
                 // so we do not report a minimum in these cases.
                 if (lengthRE.test(minWidth) && minWidth !== '0px') {
-                    returnData.minWidth = this.measure({ value : minWidth, id : node});
+                    returnData.minWidth = me.measure({ value : minWidth, id : node})
                 }
                 if (lengthRE.test(minHeight) && minHeight !== '0px') {
-                    returnData.minHeight = this.measure({ value : minHeight, id : node });
+                    returnData.minHeight = me.measure({ value : minHeight, id : node })
                 }
             }
         }
 
-        return returnData;
+        return returnData
     }
 
     getClippedRect(data) {
@@ -395,11 +398,11 @@ class DomAccess extends Base {
 
         for (let parentElement = node.offsetParent; rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
             if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
-                rect = rect.intersects(this.getBoundingClientRect(parentElement));
+                rect = rect.intersects(this.getBoundingClientRect(parentElement))
             }
         }
 
-        return rect;
+        return rect
     }
 
     onDocumentMutation(mutations) {
