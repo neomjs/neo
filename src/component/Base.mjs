@@ -1362,31 +1362,13 @@ class Base extends CoreBase {
      * @returns {Promise<Neo.util.Rectangle>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
-        if (Array.isArray(id)) {
-            return await Neo.main.DomAccess.getBoundingClientRect({appName, id});
+        const result = await Neo.main.DomAccess.getBoundingClientRect({appName, id});
+
+        if (Array.isArray(result)) {
+            return result.map(rect => Rectangle.clone(rect))
         }
-        else {
-            const
-                {
-                    x,
-                    y,
-                    width,
-                    height,
-                    minWidth,
-                    minHeight
-                }      = await Neo.main.DomAccess.getBoundingClientRect({appName, id}),
-                result = new Rectangle(x, y, width, height);
 
-            if (minWidth) {
-                result.minWidth = minWidth;
-            }
-
-            if (minHeight) {
-                result.minHeight = minHeight;
-            }
-
-            return result;
-        }
+        return Rectangle.clone(result)
     }
 
     /**
