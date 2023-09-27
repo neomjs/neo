@@ -88,6 +88,15 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
+     * @member {Number|null} minHeight=null
+     */
+    minHeight = null
+    /**
+     * @member {Number|null} minWidth=null
+     */
+    minWidth = null
+
+    /**
      * Checks if rect1 does not have an intersection with rect2
      * !includes() is true for intersections as well
      * @param {Object} rect1
@@ -586,5 +595,14 @@ export default class Rectangle extends DOMRect {
         document.body.appendChild(div);
         setTimeout(() => div.remove(), 30000);
         return div;
+    }
+
+    /**
+     * When using JSON.stringify(this), we want to add minHeight & minWidth to the output.
+     * @returns {Object}
+     */
+    toJSON() {
+        const {bottom, height, left, minHeight, minWidth, right, top, width, x, y} = this;
+        return {bottom, height, left, minHeight, minWidth, right, top, width, x, y}
     }
 }
