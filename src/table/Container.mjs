@@ -115,6 +115,22 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Convenience method to access the Neo.table.header.Toolbar
+     * @returns {Neo.table.header.Toolbar|null}
+     */
+    get headerToolbar() {
+        return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
+    }
+
+    /**
+     * Convenience method to access the Neo.table.View
+     * @returns {Neo.table.View|null}
+     */
+    get view() {
+        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -163,7 +179,7 @@ class Container extends BaseContainer {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            Neo.getComponent(this.headerToolbarId).showHeaderFilters = value
+            this.headerToolbar.showHeaderFilters = value
         }
     }
 
@@ -175,7 +191,7 @@ class Container extends BaseContainer {
      */
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
-            Neo.getComponent(this.headerToolbarId).sortable = value
+            this.headerToolbar.sortable = value
         }
     }
 
@@ -379,13 +395,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.table.View}
-     */
-    getView() {
-        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
-    }
-
-    /**
      * @override
      * @returns {Neo.vdom.VNode}
      */
@@ -487,7 +496,7 @@ class Container extends BaseContainer {
      * @param {*} opts.value
      */
     onStoreRecordChange(opts) {
-        Neo.getComponent(this.viewId).onStoreRecordChange(opts)
+        this.view.onStoreRecordChange(opts)
     }
 
     /**

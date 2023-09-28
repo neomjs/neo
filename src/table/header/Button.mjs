@@ -134,12 +134,12 @@ class Button extends BaseButton {
         let me = this;
 
         if (value === true) {
-            me.getVdomRoot().draggable = true;
+            me.getVdomRoot().draggable = true
         } else {
-            delete me.getVdomRoot().draggable;
+            delete me.getVdomRoot().draggable
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -173,13 +173,13 @@ class Button extends BaseButton {
 
         // testing check until all example tables have a store
         if (!container || !container.store) {
-            return;
+            return
         }
 
         me.mounted && me.fire('sort', {
             direction: value,
             property : me.dataField
-        });
+        })
     }
 
     /**
@@ -213,15 +213,15 @@ class Button extends BaseButton {
                     ...me.editorConfig
                 });
 
-                me.vdom.cn.push(me.filterField.vdom);
+                me.vdom.cn.push(me.filterField.vdom)
             } else {
-                delete me.filterField.vdom.removeDom;
+                delete me.filterField.vdom.removeDom
             }
         } else if (me.filterField) {
-            me.filterField.vdom.removeDom = true;
+            me.filterField.vdom.removeDom = true
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -236,20 +236,22 @@ class Button extends BaseButton {
 
         if (value === true) {
             NeoArray.remove(cls, 'neo-sort-hidden');
+
             me.addDomListeners({
                 click: me.onButtonClick,
                 scope: me
-            });
+            })
         } else {
             NeoArray.add(cls, 'neo-sort-hidden');
+
             me.removeDomListeners({
                 click: me.onButtonClick,
                 scope: me
-            });
+            })
         }
 
         me.cls = cls;
-        me.update();
+        me.update()
     }
 
     /**
@@ -268,7 +270,7 @@ class Button extends BaseButton {
     destroy(...args) {
         this.filterField?.destroy();
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -277,7 +279,7 @@ class Button extends BaseButton {
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
@@ -286,7 +288,7 @@ class Button extends BaseButton {
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 
     /**
@@ -301,16 +303,16 @@ class Button extends BaseButton {
                 ASC : null,
                 DESC: 'ASC',
                 null: 'DESC'
-            };
+            }
         } else {
             map = {
                 ASC : 'DESC',
                 DESC: null,
                 null: 'ASC'
-            };
+            }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        me.isSorted = map[me.isSorted + '']
     }
 
     /**
@@ -321,7 +323,7 @@ class Button extends BaseButton {
             style = me.style;
 
         delete style.opacity;
-        me.style = style;
+        me.style = style
     }
 
     /**
@@ -332,7 +334,7 @@ class Button extends BaseButton {
             cls = me.cls;
 
         NeoArray.add(cls, 'neo-drag-over');
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -343,7 +345,7 @@ class Button extends BaseButton {
             cls = me.cls;
 
         NeoArray.remove(cls, 'neo-drag-over');
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -361,7 +363,7 @@ class Button extends BaseButton {
             style = me.style;
 
         style.opacity = 0.4;
-        me.style = style;
+        me.style = style
     }
 
     /**
@@ -378,7 +380,7 @@ class Button extends BaseButton {
         tableContainer.createViewData(tableContainer.store.data);
 
         style.opacity = 1;
-        me.style = style;
+        me.style = style
     }
 
     /**
@@ -404,9 +406,9 @@ class Button extends BaseButton {
                     ...me.filterConfig
                 });
 
-                store.filters = filters;
+                store.filters = filters
             } else {
-                filter.operator = operator;
+                filter.operator = operator
             }
         }
     }
@@ -427,7 +429,7 @@ class Button extends BaseButton {
             field  = model && model.getField(me.dataField);
 
             if (value && field.type.toLowerCase() === 'date') {
-                value = new Date(value);
+                value = new Date(value)
             }
 
             if (!filter) {
@@ -440,9 +442,9 @@ class Button extends BaseButton {
                     ...me.filterConfig
                 });
 
-                store.filters = filters;
+                store.filters = filters
             } else {
-                filter.value = value;
+                filter.value = value
             }
         }
     }
@@ -457,7 +459,7 @@ class Button extends BaseButton {
         NeoArray.add(cls, 'neo-sort-hidden');
 
         me.cls       = cls;
-        me._isSorted = null;
+        me._isSorted = null
     }
 
     /**
@@ -469,7 +471,7 @@ class Button extends BaseButton {
      * @returns {*}
      */
     renderer(data) {
-        return data.value;
+        return data.value
     }
 }
 
