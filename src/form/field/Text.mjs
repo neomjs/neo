@@ -76,6 +76,11 @@ class Text extends Base {
          */
         disabledChars_: null,
         /**
+         * Configure the value of empty fields. null or an empty string is recommended.
+         * @member {String|null} emptyValue=null
+         */
+        emptyValue: null,
+        /**
          * @member {String|null} error_=null
          */
         error_: null,
@@ -946,6 +951,21 @@ class Text extends Base {
                 })
             }
         });
+
+        return value
+    }
+
+    /**
+     * Triggered before the value config gets changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        if (value === null || value === '') {
+            return this.emptyValue
+        }
 
         return value
     }
