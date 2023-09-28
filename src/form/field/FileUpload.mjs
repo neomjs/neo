@@ -535,8 +535,13 @@ class FileUpload extends Base {
         }
         // Failed network request
         else {
+            if (xhr.response){
+                const response = JSON.parse(xhr.response);
+                me.error = response.message;
+            } else {
+                me.error = `HTTP status : ${xhr.statusText}`;
+            }
             me.progress = NaN;
-            me.error = `HTTP status : ${xhr.statusText}`;
             me.state = 'upload-failed';
         }
     }
