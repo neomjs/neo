@@ -60,10 +60,10 @@ class Toolbar extends BaseToolbar {
             me.items.forEach(item => {
                 item.setSilent({
                     showHeaderFilter: value
-                });
+                })
             });
 
-            me.update();
+            me.update()
         }
     }
 
@@ -80,10 +80,10 @@ class Toolbar extends BaseToolbar {
             me.items.forEach(item => {
                 item.setSilent({
                     sortable: value
-                });
+                })
             });
 
-            me.update();
+            me.update()
         }
     }
 
@@ -118,11 +118,11 @@ class Toolbar extends BaseToolbar {
                     style.left = dockLeftWidth + 'px';
                 }
 
-                dockLeftWidth += (item.width + 1); // todo: borders fix
+                dockLeftWidth += (item.width + 1) // todo: borders fix
             } else {
-                item.vdom.cls = []; // remove the button cls from the th tag
+                item.vdom.cls = [] // remove the button cls from the th tag
             }
-            
+
             item.sortable = me.sortable;
             item.wrapperStyle = style;
 
@@ -135,11 +135,11 @@ class Toolbar extends BaseToolbar {
 
                 item.wrapperStyle = style;
 
-                dockRightWidth += (item.width + 1); // todo: borders fix
+                dockRightWidth += (item.width + 1) // todo: borders fix
             }
         });
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -148,7 +148,7 @@ class Toolbar extends BaseToolbar {
      * @override
      */
     getLayoutConfig(dock) {
-        return 'base';
+        return 'base'
     }
 
     /**
@@ -157,7 +157,7 @@ class Toolbar extends BaseToolbar {
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
@@ -166,7 +166,7 @@ class Toolbar extends BaseToolbar {
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 }
 

@@ -263,17 +263,17 @@ class SortZone extends DragZone {
             map       = me.indexMap,
             rect1     = itemRects[index1],
             rect2     = itemRects[index2],
-            rect1Copy = {...rect1},
-            rect2Copy = {...rect2};
+            rect1Copy = rect1.clone(),
+            rect2Copy = rect2.clone();
 
         if (me.sortDirection === 'horizontal') {
             rect1.width = rect2Copy.width;
-            rect2.left  = rect1Copy.left + rect2Copy.width;
+            rect2.x     = rect1Copy.x + rect2Copy.width;
             rect2.width = rect1Copy.width;
         } else {
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.top    = rect1Copy.top + rect2Copy.height;
+            rect2.y      = rect1Copy.y + rect2Copy.height;
         }
 
         tmp         = map[index1];
