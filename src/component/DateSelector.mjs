@@ -346,16 +346,18 @@ class DateSelector extends Component {
     afterSetValue(value, oldValue) {
         let me = this;
 
-        if (!me.isUpdating) {
-            me.currentDate = new Date(`${value}T00:00:00.000Z`);
+        if (value) {
+            if (!me.isUpdating) {
+                me.currentDate = new Date(`${value}T00:00:00.000Z`);
 
-            me.fire('change', {
-                component: me,
-                oldValue,
-                value
-            })
-        } else {
-            me.cacheUpdate()
+                me.fire('change', {
+                    component: me,
+                    oldValue,
+                    value
+                })
+            } else {
+                me.cacheUpdate()
+            }
         }
     }
 
