@@ -1,6 +1,6 @@
 .neo-tab-header-toolbar {
     background-color: transparent;
-    height          : var(--tab-button-height-pressed);
+    flex            : 0 0 auto;
     padding         : 0;
 
     &.neo-dock-bottom {
