@@ -153,20 +153,6 @@ class Base extends Panel {
         }
     }
 
-    init() {
-        super.init();
-
-        let me = this;
-
-        if (me.animateTargetId) {
-            me.autoShow && me.show()
-        } else {
-            me.timeout(100).then(() => {
-                me.syncModalMask()
-            })
-        }
-    }
-
     /**
      * Triggered after the animateTargetId config got changed
      * @param {String|null} value
@@ -248,7 +234,7 @@ class Base extends Panel {
             cls = me.vdom.cls; // todo: using wrapperCls
 
         NeoArray.toggle(cls, 'neo-maximized', value);
-        me.update();
+        me.update()
     }
 
     /**
@@ -342,10 +328,12 @@ class Base extends Panel {
 
         me.closeOrHide(false);
 
-        await Neo.applyDeltas(appName, [
-            {id, cls: {remove: ['animated-hiding-showing']}},
-            {id, action: 'removeNode'}
-        ])
+        if (me.closeAction === 'hide') {
+            await Neo.applyDeltas(appName, [
+                {id, cls: {remove: ['animated-hiding-showing']}},
+                {id, action: 'removeNode'}
+            ])
+        }
     }
 
     /**
@@ -380,7 +368,7 @@ class Base extends Panel {
                 add: ['animated-hiding-showing']
             },
             style: {
-                height   : style?.height    || '',
+                height   : style?.height    || null, // height will point to the animation origin, so we need a reset
                 left     : style?.left      || '50%',
                 top      : style?.top       || '50%',
                 transform: style?.transform || 'translate(-50%, -50%)',
@@ -432,6 +420,15 @@ class Base extends Panel {
     }
 
     /**
+     * Action when clicking the X button inside the header toolbar.
+     * @param {Object} data
+     * @protected
+     */
+    closeOrHideAction(data) {
+        this.closeOrHide()
+    }
+
+    /**
      *
      */
     createHeader() {
@@ -465,7 +462,7 @@ class Base extends Panel {
         let me = this,
 
         map = {
-            close   : me.closeOrHide,
+            close   : me.closeOrHideAction,
             maximize: me.maximize
         };
 
@@ -516,6 +513,23 @@ class Base extends Panel {
         await me.timeout(30);
 
         me.syncModalMask()
+    }
+
+    /**
+     *
+     */
+    init() {
+        super.init();
+
+        let me = this;
+
+        if (me.animateTargetId) {
+            me.autoShow && me.show()
+        } else {
+            me.timeout(100).then(() => {
+                me.syncModalMask()
+            })
+        }
     }
 
     /**
