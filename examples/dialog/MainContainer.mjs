@@ -55,8 +55,16 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
+                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
                 style         : {marginLeft: '3em'},
+                valueLabelText: 'Animated'
+            }, {
+                module        : CheckBox,
+                checked       : true,
+                hideLabel     : true,
+                hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
+                style         : {marginLeft: '1em'},
                 valueLabelText: 'Modal'
             }, '->', {
                 module : Button,
@@ -76,12 +84,13 @@ class MainContainer extends Viewport {
         data.component.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
-            animateTargetId    : data.component.id,
-            appName            : me.appName,
-            boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me},
-            modal              : me.down({ valueLabelText : 'Modal' }).checked
-        });
+            animated               : me.down({valueLabelText: 'Animated'}).checked,
+            appName                : me.appName,
+            boundaryContainerId    : me.boundaryContainerId,
+            listeners              : {close: me.onWindowClose, scope: me},
+            modal                  : me.down({valueLabelText: 'Modal'}).checked,
+            optionalAnimateTargetId: data.component.id
+        })
     }
 
     /**

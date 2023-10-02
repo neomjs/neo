@@ -12,6 +12,17 @@ class DemoDialog extends Dialog {
         modal    : true,
         title    : 'My Dialog',
 
+        /**
+         * Custom config to dynamically enable / disable the animateTargetId
+         * @member {Boolean} animated_=true
+         */
+        animated_: true,
+        /**
+         * Custom config used by animated_
+         * @member {String|null} optionalAnimateTargetId=null
+         */
+        optionalAnimateTargetId: null,
+
         wrapperStyle: {
             width : '40%'
         }
@@ -53,6 +64,22 @@ class DemoDialog extends Dialog {
     }
 
     /**
+     * Triggered after the animated config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimated(value, oldValue) {
+        let me = this;
+
+        me.animateTargetId = value ? me.optionalAnimateTargetId : null;
+
+        if (me.dialog) {
+            me.dialog.animated = value
+        }
+    }
+
+    /**
      * Triggered after the modal config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -70,16 +97,19 @@ class DemoDialog extends Dialog {
      * @param {Object} data
      */
     createDialog(data) {
-        let me = this;
+        let me     = this,
+            button = data.component;
 
-        data.component.disabled = true;
+        button.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
-            appName            : me.appName,
-            boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me},
-            modal              : me.app.mainView.down({ valueLabelText : 'Modal' }).checked,
-            title              : 'Second Dialog'
+            animated               : me.animated,
+            appName                : me.appName,
+            boundaryContainerId    : me.boundaryContainerId,
+            listeners              : {close: me.onWindowClose, scope: me},
+            modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
+            optionalAnimateTargetId: button.id,
+            title                  : 'Second Dialog'
         })
     }
 
