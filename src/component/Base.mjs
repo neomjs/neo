@@ -48,9 +48,10 @@ class Base extends CoreBase {
         ntype: 'component',
         /**
          * The default alignment specification to position this Component relative to some other
-         * Component, or Element or Rectangle.
+         * Component, or Element or Rectangle. Only applies in case floating = true.
+         * @member {Object|String} align_={edgeAlign:'t-b',constrainTo:'document.body'}
          */
-        align_ : {
+        align_: {
             edgeAlign   : 't-b',
             constrainTo : 'document.body'
         },
@@ -970,26 +971,30 @@ class Base extends CoreBase {
     }
 
     /**
-     * @param {Object|String} align
+     * Triggered before the align config gets changed.
+     * @param {Object|String} value
+     * @param {Object} oldValue
      * @returns {Object}
+     * @protected
      */
-    beforeSetAlign(align) {
+    beforeSetAlign(value, oldValue) {
         let me = this;
 
         // Just a simple 't-b'
-        if (typeof align === 'string') {
-            align = {
-                edgeAlign: align
-            };
+        if (typeof value === 'string') {
+            value = {
+                edgeAlign: value
+            }
         }
         // merge the incoming alignment specification into the configured default
-        return me.merge(me.merge({}, me.constructor.config.align), align);
+        return Neo.merge(Neo.merge({}, me.constructor.config.align), value)
     }
 
     /**
      * Triggered before the cls config gets changed.
      * @param {String[]} value
      * @param {String[]} oldValue
+     * @returns {String[]}
      * @protected
      */
     beforeSetCls(value, oldValue) {
@@ -1018,8 +1023,9 @@ class Base extends CoreBase {
 
     /**
      * Triggered before the domListeners config gets changed.
-     * @param {Object} value
-     * @param {Object} oldValue
+     * @param {Object|Object[]} value
+     * @param {Object[]} oldValue
+     * @returns {Object[]}
      * @protected
      */
     beforeSetDomListeners(value, oldValue) {
@@ -1034,6 +1040,7 @@ class Base extends CoreBase {
      * Triggered before the hideMode config gets changed
      * @param {String} value
      * @param {String} oldValue
+     * @returns {String}
      * @protected
      */
      beforeSetHideMode(value, oldValue) {
@@ -1045,6 +1052,7 @@ class Base extends CoreBase {
      * Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
+     * @returns {Neo.util.KeyNavigation}
      * @protected
      */
     beforeSetKeys(value, oldValue) {
@@ -1088,6 +1096,7 @@ class Base extends CoreBase {
      * Triggered before the plugins config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
+     * @returns {Neo.plugin.Base[]}
      * @protected
      */
     beforeSetPlugins(value, oldValue) {
@@ -1129,7 +1138,7 @@ class Base extends CoreBase {
 
         if (typeof value === 'object') {
             // merge the incoming style specification into the configured default
-            value = me.merge(me.merge({}, me.constructor.config.style), value)
+            value = Neo.merge(Neo.merge({}, me.constructor.config.style), value)
         }
 
         return value
@@ -2006,7 +2015,7 @@ class Base extends CoreBase {
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
      */
-    show(align) {
+    show() {
         const me = this;
 
         if (me.hideMode !== 'visibility') {
