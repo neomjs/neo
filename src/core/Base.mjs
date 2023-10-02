@@ -365,26 +365,6 @@ class Base {
     }
 
     /**
-     * Merges nested objects
-     * @param {Object} dest={}
-     * @param {Object} src
-     * @returns {Object}
-     */
-    merge(dest={}, src) {
-        for (const key in src) {
-            const value = src[key];
-
-            if (Neo.isObject(value)) {
-                dest[key] = this.merge(dest[key], value);
-            }
-            else {
-                dest[key] = value;
-            }
-        }
-        return dest;
-    }
-
-    /**
      * Override this method to change the order configs are applied to this instance.
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property

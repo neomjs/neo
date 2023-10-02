@@ -987,7 +987,7 @@ class Base extends CoreBase {
             }
         }
         // merge the incoming alignment specification into the configured default
-        return me.merge(me.merge({}, me.constructor.config.align), value)
+        return Neo.merge(Neo.merge({}, me.constructor.config.align), value)
     }
 
     /**
@@ -1138,7 +1138,7 @@ class Base extends CoreBase {
 
         if (typeof value === 'object') {
             // merge the incoming style specification into the configured default
-            value = me.merge(me.merge({}, me.constructor.config.style), value)
+            value = Neo.merge(Neo.merge({}, me.constructor.config.style), value)
         }
 
         return value
