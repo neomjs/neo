@@ -258,16 +258,12 @@ class Base extends Panel {
      * @protected
      */
     afterSetModal(value, oldValue) {
-        const
-            me      = this,
-            { cls } = me.vdom;
+        let me = this;
 
-        NeoArray.toggle(cls, 'neo-modal', value);
+        NeoArray.toggle(me.vdom.cls, 'neo-modal', value);
         me.update();
 
-        if (me.rendered) {
-            me.syncModalMask()
-        }
+        me.rendered && me.syncModalMask()
     }
 
     /**
@@ -428,13 +424,11 @@ class Base extends Panel {
      * @param {Boolean} animate=!!this.animateTargetId
      */
     async closeOrHide(animate=!!this.animateTargetId) {
-        const
-            me     = this,
-            { id } = me;
+        let me = this;
 
         me[me.closeAction](animate);
         await me.timeout(30);
-        me.syncModalMask(id)
+        me.syncModalMask(me.id)
     }
 
     /**
@@ -666,7 +660,7 @@ class Base extends Panel {
      */
     syncModalMask(id=this.id) {
         // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({ id, modal: this.modal });
+        Neo.main.DomAccess.syncModalMask({ id, modal: this.modal })
     }
 }
 

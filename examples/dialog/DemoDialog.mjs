@@ -37,10 +37,10 @@ class DemoDialog extends Dialog {
                         result.push({
                             id   : i,
                             name : `Option ${i + 1}`
-                        });
+                        })
                     }
 
-                    return result;
+                    return result
                 })()
             }
         }, {
@@ -50,6 +50,20 @@ class DemoDialog extends Dialog {
             reference: 'create-second-dialog-button',
             text     : 'Create new modal Dialog',
         }]
+    }
+
+    /**
+     * Triggered after the modal config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetModal(value, oldValue) {
+        super.afterSetModal(value, oldValue);
+
+        if (this.dialog) {
+            this.dialog.modal = value
+        }
     }
 
     /**
@@ -64,6 +78,7 @@ class DemoDialog extends Dialog {
             appName            : me.appName,
             boundaryContainerId: me.boundaryContainerId,
             listeners          : {close: me.onWindowClose, scope: me},
+            modal              : me.app.mainView.down({ valueLabelText : 'Modal' }).checked,
             title              : 'Second Dialog'
         })
     }
