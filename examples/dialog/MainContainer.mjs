@@ -47,7 +47,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onDragLimitChange, scope: me},
+                listeners     : {change: me.onConfigChange.bind(me, 'boundaryContainerId')},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, {
@@ -55,6 +55,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Modal'
             }, '->', {
@@ -81,6 +82,16 @@ class MainContainer extends Viewport {
             listeners          : {close: me.onWindowClose, scope: me},
             modal              : me.down({ valueLabelText : 'Modal' }).checked
         });
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigChange(config, opts) {
+        if (this.dialog) {
+            this.dialog[config] = opts.value;
+        }
     }
 
     /**
