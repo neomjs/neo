@@ -64,16 +64,15 @@ class DemoDialog extends Dialog {
             appName            : me.appName,
             boundaryContainerId: me.boundaryContainerId,
             listeners          : {close: me.onWindowClose, scope: me},
-            modal              : true,
             title              : 'Second Dialog'
-        });
+        })
     }
 
     /**
      *
      */
     onWindowClose() {
-        this.getReference('create-second-dialog-button').disabled = false;
+        this.getReference('create-second-dialog-button').disabled = false
     }
 }
 

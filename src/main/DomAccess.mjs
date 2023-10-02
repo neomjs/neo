@@ -856,7 +856,7 @@ class DomAccess extends Base {
         if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
             document.body.insertBefore(this.modalMask, el);
         }
-        // Otherwise, the mask needs to be blow the next topmost modal dialog if possible, or hidden
+        // Otherwise, the mask needs to be below the next topmost modal dialog if possible, or hidden
         else {
             const
                 modals       = document.querySelectorAll('.neo-modal'),
@@ -864,7 +864,7 @@ class DomAccess extends Base {
 
             // Move the mask under the next topmost modal now modal "id" is gone.
             if (topmostModal) {
-                this.syncModalMask({ id : topmostModal.id, modal : true })
+                this.syncModalMask({ id: topmostModal.id, modal: true })
             } else {
                 this._modalMask?.remove()
             }

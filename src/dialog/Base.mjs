@@ -136,11 +136,35 @@ class Base extends Panel {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me    = this,
+            style = me.style;
 
         me.createHeader();
 
-        me.autoShow && me.show()
+        if (!me.animateTargetId) {
+            Neo.assignDefaults(style, {
+                left     : '50%',
+                top      : '50%',
+                transform: 'translate(-50%, -50%)',
+                width    : '50%'
+            });
+
+            me.style = style
+        }
+    }
+
+    init() {
+        super.init();
+
+        let me = this;
+
+        if (me.animateTargetId) {
+            me.autoShow && me.show()
+        } else {
+            me.timeout(100).then(() => {
+                me.syncModalMask()
+            })
+        }
     }
 
     /**
