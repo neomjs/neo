@@ -374,7 +374,7 @@ class Base {
         for (const key in src) {
             const value = src[key];
 
-            if (typeof value === 'object') {
+            if (Neo.isObject(value)) {
                 dest[key] = this.merge(dest[key], value);
             }
             else {
