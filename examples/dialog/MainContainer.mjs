@@ -38,10 +38,11 @@ class MainContainer extends Viewport {
         me.items = [{
             module: Toolbar,
             items :[{
-                module : Button,
-                handler: me.createDialog.bind(me),
-                iconCls: 'fa fa-window-maximize',
-                text   : 'Create Dialog',
+                module   : Button,
+                handler  : me.createDialog.bind(me),
+                iconCls  : 'fa fa-window-maximize',
+                reference: 'create-dialog-button',
+                text     : 'Create Dialog',
             }, {
                 module        : CheckBox,
                 checked       : true,
@@ -89,7 +90,8 @@ class MainContainer extends Viewport {
             boundaryContainerId    : me.boundaryContainerId,
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.down({valueLabelText: 'Modal'}).checked,
-            optionalAnimateTargetId: data.component.id
+            optionalAnimateTargetId: data.component.id,
+            title                  : 'Dialog 1'
         })
     }
 
@@ -99,26 +101,15 @@ class MainContainer extends Viewport {
      */
     onConfigChange(config, opts) {
         if (this.dialog) {
-            this.dialog[config] = opts.value;
+            this.dialog[config] = opts.value ? 'document.body' : null
         }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onDragLimitChange(data) {
-        this.dialog.boundaryContainerId = data.value ? 'document.body' : null
     }
 
     /**
      *
      */
     onWindowClose() {
-        let button = this.down({
-            text: 'Create Dialog'
-        });
-
-        button.disabled = false;
+        this.getReference('create-dialog-button').disabled = false
     }
 
     /**

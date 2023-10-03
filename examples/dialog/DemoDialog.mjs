@@ -8,21 +8,41 @@ import SelectField from '../../src/form/field/Select.mjs';
  */
 class DemoDialog extends Dialog {
     static config = {
-        className: 'Neo.examples.dialog.DemoWindow',
-        modal    : true,
-        title    : 'My Dialog',
-
+        /**
+         * @member {String} className='Neo.examples.dialog.DemoDialog'
+         * @protected
+         */
+        className: 'Neo.examples.dialog.DemoDialog',
         /**
          * Custom config to dynamically enable / disable the animateTargetId
          * @member {Boolean} animated_=true
          */
         animated_: true,
         /**
+         * @member {Object} containerConfig
+         */
+        containerConfig: {
+            style: {
+                padding: '1em'
+            }
+        },
+        /**
+         * Custom config to show the current dialog number
+         * @member {Number} index=1
+         */
+        index: 1,
+        /**
+         * @member {Boolean} modal=true
+         */
+        modal: true,
+        /**
          * Custom config used by animated_
          * @member {String|null} optionalAnimateTargetId=null
          */
         optionalAnimateTargetId: null,
-
+        /**
+         * @member {Object} wrapperStyle
+         */
         wrapperStyle: {
             width : '40%'
         }
@@ -37,8 +57,9 @@ class DemoDialog extends Dialog {
         const me = this;
 
         me.items = [{
-            module   : SelectField,
-            labelText: 'Select',
+            module    : SelectField,
+            labelText : 'Select',
+            labelWidth: 80,
 
             store: {
                 data: (() => {
@@ -58,8 +79,9 @@ class DemoDialog extends Dialog {
             module   : Button,
             handler  : me.createDialog.bind(me),
             iconCls  : 'fa fa-window-maximize',
-            reference: 'create-second-dialog-button',
-            text     : 'Create new modal Dialog',
+            reference: 'create-dialog-button',
+            style    : {marginTop: '3em'},
+            text     : 'Create Dialog ' + (me.index + 1),
         }]
     }
 
@@ -97,8 +119,9 @@ class DemoDialog extends Dialog {
      * @param {Object} data
      */
     createDialog(data) {
-        let me     = this,
-            button = data.component;
+        let me        = this,
+            button    = data.component,
+            nextIndex = me.index + 1;
 
         button.disabled = true;
 
@@ -106,10 +129,11 @@ class DemoDialog extends Dialog {
             animated               : me.animated,
             appName                : me.appName,
             boundaryContainerId    : me.boundaryContainerId,
+            index                  : nextIndex,
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
             optionalAnimateTargetId: button.id,
-            title                  : 'Second Dialog'
+            title                  : 'Dialog' + nextIndex
         })
     }
 
@@ -117,7 +141,7 @@ class DemoDialog extends Dialog {
      *
      */
     onWindowClose() {
-        this.getReference('create-second-dialog-button').disabled = false
+        this.getReference('create-dialog-button').disabled = false
     }
 }
 
