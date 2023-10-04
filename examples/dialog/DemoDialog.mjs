@@ -133,7 +133,7 @@ class DemoDialog extends Dialog {
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
             optionalAnimateTargetId: button.id,
-            title                  : 'Dialog' + nextIndex
+            title                  : 'Dialog ' + nextIndex
         })
     }
 
