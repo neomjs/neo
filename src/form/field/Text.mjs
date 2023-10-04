@@ -649,8 +649,18 @@ class Text extends Base {
         me.changeInputElKey('readonly', value ? value : null);
 
         me.triggers?.forEach(trigger => {
-            trigger.hidden = value ? true : trigger.getHiddenState?.() || false
+            trigger.hidden = value && me.shouldHideTrigger() ? true : trigger.getHiddenState?.() || false
         })
+    }
+
+    /**
+     * Determines whether a trigger should be hidden when the field is read-only.
+     *
+     * @returns {Boolean} - Returns true if the trigger should be hidden, false otherwise.
+     * @protected
+     */
+    shouldHideTrigger() {
+        return true;
     }
 
     /**

@@ -117,10 +117,13 @@ class Picker extends Text {
      * @protected
      */
     afterSetEditable(value, oldValue) {
+        let me = this;
         let cls = this.cls;
 
         NeoArray.toggle(cls, 'neo-not-editable', !value);
         this.cls = cls;
+
+        me['readOnly'] = me.editable ? null : true;
     }
 
     /**
@@ -149,6 +152,16 @@ class Picker extends Text {
         if (this.picker) {
             this.picker.theme = value
         }
+    }
+
+    /**
+     * Determines whether a trigger should be hidden when the field is read-only.
+     *
+     * @returns {Boolean} - Returns true if the trigger should be hidden, false otherwise.
+     * @protected
+     */
+    shouldHideTrigger() {
+        return false;
     }
 
     /**
