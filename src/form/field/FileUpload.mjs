@@ -138,7 +138,8 @@ class FileUpload extends Base {
             UN_DOWNLOADABLE : 'not-downloadable',
             AVAILABLE       : 'not-downloadable',
             DOWNLOADABLE    : 'downloadable',
-            DELETED         : 'deleted'
+            DELETED         : 'deleted',
+            ERROR           : 'error'
         },
 
         /**
@@ -641,6 +642,10 @@ class FileUpload extends Base {
                     case 'deleted':
                         me.error = `${me.documentText} ${me.documentId} ${isNoLongerAvailable}`;
                         me.state = 'ready';
+                        break;
+                    case 'error':
+                        me.error = `${me.documentStatusError}: ${statusResponse.statusText || `Server error ${statusResponse.status}`}`;
+                        me.state = 'deleted';
                         break;
                     default:
                         me.state = status;
