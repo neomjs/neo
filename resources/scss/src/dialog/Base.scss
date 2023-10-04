@@ -39,6 +39,12 @@
         transition-timing-function: ease-out;
     }
 
+    &.neo-dragproxy {
+        > * {
+            height: fit-content;
+        }
+    }
+
     &.neo-maximized {
         height   : 98% !important;
         left     : 1%  !important;
