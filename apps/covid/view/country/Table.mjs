@@ -121,7 +121,7 @@ class Table extends Container {
         if (oldValue !== undefined) {
             let me             = this,
                 selectionModel = me.selectionModel,
-                view           = me.getView(),
+                view           = me.view,
                 id;
 
             if (view) {
@@ -158,7 +158,7 @@ class Table extends Container {
 
         if (me.store.getCount() > 0) {
             if (item) {
-                item = me.getView().getRecordByRowId(item)?.country;
+                item = me.view.getRecordByRowId(item)?.country;
             }
 
             // in case getRecordByRowId() has no match, the initial row creation will include the selection

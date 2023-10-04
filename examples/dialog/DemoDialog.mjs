@@ -8,10 +8,41 @@ import SelectField from '../../src/form/field/Select.mjs';
  */
 class DemoDialog extends Dialog {
     static config = {
-        className: 'Neo.examples.dialog.DemoWindow',
-        modal    : true,
-        title    : 'My Dialog',
-
+        /**
+         * @member {String} className='Neo.examples.dialog.DemoDialog'
+         * @protected
+         */
+        className: 'Neo.examples.dialog.DemoDialog',
+        /**
+         * Custom config to dynamically enable / disable the animateTargetId
+         * @member {Boolean} animated_=true
+         */
+        animated_: true,
+        /**
+         * @member {Object} containerConfig
+         */
+        containerConfig: {
+            style: {
+                padding: '1em'
+            }
+        },
+        /**
+         * Custom config to show the current dialog number
+         * @member {Number} index=1
+         */
+        index: 1,
+        /**
+         * @member {Boolean} modal=true
+         */
+        modal: true,
+        /**
+         * Custom config used by animated_
+         * @member {String|null} optionalAnimateTargetId=null
+         */
+        optionalAnimateTargetId: null,
+        /**
+         * @member {Object} wrapperStyle
+         */
         wrapperStyle: {
             width : '40%'
         }
@@ -26,8 +57,9 @@ class DemoDialog extends Dialog {
         const me = this;
 
         me.items = [{
-            module   : SelectField,
-            labelText: 'Select',
+            module    : SelectField,
+            labelText : 'Select',
+            labelWidth: 80,
 
             store: {
                 data: (() => {
@@ -37,43 +69,90 @@ class DemoDialog extends Dialog {
                         result.push({
                             id   : i,
                             name : `Option ${i + 1}`
-                        });
+                        })
                     }
 
-                    return result;
+                    return result
                 })()
             }
         }, {
             module   : Button,
             handler  : me.createDialog.bind(me),
             iconCls  : 'fa fa-window-maximize',
-            reference: 'create-second-dialog-button',
-            text     : 'Create new modal Dialog',
+            reference: 'create-dialog-button',
+            style    : {marginTop: '3em'},
+            text     : 'Create Dialog ' + (me.index + 1),
         }]
+    }
+
+    /**
+     * Triggered after the animated config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimated(value, oldValue) {
+        let me = this;
+
+        me.animateTargetId = value ? me.optionalAnimateTargetId : null;
+
+        if (me.dialog) {
+            me.dialog.animated = value
+        }
+    }
+
+    /**
+     * Triggered after the modal config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetModal(value, oldValue) {
+        super.afterSetModal(value, oldValue);
+
+        if (this.dialog) {
+            this.dialog.modal = value
+        }
     }
 
     /**
      * @param {Object} data
      */
     createDialog(data) {
-        let me = this;
+        let me        = this,
+            button    = data.component,
+            nextIndex = me.index + 1;
 
-        data.component.disabled = true;
+        button.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
-            appName            : me.appName,
-            boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me},
-            modal              : true,
-            title              : 'Second Dialog'
-        });
+            animated               : me.animated,
+            appName                : me.appName,
+            boundaryContainerId    : me.boundaryContainerId,
+            index                  : nextIndex,
+            listeners              : {close: me.onWindowClose, scope: me},
+            modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
+            optionalAnimateTargetId: button.id,
+            style                  : {left: me.getOffset(), top: me.getOffset()},
+            title                  : 'Dialog ' + nextIndex
+        })
+    }
+
+    /**
+     * We want new dialogs to have a random left & top offset between -100px & 100px,
+     * to ensure they are not at the exact same position.
+     * @returns {String}
+     */
+    getOffset() {
+        let offset = Math.floor(Math.random() * 200 - 100);
+        return `calc(50% + ${offset}px)`
     }
 
     /**
      *
      */
     onWindowClose() {
-        this.getReference('create-second-dialog-button').disabled = false;
+        this.getReference('create-dialog-button').disabled = false
     }
 }
 
