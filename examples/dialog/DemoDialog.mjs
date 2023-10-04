@@ -133,8 +133,19 @@ class DemoDialog extends Dialog {
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
             optionalAnimateTargetId: button.id,
+            style                  : {left: me.getOffset(), top: me.getOffset()},
             title                  : 'Dialog ' + nextIndex
         })
+    }
+
+    /**
+     * We want new dialogs to have a random left & top offset between -100px & 100px,
+     * to ensure they are not at the exact same position.
+     * @returns {String}
+     */
+    getOffset() {
+        let offset = Math.floor(Math.random() * 200 - 100);
+        return `calc(50% + ${offset}px)`
     }
 
     /**
