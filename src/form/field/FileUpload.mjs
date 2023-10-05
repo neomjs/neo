@@ -534,12 +534,8 @@ class FileUpload extends Base {
                 }
             }
         }
-        // Failed network request
-        else {
-            me.error    = xhr.response ? JSON.parse(xhr.response).message : `HTTP status : ${xhr.statusText}`;
-            me.progress = NaN;
-            me.state    = 'upload-failed';
-        }
+        // Failed network requests are handled in onUploadError
+        // so no else condition necessary here
     }
 
     onActionButtonClick() {
