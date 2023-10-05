@@ -1,6 +1,6 @@
 {
-    "appPath"         : "apps/shareddialog2/app.mjs",
-    "basePath"        : "../../",
+    "appPath"         : "apps/shareddialog/childapps/shareddialog2/app.mjs",
+    "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "Stylesheet"],

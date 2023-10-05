@@ -33,9 +33,8 @@
 !/apps/shareddialog/index.html
 !/apps/shareddialog/**/*.mjs
 !/apps/shareddialog/neo-config.json
-!/apps/shareddialog2/index.html
-!/apps/shareddialog2/**/*.mjs
-!/apps/shareddialog2/neo-config.json
+!/apps/shareddialog/childapps/shareddialog2/index.html
+!/apps/shareddialog/childapps/shareddialog2/neo-config.json
 !/apps/website/index.html
 !/apps/website/**/*.mjs
 !/apps/website/neo-config.json
