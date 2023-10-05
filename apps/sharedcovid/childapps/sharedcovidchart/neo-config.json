@@ -1,9 +1,9 @@
 {
-    "appPath"         : "apps/sharedcovidmap/app.mjs",
-    "basePath"        : "../../",
+    "appPath"         : "apps/sharedcovid/childapps/sharedcovidchart/app.mjs",
+    "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["MapboxGL", "Stylesheet"],
+    "mainThreadAddons": ["AmCharts", "Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"],
     "useSharedWorkers": true
 }
