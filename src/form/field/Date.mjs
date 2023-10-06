@@ -203,6 +203,8 @@ class DateField extends Picker {
         let me   = this,
             vdom = me.vdom;
 
+        me.clean = false;
+            
         if (me.hidePickerOnSelect) {
             VDomUtil.removeVdomChild(vdom, me.getPickerId());
 
