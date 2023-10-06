@@ -6,7 +6,6 @@
     "themes"     : ["neo-theme-dark", "neo-theme-light"],
     "mainThreadAddons": [
         "DragDrop",
-        "ScrollSync",
         "Stylesheet",
         "Popover"
     ]
