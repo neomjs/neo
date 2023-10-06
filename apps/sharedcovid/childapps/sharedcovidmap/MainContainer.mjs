@@ -1,4 +1,4 @@
-import Viewport from '../../src/container/Viewport.mjs';
+import Viewport from '../../../../src/container/Viewport.mjs';
 
 /**
  * @class CovidMap.MainContainer

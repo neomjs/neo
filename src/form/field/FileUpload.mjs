@@ -138,7 +138,8 @@ class FileUpload extends Base {
             UN_DOWNLOADABLE : 'not-downloadable',
             AVAILABLE       : 'not-downloadable',
             DOWNLOADABLE    : 'downloadable',
-            DELETED         : 'deleted'
+            DELETED         : 'deleted',
+            ERROR           : 'error'
         },
 
         /**
@@ -533,12 +534,8 @@ class FileUpload extends Base {
                 }
             }
         }
-        // Failed network request
-        else {
-            me.error    = xhr.response ? JSON.parse(xhr.response).message : `HTTP status : ${xhr.statusText}`;
-            me.progress = NaN;
-            me.state    = 'upload-failed';
-        }
+        // Failed network requests are handled in onUploadError
+        // so no else condition necessary here
     }
 
     onActionButtonClick() {
@@ -641,6 +638,10 @@ class FileUpload extends Base {
                     case 'deleted':
                         me.error = `${me.documentText} ${me.documentId} ${isNoLongerAvailable}`;
                         me.state = 'ready';
+                        break;
+                    case 'error':
+                        me.error = `${me.documentStatusError}: ${statusResponse.statusText || `Server error ${statusResponse.status}`}`;
+                        me.state = 'deleted';
                         break;
                     default:
                         me.state = status;

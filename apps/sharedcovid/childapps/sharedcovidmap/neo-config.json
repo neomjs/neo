@@ -1,9 +1,9 @@
 {
-    "appPath"         : "apps/sharedcovidhelix/app.mjs",
-    "basePath"        : "../../",
+    "appPath"         : "apps/sharedcovid/childapps/sharedcovidmap/app.mjs",
+    "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"],
+    "mainThreadAddons": ["MapboxGL", "Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"],
     "useSharedWorkers": true
 }

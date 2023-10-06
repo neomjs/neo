@@ -257,12 +257,6 @@ class Picker extends Text {
             picker.unmount();
 
             me.pickerIsMounted = false;
-
-            Neo.main.addon.ScrollSync.unregister({
-                appName : me.appName,
-                sourceId: me.id,
-                targetId: picker.id
-            })
         }
     }
 
@@ -354,12 +348,6 @@ class Picker extends Text {
             });
 
             picker.render(true);
-
-            Neo.main.addon.ScrollSync.register({
-                appName : me.appName,
-                sourceId: me.id,
-                targetId: picker.id
-            })
         }
     }
 

@@ -1,6 +1,6 @@
 {
-    "appPath"         : "apps/sharedcovidgallery/app.mjs",
-    "basePath"        : "../../",
+    "appPath"         : "apps/sharedcovid/childapps/sharedcovidhelix/app.mjs",
+    "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["Stylesheet"],

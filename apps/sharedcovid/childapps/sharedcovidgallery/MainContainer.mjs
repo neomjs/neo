@@ -1,16 +1,16 @@
-import Viewport from '../../src/container/Viewport.mjs';
+import Viewport from '../../../../src/container/Viewport.mjs';
 
 /**
- * @class SharedCovidChart.MainContainer
+ * @class SharedCovidGallery.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static config = {
         /**
-         * @member {String} className='SharedCovidChart.MainContainer'
+         * @member {String} className='SharedCovidGallery.MainContainer'
          * @protected
          */
-        className: 'SharedCovidChart.MainContainer',
+        className: 'SharedCovidGallery.MainContainer',
         /**
          * @member {Object} layout={ntype:'fit'}
          */

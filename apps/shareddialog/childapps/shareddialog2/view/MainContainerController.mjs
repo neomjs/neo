@@ -1,4 +1,4 @@
-import ComponentController from '../../../src/controller/Component.mjs';
+import ComponentController from '../../../../../src/controller/Component.mjs';
 
 /**
  * @class SharedDialog2.view.MainContainerController
@@ -17,11 +17,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        let app = Neo.apps['SharedDialog'];
-
-        if (app) {
-            app.mainView.controller.createDialog(data, this.component.appName);
-        }
+        Neo.apps['SharedDialog']?.mainView.controller.createDialog(data, this.component.appName);
     }
 }
 
