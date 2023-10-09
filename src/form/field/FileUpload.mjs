@@ -2,12 +2,16 @@ import Base from '../../form/field/Base.mjs';
 import NeoArray from '../../util/Array.mjs';
 
 const
-    sizeRE         = /^(\d+)(kb|mb|gb)?$/i,
-    sizeMultiplier = {
+    sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
+    sizeMultiplier   = {
         unit : 1,
         kb   : 1000,
         mb   : 1000000,
         gb   : 1000000000
+    },
+    httpSuccessCodes = {
+        2 : 1,
+        4 : 1
     };
 
 /**
@@ -509,7 +513,7 @@ class FileUpload extends Base {
 
         // Successful network request.
         // Check the resulting JSON packet for details and any error.
-        if (String(xhr.status).startsWith('2')) {
+        if (httpSuccessCodes[String(xhr.status)[0]]) {
             if (loaded !== 0) {
                 const response = JSON.parse(xhr.response);
 
@@ -600,7 +604,7 @@ class FileUpload extends Base {
         });
 
         // Success
-        if (String(statusResponse.status).slice(0, 1) === '2') {
+        if (httpSuccessCodes[String(statusResponse.status)[0]]) {
             me.clear();
             me.state = 'ready';
         }
@@ -624,7 +628,7 @@ class FileUpload extends Base {
             });
 
             // Success
-            if (String(statusResponse.status).slice(0, 1) === '2') {
+            if (httpSuccessCodes[String(statusResponse.status)[0]]) {
                 const
                     serverJson   = await statusResponse.json(),
                     serverStatus = serverJson.status,
