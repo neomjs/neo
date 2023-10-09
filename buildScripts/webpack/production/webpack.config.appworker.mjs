@@ -3,7 +3,6 @@ import path    from 'path';
 import webpack from 'webpack';
 
 const cwd                   = process.cwd(),
-      configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
       requireJson           = path => JSON.parse(fs.readFileSync((path))),
       packageJson           = requireJson(path.resolve(cwd, 'package.json')),
       neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -17,26 +16,15 @@ const cwd                   = process.cwd(),
       regexTrimStart        = /^\s+/gm;
 
 let contextAdjusted = false,
-    config, examplesPath;
-
-if (fs.existsSync(configPath)) {
-    config = requireJson(configPath);
-} else {
-    const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
-
-    if (fs.existsSync(myAppsPath)) {
-        config = requireJson(myAppsPath);
-    } else {
-        config = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
-    }
-}
+    examplesPath;
 
 if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
 }
 
 export default env => {
-    let examples  = [],
+    let apps      = [],
+        examples  = [],
         insideNeo = env.insideNeo == 'true',
         content, inputPath, outputPath;
 
@@ -98,7 +86,7 @@ export default env => {
 
     const isFile = fileName => fs.lstatSync(fileName).isFile();
 
-    const parseFolder = (folderPath, index, relativePath) => {
+    const parseFolder = (apps, folderPath, index, relativePath) => {
         let itemPath;
 
         fs.readdirSync(folderPath).forEach(itemName => {
@@ -106,22 +94,26 @@ export default env => {
 
             if (isFile(itemPath)) {
                 if (itemName === 'app.mjs') {
-                    examples.push(relativePath);
+                    apps.push(relativePath);
                 }
             } else {
-                parseFolder(itemPath, index + 1, relativePath + `/${itemName}`);
+                parseFolder(apps, itemPath, index + 1, relativePath + `/${itemName}`);
             }
         });
     };
 
-    config.apps?.forEach(key => {
-        createStartingPoint(key, key === 'Docs' ? '' : 'apps');
+    parseFolder(apps, path.join(cwd, 'apps'), 0, '');
+
+    apps.forEach(key => {
+        createStartingPoint(key.substr(1), 'apps');
     });
+
+    createStartingPoint('Docs', '');
 
     examplesPath = path.join(cwd, 'examples');
 
     if (fs.existsSync(examplesPath)) {
-        parseFolder(examplesPath, 0, '');
+        parseFolder(examples, examplesPath, 0, '');
 
         examples.forEach(key => {
             createStartingPoint(key.substr(1), 'examples');
