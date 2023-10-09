@@ -90,6 +90,7 @@ class MainContainer extends Viewport {
             boundaryContainerId    : me.boundaryContainerId,
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.down({valueLabelText: 'Modal'}).checked,
+            trapFocus              : true,
             optionalAnimateTargetId: data.component.id,
             title                  : 'Dialog 1'
         })
