@@ -29,10 +29,10 @@
         &:after {
             border       : 1px solid var(--switchfield-color-knob);
             border-radius: 50%;
-            bottom       : 7px;
-            height       : 8px;
-            right        : 7px;
-            width        : 8px;
+            bottom       : 8px;
+            height       : 6px;
+            right        : 5px;
+            width        : 6px;
         }
 
         &:checked {
@@ -46,7 +46,7 @@
                 background-color: var(--switchfield-color-knob);
                 border          : 0;
                 border-radius   : 0;
-                bottom          : 8px;
+                height          : 8px;
                 left            : 9px;
                 right           : auto;
                 width           : 1px;
