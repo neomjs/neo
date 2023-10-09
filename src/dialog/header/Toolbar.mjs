@@ -10,35 +10,33 @@ class Toolbar extends Base {
          * @member {String} className='Neo.dialog.header.Toolbar'
          * @protected
          */
-        className: 'Neo.dialog.header.Toolbar',
+        className: 'Neo.dialog.header.Toolbar',    /**
+         * @member {Object} actionMap
+         */
+        actionMap: {
+            close   : () => ({action: 'close',    iconCls: 'far fa-window-close'}),
+            maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
+        },
+        /**
+         * You can define the action order and directly add custom actions.
+         * @example
+         * {
+         *     actions: [
+         *         'close',
+         *         'maximize',
+         *         {action: 'help', iconCls: 'far fa-circle-question'}
+         *     ]
+         * }
+         *
+         * You can also extend the actionMap if needed.
+         * @member {Object[]|String[]|null} actions=['maximize','close']
+         */
+        actions: ['maximize', 'close'],
         /**
          * @member {String|null} title=null
          */
         title_: null
     }
-
-    /**
-     * @member {Object} actionMap
-     */
-    actionMap = {
-        close   : () => ({action: 'close',    iconCls: 'far fa-window-close'}),
-        maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
-    }
-    /**
-     * You can define the action order and directly add custom actions.
-     * @example
-     * {
-     *     actions: [
-     *         'close',
-     *         'maximize',
-     *         {action: 'help', iconCls: 'far fa-circle-question'}
-     *     ]
-     * }
-     *
-     * You can also extend the actionMap if needed.
-     * @member {Object[]|String[]|null} actions=['maximize','close']
-     */
-    actions = ['maximize', 'close']
 
     /**
      * Triggered after the title config got changed
@@ -83,7 +81,7 @@ class Toolbar extends Base {
 
         me.items = items;
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
