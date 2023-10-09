@@ -33,15 +33,17 @@ const
     isTabbable       = e => {
         const
             { nodeName } = e,
-            style        = getComputedStyle(e);
+            style        = getComputedStyle(e),
+            tabIndex     = e.getAttribute('tabIndex');
 
+        // Hidden elements not tabbable
         if (style.getPropertyValue('display') === 'none' || style.getPropertyValue('visibility') === 'hidden') {
             return false;
         }
 
         return focusableTags[nodeName] ||
             ((nodeName === 'A' || nodeName === 'LINK') && !!e.href) ||
-            e.getAttribute('tabIndex') != null ||
+            (tabIndex != null && Number(tabIndex) >= 0) ||
             e.contentEditable === 'true';
     },
     filterTabbable   = e => !e.classList.contains('neo-focus-trap') && isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
