@@ -45,7 +45,7 @@ class Picker extends Text {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * @member {Neo.container.Bas|null} picker=null
+         * @member {Neo.container.Base|null} picker=null
          * @protected
          */
         picker: null,
