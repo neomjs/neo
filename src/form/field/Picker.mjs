@@ -165,7 +165,7 @@ class Picker extends Text {
             floating : true,
             align    : {
                 edgeAlign : pickerWidth ? 't0-b0' : 't-b',
-                matchSize : pickerWidth ? false : true,
+                matchSize : !pickerWidth,
                 axisLock  : true,
                 target    : me.getInputWrapperId()
             },
