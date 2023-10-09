@@ -329,10 +329,7 @@ class Picker extends Text {
      */
     togglePicker() {
         let picker = this.getPicker();
-
-        if (picker) {
-            picker.hidden = !picker.hidden
-        }
+        picker.hidden = !picker.hidden
     }
 }
 
