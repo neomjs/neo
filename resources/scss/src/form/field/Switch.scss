@@ -1,6 +1,6 @@
 .neo-switchfield {
     .neo-switchfield-input {
-        background-color: var(--switchfield-color-off-idle);
+        background-color: var(--switchfield-color-off);
         border-radius   : 999px;
         height          : var(--switchfield-height);
         margin          : 0;
@@ -36,7 +36,7 @@
         }
 
         &:checked {
-            background-color: var(--switchfield-color-on-idle);
+            background-color: var(--switchfield-color-on);
 
             &:before {
                 transform: translateX(80%);
