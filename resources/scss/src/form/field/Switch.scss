@@ -27,7 +27,7 @@
         }
 
         &:after {
-            border       : 1px solid var(--switchfield-color-knob);
+            border       : 1px solid var(--switchfield-color-off-icon);
             border-radius: 50%;
             bottom       : 8px;
             height       : 6px;
@@ -43,7 +43,7 @@
             }
 
             &:after {
-                background-color: var(--switchfield-color-knob);
+                background-color: var(--switchfield-color-on-icon);
                 border          : 0;
                 border-radius   : 0;
                 height          : 8px;
