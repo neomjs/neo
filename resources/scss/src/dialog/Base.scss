@@ -61,6 +61,12 @@
         }
     }
 
+    &.neo-centered {
+        left      : 50%;
+        top       : 50%;
+        transform : translate(-50%, -50%);
+    }
+
     &.neo-panel {
         .neo-footer-toolbar {
             border    : none;
@@ -102,4 +108,10 @@
             }
         }
     }
+}
+
+// A focusable, but zero-sized element used to grab and redirect focus in focus-trapped modals
+.neo-focus-trap {
+    position : absolute;
+    clip     : rect(0, 0, 0, 0);
 }

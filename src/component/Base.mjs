@@ -610,13 +610,16 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let me = this;
+        let me    = this,
+            state = value ? 'hide' : 'show';
 
         if (value && oldValue === undefined && me.hideMode === 'removeDom') {
             me.vdom.removeDom = true
         } else if (value || oldValue !== undefined) {
-            me[value ? 'hide' : 'show']()
+            me[state]()
         }
+
+        me.fire(state, {id: me.id})
     }
 
     /**
