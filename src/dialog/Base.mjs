@@ -127,7 +127,15 @@ class Base extends Panel {
         /**
          * @member {String|null} title_=null
          */
-        title_: null
+        title_: null,
+
+        /**
+         * Set to `true` to have tabbing wrap within this Dialog.
+         *
+         * Should be used with `modal`.
+         * @member {Boolean}
+         */
+        trapFocus : false
     }
 
     /**
@@ -252,6 +260,13 @@ class Base extends Panel {
         me.rendered && me.syncModalMask()
     }
 
+    afterSetMounted(mounted) {
+        super.afterSetMounted(...arguments);
+
+        // Ensure focus traping is up to date, enabled or disabled.
+        this.syncTrapFocus();
+    }
+
     /**
      * Triggered after the resizable config got changed
      * @param {Boolean} value
@@ -286,6 +301,16 @@ class Base extends Panel {
     afterSetTitle(value, oldValue) {
         if (this.headerToolbar) {
             this.headerToolbar.title = value
+        }
+    }
+
+    afterSetTrapFocus(trapFocus) {
+        this.syncTrapFocus();
+    }
+
+    syncTrapFocus() {
+        if (this.mounted) {
+            Neo.main.DomAccess.trapFocus({ id : this.id, trap : this.trapFocus });
         }
     }
 
