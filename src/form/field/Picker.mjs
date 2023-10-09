@@ -320,9 +320,8 @@ class Picker extends Text {
      *
      */
     showPicker() {
-        if (this.picker) {
-            this.picker.hidden = false
-        }
+        let picker = this.getPicker();
+        picker.hidden = false
     }
 
     /**
