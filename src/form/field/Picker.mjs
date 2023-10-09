@@ -45,7 +45,7 @@ class Picker extends Text {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * @member {Object|null} picker=null
+         * @member {Neo.container.Bas|null} picker=null
          * @protected
          */
         picker: null,
@@ -107,7 +107,7 @@ class Picker extends Text {
         me.addDomListeners({
             click: me.onInputClick,
             scope: me
-        });
+        })
     }
 
     /**
@@ -120,7 +120,7 @@ class Picker extends Text {
         let cls = this.cls;
 
         NeoArray.toggle(cls, 'neo-not-editable', !value);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -131,10 +131,10 @@ class Picker extends Text {
      */
     afterSetMounted(value, oldValue) {
         if (value === false && oldValue && this.pickerIsMounted) {
-            this.picker.hide();
+            this.picker.hide()
         }
 
-        super.afterSetMounted(value, oldValue);
+        super.afterSetMounted(value, oldValue)
     }
 
     /**
@@ -160,7 +160,7 @@ class Picker extends Text {
             { pickerWidth } = me,
             pickerComponent = me.createPickerComponent();
 
-        return Neo.create(Container, {
+        me.picker =  Neo.create(Container, {
             parentId : 'document.body',
             floating : true,
             align    : {
@@ -172,6 +172,7 @@ class Picker extends Text {
             appName  : me.appName,
             cls      : ['neo-picker-container', 'neo-container'],
             height   : me.pickerHeight,
+            hidden   : true,
             id       : me.getPickerId(),
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
@@ -188,16 +189,18 @@ class Picker extends Text {
                 for (item of data.oldPath) {
                     if (item.id === me.id) {
                         insideField = true;
-                        break;
+                        break
                     }
                 }
 
                 if (!insideField) {
                     me.hidePicker();
-                    super.onFocusLeave(data);
+                    super.onFocusLeave(data)
                 }
             }
         });
+
+        return me.picker
     }
 
     /**
@@ -205,7 +208,7 @@ class Picker extends Text {
      * @returns {Neo.component.Base|null}
      */
     createPickerComponent() {
-        return null;
+        return null
     }
 
     /**
@@ -214,12 +217,12 @@ class Picker extends Text {
     destroy(...args) {
         let picker = this.picker;
 
-        if (this.pickerIsMounted) {
-            picker?.unmount();
+        if (picker?.hidden === false) {
+            picker.unmount()
         }
 
         picker?.destroy();
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -227,36 +230,22 @@ class Picker extends Text {
      * @returns {Neo.container.Base}
      */
     getPicker() {
-        let me = this;
-
-        if (!me.picker) {
-            me.picker = me.createPicker();
-        }
-
-        return me.picker;
+        return this.picker || this.createPicker()
     }
 
     /**
      * @returns {String}
      */
     getPickerId() {
-        return `${this.id}__picker`;
+        return `${this.id}__picker`
     }
 
     /**
      *
      */
     async hidePicker() {
-        let me     = this,
-            picker = me.getPicker();
-
-        // avoid breaking selection model cls updates
-        await me.timeout(30);
-
-        if (me.pickerIsMounted) {
-            picker.unmount();
-
-            me.pickerIsMounted = false;
+        if (this.picker) {
+            this.picker.hidden = true
         }
     }
 
@@ -269,7 +258,7 @@ class Picker extends Text {
 
         let me = this;
 
-        me.showPickerOnFocus && !me.pickerIsMounted && me.showPicker();
+        me.showPickerOnFocus && me.showPicker()
     }
 
     /**
@@ -284,13 +273,13 @@ class Picker extends Text {
         for (item of data.oldPath) {
             if (item.id === me.getPickerId()) {
                 insidePicker = true;
-                break;
+                break
             }
         }
 
         if (!insidePicker) {
             me.hidePicker();
-            super.onFocusLeave(data);
+            super.onFocusLeave(data)
         }
     }
 
@@ -308,7 +297,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        !this.pickerIsMounted && this.showPicker(callback, callbackScope);
+        !this.pickerIsMounted && this.showPicker(callback, callbackScope)
     }
 
     /**
@@ -316,7 +305,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEscape(data) {
-        this.pickerIsMounted && this.hidePicker();
+        this.pickerIsMounted && this.hidePicker()
     }
 
     /**
@@ -324,30 +313,15 @@ class Picker extends Text {
      * @protected
      */
     onPickerTriggerClick() {
-        this.editable && this.togglePicker();
+        this.editable && this.togglePicker()
     }
 
     /**
-     * @param {Function} [callback]
-     * @param {Object} [callbackScope]
+     *
      */
-    showPicker(callback, callbackScope) {
-        let me     = this,
-            picker = me.getPicker(),
-            listenerId;
-
-        if (!me.pickerIsMounting) {
-            me.pickerIsMounting = true;
-
-            listenerId = picker.on('mounted', () => {
-                picker.un('mounted', listenerId);
-
-                me.pickerIsMounting = false;
-                me.pickerIsMounted  = true;
-                callback?.apply(callbackScope || me);
-            });
-
-            picker.render(true);
+    showPicker() {
+        if (this.picker) {
+            this.picker.hidden = false
         }
     }
 
@@ -355,12 +329,10 @@ class Picker extends Text {
      *
      */
     togglePicker() {
-        let me = this;
+        let picker = this.getPicker();
 
-        if (me.pickerIsMounted) {
-            me.hidePicker();
-        } else {
-            me.showPicker();
+        if (picker) {
+            picker.hidden = !picker.hidden
         }
     }
 }
