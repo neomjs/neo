@@ -20,7 +20,7 @@
             background-color: var(--switchfield-color-knob);
             border-radius   : 50%;
             height          : var(--switchfield-knobsize);
-            left            : 0;
+            left            : 2px;
             top             : 2px;
             transition      : transform 150ms ease-out;
             width           : var(--switchfield-knobsize);
@@ -39,7 +39,7 @@
             background-color: var(--switchfield-color-on-idle);
 
             &:before {
-                transform: translateX(100%);
+                transform: translateX(80%);
             }
 
             &:after {
