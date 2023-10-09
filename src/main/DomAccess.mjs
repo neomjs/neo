@@ -4,8 +4,22 @@ import Observable   from '../core/Observable.mjs';
 import Rectangle    from '../util/Rectangle.mjs';
 
 const
+    doPreventDefault = e => e.preventDefault(),
+    filterTabbable   = e => !e.classList.contains('neo-focus-trap') && isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     lengthRE         = /^\d+\w+$/,
-    fontSizeProps    = [
+
+    focusableTags = {
+        BODY     : 1,
+        BUTTON   : 1,
+        EMBED    : 1,
+        IFRAME   : 1,
+        INPUT    : 1,
+        OBJECT   : 1,
+        SELECT   : 1,
+        TEXTAREA : 1
+    },
+
+    fontSizeProps = [
         'font-family',
         'font-kerning',
         'font-size',
@@ -19,18 +33,8 @@ const
         'text-transform',
         'word-break'
     ],
-    doPreventDefault = e => e.preventDefault(),
-    focusableTags    = {
-        BUTTON   : 1,
-        IFRAME   : 1,
-        EMBED    : 1,
-        INPUT    : 1,
-        OBJECT   : 1,
-        SELECT   : 1,
-        TEXTAREA : 1,
-        BODY     : 1
-    },
-    isTabbable       = e => {
+
+    isTabbable = e => {
         const
             { nodeName } = e,
             style        = getComputedStyle(e),
@@ -45,8 +49,7 @@ const
             ((nodeName === 'A' || nodeName === 'LINK') && !!e.href) ||
             (tabIndex != null && Number(tabIndex) >= 0) ||
             e.contentEditable === 'true';
-    },
-    filterTabbable   = e => !e.classList.contains('neo-focus-trap') && isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    };
 
 /**
  * @class Neo.main.DomAccess
@@ -669,6 +672,28 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param data
+     * @param data.target
+     * @param data.relatedTarget
+     */
+    onTrappedFocusMovement({ target, relatedTarget }) {
+        const backwards = relatedTarget && (target.compareDocumentPosition(relatedTarget) & 4);
+
+        if (target.matches('.neo-focus-trap')) {
+            const
+                containingEement = target.parentElement,
+                treeWalker       = containingEement.$treeWalker,
+                topFocusTrap     = containingEement.$topFocusTrap,
+                bottomFocusTrap  = containingEement.$bottomFocusTrap;
+
+            treeWalker.currentNode = backwards ? bottomFocusTrap : topFocusTrap;
+            treeWalker[backwards ? 'previousNode' : 'nextNode']();
+
+            requestAnimationFrame(() => treeWalker.currentNode.focus());
+        }
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
@@ -945,23 +970,6 @@ class DomAccess extends Base {
         }
         else {
             subject.removeEventListener('focusin', onTrappedFocusMovement);
-        }
-    }
-
-    onTrappedFocusMovement({ target, relatedTarget }) {
-        const backwards = relatedTarget && (target.compareDocumentPosition(relatedTarget) & 4);
-
-        if (target.matches('.neo-focus-trap')) {
-            const
-                containingEement = target.parentElement,
-                treeWalker       = containingEement.$treeWalker,
-                topFocusTrap     = containingEement.$topFocusTrap,
-                bottomFocusTrap  = containingEement.$bottomFocusTrap;
-
-            treeWalker.currentNode = backwards ? bottomFocusTrap : topFocusTrap;
-            treeWalker[backwards ? 'previousNode' : 'nextNode']();
-
-            requestAnimationFrame(() => treeWalker.currentNode.focus());
         }
     }
 
