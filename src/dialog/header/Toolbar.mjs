@@ -10,7 +10,8 @@ class Toolbar extends Base {
          * @member {String} className='Neo.dialog.header.Toolbar'
          * @protected
          */
-        className: 'Neo.dialog.header.Toolbar',    /**
+        className: 'Neo.dialog.header.Toolbar',
+        /**
          * @member {Object} actionMap
          */
         actionMap: {
