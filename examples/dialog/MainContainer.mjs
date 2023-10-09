@@ -38,16 +38,17 @@ class MainContainer extends Viewport {
         me.items = [{
             module: Toolbar,
             items :[{
-                module : Button,
-                handler: me.createDialog.bind(me),
-                iconCls: 'fa fa-window-maximize',
-                text   : 'Create Dialog',
+                module   : Button,
+                handler  : me.createDialog.bind(me),
+                iconCls  : 'fa fa-window-maximize',
+                reference: 'create-dialog-button',
+                text     : 'Create Dialog',
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onDragLimitChange, scope: me},
+                listeners     : {change: me.onConfigChange.bind(me, 'boundaryContainerId')},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, {
@@ -55,7 +56,16 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
                 style         : {marginLeft: '3em'},
+                valueLabelText: 'Animated'
+            }, {
+                module        : CheckBox,
+                checked       : true,
+                hideLabel     : true,
+                hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
+                style         : {marginLeft: '1em'},
                 valueLabelText: 'Modal'
             }, '->', {
                 module : Button,
@@ -75,30 +85,31 @@ class MainContainer extends Viewport {
         data.component.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
-            animateTargetId    : data.component.id,
-            appName            : me.appName,
-            boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me},
-            modal              : me.down({ valueLabelText : 'Modal' }).checked
-        });
+            animated               : me.down({valueLabelText: 'Animated'}).checked,
+            appName                : me.appName,
+            boundaryContainerId    : me.boundaryContainerId,
+            listeners              : {close: me.onWindowClose, scope: me},
+            modal                  : me.down({valueLabelText: 'Modal'}).checked,
+            optionalAnimateTargetId: data.component.id,
+            title                  : 'Dialog 1'
+        })
     }
 
     /**
-     * @param {Object} data
+     * @param {String} config
+     * @param {Object} opts
      */
-    onDragLimitChange(data) {
-        this.dialog.boundaryContainerId = data.value ? 'document.body' : null
+    onConfigChange(config, opts) {
+        if (this.dialog) {
+            this.dialog[config] = opts.value ? 'document.body' : null
+        }
     }
 
     /**
      *
      */
     onWindowClose() {
-        let button = this.down({
-            text: 'Create Dialog'
-        });
-
-        button.disabled = false;
+        this.getReference('create-dialog-button').disabled = false
     }
 
     /**

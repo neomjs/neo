@@ -1,9 +1,9 @@
 {
-    "appPath"         : "apps/sharedcovidchart/app.mjs",
-    "basePath"        : "../../",
+    "appPath"         : "apps/sharedcovid/childapps/sharedcovidgallery/app.mjs",
+    "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "Stylesheet"],
+    "mainThreadAddons": ["Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"],
     "useSharedWorkers": true
 }

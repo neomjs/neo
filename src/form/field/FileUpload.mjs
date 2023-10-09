@@ -2,12 +2,16 @@ import Base from '../../form/field/Base.mjs';
 import NeoArray from '../../util/Array.mjs';
 
 const
-    sizeRE         = /^(\d+)(kb|mb|gb)?$/i,
-    sizeMultiplier = {
+    sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
+    sizeMultiplier   = {
         unit : 1,
         kb   : 1000,
         mb   : 1000000,
         gb   : 1000000000
+    },
+    httpSuccessCodes = {
+        2 : 1,
+        4 : 1
     };
 
 /**
@@ -138,7 +142,8 @@ class FileUpload extends Base {
             UN_DOWNLOADABLE : 'not-downloadable',
             AVAILABLE       : 'not-downloadable',
             DOWNLOADABLE    : 'downloadable',
-            DELETED         : 'deleted'
+            DELETED         : 'deleted',
+            ERROR           : 'error'
         },
 
         /**
@@ -508,7 +513,7 @@ class FileUpload extends Base {
 
         // Successful network request.
         // Check the resulting JSON packet for details and any error.
-        if (String(xhr.status).startsWith('2')) {
+        if (httpSuccessCodes[String(xhr.status)[0]]) {
             if (loaded !== 0) {
                 const response = JSON.parse(xhr.response);
 
@@ -533,12 +538,8 @@ class FileUpload extends Base {
                 }
             }
         }
-        // Failed network request
-        else {
-            me.error    = xhr.response ? JSON.parse(xhr.response).message : `HTTP status : ${xhr.statusText}`;
-            me.progress = NaN;
-            me.state    = 'upload-failed';
-        }
+        // Failed network requests are handled in onUploadError
+        // so no else condition necessary here
     }
 
     onActionButtonClick() {
@@ -603,7 +604,7 @@ class FileUpload extends Base {
         });
 
         // Success
-        if (String(statusResponse.status).slice(0, 1) === '2') {
+        if (httpSuccessCodes[String(statusResponse.status)[0]]) {
             me.clear();
             me.state = 'ready';
         }
@@ -627,7 +628,7 @@ class FileUpload extends Base {
             });
 
             // Success
-            if (String(statusResponse.status).slice(0, 1) === '2') {
+            if (httpSuccessCodes[String(statusResponse.status)[0]]) {
                 const
                     serverJson   = await statusResponse.json(),
                     serverStatus = serverJson.status,
@@ -641,6 +642,10 @@ class FileUpload extends Base {
                     case 'deleted':
                         me.error = `${me.documentText} ${me.documentId} ${isNoLongerAvailable}`;
                         me.state = 'ready';
+                        break;
+                    case 'error':
+                        me.error = `${me.documentStatusError}: ${statusResponse.statusText || `Server error ${statusResponse.status}`}`;
+                        me.state = 'deleted';
                         break;
                     default:
                         me.state = status;

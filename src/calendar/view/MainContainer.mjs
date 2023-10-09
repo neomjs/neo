@@ -445,6 +445,7 @@ class MainContainer extends Container {
             height   : me.sideBarWidth,
             listeners: {change: me.onDateSelectorChange, scope: me},
             parentId : me.id, // we need the parentId to access the model inside the ctor
+            value    : null,
 
             bind: {
                 locale              : data => data.locale,

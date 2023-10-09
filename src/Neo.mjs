@@ -371,17 +371,13 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {Object} target
      */
     merge(target, source) {
-        if (Neo.typeOf(target) === 'Object') {
-            for (let key in source) {
-                if (Neo.typeOf(source[key]) === 'Object') {
-                    if (!target[key]) {
-                        target[key] = source[key];
-                    } else {
-                        Neo.merge(target[key], source[key]);
-                    }
-                } else {
-                    target[key] = source[key];
-                }
+        for (const key in source) {
+            const value = source[key];
+
+            if (Neo.typeOf(value) === 'Object') {
+                target[key] = Neo.merge(target[key], value);
+            } else {
+                target[key] = value;
             }
         }
 

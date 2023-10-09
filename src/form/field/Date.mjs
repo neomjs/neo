@@ -109,7 +109,7 @@ class DateField extends Picker {
         me.dateSelector.on({
             change: me.onDatePickerChange,
             scope : me
-        });
+        })
     }
 
     /**
@@ -162,7 +162,7 @@ class DateField extends Picker {
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
-        return this.dateSelector;
+        return this.dateSelector
     }
 
     /**
@@ -193,7 +193,7 @@ class DateField extends Picker {
         let me = this;
 
         me.hidePicker();
-        me.focus(me.getInputElId());
+        me.focus(me.getInputElId())
     }
 
     /**
@@ -203,14 +203,16 @@ class DateField extends Picker {
         let me   = this,
             vdom = me.vdom;
 
+        me.clean = false;
+
         if (me.hidePickerOnSelect) {
             VDomUtil.removeVdomChild(vdom, me.getPickerId());
 
             me.promiseUpdate().then(data => {
-                me.value = opts.value;
-            });
+                me.value = opts.value
+            })
         } else {
-            me.value = opts.value;
+            me.value = opts.value
         }
     }
 
@@ -237,9 +239,9 @@ class DateField extends Picker {
 
         if (me.pickerIsMounted) {
             me.dateSelector.focusCurrentItem();
-            super.onKeyDownEnter(data);
+            super.onKeyDownEnter(data)
         } else {
-            super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector);
+            super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector)
         }
     }
 

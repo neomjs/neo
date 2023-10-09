@@ -390,6 +390,10 @@ class DomAccess extends Base {
         return returnData
     }
 
+    /**
+     * @param {Object|String} data
+     * @returns {Neo.util.Rectangle}
+     */
     getClippedRect(data) {
         let node            = this.getElement(typeof data === 'object' ? data.id : data),
             { defaultView } = node.ownerDocument,
@@ -402,21 +406,6 @@ class DomAccess extends Base {
         }
 
         return rect
-    }
-
-    onDocumentMutation(mutations) {
-        const me = this;
-
-        // If the mutations are purely align subjects being added or removed, take no action.
-        if (!mutations.every(({ type, addedNodes, removedNodes }) => {
-            if (type === 'childList') {
-                const nodes = [...Array.from(addedNodes), ...Array.from(removedNodes)];
-
-                return nodes.every(a => me.isAlignSubject(a))
-            }
-        })) {
-            me.syncAligns();
-        }
     }
 
     /**
@@ -538,6 +527,24 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param {Array} mutations
+     */
+    onDocumentMutation(mutations) {
+        const me = this;
+
+        // If the mutations are purely align subjects being added or removed, take no action.
+        if (!mutations.every(({ type, addedNodes, removedNodes }) => {
+            if (type === 'childList') {
+                const nodes = [...Array.from(addedNodes), ...Array.from(removedNodes)];
+
+                return nodes.every(a => me.isAlignSubject(a))
+            }
+        })) {
+            me.syncAligns();
+        }
+    }
+
+    /**
      *
      */
     onDomContentLoaded() {
@@ -548,6 +555,7 @@ class DomAccess extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.id
      * @param {String} data.nodeId
      */
     onGetOffscreenCanvas(data) {
@@ -627,7 +635,7 @@ class DomAccess extends Base {
             data,
             replyId: data.id,
             success: true
-        });
+        })
     }
 
     /**
@@ -636,7 +644,7 @@ class DomAccess extends Base {
      */
     read(data) {
         if (typeof data === 'function') {
-            data();
+            data()
         }
     }
 
@@ -836,6 +844,11 @@ class DomAccess extends Base {
         })
     }
 
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Boolean} data.modal
+     */
     syncModalMask({ id, modal }) {
         const el = id && this.getElement(id);
 
@@ -843,7 +856,7 @@ class DomAccess extends Base {
         if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
             document.body.insertBefore(this.modalMask, el);
         }
-        // Otherwise, the mask needs to be blow the next topmost modal dialog if possible, or hidden
+        // Otherwise, the mask needs to be below the next topmost modal dialog if possible, or hidden
         else {
             const
                 modals       = document.querySelectorAll('.neo-modal'),
@@ -851,9 +864,8 @@ class DomAccess extends Base {
 
             // Move the mask under the next topmost modal now modal "id" is gone.
             if (topmostModal) {
-                this.syncModalMask({ id : topmostModal.id, modal : true })
-            }
-            else {
+                this.syncModalMask({ id: topmostModal.id, modal: true })
+            } else {
                 this._modalMask?.remove()
             }
         }

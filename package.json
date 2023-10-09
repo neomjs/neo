@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.7.4",
+    "version": "6.8.0",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -14,7 +14,6 @@
         "add-config": "node ./buildScripts/addConfig.mjs",
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
-        "build-my-apps": "node ./buildScripts/webpack/buildMyApps.mjs -f",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
@@ -56,7 +55,7 @@
         "inquirer": "^9.2.11",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
-        "postcss": "^8.4.30",
+        "postcss": "^8.4.31",
         "sass": "^1.68.0",
         "showdown": "^2.1.0",
         "webpack": "^5.88.2",

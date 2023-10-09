@@ -173,7 +173,7 @@ class MainContainerController extends ComponentController {
                 top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
                 Neo.Main.windowOpen({
-                    url           : `../${url}/index.html`,
+                    url           : `../sharedcovid/childapps/${url}/index.html`,
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                     windowName
                 });

@@ -493,7 +493,7 @@ class MainContainerController extends ComponentController {
             dragMove : me.onDragMove,
             dragStart: me.onDragStart,
             scope    : me
-        });
+        })
     }
 
     /**
@@ -535,7 +535,7 @@ class MainContainerController extends ComponentController {
             }
 
             Neo.Main.windowOpen({
-                url           : '../shareddialog2/index.html',
+                url           : 'childapps/shareddialog2/index.html',
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                 windowName    : me.dockedWindowAppName
             });

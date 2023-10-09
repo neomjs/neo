@@ -124,7 +124,7 @@ class Table extends Container {
                 id;
 
             if (value) {
-                id = `${me.getView().id}__tr__${value}`; // the store can not be loaded on the first selection
+                id = `${me.view.id}__tr__${value}`; // the store can not be loaded on the first selection
 
                 if (!selectionModel.isSelected(id)) {
                     selectionModel.select(id);
@@ -155,7 +155,7 @@ class Table extends Container {
 
         if (me.store.getCount() > 0) {
             if (item) {
-                item = me.getView().getRecordByRowId(item)?.country;
+                item = me.view.getRecordByRowId(item)?.country;
             }
 
             // in case getRecordByRowId() has no match, the initial row creation will include the selection

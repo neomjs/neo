@@ -1261,6 +1261,7 @@ class Text extends Base {
             vnode.vnode.attributes.value = value;
         }
 
+        me.clean = false;
         me.value = me.inputValueAdjustor(value);
 
         me.fireUserChangeEvent(value, oldValue)
