@@ -16,10 +16,15 @@
     }
 }
 
+// a hack since FF does no longer allow to hide the calendar icon post v109
 @-moz-document url-prefix() {
     .neo-datefield {
+        .neo-field-trigger {
+            background-color: var(--textfield-input-background-color);
+        }
+
         .neo-textfield-input {
-            clip-path: inset(0 2em 0 0);
+            margin-right: -2.2em !important;
         }
     }
 }
