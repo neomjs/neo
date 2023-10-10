@@ -23,7 +23,7 @@ class TableContainer extends BaseTableContainer {
          * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align               : 'right',
+            cellAlign           : 'right',
             defaultSortDirection: 'DESC',
             renderer            : Util.formatNumber
         },
@@ -39,7 +39,7 @@ class TableContainer extends BaseTableContainer {
             renderer : Util.indexRenderer,
             width    : 40
         }, {
-            align               : 'left',
+            cellAlign           : 'left',
             dataField           : 'country',
             defaultSortDirection: 'ASC',
             dock                : 'left',
