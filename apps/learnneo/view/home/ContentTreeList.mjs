@@ -27,7 +27,7 @@ class ContentTreeList extends TreeList {
         let me = this;
 
         Neo.Xhr.promiseJson({
-            url: '../../../resources/learnneo/content.json'
+            url: '../../../resources/data/learnneo/content.json'
         }).then(data => {
             me.store.data = data.json.data;
             me.createItems(null, me.getListItemsRoot(), 0);
