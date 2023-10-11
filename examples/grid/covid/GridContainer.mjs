@@ -23,7 +23,7 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align               : 'right',
+            cellAlign           : 'right',
             defaultSortDirection: 'DESC',
             renderer            : Util.formatNumber,
             width               : 100
@@ -40,7 +40,7 @@ class GridContainer extends BaseGridContainer {
             renderer: Util.indexRenderer,
             width   : 40
         }, {
-            align               : 'left',
+            cellAlign           : 'left',
             defaultSortDirection: 'ASC',
             dock                : 'left',
             field               : 'country',

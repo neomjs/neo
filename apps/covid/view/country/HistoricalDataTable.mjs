@@ -22,7 +22,7 @@ class HistoricalDataTable extends Container {
          * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align               : 'right',
+            cellAlign           : 'right',
             defaultSortDirection: 'DESC',
             renderer            : Util.formatNumber
         },
@@ -30,7 +30,7 @@ class HistoricalDataTable extends Container {
          * @member {Object[]} columns
          */
         columns: [{
-            align    : 'left',
+            cellAlign: 'left',
             dataField: 'date',
             dock     : 'left',
             text     : 'Date',

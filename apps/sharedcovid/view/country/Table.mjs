@@ -28,7 +28,7 @@ class Table extends Container {
          * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align               : 'right',
+            cellAlign           : 'right',
             defaultSortDirection: 'DESC',
             renderer            : Util.formatNumber
         },
@@ -44,7 +44,7 @@ class Table extends Container {
             renderer : Util.indexRenderer,
             width    : 40
         }, {
-            align               : 'left',
+            cellAlign           : 'left',
             dataField           : 'country',
             defaultSortDirection: 'ASC',
             dock                : 'left',

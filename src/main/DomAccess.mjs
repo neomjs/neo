@@ -4,7 +4,21 @@ import Observable   from '../core/Observable.mjs';
 import Rectangle    from '../util/Rectangle.mjs';
 
 const
-    lengthRE      = /^\d+\w+$/,
+    doPreventDefault = e => e.preventDefault(),
+    filterTabbable   = e => !e.classList.contains('neo-focus-trap') && isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+    lengthRE         = /^\d+\w+$/,
+
+    focusableTags = {
+        BODY     : 1,
+        BUTTON   : 1,
+        EMBED    : 1,
+        IFRAME   : 1,
+        INPUT    : 1,
+        OBJECT   : 1,
+        SELECT   : 1,
+        TEXTAREA : 1
+    },
+
     fontSizeProps = [
         'font-family',
         'font-kerning',
@@ -18,7 +32,24 @@ const
         'text-decoration',
         'text-transform',
         'word-break'
-    ];
+    ],
+
+    isTabbable = e => {
+        const
+            { nodeName } = e,
+            style        = getComputedStyle(e),
+            tabIndex     = e.getAttribute('tabIndex');
+
+        // Hidden elements not tabbable
+        if (style.getPropertyValue('display') === 'none' || style.getPropertyValue('visibility') === 'hidden') {
+            return false;
+        }
+
+        return focusableTags[nodeName] ||
+            ((nodeName === 'A' || nodeName === 'LINK') && !!e.href) ||
+            (tabIndex != null && Number(tabIndex) >= 0) ||
+            e.contentEditable === 'true';
+    };
 
 /**
  * @class Neo.main.DomAccess
@@ -78,6 +109,7 @@ class DomAccess extends Base {
                 'setBodyCls',
                 'setStyle',
                 'syncModalMask',
+                'trapFocus',
                 'windowScrollTo'
             ]
         },
@@ -106,6 +138,7 @@ class DomAccess extends Base {
         if (!me._modalMask) {
             me._modalMask = document.createElement('div');
             me._modalMask.className = 'neo-dialog-modal-mask';
+            me._modalMask.addEventListener('mousedown', doPreventDefault, { capture : true });
         }
 
         return me._modalMask;
@@ -639,6 +672,28 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param data
+     * @param data.target
+     * @param data.relatedTarget
+     */
+    onTrappedFocusMovement({ target, relatedTarget }) {
+        const backwards = relatedTarget && (target.compareDocumentPosition(relatedTarget) & 4);
+
+        if (target.matches('.neo-focus-trap')) {
+            const
+                containingEement = target.parentElement,
+                treeWalker       = containingEement.$treeWalker,
+                topFocusTrap     = containingEement.$topFocusTrap,
+                bottomFocusTrap  = containingEement.$bottomFocusTrap;
+
+            treeWalker.currentNode = backwards ? bottomFocusTrap : topFocusTrap;
+            treeWalker[backwards ? 'previousNode' : 'nextNode']();
+
+            requestAnimationFrame(() => treeWalker.currentNode.focus());
+        }
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
@@ -868,6 +923,53 @@ class DomAccess extends Base {
             } else {
                 this._modalMask?.remove()
             }
+        }
+    }
+
+    /**
+     * Traps (or stops trapping) focus within a Component
+     * @param {Object} data
+     * @param {String} data.id The Component to trap focus within.
+     * @param {Boolean} [data.trap=true] Pass `false` to stop trapping focus inside the Component.
+     */
+    async trapFocus(data) {
+        const
+            me                     = this,
+            onTrappedFocusMovement = me.$boundOnTrappedFocusMovement || (me.$boundOnTrappedFocusMovement = me.onTrappedFocusMovement.bind(me)),
+            subject                = data.subject = me.getElement(data.id),
+            { trap = true }        = data;
+
+        // Called before DOM has been created.
+        if (!subject) {
+            return;
+        }
+
+        let topFocusTrap    = subject.$topFocusTrap,
+            bottomFocusTrap = subject.$bottomFocusTrap;
+
+        if (trap) {
+            if (!subject.$treeWalker) {
+                subject.$treeWalker = document.createTreeWalker(subject, NodeFilter.SHOW_ELEMENT, {
+                    acceptNode : filterTabbable
+                });
+                topFocusTrap = subject.$topFocusTrap = document.createElement('div');
+                bottomFocusTrap = subject.$bottomFocusTrap = document.createElement('div');
+
+                // The two focus traping elements must be invisble but tabbable.
+                topFocusTrap.className = bottomFocusTrap.className = 'neo-focus-trap';
+                topFocusTrap.setAttribute('tabIndex', 0);
+                bottomFocusTrap.setAttribute('tabIndex', 0);
+
+                // Listen for when they gain focus and wrap focus within the encapsulating element
+                subject.addEventListener('focusin', onTrappedFocusMovement);
+            }
+
+            // Ensure content is encapsulated by the focus trap elements
+            subject.insertBefore(topFocusTrap, subject.firstChild);
+            subject.appendChild(bottomFocusTrap);
+        }
+        else {
+            subject.removeEventListener('focusin', onTrappedFocusMovement);
         }
     }
 

@@ -132,6 +132,7 @@ class DemoDialog extends Dialog {
             index                  : nextIndex,
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
+            trapFocus              : true,
             optionalAnimateTargetId: button.id,
             style                  : {left: me.getOffset(), top: me.getOffset()},
             title                  : 'Dialog ' + nextIndex

@@ -98,8 +98,8 @@ class View extends Component {
             rendererOutput = ''
         }
 
-        if (column.align !== 'left') {
-            cellCls.push('neo-' + column.align)
+        if (column.cellAlign !== 'left') {
+            cellCls.push('neo-' + column.cellAlign)
         }
 
         if (!cellId) {

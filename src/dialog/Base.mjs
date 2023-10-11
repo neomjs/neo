@@ -127,7 +127,20 @@ class Base extends Panel {
         /**
          * @member {String|null} title_=null
          */
-        title_: null
+        title_: null,
+        /**
+         * Set to `true` to have tabbing wrap within this Dialog.
+         *
+         * Should be used with `modal`.
+         * @member {Boolean} trapFocus_=false
+         */
+        trapFocus_: false,
+        /**
+         * Set to `true` to have this Dialog centered in the viewport.
+         *
+         * @member {Boolean} centered_=false
+         */
+        centered_: false
     }
 
     /**
@@ -141,7 +154,7 @@ class Base extends Panel {
 
         me.createHeader();
 
-        if (!me.animateTargetId) {
+        if (!me.animateTargetId && !me.centered) {
             Neo.assignDefaults(style, {
                 left     : '50%',
                 top      : '50%',
@@ -183,6 +196,17 @@ class Base extends Panel {
         }
 
         super.afterSetAppName(value, oldValue)
+    }
+
+    /**
+     * Triggered after the centered config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCentered(value, oldValue) {
+        NeoArray.toggle(this.vdom.cls, 'neo-centered', value);
+        this.update();
     }
 
     /**
@@ -253,6 +277,19 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        // Ensure focus trapping is up-to-date, enabled or disabled.
+        this.syncTrapFocus()
+    }
+
+    /**
      * Triggered after the resizable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -287,6 +324,16 @@ class Base extends Panel {
         if (this.headerToolbar) {
             this.headerToolbar.title = value
         }
+    }
+
+    /**
+     * Triggered after the trapFocus config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetTrapFocus(value, oldValue) {
+        this.syncTrapFocus()
     }
 
     /**
@@ -675,6 +722,15 @@ class Base extends Panel {
     syncModalMask(id=this.id) {
         // This should sync the visibility and position of the modal mask element.
         Neo.main.DomAccess.syncModalMask({ id, modal: this.modal })
+    }
+
+    /**
+     *
+     */
+    syncTrapFocus() {
+        if (this.mounted) {
+            Neo.main.DomAccess.trapFocus({ id: this.id, trap: this.trapFocus })
+        }
     }
 }
 
