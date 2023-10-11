@@ -1,0 +1,27 @@
+{
+    "data": [{
+        "id"      : 1,
+        "isLeaf"  : false,
+        "name"    : "Hello",
+        "parentId": null,
+        "path"    : null
+    }, {
+        "id"      : 2,
+        "isLeaf"  : true,
+        "name"    : "Max",
+        "parentId": 1,
+        "path"    : null
+    }, {
+        "id"      : 3,
+        "isLeaf"  : false,
+        "name"    : "Hello",
+        "parentId": null,
+        "path"    : null
+    }, {
+        "id"      : 4,
+        "isLeaf"  : true,
+        "name"    : "Torsten",
+        "parentId": 3,
+        "path"    : null
+    }]
+}
