@@ -1,0 +1,30 @@
+.route {
+    
+    background-color: white;
+
+    .route_center {
+
+        max-width: 95%;
+
+        margin-left:  20px;
+        margin-right: 20px;
+        margin-top: 0px;
+        margin-bottom: 10px;
+
+        border-top-width: .5px;
+        border-top-color: #757575;
+        border-top-style: solid;
+     
+        border-bottom-width: .5px;
+        border-bottom-color: #757575;
+        border-bottom-style: solid;
+
+        .route_card_contact {
+//            background-color: red;
+            text-align: center;
+        }
+    
+    }
+
+
+} 
