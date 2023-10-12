@@ -76,6 +76,15 @@ class Text extends Base {
          */
         disabledChars_: null,
         /**
+         * Setting `editable` to `false` means that the input field will be read-only
+         * but the field is still workable and may have its value changed by user interaction.
+         *
+         * For example picker fields such as `Date` and `Select` may still have their
+         * values changed by selecting from the picker using keyboard or pointer.
+         * @member {Boolean} editable_=true
+         */
+        editable_: true,
+        /**
          * Configure the value of empty fields. null or an empty string is recommended.
          * @member {String|null} emptyValue=null
          */
@@ -192,15 +201,6 @@ class Text extends Base {
          */
         readOnly_: false,
         /**
-         * @member {Boolean} editable_=true
-         */
-        editable_: true,
-        /**
-         * Setting `editable` to `false` means that the input field will be read-only
-         * but the field is still workable and may have its value changed by user interaction.
-         *
-         * For example picker fields such as `Date` and `Select` may still have their
-         * values changed by selecting from the picker using keyboard or pointer.
          * @member {Boolean} required_=false
          */
         required_: false,
