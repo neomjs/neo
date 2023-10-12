@@ -369,10 +369,6 @@ class Text extends Base {
         NeoArray.toggle(cls, 'neo-not-editable', !value);
         me.cls = cls
         me.changeInputElKey('readonly', value ? false : true);
-
-        me.triggers?.forEach(trigger => {
-            trigger.hidden = value ? true : trigger.getHiddenState?.() || false
-        });
     }
 
     /**
