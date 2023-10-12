@@ -691,13 +691,17 @@ class FileUpload extends Base {
 
         delete vdom.inert;
 
+        let isChangeEventNeeded;
+
         switch (value) {
             case 'ready':
                 anchor.tag = 'div';
                 anchor.href = '';
+                isChangeEventNeeded = true;
                 break;
             case 'upload-failed':
                 status.innerHTML = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
+                isChangeEventNeeded = true;
                 break;
             case 'processing':
                 status.innerHTML = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
@@ -706,6 +710,7 @@ class FileUpload extends Base {
             case 'scan-failed':
                 status.innerHTML = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
                 me.error = me.pleaseCheck;
+                isChangeEventNeeded = true;
                 break;
             case 'downloadable':
                 anchor.tag = 'a';
@@ -713,14 +718,20 @@ class FileUpload extends Base {
                     [me.documentIdParameter] : me.documentId
                 });
                 status.innerHTML = me.fileSize;
+                isChangeEventNeeded = true;
                 break;
             case 'not-downloadable':
                 status.innerHTML = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
+                isChangeEventNeeded = true;
                 break;
             case 'deleted':
                 status.innerHTML = me.fileWasDeleted;
+                isChangeEventNeeded = true;
         }
 
+        if (isChangeEventNeeded) {
+            me.fireChangeEvent(me.file)
+        }
         me.validate();
         me.update();
 
