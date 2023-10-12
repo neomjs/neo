@@ -184,10 +184,23 @@ class Text extends Base {
          */
         placeholderText_: null,
         /**
+         * Setting `readOnly` means that the field may not be changed by user interaction.
+         *
+         * The input field will be read-only and other ways of changing the field's value
+         * (such as by operating pickers) will be disabled.
          * @member {Boolean} readOnly_=false
          */
         readOnly_: false,
         /**
+         * @member {Boolean} editable_=true
+         */
+        editable_: true,
+        /**
+         * Setting `editable` to `false` means that the input field will be read-only
+         * but the field is still workable and may have its value changed by user interaction.
+         *
+         * For example picker fields such as `Date` and `Select` may still have their
+         * values changed by selecting from the picker using keyboard or pointer.
          * @member {Boolean} required_=false
          */
         required_: false,
@@ -340,6 +353,26 @@ class Text extends Base {
                 id     : me.getInputEl().id
             })
         }
+    }
+
+    /**
+     * Triggered after the editable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEditable(value, oldValue) {
+        const
+            me      = this,
+            { cls } = me;
+
+        NeoArray.toggle(cls, 'neo-not-editable', !value);
+        me.cls = cls
+        me.changeInputElKey('readonly', value ? false : true);
+
+        me.triggers?.forEach(trigger => {
+            trigger.hidden = value ? true : trigger.getHiddenState?.() || false
+        });
     }
 
     /**
