@@ -20,13 +20,14 @@ class CenterContainer extends Base {
             {module: () => import('./center/CardContact.mjs')},
             {module: () => import('./center/CardAdministration.mjs')},
             {module: () => import('./center/CardSection1.mjs')},
-            {module: () => import('./center/CardSection2.mjs')}
+            {module: () => import('./center/CardSection2.mjs')},
+            {module: () => import('./center/CardHome.mjs')}
         ],
 
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
-        layout: {ntype: 'card', align: 'stretch', activeIndex: 0},
+        layout: {ntype: 'card', align: 'stretch', activeIndex: 4},
         }
 }
 

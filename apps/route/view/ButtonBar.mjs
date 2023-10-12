@@ -17,13 +17,13 @@ class ButtonBar extends Base {
         /**
          * @member {Object[]} items
          */
-        items: [                    {
+        items: [{
             module: Button,
             flex: 'none',
-            handler: 'onSwitchButtonAdministration',
+            handler: 'onSwitchButtonCardHome',
             cls: ['route_button', 'neo-button'],
-            iconCls: 'fa-solid fa-building-user',
-            text: 'Administration',
+            iconCls: 'fa-solid fa-home',
+            text: 'Home',
         }, {
             module: Button,
             flex: 'none',
@@ -31,15 +31,22 @@ class ButtonBar extends Base {
             cls: ['route_button', 'neo-button'],
             iconCls: 'fa-solid fa-globe',
             text: 'Section 1'
-        },{
+        }, {
             module: Button,
             flex: 'none',
             handler: 'onSwitchButtonCardSection2',
             cls: ['route_button', 'neo-button'],
             iconCls: 'fa-solid fa-globe',
             text: 'Section 2'
+        },{
+            module: Button,
+            flex: 'none',
+            handler: 'onSwitchButtonAdministration',
+            cls: ['route_button', 'neo-button'],
+            iconCls: 'fa-solid fa-building-user',
+            text: 'Administration',
         }],
-        layout: { ntype: 'flexbox', wrap: 'wrap'  },
+        layout: { ntype: 'flexbox', wrap: 'wrap' },
 
     }
 }

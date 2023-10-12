@@ -22,6 +22,7 @@ class FooterContainer extends Container {
         items: [
             {
                 module: Container,
+                reference: 'footer-container',
                 cls: ['centerPanel'],
                 items: [
                     {

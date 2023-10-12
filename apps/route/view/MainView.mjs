@@ -36,7 +36,9 @@ class MainContainer extends Panel {
             },
             {
                 module: ButtonBar,
-                dock: 'top'
+                dock: 'top',
+                reference: 'buttonbar',
+
             },
             {
                 module: FooterContainer,
@@ -50,7 +52,7 @@ class MainContainer extends Panel {
         items: [
             {
                 module: CenterContainer,
-                reference: 'center-container',
+                reference: 'center-container'
             }
         ],
   
