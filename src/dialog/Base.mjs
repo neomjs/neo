@@ -376,10 +376,7 @@ class Base extends Panel {
         me.closeOrHide(false);
 
         if (me.closeAction === 'hide') {
-            await Neo.applyDeltas(appName, [
-                {id, cls: {remove: ['animated-hiding-showing']}},
-                {id, action: 'removeNode'}
-            ])
+            await Neo.applyDeltas(appName, {id, action: 'removeNode'})
         }
     }
 
