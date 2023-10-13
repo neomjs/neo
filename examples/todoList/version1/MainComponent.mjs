@@ -17,9 +17,9 @@ class MainComponent extends Component {
         width    : 300,
 
         /**
-         * @member {Object[]} data
+         * @member {Object[]} items
          */
-        data: [
+        items: [
             {id: 1, done: true,  text: 'Todo Item 1'},
             {id: 2, done: false, text: 'Todo Item 2'},
             {id: 3, done: false, text: 'Todo Item 3'}
@@ -51,14 +51,14 @@ class MainComponent extends Component {
             {input: me.onInputFieldChange, delegate: 'todo-input'}
         ]);
 
-        me.createItems(me.data || []);
+        me.createItems(me.items || []);
     }
 
-    createItems(data) {
+    createItems(items) {
         let me = this,
             cls;
 
-        data.forEach(item => {
+        items.forEach(item => {
             cls = ['todo-item'];
 
             if (item.done) {
