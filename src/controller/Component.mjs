@@ -69,9 +69,21 @@ class Component extends Base {
      * @param {String} handlerName
      * @returns {Neo.controller.Component|null}
      */
-    getHandlerScope(handlerName) {
+    getHandlerScope(handlerName, component) {
         let me     = this,
             parent = me.parent;
+
+        if (component) {
+            // Look for ths function *name* first in the Component itself.
+            // If we find it, return true so calling code knows not to continue to search.
+            const handlerCb = component.resolveCallback(handlerName, component);
+
+            // Handler fn is resolved in the Component or its own parent chain.
+            // Return a status indicating that we do not need an erly binding
+            if (handlerCb.fn) {
+                return true;
+            }
+        }
 
         return Neo.isFunction(me[handlerName]) ?
             me : parent ?
@@ -140,9 +152,12 @@ class Component extends Base {
             eventHandler, handlerScope;
 
         if (handler && typeof handler === 'string') {
-            handlerScope = me.getHandlerScope(handler);
+            handlerScope = me.getHandlerScope(handler, component);
 
-            component.handler = handlerScope[handler].bind(component.handlerScope || handlerScope)
+            // If the handler name was not resolved in the Component itself, bind it
+            if (handlerScope !== true) {
+                component.handler = handlerScope[handler].bind(component.handlerScope || handlerScope);
+            }
         }
 
         if (listeners) {
@@ -150,11 +165,11 @@ class Component extends Base {
                 if (key !== 'scope' && key !== 'delegate') {
                     if (Neo.isString(value)) {
                         eventHandler = value;
-                        handlerScope = me.getHandlerScope(eventHandler);
+                        handlerScope = me.getHandlerScope(eventHandler, component);
 
                         if (!handlerScope) {
                             Logger.logError('Unknown event handler for', eventHandler, component)
-                        } else {
+                        } else if (handlerScope !== true) {
                             listeners[key] = {};
                             listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
                         }
@@ -162,11 +177,11 @@ class Component extends Base {
                         value.forEach(listener => {
                             if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
                                 eventHandler = listener.fn;
-                                handlerScope = me.getHandlerScope(eventHandler);
+                                handlerScope = me.getHandlerScope(eventHandler, component);
 
                                 if (!handlerScope) {
                                     Logger.logError('Unknown event handler for', eventHandler, component)
-                                } else {
+                                } else if (handlerScope !== true) {
                                     listener.fn = handlerScope[eventHandler].bind(handlerScope)
                                 }
                             }

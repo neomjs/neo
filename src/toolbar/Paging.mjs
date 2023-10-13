@@ -41,15 +41,72 @@ class Paging extends Toolbar {
         /**
          * @member {Function} totalText_=count=>`Total: ${count} records`
          */
-        totalText_: count => `Total: ${count} rows`
-    }
+        totalText_: count => `Total: ${count} rows`,
 
-    /**
-     * @param config
-     */
-    construct(config) {
-        super.construct(config);
-        this.createToolbarItems();
+        items : {
+            'nav-button-first' : {
+                handler  : 'up.onFirstPageButtonClick',
+                iconCls  : 'fa fa-angles-left'
+            },
+            'nav-button-prev' : {
+                handler  : 'up.onPrevPageButtonClick',
+                iconCls  : 'fa fa-angle-left',
+                style    : {marginLeft: '2px'}
+            },
+            'pages-text': {
+                ntype    : 'label',
+                style    : {marginLeft: '10px'}
+            },
+            'nav-button-next' : {
+                handler  : 'up.onNextPageButtonClick',
+                iconCls  : 'fa fa-angle-right',
+                style    : {marginLeft: '10px'}
+            },
+            'nav-button-last' : {
+                handler  : 'up.onLastPageButtonClick',
+                iconCls  : 'fa fa-angles-right',
+                style    : {marginLeft: '2px'}
+            }, 
+            label : {
+                ntype: 'label',
+                style: {marginLeft: '50px'},
+                text : 'Rows per page:'
+            },
+            rowsPerPage : {
+                module       : SelectField,
+                clearable    : false,
+                hideLabel    : true,
+                listConfig   : {highlightFilterValue: false},
+                listeners    : {change: 'up.onPageSizeFieldChange'},
+                style        : {margin: 0},
+                triggerAction: 'all',
+                useFilter    : false,
+                value        : 30,
+                width        : 70,
+                store        : {
+                    model: {
+                        fields: [
+                            {name: 'id',   type: 'Integer'},
+                            {name: 'name', type: 'Integer'}
+                        ]
+                    },
+                    data: [
+                        {id: 1, name:  10},
+                        {id: 2, name:  20},
+                        {id: 3, name:  30},
+                        {id: 4, name:  50},
+                        {id: 5, name: 100}
+                    ]
+                }
+            },
+            spacer : {
+                ntype : 'component',
+                flex  : 1
+            },
+            'total-text' : {
+                ntype    : 'label'
+            }
+        }
     }
 
     /**
@@ -113,74 +170,6 @@ class Paging extends Toolbar {
         oldValue?.un(listeners);
 
         return ClassSystemUtil.beforeSetInstance(value, null, {listeners});
-    }
-
-    /**
-     *
-     */
-    createToolbarItems() {
-        let me = this;
-
-        me.items = [{
-            handler  : me.onFirstPageButtonClick.bind(me),
-            iconCls  : 'fa fa-angles-left',
-            reference: 'nav-button-first'
-        }, {
-            handler  : me.onPrevPageButtonClick.bind(me),
-            iconCls  : 'fa fa-angle-left',
-            reference: 'nav-button-prev',
-            style    : {marginLeft: '2px'}
-        }, {
-            ntype    : 'label',
-            reference: 'pages-text',
-            style    : {marginLeft: '10px'},
-            text     : me.pagesText(me)
-        }, {
-            handler  : me.onNextPageButtonClick.bind(me),
-            iconCls  : 'fa fa-angle-right',
-            reference: 'nav-button-next',
-            style    : {marginLeft: '10px'}
-        }, {
-            handler  : me.onLastPageButtonClick.bind(me),
-            iconCls  : 'fa fa-angles-right',
-            reference: 'nav-button-last',
-            style    : {marginLeft: '2px'}
-        }, {
-            ntype: 'label',
-            style: {marginLeft: '50px'},
-            text : 'Rows per page:'
-        }, {
-            module       : SelectField,
-            clearable    : false,
-            hideLabel    : true,
-            listConfig   : {highlightFilterValue: false},
-            listeners    : {change: me.onPageSizeFieldChange.bind(me)},
-            style        : {margin: 0},
-            triggerAction: 'all',
-            useFilter    : false,
-            value        : 30,
-            width        : 70,
-
-            store: {
-                model: {
-                    fields: [
-                        {name: 'id',   type: 'Integer'},
-                        {name: 'name', type: 'Integer'}
-                    ]
-                },
-                data: [
-                    {id: 1, name:  10},
-                    {id: 2, name:  20},
-                    {id: 3, name:  30},
-                    {id: 4, name:  50},
-                    {id: 5, name: 100}
-                ]
-            }
-        }, '->', {
-            ntype    : 'label',
-            reference: 'total-text',
-            text     : me.totalText(me.store.totalCount)
-        }];
     }
 
     /**

@@ -127,6 +127,9 @@ class DomEvent extends Base {
                                     data = Neo.clone(data, true, true);
 
                                     data.component = component;
+
+                                    // Handler needs to know which actual target matched the delegate
+                                    data.currentTarget = delegationTargetId;
                                     listener.fn.apply(listener.scope || globalThis, [data]);
 
                                     if (!listener.bubble) {

@@ -487,7 +487,7 @@ class Base extends Component {
     onClick(data) {
         let me = this;
 
-        me.handler?.call(me.handlerScope || me, data);
+        me.callback(me.handler, me.handlerScope || me, [data]);
 
         me.menu            && me.toggleMenu();
         me.route           && me.changeRoute();
