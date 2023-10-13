@@ -383,7 +383,8 @@ class Base {
             me.originalConfig = Neo.clone(config, true, true)
         }
 
-        return {...ctor.config, ...config}
+        // Deep merge the incoming config into the default config
+        return Neo.merge(Neo.clone(ctor.config, true), config);
     }
 
     /**

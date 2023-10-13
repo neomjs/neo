@@ -375,7 +375,7 @@ Neo = globalThis.Neo = Object.assign({
             const value = source[key];
 
             if (Neo.typeOf(value) === 'Object') {
-                target[key] = Neo.merge(target[key], value);
+                target[key] = Neo.merge(target[key] || {}, value);
             } else {
                 target[key] = value;
             }

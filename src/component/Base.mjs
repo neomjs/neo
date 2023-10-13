@@ -302,11 +302,11 @@ class Base extends CoreBase {
          */
         theme_: null,
         /**
-         * Add tooltip config objects
+         * Add tooltip config object
          * See tooltip/Base.mjs
-         * @member {Array|Object} tooltips_=null
+         * @member {Object} tooltip_=null
          */
-        tooltips_: null,
+        tooltip_: null,
         /**
          * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
@@ -771,21 +771,21 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the tooltips config got changed
+     * Triggered after the tooltip config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetTooltips(value, oldValue) {
-        if (value) {
-            let me = this;
+    afterSetTooltip(value, oldValue) {
+        oldValue?.destroy();
 
+        if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                me.createTooltips(value)
+                this.createTooltip(value);
             } else {
-                import('../tooltip/Base.mjs').then((module) => {
-                    me.createTooltips(value)
-                })
+                import('../tooltip/Base.mjs').then(() => {
+                    this.createTooltip(value);
+                });
             }
         }
     }
@@ -1167,31 +1167,29 @@ class Base extends CoreBase {
 
     /**
      * Creates the tooltip instances
-     * @param {Array|Object} value
+     * @param {Object}String} value
      * @protected
      */
-    createTooltips(value) {
-        if (!Array.isArray(value)) {
-            value = [value];
+    createTooltip(value) {
+        if (typeof value === 'string') {
+            value = {
+                text : value
+            };
         }
 
-        let me       = this,
-            tooltips = [],
-            tip;
-
-        value.forEach(item => {
-            // todo: check for existing tooltips
-
-            tip = Neo.create('Neo.tooltip.Base', {
-                appName    : me.appName,
-                componentId: me.id,
-                ...item
+        if (value.ownInstance) {
+            this._tooltip = Neo.create('Neo.tooltip.Base', {
+                ...value,
+                appName     : this.appName,
+                componentId : this.id
             });
-
-            tooltips.push(tip)
-        });
-
-        me._tooltips = tooltips // silent update
+        }
+        else {
+            this._tooltip = value;
+            Neo.tooltip.Base.createSingleton(this.app);
+            this.addCls('neo-uses-shared-tooltip');
+            this.update();
+        }
     }
 
     /**
