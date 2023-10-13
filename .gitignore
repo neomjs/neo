@@ -12,6 +12,9 @@
 !/apps/form/neo-config.json
 !/apps/krausest/index.html
 !/apps/krausest/**/*.mjs
+!/apps/learnneo/neo-config.json
+!/apps/learnneo/index.html
+!/apps/learnneo/**/*.mjs
 !/apps/krausest/neo-config.json
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs

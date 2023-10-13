@@ -33,10 +33,6 @@ class Picker extends Text {
          */
         clientRects: null,
         /**
-         * @member {Boolean} editable_=true
-         */
-        editable_: true,
-        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -108,19 +104,6 @@ class Picker extends Text {
             click: me.onInputClick,
             scope: me
         })
-    }
-
-    /**
-     * Triggered after the editable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetEditable(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.toggle(cls, 'neo-not-editable', !value);
-        this.cls = cls
     }
 
     /**
