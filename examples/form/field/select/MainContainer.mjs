@@ -15,8 +15,7 @@ class MainContainer extends ConfigurationViewport {
         className             : 'Neo.examples.form.field.select.MainContainer',
         autoMount             : true,
         configItemLabelWidth  : 160,
-        exampleContainerConfig: {style: {position: 'relative'}},
-        layout                : {ntype: 'hbox', align: 'stretch'}
+        exampleContainerConfig: {style: {position: 'relative'}}
     }
 
     createConfigurationComponents() {
