@@ -26,16 +26,16 @@ class MainContainer extends Viewport {
             ntype: 'toolbar',
             flex : 'none',
             items: ['->', {
-                handler : 'onAddUserButtonClick',
-                iconCls : 'fa fa-circle-plus',
-                text    : 'Add User',
-                tooltip : 'Open a dialog and edit a new user'
+                handler: 'onAddUserButtonClick',
+                iconCls: 'fa fa-circle-plus',
+                text   : 'Add User',
+                tooltip: 'Open a dialog and edit a new user'
             }, {
                 handler: 'onShowFiltersButtonClick',
                 iconCls: 'fa fa-filter',
                 style  : {marginLeft: '2px'},
                 text   : 'Show Filters',
-                tooltip : 'Show filters for the user'
+                tooltip: 'Show filters for the user'
             }]
         }, {
             module      : UserTableContainer,
@@ -49,28 +49,28 @@ class MainContainer extends Viewport {
             flex  : 'none',
 
             // We want to apply custom configs to the provided item references
-            items : {
-                'nav-button-first' : {
-                    tooltip : 'Go to first page'
+            items: {
+                'nav-button-first': {
+                    tooltip: 'Go to first page'
                 },
                 'nav-button-prev' : {
-                    tooltip : 'Go to previous page'
+                    tooltip: 'Go to previous page'
                 },
                 'nav-button-next' : {
-                    tooltip : 'Go to next page'
+                    tooltip: 'Go to next page'
                 },
                 'nav-button-last' : {
-                    tooltip : 'Go to last page'
+                    tooltip: 'Go to last page'
                 },
 
                 // These two have been moved to the start of the Toolbar by their weights
-                label : {
-                    style  : { marginLeft : 0} ,
-                    weight : -10000
+                label: {
+                    style : {marginLeft: 0},
+                    weight: -10000
                 },
-                rowsPerPage : {
-                    tooltip : 'Set the number of rows to display in a page',
-                    weight  : -999
+                rowsPerPage: {
+                    tooltip: 'Set the number of rows to display in a page',
+                    weight : -999
                 }
             }
         }],

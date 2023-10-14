@@ -134,28 +134,6 @@ class Base extends Component {
         }
     }
 
-    beforeSetItems(items) {
-        // Convert items object to an array for onward storage as _items
-        if (typeof items === 'object' && !Array.isArray(items)) {
-            const result = [];
-
-            let hasWeight;
-
-            for (const ref in items) {
-                const item = items[ref]
-
-                item.reference = ref;
-                result.push(item);
-                hasWeight ||= ('weight' in item);
-            }
-            if (hasWeight) {
-                result.sort(byWeight);
-            }
-            items = result;
-        }
-        return items;
-    }
-
     /**
      * @param {Neo.layout.Base} value
      * @param {Neo.layout.Base} oldValue
@@ -237,6 +215,36 @@ class Base extends Component {
                 }
             }
         }
+    }
+
+    /**
+     * Convert items object to an array for onward storage as _items
+     * @param {Object|Object[]} value
+     * @param {Object|Object[]} oldValue
+     * @returns {Object[]}
+     * @protected
+     */
+    beforeSetItems(value, oldValue) {
+        if (typeof value === 'object' && !Array.isArray(value)) {
+            const result = [];
+
+            let hasWeight;
+
+            for (const ref in value) {
+                const item = value[ref]
+
+                item.reference = ref;
+                result.push(item);
+                hasWeight ||= ('weight' in item);
+            }
+
+            if (hasWeight) {
+                result.sort(byWeight);
+            }
+            value = result;
+        }
+
+        return value;
     }
 
     /**

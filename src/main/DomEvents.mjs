@@ -263,14 +263,16 @@ class DomEvents extends Base {
         }
 
         const result = {
-            path          : path.map(e => this.getTargetData(e)),
-            target        : this.getTargetData(event.target),
-            timeStamp     : event.timeStamp,
-            type          : event.type
-        }
+            path     : path.map(e => this.getTargetData(e)),
+            target   : this.getTargetData(event.target),
+            timeStamp: event.timeStamp,
+            type     : event.type
+        };
+
         if (event.relatedTarget) {
             result.relatedTarget = this.getTargetData(event.relatedTarget);
         }
+
         return result;
     }
 

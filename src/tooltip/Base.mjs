@@ -47,6 +47,10 @@ class Base extends Container {
          */
         dismissDelayTaskId: null,
         /**
+         * @member {Boolean} floating=true
+         */
+        floating: true,
+        /**
          * The delay in ms before the tooltip gets shown
          * @member {Number|null} hideDelay=400
          */
@@ -77,43 +81,19 @@ class Base extends Container {
          * Shortcut to add a label item
          * @member {String} text_=null
          */
-        text_: null,
-
-        floating : true
+        text_: null
     }
 
-    static createSingleton(app) {
-        if (!singletons[app.name]) {
-            singletons[app.name] = Neo.create('Neo.tooltip.Base', {
-                appName     : app.name,
-                componentId : app.mainView.id,
-                resetCfg    : {},
-                isShared    : true,
-                delegate    : '.neo-uses-shared-tooltip',
-                listeners : {
-                    // Reconfigure on over a target
-                    async targetOver({ target }) {
-                        // Revert last pointerOver config set to initial setting.
-                        this.set(this.resetCfg);
-                        this.resetCfg = {};
+    /**
+     * @param {String} id
+     * @param {Function} callback
+     * @param {Number} delay
+     */
+    addTimeout(id, callback, delay) {
+        id += 'DelayTaskId';
 
-                        // Use the tooltip config block that the target was configured with
-                        // to reconfogure tis instance
-                        const config = target?._tooltip;
-
-                        // Cache things we have to reset
-                        for (const key in config) {
-                            this.resetCfg[key] = this[key];
-                        }
-
-                        // Set ourself up as the target wants
-                        this.set(config);
-                    }
-                }
-            });
-        }
-
-        return singletons[app.name];
+        this.clearTimeout(this[id]);
+        this[id] = setTimeout(callback, delay);
     }
 
     /**
@@ -205,33 +185,52 @@ class Base extends Container {
         });
     }
 
-    addTimeout(id, callback, delay) {
-        id += 'DelayTaskId';
+    /**
+     * @param {Neo.controller.Application} app
+     * @returns {Neo.tooltip.Base}
+     */
+    static createSingleton(app) {
+        if (!singletons[app.name]) {
+            singletons[app.name] = Neo.create('Neo.tooltip.Base', {
+                appName     : app.name,
+                componentId : app.mainView.id,
+                resetCfg    : {},
+                isShared    : true,
+                delegate    : '.neo-uses-shared-tooltip',
+                listeners : {
+                    // Reconfigure on over a target
+                    async targetOver({ target }) {
+                        // Revert last pointerOver config set to initial setting.
+                        this.set(this.resetCfg);
+                        this.resetCfg = {};
 
-        this.clearTimeout(this[id]);
-        this[id] = setTimeout(callback, delay);
+                        // Use the tooltip config block that the target was configured with
+                        // to reconfogure tis instance
+                        const config = target?._tooltip;
+
+                        // Cache things we have to reset
+                        for (const key in config) {
+                            this.resetCfg[key] = this[key];
+                        }
+
+                        // Set ourself up as the target wants
+                        this.set(config);
+                    }
+                }
+            });
+        }
+
+        return singletons[app.name];
     }
 
     /**
      * Instantly hides the tooltip
-     * @param {Object|null} data
      */
     hide() {
         let me = this;
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
         me.mounted && me.unmount()
-    }
-
-    onDelegateMouseLeave(data) {
-        // If it's an internal move within the delegate, do nothing
-        if (data.currentTarget === this.activeTarget?.id) {
-            this.fire('targetOut', {
-                target : this.activeTarget
-            });
-            this.activeTarget = null;
-            this.hideDelayed(data);
-        }
     }
 
     /**
@@ -245,6 +244,53 @@ class Base extends Container {
             me.addTimeout('hide', me.hide.bind(me), me.hideDelay);
         } else {
             me.hide(data)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDelegateMouseEnter(data) {
+        const
+            me = this,
+            {
+                currentTarget
+            }  = data;
+
+        // If it's an internal move within the delegate, do nothing
+        if (currentTarget !== me.activeTarget?.id) {
+            me.activeTarget = Neo.get(currentTarget);
+            me.align.target = currentTarget;
+            me.align.targetMargin = 10;
+
+            me.fire('targetOver', {
+                target : me.activeTarget
+            });
+
+            // Still visible, just realign
+            if (me.mounted) {
+                me.show();
+                me.alignTo();
+            }
+            else {
+                me.showDelayed(data);
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDelegateMouseLeave(data) {
+        const me = this;
+
+        // If it's an internal move within the delegate, do nothing
+        if (data.currentTarget === me.activeTarget?.id) {
+            me.fire('targetOut', {
+                target : this.activeTarget
+            });
+            me.activeTarget = null;
+            me.hideDelayed(data);
         }
     }
 
@@ -288,34 +334,6 @@ class Base extends Container {
         }
 
         !me.mounted && me.render(true)
-    }
-
-    onDelegateMouseEnter(data) {
-        const
-            me = this,
-            {
-                currentTarget
-            }  = data;
-
-        // If it's an internal move within the delegate, do nothing
-        if (currentTarget !== me.activeTarget?.id) {
-            me.activeTarget = Neo.get(currentTarget);
-            me.align.target = currentTarget;
-            me.align.targetMargin = 10;
-
-            me.fire('targetOver', {
-                target : me.activeTarget
-            });
-
-            // Still visible, just realign
-            if (me.mounted) {
-                me.show();
-                me.alignTo();
-            }
-            else {
-                me.showDelayed(data);
-            }
-        }
     }
 
     /**

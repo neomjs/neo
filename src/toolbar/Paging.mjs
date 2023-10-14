@@ -42,13 +42,15 @@ class Paging extends Toolbar {
          * @member {Function} totalText_=count=>`Total: ${count} records`
          */
         totalText_: count => `Total: ${count} rows`,
-
-        items : {
-            'nav-button-first' : {
+        /**
+         * @member {Object|Object[]} items
+         */
+        items: {
+            'nav-button-first': {
                 handler  : 'up.onFirstPageButtonClick',
                 iconCls  : 'fa fa-angles-left'
             },
-            'nav-button-prev' : {
+            'nav-button-prev': {
                 handler  : 'up.onPrevPageButtonClick',
                 iconCls  : 'fa fa-angle-left',
                 style    : {marginLeft: '2px'}
@@ -57,22 +59,22 @@ class Paging extends Toolbar {
                 ntype    : 'label',
                 style    : {marginLeft: '10px'}
             },
-            'nav-button-next' : {
+            'nav-button-next': {
                 handler  : 'up.onNextPageButtonClick',
                 iconCls  : 'fa fa-angle-right',
                 style    : {marginLeft: '10px'}
             },
-            'nav-button-last' : {
+            'nav-button-last': {
                 handler  : 'up.onLastPageButtonClick',
                 iconCls  : 'fa fa-angles-right',
                 style    : {marginLeft: '2px'}
-            }, 
-            label : {
+            },
+            label: {
                 ntype: 'label',
                 style: {marginLeft: '50px'},
                 text : 'Rows per page:'
             },
-            rowsPerPage : {
+            rowsPerPage: {
                 module       : SelectField,
                 clearable    : false,
                 hideLabel    : true,
@@ -83,7 +85,8 @@ class Paging extends Toolbar {
                 useFilter    : false,
                 value        : 30,
                 width        : 70,
-                store        : {
+
+                store: {
                     model: {
                         fields: [
                             {name: 'id',   type: 'Integer'},
@@ -99,12 +102,12 @@ class Paging extends Toolbar {
                     ]
                 }
             },
-            spacer : {
-                ntype : 'component',
-                flex  : 1
+            spacer: {
+                ntype: 'component',
+                flex : 1
             },
-            'total-text' : {
-                ntype    : 'label'
+            'total-text': {
+                ntype: 'label'
             }
         }
     }

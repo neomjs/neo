@@ -51,7 +51,7 @@ class Base extends Component {
         editRoute: true,
         /**
          * Shortcut for domListeners={click:handler}
-         * A string based value assumes that the handlerFn lives inside a ComponentController
+         * A string based value assumes that the handlerFn lives inside a controller.Component
          * @member {Function|String|null} handler_=null
          */
         handler_: null,
