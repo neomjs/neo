@@ -302,9 +302,9 @@ class Base extends CoreBase {
          */
         theme_: null,
         /**
-         * Add tooltip config object
+         * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
-         * @member {Object} tooltip_=null
+         * @member {Object|String} tooltip_=null
          */
         tooltip_: null,
         /**
@@ -772,8 +772,8 @@ class Base extends CoreBase {
 
     /**
      * Triggered after the tooltip config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
      * @protected
      */
     afterSetTooltip(value, oldValue) {
@@ -1167,7 +1167,7 @@ class Base extends CoreBase {
 
     /**
      * Creates the tooltip instances
-     * @param {Object}String} value
+     * @param {Object|String} value
      * @protected
      */
     createTooltip(value) {
@@ -1177,18 +1177,20 @@ class Base extends CoreBase {
             };
         }
 
+        let me = this;
+
         if (value.ownInstance) {
-            this._tooltip = Neo.create('Neo.tooltip.Base', {
+            me._tooltip = Neo.create('Neo.tooltip.Base', {
                 ...value,
-                appName     : this.appName,
-                componentId : this.id
+                appName    : me.appName,
+                componentId: me.id
             });
         }
         else {
-            this._tooltip = value;
-            Neo.tooltip.Base.createSingleton(this.app);
-            this.addCls('neo-uses-shared-tooltip');
-            this.update();
+            me._tooltip = value;
+            Neo.tooltip.Base.createSingleton(me.app);
+            me.addCls('neo-uses-shared-tooltip');
+            me.update();
         }
     }
 

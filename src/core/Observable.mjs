@@ -128,28 +128,6 @@ class Observable extends Base {
     }
 
     /**
-     * Locate a callable function by name in the passed scope.
-     *
-     * If the name starts with 'up.', the parent Component chain is searched.
-     *
-     * This is used by Observable.fire and by 'handler' function calls to resolve
-     * string function names in the Component's own hierarchy.
-     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
-     * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @returns 
-     */
-    resolveCallback(fn, scope = this) {
-        if (typeof fn === 'string') {
-            if (!scope[fn] && fn.startsWith('up.')) {
-                fn = fn.slice(3);
-                while (!scope[fn] && (scope = scope.parent));
-            }
-            fn = scope[fn];
-        }
-        return { scope,  fn };
-    }
-
-    /**
      * Call the passed function, or a function by *name* which exists in the passed scope's
      * or this component's ownership chain.
      * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
@@ -280,6 +258,28 @@ class Observable extends Base {
     // resumeListeners: function() {
 
     // }
+
+    /**
+     * Locate a callable function by name in the passed scope.
+     *
+     * If the name starts with 'up.', the parent Component chain is searched.
+     *
+     * This is used by Observable.fire and by 'handler' function calls to resolve
+     * string function names in the Component's own hierarchy.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+     * @param {Object} scope The scope to find the function in if it is specified as a string.
+     * @returns
+     */
+    resolveCallback(fn, scope=this) {
+        if (typeof fn === 'string') {
+            if (!scope[fn] && fn.startsWith('up.')) {
+                fn = fn.slice(3);
+                while (!scope[fn] && (scope = scope.parent));
+            }
+            fn = scope[fn];
+        }
+        return { scope,  fn };
+    }
 
     /**
      * Alias for removeListener
