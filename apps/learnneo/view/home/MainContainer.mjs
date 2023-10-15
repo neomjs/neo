@@ -24,7 +24,7 @@ class MainContainer extends Container {
         items: [{
             module: Container,
             layout: 'fit',
-            width : 300,
+            width : 350,
 
             items: [{
                 module   : ContentTreeList,

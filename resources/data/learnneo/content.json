@@ -1,26 +1,26 @@
 {
     "data": [{
         "id"      : 1,
-        "isLeaf"  : false,
-        "name"    : "Hello",
+        "isLeaf"  : true,
+        "name"    : "Why neo.mjs",
         "parentId": null,
         "path"    : null
     }, {
         "id"      : 2,
-        "isLeaf"  : true,
-        "name"    : "Max",
-        "parentId": 1,
+        "isLeaf"  : false,
+        "name"    : "Class Definitions and Config",
+        "parentId": null,
         "path"    : null
     }, {
         "id"      : 3,
         "isLeaf"  : false,
-        "name"    : "Hello",
-        "parentId": null,
+        "name"    : "Class Basics",
+        "parentId": 2,
         "path"    : null
     }, {
         "id"      : 4,
         "isLeaf"  : true,
-        "name"    : "Torsten",
+        "name"    : "Classes, Properties, and Methods",
         "parentId": 3,
         "path"    : null
     }]
