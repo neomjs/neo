@@ -22,6 +22,7 @@ class MainContainerController extends Component {
             path             = '../../../resources/data/learnneo/pages';
 
         console.log('onContentListLeafClick', {contentContainer, record});
+        console.log('onContentListLeafClick', {contentContainer, record});
 
         if (record.isLeaf && record.path) {
             const data    = await fetch(`${path}/${record.path}`);
@@ -37,6 +38,7 @@ class MainContainerController extends Component {
             });
 
             await this.timeout(50);
+
 
             contentContainer.layout.activeIndex = 0;
         }
