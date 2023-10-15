@@ -4,7 +4,7 @@
         "isLeaf"  : true,
         "name"    : "Why neo.mjs",
         "parentId": null,
-        "path"    : null
+        "path"    : "whyneo.md"
     }, {
         "id"      : 2,
         "isLeaf"  : false,

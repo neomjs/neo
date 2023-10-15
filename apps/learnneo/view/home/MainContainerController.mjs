@@ -16,10 +16,30 @@ class MainContainerController extends Component {
     /**
      * @param {Object} record
      */
-    onContentListLeafClick(record) {
-        let contentContainer = this.getReference('content-container');
+    async onContentListLeafClick(record) {
+        const
+            contentContainer = this.getReference('content-container'),
+            path             = '../../../resources/data/learnneo/pages';
 
         console.log('onContentListLeafClick', {contentContainer, record});
+
+        if (record.isLeaf && record.path) {
+            const data    = await fetch(`${path}/${record.path}`);
+            const content = await data.text();
+
+            contentContainer.removeAll();
+
+            await this.timeout(50);
+
+            contentContainer.add({
+                ntype: 'component',
+                html : content
+            });
+
+            await this.timeout(50);
+
+            contentContainer.layout.activeIndex = 0;
+        }
     }
 }
 

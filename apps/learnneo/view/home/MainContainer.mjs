@@ -22,9 +22,10 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            layout: 'fit',
-            width : 350,
+            module  : Container,
+            layout  : 'fit',
+            minWidth: 350,
+            width   : 350,
 
             items: [{
                 module   : ContentTreeList,
