@@ -12,7 +12,7 @@ class CardSection2 extends Container {
          * @protected
          */
         className: 'Route.view.center.CardSection2',
-        baseCls: ['neo-container'],
+        baseCls: ['route_card_simple_page','neo-container'],
 
         vdom: {
             tag: 'h1',
