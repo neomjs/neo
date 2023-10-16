@@ -23,6 +23,7 @@ class ButtonBar extends Base {
             handler: 'onSwitchButtonCardHome',
             cls: ['route_button', 'neo-button'],
             iconCls: 'fa-solid fa-home',
+            reference: 'home_button',
             text: 'Home',
         }, {
             module: Button,

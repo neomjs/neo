@@ -14,19 +14,20 @@ class MainContainerController extends Component {
 
 
       routes: {
-         '/home'    : 'handleHomeRoute',
+         '/home': 'handleHomeRoute',
          '/section1': 'handleSection1Route',
          '/section2': 'handleSection2Route',
-         '/contact' : 'handleContactRoute'
+         '/contact': 'handleContactRoute',
+         '/users/{userId}': { handler: 'handleUserRoute', preHandler: 'doPrehandling' },
          // '/users/{userId}' : {handler: 'handleUserRoute', preHandler: 'doPrehandling'}, //example
          // '/users/{userId}/posts/{postId}' : {handler:'handleUserPostsRoute', preHandler: 'doPrehandlingFalse'}, //example
-         // default: 'doDefaultHandling' //optional - exmple
+         // default: 'doDefaultHandling' //optional - example
       },
 
       //Demo data
       data: {
-         users: [{id: 1, name: 'Joe Doe'}, {id: 2, name: 'Max Mustermann'}],
-         activeUser: 1
+         users: [{ id: 1, name: 'Joe Doe' }, { id: 2, name: 'Max Mustermann' }],
+         activeUser: 0
       }
    }
 
@@ -43,6 +44,20 @@ class MainContainerController extends Component {
     * 4 - Home
     */
 
+
+   doPrehandling(value, oldValue, params = null) {
+      const userId = parseInt(params);
+      if (userId > 0 && userId === this.data.activeUser) {
+         return true;
+      }
+
+      const centerContainer = this.getReference('center-container');
+      centerContainer.layout.activeIndex = 5;
+
+      return false;
+
+   }
+
    /**
    * @param {Object} data
    */
@@ -57,7 +72,7 @@ class MainContainerController extends Component {
        */
    onSwitchButtonAdministration(data) {
 
-      Neo.Main.redirectTo({ url: '#/user/x' });
+      Neo.Main.redirectTo({ url: `#/users/${this.data.activeUser}` });
       this.#removeFromButtonSelection();
       this.#addButtonSelection(data);
 
@@ -89,9 +104,39 @@ class MainContainerController extends Component {
       Neo.Main.redirectTo({ url: '#/home' });
       this.#removeFromButtonSelection();
       this.#addButtonSelection(data);
-
    }
 
+   /**
+   * @param {Object} data
+   */
+   onSwitchButtonMetaUser1(data) {
+      const currentUser = this.data.activeUser;
+      this.data.activeUser = 1;
+      this.#removeMetaButtonSelection();
+      this.#setUsername();
+      data.component?.addCls('route_meta_button_grant_selected');
+   }
+
+   /**
+   * @param {Object} data
+   */
+   onSwitchButtonMetaUser2(data) {
+      const currentUser = this.data.activeUser;
+      this.data.activeUser = 2;
+      this.#removeMetaButtonSelection();
+      this.#setUsername();
+      data.component?.addCls('route_meta_button_grant_selected');
+   }
+
+   /**
+   * @param {Object} data
+   */
+   onSwitchButtonMetaReset(data) {
+      const currentUser = this.data.activeUser;
+      this.data.activeUser = 0;
+      this.#setUsername();
+      this.#removeMetaButtonSelection();
+   }
 
    handleHomeRoute(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
@@ -111,9 +156,14 @@ class MainContainerController extends Component {
    handleContactRoute(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 0;
-   }   
+   }
 
-   #removeFromButtonSelection(){
+   handleUserRoute(value, oldValue, params = null) {
+      const centerContainer = this.getReference('center-container');
+      centerContainer.layout.activeIndex = 1
+   }
+
+   #removeFromButtonSelection() {
       const buttonbar = this.getReference('buttonbar');
       buttonbar.items.forEach(element => {
          element.removeCls('route_button_selected');
@@ -126,8 +176,31 @@ class MainContainerController extends Component {
 
    }
 
-   #addButtonSelection(data){
+   #addButtonSelection(data) {
       data.component?.addCls('route_button_selected');
+   }
+
+   #removeMetaButtonSelection(user) {
+      const buttonbar = this.getReference('metabar');
+      buttonbar.items.forEach(element => {
+         element.removeCls('route_meta_button_grant_selected');
+      });
+      this.#removeFromButtonSelection();
+      const data = {
+         component: this.getReference('home_button')
+      }
+      this.#addButtonSelection(data);
+      Neo.Main.redirectTo({ url: '#/home' });
+
+   }
+
+   #setUsername() {
+      const user = this.data.users.find(item => { return item.id === this.data.activeUser });
+
+      const centerContainer = this.getReference('center-container');
+      const adminPage = centerContainer.items[1];
+      adminPage.username = user ? user.name : '';
+
    }
 
 }

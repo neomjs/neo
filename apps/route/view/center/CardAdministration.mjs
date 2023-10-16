@@ -12,15 +12,22 @@ class CardAdministration extends Container {
          * @protected
          */
         className: 'Route.view.center.CardAdministration',
-        baseCls: ['neo-container'],
+        baseCls: ['route_card_simple_page', 'neo-container'],
 
+        username_: '',
         /**
          * @member {Object[]} items
          */
-        items: [{
-            module: Label,
-            text: 'CardAdministration'
-        }],
+
+        vdom: {
+            tag: 'h1',
+            innerHTML: 'Access Granted.'
+        }
+    }
+
+
+    afterSetUsername(value, oldValue){
+        this.vdom.innerHTML = `Access Granted to ${this.username}.`;
     }
 }
 

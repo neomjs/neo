@@ -33,7 +33,7 @@ class HeaderContainer extends Container {
             },
             {
                 module: Label,
-                text: 'neo.mjs showcase',
+                text: 'neo.mjs routes showcase',
                 cls: ['headline-caption']
             },
         ],

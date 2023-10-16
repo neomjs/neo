@@ -12,15 +12,12 @@ class CardSection1 extends Container {
          * @protected
          */
         className: 'Route.view.center.CardSection1',
-        baseCls: ['neo-container'],
+        baseCls: ['route_card_simple_page','neo-container'],
 
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module: Label,
-            text: 'CardSection1'
-        }],
+        vdom: {
+            tag: 'h1',
+            innerHTML: 'This is section 1 of the example.'
+        }        
     }
 }
 

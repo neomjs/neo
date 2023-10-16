@@ -21,7 +21,8 @@ class CenterContainer extends Base {
             {module: () => import('./center/CardAdministration.mjs')},
             {module: () => import('./center/CardSection1.mjs')},
             {module: () => import('./center/CardSection2.mjs')},
-            {module: () => import('./center/CardHome.mjs')}
+            {module: () => import('./center/CardHome.mjs')},
+            {module: () => import('./center/CardAdministrationDenied.mjs')},
         ],
 
         /**

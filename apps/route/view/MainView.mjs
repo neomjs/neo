@@ -46,13 +46,15 @@ class MainContainer extends Panel {
             },
             {
                 module: MetaContainer,
-                dock: 'bottom'
+                dock: 'bottom',
+                reference: 'metabar',
             }
         ],
         items: [
             {
                 module: CenterContainer,
                 reference: 'center-container'
+        
             }
         ],
   

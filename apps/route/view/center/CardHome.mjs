@@ -12,15 +12,12 @@ class CardHome extends Container {
          * @protected
          */
         className: 'Route.view.center.CardHome',
-        baseCls: ['neo-container'],
+        baseCls: ['route_card_simple_page','neo-container'],
 
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module: Label,
-            text: 'CardHome'
-        }],
+        vdom: {
+            tag: 'h1',
+            innerHTML: 'This is the landing page of the example.'
+        }
     }
 }
 

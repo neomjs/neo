@@ -14,13 +14,11 @@ class CardSection2 extends Container {
         className: 'Route.view.center.CardSection2',
         baseCls: ['neo-container'],
 
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module: Label,
-            text: 'CardSection2'
-        }],
+        vdom: {
+            tag: 'h1',
+            innerHTML: 'This is section 2 of the example.'
+        }  
+
     }
 }
 

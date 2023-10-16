@@ -100,7 +100,7 @@ class Base extends CoreBase {
                 if (Neo.isObject(target)){
                     executeHandler = this.routes[key].handler;
                     preHandler = this.routes[key].preHandler;
-                    responsePreHandler = me[preHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1));
+                    responsePreHandler = preHandler ? me[preHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1)) : true;
                 }
 
                 hasRouteBeenFound = true;

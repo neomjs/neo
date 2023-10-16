@@ -1,5 +1,5 @@
 import Container from '../../../../src/container/Base.mjs';
-import Label     from '../../../../src/component/Label.mjs';
+import Label from '../../../../src/component/Label.mjs';
 
 /**
  * @class Route.view.center.CardContact
@@ -12,15 +12,16 @@ class CardContact extends Container {
          * @protected
          */
         className: 'Route.view.center.CardContact',
-        baseCls: ['neo-container'],
+        baseCls: ['route_card_simple_page', 'neo-container'],
 
         items: [
-            { cls : ['route_card_contact'], vdom: { cn: [
-                { tag: 'h1', innerHTML: 'Contact'},
-                { tag: 'a',  href: 'https://github.com/neomjs/neo', target: '_blank', innerHTML: 'please visit https://github.com/neomjs/neo'}
+            { cls : ['route_card_simple_page'], vdom: { cn: [
+                {tag: 'h1',innerHTML: 'Contact' },
+                {tag: 'a',  href: 'https://github.com/neomjs/neo', target: '_blank', innerHTML: 'please visit https://github.com/neomjs/neo'}
             ] } } 
         ]
     }
+
 }
 
 Neo.applyClassConfig(CardContact);
