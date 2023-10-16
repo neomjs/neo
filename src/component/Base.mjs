@@ -304,6 +304,12 @@ class Base extends CoreBase {
         /**
          * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
+         *
+         * By default, a single, shared Tooltip instance is used for all widgets which request
+         * a tooltip. It reconfigures itself from the widget's definition just before showing.
+         *
+         * If a widget needs its own instance for any reason, inslude the property `ownInstance : true`
+         * in the tooltip config object.
          * @member {Object|String} tooltip_=null
          */
         tooltip_: null,
