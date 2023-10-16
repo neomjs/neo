@@ -224,8 +224,8 @@ class Base extends Component {
      * @returns {Object[]}
      * @protected
      */
-    beforeSetItems(value, oldValue) {
-        if (typeof value === 'object' && !Array.isArray(value)) {
+     beforeSetItems(value, oldValue) {
+        if (Neo.typeOf(value) === 'Object') {
             const result = [];
 
             let hasWeight;
@@ -501,7 +501,9 @@ class Base extends Component {
         }
 
         if (config.items) {
-            me.items = Neo.clone(config.items, true, true);
+            // If we are passed an object, merge the class's own items object into it
+            me.items = Neo.typeOf(config.items) === 'Object' ?
+                Neo.merge(Neo.clone(me.constructor.config.items), config.items) : config.items;
             delete config.items
         }
 

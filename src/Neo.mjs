@@ -1,7 +1,19 @@
 import DefaultConfig from './DefaultConfig.mjs';
 
 const configSymbol = Symbol.for('configSymbol'),
-      getSetCache  = Symbol('getSetCache');
+      getSetCache  = Symbol('getSetCache'),
+      typeDetector = {
+        function: (item) => {
+            if (item.prototype?.constructor.isClass) {
+                return 'NeoClass'
+            }
+        },
+        object: (item) => {
+            if (item.constructor.isClass && item instanceof Neo.core.Base) {
+                return 'NeoInstance'
+            }
+        }
+    };
 
 /**
  * The base module to enhance classes, create instances and the Neo namespace
@@ -492,18 +504,7 @@ Neo = globalThis.Neo = Object.assign({
             return null
         }
 
-        return {
-            function: () => {
-                if (item.prototype?.constructor.isClass) {
-                    return 'NeoClass'
-                }
-            },
-            object: () => {
-                if (item.constructor.isClass && item instanceof Neo.core.Base) {
-                    return 'NeoInstance'
-                }
-            }
-        }[typeof item]?.() || item.constructor.name
+        return typeDetector[typeof item]?.(item) || item.constructor.name
     }
 }, Neo);
 
