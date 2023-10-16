@@ -15,8 +15,7 @@ class MainContainer extends ConfigurationViewport {
         className             : 'Neo.examples.form.field.select.MainContainer',
         autoMount             : true,
         configItemLabelWidth  : 160,
-        exampleContainerConfig: {style: {position: 'relative'}},
-        layout                : {ntype: 'hbox', align: 'stretch'}
+        exampleContainerConfig: {style: {position: 'relative'}}
     }
 
     createConfigurationComponents() {
@@ -111,6 +110,12 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'placeholderText',
             listeners: {change: me.onConfigChange.bind(me, 'placeholderText')},
             value    : me.exampleComponent.placeholderText
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.readOnly,
+            labelText: 'readOnly',
+            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
+            style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.typeAhead,

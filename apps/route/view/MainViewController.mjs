@@ -14,19 +14,24 @@ class MainContainerController extends Component {
 
 
       routes: {
-         '/home': 'handleHomeRoute',
+         '/home'    : 'handleHomeRoute',
          '/section1': 'handleSection1Route',
          '/section2': 'handleSection2Route',
+         '/contact' : 'handleContactRoute'
          // '/users/{userId}' : {handler: 'handleUserRoute', preHandler: 'doPrehandling'}, //example
          // '/users/{userId}/posts/{postId}' : {handler:'handleUserPostsRoute', preHandler: 'doPrehandlingFalse'}, //example
          // default: 'doDefaultHandling' //optional - exmple
+      },
+
+      //Demo data
+      data: {
+         users: [{id: 1, name: 'Joe Doe'}, {id: 2, name: 'Max Mustermann'}],
+         activeUser: 1
       }
    }
 
    onConstructed() {
       super.onConstructed();
-
-
    }
 
    /**
@@ -102,6 +107,11 @@ class MainContainerController extends Component {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 3;
    }
+
+   handleContactRoute(value, oldValue, params = null) {
+      const centerContainer = this.getReference('center-container');
+      centerContainer.layout.activeIndex = 0;
+   }   
 
    #removeFromButtonSelection(){
       const buttonbar = this.getReference('buttonbar');

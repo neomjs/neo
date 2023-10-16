@@ -311,7 +311,7 @@ class List extends BaseList {
                 record   = me.store.get(recordId),
                 submenu;
 
-            record.handler?.call(me, record);
+            me.callback(record.handler, me, [record]);
 
             record.route && Neo.Main.setRoute({
                 appName: me.appName,
