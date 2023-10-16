@@ -115,7 +115,7 @@ class View extends Component {
             if (hasStore) {
                 cellId = me.getCellId(record, column.dataField)
             } else {
-                cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td')
+                cellId = vdom.cn[index]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
             }
         }
 
@@ -261,11 +261,12 @@ class View extends Component {
     }
 
     /**
-     * Get a table column by a given field name
+     * Get a table column or column index by a given field name
      * @param {String} field
-     * @returns {Object|null}
+     * @param {Boolean} returnIndex=false
+     * @returns {Object|Number|null}
      */
-    getColumn(field) {
+    getColumn(field, returnIndex=false) {
         let container = this.parent,
             columns   = container.items[0].items, // todo: we need a shortcut for accessing the header toolbar
             i         = 0,
@@ -276,7 +277,7 @@ class View extends Component {
             column = columns[i];
 
             if (column.dataField === field) {
-                return column
+                return returnIndex ? i : column
             }
         }
 
