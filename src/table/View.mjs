@@ -85,8 +85,8 @@ class View extends Component {
 
         switch (Neo.typeOf(rendererOutput)) {
             case 'Object': {
-                if (rendererOutput.cls && rendererOutput.html) {
-                    cellCls.push(...rendererOutput.cls);
+                if (rendererOutput.html) {
+                    rendererOutput.cls && cellCls.push(...rendererOutput.cls);
                 } else {
                     rendererOutput = [rendererOutput];
                 }
