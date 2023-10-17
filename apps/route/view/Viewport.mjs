@@ -10,19 +10,6 @@ class Viewport extends Base {
         items: [{ module: MainView }]
     }
     
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        if (!value) return;
-        this.addDomListeners({
-            "neo-debug-item-select": (event) => {
-                event.path.forEach((item) => {
-                    const component = Neo.getComponent(item.id);
-                    if (component) console.log(component);
-                });
-            },
-        });
-    }
-    
 }
 Neo.applyClassConfig(Viewport);
 export default Viewport;

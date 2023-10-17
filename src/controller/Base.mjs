@@ -31,7 +31,7 @@ class Base extends CoreBase {
         /**
          * @member {String} defaultRoute=undefined
          */
-        defaultRoute: undefined
+        defaultRoute: null
 
     }
 

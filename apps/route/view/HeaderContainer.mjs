@@ -28,7 +28,7 @@ class HeaderContainer extends Container {
                 cls: ['center'],
                 vdom: {
                     tag: 'img',
-                    src: '../../resources/images/route/neo_logo.svg'
+                    src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/logo_rounded.svg'
                 }
             },
             {
