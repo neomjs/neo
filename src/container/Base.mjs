@@ -8,6 +8,8 @@ import LayoutVBox from '../layout/VBox.mjs';
 import Logger     from '../util/Logger.mjs';
 import NeoArray   from '../util/Array.mjs';
 
+const byWeight = ({ weight : lhs = 0 }, { weight : rhs = 0 }) => lhs - rhs;
+
 /**
  * @class Neo.container.Base
  * @extends Neo.component.Base
@@ -33,8 +35,31 @@ class Base extends Component {
          */
         itemDefaults_: null,
         /**
-         * An array of config objects|instances|modules for each child component
+         * An array or an object of config objects|instances|modules for each child component
          * @member {Object[]} items_=[]
+         * @example
+         * import Button      from '../button/Base.mjs';
+         * import Toolbar     from '../toolbar/Base.mjs';
+         *
+         * let myButton = Neo.create(Button, {
+         *     text: 'Button1'
+         * });
+         *
+         * Neo.create(Toolbar, {
+         *     //...
+         *     items: {
+         *         buttonRef : {
+         *             ntype: 'button',   // by ntype
+         *             text : 'Button 2'
+         *         },
+         *         secondRef : {
+         *             module: Button,    // by imported module
+         *             text  : 'Button 3'
+         *         }
+         *     }
+         * });
+         *
+         * or
          * @example
          * import Button      from '../button/Base.mjs';
          * import MyRedButton from 'myapp/MyRedButton.mjs';
@@ -190,6 +215,36 @@ class Base extends Component {
                 }
             }
         }
+    }
+
+    /**
+     * Convert items object to an array for onward storage as _items
+     * @param {Object|Object[]} value
+     * @param {Object|Object[]} oldValue
+     * @returns {Object[]}
+     * @protected
+     */
+     beforeSetItems(value, oldValue) {
+        if (Neo.typeOf(value) === 'Object') {
+            const result = [];
+
+            let hasWeight;
+
+            for (const ref in value) {
+                const item = value[ref]
+
+                item.reference = ref;
+                result.push(item);
+                hasWeight ||= ('weight' in item);
+            }
+
+            if (hasWeight) {
+                result.sort(byWeight);
+            }
+            value = result;
+        }
+
+        return value;
     }
 
     /**
@@ -446,7 +501,9 @@ class Base extends Component {
         }
 
         if (config.items) {
-            me._items = Neo.clone(config.items, true, true);
+            // If we are passed an object, merge the class's own items object into it
+            me.items = Neo.typeOf(config.items) === 'Object' ?
+                Neo.merge(Neo.clone(me.constructor.config.items), config.items) : config.items;
             delete config.items
         }
 

@@ -9,6 +9,9 @@ class MainModel extends Model {
         className: 'Neo.examples.table.container.MainModel',
 
         fields: [{
+            name: 'colspan',
+            type: 'Object'
+        }, {
             name: 'country',
             type: 'String'
         }, {

@@ -302,11 +302,17 @@ class Base extends CoreBase {
          */
         theme_: null,
         /**
-         * Add tooltip config objects
+         * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
-         * @member {Array|Object} tooltips_=null
+         *
+         * By default, a single, shared Tooltip instance is used for all widgets which request
+         * a tooltip. It reconfigures itself from the widget's definition just before showing.
+         *
+         * If a widget needs its own instance for any reason, inslude the property `ownInstance : true`
+         * in the tooltip config object.
+         * @member {Object|String} tooltip_=null
          */
-        tooltips_: null,
+        tooltip_: null,
         /**
          * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
@@ -771,21 +777,21 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the tooltips config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Triggered after the tooltip config got changed
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
      * @protected
      */
-    afterSetTooltips(value, oldValue) {
-        if (value) {
-            let me = this;
+    afterSetTooltip(value, oldValue) {
+        oldValue?.destroy();
 
+        if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                me.createTooltips(value)
+                this.createTooltip(value);
             } else {
-                import('../tooltip/Base.mjs').then((module) => {
-                    me.createTooltips(value)
-                })
+                import('../tooltip/Base.mjs').then(() => {
+                    this.createTooltip(value);
+                });
             }
         }
     }
@@ -1130,24 +1136,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the style config gets changed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Object}
-     * @protected
-     */
-    beforeSetStyle(value, oldValue) {
-        let me = this;
-
-        if (typeof value === 'object') {
-            // merge the incoming style specification into the configured default
-            value = Neo.merge(Neo.merge({}, me.constructor.config.style), value)
-        }
-
-        return value
-    }
-
-    /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value
@@ -1167,31 +1155,31 @@ class Base extends CoreBase {
 
     /**
      * Creates the tooltip instances
-     * @param {Array|Object} value
+     * @param {Object|String} value
      * @protected
      */
-    createTooltips(value) {
-        if (!Array.isArray(value)) {
-            value = [value];
+    createTooltip(value) {
+        if (typeof value === 'string') {
+            value = {
+                text : value
+            };
         }
 
-        let me       = this,
-            tooltips = [],
-            tip;
+        let me = this;
 
-        value.forEach(item => {
-            // todo: check for existing tooltips
-
-            tip = Neo.create('Neo.tooltip.Base', {
+        if (value.ownInstance) {
+            me._tooltip = Neo.create('Neo.tooltip.Base', {
+                ...value,
                 appName    : me.appName,
-                componentId: me.id,
-                ...item
+                componentId: me.id
             });
-
-            tooltips.push(tip)
-        });
-
-        me._tooltips = tooltips // silent update
+        }
+        else {
+            me._tooltip = value;
+            Neo.tooltip.Base.createSingleton(me.app);
+            me.addCls('neo-uses-shared-tooltip');
+            me.update();
+        }
     }
 
     /**
@@ -1665,7 +1653,10 @@ class Base extends CoreBase {
         // does not clone existing Neo instances
         me._vdom = Neo.clone(vdom, true, true);
 
-        me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
+        if (config.style) {
+            // If we are passed an object, merge it with the class's own style
+            me.style = Neo.typeOf(config.style) === 'Object' ? { ...config.style, ...me.constructor.config.style } : config.style;
+        }
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 

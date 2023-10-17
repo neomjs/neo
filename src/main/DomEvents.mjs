@@ -262,12 +262,18 @@ class DomEvents extends Base {
             path = event.path;
         }
 
-        return {
+        const result = {
             path     : path.map(e => this.getTargetData(e)),
             target   : this.getTargetData(event.target),
             timeStamp: event.timeStamp,
             type     : event.type
+        };
+
+        if (event.relatedTarget) {
+            result.relatedTarget = this.getTargetData(event.relatedTarget);
         }
+
+        return result;
     }
 
     /**
@@ -552,7 +558,7 @@ class DomEvents extends Base {
      */
     onMouseEnter(event) {
         let me       = this,
-            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null};
+            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseEnter', appEvent)
@@ -563,7 +569,7 @@ class DomEvents extends Base {
      */
     onMouseLeave(event) {
         let me       = this,
-            appEvent = {...me.getMouseEventData(event), toElementId: event.toElement?.id || null};
+            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null, toElementId: event.toElement?.id || null};
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent)

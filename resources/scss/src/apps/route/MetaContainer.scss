@@ -1,0 +1,44 @@
+.route {
+    .route_meta {
+        height: 100px !important;
+        margin: 5px;
+        padding: 25px;
+        border-style: solid;
+    }
+    .route_meta_center {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    .route_meta_color {
+        background-color: lightblue;
+    }
+
+    .route_meta_button_grant{
+        height: 50px;
+        min-width: 150px;
+        margin: 0px;
+        border: 0px;
+        float: left;
+        background-color: lightgreen;        
+        margin-left: 5px;
+        
+    }
+
+    .route_meta_button_grant_selected{
+        background-color: greenyellow !important;
+    }
+
+    .route_meta_button_remove{
+        height: 50px;
+        min-width: 150px;
+        margin: 0px;
+        border: 0px;
+        float: left;
+        background-color: lightcoral;        
+        margin-left: 50px;
+    }
+
+}
