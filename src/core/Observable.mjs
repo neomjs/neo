@@ -132,9 +132,9 @@ class Observable extends Base {
      * or this component's ownership chain.
      * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
      * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @param {[*]} args Arguments to pass to the callback.
+     * @param {Array} args Arguments to pass to the callback.
      */
-    callback(fn, scope = this, args) {
+    callback(fn, scope=this, args) {
         if (fn) {
             const handler = this.resolveCallback(fn, scope);
 
@@ -268,7 +268,7 @@ class Observable extends Base {
      * string function names in the Component's own hierarchy.
      * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
      * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @returns
+     * @returns {Object}
      */
     resolveCallback(fn, scope=this) {
         if (typeof fn === 'string') {

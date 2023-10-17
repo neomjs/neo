@@ -304,6 +304,12 @@ class Base extends CoreBase {
         /**
          * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
+         *
+         * By default, a single, shared Tooltip instance is used for all widgets which request
+         * a tooltip. It reconfigures itself from the widget's definition just before showing.
+         *
+         * If a widget needs its own instance for any reason, inslude the property `ownInstance : true`
+         * in the tooltip config object.
          * @member {Object|String} tooltip_=null
          */
         tooltip_: null,
@@ -1130,24 +1136,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the style config gets changed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Object}
-     * @protected
-     */
-    beforeSetStyle(value, oldValue) {
-        let me = this;
-
-        if (typeof value === 'object') {
-            // merge the incoming style specification into the configured default
-            value = Neo.merge(Neo.merge({}, me.constructor.config.style), value)
-        }
-
-        return value
-    }
-
-    /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value
@@ -1665,7 +1653,10 @@ class Base extends CoreBase {
         // does not clone existing Neo instances
         me._vdom = Neo.clone(vdom, true, true);
 
-        me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
+        if (config.style) {
+            // If we are passed an object, merge it with the class's own style
+            me.style = Neo.typeOf(config.style) === 'Object' ? { ...config.style, ...me.constructor.config.style } : config.style;
+        }
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 

@@ -5,6 +5,14 @@ import Number from './Number.mjs';
  * @extends Neo.form.field.Number
  */
 class Range extends Number {
+    /**
+     * Removing the debounce for range fields
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {}
+
     static config = {
         /**
          * @member {String} className='Neo.form.field.Range'
