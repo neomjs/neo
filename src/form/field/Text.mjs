@@ -1445,7 +1445,9 @@ class Text extends Base {
      * The DOM based readonly attribute needs to honor the editable & readOnly configs
      */
     updateReadOnlyState() {
-        this.changeInputElKey('readonly', !this.editable || this.readOnly || null);
+        let me = this;
+
+        me.changeInputElKey('readonly', !me.editable || me.readOnly || null);
     }
 
     /**
