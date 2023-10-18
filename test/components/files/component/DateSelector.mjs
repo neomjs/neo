@@ -7,12 +7,10 @@ StartTest(t => {
 
             setTimeout(() => {
                 Neo.worker.App.createNeoInstance({
-                    ntype     : 'dateselector',
-                    autoMount : true,
-                    autoRender: true,
-                    height    : 250,
-                    value     : '2023-10-15',
-                    width     : 300
+                    ntype : 'dateselector',
+                    height: 250,
+                    value : '2023-10-15',
+                    width : 300
                 })
             }, 200)
         }

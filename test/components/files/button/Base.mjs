@@ -7,11 +7,9 @@ StartTest(t => {
 
             setTimeout(() => {
                 Neo.worker.App.createNeoInstance({
-                    ntype     : 'button',
-                    autoMount : true,
-                    autoRender: true,
-                    iconCls   : 'fa fa-home',
-                    text      : 'Hello Siesta'
+                    ntype  : 'button',
+                    iconCls: 'fa fa-home',
+                    text   : 'Hello Siesta'
                 })
             }, 200)
         }
