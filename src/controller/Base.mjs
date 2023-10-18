@@ -43,6 +43,19 @@ class Base extends CoreBase {
 
         const me = this;
 
+        const functionSort = (a,b) => { 
+            const usedRegex = new RegExp("/", "g");
+            return a.match(usedRegex).length - b.match(usedRegex).length;
+        }
+        const ordered = Object.keys(me.routes).sort(functionSort).reduce(
+            (obj, key) => { 
+              obj[key] = me.routes[key]; 
+              return obj;
+            }, 
+            {}
+          );
+    
+
         me.handleRoutes = {};
         if (Object.keys(me.routes).length > 0) {
             Object.keys(me.routes).forEach(key => {
