@@ -196,17 +196,18 @@ class Base extends Container {
                 componentId : app.mainView.id,
                 resetCfg    : {},
                 isShared    : true,
-                delegate    : '.neo-uses-shared-tooltip',
+                delegate    : this.delegateFilter,
                 listeners : {
                     // Reconfigure on over a target
-                    async targetOver({ target }) {
+                    async targetOver({ target, data }) {
                         // Revert last pointerOver config set to initial setting.
                         this.set(this.resetCfg);
                         this.resetCfg = {};
 
                         // Use the tooltip config block that the target was configured with
-                        // to reconfogure tis instance
-                        const config = target?._tooltip;
+                        // to reconfigure this instance, or if there was none, check the
+                        // data-neo-tooltip property for a text string.
+                        const config = target?._tooltip || { text : data.target.data.neoTooltip };
 
                         // Cache things we have to reset
                         for (const key in config) {
@@ -264,7 +265,8 @@ class Base extends Container {
             me.align.targetMargin = 10;
 
             me.fire('targetOver', {
-                target : me.activeTarget
+                target : me.activeTarget,
+                data
             });
 
             // Still visible, just realign
@@ -278,6 +280,15 @@ class Base extends Container {
         }
     }
 
+    // Used as a delegate filter to activate on targets which have a tooltip configuration
+    static delegateFilter(path) {
+        for (let i = 0, { length } = path; i < length; i++) {
+            if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
+                return i;
+            }
+        }
+    }
+
     /**
      * @param {Object} data
      */
@@ -287,7 +298,8 @@ class Base extends Container {
         // If it's an internal move within the delegate, do nothing
         if (data.currentTarget === me.activeTarget?.id) {
             me.fire('targetOut', {
-                target : this.activeTarget
+                target : me.activeTarget,
+                data
             });
             me.activeTarget = null;
             me.hideDelayed(data);

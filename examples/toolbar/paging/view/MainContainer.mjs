@@ -66,7 +66,14 @@ class MainContainer extends Viewport {
                 // These two have been moved to the start of the Toolbar by their weights
                 label: {
                     style : {marginLeft: 0},
-                    weight: -10000
+                    weight: -10000,
+
+                    // Embed a tooltip request into the DOM
+                    vdom  : {
+                        data : {
+                            'neo-tooltip' : 'The Label'
+                        }
+                    }
                 },
                 rowsPerPage: {
                     tooltip: 'Set the number of rows to display in a page',
