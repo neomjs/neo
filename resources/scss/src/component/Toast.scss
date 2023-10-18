@@ -1,12 +1,10 @@
 .neo-toast {
-    z-index         : 20; // ensure to be on top of table headers
     align-items     : center;
     background-color: var(--toast-background-color);
     border-radius   : 0.5rem;
     box-shadow      : 0 0.25rem 0.5rem var(--toast-shadow-color);
     color           : var(--toast-color);
     display         : flex;
-    position        : fixed;
     transition      : bottom .3s ease-out, top .3s ease-out;
 
     .neo-toast-inner {
@@ -90,6 +88,7 @@
 /* Toast positions */
 .neo-toast-tr {
     right: 1rem;
+    left : auto;
     top  : 1rem;
 }
 
@@ -107,6 +106,7 @@
 .neo-toast-br {
     bottom: 1rem;
     right : 1rem;
+    left  : auto;
 }
 
 .neo-toast-bc {

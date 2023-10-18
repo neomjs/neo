@@ -107,7 +107,8 @@ class Toast extends Base {
                 ]},
                 {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
             ]
-        }]}
+        }]},
+        floating : true
     }
 
     /**
