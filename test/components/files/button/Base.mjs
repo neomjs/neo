@@ -3,7 +3,7 @@ StartTest(t => {
         if (!globalThis.Neo?.Main) {
             console.log('neo.mjs not started yet');
 
-            await import('../../../src/MicroLoader.mjs');
+            await import('../../../../src/MicroLoader.mjs');
 
             setTimeout(() => {
                 Neo.worker.App.createNeoInstance({

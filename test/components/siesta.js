@@ -6,7 +6,8 @@ project.configure({
 });
 
 project.plan(
-    'files/Button.mjs'
+    'files/button/Base.mjs',
+    'files/component/DateSelector.mjs'
 );
 
 project.start();
