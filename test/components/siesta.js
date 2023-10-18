@@ -19,9 +19,14 @@ project.plan(
         ]
     },
     {
-        group: 'form/fields',
+        group: 'form',
         items: [
-            'files/form/field/Select.mjs'
+            {
+                group: 'field',
+                items: [
+                    'files/form/field/Select.mjs'
+                ]
+            }
         ]
     }
 );
