@@ -85,7 +85,7 @@ class Base extends CoreBase {
 
         const me = this;
         let hasRouteBeenFound = false;
-        Object.keys(me.handleRoutes).every( key => {
+        Object.keys(me.handleRoutes).forEach( key => {
             let preHandler = undefined;
             let executeHandler = undefined;
             let responsePreHandler = undefined;
