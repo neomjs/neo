@@ -21,7 +21,7 @@ class Base extends CoreBase {
         /**
          * @member {Object} routes={}
          */
-        routes: {},
+        routes_: {},
 
         /**
          * @member {Object} handleRoutes={}
@@ -42,14 +42,25 @@ class Base extends CoreBase {
         super.construct(config);
 
         const me = this;
+        HashHistory.on('change', me.onHashChange, me);
+    }
+
+     /**
+     * Triggered after the badgePosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetRoutes(value, oldValue){
+        const me = this;
 
         const functionSort = (a,b) => { 
             const usedRegex = new RegExp("/", "g");
             return a.match(usedRegex).length - b.match(usedRegex).length;
         }
-        const ordered = Object.keys(me.routes).sort(functionSort).reduce(
+        me.routes = Object.keys(value).sort(functionSort).reduce(
             (obj, key) => { 
-              obj[key] = me.routes[key]; 
+              obj[key] = value[key]; 
               return obj;
             }, 
             {}
@@ -60,15 +71,13 @@ class Base extends CoreBase {
         if (Object.keys(me.routes).length > 0) {
             Object.keys(me.routes).forEach(key => {
                 if (key.toLowerCase() === 'default'){
-                    me.defaultRoute = me.routes[key];
+                    me.defaultRoute = value[key];
                 } else {
                     me.handleRoutes[key] = new RegExp(key.replace(/{[^\s/]+}/g, '([\\w-]+)')+'$');
                 }
 
             });
         }
-
-        HashHistory.on('change', me.onHashChange, me);
     }
 
     /**
