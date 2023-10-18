@@ -14,12 +14,15 @@ class Filter extends Base {
     static observable = true
     /**
      * Valid values for the operator config:<br>
-     * ['==','===','!=','!==','<','<=','>','>=','excluded','included','isDefined','isUndefined','like','startsWith']
+     * ['==','===','!=','!==','<','<=','>','>=','endsWith','excluded','included','isDefined','isUndefined','like','startsWith']
      * @member {String[]} operators
      * @protected
      * @static
      */
-    static operators = ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like', 'startsWith']
+    static operators = [
+        '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'endsWith', 'excluded', 'included',
+        'isDefined', 'isUndefined', 'like', 'startsWith'
+    ]
 
     static config = {
         /**
@@ -219,6 +222,10 @@ class Filter extends Base {
     static ['<='] (a, b) {return a <= b;}
     static ['>']  (a, b) {return a > b;}
     static ['>='] (a, b) {return a >= b;}
+
+    static ['endsWith'](a, b) {
+        return a?.toLowerCase().endsWith(b?.toLowerCase()) || false;
+    }
 
     static ['excluded'](a, b) {
         return b.indexOf(a) < 0;
