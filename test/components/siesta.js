@@ -7,7 +7,8 @@ project.configure({
 
 project.plan(
     'files/button/Base.mjs',
-    'files/component/DateSelector.mjs'
+    'files/component/DateSelector.mjs',
+    'files/form/field/Select.mjs'
 );
 
 project.start();
