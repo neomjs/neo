@@ -1,0 +1,6 @@
+{
+    "appPath"    : "test/components/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

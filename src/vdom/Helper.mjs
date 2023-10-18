@@ -750,6 +750,13 @@ class Helper extends Base {
                             node.className = value;
                         }
                         break;
+                    case 'data':
+                        if (value && Neo.typeOf(value) === 'Object') {
+                            Object.entries(value).forEach(([key, val]) => {
+                                node.attributes[`data-${Neo.decamel(key)}`] = val
+                            })
+                        }
+                        break;
                     case 'height':
                     case 'maxHeight':
                     case 'maxWidth':

@@ -432,34 +432,44 @@ class DomEvent extends Base {
      * @returns {Boolean|String} true in case the delegation string matches the event path
      */
     verifyDelegationPath(listener, path) {
-        let delegationArray = listener.delegate.split(' '),
-            j               = 0,
-            len             = delegationArray.length,
-            pathLen         = path.length,
-            hasMatch, i, item, isId, targetId;
+        const { delegate } = listener;
 
-        for (i=len-1; i >= 0; i--) {
-            hasMatch = false;
-            item     = delegationArray[i];
-            isId     = item.startsWith('#');
+        let j = 0, pathLen = path.length, targetId;
 
-            if (isId || item.startsWith('.')) {
-                item = item.substr(1);
+        if (typeof delegate === 'function') {
+            j = delegate(path);
+            if (j != null) {
+                targetId = path[j].id;
             }
+        }
+        else {
+            let delegationArray = delegate.split(' '),
+                len             = delegationArray.length,
+                hasMatch, i, item, isId;
 
-            for (; j < pathLen; j++) {
-                if (
-                    (isId && path[j].id === item) ||
-                    path[j].cls.includes(item)
-                ) {
-                    hasMatch = true;
-                    targetId = path[j].id;
-                    break
+            for (i=len-1; i >= 0; i--) {
+                hasMatch = false;
+                item     = delegationArray[i];
+                isId     = item.startsWith('#');
+
+                if (isId || item.startsWith('.')) {
+                    item = item.substr(1);
                 }
-            }
 
-            if (!hasMatch) {
-                return false
+                for (; j < pathLen; j++) {
+                    if (
+                        (isId && path[j].id === item) ||
+                        path[j].cls.includes(item)
+                    ) {
+                        hasMatch = true;
+                        targetId = path[j].id;
+                        break
+                    }
+                }
+
+                if (!hasMatch) {
+                    return false
+                }
             }
         }
 
