@@ -34,14 +34,7 @@ class Picker extends Base {
      */
     onTriggerClick(data) {
         this.field.onPickerTriggerClick();
-    }
-
-    /**
-     * @returns {Boolean} true in case the trigger should be hidden
-     */
-    getHiddenState() {
-        return !this.field.editable;
-    }    
+    } 
 }
 
 Neo.applyClassConfig(Picker);
