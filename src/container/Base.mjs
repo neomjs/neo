@@ -401,7 +401,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
      */
     destroy(updateParentVdom=false, silent=false) {
-        this.items.forEach(item => {
+        this.items?.forEach(item => {
             item.destroy?.(false, true)
         });
 
