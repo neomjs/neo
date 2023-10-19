@@ -20,7 +20,7 @@ class MainContainerController extends Component {
          '/contact': 'handleContactRoute',
          '/users/{userId}': { handler: 'handleUserRoute', preHandler: 'doPrehandling' },
          // '/users/{userId}' : {handler: 'handleUserRoute', preHandler: 'doPrehandling'}, //example
-         // '/users/{userId}/posts/{postId}' : {handler:'handleUserPostsRoute', preHandler: 'doPrehandlingFalse'}, //example
+         //'/users/{userId}/posts/{postId}' : {handler:'handleUserPostsRoute', preHandler: 'doPrehandlingFalse'}, //example
          // default: 'doDefaultHandling' //optional - example
       },
 
@@ -46,7 +46,7 @@ class MainContainerController extends Component {
 
 
    doPrehandling(value, oldValue, params = null) {
-      const userId = parseInt(params);
+      const userId = parseInt(params.userId);
       if (userId > 0 && userId === this.data.activeUser) {
          return true;
       }
@@ -132,7 +132,6 @@ class MainContainerController extends Component {
    * @param {Object} data
    */
    onSwitchButtonMetaReset(data) {
-      const currentUser = this.data.activeUser;
       this.data.activeUser = 0;
       this.#setUsername();
       this.#removeMetaButtonSelection();
