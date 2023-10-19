@@ -285,7 +285,7 @@ class FileUpload extends Base {
         documentDeleteMethod: 'DELETE',
 
         /**
-         * @member {String} state_=null
+         * @member {String} state_=ready
          */
         state_: 'ready',
 
@@ -729,7 +729,7 @@ class FileUpload extends Base {
                 isChangeEventNeeded = true;
         }
 
-        if (isChangeEventNeeded) {
+        if (isChangeEventNeeded && oldValue !== undefined) {
             me.fireChangeEvent(me.file)
         }
         me.validate();
