@@ -76,6 +76,7 @@ class MainContainer extends Viewport {
                     }
                 },
                 rowsPerPage: {
+                    style  : {margin: '0 .5em'},
                     tooltip: 'Set the number of rows to display in a page',
                     weight : -999
                 }
