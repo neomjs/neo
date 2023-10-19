@@ -401,7 +401,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
      */
     destroy(updateParentVdom=false, silent=false) {
-        this.items.forEach(item => {
+        this.items?.forEach(item => {
             item.destroy?.(false, true)
         });
 
@@ -502,8 +502,11 @@ class Base extends Component {
 
         if (config.items) {
             // If we are passed an object, merge the class's own items object into it
-            me.items = Neo.typeOf(config.items) === 'Object' ?
-                Neo.merge(Neo.clone(me.constructor.config.items), config.items) : config.items;
+            if (Neo.typeOf(config.items) === 'Object') {
+                me.items = Neo.merge(Neo.clone(me.constructor.config.items), config.items)
+            } else {
+                me._items = Neo.clone(config.items, true, true)
+            }
             delete config.items
         }
 

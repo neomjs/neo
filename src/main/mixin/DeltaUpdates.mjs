@@ -196,7 +196,9 @@ class DeltaUpdates extends Base {
             node = me.getElementOrBody(delta.id);
 
         if (!node) {
-            console.warn('du_updateNode: node not found for id', delta.id)
+            if (Neo.config.environment === 'development') {
+                console.warn('du_updateNode: node not found for id', delta.id)
+            }
         } else {
             Object.entries(delta).forEach(([prop, value]) => {
                 switch(prop) {

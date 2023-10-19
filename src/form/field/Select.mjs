@@ -39,9 +39,9 @@ class Select extends Picker {
          */
         displayField: 'name',
         /**
-         * @member {String} filterOperator='like'
+         * @member {String} filterOperator_='like'
          */
-        filterOperator: 'like',
+        filterOperator_: 'like',
         /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
@@ -109,9 +109,9 @@ class Select extends Picker {
         typeAhead_: true,
         /**
          * Set this config to false, in case typing into the input field should not filter list items
-         * @member {Boolean} useFilter=true
+         * @member {Boolean} useFilter_=true
          */
-        useFilter: true,
+        useFilter_: true,
         /**
          * This config should point to the store keyProperty or a different model field,
          * which you want to submit instead

@@ -420,13 +420,11 @@ class DomEvents extends Base {
     onChange(event) {
         let me      = this,
             target  = event.target,
-            tagName = target.tagName,
-            value   = target.value,
 
             data    = {
                 ...me.getEventData(event),
                 valid: target.checkValidity(),
-                value: tagName === 'INPUT' ? StringUtil.escapeHtml(value) : tagName === 'TEXTAREA' ? me.stripHtml(value) : value
+                value: target.value
             };
 
         // input and change events can pass a FileList for input type file

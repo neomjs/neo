@@ -6,9 +6,29 @@ project.configure({
 });
 
 project.plan(
-    'files/button/Base.mjs',
-    'files/component/DateSelector.mjs',
-    'files/form/field/Select.mjs'
+    {
+        group: 'button',
+        items: [
+            'files/button/Base.mjs'
+        ]
+    },
+    {
+        group: 'component',
+        items: [
+            'files/component/DateSelector.mjs'
+        ]
+    },
+    {
+        group: 'form',
+        items: [
+            {
+                group: 'field',
+                items: [
+                    'files/form/field/Select.mjs'
+                ]
+            }
+        ]
+    }
 );
 
 project.start();

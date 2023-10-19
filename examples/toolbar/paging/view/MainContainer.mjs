@@ -69,13 +69,14 @@ class MainContainer extends Viewport {
                     weight: -10000,
 
                     // Embed a tooltip request into the DOM
-                    vdom  : {
-                        data : {
-                            'neo-tooltip' : 'The Label'
+                    vdom: {
+                        data: {
+                            neoTooltip: 'The Label'
                         }
                     }
                 },
                 rowsPerPage: {
+                    style  : {margin: '0 .5em'},
                     tooltip: 'Set the number of rows to display in a page',
                     weight : -999
                 }

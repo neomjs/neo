@@ -21,7 +21,7 @@ class Base extends CoreBase {
         /**
          * @member {Object} routes={}
          */
-        routes: {},
+        routes_: {},
 
         /**
          * @member {Object} handleRoutes={}
@@ -42,20 +42,41 @@ class Base extends CoreBase {
         super.construct(config);
 
         const me = this;
+        HashHistory.on('change', me.onHashChange, me);
+    }
+
+     /**
+     * Triggered after the badgePosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetRoutes(value, oldValue){
+        const me = this;
+
+        const functionSort = (a,b) => { 
+            const usedRegex = new RegExp("/", "g");
+            return a.match(usedRegex).length - b.match(usedRegex).length;
+        }
+        me.routes = Object.keys(value).sort(functionSort).reduce(
+            (obj, key) => { 
+              obj[key] = value[key]; 
+              return obj;
+            }, 
+            {}
+          );
 
         me.handleRoutes = {};
         if (Object.keys(me.routes).length > 0) {
             Object.keys(me.routes).forEach(key => {
                 if (key.toLowerCase() === 'default'){
-                    me.defaultRoute = me.routes[key];
+                    me.defaultRoute = value[key];
                 } else {
                     me.handleRoutes[key] = new RegExp(key.replace(/{[^\s/]+}/g, '([\\w-]+)')+'$');
                 }
 
             });
         }
-
-        HashHistory.on('change', me.onHashChange, me);
     }
 
     /**
@@ -85,13 +106,25 @@ class Base extends CoreBase {
 
         const me = this;
         let hasRouteBeenFound = false;
-        Object.keys(me.handleRoutes).every( key => {
+        Object.keys(me.handleRoutes).forEach( key => {
             let preHandler = undefined;
             let executeHandler = undefined;
             let responsePreHandler = undefined;
 
             const result = value.hashString.match(me.handleRoutes[key]);
             if (result){
+                const paramsRegex = /{[^\s/]+}/g;
+                const arrayParamIds = key.match(paramsRegex);
+                const arrayParamValues = result.splice(1,result.length - 1);
+                if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length){
+                    throw "Number of IDs and number of Values do not match";
+                } 
+
+                const paramObject = {};
+                for(let i=0;  arrayParamIds && i< arrayParamIds.length; i++){
+                    paramObject[ arrayParamIds[i].substring(1,arrayParamIds[i].length -1)] = arrayParamValues[i];
+                }
+
                 const target = me.routes[key];
                 if (Neo.isString(target)){
                     executeHandler = this.routes[key];
@@ -100,20 +133,20 @@ class Base extends CoreBase {
                 if (Neo.isObject(target)){
                     executeHandler = this.routes[key].handler;
                     preHandler = this.routes[key].preHandler;
-                    responsePreHandler = preHandler ? me[preHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1)) : true;
+                    if (preHandler) {
+                        responsePreHandler =  me[preHandler]?.call(this, value, oldValue, paramObject);
+                    } else {
+                        responsePreHandler = true;
+                        console.warn('No preHandler defined for routes -> todo it better');
+                    }                    
                 }
 
                 hasRouteBeenFound = true;
 
                 if (responsePreHandler) {
-                    this[executeHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1));
-                } else {
-                    console.warn('No preHandler defined for routes -> todo it better');
+                    this[executeHandler]?.call(this, value, oldValue, paramObject);
                 }
-                return false;
-
             }
-            return true;
         });
 
         if (Object.keys(me.handleRoutes).length > 0 && !hasRouteBeenFound) {
