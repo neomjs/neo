@@ -114,6 +114,19 @@ class Base extends CoreBase {
 
             const result = value.hashString.match(me.handleRoutes[key]);
             if (result){
+
+                const paramsRegex = /{[^\s/]+}/g;
+                const arrayParamIds = key.match(paramsRegex);
+                const arrayParamValues = result.splice(1,result.length - 1);
+                if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length){
+                    throw "Number of IDs and number of Values do not match";
+                } 
+
+                const paramObject = {};
+                for(let i=0;  arrayParamIds && i< arrayParamIds.length; i++){
+                    paramObject[ arrayParamIds[i].substring(1,arrayParamIds[i].length -1)] = arrayParamValues[i];
+                }
+
                 const target = me.routes[key];
                 if (Neo.isString(target)){
                     executeHandler = this.routes[key];
@@ -122,20 +135,20 @@ class Base extends CoreBase {
                 if (Neo.isObject(target)){
                     executeHandler = this.routes[key].handler;
                     preHandler = this.routes[key].preHandler;
-                    responsePreHandler = preHandler ? me[preHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1)) : true;
+                    if (preHandler) {
+                        responsePreHandler =  me[preHandler]?.call(this, value, oldValue, paramObject);
+                    } else {
+                        responsePreHandler = true;
+                        console.warn('No preHandler defined for routes -> todo it better');
+                    }                    
                 }
 
                 hasRouteBeenFound = true;
 
                 if (responsePreHandler) {
-                    this[executeHandler]?.call(this, value, oldValue, result.splice(1,result.length - 1));
-                } else {
-                    console.warn('No preHandler defined for routes -> todo it better');
+                    this[executeHandler]?.call(this, value, oldValue, paramObject);
                 }
-                return false;
-
             }
-            return true;
         });
 
         if (Object.keys(me.handleRoutes).length > 0 && !hasRouteBeenFound) {
