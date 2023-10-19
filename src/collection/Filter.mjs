@@ -98,7 +98,7 @@ class Filter extends Base {
     }
 
     afterSetDisabled(...args) {
-        this.fireChangeEvent(...args);
+        this.fireChangeEvent(...args)
     }
 
     afterSetFilterBy(value, oldValue) {
@@ -106,28 +106,28 @@ class Filter extends Base {
     }
 
     afterSetIsUpdating(value, oldValue) {
-        value === false && this.fireChangeEvent(value, oldValue);
+        value === false && this.fireChangeEvent(value, oldValue)
     }
 
     afterSetOperator(...args) {
-        this.fireChangeEvent(...args);
+        this.fireChangeEvent(...args)
     }
 
     afterSetProperty(...args) {
-        this.fireChangeEvent(...args);
+        this.fireChangeEvent(...args)
     }
 
     afterSetValue(...args) {
-        this.fireChangeEvent(...args);
+        this.fireChangeEvent(...args)
     }
 
     beforeSetFilterBy(value, oldValue) {
         if (value && typeof value !== 'function') {
             Neo.logError('filterBy has to be a function', this);
-            return oldValue;
+            return oldValue
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -138,7 +138,7 @@ class Filter extends Base {
      * @protected
      */
     beforeSetOperator(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'operator');
+        return this.beforeSetEnumValue(value, oldValue, 'operator')
     }
 
     /**
@@ -152,10 +152,10 @@ class Filter extends Base {
             value    = me.value;
 
         if (!me.filterBy) {
-            return {operator, property, value};
+            return {operator, property, value}
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -170,7 +170,7 @@ class Filter extends Base {
                 operator: me.operator,
                 property: me.property,
                 value   : me.value
-            });
+            })
         }
     }
 
@@ -187,7 +187,7 @@ class Filter extends Base {
             filterValue, recordValue;
 
         if (me._disabled) {
-            return false;
+            return false
         }
 
         if (me._filterBy) {
@@ -196,11 +196,11 @@ class Filter extends Base {
                 filteredItems,
                 item,
                 value: me._value
-            });
+            })
         }
 
         if (me.includeEmptyValues && (me._value === null || Neo.isEmpty(me._value))) {
-            return false;
+            return false
         }
 
         filterValue = me._value;
@@ -208,56 +208,56 @@ class Filter extends Base {
 
         if (filterValue instanceof Date && recordValue instanceof Date) {
             filterValue = filterValue.valueOf();
-            recordValue = recordValue.valueOf();
+            recordValue = recordValue.valueOf()
         }
 
-        return !Filter[me._operator](recordValue, filterValue);
+        return !Filter[me._operator](recordValue, filterValue)
     }
 
-    static ['=='] (a, b) {return a == b;}
-    static ['==='](a, b) {return a === b;}
-    static ['!='] (a, b) {return a != b;}
-    static ['!=='](a, b) {return a !== b;}
-    static ['<']  (a, b) {return a < b;}
-    static ['<='] (a, b) {return a <= b;}
-    static ['>']  (a, b) {return a > b;}
-    static ['>='] (a, b) {return a >= b;}
+    static ['=='] (a, b) {return a == b}
+    static ['==='](a, b) {return a === b}
+    static ['!='] (a, b) {return a != b}
+    static ['!=='](a, b) {return a !== b}
+    static ['<']  (a, b) {return a < b}
+    static ['<='] (a, b) {return a <= b}
+    static ['>']  (a, b) {return a > b}
+    static ['>='] (a, b) {return a >= b}
 
     static ['endsWith'](a, b) {
         if (!Neo.isString(a)) {a = String(a)}
         if (!Neo.isString(b)) {b = String(b)}
 
-        return a?.toLowerCase().endsWith(b?.toLowerCase()) || false;
+        return a?.toLowerCase().endsWith(b?.toLowerCase()) || false
     }
 
     static ['excluded'](a, b) {
-        return b.indexOf(a) < 0;
+        return b.indexOf(a) < 0
     }
 
     static ['included'](a, b) {
-        return b.indexOf(a) > -1;
+        return b.indexOf(a) > -1
     }
 
     static ['isDefined'](a, b) {
-        return a !== undefined;
+        return a !== undefined
     }
 
     static ['isUndefined'](a, b) {
-        return a === undefined;
+        return a === undefined
     }
 
     static ['like'](a, b) {
         if (!Neo.isString(a)) {a = String(a)}
         if (!Neo.isString(b)) {b = String(b)}
 
-        return a?.toLowerCase().includes(b?.toLowerCase()) || false;
+        return a?.toLowerCase().includes(b?.toLowerCase()) || false
     }
 
     static ['startsWith'](a, b) {
         if (!Neo.isString(a)) {a = String(a)}
         if (!Neo.isString(b)) {b = String(b)}
 
-        return a?.toLowerCase().startsWith(b?.toLowerCase()) || false;
+        return a?.toLowerCase().startsWith(b?.toLowerCase()) || false
     }
 }
 
