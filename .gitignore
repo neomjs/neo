@@ -22,6 +22,9 @@
 !/apps/realworld2/index.html
 !/apps/realworld2/**/*.mjs
 !/apps/realworld2/neo-config.json
+!/apps/route/index.html
+!/apps/route/**/*.mjs
+!/apps/route/neo-config.json
 !/apps/sharedcovid/index.html
 !/apps/sharedcovid/**/*.mjs
 !/apps/sharedcovid/neo-config.json

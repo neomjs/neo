@@ -23,10 +23,6 @@ class MainContainer extends ConfigurationViewport {
         cls                 : ['examples-container-accordion']
     }
 
-    onConfigChange(config, opts) {
-        this.exampleComponent.items[0][config] = opts.value;
-    }
-
     createConfigurationComponents() {
         let me       = this,
             treeList = me.exampleComponent.items[0];
@@ -74,6 +70,12 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 3,
             style    : {marginTop: '10px'},
             value    : 400
+        }, {
+            ntype  : 'button',
+            handler: me.onRemoveDomButtonClick.bind(me),
+            style  : {marginTop: '20px'},
+            text   : 'Remove DOM',
+            width  : 100
         }];
     }
 
@@ -168,6 +170,23 @@ class MainContainer extends ConfigurationViewport {
                 }]
             }]
         });
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigChange(config, opts) {
+        this.exampleComponent.items[0][config] = opts.value;
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onRemoveDomButtonClick(data) {
+        let accordion = this.exampleComponent.items[0];
+        accordion.hidden = !accordion.hidden
     }
 }
 

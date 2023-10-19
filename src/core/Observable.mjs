@@ -98,28 +98,47 @@ class Observable extends Base {
         let me        = this,
             args      = [].slice.call(arguments, 1),
             listeners = me.listeners,
-            eventConfig, events, i, len;
+            handler, handlers, i, len;
 
         if (listeners && listeners[name]) {
-            events = [...listeners[name]];
-            len    = events.length;
+            handlers = [...listeners[name]];
+            len    = handlers.length;
 
             for (i = 0; i < len; i++) {
-                eventConfig = events[i];
+                handler = handlers[i];
 
-                if (!Neo.isFunction(eventConfig.fn)) {
-                    eventConfig.fn = eventConfig.scope[eventConfig.fn];
-                }
+                // Resolve function name on the scope (oe me), or, if it starts with 'up.'
+                // look in the ownership hierarchy from me.
+                const cb = me.resolveCallback(handler.fn, handler.scope || me);
 
                 // remove the listener, in case the scope no longer exists
-                if (eventConfig.scope && !eventConfig.scope.id) {
+                if (cb.scope && !cb.scope.id) {
                     listeners[name].splice(i, 1);
                 } else {
                     if (!me.suspendEvents) {
-                        eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
+                        // Object event format. Inject firer reference in as 'source'
+                        if (args.length === 1 && typeof(args[0]) === 'object') {
+                            args[0].source = me.id;
+                        }
+                        cb.fn.apply(cb.scope, handler.data ? args.concat(handler.data) : args);
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Call the passed function, or a function by *name* which exists in the passed scope's
+     * or this component's ownership chain.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+     * @param {Object} scope The scope to find the function in if it is specified as a string.
+     * @param {Array} args Arguments to pass to the callback.
+     */
+    callback(fn, scope=this, args) {
+        if (fn) {
+            const handler = this.resolveCallback(fn, scope);
+
+            handler.fn.apply(handler.scope, args);
         }
     }
 
@@ -239,6 +258,28 @@ class Observable extends Base {
     // resumeListeners: function() {
 
     // }
+
+    /**
+     * Locate a callable function by name in the passed scope.
+     *
+     * If the name starts with 'up.', the parent Component chain is searched.
+     *
+     * This is used by Observable.fire and by 'handler' function calls to resolve
+     * string function names in the Component's own hierarchy.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+     * @param {Object} scope The scope to find the function in if it is specified as a string.
+     * @returns {Object}
+     */
+    resolveCallback(fn, scope=this) {
+        if (typeof fn === 'string') {
+            if (!scope[fn] && fn.startsWith('up.')) {
+                fn = fn.slice(3);
+                while (!scope[fn] && (scope = scope.parent));
+            }
+            fn = scope[fn];
+        }
+        return { scope,  fn };
+    }
 
     /**
      * Alias for removeListener

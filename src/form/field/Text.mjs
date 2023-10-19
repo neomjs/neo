@@ -367,12 +367,9 @@ class Text extends Base {
             { cls } = me;
 
         NeoArray.toggle(cls, 'neo-not-editable', !value);
-        me.cls = cls
-        me.changeInputElKey('readonly', value ? false : true);
+        me.cls = cls;
 
-        me.triggers?.forEach(trigger => {
-            trigger.hidden = value ? true : trigger.getHiddenState?.() || false
-        });
+        me.updateReadOnlyState()
     }
 
     /**
@@ -679,7 +676,7 @@ class Text extends Base {
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-readonly');
         me.cls = cls;
 
-        me.changeInputElKey('readonly', value ? value : null);
+        me.updateReadOnlyState();
 
         me.triggers?.forEach(trigger => {
             trigger.hidden = value ? true : trigger.getHiddenState?.() || false
@@ -1442,6 +1439,15 @@ class Text extends Base {
         }
 
         me.update()
+    }
+
+    /**
+     * The DOM based readonly attribute needs to honor the editable & readOnly configs
+     */
+    updateReadOnlyState() {
+        let me = this;
+
+        me.changeInputElKey('readonly', !me.editable || me.readOnly || null);
     }
 
     /**

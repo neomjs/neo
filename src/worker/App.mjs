@@ -134,6 +134,10 @@ class App extends Base {
                 }
             }
         } else {
+            // default parentId='document.body' => we want it to get shown
+            config.autoMount  = true;
+            config.autoRender = true;
+
             instance = Neo[config.ntype ? 'ntype' : 'create'](config)
         }
 

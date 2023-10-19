@@ -122,7 +122,8 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'githubId',  text: 'Github Id'},
                 {dataField: 'country',   text: 'Country'},
                 {
-                    text: 'Edit Action',
+                    dataField: 'edit',
+                    text     : 'Edit Action',
                     renderer: ({ column, index }) => {
                         const
                             widgetId = `${column.id}-widget-${index}`,
@@ -138,7 +139,8 @@ class MainContainer extends ConfigurationViewport {
                     }
                 },
                 {
-                    text : 'Menu',
+                    dataField: 'menu',
+                    text     : 'Menu',
                     renderer({ column, record, index }) {
                         const
                             widgetId = `${column.id}-widget-${index}`,

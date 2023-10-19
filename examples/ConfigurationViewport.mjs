@@ -107,7 +107,7 @@ class ConfigurationViewport extends Viewport {
 
             items: [{
                 module: Container,
-                layout: {ntype: 'vbox'},
+                layout: {ntype: 'vbox', align: null},
                 style : {overflowY: 'auto', padding: '10px'},
                 cls   : ['neo-configuration-panel-body'],
                 itemDefaults: {

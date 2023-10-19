@@ -22,6 +22,11 @@ class View extends Component {
          */
         baseCls: ['neo-table-view'],
         /**
+         * Define which model field contains the value of colspan definitions
+         * @member {String} colspanField='colspan'
+         */
+        colspanField: 'colspan',
+        /**
          * @member {String|null} containerId=null
          * @protected
          */
@@ -46,16 +51,19 @@ class View extends Component {
     }
 
     /**
-     * @param {String} cellId
-     * @param {Object} column
-     * @param {Object} record
-     * @param {Number} index
-     * @param {Neo.table.Container} tableContainer
+     * @param {Object} data
+     * @param {String} [data.cellId]
+     * @param {Object} data.column
+     * @param {Object} data.record
+     * @param {Number} data.index
+     * @param {Neo.table.Container} data.tableContainer
      * @returns {Object}
      */
-    applyRendererOutput(cellId, column, record, index, tableContainer) {
-        let me         = this,
+    applyRendererOutput(data) {
+        let {cellId, column, record, index, tableContainer} = data,
+            me         = this,
             cellCls    = ['neo-table-cell'],
+            colspan    = record[me.colspanField],
             dataField  = column.dataField,
             fieldValue = record[dataField],
             hasStore   = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
@@ -77,8 +85,8 @@ class View extends Component {
 
         switch (Neo.typeOf(rendererOutput)) {
             case 'Object': {
-                if (rendererOutput.cls && rendererOutput.html) {
-                    cellCls.push(...rendererOutput.cls);
+                if (rendererOutput.html) {
+                    rendererOutput.cls && cellCls.push(...rendererOutput.cls);
                 } else {
                     rendererOutput = [rendererOutput];
                 }
@@ -107,7 +115,7 @@ class View extends Component {
             if (hasStore) {
                 cellId = me.getCellId(record, column.dataField)
             } else {
-                cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td')
+                cellId = vdom.cn[index]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
             }
         }
 
@@ -119,6 +127,10 @@ class View extends Component {
             tabIndex: '-1'
         };
 
+        if (colspan && Object.keys(colspan).includes(dataField)) {
+            cellConfig.colspan = colspan[dataField]
+        }
+
         if (Neo.typeOf(rendererOutput) === 'Object') {
             cellConfig.innerHTML = rendererOutput.html  || ''
         } else {
@@ -129,29 +141,28 @@ class View extends Component {
     }
 
     /**
-     * @param {Array} inputData
+     * @param {Object[]} inputData
      */
     createViewData(inputData) {
-        let me         = this,
-            amountRows = inputData.length,
-            container  = me.parent,
-            columns    = container.items[0].items,
-            colCount   = columns.length,
-            data       = [],
-            i          = 0,
-            vdom       = me.vdom,
-            config, column, dockLeftMargin, dockRightMargin, id, index, j,
-            record, selectedRows, trCls;
+        let me             = this,
+            amountRows     = inputData.length,
+            tableContainer = me.parent,
+            columns        = tableContainer.items[0].items,
+            colCount       = columns.length,
+            data           = [],
+            i              = 0,
+            vdom           = me.vdom,
+            config, colspan, colspanKeys, column, dockLeftMargin, dockRightMargin, id, index, j, record, selectedRows, trCls;
 
-        me.recordVnodeMap = {}; // remove old data
-
-        if (container.selectionModel.ntype === 'selection-table-rowmodel') {
-            selectedRows = container.selectionModel.items || [];
+        if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
+            selectedRows = tableContainer.selectionModel.items || [];
         }
 
         for (; i < amountRows; i++) {
-            record = inputData[i];
-            id     = me.getRowId(record, i);
+            record      = inputData[i];
+            colspan     = record[me.colspanField];
+            colspanKeys = colspan && Object.keys(colspan);
+            id          = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
@@ -180,7 +191,7 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column = columns[j];
-                config = me.applyRendererOutput(null, column, record, i, container);
+                config = me.applyRendererOutput({column, record, index: i, tableContainer});
 
                 if (column.dock) {
                     config.cls = ['neo-locked', ...config.cls || []];
@@ -196,6 +207,10 @@ class View extends Component {
                 }
 
                 data[i].cn.push(config);
+
+                if (colspanKeys?.includes(column.dataField)) {
+                    j += (colspan[column.dataField] - 1)
+                }
             }
 
             j = 0;
@@ -208,18 +223,21 @@ class View extends Component {
                     data[i].cn[index].style.right = dockRightMargin + 'px';
                     dockRightMargin += (column.width + 1); // todo: borders fix
                 }
+
+                if (colspanKeys?.includes(column.dataField)) {
+                    j += (colspan[column.dataField] - 1)
+                }
             }
         }
 
         vdom.cn = data;
 
-        container.dockLeftMargin  = dockLeftMargin;
-        container.dockRightMargin = dockRightMargin;
+        Object.assign(tableContainer, {dockLeftMargin, dockRightMargin});
 
         me.promiseUpdate().then(() => {
             if (selectedRows?.length > 0) {
                 // this logic only works for selection.table.RowModel
-                Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0]});
+                Neo.main.DomAccess.scrollToTableRow({appName: me.appName, id: selectedRows[0]})
             }
         })
     }
@@ -243,11 +261,12 @@ class View extends Component {
     }
 
     /**
-     * Get a table column by a given field name
+     * Get a table column or column index by a given field name
      * @param {String} field
-     * @returns {Object|null}
+     * @param {Boolean} returnIndex=false
+     * @returns {Object|Number|null}
      */
-    getColumn(field) {
+    getColumn(field, returnIndex=false) {
         let container = this.parent,
             columns   = container.items[0].items, // todo: we need a shortcut for accessing the header toolbar
             i         = 0,
@@ -258,7 +277,7 @@ class View extends Component {
             column = columns[i];
 
             if (column.dataField === field) {
-                return column
+                return returnIndex ? i : column
             }
         }
 
@@ -336,26 +355,32 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange(opts) {
-        let me          = this,
-            container   = me.parent,
-            needsUpdate = false,
-            vdom        = me.vdom,
+        let me             = this,
+            fieldNames     = opts.fields.map(field => field.name),
+            needsUpdate    = false,
+            tableContainer = me.parent,
+            vdom           = me.vdom,
             cellId, cellNode, column, index, scope;
 
-        opts.fields.forEach(field => {
-            cellId   = me.getCellId(opts.record, field.name);
-            cellNode = VDomUtil.findVdomChild(vdom, cellId);
+        if (fieldNames.includes(me.colspanField)) {
+            // we should narrow it down to only update the current row
+            me.createViewData(me.store.items)
+        } else {
+            opts.fields.forEach(field => {
+                cellId   = me.getCellId(opts.record, field.name);
+                cellNode = VDomUtil.findVdomChild(vdom, cellId);
 
-            // the vdom might not exist yet => nothing to do in this case
-            if (cellNode?.vdom) {
-                column      = me.getColumn(field.name);
-                index       = cellNode.index;
-                needsUpdate = true;
-                scope       = column.rendererScope || container;
+                // the vdom might not exist yet => nothing to do in this case
+                if (cellNode?.vdom) {
+                    column      = me.getColumn(field.name);
+                    index       = cellNode.index;
+                    needsUpdate = true;
+                    scope       = column.rendererScope || tableContainer;
 
-                cellNode.parentNode.cn[index] = me.applyRendererOutput(cellId, column, opts.record, index, container)
-            }
-        });
+                    cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record: opts.record, index, tableContainer})
+                }
+            })
+        }
 
         needsUpdate && me.update()
     }
