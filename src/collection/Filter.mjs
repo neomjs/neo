@@ -230,6 +230,10 @@ class Filter extends Base {
         return a?.toLowerCase().endsWith(b?.toLowerCase()) || false
     }
 
+    static ['endsWith'](a, b) {
+        return a?.toLowerCase().endsWith(b?.toLowerCase()) || false;
+    }
+
     static ['excluded'](a, b) {
         return b.indexOf(a) < 0
     }
@@ -258,6 +262,10 @@ class Filter extends Base {
         if (!Neo.isString(b)) {b = String(b)}
 
         return a?.toLowerCase().startsWith(b?.toLowerCase()) || false
+    }
+
+    static ['startsWith'](a, b) {
+        return a?.toLowerCase().startsWith(b?.toLowerCase()) || false;
     }
 }
 
