@@ -224,6 +224,9 @@ class Filter extends Base {
     static ['>='] (a, b) {return a >= b;}
 
     static ['endsWith'](a, b) {
+        if (!Neo.isString(a)) {a = String(a)}
+        if (!Neo.isString(b)) {b = String(b)}
+
         return a?.toLowerCase().endsWith(b?.toLowerCase()) || false;
     }
 
@@ -244,10 +247,16 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
+        if (!Neo.isString(a)) {a = String(a)}
+        if (!Neo.isString(b)) {b = String(b)}
+
         return a?.toLowerCase().includes(b?.toLowerCase()) || false;
     }
 
     static ['startsWith'](a, b) {
+        if (!Neo.isString(a)) {a = String(a)}
+        if (!Neo.isString(b)) {b = String(b)}
+
         return a?.toLowerCase().startsWith(b?.toLowerCase()) || false;
     }
 }
