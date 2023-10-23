@@ -663,7 +663,8 @@ class Select extends Picker {
                     flag        : 'neo-typeahead-input',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
                     id          : me.getInputHintId(),
-                    spellcheck  : 'false'
+                    spellcheck  : 'false',
+                    disabled    : !me.editable
                 }, inputEl.vdom]
             }
         } else {
