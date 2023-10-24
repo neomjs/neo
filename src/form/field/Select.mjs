@@ -660,34 +660,17 @@ class Select extends Picker {
                     tag         : 'input',
                     autocomplete: 'no',
                     autocorrect : 'off',
-                    flag        : 'neo-typeahead-input',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
+                    disabled    : true,
                     id          : me.getInputHintId(),
-                    spellcheck  : 'false',
-                    disabled    : !me.editable
+                    spellcheck  : 'false'
                 }, inputEl.vdom]
             }
         } else {
-            VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom);
+            VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom)
         }
 
         !silent && me.update()
-    }
-
-    updateReadOnlyState() {
-        const me = this;
-
-        super.updateReadOnlyState();
-
-        // Keep typeahead input in sync with our editability.
-        if (me.typeAhead) {
-            const typeaheadInput = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-typeahead-input'});
-
-            if (typeaheadInput) {
-                typeaheadInput.vdom.disabled = !me.editable;
-                me.update();
-            }
-        }
     }
 
     /**
