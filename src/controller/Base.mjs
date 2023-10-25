@@ -65,7 +65,6 @@ class Base extends CoreBase {
             }, 
             {}
           );
-    
 
         me.handleRoutes = {};
         if (Object.keys(me.routes).length > 0) {
@@ -114,7 +113,6 @@ class Base extends CoreBase {
 
             const result = value.hashString.match(me.handleRoutes[key]);
             if (result){
-
                 const paramsRegex = /{[^\s/]+}/g;
                 const arrayParamIds = key.match(paramsRegex);
                 const arrayParamValues = result.splice(1,result.length - 1);

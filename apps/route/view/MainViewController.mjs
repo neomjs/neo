@@ -47,6 +47,7 @@ class MainContainerController extends Component {
 
    doPrehandling(value, oldValue, params = null) {
       const userId = parseInt(params.userId);
+
       if (userId > 0 && userId === this.data.activeUser) {
          return true;
       }
