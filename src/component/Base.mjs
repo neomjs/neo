@@ -625,7 +625,8 @@ class Base extends CoreBase {
             me[state]()
         }
 
-        me.fire(state, {id: me.id})
+        me.fire(state, {id: me.id});
+        me.fire('hiddenChange', {id: me.id, oldValue, value})
     }
 
     /**
