@@ -135,6 +135,15 @@ class Component extends Base {
     }
 
     /**
+     * Convenience shortcut for accessing model.Component based data.Stores
+     * @param {String} key
+     * @returns {Neo.data.Store}
+     */
+    getStore(key) {
+        return this.getModel().getStore(key)
+    }
+
+    /**
      * Override this method inside your view controllers as a starting point in case you need references
      * (instead of using onConstructed() inside your controller)
      */

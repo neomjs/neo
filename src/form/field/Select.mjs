@@ -661,12 +661,13 @@ class Select extends Picker {
                     autocomplete: 'no',
                     autocorrect : 'off',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
+                    disabled    : true,
                     id          : me.getInputHintId(),
                     spellcheck  : 'false'
                 }, inputEl.vdom]
             }
         } else {
-            VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom);
+            VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom)
         }
 
         !silent && me.update()

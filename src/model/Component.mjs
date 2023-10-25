@@ -458,7 +458,7 @@ class Component extends Base {
      * Access the closest store inside the VM parent chain.
      * @param {String} key
      * @param {Neo.model.Component} originModel=this for internal usage only
-     * @returns {*} value
+     * @returns {Neo.data.Store}
      */
     getStore(key, originModel=this) {
         let me     = this,
