@@ -21,6 +21,11 @@ class Button extends BaseButton {
          */
         baseCls: ['neo-tab-header-button', 'neo-button'],
         /**
+         * Specify a role tag attribute for the vdom root.
+         * @member {String|null} role='tab'
+         */
+        role: 'tab',
+        /**
          * @member {Boolean} useActiveTabIndicator_=true
          */
         useActiveTabIndicator_: true,
@@ -28,7 +33,7 @@ class Button extends BaseButton {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'button', type: 'button', cn: [
+        {tag: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']},
             {cls: ['neo-button-badge']},
@@ -37,6 +42,26 @@ class Button extends BaseButton {
                 ]},
             {cls: ['neo-tab-button-indicator']}
         ]}
+    }
+
+    /**
+     * Triggered after the pressed config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetPressed(value, oldValue) {
+        super.afterSetPressed(value, oldValue);
+
+        let me = this;
+
+        if (value) {
+            me.vdom['aria-selected'] = true
+        } else {
+            delete me.vdom['aria-selected']
+        }
+
+        me.update()
     }
 
     /**
