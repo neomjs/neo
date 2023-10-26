@@ -136,7 +136,7 @@ class Base extends CoreBase {
                     executeHandler = this.routes[key].handler;
                     preHandler = this.routes[key].preHandler;
                     if (preHandler) {
-                        responsePreHandler =  me[preHandler]?.call(this, value, oldValue, paramObject);
+                        responsePreHandler =  me[preHandler]?.call(this,paramObject, value, oldValue);
                     } else {
                         responsePreHandler = true;
                         console.warn('No preHandler defined for routes -> todo it better');
@@ -146,7 +146,7 @@ class Base extends CoreBase {
                 hasRouteBeenFound = true;
 
                 if (responsePreHandler) {
-                    this[executeHandler]?.call(this, value, oldValue, paramObject);
+                    this[executeHandler]?.call(this, paramObject, value, oldValue );
                 }
             }
         });
