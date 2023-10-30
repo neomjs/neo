@@ -186,7 +186,7 @@ class Base {
     applyDelayable() {
         let me            = this,
             ctorDelayable = me.constructor.delayable,
-            delayable     = me.delayable ? Neo.merge(Neo.merge({}, ctorDelayable), me.delayable) : ctorDelayable;
+            delayable     = me.delayable ? Neo.merge({}, me.delayable, ctorDelayable) : ctorDelayable;
 
         Object.entries(delayable).forEach(([key, value]) => {
             let map = {

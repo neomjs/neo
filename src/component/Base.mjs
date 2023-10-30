@@ -996,8 +996,9 @@ class Base extends CoreBase {
                 edgeAlign: value
             }
         }
+
         // merge the incoming alignment specification into the configured default
-        return Neo.merge(Neo.merge({}, me.constructor.config.align), value)
+        return Neo.merge({}, value, me.constructor.config.align)
     }
 
     /**
