@@ -86,13 +86,6 @@ class Picker extends Text {
     }
 
     /**
-     * Internal flag to prevent showing a picker multiple times
-     * @member {Boolean} pickerIsMounting=false
-     * @protected
-     */
-    pickerIsMounting = false
-
-    /**
      * @param {Object} config
      */
     construct(config) {
@@ -182,6 +175,8 @@ class Picker extends Text {
                 }
             }
         });
+
+        me.picker.on('hiddenChange', me.onPickerHiddenChange, me);
 
         return me.picker
     }
@@ -292,6 +287,17 @@ class Picker extends Text {
     }
 
     /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Boolean} data.oldValue
+     * @param {Boolean} data.value
+     * @protected
+     */
+    onPickerHiddenChange(data) {
+        this.pickerIsMounted = !data.value
+    }
+
+    /**
      * Called by form.field.trigger.Picker
      * @protected
      */
@@ -303,8 +309,7 @@ class Picker extends Text {
      *
      */
     showPicker() {
-        let picker = this.getPicker();
-        picker.hidden = false
+        this.getPicker().hidden = false
     }
 
     /**

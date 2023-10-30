@@ -1,6 +1,10 @@
 import CoreBase    from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
+const
+    amountSlashesRegex = /\//g,
+    routeParamRegex    = /{[^\s/]+}/g
+
 /**
  * @class Neo.controller.Base
  * @extends Neo.core.Base
@@ -17,22 +21,25 @@ class Base extends CoreBase {
          * @protected
          */
         ntype: 'controller',
-
         /**
-         * @member {Object} routes={}
+         * @member {String} defaultRoute=undefined
          */
-        routes_: {},
-
+        defaultRoute: null,
         /**
          * @member {Object} handleRoutes={}
          */
         handleRoutes: {},
-
         /**
-         * @member {String} defaultRoute=undefined
+         * @example
+         * routes: {
+         *     '/home'                         : 'handleHomeRoute',
+         *     '/users/{userId}'               : {handler: 'handleUserRoute', preHandler: 'preHandleUserRoute'},
+         *     '/users/{userId}/posts/{postId}': 'handlePostRoute',
+         *     'default'                       : 'handleOtherRoutes'
+         * }
+         * @member {Object} routes={}
          */
-        defaultRoute: null
-
+        routes_: {}
     }
 
     /**
@@ -41,42 +48,33 @@ class Base extends CoreBase {
     construct(config) {
         super.construct(config);
 
-        const me = this;
-        HashHistory.on('change', me.onHashChange, me);
+        HashHistory.on('change', this.onHashChange, this)
     }
 
      /**
-     * Triggered after the badgePosition config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered after the routes config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
      * @protected
      */
     afterSetRoutes(value, oldValue){
-        const me = this;
+        let me        = this,
+            routeKeys = Object.keys(value);
 
-        const functionSort = (a,b) => { 
-            const usedRegex = new RegExp("/", "g");
-            return a.match(usedRegex).length - b.match(usedRegex).length;
-        }
-        me.routes = Object.keys(value).sort(functionSort).reduce(
-            (obj, key) => { 
-              obj[key] = value[key]; 
-              return obj;
-            }, 
-            {}
-          );
+         me.routes = routeKeys.sort(me.#sortRoutes).reduce((obj, key) => {
+             obj[key] = value[key];
+             return obj
+         }, {});
 
         me.handleRoutes = {};
-        if (Object.keys(me.routes).length > 0) {
-            Object.keys(me.routes).forEach(key => {
-                if (key.toLowerCase() === 'default'){
-                    me.defaultRoute = value[key];
-                } else {
-                    me.handleRoutes[key] = new RegExp(key.replace(/{[^\s/]+}/g, '([\\w-]+)')+'$');
-                }
 
-            });
-        }
+        routeKeys.forEach(key => {
+            if (key.toLowerCase() === 'default'){
+                me.defaultRoute = value[key]
+            } else {
+                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)')+'$')
+            }
+        })
     }
 
     /**
@@ -89,6 +87,82 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        let currentHash = HashHistory.first();
+
+        currentHash && this.onHashChange(currentHash, null)
+    }
+
+    /**
+     * Placeholder method which gets triggered when the hash inside the browser url changes
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onHashChange(value, oldValue) {
+        let me                = this,
+            hasRouteBeenFound = false,
+            handleRoutes      = me.handleRoutes,
+            routeKeys         = Object.keys(handleRoutes),
+            routes            = me.routes,
+            handler, preHandler, responsePreHandler, result, route;
+
+        routeKeys.forEach(key => {
+            handler            = null;
+            preHandler         = null;
+            responsePreHandler = null;
+
+            result = value.hashString.match(handleRoutes[key]);
+
+            if (result) {
+                const
+                    arrayParamIds    = key.match(routeParamRegex),
+                    arrayParamValues = result.splice(1, result.length - 1),
+                    paramObject      = {};
+
+                if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length) {
+                    throw 'Number of IDs and number of Values do not match';
+                }
+
+                for (let i = 0; arrayParamIds && i < arrayParamIds.length; i++) {
+                    paramObject[arrayParamIds[i].substring(1, arrayParamIds[i].length - 1)] = arrayParamValues[i];
+                }
+
+                route = routes[key];
+
+                if (Neo.isString(route)) {
+                    handler            = route;
+                    responsePreHandler = true;
+                } else if (Neo.isObject(route)) {
+                    handler    = route.handler;
+                    preHandler = route.preHandler;
+
+                    if (preHandler) {
+                        responsePreHandler = me[preHandler]?.call(me, paramObject, value, oldValue);
+                    } else {
+                        responsePreHandler = true;
+                    }
+                }
+
+                hasRouteBeenFound = true;
+
+                if (responsePreHandler) {
+                    me[handler]?.call(me, paramObject, value, oldValue)
+                }
+            }
+        });
+
+        if (routeKeys.length > 0 && !hasRouteBeenFound) {
+            if (me.defaultRoute) {
+                me[me.defaultRoute]?.(value, oldValue)
+            } else {
+                me.onNoRouteFound(value, oldValue)
+            }
+        }
+    }
+
+    /**
      * Placeholder method which gets triggered when an invalid route is called
      * @param {Object} value
      * @param {Object} oldValue
@@ -98,77 +172,14 @@ class Base extends CoreBase {
     }
 
     /**
-     * Placeholder method which gets triggered when the hash inside the browser url changes
-     * @param {Object} value
-     * @param {Object} oldValue
+     * Internal helper method to sort routes by their amount of slashes
+     * @param {String} route1
+     * @param {String} route2
+     * @returns {Number}
      */
-    onHashChange(value, oldValue) {
-
-        const me = this;
-        let hasRouteBeenFound = false;
-        Object.keys(me.handleRoutes).forEach( key => {
-            let preHandler = undefined;
-            let executeHandler = undefined;
-            let responsePreHandler = undefined;
-
-            const result = value.hashString.match(me.handleRoutes[key]);
-            if (result){
-                const paramsRegex = /{[^\s/]+}/g;
-                const arrayParamIds = key.match(paramsRegex);
-                const arrayParamValues = result.splice(1,result.length - 1);
-                if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length){
-                    throw "Number of IDs and number of Values do not match";
-                } 
-
-                const paramObject = {};
-                for(let i=0;  arrayParamIds && i< arrayParamIds.length; i++){
-                    paramObject[ arrayParamIds[i].substring(1,arrayParamIds[i].length -1)] = arrayParamValues[i];
-                }
-
-                const target = me.routes[key];
-                if (Neo.isString(target)){
-                    executeHandler = this.routes[key];
-                    responsePreHandler = true;
-                }
-                if (Neo.isObject(target)){
-                    executeHandler = this.routes[key].handler;
-                    preHandler = this.routes[key].preHandler;
-                    if (preHandler) {
-                        responsePreHandler =  me[preHandler]?.call(this, value, oldValue, paramObject);
-                    } else {
-                        responsePreHandler = true;
-                        console.warn('No preHandler defined for routes -> todo it better');
-                    }                    
-                }
-
-                hasRouteBeenFound = true;
-
-                if (responsePreHandler) {
-                    this[executeHandler]?.call(this, value, oldValue, paramObject);
-                }
-            }
-        });
-
-        if (Object.keys(me.handleRoutes).length > 0 && !hasRouteBeenFound) {
-            if (me.defaultRoute) {
-                this[me.defaultRoute]?.call(this, value, oldValue);
-            } else {
-                this.onNoRouteFound(value, oldValue);
-            }
-        }
+    #sortRoutes(route1, route2) {
+        return route1.match(amountSlashesRegex).length - route2.match(amountSlashesRegex).length
     }
-
-    /**
-     *
-     */
-    onConstructed() {
-        let currentHash = HashHistory.first();
-
-        currentHash && this.onHashChange(currentHash, null);
-    }
-
-
-
 }
 
 Neo.applyClassConfig(Base);
