@@ -180,7 +180,7 @@ class Base {
     applyDelayable() {
         let me = this;
 
-        Object.entries(me.constructor.delayable).forEach(([key, value]) => {
+        Object.entries(me.delayable || me.constructor.delayable).forEach(([key, value]) => {
             let map = {
                 debounce() {me[key] = new debounce(me[key], me, value.timer)},
                 throttle() {me[key] = new throttle(me[key], me, value.timer)}
