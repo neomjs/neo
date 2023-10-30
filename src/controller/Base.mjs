@@ -17,22 +17,18 @@ class Base extends CoreBase {
          * @protected
          */
         ntype: 'controller',
-
         /**
-         * @member {Object} routes={}
+         * @member {String} defaultRoute=undefined
          */
-        routes_: {},
-
+        defaultRoute: null,
         /**
          * @member {Object} handleRoutes={}
          */
         handleRoutes: {},
-
         /**
-         * @member {String} defaultRoute=undefined
+         * @member {Object} routes={}
          */
-        defaultRoute: null
-
+        routes_: {}
     }
 
     /**
@@ -54,18 +50,18 @@ class Base extends CoreBase {
     afterSetRoutes(value, oldValue){
         const me = this;
 
-        const functionSort = (a,b) => { 
+        const functionSort = (a,b) => {
             const usedRegex = new RegExp("/", "g");
             return a.match(usedRegex).length - b.match(usedRegex).length;
         }
         me.routes = Object.keys(value).sort(functionSort).reduce(
-            (obj, key) => { 
-              obj[key] = value[key]; 
+            (obj, key) => {
+              obj[key] = value[key];
               return obj;
-            }, 
+            },
             {}
           );
-    
+
 
         me.handleRoutes = {};
         if (Object.keys(me.routes).length > 0) {
@@ -90,12 +86,12 @@ class Base extends CoreBase {
     }
 
     /**
-     * Placeholder method which gets triggered when an invalid route is called
-     * @param {Object} value
-     * @param {Object} oldValue
+     *
      */
-    onNoRouteFound(value, oldValue) {
+    onConstructed() {
+        let currentHash = HashHistory.first();
 
+        currentHash && this.onHashChange(currentHash, null);
     }
 
     /**
@@ -120,7 +116,7 @@ class Base extends CoreBase {
                 const arrayParamValues = result.splice(1,result.length - 1);
                 if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length){
                     throw "Number of IDs and number of Values do not match";
-                } 
+                }
 
                 const paramObject = {};
                 for(let i=0;  arrayParamIds && i< arrayParamIds.length; i++){
@@ -140,7 +136,7 @@ class Base extends CoreBase {
                     } else {
                         responsePreHandler = true;
                         console.warn('No preHandler defined for routes -> todo it better');
-                    }                    
+                    }
                 }
 
                 hasRouteBeenFound = true;
@@ -161,16 +157,13 @@ class Base extends CoreBase {
     }
 
     /**
-     *
+     * Placeholder method which gets triggered when an invalid route is called
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onConstructed() {
-        let currentHash = HashHistory.first();
+    onNoRouteFound(value, oldValue) {
 
-        currentHash && this.onHashChange(currentHash, null);
     }
-
-
-
 }
 
 Neo.applyClassConfig(Base);
