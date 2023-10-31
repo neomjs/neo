@@ -65,7 +65,13 @@ class TextArea extends Text {
          * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea
          * @member {String|null} wrap_=null
          */
-        wrap_: null
+        wrap_: null,
+        /**
+         * Set this to `true` to have the text area grow and shrink to accommodate
+         * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
+         * @member {Boolean} autoGrow=false
+         */
+        autoGrow : false
     }
 
     /**
@@ -126,6 +132,9 @@ class TextArea extends Text {
         }
 
         super.afterSetValue(value, oldValue);
+        if (this.autoGrow) {
+            this.syncAutoGrowHeight();
+        }
     }
 
     /**
@@ -147,6 +156,30 @@ class TextArea extends Text {
      */
     beforeSetWrap(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
+    }
+
+    onInputValueChange(data) {
+        if (this.autoGrow) {
+            this.syncAutoGrowHeight();
+        }
+        super.onInputValueChange(data);
+    }
+
+    async syncAutoGrowHeight() {
+        const
+            inputEl = this.getInputEl(),
+            dims = await Neo.main.DomAccess.getScrollingDimensions({
+                appName : this.appName,
+                id      : this.getInputElId()
+            });
+
+        // We must not show the scrollbar when autoGrowing
+        inputEl.style.overflowY = 'hidden';
+
+        if (dims.scrollHeight > dims.clientHeight - 5) {
+            inputEl.height = dims.scrollHeight;
+        }
+        this.update();
     }
 }
 
