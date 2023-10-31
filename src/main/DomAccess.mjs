@@ -110,7 +110,8 @@ class DomAccess extends Base {
                 'setStyle',
                 'syncModalMask',
                 'trapFocus',
-                'windowScrollTo'
+                'windowScrollTo',
+                'getScrollingDimensions'
             ]
         },
         /**
@@ -421,6 +422,23 @@ class DomAccess extends Base {
         }
 
         return returnData
+    }
+
+    getScrollingDimensions(data) {
+        const me = this;
+
+        if (Array.isArray(data.id)) {
+            return data.id.map(id => me.getScrollingDimensions({ id }));
+        } else {
+            const node = me.getElementOrBody(data.nodeType ? data : data.id);
+
+            return {
+                clientWidth  : node?.clientWidth,
+                clientHeight : node?.clientHeight,
+                scrollWidth  : node?.scrollWidth,
+                scrollHeight : node?.scrollHeight
+            };
+        }
     }
 
     /**
