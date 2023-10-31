@@ -380,20 +380,25 @@ Neo = globalThis.Neo = Object.assign({
      * @memberOf module:Neo
      * @param {Object} target
      * @param {Object} source
+     * @param {Object} defaults
      * @returns {Object} target
      */
-    merge(target, source) {
+    merge(target, source, defaults) {
+        if (defaults) {
+            return Neo.merge(Neo.merge(target, defaults), source)
+        }
+
         for (const key in source) {
             const value = source[key];
 
             if (Neo.typeOf(value) === 'Object') {
-                target[key] = Neo.merge(target[key] || {}, value);
+                target[key] = Neo.merge(target[key] || {}, value)
             } else {
-                target[key] = value;
+                target[key] = value
             }
         }
 
-        return target;
+        return target
     },
 
     /**

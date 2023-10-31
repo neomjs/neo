@@ -72,6 +72,12 @@ class Base {
          */
         ntype: 'base',
         /**
+         * While it is recommended to change the static delayable configs on class level,
+         * you can change it on instance level too. If not null, we will do a deep merge.
+         * @member {Object} delayable=null
+         */
+        delayable: null,
+        /**
          * The unique component id
          * @member {String|null} id_=null
          */
@@ -178,9 +184,11 @@ class Base {
      * Adjusts all methods inside static delayable
      */
     applyDelayable() {
-        let me = this;
+        let me            = this,
+            ctorDelayable = me.constructor.delayable,
+            delayable     = me.delayable ? Neo.merge({}, me.delayable, ctorDelayable) : ctorDelayable;
 
-        Object.entries(me.constructor.delayable).forEach(([key, value]) => {
+        Object.entries(delayable).forEach(([key, value]) => {
             let map = {
                 debounce() {me[key] = new debounce(me[key], me, value.timer)},
                 throttle() {me[key] = new throttle(me[key], me, value.timer)}
