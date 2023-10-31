@@ -37,7 +37,7 @@ class HeaderContainer extends Container {
 
             vdom: {
                 tag: 'img',
-                src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
+                src: 'https://raw.githubusercontent.com/neomjs/pages/main/resources/images/apps/covid/covid_logo_dark.jpg'
             }
         }, {
             ntype : 'container',

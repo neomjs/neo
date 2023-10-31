@@ -68,7 +68,7 @@ class List extends BaseList {
                 basePath = '../../' + basePath;
             }
         } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website';
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website';
         }
 
         const vdomCn = [

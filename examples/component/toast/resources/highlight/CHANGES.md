@@ -772,7 +772,7 @@ New languages in this release:
 [Erik Paluka]: https://github.com/paluka
 [Luke Holder]: https://github.com/lukeholder
 [David Mohundro]: https://github.com/drmohundro
-[ps]: https://github.com/OctopusDeploy/Library/blob/master/app/shared/presentation/highlighting/powershell.js
+[ps]: https://github.com/OctopusDeploy/Library/blob/main/app/shared/presentation/highlighting/powershell.js
 [Christophe de Dinechin]: https://github.com/c3d
 [Taneli Vatanen]: https://github.com/Daiz-
 [Jen Evers-Corvina]: https://github.com/sevvie
@@ -792,7 +792,7 @@ We're going to redesign the old [demo/test suite][demo] into an interactive
 demo web app. If you're confident front-end developer or designer and want to
 help us with it, drop a comment into [the issue][#542] on GitHub.
 
-[test]: https://github.com/isagalaev/highlight.js/tree/master/test
+[test]: https://github.com/isagalaev/highlight.js/tree/main/test
 [demo]: https://highlightjs.org/static/test.html
 [#542]: https://github.com/isagalaev/highlight.js/issues/542
 [ci]: https://travis-ci.org/isagalaev/highlight.js

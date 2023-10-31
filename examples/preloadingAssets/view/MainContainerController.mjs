@@ -28,7 +28,7 @@ class MainContainerController extends Component {
 
         setTimeout(() => {
             Neo.ServiceWorker.preloadAssets({
-                files: ['https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000074.jpg']
+                files: ['https://raw.githubusercontent.com/neomjs/pages/main/resources/examples/ai_images/000074.jpg']
             }).then(data => {
                 console.log(data);
             });

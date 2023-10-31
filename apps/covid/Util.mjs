@@ -142,7 +142,7 @@ class Util extends Base {
             return path;
         }
 
-        return `https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/${imageName}.png`;
+        return `https://raw.githubusercontent.com/neomjs/pages/main/resources/images/flaticon/country_flags/png/${imageName}.png`;
     }
 
     /**

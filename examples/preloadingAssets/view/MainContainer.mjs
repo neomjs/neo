@@ -44,7 +44,7 @@ class MainContainer extends Viewport {
 
                 vdom: {
                     tag: 'img',
-                    src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000150.jpg'
+                    src: 'https://raw.githubusercontent.com/neomjs/pages/main/resources/examples/ai_images/000150.jpg'
                 }
             }, {
                 tabButtonConfig: {
@@ -54,7 +54,7 @@ class MainContainer extends Viewport {
 
                 vdom: {
                     tag: 'img',
-                    src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000074.jpg'
+                    src: 'https://raw.githubusercontent.com/neomjs/pages/main/resources/examples/ai_images/000074.jpg'
                 }
             }],
             /**
