@@ -1,27 +1,27 @@
-.neo-floating {
-    top              : -10000px;
-    left             : -10000px;
-    position         : fixed;
-    z-index          : 1000;
-    background-color : var(--neo-background-color);
-}
-
-// Shadow at the top
-.neo-aligned-top {
-    box-shadow : 0px -2px 10px rgba(0, 0, 0, 0.3);
-}
-
 // Shadow at the bottom
 .neo-aligned-bottom {
-    box-shadow : 0px 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--aligned-bottom-box-shadow);
 }
 
 // Shadow at the left
 .neo-aligned-left {
-    box-shadow : -2px 0px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--aligned-left-box-shadow);
 }
 
 // Shadow at the right
 .neo-aligned-right {
-    box-shadow : 2px 0px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--aligned-right-box-shadow);
+}
+
+// Shadow at the top
+.neo-aligned-top {
+    box-shadow: var(--aligned-top-box-shadow);
+}
+
+.neo-floating {
+    background-color: var(--neo-background-color);
+    left            : -10000px;
+    position        : fixed;
+    top             : -10000px;
+    z-index         : 1000;
 }

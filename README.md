@@ -1,5 +1,5 @@
 <p align="center">
-  <img height="250" width="250" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/logo_rounded.svg">
+  <img height="250" width="250" src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/logo_rounded.svg">
 </p>
 
 <p align="center">
@@ -16,8 +16,8 @@ neo.mjs enables you to create scalable & high performant Apps using more than ju
 No need to take care of a workers setup, and the cross channel communication on your own.
 
 <p align="center">
-<a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo33s.png"></a>
-<a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo-movie.png"></a>
+<a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/neo33s.png"></a>
+<a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/neo-movie.png"></a>
 </p>
 
 <a href="https://tobiasuhlig.medium.com/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3">Version 4 release announcement</a>
@@ -44,7 +44,7 @@ Join our community:</br>
 
 </br></br>
 <h2 id="architectures">2. Scalable frontend architectures</h2>
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps-today.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/apps-today.png">
 
 Most frontends today still look like this. Everything happens inside the main thread (browser window), leading to a poor rendering performance.
 The business logic happens inside main as well, which can slow down DOM updates and animations.
@@ -56,13 +56,13 @@ neo.mjs offers two different setups which follow the exact same API.
 You can switch between <a href="https://developer.mozilla.org/en-US/docs/Web/API/Worker">dedicated</a> and
 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker">shared</a> workers at any point.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers-setup-v4.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/workers-setup-v4.png">
 
 The dedicated workers setup uses 3-6 threads (CPUs).
 Most parts of the frameworks as well as your apps and components live within the app worker.
 Main threads are as small and idle as possible (42KB) plus optional main thread addons.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/shared-workers-setup.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/shared-workers-setup.png">
 
 In case you want to e.g. create a web based IDE or a multi window banking / trading app,
 the shared worker setup using 5+ threads (CPUs) is the perfect solution.
@@ -81,9 +81,9 @@ Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-mult
 Chrome (v83+), Edge, Firefox (Safari does not support SharedWorkers yet).</br>
 Desktop only.</br></br>
 
-<a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
+<a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/expanding_spa_vid.png"></a></br>
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/sw_covid.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/covidDashboard/sw_covid.png">
 
 You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
 
@@ -92,9 +92,9 @@ You can find the code of the multi window covid app <a href="https://github.com/
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
 Desktop only => support for mobile devices is on the roadmap.</br></br>
 
-<a href="https://www.youtube.com/watch?v=8lqNVaoGNdU"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covid_app_vid.png"></a></br>
+<a href="https://www.youtube.com/watch?v=8lqNVaoGNdU"><img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/covid_app_vid.png"></a></br>
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/covidDashboard/v3/table.png">
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 

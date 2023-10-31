@@ -368,7 +368,7 @@ class MainContainerController extends ComponentController {
             button     = data.component,
             component  = me.component,
             logo       = me.getReference('logo'),
-            logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/images/apps/covid/',
             mapView    = me.getReference('mapboxglmap'),
             themeLight = button.text === 'Theme Light',
             buttonText, cls, href, iconCls, mapViewStyle, theme;
