@@ -94,6 +94,11 @@ class TextArea extends Text {
         this.changeInputElKey('tag', value);
     }
 
+    afterSetMounted() {
+        super.afterSetMounted(...arguments);
+        this.syncAutoGrowHeight();
+    }
+
     /**
      * Triggered after the resizable config got changed
      * @param {Boolean} value
@@ -132,9 +137,7 @@ class TextArea extends Text {
         }
 
         super.afterSetValue(value, oldValue);
-        if (this.autoGrow) {
-            this.syncAutoGrowHeight();
-        }
+        this.syncAutoGrowHeight();
     }
 
     /**
@@ -159,27 +162,27 @@ class TextArea extends Text {
     }
 
     onInputValueChange(data) {
-        if (this.autoGrow) {
-            this.syncAutoGrowHeight();
-        }
+        this.syncAutoGrowHeight();
         super.onInputValueChange(data);
     }
 
     async syncAutoGrowHeight() {
-        const
-            inputEl = this.getInputEl(),
-            dims = await Neo.main.DomAccess.getScrollingDimensions({
-                appName : this.appName,
-                id      : this.getInputElId()
-            });
+        if (this.mounted && this.autoGrow) {
+            const
+                inputEl = this.getInputEl(),
+                dims = await Neo.main.DomAccess.getScrollingDimensions({
+                    appName : this.appName,
+                    id      : this.getInputElId()
+                });
 
-        // We must not show the scrollbar when autoGrowing
-        inputEl.style.overflowY = 'hidden';
+            // We must not show the scrollbar when autoGrowing
+            inputEl.style.overflowY = 'hidden';
 
-        if (dims.scrollHeight > dims.clientHeight - 5) {
-            inputEl.height = dims.scrollHeight;
+            if (dims.scrollHeight > dims.clientHeight - 5) {
+                inputEl.height = dims.scrollHeight;
+            }
+            this.update();
         }
-        this.update();
     }
 }
 
