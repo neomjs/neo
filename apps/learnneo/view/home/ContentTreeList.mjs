@@ -1,5 +1,5 @@
 import ContentStore from '../../store/Content.mjs'
-import TreeList     from '../../../../src/tree/List.mjs';
+import TreeList from '../../../../src/tree/List.mjs';
 
 /**
  * @class LearnNeo.view.home.ContentTreeList
@@ -23,16 +23,46 @@ class ContentTreeList extends TreeList {
      */
     onConstructed() {
         super.onConstructed();
-
         let me = this;
-
+        Neo.Main.getByPath({path: 'location.search'})
+            .then(data => {
+                const searchString = data?.substr(1) || '';
+                const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+                me.deck = search.deck || 'learnneo';
+                me.doLoadStore();
+                console.log(search);
+            });
+    }
+    get contentPath() {
+        return `../../../resources/data/${this.deck}`;
+    }
+    doLoadStore() {
+        const me = this;
         Neo.Xhr.promiseJson({
-            url: '../../../resources/data/learnneo/content.json'
+            url: `${this.contentPath}/t.json`
         }).then(data => {
+            // TODO: Tree lists should do this themselves when their store is loaded.
             me.store.data = data.json.data;
             me.createItems(null, me.getListItemsRoot(), 0);
             me.update();
         })
+    }
+    onLeafItemClick(record) {
+        super.onLeafItemClick(record);
+        this.doFetchContent(record);
+    }
+    async doFetchContent(record) {
+        let path = `${this.contentPath}`;
+        path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
+
+        if (record.isLeaf && path) {
+            const data = await fetch(path);
+            const content = await data.text();
+            Neo.main.addon.Markdown.markdownToHtml(content)
+                .then(
+                    html => this.fire('contentChange', {component: this, html}),
+                    () => this.fire('contentChange', {component: this}));
+        }
     }
 }
 
