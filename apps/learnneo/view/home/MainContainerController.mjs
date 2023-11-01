@@ -18,14 +18,15 @@ class MainContainerController extends Component {
      * @param {Object} record
      */
     onContentListLeafClick(data) {
-        const contentContainer = this.getReference('content-container');
+        const content = this.getReference('content');
+        content.html = data.html;
 
-        contentContainer.removeAll();
-        contentContainer.add({
-            ntype: 'component',
-            html: data.html
-        });
-        contentContainer.layout.activeIndex = 0;
+        // contentContainer.removeAll();
+        // contentContainer.add({
+        //     ntype: 'component',
+        //     html: data.html
+        // });
+        // contentContainer.layout.activeIndex = 0;
     }
 
     get contentPath() {

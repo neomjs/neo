@@ -1,4 +1,5 @@
 import Container from '../../../../src/container/Base.mjs';
+import Component from '../../../../src/component/Base.mjs';
 import ContentTreeList from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
@@ -24,9 +25,10 @@ class MainContainer extends Container {
             module: Splitter,
             resizeTarget: 'previous'
         }, {
-            module: Container,
+            module: Component,
             layout: {ntype: 'card', activeIndex: null},
-            reference: 'content-container'
+            cls: 'learn-content',
+            reference: 'content'
         }],
         layout: {ntype: 'hbox', align: 'stretch'}
     }
