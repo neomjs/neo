@@ -1,0 +1,13 @@
+details {
+    background: gainsboro;
+    padding: 10px;
+}
+
+details summary {
+    cursor: pointer;
+    transition: margin 300ms ease-out;
+}
+
+details[open] summary {
+    margin-bottom: 10px;
+}

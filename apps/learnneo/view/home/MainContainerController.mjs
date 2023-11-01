@@ -1,5 +1,6 @@
 import Component from '../../../../src/controller/Component.mjs';
 
+
 /**
  * @class LearnNeo.view.home.MainContainerController
  * @extends Neo.controller.Component
@@ -16,33 +17,21 @@ class MainContainerController extends Component {
     /**
      * @param {Object} record
      */
-    async onContentListLeafClick(record) {
-        const
-            contentContainer = this.getReference('content-container'),
-            path             = '../../../resources/data/learnneo/pages';
+    onContentListLeafClick(data) {
+        const contentContainer = this.getReference('content-container');
 
-        console.log('onContentListLeafClick', {contentContainer, record});
-        console.log('onContentListLeafClick', {contentContainer, record});
-
-        if (record.isLeaf && record.path) {
-            const data    = await fetch(`${path}/${record.path}`);
-            const content = await data.text();
-
-            contentContainer.removeAll();
-
-            await this.timeout(50);
-
-            contentContainer.add({
-                ntype: 'component',
-                html : content
-            });
-
-            await this.timeout(50);
-
-
-            contentContainer.layout.activeIndex = 0;
-        }
+        contentContainer.removeAll();
+        contentContainer.add({
+            ntype: 'component',
+            html: data.html
+        });
+        contentContainer.layout.activeIndex = 0;
     }
+
+    get contentPath() {
+        return `../../../resources/data/${this.deck}`;
+    }
+
 }
 
 Neo.applyClassConfig(MainContainerController);
