@@ -1,6 +1,7 @@
 import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
+import Panel                 from "../../../../src/container/Panel.mjs";
 import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
 
@@ -18,7 +19,7 @@ class MainContainer extends ConfigurationViewport {
 
     createConfigurationComponents() {
         let me = this;
-
+       
         return [{
             module   : CheckBox,
             checked  : me.exampleComponent.autoComplete,
@@ -182,7 +183,39 @@ class MainContainer extends ConfigurationViewport {
             handler: (() => {me.exampleComponent.reset()}),
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
-        }]
+        }, {
+            module   : Panel,
+            width: '100%',
+            style: {
+                marginTop: '1em'
+            },
+            headers: [{
+                dock: 'top',
+                text: 'XSS Protected (only onStart)'
+            }]
+        }, 
+        {
+            module   : CheckBox,
+            checked  : me.exampleComponent.xssProtected,
+            labelText: 'xssProtected',
+            listeners: {change: me.onConfigChange.bind(me, 'xssProtected')},
+            style    : {marginTop: '10px'}
+        },
+         {
+            module   : TextField,
+            reference: 'xssTextField',
+            xssProtected: false,
+            labelText: 'XSS onBlur Attack',
+            value    : '" onBlur="alert(3);"',
+        }, {
+            module   : TextField,
+            reference: 'xssTextField',
+            xssProtected: true,
+            labelText: 'XSS Protected',
+            value    : '" onBlur="alert(1);"',
+        }
+    ]
+        
     }
 
     createExampleComponent() {
@@ -192,8 +225,9 @@ class MainContainer extends ConfigurationViewport {
             labelText    : 'Label',
             labelWidth   : 70,
             minLength    : 3,
-            value        : 'Hello World',
+            value        : '" onBlur="alert(1);"',
             width        : 200,
+            xssProtected : false,
 
             listeners: {
                 change(value) {
