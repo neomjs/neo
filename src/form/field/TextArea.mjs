@@ -28,6 +28,12 @@ class TextArea extends Text {
          */
         ntype: 'textarea',
         /**
+         * Set this to `true` to have the text area grow and shrink to accommodate
+         * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
+         * @member {Boolean} autoGrow=false
+         */
+        autoGrow : false,
+        /**
          * @member {String[]} baseCls=['neo-textarea','neo-textfield']
          */
         baseCls: ['neo-textarea', 'neo-textfield'],
@@ -65,13 +71,7 @@ class TextArea extends Text {
          * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea
          * @member {String|null} wrap_=null
          */
-        wrap_: null,
-        /**
-         * Set this to `true` to have the text area grow and shrink to accommodate
-         * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
-         * @member {Boolean} autoGrow=false
-         */
-        autoGrow : false
+        wrap_: null
     }
 
     /**
@@ -94,8 +94,14 @@ class TextArea extends Text {
         this.changeInputElKey('tag', value);
     }
 
-    afterSetMounted() {
-        super.afterSetMounted(...arguments);
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
         this.syncAutoGrowHeight();
     }
 
@@ -161,18 +167,27 @@ class TextArea extends Text {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
     }
 
+    /**
+     * @param {Object} data
+     * @protected
+     */
     onInputValueChange(data) {
         this.syncAutoGrowHeight();
         super.onInputValueChange(data);
     }
 
+    /**
+     * @protected
+     */
     async syncAutoGrowHeight() {
-        if (this.mounted && this.autoGrow) {
+        let me = this;
+
+        if (me.mounted && me.autoGrow) {
             const
-                inputEl = this.getInputEl(),
+                inputEl = me.getInputEl(),
                 dims = await Neo.main.DomAccess.getScrollingDimensions({
-                    appName : this.appName,
-                    id      : this.getInputElId()
+                    appName : me.appName,
+                    id      : me.getInputElId()
                 });
 
             // We must not show the scrollbar when autoGrowing
@@ -181,7 +196,8 @@ class TextArea extends Text {
             if (dims.scrollHeight > dims.clientHeight - 5) {
                 inputEl.height = dims.scrollHeight;
             }
-            this.update();
+
+            me.update();
         }
     }
 }
