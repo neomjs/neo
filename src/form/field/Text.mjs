@@ -2,6 +2,7 @@ import Base         from './Base.mjs';
 import BaseTrigger  from './trigger/Base.mjs';
 import ClearTrigger from './trigger/Clear.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
@@ -234,6 +235,13 @@ class Text extends Base {
          * @member {Function|String|null} validator=null
          */
         validator: null,
+        /**
+         * Out of the box textfields are xssProtected
+         * @member {Boolean} xssProtected=true
+         */
+        /* todo xss
+        xssProtected_: false,        
+        */ 
         /**
          * @member {Object} _vdom
          */
@@ -619,8 +627,12 @@ class Text extends Base {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
+  
         let me = this;
+
+         if ( value === true && me.xssProtected && me.value ) {
+            me.value = StringUtil.unescapeHtml(me.value);
+         }
 
         if (oldValue !== undefined) {
             let triggers = me.triggers || [],
@@ -826,16 +838,27 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me            = this,
-            originalValue = me.originalConfig.value,
-            isDirty       = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue),
-            cls;
+        let me                = this,
+            originalValue     = me.originalConfig.value,
+            isDirty           = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue),
+            cls,
+            unescapedValue    = StringUtil.unescapeHtml(me.value),
+            isValueNotEscaped = me.value === unescapedValue,
+            displayValue = value;
 
+        if (me.xssProtected) {
+            if (isValueNotEscaped){
+                value = StringUtil.escapeHtml(value);
+            }             
+            displayValue = me.mounted ? unescapedValue : value;
+        }
+     
         me.silentVdomUpdate = true;
 
-        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+        me.getInputEl().value = me.containsFocus ? displayValue : me.inputValueRenderer(displayValue);
 
         me.validate(); // silent
+
 
         cls = me.cls;
 
@@ -1142,6 +1165,17 @@ class Text extends Base {
      */
     getTriggerId(type) {
         return this.id + '-trigger-' + type
+    }
+
+    /**
+     * @returns {*}
+     */
+    getValue() {
+        if (this.xssProtected) {
+            return StringUtil.escapeHtml(super.getValue());
+        } else {
+            return super.getValue();
+        }
     }
 
     /**
