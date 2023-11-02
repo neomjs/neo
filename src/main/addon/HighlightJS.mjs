@@ -32,6 +32,7 @@ class HighlightJS extends Base {
          */
         remote: {
             app: [
+                'loadLibrary',
                 'scrollIntoView',
                 'syntaxHighlight',
                 'switchTheme',
@@ -56,14 +57,26 @@ class HighlightJS extends Base {
      */
     construct(config) {
         super.construct(config);
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {Boolean}
+     */
+    async loadLibrary(data) {
+        delete data.appName;
 
         let me = this;
 
-        DomAccess.loadScript(me.highlightJsPath).then(() => {
+        me.set(data);
+
+        await DomAccess.loadScript(me.highlightJsPath).then(() => {
             DomAccess.addScript({src: me.highlightJsLineNumbersPath});
         });
 
         Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+
+        return true
     }
 
     /**
@@ -85,17 +98,14 @@ class HighlightJS extends Base {
 
     /**
      * @param {Object} data
-     * @param {String} data.vnodeId
+     * @returns {Boolean}
      */
-    syntaxHighlight(data) {
-        if (hljs) {
-            let node = document.getElementById(data.vnodeId);
+    setConfigs(data) {
+        delete data.appName;
 
-            hljs.highlightBlock(node);
-            hljs.lineNumbersBlock(node);
-        } else {
-            console.error('highlight.js is not included inside the main thread.')
-        }
+        this.set(data);
+
+        return true
     }
 
     /**
@@ -112,6 +122,21 @@ class HighlightJS extends Base {
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
         Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.vnodeId
+     */
+    syntaxHighlight(data) {
+        if (hljs) {
+            let node = document.getElementById(data.vnodeId);
+
+            hljs.highlightBlock(node);
+            hljs.lineNumbersBlock(node);
+        } else {
+            console.error('highlight.js is not included inside the main thread.')
+        }
     }
 
     /**

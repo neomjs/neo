@@ -15,11 +15,30 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @param {Object} record
+     * @param {Object} data
      */
-    onContentListLeafClick(data) {
-        const content = this.getReference('content');
+    async onContentListLeafClick(data) {
+        const
+            me      = this,
+            content = me.getReference('content');
+
         content.html = data.html;
+
+        await this.timeout(200);
+
+        // todo: we need to add the links as neo configs
+        await Neo.main.addon.HighlightJS.loadLibrary({
+            appName        : me.appName,
+            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
+            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
+        });
+
+        await this.timeout(200);
+
+        Neo.main.addon.HighlightJS.syntaxHighlightInit({
+            appName: me.appName,
+            vnodeId: content.id
+        })
 
         // contentContainer.removeAll();
         // contentContainer.add({
