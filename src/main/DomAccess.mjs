@@ -100,6 +100,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'getScrollingDimensions',
                 'measure',
                 'scrollBy',
                 'scrollIntoView',
@@ -457,6 +458,28 @@ class DomAccess extends Base {
      */
     getElementOrBody(nodeId='document.body') {
         return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId);
+    }
+
+    /**
+     * @param {HTMLElement|Object} data
+     * @param {String|String[]} data.id
+     * @returns {Object}
+     */
+    getScrollingDimensions(data) {
+        const me = this;
+
+        if (Array.isArray(data.id)) {
+            return data.id.map(id => me.getScrollingDimensions({ id }));
+        } else {
+            const node = data.nodeType ? data : me.getElementOrBody(data.id);
+
+            return {
+                clientWidth : node?.clientWidth,
+                clientHeight: node?.clientHeight,
+                scrollWidth : node?.scrollWidth,
+                scrollHeight: node?.scrollHeight
+            };
+        }
     }
 
     /**

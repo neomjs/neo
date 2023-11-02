@@ -115,6 +115,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.autoGrow,
+            labelText: 'autoGrow',
+            listeners: {change: me.onConfigChange.bind(me, 'autoGrow')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.required,
             labelText: 'required',
             listeners: {change: me.onConfigChange.bind(me, 'required')},
@@ -175,7 +181,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(TextAreaField, {
             clearable : true,
-            height    : 600,
+            height    : 60,
             labelText : 'Label',
             labelWidth: 70,
             value     : 'Hello World',

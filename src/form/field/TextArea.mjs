@@ -28,6 +28,12 @@ class TextArea extends Text {
          */
         ntype: 'textarea',
         /**
+         * Set this to `true` to have the text area grow and shrink to accommodate
+         * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
+         * @member {Boolean} autoGrow=false
+         */
+        autoGrow : false,
+        /**
          * @member {String[]} baseCls=['neo-textarea','neo-textfield']
          */
         baseCls: ['neo-textarea', 'neo-textfield'],
@@ -89,6 +95,17 @@ class TextArea extends Text {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.syncAutoGrowHeight();
+    }
+
+    /**
      * Triggered after the resizable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -126,6 +143,7 @@ class TextArea extends Text {
         }
 
         super.afterSetValue(value, oldValue);
+        this.syncAutoGrowHeight();
     }
 
     /**
@@ -147,6 +165,40 @@ class TextArea extends Text {
      */
     beforeSetWrap(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onInputValueChange(data) {
+        this.syncAutoGrowHeight();
+        super.onInputValueChange(data);
+    }
+
+    /**
+     * @protected
+     */
+    async syncAutoGrowHeight() {
+        let me = this;
+
+        if (me.mounted && me.autoGrow) {
+            const
+                inputEl = me.getInputEl(),
+                dims = await Neo.main.DomAccess.getScrollingDimensions({
+                    appName : me.appName,
+                    id      : me.getInputElId()
+                });
+
+            // We must not show the scrollbar when autoGrowing
+            inputEl.style.overflowY = 'hidden';
+
+            if (dims.scrollHeight > dims.clientHeight - 5) {
+                inputEl.height = dims.scrollHeight;
+            }
+
+            me.update();
+        }
     }
 }
 

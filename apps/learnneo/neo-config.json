@@ -2,5 +2,6 @@
     "appPath": "apps/learnneo/app.mjs",
     "basePath": "../../",
     "environment": "development",
+    "mainThreadAddons": ["DragDrop", "Stylesheet", "Markdown"],
     "mainPath": "./Main.mjs"
 }
