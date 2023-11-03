@@ -20,6 +20,18 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        // todo: remove once paths are neo configs
+        Neo.main.addon.HighlightJS.loadLibrary({
+            appName: this.appName
+        })
+    }
+
+    /**
      * @param {Object} record
      */
     onApiListLeafClick(record) {

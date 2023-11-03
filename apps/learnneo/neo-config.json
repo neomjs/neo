@@ -1,8 +1,7 @@
 {
-    "appPath": "apps/learnneo/app.mjs",
-    "basePath": "../../",
-    "environment": "development",
-    "mainThreadAddons": ["DragDrop", "Stylesheet", "Markdown"],
-    "mainPath": "./Main.mjs",
-    "themes": ["neo-theme-neo-light"]
+    "appPath"         : "apps/learnneo/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "HighlightJS", "Stylesheet", "Markdown"]
 }
