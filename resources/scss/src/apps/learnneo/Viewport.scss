@@ -1,3 +1,4 @@
+
 .learn-content {
 
     font-size: 13pt;
@@ -10,10 +11,16 @@
     }
 
     p {
-        margin: 0em 0.5em .7em 0.5em;
+        margin: 0.5em 0em 0.7em 0em ;
     }
 
-    padding: 0.5em;
+    mark {
+        background-color: #B8FCE3;
+        color: black;
+        padding: 0.1em 0.2em;
+    }
+
+    padding: 1em;
 
     overflow: scroll;
 
@@ -47,7 +54,7 @@
         font-family: var(--fa-style-family, "Font Awesome 6 Free");
         font-weight: var(--fa-style, 900);
         font-size: 1.3em;
-        margin: .4em;
+        margin: 0.4em 0.4em 0.4em 0;
         color: #c4c4c4;
     }
 

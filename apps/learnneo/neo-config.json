@@ -3,5 +3,6 @@
     "basePath": "../../",
     "environment": "development",
     "mainThreadAddons": ["DragDrop", "Stylesheet", "Markdown"],
-    "mainPath": "./Main.mjs"
+    "mainPath": "./Main.mjs",
+    "themes": ["neo-theme-neo-light"]
 }

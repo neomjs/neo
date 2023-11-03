@@ -1,0 +1,32 @@
+:root .neo-theme-neo-light { // .neo-textfield
+    --textfield-border-color                   : #ddd;
+    --textfield-border-color-active            : #1c60a0;
+    --textfield-border-color-disabled          : #ddd;
+    --textfield-border-color-hovered           : #ddd;
+    --textfield-border-color-invalid           : brown;
+    --textfield-border-color-readonly          : #ddd;
+    --textfield-border-radius                  : 3px;
+    --textfield-border-width                   : 1px;
+    --textfield-input-background-color         : #fff;
+    --textfield-input-background-color-disabled: #fff;
+    --textfield-input-background-color-readonly: #fbfbfb;
+    --textfield-input-color                    : #000;
+    --textfield-input-color-disabled           : #000;
+    --textfield-input-color-readonly           : #000;
+    --textfield-input-font                     : 400 13px/17px Arial;
+    --textfield-input-height                   : 25px;
+    --textfield-input-padding                  : 3px 6px 2px;
+    --textfield-input-placeholder-color        : #333;
+    --textfield-input-placeholder-opacity      : 0.6;
+    --textfield-label-color                    : #666;
+    --textfield-label-color-disabled           : #666;
+    --textfield-label-color-readonly           : #666;
+    --textfield-label-top-margin               : 0 0 3px;
+    --textfield-opacity-disabled               : var(--neo-disabled-opacity);
+    --textfield-opacity-readonly               : 1;
+    --textfield-outline-active                 : none;
+    --textfield-outline-hovered                : none;
+    --textfield-sublabel-color                 : #666;
+    --textfield-sublabel-font-size             : 12px;
+    --textfield-sublabel-margin                : 0 0 5px;
+}

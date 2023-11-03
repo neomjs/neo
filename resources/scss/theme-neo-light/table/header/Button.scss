@@ -1,0 +1,7 @@
+:root .neo-theme-neo-light { // .neo-table-header-button
+    --table-header-button-background-color       : #5d83a7;
+    --table-header-button-background-image       : none;
+    --table-header-button-color                  : #fff;
+    --table-header-button-glyph-color            : #fff;
+    --table-header-button-ripple-background-color: #{darken(#5d83a7, 10%)};
+}
