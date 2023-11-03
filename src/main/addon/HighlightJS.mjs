@@ -97,18 +97,6 @@ class HighlightJS extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @returns {Boolean}
-     */
-    setConfigs(data) {
-        delete data.appName;
-
-        this.set(data);
-
-        return true
-    }
-
-    /**
      * You can pass in 'light', 'dark', or a path for a custom theme
      * @param {String} theme
      */
