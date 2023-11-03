@@ -1,5 +1,6 @@
-import Base from '../../form/field/Base.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Base         from '../../form/field/Base.mjs';
+import NeoArray     from '../../util/Array.mjs';
+import StringUtil   from '../../util/String.mjs';
 
 const
     sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
@@ -404,15 +405,16 @@ class FileUpload extends Base {
             const
                 file     = files.item(0),
                 pointPos = file.name.lastIndexOf('.'),
-                type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
+                type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '',
+                escapedFileName = StringUtil.escapeHtml(file.name);
 
             if (me.types && !types[type]) {
-                body.cn[0].innerHTML = file.name;
+                body.cn[0].innerHTML = escapedFileName;
                 body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
                 me.error = me.pleaseUseTheseTypes?.replace('{allowedFileTypes}', Object.keys(types).join(' .'))
             }
             else if (file.size > me.maxSize) {
-                body.cn[0].innerHTML = file.name;
+                body.cn[0].innerHTML = escapedFileName;
                 body.cn[1].innerHTML = me.formatSize(file.size);
                 me.error = me.fileSizeMoreThan?.replace('{allowedFileSize}', String(me._maxSize).toUpperCase());
             }
@@ -444,8 +446,8 @@ class FileUpload extends Base {
         // We have to wait for the DOM to have changed, and the action button to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
         me.focus(me.vdom.cn[2].id);
-
-        me.vdom.cn[1].cn[0].innerHTML = file.name;
+        
+        me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(file.name);
         me.update();
         me.state = 'uploading';
 
@@ -669,7 +671,7 @@ class FileUpload extends Base {
 
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
-            me.vdom.cn[1].cn[0].innerHTML = document.fileName;
+            me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(document.fileName);
             me.state = me.documentStatusMap[document.status];
         }
     }
