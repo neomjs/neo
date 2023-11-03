@@ -1,0 +1,13 @@
+:root .neo-theme-neo-light { // .neo-grid-view
+    --grid-cell-background-color-hover                    : #{lighten(#33343d, 70%)};
+    --grid-cellmodel-selected-cell-background-color       : #{lighten(#64B5F6, 22%)};
+    --grid-cellmodel-selected-cell-color                  : #2b2b2b;
+    --grid-cellmodel-selected-column-cell-background-color: #{lighten(#4f558a, 52%)};
+    --grid-cellmodel-selected-column-cell-color           : #2b2b2b;
+    --grid-cellrowmodel-selected-cell-background-color    : #{lighten(#64B5F6, 22%)};
+    --grid-cellrowmodel-selected-cell-color               : #2b2b2b;
+    --grid-cellrowmodel-selected-row-cell-background-color: #{lighten(#4f558a, 52%)};
+    --grid-cellrowmodel-selected-row-cell-color           : #2b2b2b;
+    --grid-rowmodel-selected-cell-background-color        : #{lighten(#64B5F6, 22%)};
+    --grid-rowmodel-selected-cell-color                   : #2b2b2b;
+}

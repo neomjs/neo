@@ -47,21 +47,19 @@ class ContentTreeList extends TreeList {
             me.update();
         })
     }
-    onLeafItemClick(record) {
-        super.onLeafItemClick(record);
-        this.doFetchContent(record);
-    }
+
     async doFetchContent(record) {
-        let path = `${this.contentPath}`;
+        let me   = this,
+            path = `${me.contentPath}`;
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
             const data = await fetch(path);
             const content = await data.text();
-            Neo.main.addon.Markdown.markdownToHtml(content)
+            await Neo.main.addon.Markdown.markdownToHtml(content)
                 .then(
-                    html => this.fire('contentChange', {component: this, html}),
-                    () => this.fire('contentChange', {component: this}));
+                    html => me.fire('contentChange', {component: me, html}),
+                    ()   => me.fire('contentChange', {component: me}));
         }
     }
 }
