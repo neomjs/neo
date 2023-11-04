@@ -1286,9 +1286,13 @@ class Text extends Base {
             value    = data.value,
             vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
+        if (Neo.isString(value)) {
+            value = value.trim()
+        }
+
         if (vnode) {
             // required for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = value;
+            vnode.vnode.attributes.value = value
         }
 
         me.clean = false;
