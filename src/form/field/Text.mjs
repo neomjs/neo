@@ -1283,7 +1283,7 @@ class Text extends Base {
     onInputValueChange(data) {
         let me       = this,
             oldValue = me.value,
-            value    = data.value ? data.value.toString().trim() : me.emptyValue,
+            value    = data.value,
             vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
@@ -1482,7 +1482,7 @@ class Text extends Base {
             minLength    = me.minLength,
             required     = me.required,
             returnValue  = true,
-            value        = me.value ? me.value.toString().trim() : me.emptyValue,
+            value        = me.value,
             valueLength  = value?.toString().length,
             inputPattern = me.inputPattern,
             isEmpty      = value !== 0 && (!value || valueLength < 1),
