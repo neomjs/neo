@@ -15,7 +15,9 @@ class ContentTreeList extends TreeList {
         /**
          * @member {Neo.data.Store} store=ContentStore
          */
-        store: ContentStore
+        store: ContentStore,
+
+        cls: 'topics-tree'
     }
 
     /**
@@ -56,7 +58,7 @@ class ContentTreeList extends TreeList {
     }
 
     async doFetchContent(record) {
-        let me   = this,
+        let me = this,
             path = `${me.contentPath}`;
 
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
@@ -68,7 +70,7 @@ class ContentTreeList extends TreeList {
             await Neo.main.addon.Markdown.markdownToHtml(content)
                 .then(
                     html => me.fire('contentChange', {component: me, html}),
-                    ()   => me.fire('contentChange', {component: me}));
+                    () => me.fire('contentChange', {component: me}));
         }
     }
 }
