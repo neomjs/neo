@@ -239,7 +239,7 @@ class Text extends Base {
          * getVlue can be xssProtected and values are escaped
          * @member {Boolean} xssProtected=false
          */
-        xssProtected_: false,        
+        xssProtected_: false,
         /**
          * @member {Object} _vdom
          */
@@ -1158,12 +1158,12 @@ class Text extends Base {
     */
     getValue() {
         if (this.xssProtected) {
-            return StringUtil.escapeHtml(super.getValue());
+            return StringUtil.escapeHtml(super.getValue())
         } else {
-            return super.getValue();
+            return super.getValue()
         }
     }
-        
+
     /**
      * @returns {Boolean}
      */
