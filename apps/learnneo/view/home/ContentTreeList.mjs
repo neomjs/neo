@@ -15,7 +15,9 @@ class ContentTreeList extends TreeList {
         /**
          * @member {Neo.data.Store} store=ContentStore
          */
-        store: ContentStore
+        store: ContentStore,
+
+        cls: 'topics-tree'
     }
 
     /**
@@ -33,9 +35,11 @@ class ContentTreeList extends TreeList {
                 console.log(search);
             });
     }
+
     get contentPath() {
         return `../../../resources/data/${this.deck}`;
     }
+
     doLoadStore() {
         const me = this;
         Neo.Xhr.promiseJson({
@@ -48,18 +52,25 @@ class ContentTreeList extends TreeList {
         })
     }
 
+    onLeafItemClick(record) {
+        super.onLeafItemClick(record);
+        this.doFetchContent(record);
+    }
+
     async doFetchContent(record) {
-        let me   = this,
+        let me = this,
             path = `${me.contentPath}`;
+
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
             const data = await fetch(path);
             const content = await data.text();
+
             await Neo.main.addon.Markdown.markdownToHtml(content)
                 .then(
                     html => me.fire('contentChange', {component: me, html}),
-                    ()   => me.fire('contentChange', {component: me}));
+                    () => me.fire('contentChange', {component: me}));
         }
     }
 }

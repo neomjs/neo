@@ -2,6 +2,7 @@ import Base         from './Base.mjs';
 import BaseTrigger  from './trigger/Base.mjs';
 import ClearTrigger from './trigger/Clear.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
@@ -234,6 +235,14 @@ class Text extends Base {
          * @member {Function|String|null} validator=null
          */
         validator: null,
+        /**
+         * getVlue can be xssProtected and values are escaped
+         * @member {Boolean} xssProtected=false
+         */
+        xssProtected_: false,
+        /**
+         * @member {Object} _vdom
+         */
         /**
          * @member {Object} _vdom
          */
@@ -1145,6 +1154,17 @@ class Text extends Base {
     }
 
     /**
+     * @returns {*}
+    */
+    getValue() {
+        if (this.xssProtected) {
+            return StringUtil.escapeHtml(super.getValue())
+        } else {
+            return super.getValue()
+        }
+    }
+
+    /**
      * @returns {Boolean}
      */
     hasContent() {
@@ -1269,9 +1289,13 @@ class Text extends Base {
             if (centerBorderEl && me.isEmpty()) {
                 delete centerBorderEl.width;
             }
-
-            me.update()
         }
+
+        if (Neo.isString(me.value)) {
+            me.value = me.value.trim()
+        }
+
+        me.update();
 
         super.onFocusLeave(data)
     }
@@ -1288,7 +1312,11 @@ class Text extends Base {
 
         if (vnode) {
             // required for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = value;
+            vnode.vnode.attributes.value = value
+        }
+
+        if (Neo.isString(value)) {
+            value = value.trim()
         }
 
         me.clean = false;
