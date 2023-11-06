@@ -2,6 +2,7 @@ import Base         from './Base.mjs';
 import BaseTrigger  from './trigger/Base.mjs';
 import ClearTrigger from './trigger/Clear.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
@@ -234,6 +235,14 @@ class Text extends Base {
          * @member {Function|String|null} validator=null
          */
         validator: null,
+        /**
+         * getVlue can be xssProtected and values are escaped
+         * @member {Boolean} xssProtected=false
+         */
+        xssProtected_: false,        
+        /**
+         * @member {Object} _vdom
+         */
         /**
          * @member {Object} _vdom
          */
@@ -1144,6 +1153,17 @@ class Text extends Base {
         return this.id + '-trigger-' + type
     }
 
+    /**
+     * @returns {*}
+    */
+    getValue() {
+        if (this.xssProtected) {
+            return StringUtil.escapeHtml(super.getValue());
+        } else {
+            return super.getValue();
+        }
+    }
+        
     /**
      * @returns {Boolean}
      */
