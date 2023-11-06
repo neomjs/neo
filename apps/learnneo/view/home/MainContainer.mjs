@@ -1,5 +1,5 @@
 import Container               from '../../../../src/container/Base.mjs';
-import Component               from '../../../../src/component/Base.mjs';
+import ContentComponent        from './ContentComponent.mjs';
 import ContentTreeList         from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
@@ -39,8 +39,7 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 5
         }, {
-            module   : Component,
-            cls      : 'learn-content',
+            module   : ContentComponent,
             reference: 'content'
         }],
         /**
