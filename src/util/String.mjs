@@ -14,18 +14,20 @@ class StringUtil extends Base {
         '<' : '&lt;',
         '>' : '&gt;',
         '"' : '&quot;',
-        '\'': '&#039;'
+        '\'': '&apos;',
+        '$' : '&dollar;',
+        '\\': '&bsol;'
     }
     /**
      * @member {RegExp} charPattern
      * @static
      */
-    static charPattern = /[&<>"']/g
+    static charPattern = /[&<>"'$\\]/g
     /**
      * @member {RegExp} entityPattern
      * @static
      */
-    static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&#039;)/g
+    static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&apos;)|(&dollar;)|(&bsol;)/g
 
     static config = {
         /**
