@@ -1289,9 +1289,13 @@ class Text extends Base {
             if (centerBorderEl && me.isEmpty()) {
                 delete centerBorderEl.width;
             }
-
-            me.update()
         }
+
+        if (Neo.isString(me.value)) {
+            me.value = me.value.trim()
+        }
+
+        me.update();
 
         super.onFocusLeave(data)
     }
@@ -1306,13 +1310,13 @@ class Text extends Base {
             value    = data.value,
             vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
-        if (Neo.isString(value)) {
-            value = value.trim()
-        }
-
         if (vnode) {
             // required for validation -> revert a wrong user input
             vnode.vnode.attributes.value = value
+        }
+
+        if (Neo.isString(value)) {
+            value = value.trim()
         }
 
         me.clean = false;
