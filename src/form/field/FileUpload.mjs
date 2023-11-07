@@ -566,6 +566,7 @@ class FileUpload extends Base {
             // saved, so we just go back to ready state
             case 'upload-failed':
             case 'scan-failed':
+            case 'error':
                 me.clear();
                 me.state = 'ready';
                 break;
