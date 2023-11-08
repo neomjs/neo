@@ -181,7 +181,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(TextAreaField, {
             clearable : true,
-            height    : 60,
+            height    : 120,
             labelText : 'Label',
             labelWidth: 70,
             value     : 'Hello World',

@@ -322,7 +322,8 @@ class FileUpload extends Base {
         malwareFoundInFile   : 'Malware found in file',
         pleaseCheck          : 'Please check the file and try again',
         successfullyUploaded : 'Successfully uploaded',
-        fileWasDeleted       : 'File was deleted'
+        fileWasDeleted       : 'File was deleted',
+        fileIsInAnErrorState : 'File is in an error state'
     }
 
     /**
@@ -565,6 +566,7 @@ class FileUpload extends Base {
             // saved, so we just go back to ready state
             case 'upload-failed':
             case 'scan-failed':
+            case 'error':
                 me.clear();
                 me.state = 'ready';
                 break;
@@ -729,7 +731,12 @@ class FileUpload extends Base {
             case 'deleted':
                 status.innerHTML = me.fileWasDeleted;
                 isChangeEventNeeded = true;
-        }
+                break;
+            case 'error':
+                status.innerHTML = me.fileIsInAnErrorState;
+                me.error = me.pleaseCheck;
+                isChangeEventNeeded = true;
+            }
 
         if (isChangeEventNeeded && oldValue !== undefined) {
             me.fireChangeEvent(me.file)
