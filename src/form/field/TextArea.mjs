@@ -32,7 +32,7 @@ class TextArea extends Text {
          * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
          * @member {Boolean} autoGrow=false
          */
-        autoGrow : false,
+        autoGrow_ : false,
         /**
          * @member {String[]} baseCls=['neo-textarea','neo-textfield']
          */
@@ -74,6 +74,15 @@ class TextArea extends Text {
         wrap_: null
     }
 
+    afterSetAutoGrow(autoGrow) {
+        this.syncAutoGrowMonitor();
+
+        // Restore any configured height if autoGrow turned off
+        if (!autoGrow) {
+            this.afterSetHeight(this._height);
+        }
+    }
+
     /**
      * Triggered after the cols config got changed
      * @param {Number|null} value
@@ -102,7 +111,7 @@ class TextArea extends Text {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        this.syncAutoGrowHeight();
+        this.syncAutoGrowMonitor();
     }
 
     /**
@@ -143,7 +152,6 @@ class TextArea extends Text {
         }
 
         super.afterSetValue(value, oldValue);
-        this.syncAutoGrowHeight();
     }
 
     /**
@@ -167,37 +175,14 @@ class TextArea extends Text {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
     }
 
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    onInputValueChange(data) {
-        this.syncAutoGrowHeight();
-        super.onInputValueChange(data);
-    }
-
-    /**
-     * @protected
-     */
-    async syncAutoGrowHeight() {
-        let me = this;
-
-        if (me.mounted && me.autoGrow) {
-            const
-                inputEl = me.getInputEl(),
-                dims = await Neo.main.DomAccess.getScrollingDimensions({
-                    appName : me.appName,
-                    id      : me.getInputElId()
-                });
-
-            // We must not show the scrollbar when autoGrowing
-            inputEl.style.overflowY = 'hidden';
-
-            if (dims.scrollHeight > dims.clientHeight - 5) {
-                inputEl.height = dims.scrollHeight;
-            }
-
-            me.update();
+    async syncAutoGrowMonitor() {
+        if (this.mounted) {
+            // Delegate monitoring of sizes to the VDOM thread.
+            Neo.main.DomAccess.monitorAutoGrow({
+                appName  : this.appName,
+                id       : this.getInputElId(),
+                autoGrow : this.autoGrow
+            });
         }
     }
 }
