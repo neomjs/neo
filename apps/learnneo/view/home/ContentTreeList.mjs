@@ -19,7 +19,9 @@ class ContentTreeList extends TreeList {
         /**
          * @member {Neo.data.Store} store=ContentStore
          */
-        store: ContentStore
+        store: ContentStore,
+
+        cls: 'topics-tree'
     }
 
     get contentPath() {
