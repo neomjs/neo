@@ -136,8 +136,8 @@
 }
 
 // During upload, it's a progress circle.
-// Of the upload fails, the process circle stops but remains visible
-.neo-file-upload-state-uploading, .neo-file-upload-state-upload-failed {
+// Of the upload fails, the process circle stops but remains visible //todo
+.neo-file-upload-state-uploading, .neo-file-upload-state-upload-failed, .neo-file-upload-state-error {
     .neo-file-upload-state-icon {
         background-image : conic-gradient(
             var(--fileuploadfield-progress-color) 0 var(--upload-progress),
@@ -184,8 +184,8 @@
     }
 }
 
-// If the upload or scan failed, we show an error UI and the action button cancels
-.neo-file-upload-state-upload-failed, .neo-file-upload-state-scan-failed, .neo-file-upload-field.neo-invalid {
+// If the upload or scan failed, we show an error UI and the action button cancels //todo error
+.neo-file-upload-state-upload-failed, .neo-file-upload-state-scan-failed, .neo-file-upload-field.neo-invalid, .neo-file-upload-state-error {
     --fileuploadfield-progress-color : var(--fileuploadfield-error-color);
     border-color                     : var(--fileuploadfield-error-color);
 

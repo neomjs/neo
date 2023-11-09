@@ -102,6 +102,7 @@ class DomAccess extends Base {
                 'getBoundingClientRect',
                 'getScrollingDimensions',
                 'measure',
+                'monitorAutoGrow',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -580,6 +581,39 @@ class DomAccess extends Base {
             value = parseFloat(value);
         }
         return value;
+    }
+
+    /**
+     * Checks the overflow status of a TextAreaField's &lt;textarea> element and updates the
+     * height so that there is never a vertical scrollbar.
+     * @param {Object} data 
+     */
+    async monitorAutoGrow(data) {
+        const
+            me     = this,
+            target = data.subject = me.getElement(data.id);
+
+        // We need to update the height on every input event is autoGrow is truthy.
+        target[data.autoGrow ? 'addEventListener' : 'removeEventListener']('input', me.monitorAutoGrowHandler);
+
+        // Fix the height up immediately too
+        if (data.autoGrow) {
+            me.monitorAutoGrowHandler({
+                target
+            });
+        }
+    }
+
+    monitorAutoGrowHandler({ target }) {
+        const
+            { style }              = target,
+            { style : inputStyle } = target.closest('.neo-textarea');
+
+        // Measure the scrollHeight when forced to overflow, then set height to encompass the scrollHeight
+        style.height = style.minHeight = 0;
+        inputStyle.setProperty('--textfield-input-height', `${target.scrollHeight + 5}px`);
+        inputStyle.setProperty('height', '');
+        style.height = style.minHeight = '';
     }
 
     /**
