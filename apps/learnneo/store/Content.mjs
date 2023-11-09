@@ -53,7 +53,7 @@ class Content extends Store {
     }
 
     get contentPath() {
-        return `../../../resources/data/${this.deck}`;
+        return `../../../resources/data/deck/${this.deck}`;
     }
     doLoadStore() {
         debugger;

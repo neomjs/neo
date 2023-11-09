@@ -1,14 +1,14 @@
 .learn-content {
-    font-family   : 'Open Sans';
-    font-size     : 13pt;
+    font-family: 'Open Sans';
+    font-size: 13pt;
     letter-spacing: 1px;
-    overflow      : scroll;
-    padding       : 1em;
+    overflow: scroll;
+    padding: 1em;
 
     em,
     i {
         font-family: Palatino, "Times New Roman", serif;
-        font-size  : 1.07em;
+        font-size: 1.07em;
     }
 
     p {
@@ -17,8 +17,8 @@
 
     mark {
         background-color: #B8FCE3;
-        color           : black;
-        padding         : 0.1em 0.2em;
+        color: black;
+        padding: 0.1em 0.2em;
     }
 
     details summary {
@@ -48,11 +48,11 @@
     }
 
     details summary::before {
-        color      : #c4c4c4;
+        color: #c4c4c4;
         font-family: var(--fa-style-family, "Font Awesome 6 Free");
-        font-size  : 1.3em;
+        font-size: 1.3em;
         font-weight: var(--fa-style, 900);
-        margin     : 0.4em 0.4em 0.4em 0;
+        margin: 0.4em 0.4em 0.4em 0;
     }
 
     summary::-webkit-details-marker {

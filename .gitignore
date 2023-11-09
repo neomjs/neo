@@ -1,5 +1,5 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
-
+/
 /apps/**/*.html
 /apps/**/*.mjs
 /apps/**/neo-config.json
@@ -69,3 +69,4 @@
 #System Files
 .DS_Store
 Thumbs.db
+resources/data/deck/EditorConfig.json

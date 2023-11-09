@@ -1,4 +1,4 @@
-import BaseViewport       from '../../../src/container/Viewport.mjs';
+import BaseViewport from '../../../src/container/Viewport.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -26,6 +26,17 @@ class Viewport extends BaseViewport {
          * @member {Object} layout={ntype:'card'}
          */
         layout: {ntype: 'card'}
+    }
+    onConstructed() {
+        super.onConstructed();
+        let me = this;
+        Neo.Main.getByPath({path: 'location.search'})
+            .then(data => {
+                const searchString = data?.substr(1) || '';
+                const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+                me.deck = search.deck || 'learnneo';
+                me.addCls(me.deck);
+            });
     }
 }
 

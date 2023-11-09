@@ -1,0 +1,124 @@
+.training {
+    .learn-content {
+        font-size: 20pt;
+        letter-spacing: 1px;
+    }
+}
+
+.learn-content {
+
+    &.lab {
+        font-size: 13pt;
+        letter-spacing: 1px;
+    }
+}
+
+.learnneo .learn-content {
+    font-size: 13pt;
+    letter-spacing: 1px;
+}
+
+.learn-content {
+
+    font-family: 'Open Sans';
+
+    em,
+    i {
+        font-family: Palatino, "Times New Roman", serif;
+        font-size: 1.07em;
+    }
+
+    p {
+        margin: 0.5em 0em 0.7em 0em;
+    }
+
+    mark {
+        background-color: #B8FCE3;
+        color: black;
+        padding: 0.1em 0.2em;
+    }
+
+    padding: 1em;
+
+    overflow: scroll;
+
+    details summary {
+        cursor: pointer;
+        transition: margin 300ms ease-out;
+    }
+
+    details[open] {
+        margin-bottom: 2em;
+    }
+
+    details summary {
+        list-style: none;
+        color: #555;
+        display: flex;
+        /* also removes the list marker */
+        align-items: center;
+        font-weight: bold;
+    }
+
+    details summary::before {
+        content: "\f055";
+    }
+
+    details[open] summary::before {
+        content: "\f056";
+    }
+
+    details summary::before {
+        font-family: var(--fa-style-family, "Font Awesome 6 Free");
+        font-weight: var(--fa-style, 900);
+        font-size: 1.3em;
+        margin: 0.4em 0.4em 0.4em 0;
+        color: #c4c4c4;
+    }
+
+    summary::-webkit-details-marker {
+        display: none;
+    }
+
+}
+
+.topics-tree {
+    &.neo-tree-list {
+
+        .neo-treelist-collapse-all-icon {
+            .neo-treelist-menu-item-content:before {
+                content: "\f102" !important;
+            }
+        }
+
+        .neo-treelist-expand-all-icon {
+            .neo-treelist-menu-item-content:before {
+                content: "\f103" !important;
+            }
+        }
+
+        .neo-list-container {
+            .neo-list-item {
+                &.neo-list-item-leaf {
+                    .neo-list-item-content:before {
+                        content: none !important;
+                    }
+                }
+
+                &.neo-list-folder {
+                    .neo-list-item-content:before {
+                        content: "\f107" !important;
+                    }
+
+                    &.neo-folder-open {
+                        .neo-list-item-content:before {
+                            content: "\f106" !important;
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+}

@@ -14,43 +14,52 @@ class MainContainerController extends Component {
         className: 'LearnNeo.view.home.MainContainerController'
     }
 
-    /**
-     * @param {Object} data
-     */
-    async onContentListLeafClick(data) {
-        const
-            me      = this,
-            content = me.getReference('content');
-
+    onContentChange(data) {
+        const content = this.getReference('content');
+        content[data.isLab ? 'addCls' : 'removeCls']('lab');
         content.html = data.html;
+        content.record = data.record;
+    }
+    async onContentEdit(data) {
+        const vm = this.getModel();
+        console.log(data);
+        const editorConfig = vm.getData('editorConfig');
+        const subDir = vm.getData('deck')
+        if (!editorConfig || !subDir) return;
 
-        await this.timeout(200);
-
-        // todo: we need to add the links as neo configs
-        await Neo.main.addon.HighlightJS.loadLibrary({
-            appName        : me.appName,
-            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
-            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
+        const filePath = `${editorConfig.root}/${subDir}/p/${data.record.id}.md`;
+        fetch('http://localhost:3000/openInEditor', {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({path: filePath, editor: editorConfig.editor})
         });
-
-        await this.timeout(200);
-
-        Neo.main.addon.HighlightJS.syntaxHighlightInit({
-            appName: me.appName,
-            vnodeId: content.id
-        })
-
-        // contentContainer.removeAll();
-        // contentContainer.add({
-        //     ntype: 'component',
-        //     html: data.html
-        // });
-        // contentContainer.layout.activeIndex = 0;
     }
 
-    get contentPath() {
-        return `../../../resources/data/${this.deck}`;
+    onContentRefresh(data) {
+        this.getReference('tree').doFetchContent(data.record);
     }
+
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.Main.getByPath({path: 'location.search'})
+            .then(data => {
+                const searchString = data?.substr(1) || '';
+                const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+                this.getModel().setData('deck', search.deck || 'learnneo');
+            });
+        fetch("`../../../../resources/data/deck/EditorConfig.json")
+            .then(response => response.json()
+                .then(data =>
+                    this.getModel().setData('editorConfig', data)
+                ));
+
+    }
+
 
 }
 
