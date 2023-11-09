@@ -19,6 +19,11 @@ class ContentView extends Component {
     }
 
     /**
+     * @member {Object} record=null
+     */
+    record = null
+
+    /**
      * @param {Object} data
      */
     onClick(data) {
