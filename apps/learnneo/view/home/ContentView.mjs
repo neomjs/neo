@@ -26,11 +26,11 @@ class ContentView extends Component {
             record = me.record;
 
         if (data.altKey && data.shiftKey && !data.metaKey) {
-            me.fire('edit', {component: me, record});
+            me.fire('edit', {component: me, record})
         }
         // Command/windows shift click = refresh
         else if (!data.altKey && data.shiftKey && data.metaKey) {
-            me.fire('refresh', {component: me, record});
+            me.fire('refresh', {component: me, record})
         }
     }
 
