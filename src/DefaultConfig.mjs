@@ -153,12 +153,12 @@ const DefaultConfig = {
     renderCountDeltas: false,
     /**
      * Add themes you want to use here. The first theme will get applied.
-     * @default ['neo-theme-light', 'neo-theme-dark']
+     * @default ['neo-theme-light','neo-theme-dark','neo-theme-neo-light']
      * @memberOf! module:Neo
      * @name config.themes
      * @type String[]
      */
-    themes: ['neo-theme-light', 'neo-theme-dark'],
+    themes: ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'],
     /**
      * Flag for standalone Siesta module tests => prevent registerRemote worker messages
      * @default false

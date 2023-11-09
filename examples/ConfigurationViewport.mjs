@@ -6,8 +6,9 @@ import Viewport     from '../src/container/Viewport.mjs';
 
 // add custom themes here
 const themes = [
-    {name: 'neo-theme-dark',  label: 'Theme Dark'},
-    {name: 'neo-theme-light', label: 'Theme Light'}
+    {name: 'neo-theme-light',     label: 'Theme Light'},
+    {name: 'neo-theme-dark',      label: 'Theme Dark'},
+    {name: 'neo-theme-neo-light', label: 'Theme Neo-Light'}
 ]
 
 /**
@@ -121,12 +122,12 @@ class ConfigurationViewport extends Viewport {
                     handler: bindAppend(me.onSwitchTheme, me, 'cmp'),
                     style  : {marginTop: '20px'},
                     text   : theme === 'neo-theme-dark' ? 'Theme Light' : 'Theme Dark',
-                    width  : 100
+                    width  : 130
                 }, {
                     module : Button,
                     handler: me.logInstance.bind(me),
                     text   : 'Log Instance',
-                    width  : 100
+                    width  : 130
                 }]
             }]
         }];
@@ -184,7 +185,7 @@ class ConfigurationViewport extends Viewport {
         let me          = this,
             button      = data.component,
             countThemes = themes.length,
-            newTheme, oldIndex, oldTheme, themeIndex;
+            futureIndex, newTheme, oldIndex, oldTheme, themeIndex;
 
         themes.forEach((theme, index) => {
             if (button.text === theme.label) {
@@ -193,14 +194,16 @@ class ConfigurationViewport extends Viewport {
             }
         });
 
-        oldIndex = (themeIndex + 1) % countThemes;
-        oldTheme = themes[oldIndex].name;
+        futureIndex = (themeIndex + countThemes +1) % countThemes;
+        oldIndex    = (themeIndex + countThemes -1) % countThemes;
+        oldTheme    = themes[oldIndex].name;
 
-        button.text = themes[oldIndex].label;
+
+        button.text = themes[futureIndex].label;
 
         if (target === 'cmp') {
             me.exampleComponent.theme = newTheme;
-        } else {
+        } else {console.log(newTheme, oldTheme);
             Neo.applyDeltas(me.appName, {
                 cls: {
                     add   : [newTheme],
