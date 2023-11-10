@@ -2,6 +2,5 @@
     "appPath"    : "examples/button/base/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs",
-    "themes"     : ["neo-theme-neo-light"]   
+    "mainPath"   : "./Main.mjs"
 }

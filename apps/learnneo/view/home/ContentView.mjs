@@ -1,10 +1,10 @@
-import Base from '../../../../src/component/Base.mjs';
+import Component from '../../../../src/component/Base.mjs';
 
 /**
  * @class LearnNeo.view.home.ContentView
  * @extends Neo.component.Base
  */
-class ContentComponent extends Base {
+class ContentView extends Component {
     static config = {
         /**
          * @member {String} className='LearnNeo.view.home.ContentView'
@@ -18,22 +18,43 @@ class ContentComponent extends Base {
         baseCls: ['learn-content']
     }
 
-    onConstructed() {
-        super.onConstructed();
-        this.getModel()
-        this.addDomListeners({
-            click: this.onClick,
-            scope: this
-        });
+    /**
+     * @member {Object} record=null
+     */
+    record = null
+
+    /**
+     * @param {Object} data
+     */
+    onClick(data) {
+        let me     = this,
+            record = me.record;
+
+        if (data.altKey && data.shiftKey && !data.metaKey) {
+            me.fire('edit', {component: me, record})
+        }
+        // Command/windows shift click = refresh
+        else if (!data.altKey && data.shiftKey && data.metaKey) {
+            me.fire('refresh', {component: me, record})
+        }
     }
 
-    onClick(data) {
-        if (data.altKey && data.shiftKey && !data.metaKey) this.fire('edit', {component: this, record: this.record});
-        if (!data.altKey && data.shiftKey && data.metaKey) this.fire('refresh', {component: this, record: this.record}); // Command/windows shift click = refresh
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.addDomListeners({
+            click: me.onClick,
+            scope: me
+        })
     }
 
 }
 
-Neo.applyClassConfig(ContentComponent);
+Neo.applyClassConfig(ContentView);
 
-export default ContentComponent;
+export default ContentView;
