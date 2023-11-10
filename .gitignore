@@ -16,6 +16,9 @@
 !/apps/learnneo/index.html
 !/apps/learnneo/**/*.mjs
 !/apps/krausest/neo-config.json
+!/apps/newwebsite/index.html
+!/apps/newwebsite/**/*.mjs
+!/apps/newwebsite/neo-config.json
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
 !/apps/realworld/neo-config.json
