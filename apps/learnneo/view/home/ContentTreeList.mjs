@@ -23,7 +23,7 @@ class ContentTreeList extends TreeList {
     }
 
     get contentPath() {
-        return `../../../resources/data/deck/${this.deck}`;
+        return `../../resources/data/deck/${this.deck}`
     }
 
     /**
