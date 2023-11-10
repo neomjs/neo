@@ -1,65 +1,56 @@
-import Viewport     from '../../../src/container/Viewport.mjs';
-import Button       from '../../../src/button/Base.mjs';
-import Container    from '../../../src/container/Base.mjs';
+import Button    from '../../../src/button/Base.mjs';
+import Container from '../../../src/container/Base.mjs';
+import Viewport  from '../../../src/container/Viewport.mjs';
 
 /**
- * @class newwebsite.view.MainContainer
+ * @class NewWebsite.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static config = {
         /**
-         * @member {String} className='newwebsite.view.MainContainer'
+         * @member {String} className='NewWebsite.view.MainContainer'
          * @protected
          */
-        className: 'newwebsite.view.MainContainer',
-
-        cls: 'newwebsite-main-container',
-
-        flex: 'none',
+        className: 'NewWebsite.view.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
+         * @member {String[]} cls=['newwebsite-main-container']
          */
-        autoMount: true,
+        cls: ['newwebsite-main-container'],
         /**
          * @member {Object[]} items
          */
         items: [{
             module: Container,
-            cls: 'vector',
-            flex: 'none'
-        },{
-            html: 'The High-Performance Web Framework for Next Generation Interfaces',
+            cls   : ['vector'],
+            flex  : 'none'
+        }, {
+            cls : 'neo-h1',
             flex: 'none',
-            cls: 'neo-h1'
-        },{
+            html: 'The High-Performance Web Framework for Next Generation Interfaces'
+        }, {
             module: Container,
-            cls: ['button-group'],
-            flex: 'none',
+            cls   : ['button-group'],
+            flex  : 'none',
+
             items: [{
-                module: Button,
-                cls: 'get-started-button',
-                text: 'Get started',
-                flex: 'none',
+                module : Button,
+                cls    : 'get-started-button',
+                text   : 'Get started',
+                flex   : 'none',
                 tooltip: {
-                    text: 'Coming soon',
-                    showDelay : 0,
+                    text     : 'Coming soon',
+                    showDelay: 0,
                     hideDelay: 0
                 }
-            },{
+            }, {
                 module: Button,
-                text: 'View on GitHub',
-                ui: 'secondary',
-                flex: 'none',
-                route: 'https://github.com/neomjs/neo'
+                flex  : 'none',
+                text  : 'View on GitHub',
+                ui    : 'secondary',
+                url   : 'https://github.com/neomjs/neo'
             }]
-        }],
-
-        
-        /*
-         * @member {Object} layout={ntype:'fit'}
-         */
-        
+        }]
     }
 }
 
