@@ -3,5 +3,9 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "HighlightJS", "Stylesheet", "Markdown"]
+    "mainThreadAddons": ["DragDrop", "HighlightJS", "Stylesheet", "Markdown"],
+    "themes": [
+        "neo-theme-neo-light"
+    ]
+
 }

@@ -19,13 +19,11 @@ class ContentTreeList extends TreeList {
         /**
          * @member {Neo.data.Store} store=ContentStore
          */
-        store: ContentStore,
-
-        cls: 'topics-tree'
+        store: ContentStore
     }
 
     get contentPath() {
-        return `../../../resources/data/${this.deck}`;
+        return `../../../resources/data/deck/${this.deck}`;
     }
 
     /**
@@ -44,7 +42,12 @@ class ContentTreeList extends TreeList {
 
             await Neo.main.addon.Markdown.markdownToHtml(content)
                 .then(
-                    html => me.fire('contentChange', {component: me, html}),
+                    html => me.fire('contentChange', {
+                        component: me,
+                        html,
+                        record,
+                        isLab: record.name?.startsWith('Lab:')
+                    }),
                     () => me.fire('contentChange', {component: me}));
         }
     }

@@ -153,12 +153,12 @@ const DefaultConfig = {
     renderCountDeltas: false,
     /**
      * Add themes you want to use here. The first theme will get applied.
-     * @default ['neo-theme-light', 'neo-theme-dark']
+     * @default ['neo-theme-light','neo-theme-dark','neo-theme-neo-light']
      * @memberOf! module:Neo
      * @name config.themes
      * @type String[]
      */
-    themes: ['neo-theme-light', 'neo-theme-dark'],
+    themes: ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'],
     /**
      * Flag for standalone Siesta module tests => prevent registerRemote worker messages
      * @default false
@@ -236,12 +236,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '6.9.10'
+     * @default '6.9.11'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '6.9.10'
+    version: '6.9.11'
 };
 
 Object.assign(DefaultConfig, {

@@ -1,0 +1,7 @@
+{
+    "appPath"    : "apps/newwebsite/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-light"]
+}
