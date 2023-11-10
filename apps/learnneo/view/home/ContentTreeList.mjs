@@ -1,5 +1,5 @@
 import ContentStore from '../../store/Content.mjs'
-import TreeList from '../../../../src/tree/List.mjs';
+import TreeList     from '../../../../src/tree/List.mjs';
 
 /**
  * @class LearnNeo.view.home.ContentTreeList
@@ -31,13 +31,13 @@ class ContentTreeList extends TreeList {
      * @returns {Promise<void>}
      */
     async doFetchContent(record) {
-        let me = this,
+        let me   = this,
             path = `${me.contentPath}`;
 
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            const data = await fetch(path);
+            const data    = await fetch(path);
             const content = await data.text();
 
             await Neo.main.addon.Markdown.markdownToHtml(content)
@@ -46,9 +46,9 @@ class ContentTreeList extends TreeList {
                         component: me,
                         html,
                         record,
-                        isLab: record.name?.startsWith('Lab:')
+                        isLab    : record.name?.startsWith('Lab:')
                     }),
-                    () => me.fire('contentChange', {component: me}));
+                    () => me.fire('contentChange', {component: me}))
         }
     }
 
@@ -63,7 +63,7 @@ class ContentTreeList extends TreeList {
             // TODO: Tree lists should do this themselves when their store is loaded.
             me.store.data = data.json.data;
             me.createItems(null, me.getListItemsRoot(), 0);
-            me.update();
+            me.update()
         })
     }
 
@@ -78,11 +78,12 @@ class ContentTreeList extends TreeList {
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
                 const searchString = data?.substr(1) || '';
-                const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
-                me.deck = search.deck || 'learnneo';
+                const search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+                me.deck            = search.deck || 'learnneo';
+
                 me.doLoadStore();
                 console.log(search);
-            });
+            })
     }
 
     /**
@@ -90,7 +91,7 @@ class ContentTreeList extends TreeList {
      */
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
-        this.doFetchContent(record);
+        this.doFetchContent(record)
     }
 }
 
