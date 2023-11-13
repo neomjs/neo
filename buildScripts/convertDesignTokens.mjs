@@ -22,16 +22,7 @@ function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
     Object.entries(fileContent).forEach(([key, value]) => {
         key = key.replace(/\?/g, '');
         key = key.replace(/&/g, '-'); // some token names contain & chars
-        //ns  = prefix === tokenPrefix ? (tokenPrefix + key) : key === 'value' ? prefix : `${prefix}-${key}`;
-        if(prefix === tokenPrefix){
-            ns = (tokenPrefix + key);
-        }
-        else if(key === 'value'){
-            ns = prefix;
-        }
-        else {
-            ns = `${prefix}-${key}`;
-        }
+        ns  = prefix === tokenPrefix ? (tokenPrefix + key) : key === 'value' ? prefix : `${prefix}-${key}`;
 
         if (typeof value === 'object') {
             keys   = Object.keys(value);
@@ -61,39 +52,45 @@ function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
                 parseTokens(value, ns, map);
             }
         } else if (key !== 'description' && key !== 'type') {
-            if (typeof value === 'string' && value.includes('{')) {
-                value   = value.replace(/\?/g, '');
-                matches = value.matchAll(tokenRegex);
+            if (typeof value === 'string') {
+                if (!value.includes('{')) {
+                    if (value.includes(' ')) {
+                        value = `'${value}'`;
+                    }
+                } else {
+                    value   = value.replace(/\?/g, '');
+                    matches = value.matchAll(tokenRegex);
 
-                // replace . with - only inside each token
-                for (match of matches) {
-                    value = value.replace(match[0], match[0].replace(/\./g, '-'));
-                }
+                    // replace . with - only inside each token
+                    for (match of matches) {
+                        value = value.replace(match[0], match[0].replace(/\./g, '-'));
+                    }
 
-                /*
-                 * some design tokens contain operations without empty spaces
-                 * e.g. {token}*0.9
-                 * calc() relies on having spaces around operators
-                 */
-                value = value.replace(/(\S)(\*)(\S)/g, '$1 $2 $3');
-                value = value.replace(/(\S)(\/)(\S)/g, '$1 $2 $3');
+                    /*
+                     * some design tokens contain operations without empty spaces
+                     * e.g. {token}*0.9
+                     * calc() relies on having spaces around operators
+                     */
+                    value = value.replace(/(\S)(\*)(\S)/g, '$1 $2 $3');
+                    value = value.replace(/(\S)(\/)(\S)/g, '$1 $2 $3');
 
-                // most likely a multiplication
-                if (!value.endsWith('}')) {
-                    value = `calc(${value})`;
-                }
+                    // most likely a multiplication
+                    if (!value.endsWith('}')) {
+                        value = `calc(${value})`;
+                    }
 
-                // convert tokens into CSS variables
-                value = value.replace(/{(.*?)}/g, `var(--${tokenPrefix}$1)`);
+                    // convert tokens into CSS variables
+                    value = value.replace(/{(.*?)}/g, `var(--${tokenPrefix}$1)`);
 
-                // multiple occurrences of a css variable need to get wrapped into calc()
-                if (value.indexOf('var') !== value.lastIndexOf('var')) {
-                    value = `calc(${value})`;
-                }
+                    // multiple occurrences of a css variable need to get wrapped into calc()
+                    if (value.indexOf('var') !== value.lastIndexOf('var')) {
+                        value = `calc(${value})`;
+                    }
 
-                // -token needs to get converted
-                if (value.startsWith('-')) {
-                    value = `calc(${value.substring(1)} * -1)`
+                    // -token needs to get converted
+                    if (value.startsWith('-')) {
+                        value = `calc(${value.substring(1)} * -1)`
+                    }
                 }
             }
 
