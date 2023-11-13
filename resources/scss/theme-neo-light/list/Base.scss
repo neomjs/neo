@@ -2,11 +2,15 @@
     --list-container-background-color    : #fff;
     --list-container-border              : 0;
     --list-container-list-color          : #{lighten(#33343d, 20%)};
-    --list-item-background-color         : #fff;
-    --list-item-background-color-hover   : #{lighten(#33343d, 70%)};
-    --list-item-background-color-selected: #{lighten(#64B5F6, 22%)};
-    --list-item-color-selected           : #2b2b2b;
-    --list-item-glyph-color              : #{lighten(#33343d, 20%)};
+    --list-item-background-color         : transparent;
+    --list-item-background-color-hover   : var(--sem-color-bg-neutral-hover);
+    --list-item-background-color-selected: var(--sem-color-bg-primary-background);
+    --list-item-color-selected           : var(--sem-color-fg-neutral-contrast);
+    --list-item-glyph-color              : var(--sem-color-fg-neutral-default);
     --list-item-highlight-search-color   : red;
     --list-item-padding                  : 5px;
+}
+
+.neo-tree-list .neo-list-item {
+    margin-right: 0 !important;
 }

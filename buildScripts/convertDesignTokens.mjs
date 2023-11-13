@@ -4,7 +4,7 @@ import path from 'path';
 
 let jsonPath    = './resources/design-tokens/json',
     jsonFolder  = fs.readdirSync(jsonPath),
-    tokenPrefix = 'bmwk-',
+    tokenPrefix = '',
     tokenRegex  = new RegExp(/{(.*?)}/g),
     emptyString, fileContent, keyMaxLength, map, match, matches, output;
 
@@ -123,7 +123,7 @@ jsonFolder.forEach(fileName => {
 
         fileContent  = JSON.parse(fs.readFileSync(path.join(jsonPath, fileName)));
         keyMaxLength = 0;
-        output       = [':root .neo-theme-bmwk {'];
+        output       = [':root .neo-theme-neo-light {'];
 
         replaceObjectValue(fileContent);
 
