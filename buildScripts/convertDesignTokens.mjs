@@ -17,24 +17,41 @@ function createEmptyString(len) {
 }
 
 function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
-    let ns;
+    let keyValue, keys, modify, ns;
 
     Object.entries(fileContent).forEach(([key, value]) => {
         key = key.replace(/\?/g, '');
         key = key.replace(/&/g, '-'); // some token names contain & chars
         //ns  = prefix === tokenPrefix ? (tokenPrefix + key) : key === 'value' ? prefix : `${prefix}-${key}`;
         if(prefix === tokenPrefix){
-            ns= (tokenPrefix + key);
+            ns = (tokenPrefix + key);
         }
         else if(key === 'value'){
-            ns=prefix;
+            ns = prefix;
         }
-        else{
-            ns=`${prefix}-${key}`;
+        else {
+            ns = `${prefix}-${key}`;
         }
 
         if (typeof value === 'object') {
-            parseTokens(value, ns, map);
+            keys   = Object.keys(value);
+            modify = value[keys[0]].$extensions?.['studio.tokens']?.modify;
+
+            if (modify) {
+                keys.forEach(objKey => {
+                    // assuming that 500 always contains the raw value
+                    if (objKey !== '500') {
+                        modify   = value[objKey].$extensions?.['studio.tokens']?.modify;
+                        keyValue = `${modify.type}(${value['500'].value}, ${modify.value * 100}%)`;
+
+                        map.push([`${ns}-${objKey}`, keyValue]);
+                    } else {
+                        parseTokens(value['500'], `${ns}-500`, map);
+                    }
+                })
+            } else {
+                parseTokens(value, ns, map);
+            }
         } else if (key !== 'description' && key !== 'type') {
             if (typeof value === 'string' && value.includes('{')) {
                 value   = value.replace(/\?/g, '');
