@@ -17,7 +17,7 @@ function createEmptyString(len) {
 }
 
 function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
-    let keyValue, keys, modify, ns;
+    let baseKey, baseValue, keyValue, keys, modify, ns;
 
     Object.entries(fileContent).forEach(([key, value]) => {
         key = key.replace(/\?/g, '');
@@ -35,18 +35,26 @@ function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
 
         if (typeof value === 'object') {
             keys   = Object.keys(value);
-            modify = value[keys[0]].$extensions?.['studio.tokens']?.modify;
+            modify = value[keys[0]]?.$extensions?.['studio.tokens']?.modify || // the first key could contain the value,
+                     value[keys[1]]?.$extensions?.['studio.tokens']?.modify;   // so we are checking the 2nd too
 
             if (modify) {
+                // assuming that each object contains its base value
                 keys.forEach(objKey => {
-                    // assuming that 500 always contains the raw value
-                    if (objKey !== '500') {
+                    if (!value[objKey].$extensions) {
+                        baseKey   = objKey;
+                        baseValue = value[baseKey].value;
+                    }
+                });
+
+                keys.forEach(objKey => {
+                    if (objKey !== baseKey) {
                         modify   = value[objKey].$extensions?.['studio.tokens']?.modify;
-                        keyValue = `${modify.type}(${value['500'].value}, ${modify.value * 100}%)`;
+                        keyValue = `${modify.type}(${baseValue}, ${modify.value * 100}%)`;
 
                         map.push([`${ns}-${objKey}`, keyValue]);
                     } else {
-                        parseTokens(value['500'], `${ns}-500`, map);
+                        parseTokens(value[baseKey], `${ns}-${baseKey}`, map);
                     }
                 })
             } else {
