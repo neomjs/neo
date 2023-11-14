@@ -1,10 +1,9 @@
-
 .neo-list-container>.neo-list-item {
     font-size: 18px !important;
     font-weight: 500;
 }
-.topics-tree {
 
+.topics-tree {
     padding: 8px;
 
     .neo-list-item {
@@ -14,9 +13,8 @@
         display         : flex;
         align-items     : center;
     }
-    
+
     .neo-list-container ul {
-        
         padding: 0 !important;
 
         .neo-list-item {
@@ -27,14 +25,13 @@
             padding: 0 0 0 48px !important;
         }
     }
-    
-    .neo-list-folder {
 
+    .neo-list-folder {
         .neo-list-item-content {
-        width           : 100%;
-        display         : flex;
-        justify-content : space-between;
-        
+            width           : 100%;
+            display         : flex;
+            justify-content : space-between;
+
             &:after {
                 color       : var(--list-item-glyph-color);
                 content     : "\f0c8";
@@ -44,25 +41,14 @@
                 width       : 25px;
                 padding-top : 4px;
             }
+
             &:before {
                 content: unset !important;
             }
         }
     }
 
-
-
-
     &.neo-tree-list {
-        .neo-treelist-collapse-all-icon {
-            display: none;
-
-        }
-
-        .neo-treelist-expand-all-icon {
-            display: none;
-        }
-
         .neo-list-container {
             .neo-list-item {
                 &.neo-list-item-leaf {
