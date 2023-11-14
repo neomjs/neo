@@ -1,34 +1,84 @@
+
+.neo-list-container>.neo-list-item {
+    font-size: 18px !important;
+    font-weight: 500;
+}
 .topics-tree {
+
     padding: 8px;
+
+    .neo-list-item {
+        margin-right    : 0 !important;
+        padding         : 0 0 0 16px !important;
+        height          : 48px;
+        display         : flex;
+        align-items     : center;
+    }
+    
+    .neo-list-container ul {
+        
+        padding: 0 !important;
+
+        .neo-list-item {
+            padding: 0 0 0 32px !important;
+        }
+
+        ul .neo-list-item {
+            padding: 0 0 0 48px !important;
+        }
+    }
+    
+    .neo-list-folder {
+
+        .neo-list-item-content {
+        width           : 100%;
+        display         : flex;
+        justify-content : space-between;
+        
+            &:after {
+                color       : var(--list-item-glyph-color);
+                content     : "\f0c8";
+                display     : inline-block;
+                font-family : 'Material Icons';
+                font-size   : 18px;
+                width       : 25px;
+                padding-top : 4px;
+            }
+            &:before {
+                content: unset !important;
+            }
+        }
+    }
+
+
+
+
     &.neo-tree-list {
         .neo-treelist-collapse-all-icon {
-            .neo-treelist-menu-item-content:before {
-                content: "\f102" !important;
-            }
+            display: none;
+
         }
 
         .neo-treelist-expand-all-icon {
-            .neo-treelist-menu-item-content:before {
-                content: "\f103" !important;
-            }
+            display: none;
         }
 
         .neo-list-container {
             .neo-list-item {
                 &.neo-list-item-leaf {
-                    .neo-list-item-content:before {
+                    .neo-list-item-content:after {
                         content: none !important;
                     }
                 }
 
                 &.neo-list-folder {
-                    .neo-list-item-content:before {
-                        content: "\f107" !important;
+                    .neo-list-item-content:after {
+                        content: "\e5cc" !important;
                     }
 
                     &.neo-folder-open {
-                        .neo-list-item-content:before {
-                            content: "\f106" !important;
+                        .neo-list-item-content:after {
+                            content: "\e5ce" !important;
                         }
                     }
                 }

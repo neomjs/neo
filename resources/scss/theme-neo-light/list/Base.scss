@@ -1,7 +1,7 @@
 :root .neo-theme-neo-light { // .neo-list-container
     --list-container-background-color    : #fff;
     --list-container-border              : 0;
-    --list-container-list-color          : #{lighten(#33343d, 20%)};
+    --list-container-list-color          : var(--sem-color-fg-neutral-contrast);
     --list-item-background-color         : transparent;
     --list-item-background-color-hover   : var(--sem-color-bg-neutral-hover);
     --list-item-background-color-selected: var(--sem-color-bg-primary-background);
@@ -11,6 +11,25 @@
     --list-item-padding                  : 5px;
 }
 
-.neo-tree-list .neo-list-item {
-    margin-right: 0 !important;
+
+
+
+
+
+
+
+.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder.neo-folder-open .neo-list-item-content:before {
+    content: unset !important;
+}
+
+.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder .neo-list-item-content:before {
+    content: unset !important;
+}
+
+.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder .neo-list-item-content:before {
+    content: unset !important;
+}
+
+.neo-tree-list .neo-list-item .neo-list-item-content:before {
+    content: unset !important;
 }

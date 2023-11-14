@@ -34,16 +34,16 @@ p {
     line-height     : var(--core-lineheight-paragraph);
 }
 
-// code {
-//     background-color: #ededed;
-//     border-radius   : 2px;
-//     color           : var(--semantic-color-fg-contrast);
-//     font-family     : var(--core-fontfamily-mono);
-//     font-size       : var(--core-fontsize-body);
-//     font-weight     : var(--core-fontweight-regular);
-//     line-height     : var(--core-lineheight-headline);
-//     padding         : 2px 0.3em;
-// }
+code {
+    background-color: #ededed;
+    border-radius   : 2px;
+    color           : var(--semantic-color-fg-contrast);
+    font-family     : var(--core-fontfamily-mono);
+    font-size       : var(--core-fontsize-body);
+    font-weight     : var(--core-fontweight-regular);
+    line-height     : var(--core-lineheight-headline);
+    padding         : 2px 0.3em;
+}
 
 mark {
     background-color: #B8FCE3;
