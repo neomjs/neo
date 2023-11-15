@@ -17,6 +17,10 @@ class ContentTreeList extends TreeList {
          */
         cls: ['topics-tree'],
         /**
+         * @member {Boolean} showCollapseExpandAllIcons=false
+         */
+        showCollapseExpandAllIcons: false,
+        /**
          * @member {Neo.data.Store} store=ContentStore
          */
         store: ContentStore
