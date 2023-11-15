@@ -20,6 +20,8 @@ class MainContainer extends Container {
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
+
+        cls: 'learnneo-maincontainer',
         /**
          * @member {Object[]} items
          */
@@ -28,7 +30,7 @@ class MainContainer extends Container {
             layout  : 'fit',
             minWidth: 350,
             width   : 350,
-
+            cls     : 'sidenav-container',
             items: [{
                 module   : ContentTreeList,
                 reference: 'tree',
@@ -39,7 +41,7 @@ class MainContainer extends Container {
         }, {
             module      : Splitter,
             resizeTarget: 'previous',
-            size        : 5
+            size        : 8
         }, {
             module   : ContentView,
             reference: 'content',

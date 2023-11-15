@@ -1,13 +1,22 @@
 
-.neo-list-container>.neo-list-item {
-    font-size: 18px !important;
-    font-weight: 500;
+.sidenav-container {
+    background-color: transparent;
+    margin: 8px 0 8px 8px;
 }
+
 .topics-tree {
 
-    padding: 8px;
+    background-color: white;
+    border-radius   : 8px;
+    padding         : 8px;
+
+    .neo-list-container>.neo-list-item {
+        font-size: 18px !important;
+        font-weight: 500;
+    }
 
     .neo-list-item {
+        border-radius   : 8px;
         margin-right    : 0 !important;
         padding         : 0 0 0 16px !important;
         height          : 48px;
@@ -78,7 +87,7 @@
 
                     &.neo-folder-open {
                         .neo-list-item-content:after {
-                            content: "\e5ce" !important;
+                            content: "\e5cf" !important;
                         }
                     }
                 }
