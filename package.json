@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.9.11",
+    "version": "6.9.12",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -16,6 +16,7 @@
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "convert-design-tokens": "node ./buildScripts/convertDesignTokens.mjs",
         "create-app": "node ./buildScripts/createApp.mjs",
         "create-class": "node ./buildScripts/createClass.mjs",
         "create-component": "node ./buildScripts/createComponent.mjs",

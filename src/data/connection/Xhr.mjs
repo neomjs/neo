@@ -169,7 +169,7 @@ class Xhr extends Base {
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts));
         } else {
-            if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/') && !location.href.startsWith('https://neomjs.github.io/')) {
+            if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/') && !location.href.startsWith('https://neomjs.com/')) {
                 if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
                     opts.url = '../../' + opts.url;
                 }

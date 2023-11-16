@@ -1,6 +1,5 @@
 import Component from '../../../../src/model/Component.mjs';
-import Tree from '../../store/Content.mjs';
-import Store from '../../../../src/data/Store.mjs';
+import Store     from '../../store/Content.mjs';
 
 /**
  * @class LearnNeo.view.home.MainContainerModel
@@ -22,9 +21,8 @@ class MainContainerModel extends Component {
          */
         stores: {
             tree: {
-                // module: Tree,
-                module: Store,
-                responseRoot: "data",
+                module      : Store,
+                responseRoot: 'data'
             }
         }
     }

@@ -1,9 +1,9 @@
-import Container from '../../../../src/container/Base.mjs';
-import ContentView from './ContentView.mjs';
-import ContentTreeList from './ContentTreeList.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import ContentView             from './ContentView.mjs';
+import ContentTreeList         from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel from './MainContainerModel.mjs';
-import Splitter from '../../../../src/component/Splitter.mjs';
+import MainContainerModel      from './MainContainerModel.mjs';
+import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
  * @class LearnNeo.view.home.MainContainer
@@ -20,31 +20,33 @@ class MainContainer extends Container {
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
+
+        cls: 'learnneo-maincontainer',
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            layout: 'fit',
+            module  : Container,
+            layout  : 'fit',
             minWidth: 350,
-            width: 350,
-
+            width   : 350,
+            cls     : 'sidenav-container',
             items: [{
-                module: ContentTreeList,
+                module   : ContentTreeList,
                 reference: 'tree',
                 listeners: {
                     contentChange: 'onContentChange',
                 }
             }]
         }, {
-            module: Splitter,
+            module      : Splitter,
             resizeTarget: 'previous',
-            size: 5
+            size        : 4
         }, {
-            module: ContentView,
+            module   : ContentView,
             reference: 'content',
             listeners: {
-                edit: 'onContentEdit',
+                edit   : 'onContentEdit',
                 refresh: 'onContentRefresh'
             }
         }],
@@ -57,8 +59,6 @@ class MainContainer extends Container {
          */
         model: MainContainerModel
     }
-
-
 }
 
 Neo.applyClassConfig(MainContainer);
