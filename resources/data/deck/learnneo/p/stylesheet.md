@@ -17,16 +17,13 @@ and information is lost.
 
 <br>
 
-To show highlighted source code use
+To show highlighted Neo.mjs source code use
 <pre>
-&lt;pre>
-&lt;code class="javascript">
+&lt;pre data-neo>
 // Source code goes here
-&lt;/code>
 &lt;/pre>
 
-<pre>
-<code class="javascript">
+<pre data-neo>
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {
@@ -34,7 +31,6 @@ class Mammal extends Base {
         className: 'Simple.example.Mammal'
     }
 }
-</code>
 </pre>
 
 For short in-line statements of code use &lt;code> or backticks.

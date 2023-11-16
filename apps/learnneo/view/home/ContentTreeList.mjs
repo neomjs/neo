@@ -41,10 +41,10 @@ class ContentTreeList extends TreeList {
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            const data    = await fetch(path);
-            const content = await data.text();
-
-            await Neo.main.addon.Markdown.markdownToHtml(content)
+            const data         = await fetch(path);
+            const content      = await data.text();
+            const modifiedHtml = await this.highlightPreContent(content);
+            await Neo.main.addon.Markdown.markdownToHtml(modifiedHtml)
                 .then(
                     html => me.fire('contentChange', {
                         component: me,
@@ -54,6 +54,44 @@ class ContentTreeList extends TreeList {
                     }),
                     () => me.fire('contentChange', {component: me}))
         }
+    }
+
+    async highlightPreContent(htmlString) {
+        // 1. Replace <pre data-neo> with unique tokens and create a HighlightJS.highlightAuto promise for each
+        // 2. When all promises are resolved, use their values to replace the tokens.
+
+        // Note that if we were to import HighlightJS directly, we wouldn't need all this async code.
+
+        // Define a regular expression to match <pre data-neo> tags
+        const preRegex = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g;
+
+        // Create an array to store promises for each replacement
+        const replacementPromises = [];
+        let count = 0;
+        // Replace the content with tokens, and create a promise to update the corresponding content
+        var updatedHtml = htmlString.replace(preRegex, (match, preContent) => {
+            const token = `__NEO-PRE-TOKEN-${++count}__`;
+            replacementPromises.push(this.getHighlightPromise(preContent, token));
+            return token;
+        });
+
+        // Assert: updateHtml is the original, but with <pre data-neo> replaced with tokens.
+
+        // Wait for all replacement promises to resolve
+        return Promise.all(replacementPromises)
+            .then(replacements => {
+                // Replace each token with the resolved content
+                replacements.forEach((replacement) => updatedHtml = updatedHtml.replace(replacement.token, replacement.after));
+
+                // Return the final updated HTML string
+                return updatedHtml;
+            });
+    }
+
+    getHighlightPromise(preContent, token) {
+        // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
+        return Neo.main.addon.HighlightJS.highlightAuto(preContent)
+            .then( highlight =>({after: `<pre data-neo>${highlight.value}</pre>`, token}));
     }
 
     /**
@@ -78,6 +116,12 @@ class ContentTreeList extends TreeList {
         super.onConstructed();
 
         let me = this;
+
+        Neo.main.addon.HighlightJS.loadLibrary({
+            appName: me.appName,
+            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
+            themePath: '../../docs/resources/highlightjs-custom-github-theme.css'
+        });
 
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
