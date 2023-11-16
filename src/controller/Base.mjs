@@ -1,9 +1,9 @@
-import CoreBase from '../core/Base.mjs';
+import CoreBase    from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
 const
     amountSlashesRegex = /\//g,
-    routeParamRegex = /{[^\s/]+}/g
+    routeParamRegex    = /{[^\s/]+}/g
 
 /**
  * @class Neo.controller.Base
@@ -51,28 +51,28 @@ class Base extends CoreBase {
         HashHistory.on('change', this.onHashChange, this)
     }
 
-    /**
-    * Triggered after the routes config got changed
-    * @param {Object} value
-    * @param {Object} oldValue
-    * @protected
-    */
-    afterSetRoutes(value, oldValue) {
-        let me = this,
+     /**
+     * Triggered after the routes config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetRoutes(value, oldValue){
+        let me        = this,
             routeKeys = Object.keys(value);
 
-        me.routes = routeKeys.sort(me.#sortRoutes).reduce((obj, key) => {
-            obj[key] = value[key];
-            return obj
-        }, {});
+         me.routes = routeKeys.sort(me.#sortRoutes).reduce((obj, key) => {
+             obj[key] = value[key];
+             return obj
+         }, {});
 
         me.handleRoutes = {};
 
         routeKeys.forEach(key => {
-            if (key.toLowerCase() === 'default') {
+            if (key.toLowerCase() === 'default'){
                 me.defaultRoute = value[key]
             } else {
-                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)') + '$')
+                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)')+'$')
             }
         })
     }
