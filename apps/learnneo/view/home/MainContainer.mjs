@@ -41,7 +41,7 @@ class MainContainer extends Container {
         }, {
             module      : Splitter,
             resizeTarget: 'previous',
-            size        : 8
+            size        : 4
         }, {
             module   : ContentView,
             reference: 'content',
