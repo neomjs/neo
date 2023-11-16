@@ -1,9 +1,9 @@
-import CoreBase    from '../core/Base.mjs';
+import CoreBase from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
 const
     amountSlashesRegex = /\//g,
-    routeParamRegex    = /{[^\s/]+}/g
+    routeParamRegex = /{[^\s/]+}/g
 
 /**
  * @class Neo.controller.Base
@@ -51,28 +51,28 @@ class Base extends CoreBase {
         HashHistory.on('change', this.onHashChange, this)
     }
 
-     /**
-     * Triggered after the routes config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
-     */
-    afterSetRoutes(value, oldValue){
-        let me        = this,
+    /**
+    * Triggered after the routes config got changed
+    * @param {Object} value
+    * @param {Object} oldValue
+    * @protected
+    */
+    afterSetRoutes(value, oldValue) {
+        let me = this,
             routeKeys = Object.keys(value);
 
-         me.routes = routeKeys.sort(me.#sortRoutes).reduce((obj, key) => {
-             obj[key] = value[key];
-             return obj
-         }, {});
+        me.routes = routeKeys.sort(me.#sortRoutes).reduce((obj, key) => {
+            obj[key] = value[key];
+            return obj
+        }, {});
 
         me.handleRoutes = {};
 
         routeKeys.forEach(key => {
-            if (key.toLowerCase() === 'default'){
+            if (key.toLowerCase() === 'default') {
                 me.defaultRoute = value[key]
             } else {
-                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)')+'$')
+                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)') + '$')
             }
         })
     }
@@ -100,26 +100,27 @@ class Base extends CoreBase {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHashChange(value, oldValue) {
-        let me                = this,
+    async onHashChange(value, oldValue) {
+        let me = this,
             hasRouteBeenFound = false,
-            handleRoutes      = me.handleRoutes,
-            routeKeys         = Object.keys(handleRoutes),
-            routes            = me.routes,
-            handler, preHandler, responsePreHandler, result, route;
+            handleRoutes = me.handleRoutes,
+            routeKeys = Object.keys(handleRoutes),
+            routes = me.routes,
+            handler, preHandler, responsePreHandler, result, route, paramObject,
+            key, counter = 0, routeKeysLength = routeKeys.length;
 
-        routeKeys.forEach(key => {
-            handler            = null;
-            preHandler         = null;
+        while (routeKeysLength > 0 && counter < routeKeysLength && !hasRouteBeenFound) {
+            key = routeKeys[counter];
+            handler = null;
+            preHandler = null;
             responsePreHandler = null;
-
+            paramObject = {};
             result = value.hashString.match(handleRoutes[key]);
 
             if (result) {
                 const
-                    arrayParamIds    = key.match(routeParamRegex),
-                    arrayParamValues = result.splice(1, result.length - 1),
-                    paramObject      = {};
+                    arrayParamIds = key.match(routeParamRegex),
+                    arrayParamValues = result.splice(1, result.length - 1);
 
                 if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length) {
                     throw 'Number of IDs and number of Values do not match';
@@ -132,26 +133,31 @@ class Base extends CoreBase {
                 route = routes[key];
 
                 if (Neo.isString(route)) {
-                    handler            = route;
+                    handler = route;
                     responsePreHandler = true;
                 } else if (Neo.isObject(route)) {
-                    handler    = route.handler;
+                    handler = route.handler;
                     preHandler = route.preHandler;
-
-                    if (preHandler) {
-                        responsePreHandler = me[preHandler]?.call(me, paramObject, value, oldValue);
-                    } else {
-                        responsePreHandler = true;
-                    }
                 }
 
                 hasRouteBeenFound = true;
 
-                if (responsePreHandler) {
-                    me[handler]?.call(me, paramObject, value, oldValue)
-                }
             }
-        });
+            counter++;
+        } 
+
+        // execute
+        if (hasRouteBeenFound) {
+            if (preHandler) {
+                responsePreHandler = await me[preHandler]?.call(me, paramObject, value, oldValue);
+            } else {
+                responsePreHandler = true;
+            }
+
+            if (responsePreHandler) {
+                await me[handler]?.call(me, paramObject, value, oldValue)
+            }
+        }
 
         if (routeKeys.length > 0 && !hasRouteBeenFound) {
             if (me.defaultRoute) {
