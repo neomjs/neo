@@ -51,7 +51,7 @@ class Base extends CoreBase {
         HashHistory.on('change', this.onHashChange, this)
     }
 
-     /**
+    /**
      * Triggered after the routes config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -101,57 +101,59 @@ class Base extends CoreBase {
      * @param {Object} oldValue
      */
     async onHashChange(value, oldValue) {
-        let me = this,
+        let me                = this,
+            counter           = 0,
             hasRouteBeenFound = false,
-            handleRoutes = me.handleRoutes,
-            routeKeys = Object.keys(handleRoutes),
-            routes = me.routes,
-            handler, preHandler, responsePreHandler, result, route, paramObject,
-            key, counter = 0, routeKeysLength = routeKeys.length;
+            handleRoutes      = me.handleRoutes,
+            routeKeys         = Object.keys(handleRoutes),
+            routeKeysLength   = routeKeys.length,
+            routes            = me.routes,
+            handler, key, paramObject, preHandler, responsePreHandler, result, route;
 
         while (routeKeysLength > 0 && counter < routeKeysLength && !hasRouteBeenFound) {
-            key = routeKeys[counter];
-            handler = null;
-            preHandler = null;
+            key                = routeKeys[counter];
+            handler            = null;
+            preHandler         = null;
             responsePreHandler = null;
-            paramObject = {};
-            result = value.hashString.match(handleRoutes[key]);
+            paramObject        = {};
+            result             = value.hashString.match(handleRoutes[key]);
 
             if (result) {
                 const
-                    arrayParamIds = key.match(routeParamRegex),
+                    arrayParamIds    = key.match(routeParamRegex),
                     arrayParamValues = result.splice(1, result.length - 1);
 
                 if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length) {
-                    throw 'Number of IDs and number of Values do not match';
+                    throw 'Number of IDs and number of Values do not match'
                 }
 
                 for (let i = 0; arrayParamIds && i < arrayParamIds.length; i++) {
-                    paramObject[arrayParamIds[i].substring(1, arrayParamIds[i].length - 1)] = arrayParamValues[i];
+                    paramObject[arrayParamIds[i].substring(1, arrayParamIds[i].length - 1)] = arrayParamValues[i]
                 }
 
                 route = routes[key];
 
                 if (Neo.isString(route)) {
-                    handler = route;
-                    responsePreHandler = true;
+                    handler            = route;
+                    responsePreHandler = true
                 } else if (Neo.isObject(route)) {
-                    handler = route.handler;
-                    preHandler = route.preHandler;
+                    handler    = route.handler;
+                    preHandler = route.preHandler
                 }
 
-                hasRouteBeenFound = true;
+                hasRouteBeenFound = true
 
             }
-            counter++;
-        } 
+
+            counter++
+        }
 
         // execute
         if (hasRouteBeenFound) {
             if (preHandler) {
-                responsePreHandler = await me[preHandler]?.call(me, paramObject, value, oldValue);
+                responsePreHandler = await me[preHandler]?.call(me, paramObject, value, oldValue)
             } else {
-                responsePreHandler = true;
+                responsePreHandler = true
             }
 
             if (responsePreHandler) {
