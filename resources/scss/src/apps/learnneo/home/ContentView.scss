@@ -8,6 +8,11 @@
     overflow: scroll;
     padding: 1em;
 
+    pre[data-neo]{
+        padding: 12px;
+        border: thin solid lightgray;
+    }
+
     em,
     i {
         font-family: Palatino, "Times New Roman", serif;
