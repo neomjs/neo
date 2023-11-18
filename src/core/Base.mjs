@@ -216,7 +216,7 @@ class Base {
 
                     if (cls[item]) {
                         // add to overwrittenMethods
-                        cls.constructor.overwrittenMethods[item] = cls[item];
+                        cls.constructor.overwrittenMethods[item] = cls[item]
                     }
                 }
             }
@@ -471,7 +471,7 @@ class Base {
             // The hasOwnProperty check is intended for configs without a trailing underscore
             // => they could already have been assigned inside an afterSet-method
             if (forceAssign || !me.hasOwnProperty(keys[0])) {
-                me[keys[0]] = me[configSymbol][keys[0]];
+                me[keys[0]] = me[configSymbol][keys[0]]
             }
 
             // there is a delete-call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
