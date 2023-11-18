@@ -27,16 +27,16 @@ class Video extends BaseComponent {
         baseCls: ['neo-video'],
         /**
          * Current state of the video
-         * @member {Boolean} playing=false
+         * @member {Boolean} playing_=false
          */
         playing_: false,
         /**
          * Type of the video
-         * @member {Boolean} type='video/mp4'
+         * @member {String} type='video/mp4'
          */
         type: 'video/mp4',
         /*
-         * @member {String} url=null
+         * @member {String|null} url_=null
          */
         url_: null,
         /**
@@ -70,18 +70,12 @@ class Video extends BaseComponent {
     construct(config) {
         super.construct(config);
 
-        let me           = this,
-            domListeners = me.domListeners;
+        let me = this;
 
-        domListeners.push({
-            click   : me.play,
-            delegate: '.neo-video-ghost'
-        }, {
-            click   : me.pause,
-            delegate: '.neo-video-media'
-        });
-
-        me.domListeners = domListeners;
+        me.addDomListeners(
+            {click: me.play,  delegate: '.neo-video-ghost'},
+            {click: me.pause, delegate: '.neo-video-media'}
+        )
     }
 
     /**
@@ -93,10 +87,10 @@ class Video extends BaseComponent {
      */
     beforeSetPlaying(value, oldValue) {
         if (!Neo.isBoolean(value)) {
-            return oldValue;
+            return oldValue
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -112,7 +106,7 @@ class Video extends BaseComponent {
         ghost.removeDom = value;
         media.removeDom = !value;
 
-        this.vdom = vdom;
+        this.vdom = vdom
     }
 
     /**
@@ -124,7 +118,7 @@ class Video extends BaseComponent {
      */
     afterSetUrl(value, oldValue) {
         if (!value) {
-            return;
+            return
         }
 
         const me = this;
@@ -137,21 +131,21 @@ class Video extends BaseComponent {
             type: me.type
         }];
 
-        me.vdom = vdom;
-    }
-
-    /**
-     * Clicked ghost
-     */
-    play() {
-        this.playing = true;
+        me.vdom = vdom
     }
 
     /**
      * Clicked media
      */
     pause() {
-        this.playing = false;
+        this.playing = false
+    }
+
+    /**
+     * Clicked ghost
+     */
+    play() {
+        this.playing = true
     }
 }
 
