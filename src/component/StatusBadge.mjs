@@ -1,4 +1,4 @@
-import Base from '../component/Base.mjs';
+import Base     from '../component/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -31,13 +31,13 @@ class StatusBadge extends Base {
          */
         baseCls: ['neo-status-badge'],
         /**
-        * @member {String[]} currentStateIcon=null
-        */
-        _currentStateIcon: null,
+         * @member {String[]} currentStateIcon=null
+         */
+        currentStateIcon: null,
         /**
-        * @member {String[]} currentSideIcon=null
-        */
-        _currentSideIcon: null,
+         * @member {String[]} currentSideIcon=null
+         */
+        currentSideIcon: null,
         /**
          * false calls Neo.Main.setRoute()
          * @member {Boolean} deactivateStateIcons=false
@@ -48,73 +48,66 @@ class StatusBadge extends Base {
          * @member {Boolean} deactivateSideIcons=false
          */
         deactivateSideIcons_: false,
-
         /**
-        * @member {String} iconAlert='fa-triangle-exclamation'
-        */
+         * @member {String} iconAlert='fa-triangle-exclamation'
+         */
         iconAlert_: 'fa fa-triangle-exclamation',
         /**
-        * @member {String} iconError='fa-xmark'
-        */
+         * @member {String} iconError='fa-xmark'
+         */
         iconError_: 'fa fa-xmark',
         /**
-        * @member {String} iconInfo='fa-info'
-        */
+         * @member {String} iconInfo='fa-info'
+         */
         iconInfo_: 'fa fa-info',
         /**
-        * @member {String} iconNeutral='fa-circle'
-        */
+         * @member {String} iconNeutral='fa-circle'
+         */
         iconNeutral_: 'fa fa-circle',
         /**
-        * @member {String} iconSuccess='fa-check'
-        */
+         * @member {String} iconSuccess='fa-check'
+         */
         iconSuccess_: 'fa fa-check',
-
-        /**
-        * @member {String} sideIconAlert='fa fa-registered'
-        */
-        sideIconAlert_: 'fa fa-registered',
-        /**
-        * @member {String} sideIconError='fa fa-registered'
-        */
-        sideIconError_: 'fa fa-registered',
-        /**
-        * @member {String} sideIconInfo='fa fa-registered'
-        */
-        sideIconInfo_: 'fa fa-registered',
-        /**
-        * @member {String} sideIconNeutral='fa fa-registered'
-        */
-        sideIconNeutral_: 'fa fa-registered',
-        /**
-        * @member {String} sideIconSuccess='fa fa-registered'
-        */
-        sideIconSuccess_: 'fa fa-registered',
-
-
-
         /**
          * @member {String} labelAlert_='Alert'
-        */
+         */
         labelAlert_: 'Alert',
         /**
          * @member {String} labelError_='Error'
-        */
+         */
         labelError_: 'Error',
         /**
          * @member {String} labelInfo_='Info'
-        */
+         */
         labelInfo_: 'Info',
         /**
          * @member {String} labelNeutral_='Neutral'
-        */
+         */
         labelNeutral_: 'Neutral',
         /**
          * @member {String} labelSuccess_='Success'
-        */
+         */
         labelSuccess_: 'Success',
-
-
+        /**
+         * @member {String} sideIconAlert='fa fa-registered'
+         */
+        sideIconAlert_: 'fa fa-registered',
+        /**
+         * @member {String} sideIconError='fa fa-registered'
+         */
+        sideIconError_: 'fa fa-registered',
+        /**
+         * @member {String} sideIconInfo='fa fa-registered'
+         */
+        sideIconInfo_: 'fa fa-registered',
+        /**
+         * @member {String} sideIconNeutral='fa fa-registered'
+         */
+        sideIconNeutral_: 'fa fa-registered',
+        /**
+         * @member {String} sideIconSuccess='fa fa-registered'
+         */
+        sideIconSuccess_: 'fa fa-registered',
         /**
          * @member {String} state_='neutral'
          */
@@ -123,33 +116,31 @@ class StatusBadge extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {
-            tag: 'div', type: 'div', cn: [
-                { tag: 'span', cls: ['neo-state-glyph'] },
-                { tag: 'span', cls: ['neo-state-text'] },
-                { tag: 'span', cls: ['neo-state-glyph'] }
-            ]
-        }
+        {type: 'div', cn: [
+            {tag: 'span', cls: ['neo-state-glyph']},
+            {tag: 'span', cls: ['neo-state-text']},
+            {tag: 'span', cls: ['neo-state-glyph']}
+        ]}
     }
 
     /**
-    * Triggered after the deactivateStateIcons config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the deactivateStateIcons config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetDeactivateStateIcons(value, oldValue) {
-        this.updateStateIconNode(this._currentStateIcon);
+        this.updateStateIconNode(this.currentStateIcon)
     }
 
     /**
-    * Triggered after the deactivateSideIcons config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the deactivateSideIcons config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetDeactivateSideIcons(value, oldValue) {
-        this.updateSideIconNode(this._currentSideIcon);
+        this.updateSideIconNode(this.currentSideIcon)
     }
 
     /**
@@ -160,9 +151,10 @@ class StatusBadge extends Base {
      */
     afterSetLabelAlert(value, oldValue) {
         if (this.state === 'alert') {
-            this.updateLabelNode(value);
+            this.updateLabelNode(value)
         }
     }
+
     /**
      * Triggered after the iconAlert config got changed
      * @param {String|null} value
@@ -171,18 +163,19 @@ class StatusBadge extends Base {
      */
     afterSetIconAlert(value, oldValue) {
         if (this.state === 'alert') {
-            this.updateStateIconNode(value);
+            this.updateStateIconNode(value)
         }
     }
+
     /**
      * Triggered after the sideIconAlert config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIconAlert(value, oldValue) {
         if (this.state === 'alert') {
-            this.updateSideIconNode(value);
+            this.updateSideIconNode(value)
         }
     }
 
@@ -194,32 +187,33 @@ class StatusBadge extends Base {
      */
     afterSetLabelError(value, oldValue) {
         if (this.state === 'error') {
-            this.updateLabelNode(value);
-        }
-    }
-    /**
-    * Triggered after the iconError config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
-    afterSetIconError(value, oldValue) {
-        if (this.state === 'error') {
-            this.updateStateIconNode(value);
-        }
-    }
-    /**
-     * Triggered after the sideIconError config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
-    afterSetSideIconError(value, oldValue) {
-        if (this.state === 'error') {
-            this.updateSideIconNode(value);
+            this.updateLabelNode(value)
         }
     }
 
+    /**
+     * Triggered after the iconError config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetIconError(value, oldValue) {
+        if (this.state === 'error') {
+            this.updateStateIconNode(value)
+        }
+    }
+
+    /**
+     * Triggered after the sideIconError config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSideIconError(value, oldValue) {
+        if (this.state === 'error') {
+            this.updateSideIconNode(value)
+        }
+    }
 
     /**
      * Triggered after the labelInfo config got changed
@@ -229,29 +223,31 @@ class StatusBadge extends Base {
      */
     afterSetLabelInfo(value, oldValue) {
         if (this.state === 'info') {
-            this.updateLabelNode(value);
+            this.updateLabelNode(value)
         }
     }
+
     /**
-    * Triggered after the iconInfo config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the iconInfo config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetIconInfo(value, oldValue) {
         if (this.state === 'info') {
-            this.updateStateIconNode(value);
+            this.updateStateIconNode(value)
         }
     }
+
     /**
      * Triggered after the sideIconInfo config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIconInfo(value, oldValue) {
         if (this.state === 'info') {
-            this.updateSideIconNode(value);
+            this.updateSideIconNode(value)
         }
     }
 
@@ -263,29 +259,31 @@ class StatusBadge extends Base {
      */
     afterSetLabelNeutral(value, oldValue) {
         if (this.state === 'neutral') {
-            this.updateLabelNode(value);
+            this.updateLabelNode(value)
         }
     }
+
     /**
-    * Triggered after the iconNeutral config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the iconNeutral config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetIconNeutral(value, oldValue) {
         if (this.state === 'neutral') {
-            this.updateStateIconNode(value);
+            this.updateStateIconNode(value)
         }
     }
+
     /**
      * Triggered after the sideIconNeutral config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIconNeutral(value, oldValue) {
         if (this.state === 'neutral') {
-            this.updateSideIconNode(value);
+            this.updateSideIconNode(value)
         }
     }
 
@@ -297,29 +295,31 @@ class StatusBadge extends Base {
      */
     afterSetLabelSuccess(value, oldValue) {
         if (this.state === 'success') {
-            this.updateLabelNode(value);
+            this.updateLabelNode(value)
         }
     }
+
     /**
-    * Triggered after the iconSuccess config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the iconSuccess config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetIconSuccess(value, oldValue) {
         if (this.state === 'success') {
-            this.updateStateIconNode(value);
+            this.updateStateIconNode(value)
         }
     }
+
     /**
      * Triggered after the sideIconSuccess config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIconSuccess(value, oldValue) {
         if (this.state === 'success') {
-            this.updateSideIconNode(value);
+            this.updateSideIconNode(value)
         }
     }
 
@@ -331,57 +331,59 @@ class StatusBadge extends Base {
      */
     afterSetState(value, oldValue) {
 
-        let cls = this.cls,
-            me = this,
-            isEmpty = !value || value === '',
-            vdomRoot = me.getVdomRoot(),
+        let me        = this,
+            cls       = me.cls,
+            isEmpty   = !value || value === '',
+            vdomRoot  = me.getVdomRoot(),
             labelNode = vdomRoot.cn[1];
 
         NeoArray.remove(cls, 'neo-state-' + oldValue);
         NeoArray.add(cls, 'neo-state-' + value);
 
-        this.cls = cls
+        me.cls = cls;
 
         labelNode.removeDom = isEmpty;
 
         if (!isEmpty) {
-            let showLabel = '';
+            let showLabel     = '';
             let showStateIcon = '';
-            let showSideIcon = '';
+            let showSideIcon  = '';
 
             switch (value) {
                 case 'alert':
-                    showLabel = me.labelAlert;
+                    showLabel     = me.labelAlert;
                     showStateIcon = me.iconAlert;
-                    showSideIcon = me.sideIconAlert;
+                    showSideIcon  = me.sideIconAlert;
                     break;
                 case 'error':
-                    showLabel = me.labelError;
+                    showLabel     = me.labelError;
                     showStateIcon = me.iconError;
-                    showSideIcon = me.sideIconError;
+                    showSideIcon  = me.sideIconError;
                     break;
                 case 'info':
-                    showLabel = me.labelInfo;
+                    showLabel     = me.labelInfo;
                     showStateIcon = me.iconInfo;
-                    showSideIcon = me.sideIconInfo;
+                    showSideIcon  = me.sideIconInfo;
                     break;
                 case 'neutral':
-                    showLabel = me.labelNeutral;
+                    showLabel     = me.labelNeutral;
                     showStateIcon = me.iconNeutral;
-                    showSideIcon = me.sideIconNeutral;
+                    showSideIcon  = me.sideIconNeutral;
                     break;
                 case 'success':
-                    showLabel = me.labelSuccess;
+                    showLabel     = me.labelSuccess;
                     showStateIcon = me.iconSuccess;
-                    showSideIcon = me.sideIconSuccess;
+                    showSideIcon  = me.sideIconSuccess;
                     break;
             }
+
             labelNode.innerHTML = showLabel;
-            this.updateStateIconNode(showStateIcon);
-            this.updateSideIconNode(showSideIcon);
+
+            me.updateStateIconNode(showStateIcon);
+            me.updateSideIconNode(showSideIcon);
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -397,39 +399,41 @@ class StatusBadge extends Base {
 
     /**
      * Convenience shortcut
-    * @returns {Object}
-    */
+     * @returns {Object}
+     */
     updateLabelNode(value) {
         let labelNode = this.getVdomRoot().cn[1];
 
         labelNode.innerHTML = value;
         labelNode.removeDom = !Boolean(value);
 
-        this.update();
+        this.update()
     }
 
     /**
      * Convenience shortcut
-    * @returns {Object}
-    */
+     * @returns {Object}
+     */
     updateStateIconNode(value) {
-        let iconNode = this.getStateIconNode();
-        let currentValue = this._currentStateIcon;
+        let me           = this,
+            iconNode     = me.getStateIconNode(),
+            currentValue = me.currentStateIcon;
 
         if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean);
+            value = value.split(' ').filter(Boolean)
         }
+
         if (currentValue && !Array.isArray(currentValue)) {
-            currentValue = value.split(' ').filter(Boolean);
+            currentValue = value.split(' ').filter(Boolean)
         }
 
         NeoArray.remove(iconNode.cls, currentValue);
         NeoArray.add(iconNode.cls, value);
 
-        iconNode.removeDom = !value || value === '' || this.deactivateStateIcons;
+        iconNode.removeDom = !value || value === '' || me.deactivateStateIcons;
 
-        this._currentStateIcon = value;
-        this.update();
+        me.currentStateIcon = value;
+        me.update()
     }
 
     /**
@@ -448,31 +452,33 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetStateIcon(value, oldValue) {
-        this.updateStateIconNode(value, oldValue);
+        this.updateStateIconNode(value, oldValue)
     }
 
     /**
      * Convenience shortcut
-    * @returns {Object}
-    */
+     * @returns {Object}
+     */
     updateSideIconNode(value) {
-        let iconNode = this.getSideIconNode();
-        let currentValue = this._currentSideIcon;
+        let me           = this,
+            iconNode     = me.getSideIconNode(),
+            currentValue = me.currentSideIcon;
 
         if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean);
+            value = value.split(' ').filter(Boolean)
         }
+
         if (currentValue && !Array.isArray(currentValue)) {
-            currentValue = value.split(' ').filter(Boolean);
+            currentValue = value.split(' ').filter(Boolean)
         }
 
         NeoArray.remove(iconNode.cls, currentValue);
         NeoArray.add(iconNode.cls, value);
 
-        iconNode.removeDom = !value || value === '' || this.deactivateSideIcons;
+        iconNode.removeDom = !value || value === '' || me.deactivateSideIcons;
 
-        this._currentSideIcon = value;
-        this.update();
+        me.currentSideIcon = value;
+        me.update()
     }
 
     /**
@@ -483,7 +489,6 @@ class StatusBadge extends Base {
         return this.getVdomRoot().cn[2]
     }
 
-
     /**
      * Triggered after the StateIcon config got changed
      * @param {String|null} value
@@ -491,7 +496,7 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetSideIcon(value, oldValue) {
-        this.updateSideIconNode(value, oldValue);
+        this.updateSideIconNode(value, oldValue)
     }
 }
 
