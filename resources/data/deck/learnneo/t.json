@@ -22,7 +22,7 @@
             "id": "2023-10-14T19-25-08-153Z",
             "parentId": "2023-10-12T12-59-22-082Z",
             "isLeaf": true,
-            "name": "Neo.mjs workspaces"
+            "name": "Introduction to Workspaces and Applications"
         },
         {
             "id": "2023-10-08T18-26-31-357Z",
@@ -112,7 +112,19 @@
             "id": "2023-09-25T20-29-28-307Z",
             "parentId": null,
             "isLeaf": false,
-            "name": "Main Thread Add-onss"
+            "name": "Main Thread Add-ons"
+        },
+        {
+            "id": "mainThreadAddonIntro",
+            "parentId": "2023-09-25T20-29-28-307Z",
+            "isLeaf": true,
+            "name": "Introduction"
+        },
+        {
+            "id": "mainThreadAddonExample",
+            "parentId": "2023-09-25T20-29-28-307Z",
+            "isLeaf": true,
+            "name": "Example"
         },
         {
             "id": "2023-09-26T17-31-48-754Z",

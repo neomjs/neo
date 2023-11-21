@@ -19,11 +19,11 @@ and information is lost.
 
 To show highlighted Neo.mjs source code use
 <pre>
-&lt;pre data-neo>
+&lt;pre data-javascript>
 // Source code goes here
 &lt;/pre>
 
-<pre data-neo>
+<pre data-javascript>
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {

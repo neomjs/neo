@@ -57,13 +57,13 @@ class ContentTreeList extends TreeList {
     }
 
     async highlightPreContent(htmlString) {
-        // 1. Replace <pre data-neo> with unique tokens and create a HighlightJS.highlightAuto promise for each
+        // 1. Replace <pre data-javascript> with unique tokens and create a HighlightJS.highlightAuto promise for each
         // 2. When all promises are resolved, use their values to replace the tokens.
 
         // Note that if we were to import HighlightJS directly, we wouldn't need all this async code.
 
-        // Define a regular expression to match <pre data-neo> tags
-        const preRegex = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g;
+        // Define a regular expression to match <pre data-javascript> tags
+        const preRegex = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g;
 
         // Create an array to store promises for each replacement
         const replacementPromises = [];
@@ -71,11 +71,11 @@ class ContentTreeList extends TreeList {
         // Replace the content with tokens, and create a promise to update the corresponding content
         var updatedHtml = htmlString.replace(preRegex, (match, preContent) => {
             const token = `__NEO-PRE-TOKEN-${++count}__`;
-            replacementPromises.push(this.getHighlightPromise(preContent, token));
+            replacementPromises.push(this.getHighlightPromise(preContent, token, `pre-preview-${Neo.core.IdGenerator.getId()}`));
             return token;
         });
 
-        // Assert: updateHtml is the original, but with <pre data-neo> replaced with tokens.
+        // Assert: updateHtml is the original, but with <pre data-javascript> replaced with tokens.
 
         // Wait for all replacement promises to resolve
         return Promise.all(replacementPromises)
@@ -88,10 +88,10 @@ class ContentTreeList extends TreeList {
             });
     }
 
-    getHighlightPromise(preContent, token) {
+    getHighlightPromise(preContent, token, id) {
         // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
         return Neo.main.addon.HighlightJS.highlightAuto(preContent)
-            .then( highlight =>({after: `<pre data-neo>${highlight.value}</pre>`, token}));
+            .then( highlight =>({after: `<pre data-javascript id="${id}">${highlight.value}</pre>`, token}));
     }
 
     /**
