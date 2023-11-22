@@ -116,11 +116,13 @@ class StatusBadge extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {type: 'div', cn: [
-            {tag: 'span', cls: ['neo-state-glyph']},
-            {tag: 'span', cls: ['neo-state-text']},
-            {tag: 'span', cls: ['neo-state-glyph']}
-        ]}
+            {
+                type: 'div', cn: [
+                    {tag: 'span', cls: ['neo-state-glyph']},
+                    {tag: 'span', cls: ['neo-state-text']},
+                    {tag: 'span', cls: ['neo-state-glyph']}
+                ]
+            }
     }
 
     /**
@@ -144,15 +146,13 @@ class StatusBadge extends Base {
     }
 
     /**
-     * Triggered after the labelAlert config got changed
+     * Triggered after the StateIcon config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetLabelAlert(value, oldValue) {
-        if (this.state === 'alert') {
-            this.updateLabelNode(value)
-        }
+    afterSetSideIcon(value, oldValue) {
+        this.updateSideIconNode(value, oldValue)
     }
 
     /**
@@ -164,30 +164,6 @@ class StatusBadge extends Base {
     afterSetIconAlert(value, oldValue) {
         if (this.state === 'alert') {
             this.updateStateIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the sideIconAlert config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetSideIconAlert(value, oldValue) {
-        if (this.state === 'alert') {
-            this.updateSideIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the labelError config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetLabelError(value, oldValue) {
-        if (this.state === 'error') {
-            this.updateLabelNode(value)
         }
     }
 
@@ -204,30 +180,6 @@ class StatusBadge extends Base {
     }
 
     /**
-     * Triggered after the sideIconError config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetSideIconError(value, oldValue) {
-        if (this.state === 'error') {
-            this.updateSideIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the labelInfo config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetLabelInfo(value, oldValue) {
-        if (this.state === 'info') {
-            this.updateLabelNode(value)
-        }
-    }
-
-    /**
      * Triggered after the iconInfo config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -236,30 +188,6 @@ class StatusBadge extends Base {
     afterSetIconInfo(value, oldValue) {
         if (this.state === 'info') {
             this.updateStateIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the sideIconInfo config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetSideIconInfo(value, oldValue) {
-        if (this.state === 'info') {
-            this.updateSideIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the labelNeutral config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetLabelNeutral(value, oldValue) {
-        if (this.state === 'neutral') {
-            this.updateLabelNode(value)
         }
     }
 
@@ -276,14 +204,62 @@ class StatusBadge extends Base {
     }
 
     /**
-     * Triggered after the sideIconNeutral config got changed
+     * Triggered after the sideIconSuccess config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetSideIconNeutral(value, oldValue) {
-        if (this.state === 'neutral') {
+    afterSetSideIconSuccess(value, oldValue) {
+        if (this.state === 'success') {
             this.updateSideIconNode(value)
+        }
+    }
+
+    /**
+     * Triggered after the labelAlert config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelAlert(value, oldValue) {
+        if (this.state === 'alert') {
+            this.updateLabelNode(value)
+        }
+    }
+
+    /**
+     * Triggered after the labelError config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelError(value, oldValue) {
+        if (this.state === 'error') {
+            this.updateLabelNode(value)
+        }
+    }
+
+    /**
+     * Triggered after the labelInfo config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelInfo(value, oldValue) {
+        if (this.state === 'info') {
+            this.updateLabelNode(value)
+        }
+    }
+
+    /**
+     * Triggered after the labelNeutral config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLabelNeutral(value, oldValue) {
+        if (this.state === 'neutral') {
+            this.updateLabelNode(value)
         }
     }
 
@@ -299,29 +275,6 @@ class StatusBadge extends Base {
         }
     }
 
-    /**
-     * Triggered after the iconSuccess config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetIconSuccess(value, oldValue) {
-        if (this.state === 'success') {
-            this.updateStateIconNode(value)
-        }
-    }
-
-    /**
-     * Triggered after the sideIconSuccess config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetSideIconSuccess(value, oldValue) {
-        if (this.state === 'success') {
-            this.updateSideIconNode(value)
-        }
-    }
 
     /**
      * Triggered after the state config got changed
@@ -387,6 +340,16 @@ class StatusBadge extends Base {
     }
 
     /**
+     * Triggered after the StateIcon config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetStateIcon(value, oldValue) {
+        this.updateStateIconNode(value, oldValue)
+    }
+
+    /**
      * Triggered before the state config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -401,39 +364,8 @@ class StatusBadge extends Base {
      * Convenience shortcut
      * @returns {Object}
      */
-    updateLabelNode(value) {
-        let labelNode = this.getVdomRoot().cn[1];
-
-        labelNode.innerHTML = value;
-        labelNode.removeDom = !Boolean(value);
-
-        this.update()
-    }
-
-    /**
-     * Convenience shortcut
-     * @returns {Object}
-     */
-    updateStateIconNode(value) {
-        let me           = this,
-            iconNode     = me.getStateIconNode(),
-            currentValue = me.currentStateIcon;
-
-        if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean)
-        }
-
-        if (currentValue && !Array.isArray(currentValue)) {
-            currentValue = value.split(' ').filter(Boolean)
-        }
-
-        NeoArray.remove(iconNode.cls, currentValue);
-        NeoArray.add(iconNode.cls, value);
-
-        iconNode.removeDom = !value || value === '' || me.deactivateStateIcons;
-
-        me.currentStateIcon = value;
-        me.update()
+    getSideIconNode() {
+        return this.getVdomRoot().cn[2]
     }
 
     /**
@@ -444,15 +376,17 @@ class StatusBadge extends Base {
         return this.getVdomRoot().cn[0]
     }
 
-
     /**
-     * Triggered after the StateIcon config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
+     * Convenience shortcut
+     * @returns {Object}
      */
-    afterSetStateIcon(value, oldValue) {
-        this.updateStateIconNode(value, oldValue)
+    updateLabelNode(value) {
+        let labelNode = this.getVdomRoot().cn[1];
+
+        labelNode.innerHTML = value;
+        labelNode.removeDom = !Boolean(value);
+
+        this.update()
     }
 
     /**
@@ -485,19 +419,28 @@ class StatusBadge extends Base {
      * Convenience shortcut
      * @returns {Object}
      */
-    getSideIconNode() {
-        return this.getVdomRoot().cn[2]
+    updateStateIconNode(value) {
+        let me           = this,
+            iconNode     = me.getStateIconNode(),
+            currentValue = me.currentStateIcon;
+
+        if (value && !Array.isArray(value)) {
+            value = value.split(' ').filter(Boolean)
+        }
+
+        if (currentValue && !Array.isArray(currentValue)) {
+            currentValue = value.split(' ').filter(Boolean)
+        }
+
+        NeoArray.remove(iconNode.cls, currentValue);
+        NeoArray.add(iconNode.cls, value);
+
+        iconNode.removeDom = !value || value === '' || me.deactivateStateIcons;
+
+        me.currentStateIcon = value;
+        me.update()
     }
 
-    /**
-     * Triggered after the StateIcon config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetSideIcon(value, oldValue) {
-        this.updateSideIconNode(value, oldValue)
-    }
 }
 
 Neo.applyClassConfig(StatusBadge);
