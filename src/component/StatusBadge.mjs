@@ -1,4 +1,4 @@
-import Base from '../component/Base.mjs';
+import Base     from '../component/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -116,13 +116,13 @@ class StatusBadge extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {
-            type: 'div', cn: [
-                { tag: 'span', cls: ['neo-state-glyph'] },
-                { tag: 'span', cls: ['neo-state-text'] },
-                { tag: 'span', cls: ['neo-state-glyph'] }
-            ]
-        }
+            {
+                type: 'div', cn: [
+                    {tag: 'span', cls: ['neo-state-glyph']},
+                    {tag: 'span', cls: ['neo-state-text']},
+                    {tag: 'span', cls: ['neo-state-glyph']}
+                ]
+            }
     }
 
     /**
@@ -146,11 +146,11 @@ class StatusBadge extends Base {
     }
 
     /**
-    * Triggered after the StateIcon config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the StateIcon config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIcon(value, oldValue) {
         this.updateSideIconNode(value, oldValue)
     }
@@ -168,11 +168,11 @@ class StatusBadge extends Base {
     }
 
     /**
-    * Triggered after the iconError config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * Triggered after the iconError config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetIconError(value, oldValue) {
         if (this.state === 'error') {
             this.updateStateIconNode(value)
@@ -180,11 +180,11 @@ class StatusBadge extends Base {
     }
 
     /**
-        * Triggered after the iconInfo config got changed
-        * @param {String|null} value
-        * @param {String|null} oldValue
-        * @protected
-        */
+     * Triggered after the iconInfo config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetIconInfo(value, oldValue) {
         if (this.state === 'info') {
             this.updateStateIconNode(value)
@@ -205,10 +205,10 @@ class StatusBadge extends Base {
 
     /**
      * Triggered after the sideIconSuccess config got changed
-    * @param {String|null} value
-    * @param {String|null} oldValue
-    * @protected
-    */
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetSideIconSuccess(value, oldValue) {
         if (this.state === 'success') {
             this.updateSideIconNode(value)
@@ -284,10 +284,10 @@ class StatusBadge extends Base {
      */
     afterSetState(value, oldValue) {
 
-        let me = this,
-            cls = me.cls,
-            isEmpty = !value || value === '',
-            vdomRoot = me.getVdomRoot(),
+        let me        = this,
+            cls       = me.cls,
+            isEmpty   = !value || value === '',
+            vdomRoot  = me.getVdomRoot(),
             labelNode = vdomRoot.cn[1];
 
         NeoArray.remove(cls, 'neo-state-' + oldValue);
@@ -298,35 +298,35 @@ class StatusBadge extends Base {
         labelNode.removeDom = isEmpty;
 
         if (!isEmpty) {
-            let showLabel = '';
+            let showLabel     = '';
             let showStateIcon = '';
-            let showSideIcon = '';
+            let showSideIcon  = '';
 
             switch (value) {
                 case 'alert':
-                    showLabel = me.labelAlert;
+                    showLabel     = me.labelAlert;
                     showStateIcon = me.iconAlert;
-                    showSideIcon = me.sideIconAlert;
+                    showSideIcon  = me.sideIconAlert;
                     break;
                 case 'error':
-                    showLabel = me.labelError;
+                    showLabel     = me.labelError;
                     showStateIcon = me.iconError;
-                    showSideIcon = me.sideIconError;
+                    showSideIcon  = me.sideIconError;
                     break;
                 case 'info':
-                    showLabel = me.labelInfo;
+                    showLabel     = me.labelInfo;
                     showStateIcon = me.iconInfo;
-                    showSideIcon = me.sideIconInfo;
+                    showSideIcon  = me.sideIconInfo;
                     break;
                 case 'neutral':
-                    showLabel = me.labelNeutral;
+                    showLabel     = me.labelNeutral;
                     showStateIcon = me.iconNeutral;
-                    showSideIcon = me.sideIconNeutral;
+                    showSideIcon  = me.sideIconNeutral;
                     break;
                 case 'success':
-                    showLabel = me.labelSuccess;
+                    showLabel     = me.labelSuccess;
                     showStateIcon = me.iconSuccess;
-                    showSideIcon = me.sideIconSuccess;
+                    showSideIcon  = me.sideIconSuccess;
                     break;
             }
 
@@ -361,17 +361,17 @@ class StatusBadge extends Base {
     }
 
     /**
-    * Convenience shortcut
-    * @returns {Object}
-    */
+     * Convenience shortcut
+     * @returns {Object}
+     */
     getSideIconNode() {
         return this.getVdomRoot().cn[2]
     }
 
     /**
      * Convenience shortcut
-    * @returns {Object}
-    */
+     * @returns {Object}
+     */
     getStateIconNode() {
         return this.getVdomRoot().cn[0]
     }
@@ -391,11 +391,11 @@ class StatusBadge extends Base {
 
     /**
      * Convenience shortcut
-    * @returns {Object}
-    */
+     * @returns {Object}
+     */
     updateSideIconNode(value) {
-        let me = this,
-            iconNode = me.getSideIconNode(),
+        let me           = this,
+            iconNode     = me.getSideIconNode(),
             currentValue = me.currentSideIcon;
 
         if (value && !Array.isArray(value)) {
@@ -414,13 +414,14 @@ class StatusBadge extends Base {
         me.currentSideIcon = value;
         me.update()
     }
+
     /**
      * Convenience shortcut
      * @returns {Object}
      */
     updateStateIconNode(value) {
-        let me = this,
-            iconNode = me.getStateIconNode(),
+        let me           = this,
+            iconNode     = me.getStateIconNode(),
             currentValue = me.currentStateIcon;
 
         if (value && !Array.isArray(value)) {
