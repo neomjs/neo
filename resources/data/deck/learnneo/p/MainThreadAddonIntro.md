@@ -2,7 +2,6 @@ Neo.mjs is multi-threaded. There are app worker threads
 that handle data access, application logic,
 and keeping track of DOM updates. Practically all your
 application logic is run in parallel in these threads.
-
 However, anything that needs to actually reference or update
 the DOM, or use the `window` object, must be done in the main 
 application thread. 
@@ -17,14 +16,13 @@ But `window` is a main thread variable! To access that
 from a web-worker our code has to say "hey main thread, 
 please return a specified `window` property." Neo.mjs
 lets you do that via `Neo.Main.getByPath()`. For
-example, 
+example, the following statement logs the URL query string.
+
 
 <pre data-javascript>
-Neo.main.getByPath('window.location.search')
+Neo.Main.getByPath('window.location.search')
     .then(value=>console.log(value)); // Logs the search string
 </pre>
-
-logs the URL query string.
 
 `Neo.Main` has some simple methods for accessing the 
 main thread, but for something with a non-trivial API
@@ -34,8 +32,8 @@ Google Maps is a good example of this. In Neo.mjs, most
 views are responsible for updating their own vdom, but
 the responsibility for rendering maps and markers is handled
 by Google Maps itself &mdash; we _ask_ Google Maps to do
-certain things via the Google Maps API. Therefore, in Neo.mjs
-Google Maps is implemented as a main thread addon, which
+certain things via the Google Maps API. Therefore, in Neo.mjs,
+Google Maps is implemented as a main thread addon which
 loads the libraries and exposes whatever methods we'll need
 to run from the other Neo.mjs threads. In addition, in a
 Neo.mjs application we want to use Google maps like any other
