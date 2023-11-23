@@ -54,7 +54,11 @@
             cursor: pointer;
 
             &:hover {
-                background-color: var(--list-item-background-color-hover) !important;
+                background-color: var(--list-item-background-color-hover);
+                color           : var(--list-container-list-color);
+            }
+            &:active {
+                background-color: var(--list-item-background-color-active);
                 color           : var(--list-container-list-color);
             }
         }

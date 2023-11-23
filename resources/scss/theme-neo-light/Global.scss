@@ -9,7 +9,7 @@
 @import "../../../resources/scss/theme-neo-light/design-tokens/_all.scss";
 
 h1 {
-    color           : var(--sem-color-fg-contrast);
+    color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-sans);
     font-size       : var(--core-fontsize-h1);
     font-weight     : var(--core-fontweight-semibold);
@@ -18,7 +18,7 @@ h1 {
 }
 
 h2 {
-    color           : var(--semantic-color-neutral-contrast);
+    color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-sans);
     font-size       : var(--core-fontsize-h2);
     font-weight     : var(--core-fontweight-semibold);
@@ -27,7 +27,7 @@ h2 {
 }
 
 p {
-    color           : var(--semantic-color-fg-default);
+    color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-sans);
     font-size       : var(--core-fontsize-body);
     font-weight     : var(--core-fontweight-regular);
@@ -35,14 +35,16 @@ p {
 }
 
 code {
-    background-color: #ededed;
+    background-color: #F0F2F0;
+    border          : 1px solid var(--sem-color-border-subtle);
     border-radius   : 2px;
-    color           : var(--semantic-color-fg-contrast);
+    color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-mono);
     font-size       : var(--core-fontsize-body);
     font-weight     : var(--core-fontweight-regular);
     line-height     : var(--core-lineheight-headline);
     padding         : 2px 0.3em;
+    font-size       : 16px;
 }
 
 mark {
