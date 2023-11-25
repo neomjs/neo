@@ -1,5 +1,18 @@
 {
   "green": {
+    "50": {
+      "value": "{green.500}",
+      "type": "color",
+      "$extensions": {
+        "studio.tokens": {
+          "modify": {
+            "type": "lighten",
+            "value": "0.85",
+            "space": "hsl"
+          }
+        }
+      }
+    },
     "100": {
       "value": "{green.500}",
       "type": "color",
@@ -111,55 +124,55 @@
   },
   "spacing": {
     "2": {
-      "value": "2",
+      "value": "2px",
       "type": "spacing"
     },
     "4": {
-      "value": "4",
+      "value": "4px",
       "type": "spacing"
     },
     "8": {
-      "value": "8",
+      "value": "8px",
       "type": "spacing"
     },
     "12": {
-      "value": "12",
+      "value": "12px",
       "type": "spacing"
     },
     "16": {
-      "value": "16",
+      "value": "16px",
       "type": "spacing"
     },
     "20": {
-      "value": "20",
+      "value": "20px",
       "type": "spacing"
     },
     "24": {
-      "value": "24",
+      "value": "24px",
       "type": "spacing"
     },
     "32": {
-      "value": "32",
+      "value": "32px",
       "type": "spacing"
     },
     "40": {
-      "value": "40",
+      "value": "40px",
       "type": "spacing"
     },
     "48": {
-      "value": "48",
+      "value": "48px",
       "type": "spacing"
     },
     "64": {
-      "value": "64",
+      "value": "64px",
       "type": "spacing"
     },
     "80": {
-      "value": "80",
+      "value": "80px",
       "type": "spacing"
     },
     "96": {
-      "value": "96",
+      "value": "96px",
       "type": "spacing"
     }
   },
@@ -207,15 +220,15 @@
   },
   "borderradius": {
     "0": {
-      "value": "0",
+      "value": "0px",
       "type": "borderRadius"
     },
     "4": {
-      "value": "4",
+      "value": "4px",
       "type": "borderRadius"
     },
     "8": {
-      "value": "8",
+      "value": "8px",
       "type": "borderRadius"
     }
   },
@@ -229,27 +242,31 @@
   },
   "height": {
     "2": {
-      "value": "2",
+      "value": "2px",
       "type": "sizing"
     },
     "4": {
-      "value": "4",
+      "value": "4px",
       "type": "sizing"
     },
     "8": {
-      "value": "8",
+      "value": "8px",
       "type": "sizing"
     },
     "16": {
-      "value": "16",
+      "value": "16px",
       "type": "sizing"
     },
     "32": {
-      "value": "32",
+      "value": "32px",
       "type": "sizing"
     },
     "48": {
-      "value": "48",
+      "value": "48px",
+      "type": "sizing"
+    },
+    "56": {
+      "value": "56px",
       "type": "sizing"
     }
   },
@@ -302,7 +319,7 @@
         "type": "fontFamilies"
       },
       "sans": {
-        "value": "Source Sans Pro",
+        "value": "Source Sans 3",
         "type": "fontFamilies"
       },
       "serif": {
@@ -312,7 +329,7 @@
     },
     "fontsize": {
       "body": {
-        "value": "18px",
+        "value": "16px",
         "type": "fontSizes"
       },
       "h1": {
@@ -335,6 +352,10 @@
       },
       "bold": {
         "value": "700",
+        "type": "fontWeights"
+      },
+      "medium": {
+        "value": "500",
         "type": "fontWeights"
       }
     },
