@@ -503,15 +503,18 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        let manager    = Neo.worker.Manager,
-            hashString = location.hash.substr(1);
+        let manager              = Neo.worker.Manager,
+            {hash, href, search} = location,
+            hashString           = hash.substring(1);
 
         manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
                 appNames: manager.appNames,
                 hash    : this.parseHash(hashString),
-                hashString
+                hashString,
+                href,
+                search
             }
         })
     }
