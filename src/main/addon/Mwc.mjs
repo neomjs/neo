@@ -2,7 +2,12 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Helper class to include Google's Material Web Components into your neo.mjs app
- * https://www.amcharts.com/docs/v4/
+ * https://github.com/material-components/material-components-web
+ *
+ * You need to add the following dependencies into your package.json:
+ * @material/mwc-button
+ * @material/mwc-textfield
+ *
  * @class Neo.main.addon.Mwc
  * @extends Neo.core.Base
  * @singleton
