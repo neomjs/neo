@@ -3,6 +3,7 @@
     --cmp-breadcrumb-currentpage                : var(--sem-color-fg-primary-base);
     --cmp-breadcrumb-gap                        : var(--sem-spacing-xxsmall);
     --cmp-breadcrumb-pagelevel                  : var(--sem-color-fg-neutral-default);
+
     --cmp-button-borderradius                   : var(--sem-borderradius-large);
     --cmp-button-borderwidth                    : 1px;
     --cmp-button-gap                            : var(--sem-spacing-xxsmall);
@@ -14,6 +15,8 @@
     --cmp-button-ghost-fg-default               : var(--sem-color-fg-neutral-contrast);
     --cmp-button-ghost-fg-disabled              : var(--sem-color-fg-neutral-disabled);
     --cmp-button-height                         : var(--height-48);
+    --cmp-button-spacinghorizontal              : var(--sem-spacing-medium);
+
     --cmp-button-primary-bg-active              : var(--sem-color-bg-primary-active);
     --cmp-button-primary-bg-default             : var(--sem-color-bg-primary-default);
     --cmp-button-primary-bg-disabled            : var(--sem-color-bg-primary-disabled);
@@ -21,6 +24,7 @@
     --cmp-button-primary-bg-loading             : var(--sem-color-bg-primary-background);
     --cmp-button-primary-fg-default             : var(--sem-color-fg-neutral-contrast);
     --cmp-button-primary-fg-disabled            : var(--sem-color-fg-neutral-disabled);
+
     --cmp-button-secondary-bg-active            : var(--sem-color-bg-neutral-active);
     --cmp-button-secondary-bg-default           : transparent;
     --cmp-button-secondary-bg-disabled          : transparent;

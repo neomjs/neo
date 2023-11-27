@@ -3,11 +3,13 @@
     --sem-borderradius-medium                                           : var(--borderradius-4);
     --sem-borderradius-none                                             : var(--borderradius-0);
 
-    --sem-color-bg-neutral-active                                       : var(--gray-300);
+    
     --sem-color-bg-neutral-default                                      : var(--gray-50);
+    --sem-color-bg-neutral-hover                                        : var(--gray-100);
+    --sem-color-bg-neutral-active                                       : var(--gray-200);
     --sem-color-bg-neutral-disabled                                     : var(--gray-200);
     --sem-color-bg-neutral-highlighted                                  : var(--white);
-    --sem-color-bg-neutral-hover                                        : var(--gray-200);
+
 
     --sem-color-bg-primary-active                                       : var(--green-600);
     --sem-color-bg-primary-background                                   : var(--green-50);
@@ -18,6 +20,7 @@
     --sem-color-border-contrast                                         : var(--black);
     --sem-color-border-default                                          : var(--gray-200);
     --sem-color-border-subtle                                           : var(--gray-100);
+    
     --sem-color-fg-neutral-contrast                                     : var(--black);
     --sem-color-fg-neutral-default                                      : var(--gray-900);
     --sem-color-fg-neutral-disabled                                     : var(--gray-300);

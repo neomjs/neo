@@ -42,13 +42,13 @@ const
 
         // Hidden elements not tabbable
         if (style.getPropertyValue('display') === 'none' || style.getPropertyValue('visibility') === 'hidden') {
-            return false;
+            return false
         }
 
         return focusableTags[nodeName] ||
             ((nodeName === 'A' || nodeName === 'LINK') && !!e.href) ||
             (tabIndex != null && Number(tabIndex) >= 0) ||
-            e.contentEditable === 'true';
+            e.contentEditable === 'true'
     };
 
 /**
@@ -140,10 +140,10 @@ class DomAccess extends Base {
         if (!me._modalMask) {
             me._modalMask = document.createElement('div');
             me._modalMask.className = 'neo-dialog-modal-mask';
-            me._modalMask.addEventListener('mousedown', doPreventDefault, { capture : true });
+            me._modalMask.addEventListener('mousedown', doPreventDefault, { capture : true })
         }
 
-        return me._modalMask;
+        return me._modalMask
     }
 
     /**
@@ -251,7 +251,7 @@ class DomAccess extends Base {
             lastAlign       = me._aligns?.get(data.id);
 
         if (lastAlign) {
-            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`);
+            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`)
         }
 
         // Release any constrainTo or matchSize sizing which may have been imposed
@@ -263,12 +263,12 @@ class DomAccess extends Base {
 
         if (!align.target) {
             // Set the Component with id data.id to hidden : true
-            return Neo.worker.App.setConfigs({ id : data.id, hidden : true });
+            return Neo.worker.App.setConfigs({ id : data.id, hidden : true })
         }
 
         data.offsetParent = data.targetElement.offsetParent;
         if (constrainTo) {
-            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) });
+            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) })
         }
 
         // Get an aligned clone of myRect aligned according to the align object
@@ -282,17 +282,17 @@ class DomAccess extends Base {
             transform : `translate(${result.x}px,${result.y}px)`
         });
         if (result.width !== myRect.width) {
-            style.width = `${result.width}px`;
+            style.width = `${result.width}px`
         }
         if (result.height !== myRect.height) {
-            style.height = `${result.height}px`;
+            style.height = `${result.height}px`
         }
 
         // Place box shadow at correct edge
         subject.classList.add(`neo-aligned-${result.position}`);
 
         // Register an alignment to be kept in sync
-        me.addAligned(data);
+        me.addAligned(data)
     }
 
     /**
@@ -301,7 +301,7 @@ class DomAccess extends Base {
      */
     applyBodyCls(data) {
         let cls = data.cls || [];
-        document.body.classList.add(...cls);
+        document.body.classList.add(...cls)
     }
 
     /**
@@ -311,8 +311,7 @@ class DomAccess extends Base {
      */
     blur(data) {
         this.getElement(data.id)?.blur();
-
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -361,8 +360,8 @@ class DomAccess extends Base {
                 returnData.push(this.getAttributes({
                     attributes: data.attributes,
                     id        : id
-                }));
-            });
+                }))
+            })
         } else {
             let node = this.getElementOrBody(data.id);
 
@@ -373,13 +372,13 @@ class DomAccess extends Base {
                     data.attributes = [data.attributes];
 
                     data.attributes.forEach(attribute => {
-                        returnData[attribute] = node[attribute];
+                        returnData[attribute] = node[attribute]
                     })
                 }
             }
         }
 
-        return returnData;
+        return returnData
     }
 
     /**
@@ -449,7 +448,7 @@ class DomAccess extends Base {
      * @protected
      */
     getElement(nodeId) {
-        return nodeId.nodeType ? nodeId : Neo.config.useDomIds ?  document.getElementById(nodeId) : document.querySelector(`[data-neo-id='${nodeId}']`);
+        return nodeId.nodeType ? nodeId : Neo.config.useDomIds ?  document.getElementById(nodeId) : document.querySelector(`[data-neo-id='${nodeId}']`)
     }
 
     /**
@@ -458,7 +457,7 @@ class DomAccess extends Base {
      * @protected
      */
     getElementOrBody(nodeId='document.body') {
-        return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId);
+        return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId)
     }
 
     /**
@@ -470,16 +469,16 @@ class DomAccess extends Base {
         const me = this;
 
         if (Array.isArray(data.id)) {
-            return data.id.map(id => me.getScrollingDimensions({ id }));
+            return data.id.map(id => me.getScrollingDimensions({ id }))
         } else {
             const node = data.nodeType ? data : me.getElementOrBody(data.id);
 
             return {
-                clientWidth : node?.clientWidth,
                 clientHeight: node?.clientHeight,
-                scrollWidth : node?.scrollWidth,
-                scrollHeight: node?.scrollHeight
-            };
+                clientWidth : node?.clientWidth,
+                scrollHeight: node?.scrollHeight,
+                scrollWidth : node?.scrollWidth
+            }
         }
     }
 
@@ -488,7 +487,7 @@ class DomAccess extends Base {
      * @returns {Boolean}
      */
     isAlignSubject(el) {
-        return [...this._aligns?.values()].some(align => align.subject === el);
+        return [...this._aligns?.values()].some(align => align.subject === el)
     }
 
     /**
@@ -510,8 +509,8 @@ class DomAccess extends Base {
                 src
             });
 
-            document.head.appendChild(script);
-        });
+            document.head.appendChild(script)
+        })
     }
 
     /**
@@ -533,7 +532,7 @@ class DomAccess extends Base {
                 type   : 'text/css'
             });
 
-            document.head.appendChild(link);
+            document.head.appendChild(link)
         })
     }
 
@@ -549,7 +548,7 @@ class DomAccess extends Base {
         if (value.endsWith('%')) {
             const fraction = parseFloat(value) / 100;
 
-            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction;
+            return (node.offsetParent?.getBoundingClientRect().height || 0) * fraction
         }
         // If it's any other CSS unit than px, it needs to be measured using the DOM
         else if (isNaN(value) && !value.endsWith('px')) {
@@ -559,8 +558,9 @@ class DomAccess extends Base {
 
             if (!d) {
                 d = this._measuringDiv = document.createElement('div');
-                d.style = 'position:fixed;top:-10000px;left:-10000px';
+                d.style = 'position:fixed;top:-10000px;left:-10000px'
             }
+
             // In case a DOM update cleared it out
             document.body.appendChild(d);
 
@@ -578,15 +578,16 @@ class DomAccess extends Base {
         }
         // If it's a number, or ends with px, use the numeric value.
         else {
-            value = parseFloat(value);
+            value = parseFloat(value)
         }
-        return value;
+
+        return value
     }
 
     /**
      * Checks the overflow status of a TextAreaField's &lt;textarea> element and updates the
      * height so that there is never a vertical scrollbar.
-     * @param {Object} data 
+     * @param {Object} data
      */
     async monitorAutoGrow(data) {
         const
@@ -597,11 +598,9 @@ class DomAccess extends Base {
         target[data.autoGrow ? 'addEventListener' : 'removeEventListener']('input', me.monitorAutoGrowHandler);
 
         // Fix the height up immediately too
-        if (data.autoGrow) {
-            me.monitorAutoGrowHandler({
-                target
-            });
-        }
+        data.autoGrow && me.monitorAutoGrowHandler({
+            target
+        })
     }
 
     monitorAutoGrowHandler({ target }) {
@@ -613,7 +612,7 @@ class DomAccess extends Base {
         style.height = style.minHeight = 0;
         inputStyle.setProperty('--textfield-input-height', `${target.scrollHeight + 5}px`);
         inputStyle.setProperty('height', '');
-        style.height = style.minHeight = '';
+        style.height = style.minHeight = ''
     }
 
     /**
@@ -630,7 +629,7 @@ class DomAccess extends Base {
                 return nodes.every(a => me.isAlignSubject(a))
             }
         })) {
-            me.syncAligns();
+            me.syncAligns()
         }
     }
 
@@ -638,9 +637,7 @@ class DomAccess extends Base {
      *
      */
     onDomContentLoaded() {
-        if (Neo.config.applyBodyCls) {
-            this.applyBodyCls({cls: ['neo-body']});
-        }
+        Neo.config.applyBodyCls && this.applyBodyCls({cls: ['neo-body']})
     }
 
     /**
@@ -660,7 +657,7 @@ class DomAccess extends Base {
             data,
             replyId: data.id,
             success: true
-        }, [offscreen]);
+        }, [offscreen])
     }
 
     /**
@@ -695,7 +692,7 @@ class DomAccess extends Base {
 
                 key.params.forEach((param, paramIndex) => {
                     if (key.paramIsDomNode[paramIndex] === true) {
-                        key.params[paramIndex] = this.getElement(key.params[paramIndex]);
+                        key.params[paramIndex] = this.getElement(key.params[paramIndex])
                     }
                 });
 
@@ -703,15 +700,15 @@ class DomAccess extends Base {
                 retFunctions[fnName] = scope[key.fn](...key.params);
 
                 if (key.returnValue) {
-                    retFunctions[fnName] = retFunctions[fnName][key.returnValue];
+                    retFunctions[fnName] = retFunctions[fnName][key.returnValue]
                 }
             } else {
-                retFunctions[key] = element[key]();
+                retFunctions[key] = element[key]()
             }
         });
 
         styles.forEach(key => {
-            retStyles[key] = element.style[key];
+            retStyles[key] = element.style[key]
         });
 
         Object.assign(data, {
@@ -746,7 +743,7 @@ class DomAccess extends Base {
             treeWalker.currentNode = backwards ? bottomFocusTrap : topFocusTrap;
             treeWalker[backwards ? 'previousNode' : 'nextNode']();
 
-            requestAnimationFrame(() => treeWalker.currentNode.focus());
+            requestAnimationFrame(() => treeWalker.currentNode.focus())
         }
     }
 
@@ -755,9 +752,7 @@ class DomAccess extends Base {
      * @protected
      */
     read(data) {
-        if (typeof data === 'function') {
-            data()
-        }
+        typeof data === 'function' && data()
     }
 
     /**
@@ -770,12 +765,12 @@ class DomAccess extends Base {
     resetDimensions(align) {
         Object.assign(this.getElement(align.id).style, {
             flex     : align.configuredFlex,
-            width    : align.configuredWidth,
             height   : align.configuredHeight,
-            minWidth : align.configuredMinWidth,
-            minHeight: align.configuredMinHeight,
+            maxHeight: align.configuredMaxHeight,
             maxWidth : align.configuredMaxWidth,
-            maxHeight: align.configuredMaxHeight
+            minHeight: align.configuredMinHeight,
+            minWidth : align.configuredMinWidth,
+            width    : align.configuredWidth
         })
     }
 
@@ -790,7 +785,7 @@ class DomAccess extends Base {
         let node = this.getElement(data.id);
 
         if (node) {
-            node[`scroll${Neo.capitalize(data.direction)}`] += data.value;
+            node[`scroll${Neo.capitalize(data.direction)}`] += data.value
         }
 
         return {id: data.id}
@@ -827,7 +822,7 @@ class DomAccess extends Base {
         let node = this.getElement(data.id);
 
         if (node) {
-            node[`scroll${Neo.capitalize(data.direction)}`] = data.value;
+            node[`scroll${Neo.capitalize(data.direction)}`] = data.value
         }
 
         return {id: data.id}
@@ -872,7 +867,7 @@ class DomAccess extends Base {
 
         if (node) {
             node.select();
-            node.setSelectionRange(start, end);
+            node.setSelectionRange(start, end)
         }
 
         return {id: data.id}
@@ -885,7 +880,7 @@ class DomAccess extends Base {
      */
     setBodyCls(data) {
         document.body.classList.remove(...data.remove || []);
-        document.body.classList.add(...data.add || []);
+        document.body.classList.add(...data.add || [])
     }
 
     /**
@@ -927,13 +922,13 @@ class DomAccess extends Base {
 
             // Align subject and target still in the DOM - correct its alignment
             if (document.contains(align.subject) && targetPresent) {
-                me.align(align);
+                me.align(align)
             }
             // Align subject or target no longer in the DOM - remove it.
             else {
                 // If target is no longer in the DOM, hide the subject component
                 if (!targetPresent) {
-                    Neo.worker.App.setConfigs({ id: align.id, hidden: true });
+                    Neo.worker.App.setConfigs({ id: align.id, hidden: true })
                 }
 
                 const
@@ -966,7 +961,7 @@ class DomAccess extends Base {
 
         // If we are visible and modal, the mask needs to be just below this element.
         if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
-            document.body.insertBefore(this.modalMask, el);
+            document.body.insertBefore(this.modalMask, el)
         }
         // Otherwise, the mask needs to be below the next topmost modal dialog if possible, or hidden
         else {
@@ -998,7 +993,7 @@ class DomAccess extends Base {
 
         // Called before DOM has been created.
         if (!subject) {
-            return;
+            return
         }
 
         let topFocusTrap    = subject.$topFocusTrap,
@@ -1007,7 +1002,7 @@ class DomAccess extends Base {
         if (trap) {
             if (!subject.$treeWalker) {
                 subject.$treeWalker = document.createTreeWalker(subject, NodeFilter.SHOW_ELEMENT, {
-                    acceptNode : filterTabbable
+                    acceptNode: filterTabbable
                 });
                 topFocusTrap = subject.$topFocusTrap = document.createElement('div');
                 bottomFocusTrap = subject.$bottomFocusTrap = document.createElement('div');
@@ -1018,15 +1013,14 @@ class DomAccess extends Base {
                 bottomFocusTrap.setAttribute('tabIndex', 0);
 
                 // Listen for when they gain focus and wrap focus within the encapsulating element
-                subject.addEventListener('focusin', onTrappedFocusMovement);
+                subject.addEventListener('focusin', onTrappedFocusMovement)
             }
 
             // Ensure content is encapsulated by the focus trap elements
             subject.insertBefore(topFocusTrap, subject.firstChild);
-            subject.appendChild(bottomFocusTrap);
-        }
-        else {
-            subject.removeEventListener('focusin', onTrappedFocusMovement);
+            subject.appendChild(bottomFocusTrap)
+        } else {
+            subject.removeEventListener('focusin', onTrappedFocusMovement)
         }
     }
 

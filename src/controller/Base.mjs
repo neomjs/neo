@@ -22,7 +22,7 @@ class Base extends CoreBase {
          */
         ntype: 'controller',
         /**
-         * @member {String} defaultRoute=undefined
+         * @member {String|null} defaultRoute=null
          */
         defaultRoute: null,
         /**
@@ -37,7 +37,7 @@ class Base extends CoreBase {
          *     '/users/{userId}/posts/{postId}': 'handlePostRoute',
          *     'default'                       : 'handleOtherRoutes'
          * }
-         * @member {Object} routes={}
+         * @member {Object} routes_={}
          */
         routes_: {}
     }
@@ -83,7 +83,7 @@ class Base extends CoreBase {
     destroy(...args) {
         HashHistory.un('change', this.onHashChange, this);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -142,7 +142,6 @@ class Base extends CoreBase {
                 }
 
                 hasRouteBeenFound = true
-
             }
 
             counter++

@@ -8,6 +8,12 @@
     overflow: scroll;
     padding: 1em;
 
+    pre[data-javascript]{
+        border-radius: 4px;
+        padding: 12px;
+        border: thin solid lightgray;
+    }
+
     em,
     i {
         font-family: Palatino, "Times New Roman", serif;

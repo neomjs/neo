@@ -21,36 +21,6 @@ to an entire new level.
 
 This is something I would love to share with you!
 
-<h3 align="center">Generous Backers</h3>
-<!--generous backers start-->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://github.com/keckeroo">
-          <img width="40px" src="https://avatars.githubusercontent.com/u/1653769?v=4">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<!--generous backers end-->
-
-<h3 align="center">Backers</h3>
-<!--backers start-->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://github.com/pyccyp">
-          <img width="40px" src="https://avatars.githubusercontent.com/u/66266683?v=4">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<!--backers end-->
-
 ## Special Offer
 The first 4 Bronze, and the first 4 Silver tier sponsors will get kept on the main Readme file for an additional year,
 after the day the 4th sponsor does sign up (*).

@@ -32,7 +32,7 @@ class TextArea extends Text {
          * any height of text. Bounds can be set using the `minHeight` and `maxHeight` settings.
          * @member {Boolean} autoGrow=false
          */
-        autoGrow_ : false,
+        autoGrow_: false,
         /**
          * @member {String[]} baseCls=['neo-textarea','neo-textfield']
          */
@@ -75,7 +75,7 @@ class TextArea extends Text {
     }
 
     afterSetAutoGrow(autoGrow) {
-        this.syncAutoGrowMonitor();
+        autoGrow && this.syncAutoGrowMonitor();
 
         // Restore any configured height if autoGrow turned off
         if (!autoGrow) {
@@ -176,7 +176,7 @@ class TextArea extends Text {
     }
 
     async syncAutoGrowMonitor() {
-        if (this.mounted) {
+        if (this.mounted && this.autoGrow) {
             // Delegate monitoring of sizes to the VDOM thread.
             Neo.main.DomAccess.monitorAutoGrow({
                 appName  : this.appName,

@@ -28,9 +28,9 @@ class MainContainerController extends Controller {
 
         fetch('../../../../resources/data/deck/EditorConfig.json')
             .then(response => response.json()
-            .then(data =>
-                this.getModel().setData('editorConfig', data)
-            ))
+                .then(data =>
+                    this.getModel().setData('editorConfig', data)
+                ))
     }
 
     /**
@@ -38,29 +38,14 @@ class MainContainerController extends Controller {
      * @returns {Promise<void>}
      */
     async onContentChange(data) {
-        let me      = this,
+        let me = this,
             content = me.getReference('content');
 
         content.toggleCls('lab', data.isLab);
 
-        content.html   = data.html;
+        content.html = data.html;
         content.record = data.record;
 
-        await me.timeout(200);
-
-        // todo: we need to add the links as neo configs
-        await Neo.main.addon.HighlightJS.loadLibrary({
-            appName        : me.appName,
-            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
-            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
-        });
-
-        await me.timeout(200);
-
-        Neo.main.addon.HighlightJS.syntaxHighlightInit({
-            appName: me.appName,
-            vnodeId: content.id
-        })
     }
 
     /**

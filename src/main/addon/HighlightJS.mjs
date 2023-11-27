@@ -37,7 +37,8 @@ class HighlightJS extends Base {
                 'syntaxHighlight',
                 'switchTheme',
                 'syntaxHighlightInit',
-                'syntaxHighlightLine'
+                'syntaxHighlightLine',
+                'highlightAuto'
             ]
         },
         /**
@@ -138,6 +139,20 @@ class HighlightJS extends Base {
             console.error('highlight.js is not included inside the main thread.')
         }
     }
+
+    /**
+     * See https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
+     * @param {String} html
+     * @returns {Object} of the form {language, relevance, value, secondBest}
+     */
+    highlightAuto(html) {
+        if (hljs) {
+            return hljs.highlightAuto(html);
+        } else {
+            console.error('highlight.js is not included inside the main thread.')
+        }
+    }
+
 
     /**
      * @param {Object} data
