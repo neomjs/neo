@@ -3,5 +3,5 @@
     "basePath"   : "../../../",
     "environment": "development",
     "mainPath"   : "./Main.mjs",
-    "themes"     : ["neo-theme-dark", "neo-theme-light"]
+    "themes"     : ["neo-theme-dark", "neo-theme-light", "neo-theme-neo-light"]
 }
