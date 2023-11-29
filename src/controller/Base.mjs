@@ -110,18 +110,13 @@ class Base extends CoreBase {
             routes            = me.routes,
             handler, key, paramObject, preHandler, responsePreHandler, result, route;
 
-            // check query parameter
-            const query = value.hashString.split('?');
-            const incomingRoute = query[0];
-            const incomingQueryParameter = query[1] ? query[1] : null;
-
-        while (counter < routeKeysLength && !hasRouteBeenFound) {
+        while (routeKeysLength > 0 && counter < routeKeysLength && !hasRouteBeenFound) {
             key                = routeKeys[counter];
             handler            = null;
             preHandler         = null;
             responsePreHandler = null;
             paramObject        = {};
-            result             = incomingRoute.match(handleRoutes[key]);
+            result             = value.hashString.match(handleRoutes[key]);
 
             if (result) {
                 const
@@ -129,7 +124,7 @@ class Base extends CoreBase {
                     arrayParamValues = result.splice(1, result.length - 1);
 
                 if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length) {
-                    throw new Error('Number of IDs and number of Values do not match')
+                    throw 'Number of IDs and number of Values do not match'
                 }
 
                 for (let i = 0; arrayParamIds && i < arrayParamIds.length; i++) {
@@ -154,24 +149,14 @@ class Base extends CoreBase {
 
         // execute
         if (hasRouteBeenFound) {
-            let paramKeyValuePairs = incomingQueryParameter ? incomingQueryParameter?.split('&') : [];
-            const queryParameter = {};
-            paramKeyValuePairs.forEach(item => {
-                let temp = item.split('=');
-                queryParameter[temp[0]]=temp[1];
-            });
-            if ( Object.keys(queryParameter).length > 0) {
-                paramObject['queryParameter'] = queryParameter;
-            }
-
             if (preHandler) {
-                responsePreHandler = await me[preHandler]?.call(me, value, oldValue, paramObject)
+                responsePreHandler = await me[preHandler]?.call(me, paramObject, value, oldValue)
             } else {
                 responsePreHandler = true
             }
 
             if (responsePreHandler) {
-                await me[handler]?.call(me, value, oldValue, paramObject)
+                await me[handler]?.call(me, paramObject, value, oldValue)
             }
         }
 

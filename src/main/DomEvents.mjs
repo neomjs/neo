@@ -504,7 +504,7 @@ class DomEvents extends Base {
      */
     onHashChange() {
         let manager    = Neo.worker.Manager,
-            hashString = location.hash.substr(1);
+            hashString = location.hash.substring(1);
 
         manager.sendMessage('app', {
             action: 'hashChange',

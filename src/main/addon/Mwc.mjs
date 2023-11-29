@@ -2,7 +2,16 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Helper class to include Google's Material Web Components into your neo.mjs app
- * https://www.amcharts.com/docs/v4/
+ * https://github.com/material-components/material-components-web
+ *
+ * You need to add the following dependencies into your package.json:
+ * @material/mwc-button
+ * @material/mwc-textfield
+ *
+ * You also need to un-comment the related imports.
+ * Recommendation: Copy this file into your workspace (src/main/addon), adjust it there and add the custom addon
+ * into the neo-config.json of your app. E.g.: [..., "WS/Mwc"].
+ *
  * @class Neo.main.addon.Mwc
  * @extends Neo.core.Base
  * @singleton
@@ -50,10 +59,10 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module'
-            );
+                );
         } else {
             // dist/development & dist/production
-            import('@material/mwc-button');
+            // import('@material/mwc-button'); // <= comment me in
         }
     }
 
@@ -65,10 +74,10 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module'
-            );
+                );
         } else {
             // dist/development & dist/production
-            import('@material/mwc-textfield');
+            // import('@material/mwc-textfield'); // <= comment me in
         }
     }
 

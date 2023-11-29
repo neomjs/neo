@@ -180,10 +180,15 @@ class Manager extends Base {
         // pass the initial hash value as Neo.configs
         if (hash) {
             config.hash = {
-                hash      : DomEvents.parseHash(hash.substr(1)),
-                hashString: hash.substr(1)
-            };
+                hash      : DomEvents.parseHash(hash.substring(1)),
+                hashString: hash.substring(1)
+            }
         }
+
+        config.url = {
+            href  : location.href,
+            search: location.search
+        };
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||

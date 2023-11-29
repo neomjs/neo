@@ -41,7 +41,7 @@ function parseTokens(fileContent, prefix=tokenPrefix, map=[]) {
                 keys.forEach(objKey => {
                     if (objKey !== baseKey) {
                         modify   = value[objKey].$extensions?.['studio.tokens']?.modify;
-                        keyValue = `${modify.type}(${baseValue}, ${modify.value * 100}%)`;
+                        keyValue = `#{${modify.type}(${baseValue}, ${modify.value * 100}%)}`;
 
                         map.push([`${ns}-${objKey}`, keyValue]);
                     } else {
