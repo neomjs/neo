@@ -32,10 +32,12 @@ class HeaderToolbar extends Base {
         }, {
             cls    : ['github-button'],
             iconCls: 'fa-brands fa-github',
-            ui     : 'tertiary'
+            ui     : 'tertiary',
+            url    : 'https://github.com/neomjs/neo'
         }, {
             iconCls: 'fa-brands fa-slack',
-            ui     : 'tertiary'
+            ui     : 'tertiary',
+            url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA'
         }]
     }
 }
