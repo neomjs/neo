@@ -1,5 +1,5 @@
-import Base   from '../../../../src/toolbar/Base.mjs';
-import Button from '../../../../src/button/Base.mjs';
+import Base  from '../../../../src/toolbar/Base.mjs';
+import Label from '../../../../src/component/Label.mjs';
 
 /**
  * @class LearnNeo.view.home.HeaderToolbar
@@ -20,8 +20,22 @@ class HeaderToolbar extends Base {
          * @member {Object[]} items
          */
         items: [{
-            module: Button,
-            text  : 'Logo'
+            module: Label,
+            cls   : ['logo'],
+            text  : 'neo.mjs'
+        }, '->', {
+            text: 'Docs',
+            ui  : 'tertiary'
+        }, {
+            text: 'Learn',
+            ui  : 'tertiary'
+        }, {
+            cls    : ['github-button'],
+            iconCls: 'fa-brands fa-github',
+            ui     : 'tertiary'
+        }, {
+            iconCls: 'fa-brands fa-slack',
+            ui     : 'tertiary'
         }]
     }
 }
