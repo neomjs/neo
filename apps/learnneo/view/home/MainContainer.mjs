@@ -21,8 +21,10 @@ class MainContainer extends Container {
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
-
-        cls: 'learnneo-maincontainer',
+        /**
+         * @member {String[]} cls=['learnneo-maincontainer']
+         */
+        cls: ['learnneo-maincontainer'],
         /**
          * @member {Object[]} items
          */
@@ -47,6 +49,7 @@ class MainContainer extends Container {
                 }]
             }, {
                 module      : Splitter,
+                cls         : ['main-content-splitter'],
                 resizeTarget: 'previous',
                 size        : 4
             }, {
