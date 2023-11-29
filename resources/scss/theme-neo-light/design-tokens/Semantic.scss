@@ -3,15 +3,11 @@
     --sem-borderradius-medium                                           : var(--borderradius-4);
     --sem-borderradius-none                                             : var(--borderradius-0);
     --sem-borderwidth-focus                                             : 3px;
-    --sem-color-bg-neutral-active                                       : var(--gray-900);
-    --sem-color-bg-neutral-active-$extensions-studio.tokens-modify      : 0.1;
-    --sem-color-bg-neutral-active-$extensions-studio.tokens-modify-space: lch;
+    --sem-color-bg-neutral-active                                       : alpha(var(--gray-900), 0.1);
     --sem-color-bg-neutral-default                                      : var(--gray-50);
     --sem-color-bg-neutral-disabled                                     : var(--gray-200);
     --sem-color-bg-neutral-highlighted                                  : var(--white);
-    --sem-color-bg-neutral-hover                                        : var(--gray-900);
-    --sem-color-bg-neutral-hover-$extensions-studio.tokens-modify       : 0.05;
-    --sem-color-bg-neutral-hover-$extensions-studio.tokens-modify-space : hsl;
+    --sem-color-bg-neutral-hover                                        : alpha(var(--gray-900), 0.05);
     --sem-color-bg-primary-active                                       : var(--green-600);
     --sem-color-bg-primary-background                                   : var(--green-50);
     --sem-color-bg-primary-default                                      : var(--green-400);
