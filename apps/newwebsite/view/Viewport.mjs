@@ -1,22 +1,22 @@
-import Button    from '../../../src/button/Base.mjs';
-import Container from '../../../src/container/Base.mjs';
-import Viewport  from '../../../src/container/Viewport.mjs';
+import BaseViewport  from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
 
 /**
- * @class NewWebsite.view.MainContainer
+ * @class NewWebsite.view.Viewport
  * @extends Neo.container.Viewport
  */
-class MainContainer extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         /**
-         * @member {String} className='NewWebsite.view.MainContainer'
+         * @member {String} className='NewWebsite.view.Viewport'
          * @protected
          */
-        className: 'NewWebsite.view.MainContainer',
+        className: 'NewWebsite.view.Viewport',
         /**
-         * @member {String[]} cls=['newwebsite-main-container']
+         * @member {String[]} cls=['newwebsite-viewport']
          */
-        cls: ['newwebsite-main-container'],
+        cls: ['newwebsite-viewport'],
         /**
          * @member {Object[]} items
          */
@@ -54,6 +54,6 @@ class MainContainer extends Viewport {
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.applyClassConfig(Viewport);
 
-export default MainContainer;
+export default Viewport;
