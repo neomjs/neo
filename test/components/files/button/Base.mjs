@@ -2,8 +2,8 @@ StartTest(t => {
     let button;
 
     t.beforeEach(async t => {
-        // Causes errors
-        // button && await Neo.worker.App.destroyNeoInstance(button);
+        button && await Neo.worker.App.destroyNeoInstance(button);
+        t.waitFor(50);
     });
 
     t.it('Sanity', async t => {
@@ -34,7 +34,7 @@ StartTest(t => {
 
         await Neo.worker.App.setConfigs({ id: button, isLoading : false });
 
-        // Not loading now, 
+        // Not loading now,
         await t.waitForSelectorNotFound('button .neo-load-mask');
     });
 });

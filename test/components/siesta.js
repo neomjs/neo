@@ -5,7 +5,7 @@ project.configure({
     isEcmaModule : true,
     preload      : [{
         type         : 'js',
-        url          : '../../../../src/MicroLoader.mjs',
+        url          : '../../src/MicroLoader.mjs',
         isEcmaModule : true
     }],
     testClass   : Class('My.Test.Class', {
