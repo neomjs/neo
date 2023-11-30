@@ -107,16 +107,22 @@ class App extends Base {
      *     }).then(id => console.log(id))
      *
      * @param {Object} config
+     * @param {String} [config.importPath] you can lazy load missing classes via this config. dev mode only.
      * @param {String} [config.parentId] passing a parentId will put your instance into a container
      * @param {Number} [config.parentIndex] if a parentId is passed, but no index, neo will use add()
      * @returns {String} the instance id
      */
-    createNeoInstance(config) {
+    async createNeoInstance(config) {
+        if (config.importPath) {
+            await import(/* webpackIgnore: true */ config.importPath);
+            delete config.importPath
+        }
+
         let appName   = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
             Container = Neo.container?.Base,
             index, instance, parent;
 
-        config = {appName: appName, ...config};
+        config = {appName, ...config};
 
         if (config.parentId) {
             parent = Neo.getComponent(config.parentId);
