@@ -662,7 +662,7 @@ class Base extends CoreBase {
     afterSetIsLoading(value) {
         const
             { cls, vdom } = this,
-            maskIndex     = vdom.cn.findIndex(c => c.cls === 'neo-load-mask');
+            maskIndex     = vdom.cn?.findIndex(c => c.cls === 'neo-load-mask') || -1;
 
         // Remove the load mask
         if (maskIndex !== -1) {
