@@ -342,7 +342,13 @@ class Base extends CoreBase {
          * The vdom markup for this component.
          * @member {Object} _vdom={}
          */
-        _vdom: {}
+        _vdom: {},
+        /**
+         * Set to `true` to show a spinner centered in the component.
+         * Set to a string to show a message next to a spinner centered in the component.
+         * @member {Boolean|String} isLoading=false
+         */
+        isLoading_: null
     }
 
     /**
@@ -652,6 +658,40 @@ class Base extends CoreBase {
         oldValue && ComponentManager.unregister(oldValue);
         ComponentManager.register(this)
     }
+
+    afterSetIsLoading(value) {
+        const
+            { cls, vdom } = this,
+            maskIndex     = vdom.cn.findIndex(c => c.cls === 'neo-load-mask');
+
+        // Remove the load mask
+        if (maskIndex !== -1) {
+            vdom.cn.splice(maskIndex, 1);
+        }
+
+        if (value) {
+            vdom.cn.push(this.loadMask = {
+                cls : 'neo-load-mask',
+                cn : [{
+                    cls : 'neo-load-mask-body',
+                    cn : [{
+                        cls : 'fa fa-spinner fa-spin'
+                    }, {
+                        cls  : 'neo-loading-message',
+                        html : typeof value === 'string' ? value : null
+                    }]
+                }]
+            });
+            NeoArray.add(cls, 'b-masked');
+        }
+        else {
+            NeoArray.remove(cls, 'b-masked');
+        }
+
+        this.cls = cls
+        this.update();
+    }
+
 
     /**
      * Triggered after the maxHeight config got changed

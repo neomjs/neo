@@ -1,17 +1,40 @@
 StartTest(t => {
-    t.it('Checking if neo.mjs got started', async t => {
-        if (!globalThis.Neo?.Main) {
-            console.log('Starting the neo.mjs workers setup');
+    let button;
 
-            await import('../../../../src/MicroLoader.mjs');
-        }
+    t.beforeEach(async t => {
+        // Causes errors
+        // button && await Neo.worker.App.destroyNeoInstance(button);
+    });
 
-        setTimeout(() => {
-            Neo.worker.App.createNeoInstance({
-                ntype  : 'button',
-                iconCls: 'fa fa-home',
-                text   : 'Hello Siesta'
-            })
-        }, 300)
+    t.it('Sanity', async t => {
+        button = await Neo.worker.App.createNeoInstance({
+            ntype  : 'button',
+            iconCls: 'fa fa-home',
+            text   : 'Hello Siesta'
+        });
+    });
+
+    t.it('Should show isLoading UI', async t => {
+        button = await Neo.worker.App.createNeoInstance({
+            ntype     : 'button',
+            iconCls   : 'fa fa-home',
+            text      : 'Hello Siesta',
+            isLoading : 'Loading...'
+        });
+
+        // Spinner and text exist
+        await t.waitForSelector('button .fa-spinner.fa-spin');
+        t.selectorExists('button .neo-loading-message:contains(Loading...)');
+
+        await Neo.worker.App.setConfigs({ id: button, isLoading : true });
+
+        // Just a spinner now, no text
+        await t.waitForSelectorNotFound('button .neo-loading-message:contains(Loading...)');
+        t.selectorExists('button .neo-loading-message:contains()');
+
+        await Neo.worker.App.setConfigs({ id: button, isLoading : false });
+
+        // Not loading now, 
+        await t.waitForSelectorNotFound('button .neo-load-mask');
     });
 });
