@@ -682,10 +682,10 @@ class Base extends CoreBase {
                     }]
                 }]
             });
-            NeoArray.add(cls, 'b-masked');
+            NeoArray.add(cls, 'neo-masked');
         }
         else {
-            NeoArray.remove(cls, 'b-masked');
+            NeoArray.remove(cls, 'neo-masked');
         }
 
         this.cls = cls
