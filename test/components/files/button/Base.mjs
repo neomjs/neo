@@ -3,7 +3,7 @@ StartTest(t => {
 
     t.beforeEach(async t => {
         button && await Neo.worker.App.destroyNeoInstance(button);
-        t.waitFor(50);
+        t.waitFor(20);
     });
 
     t.it('Sanity', async t => {
@@ -30,11 +30,11 @@ StartTest(t => {
 
         // Just a spinner now, no text
         await t.waitForSelectorNotFound('button .neo-loading-message:contains(Loading...)');
-        t.selectorExists('button .neo-loading-message:contains()');
+        t.selectorExists('button .fa-spinner');
 
         await Neo.worker.App.setConfigs({ id: button, isLoading : false });
 
-        // Not loading now,
-        await t.waitForSelectorNotFound('button .neo-load-mask');
+        // Not loading now
+        await t.waitForSelectorNotFound('button .fa-spinner');
     });
 });

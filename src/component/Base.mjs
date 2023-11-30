@@ -200,6 +200,12 @@ class Base extends CoreBase {
          */
         html_: null,
         /**
+         * Set to `true` to show a spinner centered in the component.
+         * Set to a string to show a message next to a spinner centered in the component.
+         * @member {Boolean|String} isLoading=false
+         */
+        isLoading_: false,
+        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating=false
          * @protected
@@ -342,13 +348,7 @@ class Base extends CoreBase {
          * The vdom markup for this component.
          * @member {Object} _vdom={}
          */
-        _vdom: {},
-        /**
-         * Set to `true` to show a spinner centered in the component.
-         * Set to a string to show a message next to a spinner centered in the component.
-         * @member {Boolean|String} isLoading=false
-         */
-        isLoading_: null
+        _vdom: {}
     }
 
     /**
@@ -659,37 +659,46 @@ class Base extends CoreBase {
         ComponentManager.register(this)
     }
 
-    afterSetIsLoading(value) {
-        const
-            { cls, vdom } = this,
-            maskIndex     = vdom.cn?.findIndex(c => c.cls === 'neo-load-mask') || -1;
+    /**
+     * Triggered after the isLoading config got changed
+     * @param {Boolean|String} value
+     * @param {Boolean|String} oldValue
+     * @protected
+     */
+    afterSetIsLoading(value, oldValue) {
+        let me            = this,
+            { cls, vdom } = me,
+            maskIndex;
 
-        // Remove the load mask
-        if (maskIndex !== -1) {
-            vdom.cn.splice(maskIndex, 1);
+        if (oldValue !== undefined && vdom.cn) {
+            maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
+
+            // Remove the load mask
+            if (maskIndex !== -1) {
+                vdom.cn.splice(maskIndex, 1)
+            }
         }
 
         if (value) {
-            vdom.cn.push(this.loadMask = {
-                cls : 'neo-load-mask',
+            vdom.cn.push(me.loadMask = {
+                cls: ['neo-load-mask'],
                 cn : [{
-                    cls : 'neo-load-mask-body',
+                    cls: ['neo-load-mask-body'],
                     cn : [{
-                        cls : 'fa fa-spinner fa-spin'
+                        cls: ['fa', 'fa-spinner', 'fa-spin']
                     }, {
-                        cls  : 'neo-loading-message',
-                        html : typeof value === 'string' ? value : null
+                        cls      : ['neo-loading-message'],
+                        html     : value,
+                        removeDom: !Neo.isString(value)
                     }]
                 }]
-            });
-            NeoArray.add(cls, 'neo-masked');
-        }
-        else {
-            NeoArray.remove(cls, 'neo-masked');
+            })
         }
 
-        this.cls = cls
-        this.update();
+        NeoArray.toggle(cls, 'neo-masked', value);
+
+        me.cls = cls;
+        me.update()
     }
 
 
