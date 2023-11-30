@@ -59,7 +59,7 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module'
-            );
+                );
         } else {
             // dist/development & dist/production
             // import('@material/mwc-button'); // <= comment me in
@@ -74,7 +74,7 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module'
-            );
+                );
         } else {
             // dist/development & dist/production
             // import('@material/mwc-textfield'); // <= comment me in

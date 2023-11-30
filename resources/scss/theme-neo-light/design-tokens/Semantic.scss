@@ -2,25 +2,21 @@
     --sem-borderradius-large                                            : var(--borderradius-8);
     --sem-borderradius-medium                                           : var(--borderradius-4);
     --sem-borderradius-none                                             : var(--borderradius-0);
-
-    
+    --sem-borderwidth-focus                                             : 3px;
+    --sem-color-bg-neutral-active                                       : var(--gray-300);
     --sem-color-bg-neutral-default                                      : var(--gray-50);
-    --sem-color-bg-neutral-hover                                        : var(--gray-100);
-    --sem-color-bg-neutral-active                                       : var(--gray-200);
     --sem-color-bg-neutral-disabled                                     : var(--gray-200);
     --sem-color-bg-neutral-highlighted                                  : var(--white);
-
-
+    --sem-color-bg-neutral-hover                                        : var(--gray-200);
     --sem-color-bg-primary-active                                       : var(--green-600);
     --sem-color-bg-primary-background                                   : var(--green-50);
     --sem-color-bg-primary-default                                      : var(--green-400);
     --sem-color-bg-primary-disabled                                     : var(--gray-200);
     --sem-color-bg-primary-hover                                        : var(--green-500);
-    
     --sem-color-border-contrast                                         : var(--black);
     --sem-color-border-default                                          : var(--gray-200);
+    --sem-color-border-focus                                            : #5595F5;
     --sem-color-border-subtle                                           : var(--gray-100);
-    
     --sem-color-fg-neutral-contrast                                     : var(--black);
     --sem-color-fg-neutral-default                                      : var(--gray-900);
     --sem-color-fg-neutral-disabled                                     : var(--gray-300);
@@ -33,6 +29,7 @@
     --sem-height-small                                                  : var(--height-8);
     --sem-height-xlarge                                                 : var(--height-48);
     --sem-height-xsmall                                                 : var(--height-4);
+    --sem-height-xxlarge                                                : var(--height-56);
     --sem-height-xxsmall                                                : var(--height-2);
     --sem-spacing-large                                                 : var(--spacing-20);
     --sem-spacing-medium                                                : var(--spacing-16);
@@ -61,4 +58,10 @@
     --sem-typo-h2-fontSize                                              : var(--core-fontsize-h2);
     --sem-typo-h2-fontWeight                                            : var(--core-fontweight-semibold);
     --sem-typo-h2-lineHeight                                            : var(--core-lineheight-headline);
+    --sem-typo-label-medium-fontFamily                                  : var(--core-fontfamily-sans);
+    --sem-typo-label-medium-fontSize                                    : var(--core-fontsize-body);
+    --sem-typo-label-medium-fontWeight                                  : var(--core-fontweight-medium);
+    --sem-typo-label-regular-fontFamily                                 : var(--core-fontfamily-sans);
+    --sem-typo-label-regular-fontSize                                   : var(--core-fontsize-body);
+    --sem-typo-label-regular-fontWeight                                 : var(--core-fontweight-regular);
 }

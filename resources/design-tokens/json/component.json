@@ -86,7 +86,7 @@
         }
       },
       "spacex": {
-        "value": "{sem.spacing.medium}",
+        "value": "{sem.spacing.xsmall}",
         "type": "spacing"
       },
       "spacey": {
@@ -273,15 +273,51 @@
       }
     },
     "tab": {
-      "foreground": {
-        "default": {
-          "value": "{sem.color.fg.neutral.default}",
+      "height": {
+        "value": "{sem.height.xxlarge}",
+        "type": "sizing"
+      },
+      "spacinghorizontal": {
+        "value": "{sem.spacing.medium}",
+        "type": "spacing"
+      },
+      "gap": {
+        "value": "{sem.spacing.xsmall}",
+        "type": "spacing"
+      },
+      "strip": {
+        "height": {
+          "value": "3px",
+          "type": "sizing"
+        },
+        "selected": {
+          "value": "{sem.color.fg.neutral.contrast}",
+          "type": "color"
+        },
+        "unselected": {
+          "value": "transparent",
           "type": "color"
         }
       },
-      "height": {
-        "value": "{sem.height.xlarge}",
-        "type": "sizing"
+      "borderradius": {
+        "value": "{sem.borderradius.large}",
+        "type": "borderRadius"
+      },
+      "unselected": {
+        "bg": {
+          "default": {
+            "value": "transparent",
+            "type": "color"
+          },
+          "hover": {
+            "value": "{sem.color.bg.neutral.hover}",
+            "type": "color"
+          },
+          "active": {
+            "value": "{sem.color.bg.neutral.active}",
+            "type": "color"
+          }
+        }
       }
     }
   }

@@ -1,8 +1,8 @@
 :root .neo-theme-neo-light { // .neo-tab-header-button
-    --tab-button-background-color               : green;
-    --tab-button-background-color-active        : #ddd;
-    --tab-button-background-color-disabled      : #fff;
-    --tab-button-background-color-hover         : #fff;
+    --tab-button-background-color               : var(--cmp-tab-unselected-bg-default);
+    --tab-button-background-color-active        : var(--cmp-tab-unselected-bg-active);
+    --tab-button-background-color-disabled      : transparent;
+    --tab-button-background-color-hover         : var(--cmp-tab-unselected-bg-hover);
     --tab-button-background-image               : none;
     --tab-button-background-image-bottom        : none;
     --tab-button-background-image-left          : none;
@@ -15,16 +15,27 @@
     --tab-button-border-bottom                  : none;
     --tab-button-border-bottom-pressed          : none;
     --tab-button-border-pressed                 : none;
-    --tab-button-border-radius                  : 0;
+    --tab-button-border-radius                  : var(--cmp-tab-borderradius);
     --tab-button-gap                            : 0;
-    --tab-button-glyph-color                    : #bbb;
-    --tab-button-glyph-color-active             : #1c60a0;
-    --tab-button-glyph-color-hover              : #1c60a0;
-    --tab-button-glyph-color-pressed            : #1c60a0;
-    --tab-button-height                         : 25px;
-    --tab-button-height-pressed                 : 25px;
+    --tab-button-glyph-color                    : var(--sem-color-fg-neutral-subdued);
+    --tab-button-glyph-color-active             : inherit;
+    --tab-button-glyph-color-hover              : inherit;
+    --tab-button-glyph-color-pressed            : inherit;
+    --tab-button-height                         : var(--cmp-tab-height);
+    --tab-button-height-pressed                 : var(--cmp-tab-height);
     --tab-button-margin-bottom                  : 0;
-    --tab-button-padding                        : 7px 12px 6px 12px;
-    --tab-button-text-color                     : #2b2b2b;
+    --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
+    --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
     --tab-button-text-transform                 : uppercase;
 }
+
+.neo-button-text {
+    font-size: var(--sem-typo-label-regular-fontSize) !important;
+}
+
+.pressed {
+    .neo-button-glyph, .neo-button-text {
+        color: var(--sem-color-fg-neutral-contrast) !important;
+    }
+}
+

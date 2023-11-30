@@ -20,8 +20,8 @@ example, the following statement logs the URL query string.
 
 
 <pre data-javascript>
-Neo.Main.getByPath('window.location.search')
-    .then(value=>console.log(value)); // Logs the search string
+const search = await Neo.Main.getByPath('window.location.search');
+console.log(search); // Logs the search string
 </pre>
 
 `Neo.Main` has some simple methods for accessing the 
