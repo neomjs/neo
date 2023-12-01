@@ -116,3 +116,7 @@ $border-width    : 1px;
     --button-tertiary-text-color-disabled       : inherit;
     --button-tertiary-text-color-hover          : var(--button-text-color);
 }
+
+.neo-button {
+    min-width: var(--cmp-button-height);
+}

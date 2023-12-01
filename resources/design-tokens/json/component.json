@@ -319,6 +319,28 @@
           }
         }
       }
+    },
+    "tooltip": {
+      "height": {
+        "value": "{height.24}",
+        "type": "sizing"
+      },
+      "spacinghorizontal": {
+        "value": "{sem.spacing.xsmall}",
+        "type": "spacing"
+      },
+      "fg": {
+        "value": "{sem.color.fg.neutral.inverted}",
+        "type": "color"
+      },
+      "bg": {
+        "value": "{sem.color.bg.neutral.contrast}",
+        "type": "color"
+      },
+      "borderradius": {
+        "value": "{sem.borderradius.medium}",
+        "type": "borderRadius"
+      }
     }
   }
 }

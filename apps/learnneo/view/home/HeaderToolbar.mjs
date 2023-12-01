@@ -25,19 +25,29 @@ class HeaderToolbar extends Base {
             text  : 'neo.mjs'
         }, '->', {
             text: 'Docs',
-            ui  : 'tertiary'
+            ui  : 'ghost'
         }, {
             text: 'Learn',
-            ui  : 'tertiary'
+            ui  : 'ghost'
         }, {
             cls    : ['github-button'],
             iconCls: 'fa-brands fa-github',
-            ui     : 'tertiary',
-            url    : 'https://github.com/neomjs/neo'
+            ui     : 'ghost',
+            url    : 'https://github.com/neomjs/neo',
+            tooltip: {
+                html: 'GitHub',
+                showDelay: '0',
+                hideDelay: '0'
+            }
         }, {
             iconCls: 'fa-brands fa-slack',
-            ui     : 'tertiary',
-            url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA'
+            ui     : 'ghost',
+            url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+            tooltip: {
+                html: 'Join Slack',
+                showDelay: '0',
+                hideDelay: '0'
+            }
         }]
     }
 }
