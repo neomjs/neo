@@ -247,18 +247,10 @@ class Flexbox extends Base {
 
         NeoArray.remove(wrapperCls, prefix + 'container');
 
-        if (me.align) {
-            NeoArray.remove(wrapperCls, prefix + 'align-' + me.align);
-        }
-        if (me.direction) {
-            NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
-        }
-        if (me.pack) {
-            NeoArray.remove(wrapperCls, prefix + 'pack-' + me.pack);
-        }
-        if (me.wrap) {
-            NeoArray.remove(wrapperCls, prefix + 'wrap-' + me.wrap);
-        }
+        me.align     && NeoArray.remove(wrapperCls, prefix + 'align-'     + me.align);
+        me.direction && NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
+        me.pack      && NeoArray.remove(wrapperCls, prefix + 'pack-'      + me.pack);
+        me.wrap      && NeoArray.remove(wrapperCls, prefix + 'wrap-'      + me.wrap);
 
         container.wrapperCls = wrapperCls;
     }
