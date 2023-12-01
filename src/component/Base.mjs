@@ -666,40 +666,40 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetIsLoading(value, oldValue) {
-        let me            = this,
-            { cls, vdom } = me,
-            maskIndex;
+        if (!(value === false && oldValue === undefined)) {
+            let me            = this,
+                { cls, vdom } = me,
+                maskIndex;
 
-        if (oldValue !== undefined && vdom.cn) {
-            maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
+            if (oldValue !== undefined && vdom.cn) {
+                maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
 
-            // Remove the load mask
-            if (maskIndex !== -1) {
-                vdom.cn.splice(maskIndex, 1)
+                // Remove the load mask
+                if (maskIndex !== -1) {
+                    vdom.cn.splice(maskIndex, 1)
+                }
             }
-        }
 
-        if (value) {
-            vdom.cn.push(me.loadMask = {
-                cls: ['neo-load-mask'],
-                cn : [{
-                    cls: ['neo-load-mask-body'],
+            if (value) {
+                vdom.cn.push(me.loadMask = {
+                    cls: ['neo-load-mask'],
                     cn : [{
-                        cls: ['fa', 'fa-spinner', 'fa-spin']
-                    }, {
-                        cls      : ['neo-loading-message'],
-                        html     : value,
-                        removeDom: !Neo.isString(value)
+                        cls: ['neo-load-mask-body'],
+                        cn : [{
+                            cls: ['fa', 'fa-spinner', 'fa-spin']
+                        }, {
+                            cls      : ['neo-loading-message'],
+                            html     : value,
+                            removeDom: !Neo.isString(value)
+                        }]
                     }]
-                }]
-            })
+                })
+            }
+
+            NeoArray.toggle(cls, 'neo-masked', value);
+            me.set({cls, vdom})
         }
-
-        NeoArray.toggle(cls, 'neo-masked', value);
-
-        me.set({cls, vdom})
     }
-
 
     /**
      * Triggered after the maxHeight config got changed
