@@ -1280,8 +1280,12 @@ class Base extends CoreBase {
      * Triggers all stored resolve() callbacks
      */
     doResolveUpdateCache() {
-        this.resolveUpdateCache.forEach(item => item());
-        this.resolveUpdateCache = [];
+        let me = this;
+
+        if (me.resolveUpdateCache) {
+            me.resolveUpdateCache.forEach(item => item());
+            me.resolveUpdateCache = []
+        }
     }
 
     /**
@@ -2008,10 +2012,11 @@ class Base extends CoreBase {
         resolve?.();
 
         if (me.needsVdomUpdate) {
-            me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
+            // if a new update is scheduled, we can clear the cache => these updates are included
+            me.childUpdateCache = [];
 
             me.update()
-        } else {
+        } else if (me.childUpdateCache) {
             [...me.childUpdateCache].forEach(id => {
                 Neo.getComponent(id)?.update();
                 NeoArray.remove(me.childUpdateCache, id)
