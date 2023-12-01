@@ -37,6 +37,7 @@
         display          : grid;
         justify-content  : center;
         align-content    : center;
+        overflow         : clip;
 
         .neo-load-mask-body {
             display   : flex;
