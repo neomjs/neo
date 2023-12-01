@@ -45,28 +45,28 @@ $border-width    : 1px;
     --button-use-gradients                      : false;
 
     // {module: Button; ui: --ghost}
-    --button-ghost-background-color             : var(--button-text-color);
-    --button-ghost-background-color-active      : #{$border-color};
-    --button-ghost-background-color-disabled    : inherit;
-    --button-ghost-background-color-hover       : var(--button-text-color);
+    --button-ghost-background-color             : var(--cmp-button-ghost-bg-default);
+    --button-ghost-background-color-active      : var(--cmp-button-ghost-bg-active);
+    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-bg-disabled);
+    --button-ghost-background-color-hover       : var(--cmp-button-ghost-bg-hover);
     --button-ghost-background-image             : none;
-    --button-ghost-badge-background-color       : var(--button-badge-color);
-    --button-ghost-badge-color                  : var(--button-badge-background-color);
-    --button-ghost-border                       : #{$border-width} #{$border-style} var(--button-background-color);
-    --button-ghost-border-active                : #{$border-width} #{$border-style} #{$border-color};
+    --button-ghost-badge-background-color       : transparent;
+    --button-ghost-badge-color                  : transparent;
+    --button-ghost-border                       : none;
+    --button-ghost-border-active                : none;
     --button-ghost-border-disabled              : inherit;
-    --button-ghost-border-hover                 : #{$border-width} #{$border-style} #{$text-color};
-    --button-ghost-border-pressed               : #{$border-width} #{$border-style} #{$text-color};
-    --button-ghost-glyph-color                  : var(--button-background-color);
-    --button-ghost-glyph-color-active           : var(--button-background-color);
-    --button-ghost-glyph-color-disabled         : inherit;
-    --button-ghost-glyph-color-hover            : var(--button-background-color);
-    --button-ghost-opacity-disabled             : var(--neo-disabled-opacity);
+    --button-ghost-border-hover                 : none;
+    --button-ghost-border-pressed               : none;
+    --button-ghost-glyph-color                  : var(--cmp-button-ghost-fg-default);
+    --button-ghost-glyph-color-active           : inherit;
+    --button-ghost-glyph-color-disabled         : var(--cmp-button-ghost-fg-disabled);
+    --button-ghost-glyph-color-hover            : inherit;
+    --button-ghost-opacity-disabled             : inherit;
     --button-ghost-ripple-background-color      : inherit;
-    --button-ghost-text-color                   : var(--button-background-color);
-    --button-ghost-text-color-active            : var(--button-background-color);
-    --button-ghost-text-color-disabled          : inherit;
-    --button-ghost-text-color-hover             : var(--button-background-color);
+    --button-ghost-text-color                   : var(--cmp-button-ghost-fg-default);
+    --button-ghost-text-color-active            : inherit;
+    --button-ghost-text-color-disabled          : var(--cmp-button-ghost-fg-disabled);
+    --button-ghost-text-color-hover             : inherit;
 
     // {module: Button; ui: --secondary}
     --button-secondary-background-color         : var(--cmp-button-secondary-bg-default);
