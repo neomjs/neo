@@ -1,35 +1,27 @@
 StartTest(t => {
-    t.it('Checking if neo.mjs got started', async t => {
-        if (!globalThis.Neo?.Main) {
-            console.log('Starting the neo.mjs workers setup');
+    t.it('Sanity', async t => {
+        Neo.worker.App.createNeoInstance({
+            ntype        : 'selectfield',
+            labelPosition: 'inline',
+            labelText    : 'US States',
+            labelWidth   : 80,
+            width        : 300,
 
-            await import('../../../../../src/MicroLoader.mjs');
-        }
+            store : {
+                autoLoad   : true,
+                keyProperty: 'abbreviation',
+                url        : '../../resources/examples/data/us_states.json',
 
-        setTimeout(() => {
-            Neo.worker.App.createNeoInstance({
-                ntype        : 'selectfield',
-                labelPosition: 'inline',
-                labelText    : 'US States',
-                labelWidth   : 80,
-                width        : 300,
-
-                store : {
-                    autoLoad   : true,
-                    keyProperty: 'abbreviation',
-                    url        : '../../resources/examples/data/us_states.json',
-
-                    model: {
-                        fields: [{
-                            name: 'abbreviation',
-                            type: 'string'
-                        }, {
-                            name: 'name',
-                            type: 'string'
-                        }]
-                    }
+                model: {
+                    fields: [{
+                        name: 'abbreviation',
+                        type: 'string'
+                    }, {
+                        name: 'name',
+                        type: 'string'
+                    }]
                 }
-            })
-        }, 1000)
+            }
+        });
     });
 });

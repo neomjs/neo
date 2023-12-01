@@ -143,13 +143,13 @@
             "name": "Main Thread Addons"
         },
         {
-            "id": "mainThreadAddonIntro",
+            "id": "MainThreadAddonIntro",
             "parentId": "MainThreadAddons",
             "isLeaf": true,
             "name": "Introduction"
         },
         {
-            "id": "mainThreadAddonExample",
+            "id": "MainThreadAddonExample",
             "parentId": "MainThreadAddons",
             "isLeaf": true,
             "name": "Example"

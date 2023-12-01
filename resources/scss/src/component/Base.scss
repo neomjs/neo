@@ -25,3 +25,29 @@
     top             : -10000px;
     z-index         : 1000;
 }
+
+.neo-masked {
+    position : relative;
+
+    .neo-load-mask {
+        position         : absolute;
+        inset            : 0;
+        background-color : inherit;
+        z-index          : 4;
+        display          : grid;
+        justify-content  : center;
+        align-content    : center;
+        overflow         : clip;
+
+        .neo-load-mask-body {
+            display   : flex;
+            flex-flow : row nowrap;
+            gap       : 0.7em;
+
+            .fa-spinner {
+                width  : 1em;
+                height : 1em;
+            }
+        }
+    }
+}

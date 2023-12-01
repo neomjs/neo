@@ -200,6 +200,12 @@ class Base extends CoreBase {
          */
         html_: null,
         /**
+         * Set to `true` to show a spinner centered in the component.
+         * Set to a string to show a message next to a spinner centered in the component.
+         * @member {Boolean|String} isLoading=false
+         */
+        isLoading_: false,
+        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating=false
          * @protected
@@ -651,6 +657,48 @@ class Base extends CoreBase {
 
         oldValue && ComponentManager.unregister(oldValue);
         ComponentManager.register(this)
+    }
+
+    /**
+     * Triggered after the isLoading config got changed
+     * @param {Boolean|String} value
+     * @param {Boolean|String} oldValue
+     * @protected
+     */
+    afterSetIsLoading(value, oldValue) {
+        if (!(value === false && oldValue === undefined)) {
+            let me            = this,
+                { cls, vdom } = me,
+                maskIndex;
+
+            if (oldValue !== undefined && vdom.cn) {
+                maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
+
+                // Remove the load mask
+                if (maskIndex !== -1) {
+                    vdom.cn.splice(maskIndex, 1)
+                }
+            }
+
+            if (value) {
+                vdom.cn.push(me.loadMask = {
+                    cls: ['neo-load-mask'],
+                    cn : [{
+                        cls: ['neo-load-mask-body'],
+                        cn : [{
+                            cls: ['fa', 'fa-spinner', 'fa-spin']
+                        }, {
+                            cls      : ['neo-loading-message'],
+                            html     : value,
+                            removeDom: !Neo.isString(value)
+                        }]
+                    }]
+                })
+            }
+
+            NeoArray.toggle(cls, 'neo-masked', value);
+            me.set({cls, vdom})
+        }
     }
 
     /**
@@ -1231,8 +1279,12 @@ class Base extends CoreBase {
      * Triggers all stored resolve() callbacks
      */
     doResolveUpdateCache() {
-        this.resolveUpdateCache.forEach(item => item());
-        this.resolveUpdateCache = [];
+        let me = this;
+
+        if (me.resolveUpdateCache) {
+            me.resolveUpdateCache.forEach(item => item());
+            me.resolveUpdateCache = []
+        }
     }
 
     /**
@@ -1959,10 +2011,11 @@ class Base extends CoreBase {
         resolve?.();
 
         if (me.needsVdomUpdate) {
-            me.childUpdateCache = [];     // if a new update is scheduled, we can clear the cache => these updates are included
+            // if a new update is scheduled, we can clear the cache => these updates are included
+            me.childUpdateCache = [];
 
             me.update()
-        } else {
+        } else if (me.childUpdateCache) {
             [...me.childUpdateCache].forEach(id => {
                 Neo.getComponent(id)?.update();
                 NeoArray.remove(me.childUpdateCache, id)
@@ -2133,16 +2186,7 @@ class Base extends CoreBase {
         me._hidden = true; // silent update
         me.mounted = false;
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : [{
-                action: 'removeNode',
-                id    : me.vdom.id
-            }]
-        }).catch(err => {
-            console.log('Error attempting to unmount component', err, me)
-        })
+        Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id})
     }
 
     /**
