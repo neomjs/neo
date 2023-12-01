@@ -29,7 +29,7 @@ class HBox extends Flexbox {
      */
     applyChildAttributes(item) {
         // Do not apply flex if fixed width
-        !item.width && super.applyChildAttributes(item);
+        !item.width && super.applyChildAttributes(item)
     }
 }
 
