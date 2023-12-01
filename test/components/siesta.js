@@ -26,6 +26,10 @@ project.configure({
                             }
                         }, 100);
                 }, errback);
+            },
+            async beforeEach() {
+                this.SUPER(...arguments);
+                this.SUPER(t => t.waitFor(50));
             }
         }
     })

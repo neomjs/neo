@@ -697,8 +697,7 @@ class Base extends CoreBase {
 
         NeoArray.toggle(cls, 'neo-masked', value);
 
-        me.cls = cls;
-        me.update()
+        me.set({cls, vdom})
     }
 
 
