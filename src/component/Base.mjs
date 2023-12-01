@@ -2187,16 +2187,7 @@ class Base extends CoreBase {
         me._hidden = true; // silent update
         me.mounted = false;
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : [{
-                action: 'removeNode',
-                id    : me.vdom.id
-            }]
-        }).catch(err => {
-            console.log('Error attempting to unmount component', err, me)
-        })
+        Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id})
     }
 
     /**
