@@ -128,16 +128,9 @@ class RowModel extends Model {
         if (! id) { return };
         
         record = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
-
-        if (data.altKey) {
-            view.fire('altSelect', {data, record})
-        } else if (data.ctrlKey ) {
-            view.fire('ctrlSelect', {data, record})
-        } else if (data.metaKey ) {
-            view.fire('metaSelect', {data, record})
-        } else if (data.shiftKey ) {
-            view.fire('shiftSelect', {data, record})            
-        } else {
+        view.fire('rowclick', {data, record})
+        
+        if ( ! (data.altKey || data.ctrlKey || data.metaKey || data.shiftKey) ) {
             me.toggleSelection(id);
             isSelected = me.isSelected(id);
 
@@ -147,7 +140,6 @@ class RowModel extends Model {
                 record
             });
         }
-
     }
 
     /**
