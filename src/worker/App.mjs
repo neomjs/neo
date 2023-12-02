@@ -29,6 +29,7 @@ class App extends Base {
             main: [
                 'createNeoInstance',
                 'destroyNeoInstance',
+                'fireEvent',
                 'setConfigs'
             ]
         },
@@ -183,6 +184,30 @@ class App extends Base {
             }
 
             instance.destroy(true, true);
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Fires a custom event based on core.Observable on any app realm based Neo instance from main
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.name
+     */
+    fireEvent(data) {
+        let instance = Neo.get(data.id),
+            name;
+
+        if (instance) {
+            name = data.name;
+
+            delete data.id;
+            delete data.name;
+
+            instance.fire(name, data);
+
             return true
         }
 
