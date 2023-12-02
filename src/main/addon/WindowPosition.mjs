@@ -1,4 +1,5 @@
 import Base from '../../core/Base.mjs';
+import Neo  from "src/Neo.mjs";
 
 /**
  * @class Neo.main.addon.WindowPosition
@@ -36,6 +37,7 @@ class WindowPosition extends Base {
         remote: {
             app: [
                 'registerWindow',
+                'setConfigs',
                 'setDock',
                 'unregisterWindow'
             ]
@@ -131,7 +133,7 @@ class WindowPosition extends Base {
             });
 
             me.screenLeft = screenLeft;
-            me.screenTop  = screenTop;
+            me.screenTop  = screenTop
         }
     }
 
@@ -230,6 +232,16 @@ class WindowPosition extends Base {
      */
     registerWindow(data) {
         this.windows[data.name] = data
+    }
+
+    /**
+     * Set configs from within the app worker
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    setConfigs(data) {
+        delete data.appName;
+        this.set(data)
     }
 
     /**
