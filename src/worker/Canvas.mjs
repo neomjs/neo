@@ -45,7 +45,7 @@ class Canvas extends Base {
 
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
-        me.channelPorts.app = port1;
+        me.channelPorts.app = port1
     }
 
     /**
@@ -58,7 +58,7 @@ class Canvas extends Base {
             action : 'reply',
             replyId: data.id,
             success: true
-        });
+        })
     }
 
     /**
@@ -75,8 +75,8 @@ class Canvas extends Base {
             /* webpackMode: "lazy" */
             `../../${path}/canvas.mjs`
         ).then(module => {
-            module.onStart();
-        });
+            module.onStart()
+        })
     }
 }
 
