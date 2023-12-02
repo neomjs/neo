@@ -21,6 +21,10 @@ class WindowPosition extends Base {
          */
         intervalTime: 20,
         /**
+         * @member {Boolean} observeResize_=true
+         */
+        observeResize_: true,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -64,8 +68,21 @@ class WindowPosition extends Base {
         me.screenLeft = win.screenLeft;
         me.screenTop  = win.screenTop;
 
-        win.addEventListener('mouseout', me.onMouseOut.bind(me));
-        win.addEventListener('resize',   me.onResize.bind(me))
+        win.addEventListener('mouseout', me.onMouseOut.bind(me))
+    }
+
+    /**
+     * Triggered after the observeResize config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetObserveResize(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            window[value ? 'addEventListener' : 'removeEventListener']('resize', me.onResize.bind(me))
+        }
     }
 
     /**
