@@ -153,7 +153,6 @@ class Picker extends Text {
             items    : pickerComponent ? [pickerComponent] : [],
             maxHeight: me.pickerMaxHeight,
             theme    : me.theme,
-            vdom     : {cn: [], 'aria-activedescendant': me.id, tabIndex: -1},
             width    : pickerWidth,
             ...me.pickerConfig,
 
