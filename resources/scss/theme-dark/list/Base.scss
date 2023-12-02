@@ -4,8 +4,8 @@
     --list-container-list-color          : #bbb;
     --list-item-background-color         : #33343d;
     --list-item-background-color-hover   : #{lighten(#33343d, 10%)};
-    --list-item-background-color-active  : #5a7082;
-    --list-item-color-active             : #2b2b2b;
+    --list-item-background-color-selected: #5a7082;
+    --list-item-color-selected           : #2b2b2b;
     --list-item-glyph-color              : inherit;
     --list-item-highlight-search-color   : #fff;
     --list-item-padding                  : 5px;

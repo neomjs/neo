@@ -37,7 +37,7 @@ class Base extends Component {
         /**
          * @member {Neo.form.field.Base|null} field=null
          */
-        field_: null,
+        field: null,
         /**
          * @member {String|null} iconCls_=null
          */
@@ -62,6 +62,11 @@ class Base extends Component {
          * @protected
          */
         type: 'base',
+        /**
+         * @member {Object} _vdom={tabIndex: -1}
+         */
+        _vdom:
+        {tabIndex: -1},
         /**
          * @member {Number} weight_=10
          */
@@ -103,10 +108,6 @@ class Base extends Component {
 
         NeoArray[value === 'start' ? 'add' : 'remove'](cls, 'neo-align-start');
         this.cls = cls;
-    }
-
-    afterSetField(field) {
-        (this.vdom.data || (this.vdom.data = {})).focus = field && field.getInputElId();
     }
 
     /**

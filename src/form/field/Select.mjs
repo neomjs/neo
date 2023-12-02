@@ -49,15 +49,19 @@ class Select extends Picker {
          */
         forceSelection: false,
         /**
-         * @member {String|Number|null} activeRecordId=null
+         * @member {String|Number|null} hintRecordId=null
          */
-        activeRecordId: null,
+        hintRecordId: null,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
         keys: {
-            Escape: 'onKeyDownEscape'
+            Down  : 'onKeyDownDown',
+            Enter : 'onKeyDownEnter',
+            Escape: 'onKeyDownEscape',
+            Right : 'onKeyDownRight',
+            Up    : 'onKeyDownUp'
         },
         /**
          * @member {String|null} lastManualInput=null
@@ -84,9 +88,9 @@ class Select extends Picker {
          */
         record_: null,
         /**
-         * @member {String|null} role='combobox'
+         * @member {String|null} role='listbox'
          */
-        role: 'combobox',
+        role: 'listbox',
         /**
          * @member {Neo.data.Store|null} store_=null
          */
@@ -122,7 +126,34 @@ class Select extends Picker {
     construct(config) {
         super.construct(config);
 
-        this.typeAhead && this.updateTypeAhead()
+        let me = this;
+
+        me.list = Neo.create({
+            module        : List,
+            appName       : me.appName,
+            displayField  : me.displayField,
+            itemRole      : 'option',
+            parentId      : me.id,
+            selectionModel: {stayInList: false},
+            store         : me.store,
+            ...me.listConfig
+        });
+
+        me.list.keys._keys.push(
+            {fn: 'onContainerKeyDownEnter',  key: 'Enter',  scope: me.id},
+            {fn: 'onContainerKeyDownEscape', key: 'Escape', scope: me.id}
+        );
+
+        me.list.on({
+            createItems       : me.onListCreateItems,
+            itemClick         : me.onListItemClick,
+            itemNavigate      : me.onListItemNavigate,
+            selectPostLastItem: me.onSelectPostLastItem,
+            selectPreFirstItem: me.onSelectPreFirstItem,
+            scope             : me
+        });
+
+        me.typeAhead && me.updateTypeAhead()
     }
 
     /**
@@ -286,43 +317,7 @@ class Select extends Picker {
      * @returns {Neo.list.Base}
      */
     createPickerComponent() {
-        const me = this;
-
-        me.list = Neo.create({
-            module          : List,
-            appName         : me.appName,
-            displayField    : me.displayField,
-            itemRole        : 'option',
-            parentId        : me.id,
-            navigator       : {
-                id          : me.getPickerId(),
-                eventSource : me.getInputElId()
-            },
-            selectionModel  : {stayInList: false},
-            store           : me.store,
-            ...me.listConfig
-        });
-        me.getInputEl()['aria-controls'] = me.list.id;
-
-        me.list.addDomListeners({
-            navigate: {
-                fn    : me.onListItemNavigate,
-                scope : me
-            }
-        });
-        me.list.selectionModel.on({
-            selectionChange : me.onListItemSelectionChange,
-            scope           : me
-        })
-
-        me.list.on({
-            createItems       : me.onListCreateItems,
-            selectPostLastItem: me.onSelectPostLastItem,
-            selectPreFirstItem: me.onSelectPreFirstItem,
-            scope             : me
-        });
-
-        return me.list;
+        return this.list
     }
 
     /**
@@ -412,13 +407,27 @@ class Select extends Picker {
         return me.record?.[me.valueField] || me.value
     }
 
-    onConstructed() {
-        const inputEl = this.getInputEl();
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    handleKeyDownEnter(data) {
+        let me = this;
 
-        inputEl['aria-expanded'] = false
-        inputEl['aria-haspopup'] = 'listbox'
-        inputEl['aria-activedescendant'] = ''
-        super.onConstructed(...arguments);
+        if (me.pickerIsMounted) {
+            me.selectListItem();
+            super.onKeyDownEnter(data)
+        } else {
+            super.onKeyDownEnter(data, me.selectListItem)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onContainerKeyDownEnter(data) {
+        this.hidePicker()
     }
 
     /**
@@ -438,7 +447,7 @@ class Select extends Picker {
         let me = this;
 
         if (me.forceSelection && !me.record) {
-            me.value = me.activeRecordId;
+            me.value = me.hintRecordId;
         }
 
         super.onFocusLeave(data)
@@ -454,6 +463,56 @@ class Select extends Picker {
     }
 
     /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownDown(data) {
+        this.handleKeyDownEnter(data)
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownEnter(data) {
+        this.handleKeyDownEnter(data);
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownRight(data) {
+        let me = this,
+            oldValue, record;
+
+        if (me.hintRecordId) {
+            oldValue = me.value;
+            record   = me.store.get(me.hintRecordId);
+
+            me.record = record;
+            me._value = record[me.displayField];
+
+            me.afterSetValue(me._value, oldValue)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownUp(data) {
+        let me = this;
+
+        if (me.pickerIsMounted) {
+            me.selectLastListItem();
+            super.onKeyDownEnter(data)
+        } else {
+            super.onKeyDownEnter(data, me.selectLastListItem)
+        }
+    }
+
+    /**
      * @protected
      */
     onListCreateItems() {
@@ -462,33 +521,27 @@ class Select extends Picker {
     }
 
     /**
-     * @param {Object} selectionChangeEvent
-     * @param {Object[]} selectionChangeEvent.selection
+     * @param {Object} record
      * @protected
      */
-    onListItemSelectionChange({ selection }) {
-        if (selection?.length) {
-            const
-                me           = this,
-                displayField = me.displayField,
-                oldValue     = me.value,
-                selected     = selection[0],
-                record       = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected,
-                value        = record[displayField];
+    onListItemChange(record) {
+        let me           = this,
+            displayField = me.displayField,
+            oldValue     = me.value,
+            value        = record[displayField];
 
-            if (me.value !== value) {
-                me.hintRecordId = null;
-                me.record       = record;
-                me._value       = value;
-                me.getInputHintEl().value = null;
+        if (me.value !== value) {
+            me.hintRecordId = null;
+            me.record       = record;
+            me._value       = value;
+            me.getInputHintEl().value = null;
 
-                me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
-                me.fire('select', {
-                    record,
-                    value: record[displayField]
-                })
-            }
+            me.fire('select', {
+                record,
+                value: record[displayField]
+            })
         }
     }
 
@@ -496,10 +549,17 @@ class Select extends Picker {
      * @param {Object} record
      * @protected
      */
-    onListItemNavigate({ activeIndex }) {
-        if (activeIndex >= 0) {
-            this.activeRecordId = (this.store.getAt(activeIndex)).id
-        }
+    onListItemClick(record) {
+        this.onListItemChange(record);
+        this.hidePicker()
+    }
+
+    /**
+     * @param {Object} record
+     * @protected
+     */
+    onListItemNavigate(record) {
+        this.onListItemChange(record)
     }
 
     /**
@@ -554,14 +614,15 @@ class Select extends Picker {
         let me = this;
 
         if (!Neo.isNumber(index)) {
-            if (me.activeRecordId) {
-                index = me.store.indexOfKey(me.activeRecordId);
+            if (me.hintRecordId) {
+                index = me.store.indexOfKey(me.hintRecordId);
             } else {
                 index = 0;
             }
         }
 
         me.list.selectItem(index);
+        me.onListItemNavigate(me.store.getAt(index))
     }
 
     /**
@@ -642,13 +703,13 @@ class Select extends Picker {
 
             if (hasMatch && inputHintEl) {
                 inputHintEl.value = value + storeValue.substr(value.length);
-                me.activeRecordId = store.items[i][store.keyProperty || store.model.keyProperty]
+                me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty]
             }
         }
 
         if (!hasMatch && inputHintEl) {
             inputHintEl.value = null;
-            me.activeRecordId = null;
+            me.hintRecordId = null;
         }
 
         !silent && me.update()
