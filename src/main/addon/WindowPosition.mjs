@@ -62,6 +62,12 @@ class WindowPosition extends Base {
     }
 
     /**
+     * @member {Function|null} resizeListener=null
+     * @protected
+     */
+    resizeListener = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -85,9 +91,11 @@ class WindowPosition extends Base {
     afterSetObserveResize(value, oldValue) {
         let me = this;
 
-        if (value) {
-            window[value ? 'addEventListener' : 'removeEventListener']('resize', me.onResize.bind(me))
+        if (!me.resizeListener) {
+            me.resizeListener =  me.onResize.bind(me)
         }
+
+        window[value ? 'addEventListener' : 'removeEventListener']('resize', me.resizeListener)
     }
 
     /**
@@ -196,7 +204,7 @@ class WindowPosition extends Base {
     /**
      * @param {Object} event
      */
-    onResize(event) {
+    onResize(event) { console.log('onResize');
         let me  = this,
             win = window,
             height, width;
