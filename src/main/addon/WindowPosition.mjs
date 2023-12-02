@@ -213,14 +213,16 @@ class WindowPosition extends Base {
                     break
             }
 
-            Neo.Main.windowResizeTo({
-                height    : height,
-                width     : width,
-                windowName: key
-            })
-        });
+            if (me.adjustWindowPositions) {
+                Neo.Main.windowResizeTo({
+                    height,
+                    width,
+                    windowName: key
+                });
 
-        me.adjustWindowPositions && me.adjustPositions()
+                me.adjustPositions()
+            }
+        })
     }
 
     /**
