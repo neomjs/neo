@@ -15,27 +15,7 @@ class ListModel extends Model {
          * @member {String} ntype='selection-listmodel'
          * @protected
          */
-        ntype: 'selection-listmodel',
-        /**
-         * @member {Boolean} stayInList=true
-         */
-        stayInList: true
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onKeyDownDown(data) {
-        !this.view.disableSelection && this.onNavKey(data, 1);
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onKeyDownEnter(data) {
-        let view = this.view;
-
-        !view.disableSelection && view.onKeyDownEnter?.(this.getSelection()[0]);
+        ntype: 'selection-listmodel'
     }
 
     /**
@@ -45,90 +25,48 @@ class ListModel extends Model {
     onKeyDownEscape(data) {}
 
     /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
      * @param {Object} data
      */
-    onKeyDownLeft(data) {
-        this.onKeyDownUp(data);
-    }
+    onKeyDownDown(data) {}
 
     /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
      * @param {Object} data
      */
-    onKeyDownRight(data) {
-        this.onKeyDownDown(data);
-    }
+    onKeyDownEnter(data) {}
 
     /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
      * @param {Object} data
      */
-    onKeyDownUp(data) {
-        !this.view.disableSelection && this.onNavKey(data, -1);
-    }
+    onKeyDownLeft(data) {}
 
     /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
      * @param {Object} data
-     * @param {Number} step
      */
-    onNavKey(data, step) {
+    onKeyDownRight(data) {}
+
+    /**
+     * Placeholder method to get overridden by class extension list menu.ListModel
+     * @param {Object} data
+     */
+    onKeyDownUp(data) {}
+
+    onListClick({ target }) {
         let me               = this,
             view             = me.view,
-            store            = view.store,
-            maxItems         = store.getCount(),
-            preventSelection = false,
-            index, item, itemId, node, record, recordId;
+            store            = view.store;
+debugger;
+        activeIndex = Math.min(activeIndex, store.getCount() - 1)
 
-        for (node of data.path) {
-            if (node.cls.includes(view.itemCls)) {
-                item = node.id;
-                break;
-            }
-        }
-
-        item = item || me.items?.[0];
-
-        if (item) {
-            recordId = view.getItemRecordId(item);
-            index    = store.indexOf(recordId) + step;
-            record   = store.getAt(index);
-
-            while (record?.[view.disabledField] === true || record?.isHeader === true) {
-                index += step;
-                record = store.getAt(index)
-            }
-
-            if (index < 0) {
-                if (me.stayInList) {
-                    index = maxItems - 1;
-                } else {
-                    preventSelection = true;
-                    me.deselectAll();
-                    view.fire('selectPreFirstItem')
-                }
-            } else if (index >= maxItems) {
-                if (me.stayInList) {
-                    index = 0;
-
-                    while (store.getAt(index)?.isHeader === true) {
-                        index++;
-                    }
-                } else {
-                    preventSelection = true;
-                    me.deselectAll();
-                    view.fire('selectPostLastItem')
-                }
-            }
-        } else {
-            index = 0
-        }
-
-        if (!preventSelection) {
-            record = store.getAt(index);
+        const
+            record = store.getAt(activeIndex),
             itemId = view.getItemId(record[me.view.getKeyProperty()]);
 
-            me.select(itemId);
-            view.focus(itemId);
-            view.fire('itemNavigate', record)
-        }
+        me.select(itemId);
+        view.fire('itemNavigate', record)
     }
 
     /**
@@ -140,6 +78,12 @@ class ListModel extends Model {
         let me   = this,
             id   = me.id,
             view = me.view;
+
+        view.addDomListeners({
+            click    : me.onListClick,
+            delegate : `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`,
+            scope    : me
+        })
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},
@@ -161,7 +105,6 @@ class ListModel extends Model {
 
         if (itemId) {
             this.select(itemId);
-            view.focus(itemId)
         }
     }
 

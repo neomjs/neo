@@ -107,7 +107,13 @@ class Model extends Base {
 
         NeoArray.remove(itemCollection, item);
 
-        !silent && view.update();
+        if (!silent) {
+            view.update();
+
+            me.fire('selectionChange', {
+                selection : itemCollection
+            });
+        }
     }
 
     /**
@@ -125,6 +131,10 @@ class Model extends Base {
         if (!silent && items.length > 0) {
             view.update();
         }
+
+        me.fire('selectionChange', {
+            selection : this.items
+        });
     }
 
     /**
@@ -225,6 +235,10 @@ class Model extends Base {
             view[view.silentSelect ? '_vdom' : 'vdom'] = vdom;
 
             view.onSelect?.(items);
+
+            me.fire('selectionChange', {
+                selection : itemCollection
+            });
         }
     }
 

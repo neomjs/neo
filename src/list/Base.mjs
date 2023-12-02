@@ -135,7 +135,13 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'ul', cn: []}
+        {tag: 'ul', cn: []},
+
+        /**
+         * An object toi help configure the navigation. Used to pass to {@link Neo.main.DomAccess#navigate}.
+         * @member {Object} navigator={}
+         */
+        navigator : {}
     }
 
     /**
@@ -254,6 +260,21 @@ class Base extends Component {
             me.activeIndex = activeIndex
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
+        }
+    }
+
+    afterSetMounted(value) {
+        super.afterSetMounted(...arguments);
+
+        // Set up navigation in the list
+        if (value && !this.hasNavigation) {
+            Neo.main.DomAccess.navigate({
+                appName  : this.appName,
+                id       : this.id,
+                selector : `.${this.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                ...this.navigator
+            })
+            this.hasNavigation = true
         }
     }
 
@@ -392,11 +413,14 @@ class Base extends Component {
         }
 
         item = {
-            tag     : isHeader ? 'dt' : me.itemTagName,
-            cls,
-            id      : itemId,
-            tabIndex: -1
+            id  : itemId,
+            tag : isHeader ? 'dt' : me.itemTagName,
+            cls
         };
+
+        if (me.itemsFocusable) {
+            item.tabIndex = -1;
+        }
 
         if (record.hidden) {
             item.removeDom = true

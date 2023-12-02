@@ -81,6 +81,17 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the role config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.getInputEl().role = value;
+        this.update();
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {*} value
      * @param {*} oldValue
