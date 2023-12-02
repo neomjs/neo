@@ -1,7 +1,6 @@
 import Base from '../../core/Base.mjs';
 
 /**
- *
  * @class Neo.main.addon.WindowPosition
  * @extends Neo.core.Base
  * @singleton
@@ -14,13 +13,21 @@ class WindowPosition extends Base {
          */
         className: 'Neo.main.addon.WindowPosition',
         /**
+         * @member {Boolean} adjustWindowPositions=true
+         */
+        adjustWindowPositions: true,
+        /**
          * @member {String|null} intervalId=null
          */
         intervalId: null,
         /**
-         * @member {Number} intervalTime=100
+         * @member {Number} intervalTime=20
          */
         intervalTime: 20,
+        /**
+         * @member {Boolean} observeResize_=true
+         */
+        observeResize_: true,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -29,6 +36,7 @@ class WindowPosition extends Base {
         remote: {
             app: [
                 'registerWindow',
+                'setConfigs',
                 'setDock',
                 'unregisterWindow'
             ]
@@ -65,8 +73,21 @@ class WindowPosition extends Base {
         me.screenLeft = win.screenLeft;
         me.screenTop  = win.screenTop;
 
-        win.addEventListener('mouseout', me.onMouseOut.bind(me));
-        win.addEventListener('resize',   me.onResize.bind(me));
+        win.addEventListener('mouseout', me.onMouseOut.bind(me))
+    }
+
+    /**
+     * Triggered after the observeResize config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetObserveResize(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            window[value ? 'addEventListener' : 'removeEventListener']('resize', me.onResize.bind(me))
+        }
     }
 
     /**
@@ -82,8 +103,8 @@ class WindowPosition extends Base {
                 windowName: key,
                 x         : position.left,
                 y         : position.top
-            });
-        });
+            })
+        })
     }
 
     /**
@@ -100,7 +121,7 @@ class WindowPosition extends Base {
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
             winData = Neo.Main.getWindowData();
 
-            me.adjustPositions();
+            me.adjustWindowPositions && me.adjustPositions();
 
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
@@ -111,7 +132,7 @@ class WindowPosition extends Base {
             });
 
             me.screenLeft = screenLeft;
-            me.screenTop  = screenTop;
+            me.screenTop  = screenTop
         }
     }
 
@@ -124,7 +145,7 @@ class WindowPosition extends Base {
      */
     dockDirectionChange(oldValue, newValue) {
         return (oldValue === 'bottom' || oldValue === 'top') && (newValue === 'left' || newValue === 'right')
-            || (newValue === 'bottom' || newValue === 'top') && (oldValue === 'left' || oldValue === 'right');
+            || (newValue === 'bottom' || newValue === 'top') && (oldValue === 'left' || oldValue === 'right')
     }
 
     /**
@@ -134,29 +155,26 @@ class WindowPosition extends Base {
         let win = window,
             left, top;
 
-        switch (data.dock) {
+        switch(data.dock) {
             case 'bottom':
                 left = win.screenLeft;
                 top  = win.outerHeight + win.screenTop - 50;
-                break;
+                break
             case 'left':
                 left = win.screenLeft - data.size;
                 top  = win.screenTop  + 28;
-                break;
+                break
             case 'right':
                 left = win.outerWidth + win.screenLeft;
                 top  = win.screenTop  + 28;
-                break;
+                break
             case 'top':
                 left = win.screenLeft;
                 top  = win.screenTop - data.size + 78;
-                break;
+                break
         }
 
-        return {
-            left: left,
-            top : top
-        };
+        return {left, top}
     }
 
     /**
@@ -167,11 +185,11 @@ class WindowPosition extends Base {
 
         if (!event.toElement) {
             if (!me.intervalId) {
-                me.intervalId = setInterval(me.checkMovement.bind(me), me.intervalTime);
+                me.intervalId = setInterval(me.checkMovement.bind(me), me.intervalTime)
             }
         } else if (me.intervalId) {
             clearInterval(me.intervalId);
-            me.intervalId = null;
+            me.intervalId = null
         }
     }
 
@@ -188,21 +206,21 @@ class WindowPosition extends Base {
                 case 'bottom':
                 case 'top':
                     width = win.outerWidth;
-                    break;
+                    break
                 case 'left':
                 case 'right':
                     height = win.outerHeight - 28;
-                    break;
+                    break
             }
 
             Neo.Main.windowResizeTo({
                 height    : height,
                 width     : width,
                 windowName: key
-            });
+            })
         });
 
-        me.adjustPositions();
+        me.adjustWindowPositions && me.adjustPositions()
     }
 
     /**
@@ -212,7 +230,17 @@ class WindowPosition extends Base {
      * @param {Number} data.size
      */
     registerWindow(data) {
-        this.windows[data.name] = data;
+        this.windows[data.name] = data
+    }
+
+    /**
+     * Set configs from within the app worker
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    setConfigs(data) {
+        delete data.appName;
+        this.set(data)
     }
 
     /**
@@ -239,14 +267,14 @@ class WindowPosition extends Base {
                     height    : dock === 'bottom' || dock === 'top'   ? win.size : window.outerHeight - 28,
                     width     : dock === 'left'   || dock === 'right' ? win.size : window.outerWidth,
                     windowName: name
-                });
+                })
             }
 
             Neo.Main.windowMoveTo({
                 windowName: name,
                 x         : position.left,
                 y         : position.top
-            });
+            })
         }
     }
 
@@ -255,7 +283,7 @@ class WindowPosition extends Base {
      * @param {String} data.name
      */
     unregisterWindow(data) {
-        delete this.windows[data.name];
+        delete this.windows[data.name]
     }
 }
 

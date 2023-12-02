@@ -1,7 +1,11 @@
 .neo-tooltip {
-    border    : var(--tooltip-border);
-    box-shadow: 3px 3px 4px rgba(0,0,0, .6);
-    font-size : 13px;
-    padding   : 5px 10px;
-    position  : absolute;
+    background-color: var(--tooltip-bg);
+    border          : var(--tooltip-border);
+    border-radius   : var(--tooltip-borderradius);
+    box-shadow      : var(--tooltip-boxshadow);
+    color           : var(--tooltip-color);
+    font-size       : var(--tooltip-fontsize);
+    height          : var(--tooltip-height);
+    padding         : var(--tooltip-padding);
+    position        : absolute;
 }

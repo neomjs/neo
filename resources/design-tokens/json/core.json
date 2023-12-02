@@ -257,6 +257,10 @@
       "value": "16px",
       "type": "sizing"
     },
+    "24": {
+      "value": "24px",
+      "type": "sizing"
+    },
     "32": {
       "value": "32px",
       "type": "sizing"

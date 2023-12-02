@@ -1,6 +1,6 @@
-import Base from '../../../src/container/Base.mjs';
+import Base         from '../../../src/container/Base.mjs';
 import TabContainer from '../../../src/tab/Container.mjs';
-import TextArea from '../../../src/form/field/TextArea.mjs';
+import TextArea     from '../../../src/form/field/TextArea.mjs';
 
 /**
  * @class LearnNeo.view.LivePreview
@@ -22,7 +22,9 @@ class LivePreview extends Base {
          * @member {Object[]} items
          */
         items: [{
-            module: TabContainer,
+            module   : TabContainer,
+            reference: 'tab-container',
+
             items: [{
                 module: TextArea,
                 hideLabel: true,
@@ -38,21 +40,21 @@ class LivePreview extends Base {
                 reference: 'preview',
                 ntype: 'container'
             }]
-        }],
-        listeners: {
-            activeIndexChange: () => console.log('activeIndexChange')
-        }
-    }
-    onConstructed() {
-        console.log('constructed');
-        this.on('activeIndexChange', () => console.log('onConstructed'));
-        super.onConstructed();
+        }]
     }
 
     afterSetValue(value, oldValue) {
         if (value) {
             this.getItem('textArea').value = value;
         }
+    }
+
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.getReference('tab-container').on('activeIndexChange', me.onActiveIndexChange, me)
     }
 
     doIt(button) {
@@ -92,7 +94,7 @@ class LivePreview extends Base {
         });
         var params = [];
         var vars = [];
-        // Figure out the parts of the source we'll be running. 
+        // Figure out the parts of the source we'll be running.
         // o The promises/import() corresponding to the user's import statements
         // o The vars holding the name of the imported module based on the module name for each import
         // o The rest of the user-provided source
@@ -105,8 +107,8 @@ class LivePreview extends Base {
         //       const Button = ButtonModule.default;
         //       // Class declaration goes here...
         //   });
-        // Making the promise part of the eval seems weird, but it made it easier to 
-        // set up the import vars. 
+        // Making the promise part of the eval seems weird, but it made it easier to
+        // set up the import vars.
 
         let promises = moduleNameAndPath.map(item => {
             params.push(`${item.moduleName}Module`);
@@ -163,6 +165,17 @@ class LivePreview extends Base {
             }
         }
         return null
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Neo.component.Base} data.item
+     * @param {Number} data.oldValue
+     * @param {String} data.source
+     * @param {Number} data.value
+     */
+    onActiveIndexChange(data) {
+        console.log('onActiveIndexChange', data)
     }
 }
 

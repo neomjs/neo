@@ -1,3 +1,10 @@
-:root .neo-theme-dark { // .neo-tooltip
-    --tooltip-border: 1px solid #0d86e7;
+:root .neo-theme-neo-light { // .neo-tooltip
+    --tooltip-bg            : black;
+    --tooltip-border        : grey;
+    --tooltip-borderradius  : 4px;
+    --tooltip-boxshadow     : none;
+    --tooltip-color         : white;
+    --tooltip-fontsize      : 14px;
+    --tooltip-height        : 24px;
+    --tooltip-padding       : 2px 8px 0;
 }

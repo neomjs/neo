@@ -29,6 +29,7 @@ class App extends Base {
             main: [
                 'createNeoInstance',
                 'destroyNeoInstance',
+                'fireEvent',
                 'setConfigs'
             ]
         },
@@ -190,13 +191,37 @@ class App extends Base {
     }
 
     /**
+     * Fires a custom event based on core.Observable on any app realm based Neo instance from main
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.name
+     */
+    fireEvent(data) {
+        let instance = Neo.get(data.id),
+            name;
+
+        if (instance) {
+            name = data.name;
+
+            delete data.id;
+            delete data.name;
+
+            instance.fire(name, data);
+
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Only needed for the SharedWorkers context
      * @param {String} eventName
      * @param {Object} data
      */
     fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
-            Neo.apps[port.appName].mainViewInstance.fire(eventName, data)
+            Neo.apps[port.appName].mainView.fire(eventName, data)
         })
     }
 

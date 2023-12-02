@@ -70,4 +70,10 @@
     --cmp-tab-unselected-bg-active              : var(--sem-color-bg-neutral-active);
     --cmp-tab-unselected-bg-default             : transparent;
     --cmp-tab-unselected-bg-hover               : var(--sem-color-bg-neutral-hover);
+
+    --cmp-tooltip-bg                            : var(--sem-color-bg-neutral-contrast);
+    --cmp-tooltip-borderradius                  : var(--sem-borderradius-medium);
+    --cmp-tooltip-fg                            : var(--sem-color-fg-neutral-inverted);
+    --cmp-tooltip-height                        : var(--height-24);
+    --cmp-tooltip-spacinghorizontal             : var(--sem-spacing-xsmall);
 }
