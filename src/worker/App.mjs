@@ -221,7 +221,7 @@ class App extends Base {
      */
     fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
-            Neo.apps[port.appName].mainViewInstance.fire(eventName, data)
+            Neo.apps[port.appName].mainView.fire(eventName, data)
         })
     }
 
