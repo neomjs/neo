@@ -13,9 +13,9 @@ class WindowPosition extends Base {
          */
         className: 'Neo.main.addon.WindowPosition',
         /**
-         * @member {Boolean} adjustWindowPositions=true
+         * @member {Boolean} adjustWindowPositions=false
          */
-        adjustWindowPositions: true,
+        adjustWindowPositions: false,
         /**
          * @member {String|null} intervalId=null
          */
@@ -25,9 +25,9 @@ class WindowPosition extends Base {
          */
         intervalTime: 20,
         /**
-         * @member {Boolean} observeResize_=true
+         * @member {Boolean} observeResize_=false
          */
-        observeResize_: true,
+        observeResize_: false,
         /**
          * Remote method access for other workers
          * @member {Object} remote
