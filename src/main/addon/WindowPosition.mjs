@@ -1,5 +1,4 @@
 import Base from '../../core/Base.mjs';
-import Neo  from "src/Neo.mjs";
 
 /**
  * @class Neo.main.addon.WindowPosition
