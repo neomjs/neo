@@ -13,6 +13,10 @@ class WindowPosition extends Base {
          */
         className: 'Neo.main.addon.WindowPosition',
         /**
+         * @member {Boolean} adjustWindowPositions=true
+         */
+        adjustWindowPositions: true,
+        /**
          * @member {String|null} intervalId=null
          */
         intervalId: null,
@@ -116,7 +120,7 @@ class WindowPosition extends Base {
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
             winData = Neo.Main.getWindowData();
 
-            me.adjustPositions();
+            me.adjustWindowPositions && me.adjustPositions();
 
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
@@ -215,7 +219,7 @@ class WindowPosition extends Base {
             })
         });
 
-        me.adjustPositions()
+        me.adjustWindowPositions && me.adjustPositions()
     }
 
     /**
