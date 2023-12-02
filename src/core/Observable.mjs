@@ -92,6 +92,21 @@ class Observable extends Base {
     }
 
     /**
+     * Call the passed function, or a function by *name* which exists in the passed scope's
+     * or this component's ownership chain.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+     * @param {Object} scope The scope to find the function in if it is specified as a string.
+     * @param {Array} args Arguments to pass to the callback.
+     */
+    callback(fn, scope=this, args) {
+        if (fn) {
+            const handler = this.resolveCallback(fn, scope);
+
+            handler.fn.apply(handler.scope, args);
+        }
+    }
+
+    /**
      * @param name
      */
     fire(name) {
@@ -124,21 +139,6 @@ class Observable extends Base {
                     }
                 }
             }
-        }
-    }
-
-    /**
-     * Call the passed function, or a function by *name* which exists in the passed scope's
-     * or this component's ownership chain.
-     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
-     * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @param {Array} args Arguments to pass to the callback.
-     */
-    callback(fn, scope=this, args) {
-        if (fn) {
-            const handler = this.resolveCallback(fn, scope);
-
-            handler.fn.apply(handler.scope, args);
         }
     }
 
