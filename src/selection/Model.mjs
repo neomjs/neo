@@ -223,10 +223,10 @@ class Model extends Base {
                 me.deselectAll(true);
             }
 
-            items.forEach(node => {
+            items.forEach((node, i) => {
                 // Record => string id
                 if (node.isRecord) {
-                    node = view.getItemId(node)
+                    items[i] = node = view.getItemId(node)
                 }
                 if (typeof node === 'string') {
                     node = view.getVdomChild(node);
