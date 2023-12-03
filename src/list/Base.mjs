@@ -138,7 +138,7 @@ class Base extends Component {
         {tag: 'ul', cn: []},
 
         /**
-         * An object toi help configure the navigation. Used to pass to {@link Neo.main.DomAccess#navigate}.
+         * An object to help configure the navigation. Used to pass to {@link Neo.main.DomAccess#navigate}.
          * @member {Object} navigator={}
          */
         navigator : {}
@@ -178,16 +178,15 @@ class Base extends Component {
      * @param {Number|null} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
+    afterSetActiveIndex(value) {
+        let me = this;
 
         if (Neo.isNumber(value)) {
-            selectionModel?.selectAt(value);
             me.headerlessActiveIndex = me.getHeaderlessIndex(value)
-        } else if (Neo.isNumber(oldValue)) {
-            selectionModel.deselectAll();
-            me.headerlessActiveIndex = null
+            Neo.main.DomAccess.navigateTo([value, this.navigator])
+        }
+        else if (value) {
+            Neo.main.DomAccess.navigateTo([me.getItemId(value[me.getKeyProperty()]), this.navigator])
         }
     }
 
@@ -267,14 +266,15 @@ class Base extends Component {
         super.afterSetMounted(...arguments);
 
         // Set up navigation in the list
-        if (value && !this.hasNavigation) {
-            Neo.main.DomAccess.navigate({
+        if (value && !this.hasNavigator) {
+            this.navigator = {
                 appName  : this.appName,
                 id       : this.id,
                 selector : `.${this.itemCls}:not(.neo-disabled,.neo-list-header)`,
                 ...this.navigator
-            })
-            this.hasNavigation = true
+            }
+            this.hasNavigator = true;
+            Neo.main.DomAccess.navigate(this.navigator)
         }
     }
 
@@ -537,15 +537,7 @@ class Base extends Component {
      * @param {String} [id]
      */
     focus(id) {
-        super.focus(id);
-
-        let me = this;
-
-        id && me.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
-            appName : me.appName,
-            behavior: 'auto',
-            id      : id || me.id
-        })
+        DomAccess.navigateTo(id, this.navigator)
     }
 
     /**
@@ -593,11 +585,11 @@ class Base extends Component {
     }
 
     /**
-     * @param {Number|String} recordId
+     * @param {Number|String|object} recordOrId
      * @returns {String}
      */
-    getItemId(recordId) {
-        return `${this.id}__${recordId}`
+    getItemId(recordOrId) {
+        return `${this.id}__${recordOrId.isRecord ? recordOrId[this.getKeyProperty()] : recordOrId}`
     }
 
     /**
@@ -747,10 +739,19 @@ class Base extends Component {
 
     /**
      * Convenience shortcut
-     * @param {Number} index
+     * @param {Number|String} item
      */
-    selectItem(index) {
-        !this.disableSelection && this.selectionModel?.selectAt(index)
+    selectItem(item) {
+        if (!this.disableSelection) {
+            // Selecting index
+            if (Neo.isNumber(item)) {
+                this.selectionModel?.selectAt(item)
+            }
+            // Selecting record
+            else if (item) {
+                this.selectionModel?.selectAt(this.store.indexOf(item));
+            }
+        }
     }
 }
 

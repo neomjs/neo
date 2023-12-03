@@ -117,6 +117,7 @@ class DomAccess extends Base {
                 'measure',
                 'monitorAutoGrow',
                 'navigate',
+                'navigateTo',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -687,6 +688,8 @@ class DomAccess extends Base {
             target      = data.subject = me.getElement(data.id),
             eventSource = data.eventSource = data.eventSource ? me.getElement(data.eventSource) : target;
 
+        target.$navigator = data;
+
         if (!data.activeCls) {
             data.activeCls = 'neo-navigator-active-item'
         }
@@ -806,10 +809,17 @@ class DomAccess extends Base {
     }
 
     navigateTo(newActiveElement, data) {
+        if (!data.subject) {
+            data = this.getElement(data.id).$navigator
+        }
+
         // Can navigate by index. This is useful if the active item is deleted.
         // We can navigate to the same index and preserve UI stability.
         if (typeof newActiveElement === 'number') {
             newActiveElement = data.subject.querySelectorAll(data.selector)[newActiveElement];
+        }
+        else if (typeof newActiveElement === 'string') {
+            newActiveElement = this.getElement(newActiveElement);
         }
 
         // If the item is focusable, we focus it and then react in navigateFocusInHandler
@@ -835,6 +845,12 @@ class DomAccess extends Base {
         (data.previousActiveItem = data.activeItem)?.classList.remove(data.activeCls);
         (data.activeItem = newActiveElement)?.classList.add(data.activeCls);
         data.activeIndex = newActiveElement ? allItems.indexOf(newActiveElement) : -1;
+
+        newActiveElement.scrollIntoView({
+            block    : 'nearest',
+            inline   : 'nearest',
+            nehavior : 'smooth'
+        })
 
         DomEvents.sendMessageToApp({
             type                : 'navigate',

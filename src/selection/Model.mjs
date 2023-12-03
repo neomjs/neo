@@ -94,25 +94,28 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let me   = this,
-            view = me.view,
-            node = view.getVdomChild(item), // todo: support for nodes (right now limited to ids)
-            cls;
+        if (itemCollection.includes(item)) {
+            let me   = this,
+                view = me.view,
+                node = view.getVdomChild(item.isRecord ? (item = view.getItemId(item)) : item),
+                cls;
 
-        if (node) {
-            cls = node.cls || [];
-            NeoArray.remove(cls, selectedCls || me.selectedCls);
-            node.cls = cls;
-        }
+            if (node) {
+                cls = node.cls || [];
+                NeoArray.remove(cls, selectedCls || me.selectedCls);
+                node.cls = cls;
+                node['aria-selected'] = true;
+            }
 
-        NeoArray.remove(itemCollection, item);
+            NeoArray.remove(itemCollection, item);
 
-        if (!silent) {
-            view.update();
+            if (!silent) {
+                view.update();
 
-            me.fire('selectionChange', {
-                selection : itemCollection
-            });
+                me.fire('selectionChange', {
+                    selection : itemCollection
+                });
+            }
         }
     }
 
@@ -124,17 +127,19 @@ class Model extends Base {
             items = [...me.items],
             view  = me.view;
 
-        items.forEach(item => {
-            me.deselect(item, true);
-        });
+        if (items.length) {
+            items.forEach(item => {
+                me.deselect(item, true);
+            });
 
-        if (!silent && items.length > 0) {
-            view.update();
+            if (!silent && items.length > 0) {
+                view.update();
+            }
+
+            me.fire('selectionChange', {
+                selection : this.items
+            });
         }
-
-        me.fire('selectionChange', {
-            selection : this.items
-        });
     }
 
     /**
@@ -219,6 +224,10 @@ class Model extends Base {
             }
 
             items.forEach(node => {
+                // Record => string id
+                if (node.isRecord) {
+                    node = view.getItemId(node)
+                }
                 if (typeof node === 'string') {
                     node = view.getVdomChild(node);
                 }
@@ -227,6 +236,7 @@ class Model extends Base {
                     cls = node.cls || [];
                     NeoArray.add(cls, selectedCls || me.selectedCls);
                     node.cls = cls;
+                    node['aria-selected'] = true;
                 }
             });
 

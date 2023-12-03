@@ -57,6 +57,7 @@ class Select extends Picker {
          * @member {Object} keys
          */
         keys: {
+            Down  : 'onKeyDownDown',
             Escape: 'onKeyDownEscape'
         },
         /**
@@ -295,7 +296,6 @@ class Select extends Picker {
             itemRole        : 'option',
             parentId        : me.id,
             navigator       : {
-                id          : me.getPickerId(),
                 eventSource : me.getInputElId()
             },
             selectionModel  : {stayInList: false},
@@ -316,10 +316,8 @@ class Select extends Picker {
         })
 
         me.list.on({
-            createItems       : me.onListCreateItems,
-            selectPostLastItem: me.onSelectPostLastItem,
-            selectPreFirstItem: me.onSelectPreFirstItem,
-            scope             : me
+            createItems : me.onListCreateItems,
+            scope       : me
         });
 
         return me.list;
@@ -454,6 +452,16 @@ class Select extends Picker {
     }
 
     /**
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownDown(data) {
+        if (!this.picker || this.picker?.hidden) {
+            this.onPickerTriggerClick();
+        }
+    }
+
+    /**
      * @protected
      */
     onListCreateItems() {
@@ -488,6 +496,7 @@ class Select extends Picker {
                     record,
                     value: record[displayField]
                 })
+                me.hidePicker()
             }
         }
     }
@@ -496,26 +505,12 @@ class Select extends Picker {
      * @param {Object} record
      * @protected
      */
-    onListItemNavigate({ activeIndex }) {
+    onListItemNavigate({ activeItem, activeIndex }) {
         if (activeIndex >= 0) {
             this.activeRecordId = (this.store.getAt(activeIndex)).id
+            this.getInputEl()['aria-activedescendant'] = activeItem;
+            this.update();
         }
-    }
-
-    /**
-     * @protected
-     */
-    onSelectPostLastItem() {
-        this.record = null;
-        this.focusInputEl()
-    }
-
-    /**
-     * @protected
-     */
-    onSelectPreFirstItem() {
-        this.record = null;
-        this.focusInputEl()
     }
 
     /**
@@ -580,6 +575,14 @@ class Select extends Picker {
         }
 
         super.togglePicker()
+
+        // On show, set the active item to be the current selected record or the first
+        if (!me.picker.hidden) {
+            setTimeout(() => {
+                me.list.activeIndex = (me.record || 0);
+                me.list.selectionModel.select(me.record);
+            }, 100)
+        }
     }
 
     /**

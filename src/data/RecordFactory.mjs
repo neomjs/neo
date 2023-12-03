@@ -63,6 +63,9 @@ class RecordFactory extends Base {
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true);
                 ns[key] = class Record {
+                    // Records must be identifiable
+                    isRecord = true;
+
                     constructor(config) {
                         let me = this,
                             properties;
