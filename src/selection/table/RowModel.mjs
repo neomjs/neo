@@ -21,7 +21,26 @@ class RowModel extends Model {
          * @member {String} cls='selection-rowmodel'
          * @protected
          */
-        cls: 'neo-selection-rowmodel'
+        cls: 'neo-selection-rowmodel',
+        /**
+         * @member {Number} dblclickTimerId=0
+         */
+        dblclickTimerID: 0,
+        /**
+         * When dblclick is enabled, the time delay to 
+         * rule out single clicks, in milliseconds.
+         * @member {Number} dblclickDelay=510
+         */
+        dblclickDelay: 510,
+        /**
+         * @member {Boolean} dblclickCase=false
+         */
+        dblclickDetected: false,
+        /**
+         * True to handle doubleclick in addition to single click.
+         * @member {Boolean} dblclickEnabled=false
+         */
+        dblclickEnabled: false
     }
 
     /**
@@ -32,7 +51,8 @@ class RowModel extends Model {
             view = me.view;
 
         view.addDomListeners({
-            click   : me.onRowClick,
+            click   : me.parseRowClick,
+            dblclick: me.onRowDblClick,
             delegate: '.neo-table-row',
             scope   : me
         });
@@ -115,6 +135,7 @@ class RowModel extends Model {
         }
     }
 
+
     /**
      * @param {Object} data
      */
@@ -126,12 +147,13 @@ class RowModel extends Model {
             isSelected, record;
             
         if (! id) { return };
-        
+
         record = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
-        view.fire('rowclick', {data, record})
+        view.fire('rowclick', {data, record});
         
         if ( ! (data.altKey || data.ctrlKey || data.metaKey || data.shiftKey) ) {
             me.toggleSelection(id);
+            
             isSelected = me.isSelected(id);
 
             !isSelected && view.onDeselect?.(record);
@@ -141,6 +163,51 @@ class RowModel extends Model {
             });
         }
     }
+
+    /**
+     * If dblclickEnabled === true, sets dblclickDeteted to true
+     * and resets timer.
+     * @param {Object} data
+     */
+    onRowDblClick(data) {
+        let me   = this;
+        
+        clearTimeout(me.dblclickTimerId);
+        me.dblclickDetected = true;
+
+        if (! me.dblclickEnabled ) {return};
+        
+        let  node = RowModel.getRowNode(data.path),
+            id   = node?.id,
+            view = me.view,
+            isSelected, record;
+
+        if (! id) { return };
+
+        record = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
+        view.fire('rowclick', {data, record})
+    }
+
+    /**
+     * If dblclickEnabled === true, delays calling onRowClick to test
+     * if onRowDblClick detects a dblclick event.
+     * @param {Object} data
+     */
+    parseRowClick() {
+        let me = this;
+
+        if (! me.dblclickEnabled) {
+            me.onRowClick(...arguments);
+        } else {
+            me.dblclickTimerId = setTimeout(function() {
+                if (! me.dblclickDetected) {
+                    me.onRowClick(...arguments);
+                };
+                me.dblclickDetected = false;
+            }, me.dblclickDelay, ...arguments);
+        }
+    }
+
 
     /**
      * @param {Neo.component.Base} component
