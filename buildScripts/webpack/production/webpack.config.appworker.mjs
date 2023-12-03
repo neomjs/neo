@@ -108,7 +108,9 @@ export default env => {
         createStartingPoint(key.substr(1), 'apps');
     });
 
-    createStartingPoint('Docs', '');
+    if (fs.existsSync(path.join(cwd, 'docs'))) {
+        createStartingPoint('Docs', '');
+    }
 
     examplesPath = path.join(cwd, 'examples');
 
