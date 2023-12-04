@@ -6,7 +6,8 @@ import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 const NeoConfig = Neo.config,
-      devMode   = NeoConfig.environment === 'development';
+      devMode   = NeoConfig.environment === 'development',
+      windowId  = new Date().getTime();
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
@@ -207,8 +208,8 @@ class Manager extends Base {
 
             me.sendMessage(key, {
                 action: 'registerNeoConfig',
-                data  : config
-            });
+                data  : {...config, windowId}
+            })
         }
     }
 

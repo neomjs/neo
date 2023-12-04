@@ -129,9 +129,10 @@ class Base extends CoreBase {
         me.isConnected = true;
 
         me.ports.push({
-            appName: null,
+            appName : null,
             id,
-            port   : e.ports[0]
+            port    : e.ports[0],
+            windowId: null
         });
 
         me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
@@ -228,6 +229,20 @@ class Base extends CoreBase {
      */
     onRegisterNeoConfig(msg) {
         Neo.config = Neo.config || {};
+
+        let me         = this,
+            {windowId} = msg.data,
+            port;
+
+        delete msg.data.windowId;
+
+        for (port of me.ports) {
+            if (!port.windowId) {
+                port.windowId = windowId;
+                break;
+            }
+        }
+
         Object.assign(Neo.config, msg.data);
     }
 
@@ -251,7 +266,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * @param {String} dest app, data, main or vdom (excluding the current worker)
+     * @param {String} dest app, canvas, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
