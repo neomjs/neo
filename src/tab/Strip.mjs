@@ -146,7 +146,7 @@ class Strip extends Component {
                 me.update();
 
                 setTimeout(() => {
-                    //activeTabIndicator.style.opacity = 0;
+                    activeTabIndicator.style.opacity = 0;
                     me.update()
                 }, 300)
             }
