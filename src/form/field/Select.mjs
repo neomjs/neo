@@ -563,7 +563,8 @@ class Select extends Picker {
      *
      */
     togglePicker() {
-        let me = this,
+        let me         = this,
+            { record } = me,
             filter;
 
         if (me.triggerAction === 'all' && !me.pickerIsMounted) {
@@ -577,10 +578,10 @@ class Select extends Picker {
         super.togglePicker()
 
         // On show, set the active item to be the current selected record or the first
-        if (!me.picker.hidden) {
+        if (!me.picker.hidden && record) {
             setTimeout(() => {
-                me.list.activeIndex = (me.record || 0);
-                me.list.selectionModel.select(me.record);
+                me.list.activeIndex = record;
+                me.list.selectionModel.select(record);
             }, 100)
         }
     }
