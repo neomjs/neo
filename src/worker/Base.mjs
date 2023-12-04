@@ -112,10 +112,8 @@ class Base extends CoreBase {
     onConnect(data) {
         // short delay to ensure app VCs are in place
         setTimeout(() => {
-            this.fire('connect', {
-                appName: data.appName
-            });
-        }, 10);
+            this.fire('connect', {appName: data.appName})
+        }, 10)
     }
 
     /**
@@ -142,7 +140,7 @@ class Base extends CoreBase {
 
         me.sendMessage('main', {action: 'workerConstructed', port: id});
 
-        me.afterConnect();
+        me.afterConnect()
     }
 
     /**
@@ -155,7 +153,7 @@ class Base extends CoreBase {
 
         if (!me.isSharedWorker) {
             me.sendMessage('main', {action: 'workerConstructed'});
-            me.afterConnect();
+            me.afterConnect()
         }
     }
 
@@ -164,9 +162,7 @@ class Base extends CoreBase {
      * @param {Object} data
      */
     onDisconnect(data) {
-        this.fire('disconnect', {
-            appName: data.appName
-        });
+        this.fire('disconnect', {appName: data.appName})
     }
 
     /**
@@ -187,12 +183,12 @@ class Base extends CoreBase {
             me['on' + Neo.capitalize(action)](data);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             if (data.reject) {
-                promise.reject(data.data);
+                promise.reject(data.data)
             } else {
-                promise.resolve(data.data);
+                promise.resolve(data.data)
             }
 
-            delete me.promises[replyId];
+            delete me.promises[replyId]
         }
     }
 
@@ -200,9 +196,7 @@ class Base extends CoreBase {
      * @param {Object} msg
      */
     onPing(msg) {
-        this.resolve(msg, {
-            originMsg: msg
-        });
+        this.resolve(msg, {originMsg: msg})
     }
 
     /**
@@ -218,8 +212,8 @@ class Base extends CoreBase {
         for (port of me.ports) {
             if (!port.appName) {
                 port.appName = appName;
-                me.onConnect({ appName });
-                break;
+                me.onConnect({appName});
+                break
             }
         }
     }
@@ -237,11 +231,11 @@ class Base extends CoreBase {
         for (port of me.ports) {
             if (!port.windowId) {
                 port.windowId = windowId;
-                break;
+                break
             }
         }
 
-        Object.assign(Neo.config, msg.data);
+        Object.assign(Neo.config, msg.data)
     }
 
     /**
@@ -259,8 +253,8 @@ class Base extends CoreBase {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = { reject, resolve };
-        });
+            me.promises[msgId] = { reject, resolve }
+        })
     }
 
     /**
@@ -281,24 +275,29 @@ class Base extends CoreBase {
         if (me.channelPorts[dest]) {
             port = me.channelPorts[dest];
         } else if (!me.isSharedWorker) {
-            port = globalThis;
+            port = globalThis
         } else {
             if (opts.port) {
-                port = me.getPort({id: opts.port}).port;
-            } else if (opts.appName) {
+                port = me.getPort({id: opts.port}).port
+            } else if (opts.windowId) {
+                portObject = me.getPort({windowId: opts.windowId});
+                port       = portObject.port;
+
+                opts.port = portObject.id
+            }  else if (opts.appName) {
                 portObject = me.getPort({appName: opts.appName});
                 port       = portObject.port;
 
-                opts.port = portObject.id;
+                opts.port = portObject.id
             } else {
-                port = me.ports[0].port;
+                port = me.ports[0].port
             }
         }
 
         message = new Message(opts);
 
         port.postMessage(message, transfer);
-        return message;
+        return message
     }
 }
 
