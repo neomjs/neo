@@ -1279,7 +1279,7 @@ class Text extends Base {
             cls;
 
         if (!me.readOnly) {
-            me.validate(); // silent
+            me.validate(false);
 
             cls = me.cls; // has to get set after validate()
 
