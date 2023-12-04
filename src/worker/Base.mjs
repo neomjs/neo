@@ -234,8 +234,6 @@ class Base extends CoreBase {
             {windowId} = msg.data,
             port;
 
-        delete msg.data.windowId;
-
         for (port of me.ports) {
             if (!port.windowId) {
                 port.windowId = windowId;
