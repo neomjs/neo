@@ -65,21 +65,19 @@ class Strip extends Component {
      */
     getActiveTabRectThenMove(opts) {
         let me           = this,
-            ids          = [],
+            ids          = [me.id],
             tabContainer = me.getTabContainer();
 
         if (me.vnode) {
             if (opts) {
-                ids.push(tabContainer.getTabAtIndex(opts.value), tabContainer.getTabAtIndex(opts.oldValue));
+                ids.push(tabContainer.getTabAtIndex(opts.value).id, tabContainer.getTabAtIndex(opts.oldValue).id)
             } else {
-                ids.push(tabContainer.getTabAtIndex(tabContainer.activeIndex));
+                ids.push(tabContainer.getTabAtIndex(tabContainer.activeIndex).id)
             }
-
-            ids = ids.map(e => e?.id).filter(Boolean);
 
             if (me.useActiveTabIndicator) {
                 me.getDomRect(ids).then(data => {
-                    me.moveActiveIndicator(data);
+                    me.moveActiveIndicator(data)
                 });
             }
         }
@@ -105,8 +103,9 @@ class Strip extends Component {
      * @param {Number} rects[0].y
      */
     moveActiveIndicator(rects) {
-        let me   = this,
-            rect = rects[1] || rects[0],
+        let me           = this,
+            tabStripRect = rects.shift(),
+            rect         = rects[1] || rects[0],
             activeTabIndicator, tabContainer;
 
         if (me.useActiveTabIndicator) {
@@ -118,7 +117,7 @@ class Strip extends Component {
                 case 'top':
                     activeTabIndicator.style = {
                         height: null,
-                        left  : `${rect.left}px`,
+                        left  : `${rect.left - tabStripRect.left}px`,
                         top   : null,
                         width : `${rect.width}px`
                     };
@@ -128,7 +127,7 @@ class Strip extends Component {
                     activeTabIndicator.style = {
                         height: `${rect.height}px`,
                         left  : null,
-                        top   : `${rect.top}px`,
+                        top   : `${rect.top - tabStripRect.top}px`,
                         width : null
                     };
                     break;
@@ -140,16 +139,16 @@ class Strip extends Component {
                 me.update();
 
                 setTimeout(() => {
-                    me.moveActiveIndicator([rects[0]]);
+                    me.moveActiveIndicator([tabStripRect, rects[0]]);
                 }, 50)
             } else {
                 activeTabIndicator.style.opacity = 1;
                 me.update();
 
                 setTimeout(() => {
-                    activeTabIndicator.style.opacity = 0;
-                    me.update();
-                }, 300);
+                    //activeTabIndicator.style.opacity = 0;
+                    me.update()
+                }, 300)
             }
         }
     }
