@@ -703,7 +703,7 @@ class Text extends Base {
 
         me.silentVdomUpdate = true;
 
-        me.validate(false);
+        oldValue !== undefined && me.validate(me.clean);
         me.changeInputElKey('required', value ? value : null);
         me.labelText = me.labelText; // apply the optional text if needed
 
