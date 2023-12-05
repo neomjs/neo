@@ -1,6 +1,6 @@
 import ContentStore from '../../store/Content.mjs'
-import TreeList from '../../../../src/tree/List.mjs';
-import LivePreview from '../LivePreview.mjs';
+import LivePreview  from './LivePreview.mjs';
+import TreeList     from '../../../../src/tree/List.mjs';
 
 /**
  * @class Portal.view.learn.ContentTreeList
@@ -78,7 +78,7 @@ class ContentTreeList extends TreeList {
     }
 
     extractNeoContent(htmlString, map) {
-        // 1. Replace <pre data-neo> with <div id='neo-preview-2'/> 
+        // 1. Replace <pre data-neo> with <div id='neo-preview-2'/>
         // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
 
         // Define a regular expression to match <pre data-javascript> tags

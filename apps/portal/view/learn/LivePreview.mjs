@@ -1,18 +1,18 @@
-import Base         from '../../../src/container/Base.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
-import TextArea     from '../../../src/form/field/TextArea.mjs';
+import Base         from '../../../../src/container/Base.mjs';
+import TabContainer from '../../../../src/tab/Container.mjs';
+import TextArea     from '../../../../src/form/field/TextArea.mjs';
 
 /**
- * @class Portal.view.LivePreview
+ * @class Portal.view.learn.LivePreview
  * @extends Neo.container.Base
  */
 class LivePreview extends Base {
     static config = {
         /**
-         * @member {String} className='Portal.view.LivePreview'
+         * @member {String} className='Portal.view.learn.LivePreview'
          * @protected
          */
-        className: 'Portal.view.LivePreview',
+        className: 'Portal.view.learn.LivePreview',
         value_: null,
         autoMount: true,
         autoRender: true,
