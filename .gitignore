@@ -13,9 +13,6 @@
 !/apps/krausest/index.html
 !/apps/krausest/**/*.mjs
 !/apps/krausest/neo-config.json
-!/apps/newwebsite/index.html
-!/apps/newwebsite/**/*.mjs
-!/apps/newwebsite/neo-config.json
 !/apps/portal/neo-config.json
 !/apps/portal/index.html
 !/apps/portal/**/*.mjs
