@@ -125,7 +125,7 @@ class List extends BaseList {
             valueRegEx = new RegExp(data.value, 'gi'),
             hasMatch, itemName, name, record;
 
-        me.vdom.cn.forEach((item, index) => {
+        me.getVdomRoot().cn.forEach((item, index) => {
             hasMatch = false;
             itemName = VDomUtil.getByFlag(item, 'name');
             record   = store.getAt(index);
