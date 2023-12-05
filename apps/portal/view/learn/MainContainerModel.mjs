@@ -2,16 +2,16 @@ import Component from '../../../../src/model/Component.mjs';
 import Store     from '../../store/Content.mjs';
 
 /**
- * @class Portal.view.home.MainContainerModel
+ * @class Portal.view.learn.MainContainerModel
  * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.MainContainerModel'
+         * @member {String} className='Portal.view.learn.MainContainerModel'
          * @protected
          */
-        className: 'Portal.view.home.MainContainerModel',
+        className: 'Portal.view.learn.MainContainerModel',
         /**
          * @member {Object} data
          */

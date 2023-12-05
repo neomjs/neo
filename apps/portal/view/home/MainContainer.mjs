@@ -1,73 +1,58 @@
-import Container               from '../../../../src/container/Base.mjs';
-import ContentView             from './ContentView.mjs';
-import ContentTreeList         from './ContentTreeList.mjs';
-import HeaderToolbar           from './HeaderToolbar.mjs';
-import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel      from './MainContainerModel.mjs';
-import Splitter                from '../../../../src/component/Splitter.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
  * @extends Neo.container.Base
  */
-class MainContainer extends Container {
+class Viewport extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.MainContainer'
+         * @member {String} className='NewWebsite.view.Viewport'
          * @protected
          */
-        className: 'Portal.view.home.MainContainer',
+        className: 'NewWebsite.view.Viewport',
         /**
-         * @member {Neo.controller.Component} controller=MainContainerController
+         * @member {String[]} cls=['newwebsite-viewport']
          */
-        controller: MainContainerController,
-        /**
-         * @member {String[]} cls=['learnneo-maincontainer']
-         */
-        cls: ['learnneo-maincontainer'],
+        cls: ['newwebsite-viewport'],
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: HeaderToolbar
+            module: Container,
+            cls   : ['vector'],
+            flex  : 'none'
+        }, {
+            cls : 'neo-h1',
+            flex: 'none',
+            html: 'The High-Performance Web Framework for Next Generation Interfaces'
         }, {
             module: Container,
-            layout: {ntype: 'hbox', align: 'stretch'},
+            cls   : ['button-group'],
+            flex  : 'none',
 
             items: [{
-                module  : Container,
-                layout  : 'fit',
-                minWidth: 350,
-                width   : 350,
-                cls     : 'sidenav-container',
-                items: [{
-                    module   : ContentTreeList,
-                    reference: 'tree',
-                    listeners: {
-                        contentChange: 'onContentChange',
-                    }
-                }]
-            }, {
-                module      : Splitter,
-                cls         : ['main-content-splitter'],
-                resizeTarget: 'previous',
-                size        : 4
-            }, {
-                module   : ContentView,
-                reference: 'content',
-                listeners: {
-                    edit   : 'onContentEdit',
-                    refresh: 'onContentRefresh'
+                module : Button,
+                cls    : 'get-started-button',
+                text   : 'Get started',
+                flex   : 'none',
+                tooltip: {
+                    text     : 'Coming soon',
+                    showDelay: 0,
+                    hideDelay: 0
                 }
+            }, {
+                module: Button,
+                flex  : 'none',
+                text  : 'View on GitHub',
+                ui    : 'secondary',
+                url   : 'https://github.com/neomjs/neo'
             }]
-        }],
-        /**
-         * @member {Neo.model.Component} model=MainContainerModel
-         */
-        model: MainContainerModel
+        }]
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.applyClassConfig(Viewport);
 
-export default MainContainer;
+export default Viewport;

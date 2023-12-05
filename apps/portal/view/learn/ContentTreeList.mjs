@@ -3,16 +3,16 @@ import TreeList from '../../../../src/tree/List.mjs';
 import LivePreview from '../LivePreview.mjs';
 
 /**
- * @class Portal.view.home.ContentTreeList
+ * @class Portal.view.learn.ContentTreeList
  * @extends Neo.container.Base
  */
 class ContentTreeList extends TreeList {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.ContentTreeList'
+         * @member {String} className='Portal.view.learn.ContentTreeList'
          * @protected
          */
-        className: 'Portal.view.home.ContentTreeList',
+        className: 'Portal.view.learn.ContentTreeList',
         /**
          * @member {String[]} cls=['topics-tree']
          */

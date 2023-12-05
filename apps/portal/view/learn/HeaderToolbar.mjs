@@ -2,16 +2,16 @@ import Base  from '../../../../src/toolbar/Base.mjs';
 import Label from '../../../../src/component/Label.mjs';
 
 /**
- * @class Portal.view.home.HeaderToolbar
+ * @class Portal.view.learn.HeaderToolbar
  * @extends Neo.container.Base
  */
 class HeaderToolbar extends Base {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.HeaderToolbar'
+         * @member {String} className='Portal.view.learn.HeaderToolbar'
          * @protected
          */
-        className: 'Portal.view.home.HeaderToolbar',
+        className: 'Portal.view.learn.HeaderToolbar',
         /**
          * @member {String[]} cls=['learnneo-header-toolbar']
          */

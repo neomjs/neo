@@ -20,7 +20,7 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: () => import('./home/MainContainer.mjs')
+            module: () => import('./learn/MainContainer.mjs')
         }],
         /**
          * @member {Object} layout={ntype:'card'}
