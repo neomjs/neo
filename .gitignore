@@ -19,6 +19,9 @@
 !/apps/newwebsite/index.html
 !/apps/newwebsite/**/*.mjs
 !/apps/newwebsite/neo-config.json
+!/apps/portal/neo-config.json
+!/apps/portal/index.html
+!/apps/portal/**/*.mjs
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
 !/apps/realworld/neo-config.json
