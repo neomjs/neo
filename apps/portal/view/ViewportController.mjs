@@ -15,9 +15,33 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/blog' : 'onBlogRoute',
             '/home' : 'onHomeRoute',
             '/learn': 'onLearnRoute'
         }
+    }
+
+    /**
+     * @param {Object[]} records
+     */
+    onBlogPostStoreLoad(records) {
+        this.getReference('blog-header-button').badgeText = records.length + ''
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onBlogRoute(params, value, oldValue) {
+        this.setMainContentIndex(2)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onBlogSearchFieldChange(data) {
+        this.getReference('blog-list').filterItems(data)
     }
 
     /**
@@ -34,7 +58,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onHomeRoute(params, value, oldValue) {
-        this.getReference('main-content').layout.activeIndex = 0
+        this.setMainContentIndex(0)
     }
 
     /**
@@ -43,7 +67,14 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onLearnRoute(params, value, oldValue) {
-        this.getReference('main-content').layout.activeIndex = 1
+        this.setMainContentIndex(1)
+    }
+
+    /**
+     * @param {Number} value
+     */
+    setMainContentIndex(value) {
+        this.getReference('main-content').layout.activeIndex = value
     }
 }
 

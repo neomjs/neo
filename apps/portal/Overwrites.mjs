@@ -4,6 +4,16 @@ Neo.overwrites = {
             Base: {
                 editRoute: false
             }
+        },
+        form: {
+            field: {
+                Base: {
+                    delayable: {
+                        fireChangeEvent    : null,
+                        fireUserChangeEvent: null
+                    }
+                }
+            }
         }
     }
 }

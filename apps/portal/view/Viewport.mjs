@@ -29,30 +29,28 @@ class Viewport extends BaseViewport {
             layout   : {ntype: 'card', activeIndex: null},
             reference: 'main-content',
 
-            items: [{
-                module: () => import('./home/MainContainer.mjs')
-            }, {
-                module: () => import('./learn/MainContainer.mjs')
-            }]
+            items: [
+                {module: () => import('./home/MainContainer.mjs')},
+                {module: () => import('./learn/MainContainer.mjs')},
+                {module: () => import('./blog/Container.mjs')}
+            ]
         }]
     }
 
     /**
      *
      */
-    onConstructed() {
+    async onConstructed() {
         super.onConstructed();
 
-        let me = this;
+        let me           = this,
+            data         = await Neo.Main.getByPath({path: 'location.search'}),
+            searchString = data?.substr(1),
+            search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
 
-        Neo.Main.getByPath({path: 'location.search'})
-            .then(data => {
-                const searchString = data?.substr(1) || '';
-                const search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
-                me.deck            = search.deck || 'learnneo';
+        me.deck = search.deck || 'learnneo';
 
-                me.addCls(me.deck);
-            })
+        me.addCls(me.deck)
     }
 }
 
