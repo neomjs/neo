@@ -1,4 +1,6 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import Container          from '../../../src/container/Base.mjs';
+import HeaderToolbar      from './HeaderToolbar.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -20,12 +22,19 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: () => import('./learn/MainContainer.mjs')
-        }],
-        /**
-         * @member {Object} layout={ntype:'card'}
-         */
-        layout: {ntype: 'card'}
+            module: HeaderToolbar,
+            flex  : 'none'
+        }, {
+            module   : Container,
+            layout   : {ntype: 'card', activeIndex: null},
+            reference: 'main-content',
+
+            items: [{
+                module: () => import('./home/MainContainer.mjs')
+            }, {
+                module: () => import('./learn/MainContainer.mjs')
+            }]
+        }]
     }
 
     /**

@@ -1,7 +1,6 @@
 import Container               from '../../../../src/container/Base.mjs';
 import ContentView             from './ContentView.mjs';
 import ContentTreeList         from './ContentTreeList.mjs';
-import HeaderToolbar           from './HeaderToolbar.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
@@ -29,38 +28,35 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: HeaderToolbar
-        }, {
-            module: Container,
-            layout: {ntype: 'hbox', align: 'stretch'},
-
+            module  : Container,
+            layout  : 'fit',
+            minWidth: 350,
+            width   : 350,
+            cls     : 'sidenav-container',
             items: [{
-                module  : Container,
-                layout  : 'fit',
-                minWidth: 350,
-                width   : 350,
-                cls     : 'sidenav-container',
-                items: [{
-                    module   : ContentTreeList,
-                    reference: 'tree',
-                    listeners: {
-                        contentChange: 'onContentChange',
-                    }
-                }]
-            }, {
-                module      : Splitter,
-                cls         : ['main-content-splitter'],
-                resizeTarget: 'previous',
-                size        : 4
-            }, {
-                module   : ContentView,
-                reference: 'content',
+                module   : ContentTreeList,
+                reference: 'tree',
                 listeners: {
-                    edit   : 'onContentEdit',
-                    refresh: 'onContentRefresh'
+                    contentChange: 'onContentChange',
                 }
             }]
+        }, {
+            module      : Splitter,
+            cls         : ['main-content-splitter'],
+            resizeTarget: 'previous',
+            size        : 4
+        }, {
+            module   : ContentView,
+            reference: 'content',
+            listeners: {
+                edit   : 'onContentEdit',
+                refresh: 'onContentRefresh'
+            }
         }],
+        /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Neo.model.Component} model=MainContainerModel
          */

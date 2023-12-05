@@ -1,5 +1,5 @@
-import Base  from '../../../../src/toolbar/Base.mjs';
-import Label from '../../../../src/component/Label.mjs';
+import Base  from '../../../src/toolbar/Base.mjs';
+import Label from '../../../src/component/Label.mjs';
 
 /**
  * @class Portal.view.learn.HeaderToolbar
@@ -17,22 +17,27 @@ class HeaderToolbar extends Base {
          */
         cls: ['learnneo-header-toolbar'],
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            ntype: 'button',
+            ui   : 'ghost'
+        },
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module: Label,
-            cls   : ['logo'],
-            text  : 'neo.mjs'
+            cls  : ['logo'],
+            route: '/home',
+            text : 'neo.mjs'
         }, '->', {
-            text: 'Docs',
-            ui  : 'ghost'
+            text : 'Learn',
+            route: '/learn'
         }, {
-            text: 'Learn',
-            ui  : 'ghost'
+            text: 'Docs'
         }, {
             cls    : ['github-button'],
             iconCls: 'fa-brands fa-github',
-            ui     : 'ghost',
             url    : 'https://github.com/neomjs/neo',
             tooltip: {
                 html: 'GitHub',
@@ -41,7 +46,6 @@ class HeaderToolbar extends Base {
             }
         }, {
             iconCls: 'fa-brands fa-slack',
-            ui     : 'ghost',
             url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
             tooltip: {
                 html: 'Join Slack',

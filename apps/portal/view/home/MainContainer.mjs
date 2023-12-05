@@ -8,10 +8,10 @@ import Container from '../../../../src/container/Base.mjs';
 class Viewport extends Container {
     static config = {
         /**
-         * @member {String} className='NewWebsite.view.Viewport'
+         * @member {String} className='Portal.view.home.MainContainer'
          * @protected
          */
-        className: 'NewWebsite.view.Viewport',
+        className: 'Portal.view.home.MainContainer',
         /**
          * @member {String[]} cls=['newwebsite-viewport']
          */
