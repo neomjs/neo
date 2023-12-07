@@ -12,6 +12,10 @@ class ViewportController extends Controller {
          */
         className: 'Portal.view.ViewportController',
         /**
+         * @member {String|null} defaultHash='/home'
+         */
+        defaultHash: '/home',
+        /**
          * @member {Object} routes
          */
         routes: {
@@ -42,14 +46,6 @@ class ViewportController extends Controller {
      */
     onBlogSearchFieldChange(data) {
         this.getReference('blog-list').filterItems(data)
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-        !Neo.config.hash && Neo.Main.setRoute({value: '/home'})
     }
 
     /**
