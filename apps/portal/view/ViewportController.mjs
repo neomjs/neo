@@ -17,8 +17,10 @@ class ViewportController extends Controller {
         routes: {
             '/blog' : 'onBlogRoute',
             '/home' : 'onHomeRoute',
-            '/learn': 'onLearnRoute'
-        }
+            '/learn': 'onLearnRoute',
+            'default': 'onLearnRoute'
+        },
+
     }
 
     /**
@@ -33,7 +35,7 @@ class ViewportController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onBlogRoute(params, value, oldValue) {
+    onBlogRoute(value, oldValue, params) {
         this.setMainContentIndex(2)
     }
 
@@ -57,7 +59,7 @@ class ViewportController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHomeRoute(params, value, oldValue) {
+    onHomeRoute(value, oldValue, params) {
         this.setMainContentIndex(0)
     }
 
@@ -66,7 +68,7 @@ class ViewportController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onLearnRoute(params, value, oldValue) {
+    onLearnRoute(value, oldValue, params) {
         this.setMainContentIndex(1)
     }
 

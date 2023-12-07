@@ -150,13 +150,13 @@ class Base extends CoreBase {
         // execute
         if (hasRouteBeenFound) {
             if (preHandler) {
-                responsePreHandler = await me[preHandler]?.call(me, paramObject, value, oldValue)
+                responsePreHandler = await me[preHandler]?.call(me, value, oldValue, paramObject)
             } else {
                 responsePreHandler = true
             }
 
             if (responsePreHandler) {
-                await me[handler]?.call(me, paramObject, value, oldValue)
+                await me[handler]?.call(me, value, oldValue, paramObject)
             }
         }
 
@@ -185,7 +185,7 @@ class Base extends CoreBase {
      * @returns {Number}
      */
     #sortRoutes(route1, route2) {
-        return route1.match(amountSlashesRegex).length - route2.match(amountSlashesRegex).length
+        return (route1.match(amountSlashesRegex) || []).length - (route2.match(amountSlashesRegex)|| []).length
     }
 }
 

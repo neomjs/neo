@@ -45,7 +45,7 @@ class MainContainerController extends Component {
     */
 
 
-   doPrehandling(params = null, value, oldValue) {
+   doPrehandling(value, oldValue, params = null) {
       const userId = parseInt(params.userId);
       if (userId > 0 && userId === this.data.activeUser) {
          return true;
@@ -137,27 +137,27 @@ class MainContainerController extends Component {
       this.#removeMetaButtonSelection();
    }
 
-   handleHomeRoute(params = null, value, oldValue) {
+   handleHomeRoute(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 4;
    }
 
-   handleSection1Route(params = null, value, oldValue) {
+   handleSection1Route(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 2;
    }
 
-   handleSection2Route(params = null, value, oldValue) {
+   handleSection2Route(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 3;
    }
 
-   handleContactRoute(params = null, value, oldValue) {
+   handleContactRoute(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 0;
    }
 
-   handleUserRoute(params = null, value, oldValue) {
+   handleUserRoute(value, oldValue, params = null) {
       const centerContainer = this.getReference('center-container');
       centerContainer.layout.activeIndex = 1
    }
