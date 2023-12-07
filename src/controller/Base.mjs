@@ -185,7 +185,7 @@ class Base extends CoreBase {
      * @returns {Number}
      */
     #sortRoutes(route1, route2) {
-        return route1.match(amountSlashesRegex).length - route2.match(amountSlashesRegex).length
+        return (route1.match(amountSlashesRegex) || []).length - (route2.match(amountSlashesRegex)|| []).length
     }
 }
 
