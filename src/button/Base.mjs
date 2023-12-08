@@ -173,7 +173,7 @@ class Base extends Component {
 
         badgeNode.cls = cls;
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -188,7 +188,7 @@ class Base extends Component {
         badgeNode.html      = value;
         badgeNode.removeDom = !Boolean(value);
 
-        this.update();
+        this.update()
     }
 
     /**
@@ -221,7 +221,7 @@ class Base extends Component {
         }
 
         if (value === '') {
-            value = null;
+            value = null
         }
 
         iconNode.style.color = value;
@@ -240,7 +240,7 @@ class Base extends Component {
         NeoArray.remove(cls, 'icon-' + oldValue);
         NeoArray.add(cls, 'icon-' + value);
 
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -293,7 +293,7 @@ class Base extends Component {
         let cls = this.cls;
 
         NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -344,10 +344,10 @@ class Base extends Component {
 
         if (value) {
             vdomRoot.href = value;
-            vdomRoot.tag  = 'a';
+            vdomRoot.tag  = 'a'
         } else {
             delete vdomRoot.href;
-            vdomRoot.tag = 'button';
+            vdomRoot.tag = 'button'
         }
 
         this.update()
@@ -376,9 +376,9 @@ class Base extends Component {
             vdomRoot = me.getVdomRoot();
 
         if (me.url) {
-            vdomRoot.target = value;
+            vdomRoot.target = value
         } else {
-            delete vdomRoot.target;
+            delete vdomRoot.target
         }
 
         me.update()
@@ -393,7 +393,7 @@ class Base extends Component {
         let iconCls = this._iconCls;
 
         if (Array.isArray(iconCls)) {
-            return iconCls.join(' ');
+            return iconCls.join(' ')
         }
 
         return iconCls
@@ -419,7 +419,7 @@ class Base extends Component {
      */
     beforeSetIconCls(value, oldValue) {
         if (value && !Array.isArray(value)) {
-            value = value.split(' ').filter(Boolean);
+            value = value.split(' ').filter(Boolean)
         }
 
         return value
@@ -454,7 +454,7 @@ class Base extends Component {
      */
     destroy(updateParentVdom=false, silent=false) {
         this.menuList && this.menuList.destroy(true, false);
-        super.destroy(updateParentVdom, silent);
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
