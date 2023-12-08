@@ -24,7 +24,12 @@ class Navigator extends Base {
                 'unsubscribe',
                 'navigateTo'
             ]
-        }
+        },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**
@@ -32,7 +37,7 @@ class Navigator extends Base {
      *
      * When navigation occurs from one navigable element to another, the `navigate` event
      * will be fired.
-     * @param {*} data 
+     * @param {*} data
      * @param {String} data.id The element id to navigate in.
      * @param {String} [data.eventSource] Optional - the element id to read keystrokes from.
      * defaults to the main element id.
@@ -59,7 +64,7 @@ class Navigator extends Base {
             childList : true,
             subtree   : true
         });
-        
+
         eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
         target.addEventListener('mousedown',    data.l2 = e => me.navigateMouseDownHandler(e, data));
         target.addEventListener('click',        data.l3 = e => me.navigateClickHandler(e, data));
@@ -112,7 +117,7 @@ class Navigator extends Base {
 
     navigateMouseDownHandler(e, data) {
         const target = e.target.closest(data.selector);
-    
+
         // If the target is focusable, it will take focus, and we respond to that in navigateFocusInHandler.
         // If not, we have to programatically activate on click, but we must not draw focus away from
         // where it is, so preventDefault
@@ -263,7 +268,7 @@ class Navigator extends Base {
 
     navigatorGetActiveItem(data) {
         let activeItem = data.activeItem && this.getElement(data.activeItem.id);
-        
+
         if (!activeItem && ('activeIndex' in data)) {
             const allItems = data.subject.querySelectorAll(data.selector);
 
