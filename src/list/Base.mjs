@@ -263,18 +263,26 @@ class Base extends Component {
     }
 
     afterSetMounted(value) {
+        const me = this;
+
         super.afterSetMounted(...arguments);
 
-        // Set up navigation in the list
-        if (value && !this.hasNavigator) {
-            this.navigator = {
-                appName  : this.appName,
-                id       : this.id,
-                selector : `.${this.itemCls}:not(.neo-disabled,.neo-list-header)`,
-                ...this.navigator
+        if (value) {
+            if (!me.hasNavigator) {
+                me.navigator = {
+                    appName  : me.appName,
+                    id       : me.id,
+                    selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    ...me.navigator
+                }
+                me.hasNavigator = true;
             }
-            this.hasNavigator = true;
-            Neo.main.DomAccess.navigate(this.navigator)
+            Neo.main.addon.Navigator.subscribe(me.navigator)
+        }
+        else if (me.hasNavigator) {
+            Neo.main.addon.Navigator.unsubscribe(me.navigator);
+            me.hasNavigator = false;
+            me.activeIndex = null
         }
     }
 
@@ -537,7 +545,7 @@ class Base extends Component {
      * @param {String} [id]
      */
     focus(id) {
-        DomAccess.navigateTo(id, this.navigator)
+        Neo.main.addon.Navigator.navigateTo(id, this.navigator)
     }
 
     /**
