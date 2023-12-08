@@ -189,7 +189,7 @@ class Component extends Base {
                                 handlerScope = me.getHandlerScope(eventHandler, component);
 
                                 if (!handlerScope) {
-                                    Logger.logError('Unknown event handler for', eventHandler, component)
+                                    console.error('Unknown event handler for', eventHandler, component)
                                 } else if (handlerScope !== true) {
                                     listener.fn = handlerScope[eventHandler].bind(handlerScope)
                                 }

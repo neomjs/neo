@@ -22,6 +22,12 @@ class Base extends CoreBase {
          */
         ntype: 'controller',
         /**
+         * If the URL does not contain a hash value when creating this controller instance,
+         * neo will set this hash value for us.
+         * @member {String|null} defaultHash=null
+         */
+        defaultHash: null,
+        /**
          * @member {String|null} defaultRoute=null
          */
         defaultRoute: null,
@@ -90,9 +96,14 @@ class Base extends CoreBase {
      *
      */
     onConstructed() {
-        let currentHash = HashHistory.first();
+        let currentHash = HashHistory.first(),
+            defaultHash = this.defaultHash;
 
-        currentHash && this.onHashChange(currentHash, null)
+        if (currentHash) {
+            this.onHashChange(currentHash, null)
+        } else if (defaultHash) {
+            Neo.Main.setRoute({value: defaultHash})
+        }
     }
 
     /**
@@ -185,7 +196,7 @@ class Base extends CoreBase {
      * @returns {Number}
      */
     #sortRoutes(route1, route2) {
-        return route1.match(amountSlashesRegex).length - route2.match(amountSlashesRegex).length
+        return (route1.match(amountSlashesRegex) || []).length - (route2.match(amountSlashesRegex)|| []).length
     }
 }
 

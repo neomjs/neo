@@ -57,6 +57,10 @@ class Toast extends Base {
          */
         closable_: false,
         /**
+         * @member {Boolean} floating=true
+         */
+        floating: true,
+        /**
          * If set, it shows this icon in front of the text
          * e.g. 'fa fa-cog'
          * @member {String|null} iconCls=null
@@ -107,8 +111,7 @@ class Toast extends Base {
                 ]},
                 {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
             ]
-        }]},
-        floating : true
+        }]}
     }
 
     /**

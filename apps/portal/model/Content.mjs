@@ -1,16 +1,16 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * @class LearnNeo.model.Content
+ * @class Portal.model.Content
  * @extends Neo.data.Model
  */
 class Content extends Model {
     static config = {
         /**
-         * @member {String} className='LearnNeo.model.Content'
+         * @member {String} className='Portal.model.Content'
          * @protected
          */
-        className: 'LearnNeo.model.Content',
+        className: 'Portal.model.Content',
         /**
          * @member {Object[]} fields
          */

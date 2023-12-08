@@ -1,18 +1,17 @@
-import BaseViewport  from '../../../src/container/Viewport.mjs';
-import Button        from '../../../src/button/Base.mjs';
-import Container     from '../../../src/container/Base.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
 
 /**
- * @class NewWebsite.view.Viewport
- * @extends Neo.container.Viewport
+ * @class Portal.view.home.MainContainer
+ * @extends Neo.container.Base
  */
-class Viewport extends BaseViewport {
+class Viewport extends Container {
     static config = {
         /**
-         * @member {String} className='NewWebsite.view.Viewport'
+         * @member {String} className='Portal.view.home.MainContainer'
          * @protected
          */
-        className: 'NewWebsite.view.Viewport',
+        className: 'Portal.view.home.MainContainer',
         /**
          * @member {String[]} cls=['newwebsite-viewport']
          */

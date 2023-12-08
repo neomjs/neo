@@ -1,5 +1,5 @@
 import ContentModel from '../model/Content.mjs';
-import Store from '../../../src/data/Store.mjs';
+import Store        from '../../../src/data/Store.mjs';
 
 /**
  * @class LearnNeo.store.Content
@@ -15,10 +15,7 @@ class Content extends Store {
         /**
          * @member {Neo.data.Model} model=ContentModel
          */
-        model: ContentModel,
-        // autoLoad: true
-
-
+        model: ContentModel
     }
 
     xonConstructed() {

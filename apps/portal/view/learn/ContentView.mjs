@@ -1,16 +1,16 @@
 import Component from '../../../../src/component/Base.mjs';
 
 /**
- * @class LearnNeo.view.home.ContentView
+ * @class Portal.view.learn.ContentView
  * @extends Neo.component.Base
  */
 class ContentView extends Component {
     static config = {
         /**
-         * @member {String} className='LearnNeo.view.home.ContentView'
+         * @member {String} className='Portal.view.learn.ContentView'
          * @protected
          */
-        className: 'LearnNeo.view.home.ContentView',
+        className: 'Portal.view.learn.ContentView',
         /**
          * @member {String[]} baseCls=['learn-content']
          * @protected

@@ -1,5 +1,5 @@
 {
-    "appPath"         : "apps/learnneo/app.mjs",
+    "appPath"         : "apps/portal/app.mjs",
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",

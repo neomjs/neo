@@ -4,7 +4,6 @@ $border-color    : #ddd;
 $border-style    : solid;
 $border-width    : 1px;
 
-
 :root .neo-theme-neo-light { // .neo-button
     --button-background-color                   : var(--cmp-button-primary-bg-default);
     --button-background-color-active            : var(--cmp-button-primary-bg-active);
@@ -115,8 +114,9 @@ $border-width    : 1px;
     --button-tertiary-text-color-active         : var(--button-text-color);
     --button-tertiary-text-color-disabled       : inherit;
     --button-tertiary-text-color-hover          : var(--button-text-color);
-}
 
-.neo-button {
-    min-width: var(--cmp-button-height);
+    // custom overrides
+    .neo-button {
+        min-width: var(--cmp-button-height);
+    }
 }

@@ -3,7 +3,7 @@ import BlogPosts from '../../store/BlogPosts.mjs';
 import VDomUtil  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class Website.view.blog.List
+ * @class Portal.view.blog.List
  * @extends Neo.list.Base
  */
 class List extends BaseList {
@@ -17,10 +17,10 @@ class List extends BaseList {
 
     static config = {
         /**
-         * @member {String} className='Website.view.blog.List'
+         * @member {String} className='Portal.view.blog.List'
          * @protected
          */
-        className: 'Website.view.blog.List',
+        className: 'Portal.view.blog.List',
         /**
          * @member {String[]} baseCls=['website-blog-list','neo-list']
          */
@@ -108,10 +108,10 @@ class List extends BaseList {
                     {html: `Officially selected by ${record.provider} into`},
                     {cls: ['neo-bold'], html: record.selectedInto.join('</br>')}
                 ]}
-            );
+            )
         }
 
-        return vdomCn;
+        return vdomCn
     }
 
     /**
@@ -135,36 +135,36 @@ class List extends BaseList {
 
             if (emptyValue) {
                 itemName.html = name;
-                delete item.style.display;
+                delete item.style.display
             } else {
                 itemName.html = name.replace(valueRegEx, match => {
                     hasMatch = true;
-                    return `<span class="neo-highlight-search">${match}</span>`;
+                    return `<span class="neo-highlight-search">${match}</span>`
                 });
 
                 if (hasMatch) {
-                    delete item.style.display;
+                    delete item.style.display
                 } else {
-                    item.style.display = 'none';
+                    item.style.display = 'none'
                 }
             }
         });
 
-        me.update();
+        me.update()
     }
 
     /**
      * @returns {Object}
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
      * @returns {Object}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 }
 

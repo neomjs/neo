@@ -71,26 +71,24 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        this.updateUseActiveTabIndicator();
+        this.updateUseActiveTabIndicator()
     }
 
     /**
      * @param {Object} data
      */
     showRipple(data) {
-        !this.pressed && super.showRipple(data);
+        !this.pressed && super.showRipple(data)
     }
 
     /**
      * @param {Boolean} silent=false
      */
     updateUseActiveTabIndicator(silent=false) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
-        vdom.cn[4].removeDom = !me.useActiveTabIndicator;
-
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        me.vdom.cn[4].removeDom = !me.useActiveTabIndicator;
+        !silent && me.update()
     }
 }
 

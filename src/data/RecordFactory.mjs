@@ -68,6 +68,9 @@ class RecordFactory extends Base {
                             properties;
 
                         Object.defineProperties(me, {
+                            [Symbol.for('isRecord')]: {
+                                value: true
+                            },
                             _isModified: {
                                 value   : false,
                                 writable: true
@@ -87,9 +90,6 @@ class RecordFactory extends Base {
                                 parsedValue = instance.parseRecordValue(me, field, value, config);
 
                                 properties = {
-                                    [Symbol.for('isRecord')]: {
-                                        value: true
-                                    },
                                     [symbol]: {
                                         value   : parsedValue,
                                         writable: true
