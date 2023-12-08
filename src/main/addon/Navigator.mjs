@@ -1,5 +1,6 @@
 import Base      from '../../core/Base.mjs';
 import DomAccess from '../DomAccess.mjs';
+import DomUtils  from '../DomUtils.mjs';
 
 /**
  * Addon for Navigator
@@ -72,7 +73,7 @@ class Navigator extends Base {
         target.addEventListener('focusin',      data.l4 = e => me.navigateFocusInHandler(e, data));
     }
 
-    subscribe(data) {
+    unsubscribe(data) {
         const target = DomAccess.getElement(data.id);
 
         data = target?.$navigator;
@@ -111,7 +112,7 @@ class Navigator extends Base {
         // If the target is focusable, mousedown will have focused it and and we will have
         // respond to that in navigateFocusInHandler.
         // If not, we navigate programatically.
-        if (target && !isFocusable(target)) {
+        if (target && !DomUtils.isFocusable(target)) {
             this.setActiveItem(target, data);
         }
     }
@@ -122,7 +123,7 @@ class Navigator extends Base {
         // If the target is focusable, it will take focus, and we respond to that in navigateFocusInHandler.
         // If not, we have to programatically activate on click, but we must not draw focus away from
         // where it is, so preventDefault
-        if (target && !isFocusable(target)) {
+        if (target && !DomUtils.isFocusable(target)) {
             e.preventDefault();
         }
     }
