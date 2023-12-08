@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Addon for Navigator
@@ -47,8 +48,8 @@ class Navigator extends Base {
     subscribe(data) {
         const
             me          = this,
-            target      = data.subject = me.getElement(data.id),
-            eventSource = data.eventSource = data.eventSource ? me.getElement(data.eventSource) : target;
+            target      = data.subject = DomAccess.getElement(data.id),
+            eventSource = data.eventSource = data.eventSource ? DomAccess.getElement(data.eventSource) : target;
 
         target.$navigator = data;
 
@@ -72,7 +73,7 @@ class Navigator extends Base {
     }
 
     subscribe(data) {
-        const target = this.getElement(data.id);
+        const target = DomAccess.getElement(data.id);
 
         data = target?.$navigator;
         if (data) {
@@ -186,7 +187,7 @@ class Navigator extends Base {
 
     navigateTo(newActiveElement, data) {
         if (!data.subject) {
-            data = this.getElement(data.id).$navigator
+            data = DomAccess.getElement(data.id).$navigator
         }
 
         // Can navigate by index. This is useful if the active item is deleted.
@@ -195,7 +196,7 @@ class Navigator extends Base {
             newActiveElement = data.subject.querySelectorAll(data.selector)[newActiveElement];
         }
         else if (typeof newActiveElement === 'string') {
-            newActiveElement = this.getElement(newActiveElement);
+            newActiveElement = DomAccess.getElement(newActiveElement);
         }
 
         // If the item is focusable, we focus it and then react in navigateFocusInHandler
@@ -267,7 +268,7 @@ class Navigator extends Base {
     }
 
     navigatorGetActiveItem(data) {
-        let activeItem = data.activeItem && this.getElement(data.activeItem.id);
+        let activeItem = data.activeItem && DomAccess.getElement(data.activeItem.id);
 
         if (!activeItem && ('activeIndex' in data)) {
             const allItems = data.subject.querySelectorAll(data.selector);
