@@ -19,10 +19,10 @@ const focusableTags = {
 export default class DomUtils extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.main.DomUtils '
+         * @member {String} className='Neo.main.DomUtils'
          * @protected
          */
-        className: 'Neo.main.DomUtils '
+        className: 'Neo.main.DomUtils'
     }
 
     static isFocusable(e) {
