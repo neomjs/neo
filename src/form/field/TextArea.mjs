@@ -38,6 +38,11 @@ class TextArea extends Text {
          */
         baseCls: ['neo-textarea', 'neo-textfield'],
         /**
+         * True shows a clear trigger in case the field has a non-empty value.
+         * @member {Boolean} clearable=false
+         */
+        clearable: false,
+        /**
          * The visible width of the text control, in average character widths.
          * If it is specified, it must be a positive integer.
          * If it is not specified, the default value is 20.

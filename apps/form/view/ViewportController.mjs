@@ -19,10 +19,10 @@ class ViewportController extends Component {
     async onValidateAllPagesButtonClick(data) {
         let me         = this,
             form       = me.getReference('main-form'),
-            isValid    = await form.validate(),
+            formState  = await form.getFormState(),
             formValues = await form.getValues();
 
-        console.log('All pages', {isValid, formValues});
+        console.log('All pages', {formState, formValues});
 
         await me.updateRecordValidityState()
     }
@@ -36,7 +36,6 @@ class ViewportController extends Component {
             activeCard  = me.getReference('pages-container').items[activeIndex],
             formValues  = await activeCard.getValues();
 
-        await activeCard.validate();
         await me.updateRecordValidityState(activeIndex)
 
         console.log(`Current page: ${activeIndex + 1}`, formValues);
@@ -55,19 +54,19 @@ class ViewportController extends Component {
             store          = model.getStore('sideNav'),
             i              = 0,
             len            = pagesContainer.items.length,
-            isValid, listIndex, page;
+            formState, listIndex, page;
 
         if (Neo.isNumber(pageIndex)) {
             i   = pageIndex;
-            len = pageIndex + 1;
+            len = pageIndex + 1
         }
 
         for (; i < len; i++) {
             page      = pagesContainer.items[i];
             listIndex = sideNav.getActiveIndex(i);
-            isValid   = await page.isValid();
+            formState = await page.getFormState();
 
-            store.getAt(listIndex).isValid = isValid;
+            store.getAt(listIndex).formState = formState
         }
     }
 }

@@ -336,6 +336,11 @@ class Base extends CoreBase {
          */
         width_: null,
         /**
+         * The custom windowIs (timestamp) this component belongs to
+         * @member {Number|null} windowId_=null
+         */
+        windowId_: null,
+        /**
          * @member {String[]|null} wrapperCls_=null
          */
         wrapperCls_: null,

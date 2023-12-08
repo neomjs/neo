@@ -136,6 +136,56 @@ class Container extends BaseContainer {
         return fields
     }
 
+
+    /**
+     * This function will return one of the following states:
+     * - clean      => all fields are clean (untouched)
+     * - invalid    => at least one field is invalid
+     * - valid      => all required fields are valid
+     * - inProgress => at least one field is valid, at least one field is clean
+     * @returns {Promise<String>}
+     */
+    async getFormState() {
+        let fields           = await this.getFields(),
+            i                = 0,
+            hasCleanFields   = false,
+            hasInvalidFields = false,
+            hasUncleanFields = false,
+            hasValidFields   = false,
+            len              = fields.length,
+            field, isClean, isValid;
+
+        for (; i < len; i++) {
+            field   = fields[i];
+            isClean = field.clean;
+            isValid = field.isValid();
+
+            if (!isClean && !isValid) {
+                return 'invalid'
+            } else if (isValid) {
+                hasValidFields = true
+            } else if (!isValid) {
+                hasInvalidFields = true
+            }
+
+            if (isClean) {
+                hasCleanFields = true
+            } else {
+                hasUncleanFields = true
+            }
+        }
+
+        if (!hasInvalidFields) {
+            return 'valid'
+        }
+
+        if (hasCleanFields && !hasUncleanFields) {
+            return 'clean'
+        }
+
+        return 'inProgress'
+    }
+
     /**
      * @returns {Promise<Object>}
      */

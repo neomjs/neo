@@ -112,10 +112,8 @@ class Base extends CoreBase {
     onConnect(data) {
         // short delay to ensure app VCs are in place
         setTimeout(() => {
-            this.fire('connect', {
-                appName: data.appName
-            });
-        }, 10);
+            this.fire('connect', {appName: data.appName})
+        }, 10)
     }
 
     /**
@@ -129,9 +127,10 @@ class Base extends CoreBase {
         me.isConnected = true;
 
         me.ports.push({
-            appName: null,
+            appName : null,
             id,
-            port   : e.ports[0]
+            port    : e.ports[0],
+            windowId: null
         });
 
         me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
@@ -141,7 +140,7 @@ class Base extends CoreBase {
 
         me.sendMessage('main', {action: 'workerConstructed', port: id});
 
-        me.afterConnect();
+        me.afterConnect()
     }
 
     /**
@@ -154,7 +153,7 @@ class Base extends CoreBase {
 
         if (!me.isSharedWorker) {
             me.sendMessage('main', {action: 'workerConstructed'});
-            me.afterConnect();
+            me.afterConnect()
         }
     }
 
@@ -163,9 +162,7 @@ class Base extends CoreBase {
      * @param {Object} data
      */
     onDisconnect(data) {
-        this.fire('disconnect', {
-            appName: data.appName
-        });
+        this.fire('disconnect', {appName: data.appName})
     }
 
     /**
@@ -186,12 +183,12 @@ class Base extends CoreBase {
             me['on' + Neo.capitalize(action)](data);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             if (data.reject) {
-                promise.reject(data.data);
+                promise.reject(data.data)
             } else {
-                promise.resolve(data.data);
+                promise.resolve(data.data)
             }
 
-            delete me.promises[replyId];
+            delete me.promises[replyId]
         }
     }
 
@@ -199,9 +196,7 @@ class Base extends CoreBase {
      * @param {Object} msg
      */
     onPing(msg) {
-        this.resolve(msg, {
-            originMsg: msg
-        });
+        this.resolve(msg, {originMsg: msg})
     }
 
     /**
@@ -217,8 +212,8 @@ class Base extends CoreBase {
         for (port of me.ports) {
             if (!port.appName) {
                 port.appName = appName;
-                me.onConnect({ appName });
-                break;
+                me.onConnect({appName});
+                break
             }
         }
     }
@@ -228,7 +223,19 @@ class Base extends CoreBase {
      */
     onRegisterNeoConfig(msg) {
         Neo.config = Neo.config || {};
-        Object.assign(Neo.config, msg.data);
+
+        let me         = this,
+            {windowId} = msg.data,
+            port;
+
+        for (port of me.ports) {
+            if (!port.windowId) {
+                port.windowId = windowId;
+                break
+            }
+        }
+
+        Object.assign(Neo.config, msg.data)
     }
 
     /**
@@ -246,12 +253,12 @@ class Base extends CoreBase {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = { reject, resolve };
-        });
+            me.promises[msgId] = { reject, resolve }
+        })
     }
 
     /**
-     * @param {String} dest app, data, main or vdom (excluding the current worker)
+     * @param {String} dest app, canvas, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
@@ -268,24 +275,29 @@ class Base extends CoreBase {
         if (me.channelPorts[dest]) {
             port = me.channelPorts[dest];
         } else if (!me.isSharedWorker) {
-            port = globalThis;
+            port = globalThis
         } else {
             if (opts.port) {
-                port = me.getPort({id: opts.port}).port;
-            } else if (opts.appName) {
+                port = me.getPort({id: opts.port}).port
+            } else if (opts.windowId) {
+                portObject = me.getPort({windowId: opts.windowId});
+                port       = portObject.port;
+
+                opts.port = portObject.id
+            }  else if (opts.appName) {
                 portObject = me.getPort({appName: opts.appName});
                 port       = portObject.port;
 
-                opts.port = portObject.id;
+                opts.port = portObject.id
             } else {
-                port = me.ports[0].port;
+                port = me.ports[0].port
             }
         }
 
         message = new Message(opts);
 
         port.postMessage(message, transfer);
-        return message;
+        return message
     }
 }
 

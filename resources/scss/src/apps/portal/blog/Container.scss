@@ -1,0 +1,18 @@
+.website-blog-container {
+    .website-blog-searchfield {
+        transition: margin var(--website-transition-duration) ease-out;
+        width     : 240px;
+
+        @media (max-height: 400px), (max-width: 600px) {
+            margin: 5px;
+        }
+
+        @media (min-height: 401px) and (min-width: 601px) {
+            margin: 10px;
+        }
+    }
+
+    .website-blog-toolbar {
+        background-color: var(--website-blog-toolbar-background-color);
+    }
+}

@@ -19,6 +19,15 @@ class RemoteMethodAccess extends Base {
     }
 
     /**
+     * @param {Object} source
+     * @param {Object} target
+     */
+    assignPort(source, target) {
+        const {appName, port, windowId} = source;
+        Object.assign(target, {appName, port, windowId})
+    }
+
+    /**
      * @param {Object} remote
      * @param method
      * @returns {function(*=, *=): Promise<any>}
@@ -36,10 +45,7 @@ class RemoteMethodAccess extends Base {
                 remoteMethod   : method
             };
 
-            if (me.isSharedWorker) {
-                opts.appName = data?.appName;
-                opts.port    = data?.port;
-            }
+            me.isSharedWorker && me.assignPort(data, opts);
 
             return me.promiseMessage(origin, opts, buffer);
         }
@@ -109,19 +115,17 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     reject(msg, data) {
-        let opts = {
+        let me = this,
+
+        opts = {
             action : 'reply',
             data,
             reject : true,
             replyId: msg.id
         };
 
-        if (this.isSharedWorker) {
-            opts.appName = msg.appName;
-            opts.port    = msg.port;
-        }
-
-        this.sendMessage(msg.origin, opts);
+        me.isSharedWorker && me.assignPort(msg, opts);
+        me.sendMessage(msg.origin, opts);
     }
 
     /**
@@ -130,18 +134,16 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     resolve(msg, data) {
-        let opts = {
+        let me = this,
+
+        opts = {
             action : 'reply',
             data,
             replyId: msg.id
         };
 
-        if (this.isSharedWorker) {
-            opts.appName = msg.appName;
-            opts.port    = msg.port;
-        }
-
-        this.sendMessage(msg.origin, opts);
+        me.isSharedWorker && me.assignPort(msg, opts);
+        me.sendMessage(msg.origin, opts);
     }
 }
 

@@ -189,12 +189,14 @@ class Base {
             delayable     = me.delayable ? Neo.merge({}, me.delayable, ctorDelayable) : ctorDelayable;
 
         Object.entries(delayable).forEach(([key, value]) => {
-            let map = {
-                debounce() {me[key] = new debounce(me[key], me, value.timer)},
-                throttle() {me[key] = new throttle(me[key], me, value.timer)}
-            };
+            if (value) {
+                let map = {
+                    debounce() {me[key] = new debounce(me[key], me, value.timer)},
+                    throttle() {me[key] = new throttle(me[key], me, value.timer)}
+                };
 
-            map[value.type]?.()
+                map[value.type]?.()
+            }
         })
     }
 
