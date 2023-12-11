@@ -231,6 +231,13 @@ class Text extends Base {
          */
         triggers_: null,
         /**
+         * Using the alert state will display an empty but required field in orange instead of red.
+         * Intended to get combined with form.Container: getFormState().
+         * See apps/form as an example.
+         * @member {Boolean} useAlertState_=false
+         */
+        useAlertState_: false,
+        /**
          * A string based value will get resolved into the closest controller which implements it
          * @member {Function|String|null} validator=null
          */
@@ -847,6 +854,8 @@ class Text extends Base {
         me.validate(); // silent
 
         cls = me.cls;
+
+        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
 
         NeoArray[me.hasContent() ? 'add' : 'remove'](cls, 'neo-has-content');
         NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');

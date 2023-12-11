@@ -4,7 +4,8 @@ Neo.overwrites = {
             field: {
                 Text: {
                     labelPosition_   : 'inline',
-                    showOptionalText_: true
+                    showOptionalText_: true,
+                    useAlertState_   : true
                 }
             }
         }
