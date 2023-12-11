@@ -30,6 +30,7 @@ class App extends Base {
                 'createNeoInstance',
                 'destroyNeoInstance',
                 'fireEvent',
+                'getConfigs',
                 'setConfigs'
             ]
         },
@@ -223,6 +224,33 @@ class App extends Base {
         this.ports.forEach(port => {
             Neo.apps[port.appName].mainView.fire(eventName, data)
         })
+    }
+
+    /**
+     * Get configs of any app realm based Neo instance from main
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String|String[]} data.keys
+     * @returns {*|*[]|false} false, in case no instance got found
+     */
+    getConfigs(data) {
+        let instance    = Neo.get(data.id),
+            keys        = data.keys,
+            returnArray = [];
+
+        if (instance) {
+            if (!Array.isArray(keys)) {
+                return instance[keys]
+            }
+
+            keys.forEach(key => {
+                returnArray.push(instance[key])
+            });
+
+            return returnArray
+        }
+
+        return false
     }
 
     /**
