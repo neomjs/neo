@@ -1231,6 +1231,13 @@ class Text extends Base {
     /**
      * @returns {Boolean}
      */
+    isEmptyAndRequired() {
+        return this.isEmpty() && this.required
+    }
+
+    /**
+     * @returns {Boolean}
+     */
     isValid() {
         this.validate(true); // silent
 

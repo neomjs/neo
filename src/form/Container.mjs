@@ -162,7 +162,7 @@ class Container extends BaseContainer {
             isValid = field.isValid();
 
             if (!isClean && !isValid) {
-                if (field.required && field.isEmpty?.()) {
+                if (field.isEmptyAndRequired?.()) {
                     hasAlertFields = true
                 } else {
                     return 'invalid'
@@ -170,7 +170,7 @@ class Container extends BaseContainer {
             } else if (isValid) {
                 hasValidFields = true
             } else if (!isValid) {
-                if (field.required && field.isEmpty?.()) {
+                if (field.isEmptyAndRequired?.()) {
                     hasAlertFields = true
                 } else {
                     hasInvalidFields = true
