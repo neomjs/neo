@@ -57,6 +57,12 @@
         .neo-checkbox-icon {
             color: var(--textfield-border-color-invalid);
         }
+
+        &.neo-use-alert-state {
+            .neo-checkbox-icon {
+                color: var(--textfield-border-color-alert);
+            }
+        }
     }
 
     &.neo-label-top {
@@ -76,6 +82,12 @@
 
         .neo-checkbox-value-label {
             flex: 1 0 1px;
+        }
+    }
+
+    &.neo-use-alert-state {
+        .neo-error {
+            color: var(--textfield-border-color-alert);
         }
     }
 }
