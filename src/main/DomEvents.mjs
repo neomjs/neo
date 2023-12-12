@@ -118,9 +118,10 @@ class DomEvents extends Base {
 
         let me = this;
 
-        document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
-        document.addEventListener('selectionchange',  me.onSelectionChange .bind(me));
-        window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
+        document.addEventListener('DOMContentLoaded',  me.onDomContentLoaded .bind(me));
+        document.addEventListener('selectionchange',   me.onSelectionChange  .bind(me));
+        window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
+        window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
 
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
@@ -580,6 +581,22 @@ class DomEvents extends Base {
         this.sendMessageToApp(this.getMouseEventData(event))
     }
 
+    /**
+     * @param {Event} event
+     */
+    onOrientationChange(event) {
+        const orientation = window.orientation,
+              layout      = orientation === 0 || orientation === 180 ? 'portrait' : 'landscape',
+              manager    = Neo.worker.Manager;
+
+
+        manager.sendMessage('app', {
+            action: 'orientationChange',
+            data  : { orientation, layout }
+        })
+        return;
+    }
+    
     /**
      * @param {Event} event
      */
