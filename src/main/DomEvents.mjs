@@ -585,14 +585,16 @@ class DomEvents extends Base {
      * @param {Event} event
      */
     onOrientationChange(event) {
-        const orientation = window.orientation,
-              layout      = orientation === 0 || orientation === 180 ? 'portrait' : 'landscape',
-              manager    = Neo.worker.Manager;
-
+        const
+            orientation = screen.orientation,
+            angle       = orientation.angle,
+            layout      = angle === 0 || angle === 180 ? 'portrait' : 'landscape',
+            type        = orientation.type,
+            manager     = Neo.worker.Manager;
 
         manager.sendMessage('app', {
             action: 'orientationChange',
-            data  : {layout, orientation}
+            data  : {angle, layout, type}
         })
     }
 
