@@ -1,6 +1,6 @@
 {"data": [
-    {"id": "2023-10-01T18-29-19-158Z", "parentId": null, "isLeaf": true, "name": "Why Neo.mjs? "},
-    {"id": "GettingStarted", "parentId": null, "isLeaf": false, "name": "Getting Started"},
+    {"id": "2023-10-01T18-29-19-158Z", "parentId": null, "isLeaf": true,  "name": "Why Neo.mjs? "},
+    {"id": "GettingStarted",           "parentId": null, "isLeaf": false, "name": "Getting Started"},
         {"id": "Setup",                    "parentId": "GettingStarted", "isLeaf": true, "name": "Setup"},
         {"id": "2023-10-14T19-25-08-153Z", "parentId": "GettingStarted", "isLeaf": true, "name": "Workspaces and Applications"},
         {"id": "DescribingTheUI",          "parentId": "GettingStarted", "isLeaf": true, "name": "Describing a View"},
