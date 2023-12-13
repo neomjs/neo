@@ -81,6 +81,10 @@
                 background-color: var(--list-item-background-color-active);
                 color           : var(--list-container-list-color);
             }
+            &:active {
+                background-color: var(--list-item-background-color-active);
+                color           : var(--list-container-list-color);
+            }
         }
 
         &.neo-selected {

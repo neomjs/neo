@@ -2,9 +2,13 @@ Neo.overwrites = {
     Neo: {
         form: {
             field: {
+                CheckBox: {
+                    useAlertState_: true
+                },
                 Text: {
                     labelPosition_   : 'inline',
-                    showOptionalText_: true
+                    showOptionalText_: true,
+                    useAlertState_   : true
                 }
             }
         }

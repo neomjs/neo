@@ -83,6 +83,50 @@
             }
         }
 
+        &.neo-empty-required {
+            .neo-input-wrapper {
+                border-color: var(--textfield-border-color-alert);
+            }
+
+            &.label-inline {
+                .neo-label-wrapper {
+                    .neo-center-border, .neo-left-border, .neo-right-border {
+                        border-bottom-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-left-border, .neo-right-border {
+                        border-top-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-left-border {
+                        border-left-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-right-border {
+                        border-right-color: var(--textfield-border-color-alert);
+                    }
+                }
+            }
+
+            .neo-textfield-error {
+                color: var(--textfield-border-color-alert);
+            }
+
+            &:not(.label-inline, .neo-input-wrapper) {
+                .neo-textfield-input {
+                    border-color: var(--textfield-border-color-alert);
+                }
+            }
+
+            &.neo-invalid:not(.neo-disabled, .neo-has-content) {
+                .neo-label-wrapper {
+                    .neo-center-border {
+                        border-top-color: var(--textfield-border-color-alert);
+                    }
+                }
+            }
+        }
+
         &:not(.label-inline, .neo-input-wrapper) {
             .neo-textfield-input {
                 border-color: var(--textfield-border-color-invalid);
