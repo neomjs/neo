@@ -271,10 +271,10 @@ class DomEvents extends Base {
         };
 
         if (event.relatedTarget) {
-            result.relatedTarget = this.getTargetData(event.relatedTarget);
+            result.relatedTarget = this.getTargetData(event.relatedTarget)
         }
 
-        return result;
+        return result
     }
 
     /**
@@ -351,7 +351,7 @@ class DomEvents extends Base {
 
         path.push(this.getTargetData(target));
 
-        return path;
+        return path
     }
 
     /**
@@ -592,11 +592,10 @@ class DomEvents extends Base {
 
         manager.sendMessage('app', {
             action: 'orientationChange',
-            data  : { orientation, layout }
+            data  : {layout, orientation}
         })
-        return;
     }
-    
+
     /**
      * @param {Event} event
      */
@@ -827,10 +826,7 @@ class DomEvents extends Base {
 
             for (j = 0; j < countTargets; j++) {
                 if (node.classList?.contains(targetArray[j])) {
-                    return {
-                        cls: targetArray[j],
-                        node
-                    };
+                    return {cls: targetArray[j], node}
                 }
             }
         }
