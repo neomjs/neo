@@ -231,7 +231,10 @@ class App extends Base {
      * @param {Object} data
      * @param {String} data.id
      * @param {String|String[]} data.keys
-     * @returns {*|*[]|false} false, in case no instance got found
+     * Returns an array of configs if a keys array was passed.
+     * Returns the value of a given config directly, in case no array was passed
+     * Returns false, in case no instance got found.
+     * @returns {*}
      */
     getConfigs(data) {
         let instance    = Neo.get(data.id),
