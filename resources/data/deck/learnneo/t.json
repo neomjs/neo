@@ -49,7 +49,7 @@
             "name": "Extending Components"
         },
         {
-            "id": "ExtendingAddingProperties",
+            "id": "AddingProperties",
             "parentId": "GettingStarted",
             "isLeaf": true,
             "name": "Adding Properties"
