@@ -14,7 +14,7 @@
         {"id": "RSP",         "parentId": "Tutorials", "isLeaf": true,  "expanded": false, "name": "Rock Scissors Paper"},
         {"id": "Earthquakes", "parentId": "Tutorials", "isLeaf": false, "expanded": false, "name": "Earthquakes"},
     {"id": "InDepth", "parentId": null, "isLeaf": false, "expanded": false, "name": "Cookbook"},
-        {"id": "Config", "parentId": "InDepth", "isLeaf": false, "name": "Config"},
+        {"id": "Config",                 "parentId": "InDepth", "isLeaf": false, "name": "Config"},
         {"id": "InstanceLifecycle",      "parentId": "InDepth", "isLeaf": false, "name": "Instance Lifecycle"},
         {"id": "Forms",                  "parentId": "InDepth", "isLeaf": false, "name": "User Input (Forms)"},
         {"id": "CustomComponents",       "parentId": "InDepth", "isLeaf": false, "name": "Custom Components"},
