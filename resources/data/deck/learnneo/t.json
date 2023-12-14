@@ -1,217 +1,37 @@
-{
-    "data": [
-        {
-            "id": "2023-10-01T18-29-19-158Z",
-            "parentId": null,
-            "isLeaf": true,
-            "name": "Why Neo.mjs? "
-        },
-        {
-            "id": "GettingStarted",
-            "parentId": null,
-            "isLeaf": false,
-            "name": "Getting Started"
-        },
-        {
-            "id": "Setup",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Setup"
-        },
-        {
-            "id": "2023-10-14T19-25-08-153Z",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Workspaces and Applications"
-        },
-        {
-            "id": "DescribingTheUI",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Describing a View"
-        },
-        {
-            "id": "Events",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Events"
-        },
-        {
-            "id": "ComponentState",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Updating View State"
-        },
-        {
-            "id": "Extending",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Extending Components"
-        },
-        {
-            "id": "ExtendingAddingProperties",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Adding Properties"
-        },
-        {
-            "id": "ComponentModels",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "Component Models and Binding"
-        },
-        {
-            "id": "WhatAboutHTML",
-            "parentId": "GettingStarted",
-            "isLeaf": true,
-            "name": "What about HTML tags?"
-        },
-        {
-            "id": "Tutorials",
-            "parentId": null,
-            "isLeaf": false,
-            "expanded": false,
-            "name": "Tutorials"
-        },
-        {
-            "id": "RSP",
-            "parentId": "Tutorials",
-            "isLeaf": true,
-            "expanded": false,
-            "name": "Rock Scissors Paper"
-        },
-        {
-            "id": "Earthquakes",
-            "parentId": "Tutorials",
-            "isLeaf": false,
-            "expanded": false,
-            "name": "Earthquakes"
-        },
-        {
-            "id": "InDepth",
-            "parentId": null,
-            "isLeaf": false,
-            "expanded": false,
-            "name": "Cookbook"
-        },
-        {
-            "id": "Config",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Config"
-        },
-        {
-            "id": "InstanceLifecycle",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Instance Lifecycle"
-        },
-        {
-            "id": "Forms",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "User Input (Forms)"
-        },
-        {
-            "id": "CustomComponents",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Custom Components"
-        },
-        {
-            "id": "Tables",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Tables (Stores)"
-        },
-        {
-            "id": "InDepthComponentModels",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Shared Binable Data (Component Models)"
-        },
-        {
-            "id": "MultiWindow",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Multi-Window Applicaitons"
-        },
-        {
-            "id": "MainThreadAddons",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Main Thread Addons"
-        },
-        {
-            "id": "MainThreadAddonIntro",
-            "parentId": "MainThreadAddons",
-            "isLeaf": true,
-            "name": "Introduction"
-        },
-        {
-            "id": "MainThreadAddonExample",
-            "parentId": "MainThreadAddons",
-            "isLeaf": true,
-            "name": "Example"
-        },
-        {
-            "id": "Mixins",
-            "parentId": "InDepth",
-            "isLeaf": false,
-            "name": "Mixins"
-        },
-        {
-            "id": "JavaScriptClasses",
-            "parentId": null,
-            "isLeaf": false,
-            "name": "JavaScript Classes"
-        },
-        {
-            "id": "2023-10-07T19-18-28-517Z",
-            "parentId": "JavaScriptClasses",
-            "isLeaf": true,
-            "name": "Classes, Properties, and Methods"
-        },
-        {
-            "id": "2023-10-08T20-20-07-934Z",
-            "parentId": "JavaScriptClasses",
-            "isLeaf": true,
-            "name": "Overriding Methods"
-        },
-        {
-            "id": "2023-10-08T20-20-37-336Z",
-            "parentId": "Class Basics",
-            "isLeaf": true,
-            "name": "Other JavaScript Class Features"
-        },
-        {
-            "id": "2023-10-08T21-58-25-809Z",
-            "parentId": "JavaScriptClasses",
-            "isLeaf": true,
-            "name": "Super"
-        },
-        {
-            "id": "2023-10-31T13-59-37-550Z",
-            "parentId": "2023-10-16T19-38-29-590Z",
-            "isLeaf": true,
-            "name": "New Node"
-        },
-        {
-            "id": "appendix",
-            "parentId": null,
-            "name": "Appendix"
-        },
-        {
-            "id": "stylesheet",
-            "parentId": "appendix",
-            "name": "Stylesheet",
-            "isLeaf": true
-        },
-        {
-            "id": "TestLivePreview",
-            "parentId": "appendix",
-            "name": "Test",
-            "isLeaf": true
-        }
-    ]
-}
+{"data": [
+    {"name": "Why Neo.mjs? ",                               "parentId": null,                "isLeaf": true,  "id": "2023-10-01T18-29-19-158Z"},
+    {"name": "Getting Started",                             "parentId": null,                "isLeaf": false, "id": "GettingStarted"},
+        {"name": "Setup",                                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "Setup"},
+        {"name": "Workspaces and Applications",             "parentId": "GettingStarted",    "isLeaf": true,  "id": "2023-10-14T19-25-08-153Z"},
+        {"name": "Describing a View",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "DescribingTheUI"},
+        {"name": "Events",                                  "parentId": "GettingStarted",    "isLeaf": true,  "id": "Events"},
+        {"name": "Updating View State",                     "parentId": "GettingStarted",    "isLeaf": true,  "id": "ComponentState"},
+        {"name": "Extending Components",                    "parentId": "GettingStarted",    "isLeaf": true,  "id": "Extending"},
+        {"name": "Adding Properties",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "AddingProperties"},
+        {"name": "Component Models and Binding",            "parentId": "GettingStarted",    "isLeaf": true,  "id": "ComponentModels"},
+        {"name": "What about HTML tags?",                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "WhatAboutHTML"},
+    {"name": "Tutorials",                                   "parentId": null,                "isLeaf": false, "expanded": false, "id": "Tutorials"},
+        {"name": "Rock Scissors Paper",                     "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "RSP"},
+        {"name": "Earthquakes",                             "parentId": "Tutorials",         "isLeaf": false, "expanded": false, "id": "Earthquakes"},
+    {"name": "Cookbook",                                    "parentId": null,                "isLeaf": false, "expanded": false, "id": "InDepth"},
+        {"name": "Config",                                  "parentId": "InDepth",           "isLeaf": false, "id": "Config"},
+        {"name": "Instance Lifecycle",                      "parentId": "InDepth",           "isLeaf": false, "id": "InstanceLifecycle"},
+        {"name": "User Input (Forms)",                      "parentId": "InDepth",           "isLeaf": false, "id": "Forms"},
+        {"name": "Custom Components",                       "parentId": "InDepth",           "isLeaf": false, "id": "CustomComponents"},
+        {"name": "Tables (Stores)",                         "parentId": "InDepth",           "isLeaf": false, "id": "Tables"},
+        {"name": "Shared Bindable Data (Component Models)", "parentId": "InDepth",           "isLeaf": false, "id": "InDepthComponentModels"},
+        {"name": "Multi-Window Applications",               "parentId": "InDepth",           "isLeaf": false, "id": "MultiWindow"},
+        {"name": "Main Thread Addons",                      "parentId": "InDepth",           "isLeaf": false, "id": "MainThreadAddons"},
+            {"name": "Introduction",                        "parentId": "MainThreadAddons",  "isLeaf": true,  "id": "MainThreadAddonIntro"},
+            {"name": "Example",                             "parentId": "MainThreadAddons",  "isLeaf": true,  "id": "MainThreadAddonExample"},
+        {"name": "Mixins",                                  "parentId": "InDepth",           "isLeaf": false, "id": "Mixins"},
+    {"name": "JavaScript Classes",                          "parentId": null,                "isLeaf": false, "id": "JavaScriptClasses"},
+        {"name": "Classes, Properties, and Methods",        "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-07T19-18-28-517Z"},
+        {"name": "Overriding Methods",                      "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-08T20-20-07-934Z"},
+        {"name": "Other JavaScript Class Features",         "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-08T20-20-37-336Z"},
+        {"name": "Super",                                   "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-08T21-58-25-809Z"},
+        {"name": "New Node",                                "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-31T13-59-37-550Z"},
+    {"name": "Appendix",                                    "parentId": null,                                 "id": "appendix"},
+        {"name": "Stylesheet",                              "parentId": "appendix",          "isLeaf": true,  "id": "stylesheet"},
+        {"name": "Test",                                    "parentId": "appendix",          "isLeaf": true,  "id": "TestLivePreview"}
+]}

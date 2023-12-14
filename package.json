@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.10.7",
+    "version": "6.10.8",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {

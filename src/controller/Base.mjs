@@ -96,12 +96,9 @@ class Base extends CoreBase {
      *
      */
     onConstructed() {
-        let currentHash = HashHistory.first(),
-            defaultHash = this.defaultHash;
+        let defaultHash = this.defaultHash;
 
-        if (currentHash) {
-            this.onHashChange(currentHash, null)
-        } else if (defaultHash) {
+        if (!Neo.config.hash && defaultHash) {
             Neo.Main.setRoute({value: defaultHash})
         }
     }
