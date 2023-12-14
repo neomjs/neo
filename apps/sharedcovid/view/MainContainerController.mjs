@@ -402,23 +402,23 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        let component  = data.component,
-            store      = component.store,
-            value      = data.value,
+        let component = data.component,
+            store     = component.store,
+            value     = data.value,
             record;
 
         if (store.getCount() > 0) {
             if (Neo.isObject(value)) {
                 record = value;
-                value  = value[component.displayField];
+                value  = value[component.displayField]
             } else {
-                record = value && store.find('country', value)?.[0];
+                record = value && store.find('country', value)?.[0]
             }
 
             this.getModel().setData({
                 country      : value,
                 countryRecord: record || null
-            });
+            })
         }
     }
 
