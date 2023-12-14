@@ -116,7 +116,7 @@ class Base extends CoreBase {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    async onHashChange(value, oldValue) {console.log(this.id, value);
+    async onHashChange(value, oldValue) {
         let me                = this,
             counter           = 0,
             hasRouteBeenFound = false,
