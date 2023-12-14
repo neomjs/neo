@@ -96,10 +96,18 @@ class Base extends CoreBase {
      *
      */
     onConstructed() {
-        let defaultHash = this.defaultHash;
+        let currentHash = HashHistory.first(),
+            defaultHash = this.defaultHash;
 
-        if (!Neo.config.hash && defaultHash) {
-            Neo.Main.setRoute({value: defaultHash})
+        if (currentHash) {
+            this.onHashChange(currentHash, null)
+        } else {
+            /*
+             * worker.App: onLoadApplication() will push config.hash into the HashHistory with a 5ms delay.
+             * We only want to set a default route, in case the HashHistory is empty and there is no initial
+             * value that will get consumed.
+             */
+            !Neo.config.hash && defaultHash && Neo.Main.setRoute({value: defaultHash})
         }
     }
 
@@ -108,7 +116,7 @@ class Base extends CoreBase {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    async onHashChange(value, oldValue) {
+    async onHashChange(value, oldValue) {console.log(this.id, value);
         let me                = this,
             counter           = 0,
             hasRouteBeenFound = false,
