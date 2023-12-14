@@ -151,7 +151,10 @@ class TableContainer extends Container {
 
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'historical-data-table',
+            windowId : me.windowId,
 
             tabButtonConfig: {
                 iconCls: 'fa fa-table',
@@ -168,6 +171,7 @@ class TableContainer extends Container {
             appName  : me.appName,
             parentId : me.id,
             reference: 'table',
+            windowId : me.windowId,
             ...me.tableConfig
         });
 
@@ -180,7 +184,7 @@ class TableContainer extends Container {
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetCountryRecord(value, oldValue) {
+    afterSetCountryRecord(value, oldValue) {console.log(value);
         setTimeout(() => {
             this.controller.onCountryChange(value);
         }, this.isConstructed ? 0 : 50);
