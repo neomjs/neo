@@ -778,6 +778,10 @@ class Base extends CoreBase {
                     items.push(item);
                 }
             } else if (item[property] === value) {
+                if (returnFirstMatch) {
+                    return item;
+                }
+                
                 items.push(item);
             }
         }
