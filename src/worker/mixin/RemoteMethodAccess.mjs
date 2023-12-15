@@ -23,8 +23,10 @@ class RemoteMethodAccess extends Base {
      * @param {Object} target
      */
     assignPort(source, target) {
-        const {appName, port, windowId} = source;
-        Object.assign(target, {appName, port, windowId})
+        if (source) {
+            const {appName, port, windowId} = source;
+            Object.assign(target, {appName, port, windowId})
+        }
     }
 
     /**
@@ -47,7 +49,7 @@ class RemoteMethodAccess extends Base {
 
             me.isSharedWorker && me.assignPort(data, opts);
 
-            return me.promiseMessage(origin, opts, buffer);
+            return me.promiseMessage(origin, opts, buffer)
         }
     }
 
@@ -63,13 +65,13 @@ class RemoteMethodAccess extends Base {
 
             methods.forEach(method => {
                 if (remote.origin !== 'main' && pkg[method]) {
-                    throw new Error('Duplicate remote method definition ' + className + '.' + method);
+                    throw new Error('Duplicate remote method definition ' + className + '.' + method)
                 }
 
                 if (!pkg[method] ) {
-                    pkg[method] = me.generateRemote(remote, method);
+                    pkg[method] = me.generateRemote(remote, method)
                 }
-            });
+            })
         }
     }
 
@@ -82,30 +84,27 @@ class RemoteMethodAccess extends Base {
             out, method;
 
         if (!pkg) {
-            throw new Error('Invalid remote namespace "' + msg.remoteClassName + '"');
+            throw new Error('Invalid remote namespace "' + msg.remoteClassName + '"')
         }
 
         method = pkg[msg.remoteMethod];
 
         if (!method) {
-            throw new Error('Invalid remote method name "' + msg.remoteMethod + '"');
+            throw new Error('Invalid remote method name "' + msg.remoteMethod + '"')
         }
 
         if (Array.isArray(msg.data)) {
-            out = method.call(pkg, ...msg.data);
+            out = method.call(pkg, ...msg.data)
         } else {
-            out = method.call(pkg, msg.data);
+            out = method.call(pkg, msg.data)
         }
 
         if (out instanceof Promise) {
-            out.then(data => {
-                me.resolve(msg, data);
-            })
-            .catch(err => {
-                me.reject(msg, err);
-            });
+            out
+                .catch(err => {me.reject(msg, err)})
+                .then(data => {me.resolve(msg, data)})
         } else {
-            me.resolve(msg, out);
+            me.resolve(msg, out)
         }
     }
 
@@ -125,7 +124,7 @@ class RemoteMethodAccess extends Base {
         };
 
         me.isSharedWorker && me.assignPort(msg, opts);
-        me.sendMessage(msg.origin, opts);
+        me.sendMessage(msg.origin, opts)
     }
 
     /**
@@ -143,7 +142,7 @@ class RemoteMethodAccess extends Base {
         };
 
         me.isSharedWorker && me.assignPort(msg, opts);
-        me.sendMessage(msg.origin, opts);
+        me.sendMessage(msg.origin, opts)
     }
 }
 

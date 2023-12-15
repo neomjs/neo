@@ -92,7 +92,7 @@ class Application extends Base {
 
             Logger.addContextMenuListener(me.mainView);
 
-            value.render(true)
+            await value.render(true)
         }
     }
 

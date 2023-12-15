@@ -30,6 +30,7 @@ class App extends Base {
                 'createNeoInstance',
                 'destroyNeoInstance',
                 'fireEvent',
+                'getConfigs',
                 'setConfigs'
             ]
         },
@@ -226,6 +227,36 @@ class App extends Base {
     }
 
     /**
+     * Get configs of any app realm based Neo instance from main
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String|String[]} data.keys
+     * Returns an array of configs if a keys array was passed.
+     * Returns the value of a given config directly, in case no array was passed
+     * Returns false, in case no instance got found.
+     * @returns {*}
+     */
+    getConfigs(data) {
+        let instance    = Neo.get(data.id),
+            keys        = data.keys,
+            returnArray = [];
+
+        if (instance) {
+            if (!Array.isArray(keys)) {
+                return instance[keys]
+            }
+
+            keys.forEach(key => {
+                returnArray.push(instance[key])
+            });
+
+            return returnArray
+        }
+
+        return false
+    }
+
+    /**
      * @param {String} path
      * @returns {Promise}
      */
@@ -339,6 +370,19 @@ class App extends Base {
 
             // short delay to ensure Component Controllers are ready
             config.hash && setTimeout(() => HashHistory.push(config.hash), 5)
+        })
+    }
+
+    /**
+     * Fire event on all apps
+     * @param {Object} data
+     * @param {Number} data.angle
+     * @param {String} data.layout landscape|portrait
+     * @param {Number} data.type landscape-primary|landscape-secondary|portrait-primary|portrait-secondary
+     */
+    onOrientationChange(data) {
+        Object.values(Neo.apps).forEach(app => {
+            app.fire('orientationchange', data.data)
         })
     }
 

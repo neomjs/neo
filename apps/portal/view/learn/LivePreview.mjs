@@ -24,6 +24,7 @@ class LivePreview extends Base {
         items: [{
             module   : TabContainer,
             reference: 'tab-container',
+            cls: 'live-preview-container',
 
             items: [{
                 module: TextArea,

@@ -101,8 +101,13 @@ class Base extends CoreBase {
 
         if (currentHash) {
             this.onHashChange(currentHash, null)
-        } else if (defaultHash) {
-            Neo.Main.setRoute({value: defaultHash})
+        } else {
+            /*
+             * worker.App: onLoadApplication() will push config.hash into the HashHistory with a 5ms delay.
+             * We only want to set a default route, in case the HashHistory is empty and there is no initial
+             * value that will get consumed.
+             */
+            !Neo.config.hash && defaultHash && Neo.Main.setRoute({value: defaultHash})
         }
     }
 

@@ -149,6 +149,7 @@ class Container extends BaseContainer {
         let fields           = await this.getFields(),
             i                = 0,
             hasCleanFields   = false,
+            hasAlertFields   = false,
             hasInvalidFields = false,
             hasUncleanFields = false,
             hasValidFields   = false,
@@ -161,11 +162,19 @@ class Container extends BaseContainer {
             isValid = field.isValid();
 
             if (!isClean && !isValid) {
-                return 'invalid'
+                if (field.isEmptyAndRequired?.()) {
+                    hasAlertFields = true
+                } else {
+                    return 'invalid'
+                }
             } else if (isValid) {
                 hasValidFields = true
             } else if (!isValid) {
-                hasInvalidFields = true
+                if (field.isEmptyAndRequired?.()) {
+                    hasAlertFields = true
+                } else {
+                    hasInvalidFields = true
+                }
             }
 
             if (isClean) {
@@ -175,11 +184,11 @@ class Container extends BaseContainer {
             }
         }
 
-        if (!hasInvalidFields) {
+        if (!hasAlertFields && !hasInvalidFields) {
             return 'valid'
         }
 
-        if (hasCleanFields && !hasUncleanFields) {
+        if (!hasAlertFields && hasCleanFields && !hasUncleanFields) {
             return 'clean'
         }
 

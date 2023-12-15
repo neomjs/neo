@@ -118,9 +118,10 @@ class DomEvents extends Base {
 
         let me = this;
 
-        document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
-        document.addEventListener('selectionchange',  me.onSelectionChange .bind(me));
-        window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
+        document.addEventListener('DOMContentLoaded',  me.onDomContentLoaded .bind(me));
+        document.addEventListener('selectionchange',   me.onSelectionChange  .bind(me));
+        window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
+        window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
 
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me))
@@ -270,10 +271,10 @@ class DomEvents extends Base {
         };
 
         if (event.relatedTarget) {
-            result.relatedTarget = this.getTargetData(event.relatedTarget);
+            result.relatedTarget = this.getTargetData(event.relatedTarget)
         }
 
-        return result;
+        return result
     }
 
     /**
@@ -350,7 +351,7 @@ class DomEvents extends Base {
 
         path.push(this.getTargetData(target));
 
-        return path;
+        return path
     }
 
     /**
@@ -583,6 +584,23 @@ class DomEvents extends Base {
     /**
      * @param {Event} event
      */
+    onOrientationChange(event) {
+        const
+            orientation = screen.orientation,
+            angle       = orientation.angle,
+            layout      = angle === 0 || angle === 180 ? 'portrait' : 'landscape',
+            type        = orientation.type,
+            manager     = Neo.worker.Manager;
+
+        manager.sendMessage('app', {
+            action: 'orientationChange',
+            data  : {angle, layout, type}
+        })
+    }
+
+    /**
+     * @param {Event} event
+     */
     onScroll(event) {
         let {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target;
 
@@ -810,10 +828,7 @@ class DomEvents extends Base {
 
             for (j = 0; j < countTargets; j++) {
                 if (node.classList?.contains(targetArray[j])) {
-                    return {
-                        cls: targetArray[j],
-                        node
-                    };
+                    return {cls: targetArray[j], node}
                 }
             }
         }
