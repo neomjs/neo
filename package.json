@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.10.9",
+    "version": "6.10.10",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -47,7 +47,7 @@
         "chalk": "^5.3.0",
         "clean-webpack-plugin": "^4.0.0",
         "commander": "^11.1.0",
-        "cssnano": "^6.0.1",
+        "cssnano": "^6.0.2",
         "envinfo": "^7.11.0",
         "fs-extra": "^11.2.0",
         "highlightjs-line-numbers.js": "^2.8.0",
