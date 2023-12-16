@@ -13,7 +13,7 @@ class LivePreview extends Base {
          * @protected
          */
         className: 'Portal.view.learn.LivePreview',
-        baseCls: ['learn-live-preview'],
+        cls: ['learn-live-preview'],
         value_: null,
         autoMount: true,
         autoRender: true,

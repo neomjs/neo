@@ -5,6 +5,7 @@
         {"name": "Workspaces and Applications",             "parentId": "GettingStarted",    "isLeaf": true,  "id": "2023-10-14T19-25-08-153Z"},
         {"name": "Describing a View",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "DescribingTheUI"},
         {"name": "Events",                                  "parentId": "GettingStarted",    "isLeaf": true,  "id": "Events"},
+        {"name": "Component References",                     "parentId": "GettingStarted",    "isLeaf": true,  "id": "References"},
         {"name": "Updating View State",                     "parentId": "GettingStarted",    "isLeaf": true,  "id": "ComponentState"},
         {"name": "Extending Components",                    "parentId": "GettingStarted",    "isLeaf": true,  "id": "Extending"},
         {"name": "Adding Properties",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "AddingProperties"},
