@@ -1,6 +1,6 @@
-import Base         from '../../../../src/container/Base.mjs';
+import Base from '../../../../src/container/Base.mjs';
 import TabContainer from '../../../../src/tab/Container.mjs';
-import TextArea     from '../../../../src/form/field/TextArea.mjs';
+import TextArea from '../../../../src/form/field/TextArea.mjs';
 
 /**
  * @class Portal.view.learn.LivePreview
@@ -13,6 +13,7 @@ class LivePreview extends Base {
          * @protected
          */
         className: 'Portal.view.learn.LivePreview',
+        baseCls: ['learn-live-preview'],
         value_: null,
         autoMount: true,
         autoRender: true,
@@ -22,18 +23,20 @@ class LivePreview extends Base {
          * @member {Object[]} items
          */
         items: [{
-            module   : TabContainer,
+            module: TabContainer,
             reference: 'tab-container',
             cls: 'live-preview-container',
-
             items: [{
                 module: TextArea,
                 hideLabel: true,
                 style: {height: '100%'},
                 reference: 'textArea',
                 tabButtonConfig: {
-                    text: 'Editor'
+                    text: 'Source'
                 },
+                listeners: {
+                    change: data => data.component.up({className: 'Portal.view.learn.LivePreview'}).value = data.value
+                }
             }, {
                 tabButtonConfig: {
                     text: 'Preview'
@@ -58,10 +61,8 @@ class LivePreview extends Base {
         me.getReference('tab-container').on('activeIndexChange', me.onActiveIndexChange, me)
     }
 
-    doIt(button) {
-        let source = this.getReference('source').getValue();
-
-        this.getReference('codePreview').src = source;
+    doRunSource() {
+        let source = this.value;
 
         const importRegex = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
         const exportRegex = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g;
@@ -72,6 +73,9 @@ class LivePreview extends Base {
         const importModuleNames = [];
 
         const moduleNameAndPath = [];
+
+        const className = this.findLastClassName(source);
+
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
@@ -123,7 +127,7 @@ class LivePreview extends Base {
             .then(([${params.join(', ')}]) => {
                     ${vars.join('\n')}
                     ${cleanLines.join('\n')}
-                    container.add({module:Bar});
+                    if (${className} && Neo.component.Base.isPrototypeOf(${className})) container.add({module:${className}});
                 })
             .catch(error=>container.add({ntype:'component',html:error.message}));
         `;
@@ -177,6 +181,25 @@ class LivePreview extends Base {
      */
     onActiveIndexChange(data) {
         console.log('onActiveIndexChange', data)
+        if (data.item.reference !== 'preview') return;
+
+        this.doRunSource();
+    }
+    findLastClassName(sourceCode) {
+        // Define a regular expression to match class declarations
+        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
+
+        let match;
+        let lastClassName = null;
+
+        // Iterate through all matches of the regular expression
+        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
+            // Update the last class name found
+            lastClassName = match[1];
+        }
+
+        return lastClassName;
+
     }
 }
 
