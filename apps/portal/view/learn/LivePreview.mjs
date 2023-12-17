@@ -13,7 +13,7 @@ class LivePreview extends Base {
          * @protected
          */
         className: 'Portal.view.learn.LivePreview',
-        cls: ['learn-live-preview'],
+        baseCls: ['learn-live-preview'],
         value_: null,
         autoMount: true,
         autoRender: true,
@@ -132,8 +132,6 @@ class LivePreview extends Base {
             .catch(error=>container.add({ntype:'component',html:error.message}));
         `;
 
-        // console.log(codeString);
-
         const container = this.getReference('preview');
         container.removeAll();
         try {
@@ -180,9 +178,7 @@ class LivePreview extends Base {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        console.log('onActiveIndexChange', data)
         if (data.item.reference !== 'preview') return;
-
         this.doRunSource();
     }
     findLastClassName(sourceCode) {

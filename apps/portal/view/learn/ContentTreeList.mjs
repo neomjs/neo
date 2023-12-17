@@ -72,7 +72,6 @@ class ContentTreeList extends TreeList {
                     parentId: key,
                     appName: this.appName
                 })
-                console.log(foo);
             });
         }
     }
@@ -169,7 +168,6 @@ class ContentTreeList extends TreeList {
                 me.deck = search.deck || 'learnneo';
 
                 me.doLoadStore();
-                console.log(search);
             })
     }
 

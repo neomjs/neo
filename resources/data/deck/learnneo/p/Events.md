@@ -71,9 +71,61 @@ class MainView extends Base {
 Neo.applyClassConfig(MainView);
 </pre>
 
-It's important to keep in mind that in Neo.mjs, all class definitions are coded in their own
+(It's important to keep in mind that in Neo.mjs, all class definitions are coded in their own
 source file: one class per file. In the examples we're putting all the relevant classes together
-to make it easier to see all the source code in one place. But in an 
+to make it easier to see the source code for every class being used. But in an 
 actual applications the controller class would be coded in its own source file &mdash; named something
-like `MainViewController.mjs` &mdash; and that would be imported into the view. 
+like `MainViewController.mjs` &mdash; and that would be imported into the view.)
 
+The ability to fire events and add listeners is provided by `Neo.core.Observable`, which is mixed into 
+classes that need that ability. All components are observable, `Neo.data.Store` is observable, and some
+others. `Neo.core.Observable` introduces a few methods and properties, such as `listeners`, which
+is used in the examples above, `on()` for procedurally adding an event listener, and `fire()`, which is 
+how you fire events in the custom classes you create.
+
+Here's another example illustrating how you'd fire a custom `change` event. The code defines a `ToggleButton`
+class, which is just a button with a `checked` property: the button shows a checked or unchecked
+checkbox depending on the value of `checked`. 
+
+The code uses a special Neo.mjs feature you haven't seen yet &mdash; the use of an underscore property. 
+We'll discuss that at length later, but in a nutshell, config properties ending in an underscore 
+automatically get lifecycle methods run before the value is assigned, after the value is assigned, and 
+before the value is accessed. We're using the _after_ method to fire a `change` event.
+
+<pre data-neo>
+import Base        from  '../../../../src/container/Base.mjs';
+import Button  from  '../../../../src/button/Base.mjs';
+import TextField  from   '../../../../src/form/field/Text.mjs';
+
+class ToggleButton extends Button {
+    static config = {
+        className: 'Example.view.ToggleButton',
+        checked_: false
+    }
+    afterSetChecked(checked){
+        this.iconCls = checked?'fa fa-square-check':'fa fa-square';
+        this.fire('change', {component: this, checked}); // This is where our custom event is being fired
+    }
+    onClick(data){
+        super.onClick(data); 
+        this.checked = !this.checked;      
+    }
+}
+Neo.applyClassConfig(ToggleButton);
+
+
+class MainView extends Base {
+    static config = {
+        className : 'Example.view.MainView',
+        layout: {ntype:'vbox', align:'start'},
+        items : [{
+            module: ToggleButton,
+            text: 'Toggle',
+            listeners: {
+                change: data => console.log(data.checked) // Here, we're listening to the custom event
+            }
+        }]
+    }
+}
+Neo.applyClassConfig(MainView);
+</pre>
