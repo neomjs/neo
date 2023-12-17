@@ -138,7 +138,7 @@ class Base extends Component {
         {tag: 'ul', cn: []},
 
         /**
-         * An object to help configure the navigation. Used to pass to {@link Neo.main.DomAccess#navigate}.
+         * An object to help configure the navigation. Used to pass to {@link Neo.main.addon.Navigator#subscribe}.
          * @member {Object} navigator={}
          */
         navigator : {}
@@ -183,10 +183,10 @@ class Base extends Component {
 
         if (Neo.isNumber(value)) {
             me.headerlessActiveIndex = me.getHeaderlessIndex(value)
-            Neo.main.DomAccess.navigateTo([value, this.navigator])
+            Neo.main.addon.Navigator.navigateTo([value, this.navigator])
         }
         else if (value) {
-            Neo.main.DomAccess.navigateTo([me.getItemId(value[me.getKeyProperty()]), this.navigator])
+            Neo.main.addon.Navigator.navigateTo([me.getItemId(value[me.getKeyProperty()]), this.navigator])
         }
     }
 
@@ -265,9 +265,17 @@ class Base extends Component {
     afterSetMounted(value) {
         const me = this;
 
+        // Tear down navigation before we lose the element
+        if (!value && me.hasNavigator) {
+            Neo.main.addon.Navigator.unsubscribe(me.navigator);
+            me.hasNavigator = false;
+            me.activeIndex = null
+        }
+
         super.afterSetMounted(...arguments);
 
         if (value) {
+            // Set up item navigation in the list
             if (!me.hasNavigator) {
                 me.navigator = {
                     appName  : me.appName,
@@ -278,11 +286,6 @@ class Base extends Component {
                 me.hasNavigator = true;
             }
             Neo.main.addon.Navigator.subscribe(me.navigator)
-        }
-        else if (me.hasNavigator) {
-            Neo.main.addon.Navigator.unsubscribe(me.navigator);
-            me.hasNavigator = false;
-            me.activeIndex = null
         }
     }
 
@@ -423,6 +426,7 @@ class Base extends Component {
         item = {
             id  : itemId,
             tag : isHeader ? 'dt' : me.itemTagName,
+            'aria-selected' : false,
             cls
         };
 
@@ -678,10 +682,6 @@ class Base extends Component {
 
         // pass the record to class extensions
         data.record = record;
-
-        if (!me.disableSelection && (!me.useHeaders || !record.isHeader)) {
-            me.selectionModel?.select(node.id)
-        }
 
         /**
          * The itemClick event fires when a click occurs on a list item

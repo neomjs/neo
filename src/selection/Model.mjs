@@ -94,17 +94,17 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
+        // We hold vdom ids for now, so all incoming selections must be converted.
+        item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
+        
         if (itemCollection.includes(item)) {
             let me   = this,
                 view = me.view,
-                node = view.getVdomChild(item.isRecord ? (item = view.getItemId(item)) : item),
-                cls;
+                node = view.getVdomChild(item);
 
             if (node) {
-                cls = node.cls || [];
-                NeoArray.remove(cls, selectedCls || me.selectedCls);
-                node.cls = cls;
-                node['aria-selected'] = true;
+                node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
+                node['aria-selected'] = false;
             }
 
             NeoArray.remove(itemCollection, item);
@@ -116,6 +116,9 @@ class Model extends Base {
                     selection : itemCollection
                 });
             }
+        }
+        else if (!silent) {
+            this.fire('noChange');
         }
     }
 
@@ -139,6 +142,9 @@ class Model extends Base {
             me.fire('selectionChange', {
                 selection : this.items
             });
+        }
+        else if (!silent) {
+            me.fire('noChange');
         }
     }
 
@@ -211,12 +217,12 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     select(items, itemCollection=this.items, selectedCls) {
-        items = Array.isArray(items) ? items : [items];
-
         let me   = this,
             view = me.view,
-            vdom = view.vdom,
-            cls;
+            vdom = view.vdom;
+
+        // We hold vdom ids for now, so all incoming selections must be converted.
+        items = (items = Array.isArray(items) ? items : [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item)
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect) {
@@ -224,18 +230,10 @@ class Model extends Base {
             }
 
             items.forEach((node, i) => {
-                // Record => string id
-                if (node.isRecord) {
-                    items[i] = node = view.getItemId(node)
-                }
-                if (typeof node === 'string') {
-                    node = view.getVdomChild(node);
-                }
-
+                node = view.getVdomChild(node);
+ 
                 if (node) {
-                    cls = node.cls || [];
-                    NeoArray.add(cls, selectedCls || me.selectedCls);
-                    node.cls = cls;
+                    node.cls = NeoArray.add(node.cls || [], selectedCls || me.selectedCls);
                     node['aria-selected'] = true;
                 }
             });
@@ -250,18 +248,19 @@ class Model extends Base {
                 selection : itemCollection
             });
         }
+        else {
+            me.fire('noChange');
+        }
     }
 
     /**
      * @param {Object} item
      */
     toggleSelection(item) {
-        let me = this;
-
-        if (me.isSelected(item)) {
-            me.deselect(item);
+        if (this.isSelected(item)) {
+            this.deselect(item);
         } else {
-            me.select(item);
+            this.select(item);
         }
     }
 

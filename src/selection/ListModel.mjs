@@ -1,3 +1,4 @@
+import NeoArray from '../util/Array.mjs';
 import Model from './Model.mjs';
 
 /**
@@ -54,19 +55,25 @@ class ListModel extends Model {
      */
     onKeyDownUp(data) {}
 
-    onListClick({ target }) {
-        let me               = this,
-            view             = me.view,
-            store            = view.store;
-debugger;
-        activeIndex = Math.min(activeIndex, store.getCount() - 1)
+    onListClick({ currentTarget }) {
+        const { view } = this;
 
+        if (!view.disableSelection) {
+            const record = view.store.get(view.getItemRecordId(currentTarget));
+
+            if (record) {
+                this.select(record);
+            }
+        }
+    }
+
+    onListNavigate(data) {
         const
-            record = store.getAt(activeIndex),
-            itemId = view.getItemId(record[me.view.getKeyProperty()]);
+            { view }  = this,
+            { store } = view;
 
-        me.select(itemId);
-        view.fire('itemNavigate', record)
+        data.record = store.getAt(Math.min(data.activeIndex, store.getCount()));
+        view.fire('itemNavigate', data);
     }
 
     /**
@@ -79,11 +86,25 @@ debugger;
             id   = me.id,
             view = me.view;
 
-        view.addDomListeners({
+        view.addDomListeners([{
             click    : me.onListClick,
-            delegate : `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`,
+
+            // Should be `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`
+            // TODO parse delegate selectors
+            delegate : path => {
+                for (let i = 0, { length } = path; i < length; i++) {
+                    const { cls } = path[i];
+
+                    if (cls.includes(view.itemCls) && !cls.includes('neo-disabled') && !cls.includes('neo-list-header')) {
+                        return i;
+                    }
+                }
+            },
             scope    : me
-        })
+        }, {
+            neonavigate : me.onListNavigate,
+            scope    : me
+        }])
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},

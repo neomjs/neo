@@ -460,7 +460,7 @@ class DomAccess extends Base {
             { defaultView } = node.ownerDocument,
             rect            = this.getBoundingClientRect(node);
 
-        for (let parentElement = node.offsetParent; rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
+        for (let parentElement = node.offsetParent; parentElement && rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
             if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
                 rect = rect.intersects(this.getBoundingClientRect(parentElement))
             }

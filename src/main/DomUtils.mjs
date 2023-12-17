@@ -25,8 +25,26 @@ export default class DomUtils extends Base {
         className: 'Neo.main.DomUtils'
     }
 
+    /**
+     * Analogous to the `HTMLElement` `closest` method. Searches starting at the passed element for
+     * an element for which the passed `filterFn` returns `true`
+     * @param {HTMLElement} el The element to start from.
+     * @param {Function} filterFn A function which returns `true` when the desired element is reached.
+     * @param {HTMLElement} [limit] The element to stop at. This is *not* considered for matching.
+     * @returns 
+     */
+    static closest(el, filterFn, limit = document.body) {
+        while (el?.nodeType === Node.ELEMENT_NODE && el !== limit) {
+            if (filterFn(el)) {
+                return el;
+            }
+            el = el.parentNode;
+        }
+    }
+
     static isFocusable(e) {
-        return this.isTabbable(e) || e.getAttribute('tabIndex') == -1;
+        // May be used as a scopeless callback, so use "DomUtils", not "this"
+        return DomUtils.isTabbable(e) || e.getAttribute('tabIndex') == -1;
     }
 
     static isTabbable(e) {
@@ -36,7 +54,7 @@ export default class DomUtils extends Base {
             tabIndex     = e.getAttribute('tabIndex');
 
         // Hidden elements not tabbable
-        if (style.getPropertyValue('display') === 'none' || style.getPropertyValue('visibility') === 'hidden') {
+        if (!e.offsetParent || style.getPropertyValue('visibility') === 'hidden') {
             return false
         }
 

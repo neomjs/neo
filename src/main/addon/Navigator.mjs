@@ -1,6 +1,7 @@
 import Base      from '../../core/Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 import DomUtils  from '../DomUtils.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * Addon for Navigator
@@ -49,28 +50,38 @@ class Navigator extends Base {
     subscribe(data) {
         const
             me          = this,
-            target      = data.subject = DomAccess.getElement(data.id),
-            eventSource = data.eventSource = data.eventSource ? DomAccess.getElement(data.eventSource) : target;
+            subject     = data.subject = DomAccess.getElement(data.id),
+            eventSource = data.eventSource = data.eventSource ? DomAccess.getElement(data.eventSource) : subject;
 
-        target.$navigator = data;
+        subject.$navigator = data;
 
         if (!data.activeCls) {
             data.activeCls = 'neo-navigator-active-item'
         }
 
+        // Finds a focusable item starting from a descendant el within one of our selector items
+        data.findFocusable = el => DomUtils.closest(el, el =>
+            // We're looking for an element that is focusable
+            DomUtils.isFocusable(el) &&
+            // And within our subject element
+            (subject.compcompareDocumentPosition(el) & Node.DOCUMENT_POSITION_CONTAINED_BY) &&
+            // And within an element that matches our selector
+            el.closest(data.selector)
+        );
+
         // TreeWalker so that we can easily move between navigable elements within the target.
-        data.treeWalker = document.createTreeWalker(target, NodeFilter.SHOW_ELEMENT, node => me.navigateNodeFilter(node, data));
+        data.treeWalker = document.createTreeWalker(subject, NodeFilter.SHOW_ELEMENT, node => me.navigateNodeFilter(node, data));
 
         // We have to know when the DOM mutates in case the active item is removed.
-        (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(target, {
+        (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(subject, {
             childList : true,
             subtree   : true
         });
 
         eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
-        target.addEventListener('mousedown',    data.l2 = e => me.navigateMouseDownHandler(e, data));
-        target.addEventListener('click',        data.l3 = e => me.navigateClickHandler(e, data));
-        target.addEventListener('focusin',      data.l4 = e => me.navigateFocusInHandler(e, data));
+        subject.addEventListener('mousedown',    data.l2 = e => me.navigateMouseDownHandler(e, data));
+        subject.addEventListener('click',        data.l3 = e => me.navigateClickHandler(e, data));
+        subject.addEventListener('focusin',      data.l4 = e => me.navigateFocusInHandler(e, data));
     }
 
     unsubscribe(data) {
@@ -109,33 +120,34 @@ class Navigator extends Base {
     navigateClickHandler(e, data) {
         const target = e.target.closest(data.selector);
 
-        // If the target is focusable, mousedown will have focused it and and we will have
-        // respond to that in navigateFocusInHandler.
+        // If there was a focusable under the mouse, mousedown will have focused it and and we
+        // will have respond to that in navigateFocusInHandler.
         // If not, we navigate programatically.
-        if (target && !DomUtils.isFocusable(target)) {
-            this.setActiveItem(target, data);
+        if (target && !data.findFocusable(target)) {
+            this.navigateTo(target, data);
         }
     }
 
     navigateMouseDownHandler(e, data) {
         const target = e.target.closest(data.selector);
 
-        // If the target is focusable, it will take focus, and we respond to that in navigateFocusInHandler.
+        // If there is a focusable undet the mouse, it will take focus, and we respond to that in navigateFocusInHandler.
         // If not, we have to programatically activate on click, but we must not draw focus away from
         // where it is, so preventDefault
-        if (target && !DomUtils.isFocusable(target)) {
+        if (target && !data.findFocusable(target)) {
             e.preventDefault();
         }
     }
 
     navigateKeyDownHandler(keyEvent, data) {
         const
-            me        = this,
-            firstItem = data.subject.querySelector(data.selector);
+            me          = this,
+            { subject } = data,
+            firstItem   = subject.querySelector(data.selector);
 
         if (!data.nextKey && firstItem) {
             const
-                containerStyle = getComputedStyle(data.subject),
+                containerStyle = getComputedStyle(subject),
                 itemStyle      = getComputedStyle(firstItem);
 
             // Detect what the next and prev keys should be.
@@ -160,6 +172,12 @@ class Navigator extends Base {
                 break;
             case data.nextKey:
                 newActiveElement = me.navigateGetAdjacent(1, data);
+                break;
+            case 'Home':
+                newActiveElement = subject.querySelector(data.selector);
+                break;
+            case 'End':
+                newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
                 break;
             case 'Enter':
                 if (data.activeItem) {
@@ -188,7 +206,10 @@ class Navigator extends Base {
 
     navigateTo(newActiveElement, data) {
         if (!data.subject) {
-            data = DomAccess.getElement(data.id).$navigator
+            // If subject has been unmounted, we cannot navigate
+            if (!(data = DomAccess.getElement(data.id)?.$navigator)) {
+                return;
+            }
         }
 
         // Can navigate by index. This is useful if the active item is deleted.
@@ -200,9 +221,13 @@ class Navigator extends Base {
             newActiveElement = DomAccess.getElement(newActiveElement);
         }
 
-        // If the item is focusable, we focus it and then react in navigateFocusInHandler
-        if (isFocusable(newActiveElement)) {
-            newActiveElement.focus();
+        // Find a focusable element which may be the item, or inside the item to draw focus to.
+        // For example a Chip list in which .neo-list-items contain focusable Chips.
+        const focusTarget = [newActiveElement, ...newActiveElement.querySelectorAll('*')].find(DomUtils.isFocusable);
+
+        // If the item contains a focusable, we focus it and then react in navigateFocusInHandler
+        if (focusTarget) {
+            focusTarget.focus();
         }
         // If not, we programatically navigate there
         else {
@@ -231,7 +256,7 @@ class Navigator extends Base {
         })
 
         DomEvents.sendMessageToApp({
-            type                : 'navigate',
+            type                : 'neonavigate',
             target              : data.id,
             path                : [{
                 id : data.id

@@ -4,9 +4,11 @@ import List             from '../../list/Base.mjs';
 import Picker           from './Picker.mjs';
 import Store            from '../../data/Store.mjs';
 import VDomUtil         from '../../util/VDom.mjs';
-
+import { buffer }       from '../../util/Function.mjs';
 /**
- * Provides a dropdown list to select one or multiple items
+ * Provides a dropdown list to select one or multiple items.
+ *
+ * Conforms to ARIA accessiblity standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
  * @class Neo.form.field.Select
  * @extends Neo.form.field.Picker
  */
@@ -114,7 +116,13 @@ class Select extends Picker {
          * which you want to submit instead
          * @member {Number|String} valueField='id'
          */
-        valueField: 'id'
+        valueField: 'id',
+        /**
+         * The millisecond time to delay between input field mutation and applying the input field's
+         * new value to the filter
+         * @member {Number} filterDelay=300
+         */
+        filterDelay : 300
     }
 
     /**
@@ -122,6 +130,9 @@ class Select extends Picker {
      */
     construct(config) {
         super.construct(config);
+
+        // Create buffered function to respond to input field mutation
+        this.filterOnInput = buffer(this.filterOnInput, this, this.filterDelay);
 
         this.typeAhead && this.updateTypeAhead()
     }
@@ -132,23 +143,17 @@ class Select extends Picker {
      * @param {Object} oldValue
      * @protected
      */
-    afterSetRecord(value, oldValue) {
-        let me             = this,
-            list           = me.list,
-            selectionModel = list?.selectionModel,
-            valueField     = me.valueField,
-            nodeId;
+    afterSetRecord(value) {
+        if (this._picker?.isVisible) {
+            let me             = this,
+                selectionModel = me.list?.selectionModel;
 
-        if (oldValue) {
-            nodeId = list?.getItemId(oldValue[valueField]);
-
-            selectionModel?.deselect(nodeId);
-        }
-
-        if (value) {
-            nodeId = list?.getItemId(value[valueField]);
-
-            selectionModel?.select(nodeId);
+            if (value) {
+                selectionModel?.select(value);
+            }
+            else {
+                selectionModel.deselectAll();
+            }
         }
     }
 
@@ -192,19 +197,6 @@ class Select extends Picker {
      */
     afterSetTypeAhead(value, oldValue) {
         this.rendered && this.updateTypeAhead()
-    }
-
-    /**
-     * Triggered after the value config got changed
-     * @param {Number|String|null} value
-     * @param {Number|String|null} oldValue
-     * @param {Boolean} preventFilter=false
-     * @protected
-     */
-    afterSetValue(value, oldValue, preventFilter=false) {
-        !preventFilter && this.updateValue(true);
-
-        super.afterSetValue(value, oldValue)
     }
 
     /**
@@ -293,6 +285,7 @@ class Select extends Picker {
             module          : List,
             appName         : me.appName,
             displayField    : me.displayField,
+            role            : 'listbox',
             itemRole        : 'option',
             parentId        : me.id,
             navigator       : {
@@ -305,20 +298,16 @@ class Select extends Picker {
         me.getInputEl()['aria-controls'] = me.list.id;
 
         me.list.addDomListeners({
-            navigate: {
+            neonavigate: {
                 fn    : me.onListItemNavigate,
                 scope : me
             }
         });
         me.list.selectionModel.on({
             selectionChange : me.onListItemSelectionChange,
+            noChange        : me.onListItemSelectionNoChange,
             scope           : me
         })
-
-        me.list.on({
-            createItems : me.onListCreateItems,
-            scope       : me
-        });
 
         return me.list;
     }
@@ -356,24 +345,6 @@ class Select extends Picker {
                 })
             }
         }
-    }
-
-    /**
-     * @param {Function} [callback]
-     */
-    focusInputEl(callback) {
-        let me              = this,
-            lastManualInput = me.lastManualInput;
-
-        me.updateTypeAheadValue(lastManualInput, true);
-        me.value = lastManualInput;
-
-        Neo.main.DomAccess.focus({
-            appName: me.appName,
-            id     : me.getInputElId()
-        }).then(() => {
-            callback?.apply(me)
-        })
     }
 
     /**
@@ -421,25 +392,40 @@ class Select extends Picker {
 
     /**
      * @param {Object} data
-     * @protected
-     */
-    onContainerKeyDownEscape(data) {
-        this.focusInputEl(this.hidePicker)
-    }
-
-    /**
-     * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected
      */
     onFocusLeave(data) {
         let me = this;
 
-        if (me.forceSelection && !me.record) {
-            me.value = me.activeRecordId;
+        if (!me.record) {
+            if (me.forceSelection) {
+                me.value = me.forceSelection ? me.activeRecordId : null;
+            }
+            // If we exit without selecting a record, clear the filter input value.
+            else {
+                me.getInputEl().value = '';
+            }
+        }
+
+        // Clear any typeahead hint
+        me.updateTypeAheadValue('');
+
+        // The VDOM must not carry the empty string permanently. Only while clearing the value.
+        if (!me.record && !me.forceSelection) {
+            delete me.getInputEl().value;
         }
 
         super.onFocusLeave(data)
+    }
+
+    filterOnInput(data) {
+        if (data.value) {
+            this.doFilter(data.value);
+        }
+        else if (this.picker) {
+            this.picker?.hide();
+        }
     }
 
     /**
@@ -447,8 +433,10 @@ class Select extends Picker {
      * @protected
      */
     onInputValueChange(data) {
-        super.onInputValueChange(data);
+        // We do not call super here. The value of the Select is *not* connected to the value
+        // typed into the input area. The input area is just a filter value to filter the list.
         this.lastManualInput = data.value
+        this.filterOnInput(data);
     }
 
     /**
@@ -461,14 +449,23 @@ class Select extends Picker {
         }
     }
 
-    /**
-     * @protected
-     */
-    onListCreateItems() {
-        let me = this;
-        me.typeAhead && me.picker?.mounted && me.updateTypeAheadValue()
+    onPickerHiddenChange({ value }) {
+        const inputEl = this.getInputEl();
+
+        super.onPickerHiddenChange(...arguments);
+        if (value) {
+            inputEl['aria-activedescendant'] = '';
+        }
+        inputEl['aria-expanded'] = !value;
+        this.update();
     }
 
+    // TODO:
+    // When we are using a `Collection` as our `valueCollection`, and that `Collection` is the
+    // `items` of the List's `selectionModel`, then this will be `onValueCollectionChange`,
+    // a `mutate` listener on our own `valueCollection` which backs our `value` field which
+    // will be implemented by a getter which accesses `valueCollection`.
+    // This will become important for implementing multiSelect
     /**
      * @param {Object} selectionChangeEvent
      * @param {Object[]} selectionChangeEvent.selection
@@ -478,27 +475,32 @@ class Select extends Picker {
         if (selection?.length) {
             const
                 me           = this,
-                displayField = me.displayField,
                 oldValue     = me.value,
                 selected     = selection[0],
                 record       = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected,
-                value        = record[displayField];
+                value        = record[me.displayField];
 
-            if (me.value !== value) {
-                me.hintRecordId = null;
-                me.record       = record;
-                me._value       = value;
-                me.getInputHintEl().value = null;
+            me.hidePicker();
+            me.hintRecordId = null;
+            me.record       = record;
+            me._value       = value;
+            me.getInputHintEl().value = null;
 
-                me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
-                me.fire('select', {
-                    record,
-                    value: record[displayField]
-                })
-                me.hidePicker()
-            }
+            me.fire('select', {
+                record,
+                value
+            })
         }
+    }
+
+    /**
+     * Selection was attempted to be changed but resulted in no action.
+     * For example clicking on already selected list item.
+     */
+    onListItemSelectionNoChange() {
+        this.hidePicker();
     }
 
     /**
@@ -507,9 +509,16 @@ class Select extends Picker {
      */
     onListItemNavigate({ activeItem, activeIndex }) {
         if (activeIndex >= 0) {
-            this.activeRecordId = (this.store.getAt(activeIndex)).id
-            this.getInputEl()['aria-activedescendant'] = activeItem;
-            this.update();
+            const
+                me        = this,
+                { store } = me;
+
+            me.activeRecord = store.getAt(activeIndex)
+            me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty]
+            me.getInputEl()['aria-activedescendant'] = activeItem;
+
+            // Update typeahead hint (which updates DOM), or update DOM
+            me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update();
         }
     }
 
@@ -559,30 +568,62 @@ class Select extends Picker {
         me.list.selectItem(index);
     }
 
+    onPickerTriggerClick() {
+        let me = this;
+
+        if (me.picker?.isVisible) {
+            me.picker.hidden = true;
+        }
+        else if (!me.readOnly && !me.disabled) {
+            me.doFilter(null)
+        }
+    }
+
     /**
+     * All routes which expect to open the picker route through here. This updates the
+     * filter and ensures that the picker is visible and reflecting the state of the filter.
      *
+     * Input event processing passes the current input field value in as the filter value.
+     *
+     * Invocation of the expand trigger passes `null` so as to clear filtering.
+     * @private
+     * @param {String}null} value The value to filter the picker by
      */
-    togglePicker() {
-        let me         = this,
-            { record } = me,
-            filter;
+    doFilter(value) {
+        let me     = this,
+            filter = me.store.getFilter(me.displayField),
+            {
+                record,
+                picker
+            }      = me;
 
-        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
-            filter = me.store.getFilter(me.displayField);
-
-            if (filter) {
-                filter.value = null;
-            }
+        if (filter) {
+            filter.value = value;
         }
 
-        super.togglePicker()
+        // Filter resulting in something to show
+        if (me.store.getCount()) {
+            me.getPicker().hidden = false;
 
-        // On show, set the active item to be the current selected record or the first
-        if (!me.picker.hidden && record) {
+            // List might not exist until the picker is created
+            const
+                { list }           = me,
+                { selectionModel } = list;
+
+            // On show, set the active item to be the current selected record or the first
+            if (record) {
+                // We do not want to hear back about our own selection
+                selectionModel.suspendEvents = true;
+                selectionModel.select(record);
+                selectionModel.suspendEvents = false;
+            }
             setTimeout(() => {
-                me.list.activeIndex = record;
-                me.list.selectionModel.select(record);
+                list.activeIndex = me.record || 0;
             }, 100)
+        }
+        // Filtered down to nothing - hide picker if it has been created.
+        else if (picker) {
+            picker._hidden = true;
         }
     }
 
@@ -601,7 +642,7 @@ class Select extends Picker {
                 cls: ['neo-input-field-wrapper'],
                 cn : [{
                     tag         : 'input',
-                    autocomplete: 'no',
+                    autocomplete: 'off',
                     autocorrect : 'off',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
                     disabled    : true,
@@ -617,69 +658,36 @@ class Select extends Picker {
     }
 
     /**
-     * @param {String|null} [value=this.value]
+     * @param {String|null} [value=this.lastManualInput]
      * @param {Boolean} [silent=false]
      * @protected
      */
-    updateTypeAheadValue(value=this.value, silent=false) {
+    updateTypeAheadValue(value=this.lastManualInput, silent=false) {
         let me          = this,
-            hasMatch    = false,
-            store       = me.store,
-            i           = 0,
-            len         = store.getCount(),
-            inputHintEl = me.getInputHintEl(),
-            storeValue;
-
-        if (!me.record && value && value.length > 0) {
-            for (; i < len; i++) {
-                storeValue = store.items[i][me.displayField];
-
-                if (!Neo.isString(storeValue)) {
-                    return;
-                }
-
-                if (storeValue.toLowerCase().indexOf(value.toLowerCase()) === 0) {
-                    hasMatch = true;
-                    break;
-                }
+            match       = false,
+            {
+                store,
+                displayField
             }
+                        = me,
+            inputHintEl = me.getInputHintEl();
 
-            if (hasMatch && inputHintEl) {
-                inputHintEl.value = value + storeValue.substr(value.length);
-                me.activeRecordId = store.items[i][store.keyProperty || store.model.keyProperty]
+        if (!me.record && value?.length > 0) {
+            const search = value.toLocaleLowerCase();
+            match = store.items.find(r => r[displayField]?.toLowerCase?.()?.startsWith(search));
+
+            if (match && inputHintEl) {
+                inputHintEl.value = value + match[displayField].substr(value.length);
+                me.activeRecord = match;
+                me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
             }
         }
 
-        if (!hasMatch && inputHintEl) {
-            inputHintEl.value = null;
-            me.activeRecordId = null;
+        if (!match && inputHintEl) {
+            inputHintEl.value = me.activeRecord = me.activeRecordId = null;
         }
 
         !silent && me.update()
-    }
-
-    /**
-     * @param {Boolean} silent=false
-     * @protected
-     */
-    updateValue(silent=false) {
-        let me           = this,
-            displayField = me.displayField,
-            store        = me.store,
-            value        = me._value,
-            filter;
-
-        if (store && !Neo.isEmpty(store.filters)) {
-            filter = store.getFilter(displayField);
-
-            if (filter) {
-                filter.value = me.record?.[displayField] || value;
-            }
-        }
-
-        if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue(value, silent)
-        }
     }
 }
 
