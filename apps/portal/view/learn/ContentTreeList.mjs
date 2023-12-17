@@ -1,6 +1,6 @@
 import ContentStore from '../../store/Content.mjs'
-import LivePreview  from './LivePreview.mjs';
-import TreeList     from '../../../../src/tree/List.mjs';
+import LivePreview from './LivePreview.mjs';
+import TreeList from '../../../../src/tree/List.mjs';
 
 /**
  * @class Portal.view.learn.ContentTreeList
@@ -72,7 +72,6 @@ class ContentTreeList extends TreeList {
                     parentId: key,
                     appName: this.appName
                 })
-                console.log(foo);
             });
         }
     }
@@ -89,7 +88,7 @@ class ContentTreeList extends TreeList {
         var updatedHtml = htmlString.replace(preRegex, (match, preContent) => {
             const key = `pre-live-preview-${Neo.core.IdGenerator.getId()}-${count++}`;
             map[key] = preContent;
-            return `<div id="${key}"/>`;
+            return `<div id="${key}"></div>`;
         });
         return updatedHtml;
 
@@ -169,7 +168,6 @@ class ContentTreeList extends TreeList {
                 me.deck = search.deck || 'learnneo';
 
                 me.doLoadStore();
-                console.log(search);
             })
     }
 
