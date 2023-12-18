@@ -2,13 +2,14 @@ All components fire events. For example, form fields fire a `change` event, vari
 focus events, and others. Some other types fire events too, such as `Neo.data.Store`, 
 which fires a `load` event after the store is loaded with data.
 
-Some terms relating to events is that events are _fired_, and as a result, some event
-_handler_ or event _listener_ is run.
+Some terminology related to events is that events are _fired_, and as a result, some 
+event _handler_ &mdash; or _listener_ &mdash; is run.
 
-In Neo.mjs, any class config can be specified declaratively, or run procedurally.
-To specify an event declaratively, use `listeners: {}`, specifying in as many event/handler
-pairs as you need. Or, you can use the `on()` method, specifying the event name and 
-handler function. 
+To specify an event handler, use `listeners: {}`, specifying in as many event/handler
+pairs as you need. 
+
+The code below shows two text fields, with `listeners` for `change` and `focusEnter`.
+(The events for any component is documened in the API docs.)
 
 <pre data-neo>
 import Base from '../../../../src/container/Base.mjs';
@@ -19,9 +20,18 @@ class MainView extends Base {
         layout: {ntype:'vbox', align:'start'},
         items : [{
             module: TextField,
-            labelText  : 'Name',
+            labelText  : 'First name',
             listeners: {
-                change: data=>console.log(data.value) // There are other properties, like oldValue
+                change: data=>console.log(data.value), // There are other properties, like oldValue
+                focusEnter: data=>console.log(`Entering ${data.component.labelText}`) 
+            }
+        },
+        {
+            module: TextField,
+            labelText  : 'Last name',
+            listeners: {
+                change: data=>console.log(data.value), // There are other properties, like oldValue
+                focusEnter: data=>console.log(`Entering ${data.component.labelText}`) 
             }
         }]
     }
@@ -29,9 +39,10 @@ class MainView extends Base {
 Neo.applyClassConfig(MainView);
 </pre>
 
-If you run the example, and open the browser's debugger, you'll see the console being logged as you type. 
+If you run the example, and open the browser's debugger, you'll see the console being logged as you type or give
+focus to either field.
 
-Note that the `change` handler specifies an in-line funcion. For trivial cases, that might be ok. But normally
+Note that the handlers specify an in-line function. For trivial cases, that might be ok. But normally
 you'd want better separation of concerns by placing those event handlers in a separate class. Neo.mjs provides
 that with a _component controller_. 
 
@@ -83,7 +94,7 @@ others. `Neo.core.Observable` introduces a few methods and properties, such as `
 is used in the examples above, `on()` for procedurally adding an event listener, and `fire()`, which is 
 how you fire events in the custom classes you create.
 
-Here's another example illustrating how you'd fire a custom `change` event. The code defines a `ToggleButton`
+Here's example illustrating how `fire()` is used. The code defines a `ToggleButton`
 class, which is just a button with a `checked` property: the button shows a checked or unchecked
 checkbox depending on the value of `checked`. 
 
