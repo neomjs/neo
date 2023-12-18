@@ -8,6 +8,9 @@ StartTest(t => {
             width        : 300,
             role         : 'listbox',
             itemRole     : 'option',
+            navigator    : {
+                wrap : true
+            },
             store : {
                 keyProperty: 'githubId',
                 model: {
@@ -83,6 +86,7 @@ StartTest(t => {
         // That should select and activate the clicked item.
         // And focus the chip inside it.
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item.neo-selected:nth-child(1) .neo-chip:focus');
+        t.selectorCountIs('.neo-list-item.neo-navigator-active-item', 1);
 
         await t.type(null, '[END]');
 
@@ -93,12 +97,29 @@ StartTest(t => {
         // Item 1 is still the only one selected, and it's not focused
         t.selectorExists('.neo-list-item.neo-selected:nth-child(1) .neo-chip:not(:focus)');
         t.selectorCountIs('.neo-list-item.neo-selected', 1);
+        t.selectorCountIs('.neo-list-item.neo-navigator-active-item', 1);
 
         await t.type(null, '[ENTER]');
 
         // Item 6 is now the only one selected
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item.neo-selected:nth-child(6) .neo-chip:focus');
         t.selectorCountIs('.neo-list-item.neo-selected', 1);
+        t.selectorCountIs('.neo-list-item.neo-navigator-active-item', 1);
+
+        await t.type(null, '[DOWN]');
+
+        // That should select and activate the first item.
+        // And focus the chip inside it.
+        await t.waitForSelector('.neo-list-item.neo-navigator-active-item:not(.neo-selected):nth-child(1) .neo-chip:focus');
+        t.selectorCountIs('.neo-list-item.neo-selected', 1);
+        t.selectorCountIs('.neo-list-item.neo-navigator-active-item', 1);
+
+        await t.type(null, '[UP]');
+
+        // Item 6 is now the only one selected
+        await t.waitForSelector('.neo-list-item.neo-navigator-active-item.neo-selected:nth-child(6) .neo-chip:focus');
+        t.selectorCountIs('.neo-list-item.neo-selected', 1);
+        t.selectorCountIs('.neo-list-item.neo-navigator-active-item', 1);
     });
 
 });

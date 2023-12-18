@@ -46,6 +46,7 @@ class Navigator extends Base {
      * defaults to the main element id.
      * @param {String} data.selector A CSS selector which identifies the navigable elements.
      * @param {String} data.activeCls A CSS class to add to the currently active navigable element.
+     * @param {Boolean} wrap Pass as `true` to have navigation wrap from first to last and vice versa.
      */
     subscribe(data) {
         const
@@ -141,9 +142,12 @@ class Navigator extends Base {
 
     navigateKeyDownHandler(keyEvent, data) {
         const
-            me          = this,
-            { subject } = data,
-            firstItem   = subject.querySelector(data.selector);
+            me        = this,
+            {
+                subject,
+                wrap
+            }         = data,
+            firstItem = subject.querySelector(data.selector);
 
         if (!data.nextKey && firstItem) {
             const
@@ -164,14 +168,21 @@ class Navigator extends Base {
             }
         }
 
-        let newActiveElement;
+        let { key } = keyEvent,
+            newActiveElement;
 
-        switch(keyEvent.key) {
+        switch(key) {
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
+                if (!newActiveElement && wrap) {
+                    newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
+                }
                 break;
             case data.nextKey:
                 newActiveElement = me.navigateGetAdjacent(1, data);
+                if (!newActiveElement && wrap) {
+                    newActiveElement = subject.querySelector(data.selector);
+                }
                 break;
             case 'Home':
                 newActiveElement = subject.querySelector(data.selector);
@@ -204,6 +215,13 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * Navigates to the passed 
+     * @param {String|Number} newActiveElement The id of the new active element in the subject
+     * element, or the index of the item.
+     * @param {Object} data The data block as passed to {@link #subscribe}
+     * @returns 
+     */
     navigateTo(newActiveElement, data) {
         if (!data.subject) {
             // If subject has been unmounted, we cannot navigate
