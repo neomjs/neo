@@ -31,6 +31,7 @@
     font-size   : inherit;
     font-weight : var(--button-text-font-weight);
     position    : relative;
+    color       : var(--button-text-color);
 
     .neo-load-mask {
         position         : absolute;
@@ -49,6 +50,9 @@
             flex-flow   : row nowrap;
             gap         : 0.7em;
 
+            .neo-loading-message {
+                color: inherit;
+            }
             .fa-spinner {
                 width  : 1em;
                 height : 1em;
