@@ -154,12 +154,31 @@ class View extends Component {
             vdom           = me.vdom,
             config, colspan, colspanKeys, column, dockLeftMargin, dockRightMargin, id, index, j, record, selectedRows, trCls;
 
+        let inputRecord, recordChangeUpdate, rowIndex;
+        
+        if ( Array.isArray(inputData) ) {
+            me.store.isLoaded = true;
+            recordChangeUpdate = false;
+        } else {
+            // not the store data items array
+            if ( inputData.model?.fields && inputData.model.fields === this.store.model.fields ) {
+                // valid single record from onStoreRecordChange
+                recordChangeUpdate = true;
+                i = rowIndex = inputData.index;
+                amountRows = i+1;
+                inputRecord = inputData.record;
+                inputData = [ inputData ];
+            } else {
+                console.log('Error: View.mjs createViewData InputData expected store rows array or recordChange opts, got: ', inputData);
+            }
+        }
+
         if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
             selectedRows = tableContainer.selectionModel.items || [];
         }
 
         for (; i < amountRows; i++) {
-            record      = inputData[i];
+            record = recordChangeUpdate? inputRecord: inputData[i];        
             colspan     = record[me.colspanField];
             colspanKeys = colspan && Object.keys(colspan);
             id          = me.getRowId(record, i);
@@ -170,10 +189,6 @@ class View extends Component {
 
             if (selectedRows?.includes(id)) {
                 trCls.push('neo-selected');
-
-                Neo.getComponent(me.containerId).fire('select', {
-                    record
-                });
             }
 
             data.push({
@@ -237,8 +252,13 @@ class View extends Component {
         me.promiseUpdate().then(() => {
             if (selectedRows?.length > 0) {
                 // this logic only works for selection.table.RowModel
-                Neo.main.DomAccess.scrollToTableRow({appName: me.appName, id: selectedRows[0]})
-            }
+                if ( !recordChangeUpdate ) {
+                    Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0],appName: me.appName});
+                } else {
+                    let rowId = me.getRowId(inputRecord, rowIndex)
+                    Neo.main.DomAccess.scrollToTableRow({id: rowId, appName: me.appName});
+                };
+            };
         })
     }
 
@@ -355,34 +375,9 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange(opts) {
-        let me             = this,
-            fieldNames     = opts.fields.map(field => field.name),
-            needsUpdate    = false,
-            tableContainer = me.parent,
-            vdom           = me.vdom,
-            cellId, cellNode, column, index, scope;
-
-        if (fieldNames.includes(me.colspanField)) {
-            // we should narrow it down to only update the current row
-            me.createViewData(me.store.items)
-        } else {
-            opts.fields.forEach(field => {
-                cellId   = me.getCellId(opts.record, field.name);
-                cellNode = VDomUtil.findVdomChild(vdom, cellId);
-
-                // the vdom might not exist yet => nothing to do in this case
-                if (cellNode?.vdom) {
-                    column      = me.getColumn(field.name);
-                    index       = cellNode.index;
-                    needsUpdate = true;
-                    scope       = column.rendererScope || tableContainer;
-
-                    cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record: opts.record, index, tableContainer})
-                }
-            })
+        if ( this.store.isLoaded ) {
+            this.createViewData(opts)
         }
-
-        needsUpdate && me.update()
     }
 }
 
