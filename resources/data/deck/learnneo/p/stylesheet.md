@@ -18,7 +18,6 @@ and information is lost.
 <br>
 
 To show highlighted Neo.mjs source code use
-<pre>
 &lt;pre data-javascript>
 // Source code goes here
 &lt;/pre>
@@ -51,4 +50,8 @@ This is the item contents.
 <summary>This describes the item</summary>
 This is the item contents.
 </details>
+
+<pre data-neo>
+let a = 1;
+</pre>
 

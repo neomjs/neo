@@ -454,7 +454,7 @@ class Main extends core.Base {
      * @param {String} data.y
      */
     windowMoveTo(data) {
-        this.openWindows[data.windowName].moveTo(data.x, data.y);
+        this.openWindows[data.windowName]?.moveTo(data.x, data.y);
     }
 
     /**

@@ -62,7 +62,7 @@
     
     --cmp-tab-borderradius                      : var(--sem-borderradius-large);
     --cmp-tab-gap                               : var(--sem-spacing-xsmall);
-    --cmp-tab-height                            : var(--sem-height-xxlarge);
+    --cmp-tab-height                            : var(--sem-height-xlarge);
     --cmp-tab-spacinghorizontal                 : var(--sem-spacing-medium);
     --cmp-tab-strip-height                      : 3px;
     --cmp-tab-strip-selected                    : var(--sem-color-fg-neutral-contrast);
@@ -70,4 +70,10 @@
     --cmp-tab-unselected-bg-active              : var(--sem-color-bg-neutral-active);
     --cmp-tab-unselected-bg-default             : transparent;
     --cmp-tab-unselected-bg-hover               : var(--sem-color-bg-neutral-hover);
+
+    --cmp-tooltip-bg                            : var(--sem-color-bg-neutral-contrast);
+    --cmp-tooltip-borderradius                  : var(--sem-borderradius-medium);
+    --cmp-tooltip-fg                            : var(--sem-color-fg-neutral-inverted);
+    --cmp-tooltip-height                        : var(--height-24);
+    --cmp-tooltip-spacinghorizontal             : var(--sem-spacing-xsmall);
 }

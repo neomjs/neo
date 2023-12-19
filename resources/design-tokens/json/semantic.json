@@ -40,6 +40,10 @@
           "disabled": {
             "value": "{gray.200}",
             "type": "color"
+          },
+          "contrast": {
+            "value": "{gray.900}",
+            "type": "color"
           }
         },
         "primary": {
@@ -81,6 +85,10 @@
           },
           "disabled": {
             "value": "{gray.300}",
+            "type": "color"
+          },
+          "inverted": {
+            "value": "{white}",
             "type": "color"
           }
         },

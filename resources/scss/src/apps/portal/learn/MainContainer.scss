@@ -1,0 +1,61 @@
+.learnneo-maincontainer {
+    background-color: #f2f2f2;
+
+    .main-content-splitter{
+        margin: 0 2px;
+    }
+}
+
+
+
+
+// Live preview Container
+.live-preview-container {
+    
+    .neo-tab-header-toolbar {
+        background-color: var(--sem-color-bg-neutral-default);
+        padding: var(--cmp-tab-strip-height);
+        border: 1px solid #F1F1F1;
+        border-top-left-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+        border-top-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+    }
+
+    .neo-tab-strip {
+       margin-top: calc(var(--cmp-tab-strip-height) * (-1) - 1px);
+    }
+
+    .neo-tab-content-container {
+        background-color: transparent;
+        border: 1px solid #F1F1F1;
+        border-top: 0;
+        border-bottom-left-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+        border-bottom-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
+    }
+}
+
+// Scrollbar Behaviour
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+background: transparent;
+}
+
+.neo-tree-list:hover {
+    ::-webkit-scrollbar-thumb {
+        background: #b2b2b2;
+        border-radius: 100px;
+    }
+}
+
+.learn-content:hover {
+    ::-webkit-scrollbar-thumb {
+        background: #b2b2b2;
+        border-radius: 100px;
+    }
+}

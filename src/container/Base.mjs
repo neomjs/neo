@@ -218,6 +218,20 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        value && this.items?.forEach(item => {
+            if (Neo.isObject(item)) {
+                item.windowId = value
+            }
+        })
+    }
+
+    /**
      * Convert items object to an array for onward storage as _items
      * @param {Object|Object[]} value
      * @param {Object|Object[]} oldValue

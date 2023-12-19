@@ -92,7 +92,7 @@ class Application extends Base {
 
             Logger.addContextMenuListener(me.mainView);
 
-            value.render(true)
+            await value.render(true)
         }
     }
 
@@ -107,7 +107,8 @@ class Application extends Base {
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 appName : this.name,
-                parentId: this.parentId
+                parentId: this.parentId,
+                windowId: Neo.config.windowId
             })
         }
 

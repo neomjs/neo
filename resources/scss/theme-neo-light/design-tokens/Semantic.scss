@@ -3,11 +3,11 @@
     --sem-borderradius-medium                                           : var(--borderradius-4);
     --sem-borderradius-none                                             : var(--borderradius-0);
     --sem-borderwidth-focus                                             : 3px;
-    --sem-color-bg-neutral-active                                       : var(--gray-300);
+    --sem-color-bg-neutral-active                                       : rgba(0, 0, 0, .1);
     --sem-color-bg-neutral-default                                      : var(--gray-50);
     --sem-color-bg-neutral-disabled                                     : var(--gray-200);
     --sem-color-bg-neutral-highlighted                                  : var(--white);
-    --sem-color-bg-neutral-hover                                        : var(--gray-200);
+    --sem-color-bg-neutral-hover                                        :rgba(0, 0, 0, .05);
     --sem-color-bg-primary-active                                       : var(--green-600);
     --sem-color-bg-primary-background                                   : var(--green-50);
     --sem-color-bg-primary-default                                      : var(--green-400);
@@ -64,4 +64,6 @@
     --sem-typo-label-regular-fontFamily                                 : var(--core-fontfamily-sans);
     --sem-typo-label-regular-fontSize                                   : var(--core-fontsize-body);
     --sem-typo-label-regular-fontWeight                                 : var(--core-fontweight-regular);
+    --sem-color-bg-neutral-contrast                                     : var(--gray-900);
+    --sem-color-fg-neutral-inverted                                     : var(--white);
 }

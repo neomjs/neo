@@ -125,6 +125,13 @@ class CheckBox extends Base {
          */
         uncheckedValue: false,
         /**
+         * Using the alert state will display an empty but required field in orange instead of red.
+         * Intended to get combined with form.Container: getFormState().
+         * See apps/form as an example.
+         * @member {Boolean} useAlertState_=false
+         */
+        useAlertState_: false,
+        /**
          * @member {Boolean|Number|String|null} value=true
          */
         value: true,
@@ -358,6 +365,18 @@ class CheckBox extends Base {
     }
 
     /**
+     * Triggered after the useAlertState groupRequired got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseAlertState(value, oldValue) {
+        let cls = this.cls;
+        NeoArray.toggle(cls, 'neo-use-alert-state', value);
+        this.cls = cls
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -503,6 +522,14 @@ class CheckBox extends Base {
      */
     getValueLabelId() {
         return `${this.id}__value-label`
+    }
+
+    /**
+     * @returns {Boolean}
+     */
+    isEmptyAndRequired() {
+        // Assuming that checkboxes & radios can only validate false in case they are empty & required
+        return !this.validate(false)
     }
 
     /**

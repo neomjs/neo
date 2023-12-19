@@ -44,44 +44,28 @@ class Strip extends Component {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
-
-            me.vdom.cn[0].removeDom = !value;
-
-            if (me.mounted && value) {
-                me.getActiveTabRectThenMove();
-            } else {
-                me.update();
-            }
-        }
+        this.vdom.cn[0].removeDom = !value;
+        this.update()
     }
 
     /**
+     * Gets the DomRect of the active tab, then moves the indicator
      * @param {Object|null} opts
      * @param {Number} opts.oldValue
      * @param {Number} opts.value
-     * Gets the DomRect of the active tab, then moves the indicator
      */
     getActiveTabRectThenMove(opts) {
         let me           = this,
-            ids          = [],
+            ids          = [me.id],
             tabContainer = me.getTabContainer();
 
-        if (me.vnode) {
-            if (opts) {
-                ids.push(tabContainer.getTabAtIndex(opts.value), tabContainer.getTabAtIndex(opts.oldValue));
-            } else {
-                ids.push(tabContainer.getTabAtIndex(tabContainer.activeIndex));
-            }
+        // We do not need a movement, in case there is no oldValue
+        if (me.useActiveTabIndicator && me.vnode && Neo.isNumber(opts?.oldValue)) {
+            ids.push(tabContainer.getTabAtIndex(opts.value).id, tabContainer.getTabAtIndex(opts.oldValue).id);
 
-            ids = ids.map(e => e?.id).filter(Boolean);
-
-            if (me.useActiveTabIndicator) {
-                me.getDomRect(ids).then(data => {
-                    me.moveActiveIndicator(data);
-                });
-            }
+            me.getDomRect(ids).then(data => {
+                me.moveActiveIndicator(data)
+            })
         }
     }
 
@@ -89,7 +73,7 @@ class Strip extends Component {
      *
      */
     getTabContainer() {
-        return Neo.getComponent(this.tabContainerId);
+        return Neo.getComponent(this.tabContainerId)
     }
 
     /**
@@ -105,8 +89,9 @@ class Strip extends Component {
      * @param {Number} rects[0].y
      */
     moveActiveIndicator(rects) {
-        let me   = this,
-            rect = rects[1] || rects[0],
+        let me           = this,
+            tabStripRect = rects.shift(),
+            rect         = rects[1] || rects[0],
             activeTabIndicator, tabContainer;
 
         if (me.useActiveTabIndicator) {
@@ -118,20 +103,20 @@ class Strip extends Component {
                 case 'top':
                     activeTabIndicator.style = {
                         height: null,
-                        left  : `${rect.left}px`,
+                        left  : `${rect.left - tabStripRect.left}px`,
                         top   : null,
                         width : `${rect.width}px`
                     };
-                    break;
+                    break
                 case 'left':
                 case 'right':
                     activeTabIndicator.style = {
                         height: `${rect.height}px`,
                         left  : null,
-                        top   : `${rect.top}px`,
+                        top   : `${rect.top - tabStripRect.top}px`,
                         width : null
                     };
-                    break;
+                    break
             }
 
             // in case there is a dynamic change (oldValue), call this method again
@@ -140,7 +125,7 @@ class Strip extends Component {
                 me.update();
 
                 setTimeout(() => {
-                    me.moveActiveIndicator([rects[0]]);
+                    me.moveActiveIndicator([tabStripRect, rects[0]])
                 }, 50)
             } else {
                 activeTabIndicator.style.opacity = 1;
@@ -148,8 +133,8 @@ class Strip extends Component {
 
                 setTimeout(() => {
                     activeTabIndicator.style.opacity = 0;
-                    me.update();
-                }, 300);
+                    me.update()
+                }, 300)
             }
         }
     }

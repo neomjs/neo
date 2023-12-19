@@ -43,14 +43,19 @@ class SideNavList extends List {
     getIconCls(record) {
         let cls = ['neo-list-icon'];
 
-        if (record.isValid === true) {
+        if (record.formState === 'valid') {
             return [...cls, 'neo-color-green', 'far', 'fa-circle-check'];
         }
 
-        if (record.isValid === false) {
+        if (record.formState === 'invalid') {
             return [...cls, 'neo-color-red', 'far', 'fa-circle-xmark'];
         }
 
+        if (record.formState === 'inProgress') {
+            return [...cls, 'neo-color-blue', 'fas', 'fa-circle-half-stroke'];
+        }
+
+        // clean
         return [...cls, 'neo-color-blue', 'far', 'fa-circle'];
     }
 
@@ -76,7 +81,7 @@ class SideNavList extends List {
 
         this.store.items.forEach(record => {
             if (!record.isHeader) {
-                maxIndex++;
+                maxIndex++
             }
         });
 

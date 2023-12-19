@@ -2,6 +2,7 @@
     background-color: var(--tab-strip-background-color);
     height          : var(--tab-strip-height);
     overflow        : hidden;
+    position        : relative;
 
     .neo-active-tab-indicator {
         background-color   : var(--tab-indicator-background-color-active);

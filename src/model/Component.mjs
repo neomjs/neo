@@ -494,7 +494,11 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(key)) {
+        if (Neo.isObject(value) && !value[Symbol.for('isRecord')]) {
+            Object.entries(value).forEach(([dataKey, dataValue]) => {
+                me.internalSetData(`${key}.${dataKey}`, dataValue, originModel)
+            })
+        } else if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originModel)
             })
@@ -559,8 +563,8 @@ class Component extends Base {
 
             Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
-                config = {};
-                model = component.getModel();
+                config    = {};
+                model     = component.getModel();
 
                 if (!hierarchyData[model.id]) {
                     hierarchyData[model.id] = model.getHierarchyData()

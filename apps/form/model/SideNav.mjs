@@ -18,13 +18,13 @@ class SideNav extends Model {
             name: 'cardIndex',
             type: 'Integer'
         }, {
+            name: 'formState',
+            type: 'String'
+        }, {
             name: 'id',
             type: 'String'
         }, {
             name: 'isHeader',
-            type: 'Boolean'
-        }, {
-            name: 'isValid',
             type: 'Boolean'
         }, {
             name: 'name',
