@@ -131,7 +131,7 @@ const DefaultConfig = {
      * @name config.mainThreadAddons
      * @type String[]
      */
-    mainThreadAddons: ['DragDrop', 'Stylesheet'],
+    mainThreadAddons: ['DragDrop', 'Stylesheet', 'Navigator'],
     /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.

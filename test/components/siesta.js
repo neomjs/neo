@@ -31,6 +31,38 @@ project.configure({
                 this.SUPER(...arguments);
                 this.SUPER(t => t.waitFor(50));
             }
+        },
+
+        methods : {
+            async waitForSelectorCount(selector, root, count) {
+                if (typeof root === 'number') {
+                    count = root;
+                    root = undefined;
+                }
+                return this.waitFor(() => this.query(selector, root).length === count);
+            },
+
+            async waitForDomMutation(root = this.global.document.body) {
+                root = this.normalizeElement(root);
+
+                if (root) {
+                    return new Promise(resolve => {
+                        const m = new MutationObserver(() => {
+                            m.disconnect();
+                            resolve();
+                        });
+                        m.observe(root, {
+                            subtree       : true,
+                            childList     : true,
+                            attributes    : true,
+                            characterData : true
+                        });
+                        setTimeout(() => {
+                            m.disconnect();
+                        }, this.timeout)
+                    });
+                }
+            }
         }
     })
 });
@@ -45,7 +77,8 @@ project.plan(
     {
         group: 'component',
         items: [
-            'files/component/DateSelector.mjs'
+            'files/component/DateSelector.mjs',
+            'files/component/ChipList.mjs'
         ]
     },
     {

@@ -29,6 +29,7 @@ class NeoArray extends Base {
                 arr.push(item);
             }
         });
+        return arr;
     }
 
     /**
@@ -97,6 +98,7 @@ class NeoArray extends Base {
 
             index > -1 && arr.splice(index, 1);
         });
+        return arr;
     }
 
     /**
@@ -108,7 +110,7 @@ class NeoArray extends Base {
      */
     static removeAdd(arr, removeItems, addItems) {
         this.remove(arr, removeItems);
-        this.add(arr, addItems);
+        return this.add(arr, addItems);
     }
 
     /**
@@ -118,7 +120,7 @@ class NeoArray extends Base {
      * @param {Boolean} [add]
      */
     static toggle(arr, item, add = !this.hasItem(arr, item)) {
-        this[add ? 'add' : 'remove'](arr, item);
+        return this[add ? 'add' : 'remove'](arr, item);
     }
 
     /**
@@ -149,6 +151,7 @@ class NeoArray extends Base {
                 arr.unshift(item);
             }
         });
+        return arr;
     }
 }
 

@@ -94,20 +94,32 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let me   = this,
-            view = me.view,
-            node = view.getVdomChild(item), // todo: support for nodes (right now limited to ids)
-            cls;
+        // We hold vdom ids for now, so all incoming selections must be converted.
+        item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
+        
+        if (itemCollection.includes(item)) {
+            let me   = this,
+                view = me.view,
+                node = view.getVdomChild(item);
 
-        if (node) {
-            cls = node.cls || [];
-            NeoArray.remove(cls, selectedCls || me.selectedCls);
-            node.cls = cls;
+            if (node) {
+                node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
+                node['aria-selected'] = false;
+            }
+
+            NeoArray.remove(itemCollection, item);
+
+            if (!silent) {
+                view.update();
+
+                me.fire('selectionChange', {
+                    selection : itemCollection
+                });
+            }
         }
-
-        NeoArray.remove(itemCollection, item);
-
-        !silent && view.update();
+        else if (!silent) {
+            this.fire('noChange');
+        }
     }
 
     /**
@@ -118,12 +130,21 @@ class Model extends Base {
             items = [...me.items],
             view  = me.view;
 
-        items.forEach(item => {
-            me.deselect(item, true);
-        });
+        if (items.length) {
+            items.forEach(item => {
+                me.deselect(item, true);
+            });
 
-        if (!silent && items.length > 0) {
-            view.update();
+            if (!silent && items.length > 0) {
+                view.update();
+            }
+
+            me.fire('selectionChange', {
+                selection : this.items
+            });
+        }
+        else if (!silent) {
+            me.fire('noChange');
         }
     }
 
@@ -196,27 +217,24 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     select(items, itemCollection=this.items, selectedCls) {
-        items = Array.isArray(items) ? items : [items];
-
         let me   = this,
             view = me.view,
-            vdom = view.vdom,
-            cls;
+            vdom = view.vdom;
+
+        // We hold vdom ids for now, so all incoming selections must be converted.
+        items = (items = Array.isArray(items) ? items : [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item)
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect) {
                 me.deselectAll(true);
             }
 
-            items.forEach(node => {
-                if (typeof node === 'string') {
-                    node = view.getVdomChild(node);
-                }
-
+            items.forEach((node, i) => {
+                node = view.getVdomChild(node);
+ 
                 if (node) {
-                    cls = node.cls || [];
-                    NeoArray.add(cls, selectedCls || me.selectedCls);
-                    node.cls = cls;
+                    node.cls = NeoArray.add(node.cls || [], selectedCls || me.selectedCls);
+                    node['aria-selected'] = true;
                 }
             });
 
@@ -225,6 +243,13 @@ class Model extends Base {
             view[view.silentSelect ? '_vdom' : 'vdom'] = vdom;
 
             view.onSelect?.(items);
+
+            me.fire('selectionChange', {
+                selection : itemCollection
+            });
+        }
+        else {
+            me.fire('noChange');
         }
     }
 
@@ -232,12 +257,10 @@ class Model extends Base {
      * @param {Object} item
      */
     toggleSelection(item) {
-        let me = this;
-
-        if (me.isSelected(item)) {
-            me.deselect(item);
+        if (this.isSelected(item)) {
+            this.deselect(item);
         } else {
-            me.select(item);
+            this.select(item);
         }
     }
 

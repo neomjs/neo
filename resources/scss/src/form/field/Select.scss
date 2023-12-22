@@ -4,11 +4,8 @@
         position: relative;
 
         .neo-textfield-input, .neo-typeahead-input {
-            height  : 100% !important;
-            left    : 0;
-            position: absolute;
-            top     : 0;
-            width   : 100% !important;
+            position : absolute;
+            inset    : 0;
         }
 
         .neo-textfield-input {

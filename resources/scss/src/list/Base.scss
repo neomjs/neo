@@ -63,7 +63,12 @@
             }
         }
 
-        &.neo-selected {
+        &.neo-navigator-active-item {
+            outline        : 1px solid var(--list-item-border-color-active);
+            outline-offset : -1px;
+        }
+
+        &[aria-selected="true"] {
             background-color: var(--list-item-background-color-selected) !important;
             color           : var(--list-item-color-selected) !important;
             cursor          : default !important;

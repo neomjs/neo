@@ -267,7 +267,8 @@ class DomEvents extends Base {
             path     : path.map(e => this.getTargetData(e)),
             target   : this.getTargetData(event.target),
             timeStamp: event.timeStamp,
-            type     : event.type
+            type     : event.type,
+            data     : {...event.target.dataset}
         };
 
         if (event.relatedTarget) {

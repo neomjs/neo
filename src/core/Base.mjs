@@ -1,4 +1,4 @@
-import {debounce, throttle} from '../util/Function.mjs';
+import {debounce, throttle, buffer} from '../util/Function.mjs';
 import IdGenerator          from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
@@ -192,7 +192,8 @@ class Base {
             if (value) {
                 let map = {
                     debounce() {me[key] = new debounce(me[key], me, value.timer)},
-                    throttle() {me[key] = new throttle(me[key], me, value.timer)}
+                    throttle() {me[key] = new throttle(me[key], me, value.timer)},
+                    buffer()   {me[key] = new buffer(me[key],   me, value.timer)}
                 };
 
                 map[value.type]?.()
@@ -342,8 +343,10 @@ class Base {
     initConfig(config, preventOriginalConfig) {
         let me = this;
 
+        me.isConfiguring = true;
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
         me.processConfigs()
+        me.isConfiguring = false;
     }
 
     /**

@@ -2,6 +2,5 @@
     "appPath"         : "examples/list/chip/app.mjs",
     "basePath"        : "../../../",
     "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"]
+    "mainPath"        : "./Main.mjs"
 }

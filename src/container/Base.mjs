@@ -160,20 +160,14 @@ class Base extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
         if (oldValue !== undefined) {
-            setTimeout(() => {
-                let items = this.items,
-                    i     = 0,
-                    len   = items?.length || 0;
+            super.afterSetMounted(value, oldValue);
 
-                for (; i < len; i++) {
-                    if (!items[i].vdom.removeDom) {
-                        items[i].mounted = value
-                    }
+            for (let i = 0, { items } = this, { length } = items; i < length; i++) {
+                if (!items[i].vdom.removeDom) {
+                    items[i].mounted = value
                 }
-            }, 1)
+            }
         }
     }
 
