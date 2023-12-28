@@ -9,7 +9,7 @@ To specify an event handler, use `listeners: {}`, specifying in as many event/ha
 pairs as you need. 
 
 The code below shows two text fields, with `listeners` for `change` and `focusEnter`.
-(The events for any component is documened in the API docs.)
+(The events for any component are documened in the API docs.)
 
 <pre data-neo>
 import Base from '../../../../src/container/Base.mjs';
