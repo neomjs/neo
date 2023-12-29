@@ -8,7 +8,7 @@
         {"name": "Component References",                    "parentId": "GettingStarted",    "isLeaf": true,  "id": "References"},
         {"name": "Extending Classes",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "Extending"},
         {"name": "Config",                                  "parentId": "GettingStarted",    "isLeaf": true,  "id": "Config"},
-        {"name": "Shared Binable Data",                     "parentId": "GettingStarted",    "isLeaf": true,  "id": "ComponentModels"},
+        {"name": "Shared Bindable Data",                    "parentId": "GettingStarted",    "isLeaf": true,  "id": "ComponentModels"},
         {"name": "What about HTML tags?",                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "WhatAboutHTML"},
     {"name": "Tutorials",                                   "parentId": null,                "isLeaf": false, "expanded": false, "id": "Tutorials"},
         {"name": "Rock Scissors Paper",                     "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "RSP"},

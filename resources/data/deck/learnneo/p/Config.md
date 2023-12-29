@@ -34,7 +34,7 @@ class MainView extends Container {
         items: [{
             module: Simple,
 
-            foo: 17          // This is applied to the instance
+            foo: 17,         // This is applied to the instance
             bar: 'hi there'  // This is applied to the instance
 
         }]
@@ -44,12 +44,10 @@ class MainView extends Container {
 Neo.applyClassConfig(MainView);
 </pre>
 
-The `Simple` class doesn't have any content, so if you run the code you won't see anything.
-But if you were to open the debugger in the `neomjs-app-worker` context you could see the values
-via `Neo.findFirst('[foo]').foo`. or `Neo.findFirst('[foo]').bar` We'll talk more about `findFirst()`
-and the console below.
+The `Simple` class doesn't have any content, so if you run the code you won't see anything. We'll 
+change that in the next example.
 
-Note that the `bar` property was defined with an underscore at the end. That tags the property as
+Note that the `bar` property is defined with an underscore at the end. That tags the property as
 a _lifecyle property_. A lifecycle property provides methods that are run as the property is
 updated or accessed. You're free to implment the methods to implement business rules, normalize
 values, or have side-effects, such as updating a view or firing an event.
@@ -100,33 +98,60 @@ class MainView extends Container {
 Neo.applyClassConfig(MainView);
 </pre>
 
+This time if you run the code you'll "hi there" in the view. That's because the Simple instance is
+configured with `bar: 'hi there'`, and since that's a lifecycle property the `afterSetBar()` method
+is run. That method updates the view with the passed value.
 
-<pre>
-items: [{
-    module: Simple,
-    html: 'simple', // This property is introduced in Neo.component.Base
+Updating a view is a common use case for the _afterSet_ method. It's also often used to fire an event. 
+Look at this code: `afterSetBar()` fires an event, and the config in the `items[]` is listening to it.
 
-    foo: 17         // This is applied to the instance
+<pre data-neo>
+import Component  from '../../../../src/component/Base.mjs';
+import Container  from '../../../../src/container/Base.mjs';
 
-}]
+class Simple extends Component {
+    static config = {
+        className: 'Example.view.Simple',
+
+        foo: 1,        // An instance field and its initial (default) value
+        bar_: null     // Another instance field -- note the underscore at the end
+
+    }
+
+    beforeGetBar(){
+
+    }
+    beforeSetBar(value, oldValue){
+        // Use value if it's not empty
+        if (value) return value; 
+    }
+    afterSetBar(value, oldValue){
+        this.html = value;
+        this.fire('barChange', {component: this, value, oldValue});
+    }
+
+}
+Neo.applyClassConfig(Simple);
+
+
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+
+        items: [{
+            module: Simple,
+
+            foo: 17 ,        // This is applied to the instance
+            bar: 'hi there', // This is applied to the instance
+
+            listeners: {
+                barChange: data => Neo.Main.alert({message: data.value})
+            }
+
+        }]
+
+    }
+}
+Neo.applyClassConfig(MainView);
 </pre>
 
-The config `{ module: Simple, html: 'Simple', foo: 17 }` is an object literal
-_describing_ &mdash; or _configuring_ &mdash; the item in our main view. It's saying we want an instance 
-of `Simple`, with two properties applied to the new instance: 
-
-- `html`, this isn't used very often, but it's handy for stubbing out views
-- `foo`, which is the property introduced in `Examples.view.Simple` 
-
-
-Before moving on, let's break down that console statement. 
-
-First, Neo.mjs is multi-threaded. Your app logic runs in the `neomjs-app-worker` context. 
-In Chrome devtools you need to switch to 
-that context via the dropdown at the top of of console panel. (We'll talk more about debugging
-and the console in a later topic.)
-
-The statement `Neo.findFirst('[foo]')` finds the first component with a `foo` property. The `Neo.findFirst()`
-method is handy for getting component references when debugging.
-
-When we add `.foo` to that, we're simply inspecting the value of that property at runtime &mdash; 17.
