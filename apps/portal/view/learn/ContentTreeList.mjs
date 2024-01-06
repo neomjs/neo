@@ -57,14 +57,17 @@ class ContentTreeList extends TreeList {
 
             await Neo.main.addon.Markdown.markdownToHtml(modifiedHtml)
                 .then(
-                    html => me.fire('contentChange', {
-                        component: me,
-                        html,
-                        record,
-                        isLab: record.name?.startsWith('Lab:')
-                    }),
+                    html => {
+                        html = me.insertLabDivs(html);
+                        me.fire('contentChange', {
+                            component: me,
+                            html,
+                            record,
+                            isLab: record.name?.startsWith('Lab:')
+                        });
+                    },
                     () => me.fire('contentChange', {component: me}));
-            await this.timeout(50);
+            await this.timeout(50); // Do we need this?
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
                 let foo = Neo.create(LivePreview, {
@@ -91,6 +94,17 @@ class ContentTreeList extends TreeList {
             return `<div id="${key}"></div>`;
         });
         return updatedHtml;
+
+    }
+
+    insertLabDivs(inputString) {
+        // Replace <!-- lab --> with <div class="lab">
+        let modifiedString = inputString.replace(/<!--\s*lab\s*-->/g, '<div class="lab">');
+
+        // Replace <!-- /lab --> with </div>
+        modifiedString = modifiedString.replace(/<!--\s*\/lab\s*-->/g, '</div>');
+
+        return modifiedString;
 
     }
 
