@@ -68,6 +68,9 @@ class RecordFactory extends Base {
                             properties;
 
                         Object.defineProperties(me, {
+                            [Symbol.for('isRecord')]: {
+                                value: true
+                            },
                             _isModified: {
                                 value   : false,
                                 writable: true
