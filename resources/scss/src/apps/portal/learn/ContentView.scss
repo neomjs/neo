@@ -1,14 +1,14 @@
 .learn-content {
 
     background-color: white;
-    border-radius   : 8px;
-    margin          : 8px 8px 8px 0 ;
+    border-radius: 8px;
+    margin: 8px 8px 8px 0;
 
     letter-spacing: 1px;
     overflow: scroll;
     padding: 1em;
 
-    pre[data-javascript]{
+    pre[data-javascript] {
         border-radius: 4px;
         padding: 12px;
         border: thin solid lightgray;
@@ -53,7 +53,7 @@
     details summary::before {
         color: #c4c4c4;
         font-family: var(--fa-style-family, "Font Awesome 6 Free");
-        font-size: 1.3em;
+        font-size: 1em;
         font-weight: var(--fa-style, 900);
         margin: 0.4em 0.4em 0.4em 0;
     }
@@ -61,4 +61,20 @@
     summary::-webkit-details-marker {
         display: none;
     }
+
+    .lab {
+        /* Add shadows to create the "card" effect */
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        transition: 0.3s;
+        /* Add some padding inside the card container */
+        padding: 2px 16px;
+        font-size: 1em;
+        margin-bottom: 1em;
+    }
+
+    /* On mouse-over, add a deeper shadow */
+    .lab:hover {
+        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    }
+
 }

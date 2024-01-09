@@ -1,6 +1,6 @@
 import ContentStore from '../../store/Content.mjs'
-import LivePreview  from './LivePreview.mjs';
-import TreeList     from '../../../../src/tree/List.mjs';
+import LivePreview from './LivePreview.mjs';
+import TreeList from '../../../../src/tree/List.mjs';
 
 /**
  * @class Portal.view.learn.ContentTreeList
@@ -57,14 +57,17 @@ class ContentTreeList extends TreeList {
 
             await Neo.main.addon.Markdown.markdownToHtml(modifiedHtml)
                 .then(
-                    html => me.fire('contentChange', {
-                        component: me,
-                        html,
-                        record,
-                        isLab: record.name?.startsWith('Lab:')
-                    }),
+                    html => {
+                        html = me.insertLabDivs(html);
+                        me.fire('contentChange', {
+                            component: me,
+                            html,
+                            record,
+                            isLab: record.name?.startsWith('Lab:')
+                        });
+                    },
                     () => me.fire('contentChange', {component: me}));
-            await this.timeout(50);
+            await this.timeout(50); // Do we need this?
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
                 let foo = Neo.create(LivePreview, {
@@ -72,7 +75,6 @@ class ContentTreeList extends TreeList {
                     parentId: key,
                     appName: this.appName
                 })
-                console.log(foo);
             });
         }
     }
@@ -89,9 +91,20 @@ class ContentTreeList extends TreeList {
         var updatedHtml = htmlString.replace(preRegex, (match, preContent) => {
             const key = `pre-live-preview-${Neo.core.IdGenerator.getId()}-${count++}`;
             map[key] = preContent;
-            return `<div id="${key}"/>`;
+            return `<div id="${key}"></div>`;
         });
         return updatedHtml;
+
+    }
+
+    insertLabDivs(inputString) {
+        // Replace <!-- lab --> with <div class="lab">
+        let modifiedString = inputString.replace(/<!--\s*lab\s*-->/g, '<div class="lab">');
+
+        // Replace <!-- /lab --> with </div>
+        modifiedString = modifiedString.replace(/<!--\s*\/lab\s*-->/g, '</div>');
+
+        return modifiedString;
 
     }
 
@@ -169,7 +182,6 @@ class ContentTreeList extends TreeList {
                 me.deck = search.deck || 'learnneo';
 
                 me.doLoadStore();
-                console.log(search);
             })
     }
 

@@ -2,22 +2,13 @@ import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
 import Observable   from '../core/Observable.mjs';
 import Rectangle    from '../util/Rectangle.mjs';
+import String       from '../util/String.mjs';
+import DomUtils     from './DomUtils.mjs';
 
 const
     doPreventDefault = e => e.preventDefault(),
-    filterTabbable   = e => !e.classList.contains('neo-focus-trap') && isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+    filterTabbable   = e => !e.classList.contains('neo-focus-trap') && DomUtils.isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     lengthRE         = /^\d+\w+$/,
-
-    focusableTags = {
-        BODY     : 1,
-        BUTTON   : 1,
-        EMBED    : 1,
-        IFRAME   : 1,
-        INPUT    : 1,
-        OBJECT   : 1,
-        SELECT   : 1,
-        TEXTAREA : 1
-    },
 
     fontSizeProps = [
         'font-family',
@@ -34,21 +25,15 @@ const
         'word-break'
     ],
 
-    isTabbable = e => {
-        const
-            { nodeName } = e,
-            style        = getComputedStyle(e),
-            tabIndex     = e.getAttribute('tabIndex');
-
-        // Hidden elements not tabbable
-        if (style.getPropertyValue('display') === 'none' || style.getPropertyValue('visibility') === 'hidden') {
-            return false
-        }
-
-        return focusableTags[nodeName] ||
-            ((nodeName === 'A' || nodeName === 'LINK') && !!e.href) ||
-            (tabIndex != null && Number(tabIndex) >= 0) ||
-            e.contentEditable === 'true'
+    capturePassive = {
+        capture : true,
+        passive : true
+    },
+    modifierKeys = {
+        Shift   : 1,
+        Alt     : 1,
+        Meta    : 1,
+        Control : 1
     };
 
 /**
@@ -103,6 +88,8 @@ class DomAccess extends Base {
                 'getScrollingDimensions',
                 'measure',
                 'monitorAutoGrow',
+                'navigate',
+                'navigateTo',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -168,9 +155,49 @@ class DomAccess extends Base {
             }, 250)
         }
 
+        me.initGlobalListeners();
+
         // Set up our aligning callback which is called when things change which may
         // mean that alignments need to be updated.
         me.syncAligns = me.syncAligns.bind(me)
+    }
+
+    initGlobalListeners() {
+        const me = this;
+
+        document.addEventListener('mousedown', me.onDocumentMouseDown.bind(me), { capture : true });
+        document.addEventListener('keydown', me.onDocumentKeyDown.bind(me), capturePassive);
+        document.addEventListener('keyup', me.onDocumentKeyUp.bind(me), capturePassive);
+        document.addEventListener('blur', me.onDocumentBlur.bind(me), capturePassive);
+    }
+
+    onDocumentMouseDown(e) {
+        const focusController = e.target?.closest('[data-focus]');
+
+        // data-focus on an element means reject mousedown gestures, and move focus
+        // to the referenced element.
+        if (focusController) {
+            e.preventDefault();
+            document.getElementById(focusController.dataset.focus)?.focus();
+        }
+    }
+
+    onDocumentKeyDown(keyEvent) {
+        if (modifierKeys[keyEvent.key]) {
+            // eg Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
+            // Selection can consult this value
+            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = true;
+        }
+    }
+
+    onDocumentKeyUp(keyEvent) {
+        if (modifierKeys[keyEvent.key]) {
+            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = false;
+        }
+    }
+
+    onDocumentBlur() {
+        Neo.altKeyDown = Neo.controlKeyDown = Neo.metaKeyDown = Neo.shiftKeyDown = false;
     }
 
     /**
@@ -433,7 +460,7 @@ class DomAccess extends Base {
             { defaultView } = node.ownerDocument,
             rect            = this.getBoundingClientRect(node);
 
-        for (let parentElement = node.offsetParent; rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
+        for (let parentElement = node.offsetParent; parentElement && rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
             if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
                 rect = rect.intersects(this.getBoundingClientRect(parentElement))
             }

@@ -131,7 +131,7 @@ const DefaultConfig = {
      * @name config.mainThreadAddons
      * @type String[]
      */
-    mainThreadAddons: ['DragDrop', 'Stylesheet'],
+    mainThreadAddons: ['DragDrop', 'Stylesheet', 'Navigator'],
     /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
@@ -236,12 +236,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '6.10.10'
+     * @default '6.10.11'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '6.10.10'
+    version: '6.10.11'
 };
 
 Object.assign(DefaultConfig, {

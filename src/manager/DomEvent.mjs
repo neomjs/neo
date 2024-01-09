@@ -32,7 +32,8 @@ const globalDomEvents = [
     'mouseup',
     'scroll',
     'selectionchange',
-    'wheel'
+    'wheel',
+    'neonavigate'
 ];
 
 /**

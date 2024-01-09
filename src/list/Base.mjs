@@ -135,7 +135,13 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'ul', cn: []}
+        {tag: 'ul', cn: []},
+
+        /**
+         * An object to help configure the navigation. Used to pass to {@link Neo.main.addon.Navigator#subscribe}.
+         * @member {Object} navigator={}
+         */
+        navigator : {}
     }
 
     /**
@@ -172,16 +178,15 @@ class Base extends Component {
      * @param {Number|null} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
+    afterSetActiveIndex(value) {
+        let me = this;
 
         if (Neo.isNumber(value)) {
-            selectionModel?.selectAt(value);
             me.headerlessActiveIndex = me.getHeaderlessIndex(value)
-        } else if (Neo.isNumber(oldValue)) {
-            selectionModel.deselectAll();
-            me.headerlessActiveIndex = null
+            Neo.main.addon.Navigator.navigateTo([value, this.navigator])
+        }
+        else if (value) {
+            Neo.main.addon.Navigator.navigateTo([me.getItemId(value[me.getKeyProperty()]), this.navigator])
         }
     }
 
@@ -254,6 +259,33 @@ class Base extends Component {
             me.activeIndex = activeIndex
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
+        }
+    }
+
+    afterSetMounted(value) {
+        const me = this;
+
+        // Tear down navigation before we lose the element
+        if (!value && me.hasNavigator) {
+            Neo.main.addon.Navigator.unsubscribe(me.navigator);
+            me.hasNavigator = false;
+            me.activeIndex = null
+        }
+
+        super.afterSetMounted(...arguments);
+
+        if (value) {
+            // Set up item navigation in the list
+            if (!me.hasNavigator) {
+                me.navigator = {
+                    appName  : me.appName,
+                    id       : me.id,
+                    selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    ...me.navigator
+                }
+                me.hasNavigator = true;
+            }
+            Neo.main.addon.Navigator.subscribe(me.navigator)
         }
     }
 
@@ -392,11 +424,15 @@ class Base extends Component {
         }
 
         item = {
-            tag     : isHeader ? 'dt' : me.itemTagName,
-            cls,
-            id      : itemId,
-            tabIndex: -1
+            id  : itemId,
+            tag : isHeader ? 'dt' : me.itemTagName,
+            'aria-selected' : false,
+            cls
         };
+
+        if (me.itemsFocusable) {
+            item.tabIndex = -1;
+        }
 
         if (record.hidden) {
             item.removeDom = true
@@ -513,15 +549,7 @@ class Base extends Component {
      * @param {String} [id]
      */
     focus(id) {
-        super.focus(id);
-
-        let me = this;
-
-        id && me.scrollIntoViewOnFocus && Neo.main.DomAccess.scrollIntoView({
-            appName : me.appName,
-            behavior: 'auto',
-            id      : id || me.id
-        })
+        Neo.main.addon.Navigator.navigateTo(id, this.navigator)
     }
 
     /**
@@ -569,11 +597,11 @@ class Base extends Component {
     }
 
     /**
-     * @param {Number|String} recordId
+     * @param {Number|String|object} recordOrId
      * @returns {String}
      */
-    getItemId(recordId) {
-        return `${this.id}__${recordId}`
+    getItemId(recordOrId) {
+        return `${this.id}__${recordOrId.isRecord ? recordOrId[this.getKeyProperty()] : recordOrId}`
     }
 
     /**
@@ -655,10 +683,6 @@ class Base extends Component {
         // pass the record to class extensions
         data.record = record;
 
-        if (!me.disableSelection && (!me.useHeaders || !record.isHeader)) {
-            me.selectionModel?.select(node.id)
-        }
-
         /**
          * The itemClick event fires when a click occurs on a list item
          * @event itemClick
@@ -723,10 +747,19 @@ class Base extends Component {
 
     /**
      * Convenience shortcut
-     * @param {Number} index
+     * @param {Number|String} item
      */
-    selectItem(index) {
-        !this.disableSelection && this.selectionModel?.selectAt(index)
+    selectItem(item) {
+        if (!this.disableSelection) {
+            // Selecting index
+            if (Neo.isNumber(item)) {
+                this.selectionModel?.selectAt(item)
+            }
+            // Selecting record
+            else if (item) {
+                this.selectionModel?.selectAt(this.store.indexOf(item));
+            }
+        }
     }
 }
 

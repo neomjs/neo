@@ -56,13 +56,13 @@ class RecordFactory extends Base {
         if (model instanceof Model) {
             let className = `${this.recordNamespace}.${model.className}.${model.id}`,
                 ns        = Neo.ns(className),
-                key, nsArray;
+                key, nsArray, cls;
 
             if (!ns) {
                 nsArray = className.split('.');
                 key     = nsArray.pop();
-                ns      = Neo.ns(nsArray, true);
-                ns[key] = class Record {
+                ns      = Neo.ns(nsArray, true),
+                cls     = ns[key] = class Record {
                     constructor(config) {
                         let me = this,
                             properties;
@@ -151,7 +151,8 @@ class RecordFactory extends Base {
                     }
                 };
 
-                ns[key].isClass = true;
+                Object.defineProperty(cls.prototype, 'isRecord', { value : true });
+                Object.defineProperty(cls, 'isClass', { vale : true });
 
                 return ns[key];
             }

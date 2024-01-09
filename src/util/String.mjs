@@ -81,6 +81,15 @@ class StringUtil extends Base {
 
         return value.replace(me.entityPattern, me.getCharFromEntity.bind(me));
     }
+
+    /**
+     * Returns the passed string with the first letter uncapitalized.
+     * @param {Strinhg} value 
+     * @returns 
+     */
+    static uncapitalize(value) {
+        return value && value[0].toLowerCase() + value.substring(1)
+    }
 }
 
 Neo.applyClassConfig(StringUtil);

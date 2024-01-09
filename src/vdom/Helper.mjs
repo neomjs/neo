@@ -580,8 +580,7 @@ class Helper extends Base {
                     string += ` ${key}`;
                 }
             } else if (key !== 'removeDom') {
-
-                string += ` ${key}="${value.replaceAll('"', '&quot;')}"`;
+                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`;
             }
         });
 

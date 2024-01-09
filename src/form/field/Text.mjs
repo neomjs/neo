@@ -318,7 +318,7 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoComplete(value, oldValue) {
-        this.changeInputElKey('autocomplete', value ? null : 'no')
+        this.changeInputElKey('autocomplete', value ? null : 'off')
     }
 
     /**

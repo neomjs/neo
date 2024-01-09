@@ -3,19 +3,25 @@
     overflow: auto;
 
     .neo-list-item {
-        padding: 0;
+        padding : 0;
+        outline : 0 none !important; // TODO. Fix order so important can be removed
 
-        &.neo-selected {
-            background-color: inherit;
+        &[aria-selected="true"] {
+            background-color: inherit !important; // TODO. Fix order so important can be removed
             color           : inherit;
+            outline         : inherit;
 
             .neo-chip {
                 background-color: var(--list-item-background-color-selected);
-                border-color    : var(--chip-border-color-focus);
             }
 
             .neo-chip-close-button {
                 color: var(--chip-close-button-color-hover);
+            }
+        }
+        &.neo-navigator-active-item {
+            .neo-chip {
+                border-color : var(--list-item-border-color-active);
             }
         }
     }

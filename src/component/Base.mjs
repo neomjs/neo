@@ -375,6 +375,13 @@ class Base extends CoreBase {
     }
 
     /**
+     * Returns true if this Component is fully visible, that is it is not hidden and has no hidden ancestors
+     */
+    get isVisible() {
+        return this.mounted && !this.hidden && (!this.parent || this.parent.isVisible);
+    }
+
+    /**
      * Apply component based listeners
      * @member {Object} listeners={}
      */
