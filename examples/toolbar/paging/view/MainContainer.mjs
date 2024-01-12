@@ -60,7 +60,12 @@ class MainContainer extends Viewport {
                     tooltip: 'Go to next page'
                 },
                 'nav-button-last' : {
-                    tooltip: 'Go to last page'
+                    tooltip: {
+                        text  : 'Go to last page',
+                        align : {
+                            edgeAlign : 'b-t'
+                        }
+                    }
                 },
 
                 // These two have been moved to the start of the Toolbar by their weights
