@@ -84,8 +84,8 @@ class StringUtil extends Base {
 
     /**
      * Returns the passed string with the first letter uncapitalized.
-     * @param {Strinhg} value 
-     * @returns 
+     * @param {String} value 
+     * @returns  {String}
      */
     static uncapitalize(value) {
         return value && value[0].toLowerCase() + value.substring(1)
