@@ -1,6 +1,6 @@
 {
   "name"            : "neo.mjs",
-  "version"         : "6.10.11",
+  "version"         : "6.10.12",
   "description"     : "The webworkers driven UI framework",
   "type"            : "module",
   "repository"      : {
@@ -48,15 +48,15 @@
     "chalk"                         : "^5.3.0",
     "clean-webpack-plugin"          : "^4.0.0",
     "commander"                     : "^11.1.0",
-    "cssnano"                       : "^6.0.2",
+    "cssnano"                       : "^6.0.3",
     "envinfo"                       : "^7.11.0",
     "fs-extra"                      : "^11.2.0",
     "highlightjs-line-numbers.js"   : "^2.8.0",
     "inquirer"                      : "^9.2.12",
     "neo-jsdoc"                     : "1.0.1",
     "neo-jsdoc-x"                   : "1.0.5",
-    "postcss"                       : "^8.4.32",
-    "sass"                          : "^1.69.5",
+    "postcss"                       : "^8.4.33",
+    "sass"                          : "^1.69.7",
     "siesta-lite"                   : "5.5.2",
     "showdown"                      : "^2.1.0",
     "url"                           : "^0.11.3",
@@ -70,5 +70,4 @@
     "type" : "GitHub Sponsors",
     "url"  : "https://github.com/sponsors/tobiu"
   }
-
 }

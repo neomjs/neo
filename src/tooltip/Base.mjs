@@ -261,13 +261,17 @@ class Base extends Container {
         // If it's an internal move within the delegate, do nothing
         if (currentTarget !== me.activeTarget?.id) {
             me.activeTarget = Neo.get(currentTarget);
-            me.align.target = currentTarget;
-            me.align.targetMargin = 10;
 
+            // Allow listeners (eg the Tooltip singleton) which is shared between all Components
+            // listens for this in order to reconfigure itself from the activeTarget.
+            // So this event must be fired before the alignment is set up.
             me.fire('targetOver', {
                 target : me.activeTarget,
                 data
             });
+
+            me.align.target = currentTarget;
+            me.align.targetMargin = 10;
 
             // Still visible, just realign
             if (me.mounted) {

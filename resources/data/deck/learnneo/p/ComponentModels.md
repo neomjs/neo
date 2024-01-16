@@ -1,4 +1,3 @@
-
 Neo has a feature that allows shared, bindable, data.
 
 A _view model_ &mdash; `Neo.model.Component` &mdash; instance holds properties that 
@@ -113,4 +112,3 @@ Note that in the example above, the view model is in-line. Normally your view mo
 coded in its own class that extends 'Neo.model.Component', and you'd use that in your component.
 Just like with items component configs, trivial configs are often done in-line, and non-trivial 
 configs are coded as separate classes.
-

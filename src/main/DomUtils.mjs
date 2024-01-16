@@ -31,7 +31,7 @@ export default class DomUtils extends Base {
      * @param {HTMLElement} el The element to start from.
      * @param {Function} filterFn A function which returns `true` when the desired element is reached.
      * @param {HTMLElement} [limit] The element to stop at. This is *not* considered for matching.
-     * @returns 
+     * @returns {Boolean}
      */
     static closest(el, filterFn, limit = document.body) {
         while (el?.nodeType === Node.ELEMENT_NODE && el !== limit) {
