@@ -38,6 +38,10 @@ class DateField extends Picker {
          */
         errorTextInvalidDate: 'Not a valid date',
         /**
+         * @member {Boolean} isoDate=false
+         */
+        isoDate: false,
+        /**
          * True to hide the DatePicker when selecting a day
          * @member {Boolean} hidePickerOnSelect=false
          */
@@ -159,6 +163,17 @@ class DateField extends Picker {
     }
 
     /**
+     * Triggered before the value config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        const val = super.beforeSetValue(value, oldValue);
+        return (this.isoDate && val) ? val.substring(0, 10) : val;
+    }
+
+    /**
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -171,7 +186,13 @@ class DateField extends Picker {
     getValue() {
         let value = this.value;
 
-        return this.submitDateObject && value ? new Date(`${value}T00:00:00.000Z`) : value
+        if(this.submitDateObject && value) {
+            return new Date(`${value}T00:00:00.000Z`);
+        } else if(this.isoDate && value) {
+            return new Date(value).toISOString();
+        }
+
+        return value;
     }
 
     /**

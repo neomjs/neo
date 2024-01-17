@@ -220,7 +220,6 @@ class Navigator extends Base {
      * @param {String|Number} newActiveElement The id of the new active element in the subject
      * element, or the index of the item.
      * @param {Object} data The data block as passed to {@link #subscribe}
-     * @returns 
      */
     navigateTo(newActiveElement, data) {
         if (!data.subject) {
