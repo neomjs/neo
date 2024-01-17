@@ -271,7 +271,10 @@ class Navigator extends Base {
             block    : 'nearest',
             inline   : 'nearest',
             nehavior : 'smooth'
-        })
+        });
+
+        // Link the event source or the encapsulating element to the active item for A11Y
+        (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
 
         DomEvents.sendMessageToApp({
             type                : 'neonavigate',
@@ -287,7 +290,7 @@ class Navigator extends Base {
             ctrlKey             : Neo.controlKeyDown,
             metaKey             : Neo.metaKeyDown,
             shiftKey            : Neo.shiftKeyDown
-        })
+        });
     }
 
     navigateGetAdjacent(direction = 1, data) {

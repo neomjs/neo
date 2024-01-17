@@ -183,6 +183,16 @@ class DomAccess extends Base {
     }
 
     onDocumentKeyDown(keyEvent) {
+        // ESC hides dialogs
+        if (keyEvent.key === 'Escape') {
+            const floater = keyEvent.target.closest('.neo-floating');
+
+            if (floater) {
+                // Set the Component with id data.id to hidden : true
+                return Neo.worker.App.setConfigs({ id : floater.id, hidden : true })
+            }
+        }
+        
         if (modifierKeys[keyEvent.key]) {
             // eg Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
             // Selection can consult this value
@@ -360,10 +370,18 @@ class DomAccess extends Base {
         let node = this.getElement(data.id);
 
         if (node) {
-            node.focus();
+            // The children property means focus inner elements if possible.
+            if (!DomUtils.isFocusable(node) && data.children) {
+                // Prefer to focus input fields over buttons.
+                // querySelector('input,textarea,button') returns buttons first, so use multiple calls. 
+                node = node.querySelector('input:not(:disabled)') || node.querySelector('textarea:not(:disabled)') || node.querySelector('button:not(:disabled)') || [...node.querySelectorAll('*')].find(DomUtils.isFocusable);
+            }
+            if (node) {
+                node.focus();
 
-            if (Neo.isNumber(node.selectionStart)) {
-                node.selectionStart = node.selectionEnd = node.value.length;
+                if (Neo.isNumber(node.selectionStart)) {
+                    node.selectionStart = node.selectionEnd = node.value.length;
+                }
             }
         }
 

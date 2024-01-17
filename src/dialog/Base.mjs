@@ -444,6 +444,7 @@ class Base extends Panel {
     close(animate=!!this.animateTargetId) {
         let me = this;
 
+        me.revertFocus();
         if (animate) {
             me.animateHide()
         } else {

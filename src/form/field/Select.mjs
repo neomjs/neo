@@ -515,7 +515,6 @@ class Select extends Picker {
 
             me.activeRecord = store.getAt(activeIndex)
             me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty]
-            me.getInputEl()['aria-activedescendant'] = activeItem;
 
             // Update typeahead hint (which updates DOM), or update DOM
             me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update();

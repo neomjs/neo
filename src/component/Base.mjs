@@ -643,6 +643,10 @@ class Base extends CoreBase {
             me[state]()
         }
 
+        if (!value) {
+            me.revertFocus();
+        }
+
         me.fire(state, {id: me.id});
         me.fire('hiddenChange', {id: me.id, oldValue, value})
     }
@@ -781,10 +785,25 @@ class Base extends CoreBase {
 
                 if (me.floating) {
                     me.alignTo();
+
+                    // Focus will be pushed into the first input field or other focusable item
+                    Neo.main.DomAccess.focus({
+                        id       : this.id,
+                        children : true
+                    });
                 }
 
                 me.fire('mounted', me.id)
             }
+            else {
+                me.revertFocus();
+            }
+        }
+    }
+
+    revertFocus() {
+        if (this.containsFocus && this.focusEnterData?.relatedTarget) {
+            Neo.getComponent(this.focusEnterData.relatedTarget.id)?.focus();
         }
     }
 
@@ -1256,6 +1275,8 @@ class Base extends CoreBase {
             parent      = Neo.getComponent(parentId),
             parentModel = parent?.getModel(),
             parentVdom;
+
+        me.revertFocus();
 
         me.domListeners = [];
 
@@ -1814,6 +1835,16 @@ class Base extends CoreBase {
     onConstructed() {
         super.onConstructed();
         this.keys?.register(this)
+    }
+
+    onFocusEnter(data) {
+        // If we are hidden, or unmounted while we still contain focus, we have to revert
+        // focus to where it came from if possible
+        this.focusEnterData = data;
+    }
+
+    onFocusLeave() {
+        this.focusEnterData = null;
     }
 
     /**

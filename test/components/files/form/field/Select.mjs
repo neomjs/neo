@@ -128,6 +128,8 @@ StartTest(t => {
 
         await t.waitForSelectorNotFound('.neo-picker-container:visible');
 
+        await t.waitFor(100);
+
         t.is(inputField.value, 'Wyoming');
 
         await t.type(null, '[DOWN]');
