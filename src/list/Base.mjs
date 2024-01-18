@@ -154,7 +154,7 @@ class Base extends Component {
      */
     scrollIntoViewOnFocus = true
 
-    /**
+    /**g
      * @param {Object} config
      */
     construct(config) {
@@ -285,7 +285,7 @@ class Base extends Component {
                 }
                 me.hasNavigator = true;
             }
-            Neo.main.addon.Navigator.subscribe(me.navigator)
+            Neo.main.addon.Navigator?.subscribe(me.navigator)
         }
     }
 
