@@ -183,16 +183,6 @@ class DomAccess extends Base {
     }
 
     onDocumentKeyDown(keyEvent) {
-        // ESC hides dialogs
-        if (keyEvent.key === 'Escape') {
-            const floater = keyEvent.target.closest('.neo-floating');
-
-            if (floater) {
-                // Set the Component with id data.id to hidden : true
-                return Neo.worker.App.setConfigs({ id : floater.id, hidden : true })
-            }
-        }
-        
         if (modifierKeys[keyEvent.key]) {
             // eg Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
             // Selection can consult this value

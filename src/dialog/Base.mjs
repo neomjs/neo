@@ -100,6 +100,9 @@ class Base extends Panel {
          * @protected
          */
         isDragging: false,
+        keys: {
+            Escape: 'onKeyDownEscape'
+        },
         /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
@@ -693,6 +696,10 @@ class Base extends Panel {
 
             me.style = style
         }
+    }
+
+    onKeyDownEscape() {
+        this.hidden = true;
     }
 
     /**

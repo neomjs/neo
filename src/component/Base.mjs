@@ -1150,6 +1150,7 @@ class Base extends CoreBase {
 
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
+                keyDownEventBubble : true,
                 keys: value
             })
         }
