@@ -517,7 +517,7 @@ class MainView extends Base {
         controller: {module: Controller},
         model: {module: ViewModel},
 
-        layout: {ntype: 'vbox'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
             module: Table,
             store: {
@@ -683,7 +683,7 @@ class Table extends Base {
     static config = {
         className: 'Earthquakes.view.earthquakes.Table',
         ntype: 'earthquakes-table',
-        layout: {ntype: 'vbox'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         style: {width: '100%'},
         columns: [{
             dataField: "timestamp",
@@ -756,7 +756,7 @@ static config = {
         controller: {module: Controller},
         model: {module: ViewModel},
 
-        layout: {ntype: 'vbox'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
             module: EarthquakesTable,
             store: {
@@ -903,7 +903,7 @@ class MainView extends Base {
         },
 
         layout: {
-            ntype: 'vbox',
+            ntype: 'vbox', align: 'stretch'
         },
         items: [{
             module: EarthquakesTable,
@@ -1018,9 +1018,7 @@ class MainView extends Base {
             }
         },
 
-        layout: {
-            ntype: 'vbox',
-        },
+        layout: { ntype: 'vbox', align: 'stretch' },
         items: [{
             module: EarthquakesTable,
             bind: {
@@ -1125,9 +1123,7 @@ class MainView extends Base {
             module: ViewModel
         },
 
-        layout: {
-            ntype: 'vbox',
-        },
+        layout: { ntype: 'vbox', align: 'stretch' },
         items: [{
             module: EarthquakesTable,
             bind: {
@@ -1172,9 +1168,10 @@ in `neo-config.json`. We didn't choose Google Maps when we ran the script, but w
 need to edit `neo-config.json` and add it. Google Maps also requires an API key, which is also configured in
 `neo-config.json`.
 
-The Google Maps component has two key configs:
+The Google Maps component has a few key configs:
 
 - `center:{lat, lng}`
+- `zoom`
 - `store`
 
 The store must have records with these properties:
@@ -1202,16 +1199,148 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
         "WS/GoogleMaps",
         "Stylesheet"
     ],
-    "googleMapsApiKey": "AIzaSyCRj-EPE3H7PCzZtYCmDzln6sj7uPCGohA",
+    "googleMapsApiKey": "AIzaSyD4Y2xvl9mGT8HiVvQiZluT5gah3OIveCE",
     "themes"          : ["neo-theme-neo-light"],
     "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
 </pre>
 
-Save and refresh and you'll see a console log eminating from the plugin.
+Save and refresh, and you'll see a console log emanating from the plugin.
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/GoogleMapsLoaded.png"></img>
 
+</details>
+
+<details>
+<summary>Add the required fields to the records</summary>
+
+The Google Maps component has a `markerStore` property, which is a reference to a store whose records have
+the properties `title` and `location`, where `location` is of the form `{lat: 0, lng: 0}`. The `fields:[]`
+lets us implement those via two properties: 
+
+- `mapping` &mdash; the path to a feed property holding the value
+- `calculate` &mdash; a function that returns a value
+
+Edit `apps/earthquakes/view/MainViewModel.mjs` and modify `fields` as follows.
+
+<pre data-javascript>
+fields: [{
+    name: "humanReadableLocation",
+}, {
+    name: "size",
+}, {
+    name: "timestamp",
+    type: "Date",
+}, {
+    name: 'title',
+    mapping: "humanReadableLocation"
+}, {
+    name: "position",
+    calculate: (data, field, item)=>({lat: item.latitude, lng: item.longitude})
+}],
+</pre>
+
+As you can see, _title_ is mapped to the existing feed value _humanReadableLocation_, and _position_ is 
+calculated by returning an object with _lat_ and _lng_ set to the corresponding values from the feed.
+
+Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
+putting the main view into a global variable. Then run
+
+    temp1.getModel().stores.earthquakes.items
+
+Look at one of the items and you should see that _title_ and _location_ are in each record.
+
+<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StoreHasTitleAndLocation.png"></img>
+
+</details>
+
+<details>
+<summary>Use the Google Map Component</summary>
+
+We're going to replace the top table with a Google Map. To do that we need to import the Google Maps component
+and show it implace of the top table. The map should be centered on Iceland. To wit
+
+<pre>
+{
+    module: GoogleMapsComponent,
+    flex: 1,
+    center: {
+        lat: 64.8014187,
+        lng: -18.3096357
+    },
+    zoom: 6,
+}
+</pre>
+
+If we replace the top table with the map, `view/MainView.mjs` ends up with this content.
+
+<pre data-javascript>
+
+import Base                from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import EarthquakesTable    from './earthquakes/Table.mjs';
+import Controller          from './MainViewController.mjs';
+import ViewModel           from './MainViewModel.mjs';
+import GoogleMapsComponent from '../../../src/component/wrapper/GoogleMaps.mjs';
+
+class MainView extends Base {
+    static config = {
+        className: 'Earthquakes.view.MainView',
+        ntype: 'earthquakes-main',
+        controller: {module: Controller},
+        model: {
+            module: ViewModel
+        },
+
+        layout: { ntype: 'vbox', align: 'stretch' },
+        items: [{
+            module: GoogleMapsComponent,
+            flex: 1,
+            center: {
+                lat: 64.8014187,
+                lng: -18.3096357
+            },
+            zoom: 6,
+        },{
+            module: EarthquakesTable,
+            bind: {
+                store: 'stores.earthquakes'
+            },
+            style: {width: '100%'},
+            wrapperStyle: {
+                height: 'auto' // Because neo-table-wrapper sets height:'100%', which it probably shouldn't
+            }
+        }],
+    }
+}
+
+Neo.applyClassConfig(MainView);
+
+export default MainView;
+
+</pre>
+
+<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CenteredMap.png"></img>
+
+
+</details>
+
+<details>
+<summary>Show the markers</summary>
+
+ The markers are shown by setting up a `markerStore`. The _earthquakes_ store complies with the requirements
+of the Google Maps component &mdash; it has a _location_ and _title_. We assign the store using a `bind`,
+ just like we did with the tables. 
+ 
+Add this config to the map.
+
+<pre javascript>
+bind: {
+    markerStore: 'stores.earthquakes'
+},
+</pre>
+
+
+<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/InitialMapWithMarkers.png"></img>
 
 </details>
 
