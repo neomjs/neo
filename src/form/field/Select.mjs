@@ -219,20 +219,40 @@ class Select extends Picker {
      * @protected
      */
     beforeSetStore(value, oldValue) {
+        const
+            me                          = this,
+            { valueField, displayField} = me;
+
         oldValue?.destroy();
+
+        // Promote an array of items to be a Store
+        if (Array.isArray(value)) {
+            value = {
+                data : value.map((v, i) => {
+                    // Simplest case is just picking string values.
+                    if (typeof v === 'string') {
+                        v = {
+                            [valueField]   : v,
+                            [displayField] : v
+                        };
+                    }
+                    return v;
+                })
+            };
+        }
 
         // to reduce boilerplate code, a store config object without a defined model should default
         // to displayField & valueField defaults
         if (Neo.typeOf(value) === 'Object' && !value.model && !value.module && !value.ntype) {
             value.model = {
                 fields: [
-                    {name: 'id',   type: 'String'},
-                    {name: 'name', type: 'String'}
+                    {name: valueField,   type: 'String'},
+                    {name: displayField, type: 'String'}
                 ]
             }
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, Store)
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**

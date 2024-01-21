@@ -63,7 +63,7 @@ StartTest(t => {
 
         await t.waitForSelector('.neo-picker-container');
 
-        t.hasAttributeValue(inputField, 'aria-expanded', 'true');
+        await t.waitFor(() => inputField.getAttribute('aria-expanded') === 'true');
 
         // Roles correct
         t.hasAttributeValue('.neo-picker-container .neo-list', 'role', 'listbox');
@@ -79,6 +79,8 @@ StartTest(t => {
         await t.waitForSelector('input.neo-textfield-input:not(:disabled)[aria-activedescendant="neo-list-1__AL"]');
 
         t.hasAttributeValue(inputField, 'aria-activedescendant', 'neo-list-1__AL');
+
+        await t.waitFor(100);
 
         // Select that first item.
         await t.type(null, '[ENTER]');
@@ -100,7 +102,7 @@ StartTest(t => {
         t.is(blurCount, 1);
     });
 
-    t.iit('Keyboard navigation', async t => {
+    t.it('Keyboard navigation', async t => {
         await setup();
         const blurEl = document.createElement('input');
         document.body.appendChild(blurEl);
@@ -141,11 +143,13 @@ StartTest(t => {
 
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item:contains("Wisconsin")');
 
+        await t.waitFor(100);
+
         await t.type(null, '[ENTER]');
 
         await t.waitForSelectorNotFound('.neo-picker-container:visible');
 
-        t.is(inputField.value, 'Wisconsin');
+        await t.waitFor(() => inputField.value === 'Wisconsin');
 
         await t.type(null, '[DOWN]');
 
@@ -185,6 +189,8 @@ StartTest(t => {
         // Picker Must show with Maryland activated
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item:contains("Maryland")');
 
+        await t.waitFor(100);
+
         // Matches three states
         t.selectorCountIs('.neo-picker-container .neo-list-item', 3);
 
@@ -194,11 +200,24 @@ StartTest(t => {
         // Blur without selecting a value
         await t.type(null, '[TAB]');
 
-        await t.waitFor(100)
+        await t.waitFor(100);
 
         // Inputs must have been cleared. Both typeahead and filter.
         t.isDeeply(t.query(`#${testId} input`).map(i => i.value), ['', '']);
 
         blurEl.remove();
+    });
+
+    t.it('With store as data', async t => {
+        await setup({
+            labelText : 'Foo',
+            store     : ['Foo', 'Bar', 'Bletch']
+        });
+        await t.click('.neo-field-trigger.fa-caret-down');
+
+        await t.waitForSelector('.neo-list-item:contains(Foo)');
+
+        // All data ityems represented
+        t.selectorCountIs('.neo-list-item', 3);
     });
 });
