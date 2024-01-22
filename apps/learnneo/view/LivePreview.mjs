@@ -1,19 +1,18 @@
-import Base         from '../../../../src/container/Base.mjs';
-import TabContainer from '../../../../src/tab/Container.mjs';
-import TextArea     from '../../../../src/form/field/TextArea.mjs';
+import Base         from '../../../src/container/Base.mjs';
+import TabContainer from '../../../src/tab/Container.mjs';
+import TextArea     from '../../../src/form/field/TextArea.mjs';
 
 /**
- * @class Portal.view.learn.LivePreview
+ * @class LearnNeo.view.LivePreview
  * @extends Neo.container.Base
  */
 class LivePreview extends Base {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.LivePreview'
+         * @member {String} className='LearnNeo.view.LivePreview'
          * @protected
          */
-        className: 'Portal.view.learn.LivePreview',
-        baseCls: ['learn-live-preview'],
+        className: 'LearnNeo.view.LivePreview',
         value_: null,
         autoMount: true,
         autoRender: true,
@@ -23,20 +22,17 @@ class LivePreview extends Base {
          * @member {Object[]} items
          */
         items: [{
-            module: TabContainer,
+            module   : TabContainer,
             reference: 'tab-container',
-            cls: 'live-preview-container',
+
             items: [{
                 module: TextArea,
                 hideLabel: true,
                 style: {height: '100%'},
                 reference: 'textArea',
                 tabButtonConfig: {
-                    text: 'Source'
+                    text: 'Editor'
                 },
-                listeners: {
-                    change: data => data.component.up({className: 'Portal.view.learn.LivePreview'}).value = data.value
-                }
             }, {
                 tabButtonConfig: {
                     text: 'Preview'
@@ -61,8 +57,10 @@ class LivePreview extends Base {
         me.getReference('tab-container').on('activeIndexChange', me.onActiveIndexChange, me)
     }
 
-    doRunSource() {
-        let source = this.value;
+    doIt(button) {
+        let source = this.getReference('source').getValue();
+
+        this.getReference('codePreview').src = source;
 
         const importRegex = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
         const exportRegex = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g;
@@ -73,8 +71,6 @@ class LivePreview extends Base {
         const importModuleNames = [];
 
         const moduleNameAndPath = [];
-
-        const className = this.findLastClassName(source);
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
@@ -126,10 +122,12 @@ class LivePreview extends Base {
             .then(([${params.join(', ')}]) => {
                     ${vars.join('\n')}
                     ${cleanLines.join('\n')}
-                    if (${className} && Neo.component.Base.isPrototypeOf(${className})) container.add({module:${className}});
+                    container.add({module:Bar});
                 })
             .catch(error=>container.add({ntype:'component',html:error.message}));
         `;
+
+        // console.log(codeString);
 
         const container = this.getReference('preview');
         container.removeAll();
@@ -177,24 +175,7 @@ class LivePreview extends Base {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        if (data.item.reference !== 'preview') return;
-        this.doRunSource();
-    }
-    findLastClassName(sourceCode) {
-        // Define a regular expression to match class declarations
-        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
-
-        let match;
-        let lastClassName = null;
-
-        // Iterate through all matches of the regular expression
-        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
-            // Update the last class name found
-            lastClassName = match[1];
-        }
-
-        return lastClassName;
-
+        console.log('onActiveIndexChange', data)
     }
 }
 
