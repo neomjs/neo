@@ -18,6 +18,7 @@
         {"name": "User Input (Forms)",                      "parentId": "InDepth",           "isLeaf": false, "id": "Forms"},
         {"name": "Layouts",                                 "parentId": "InDepth",           "isLeaf": false, "id": "Layouts"},
         {"name": "Custom Components",                       "parentId": "InDepth",           "isLeaf": false, "id": "CustomComponents"},
+        {"name": "Events",                                  "parentId": "InDepth",           "isLeaf": true,  "expanded": false, "id": "GuideEvents"},
         {"name": "Tables (Stores)",                         "parentId": "InDepth",           "isLeaf": false, "id": "Tables"},
         {"name": "Shared Bindable Data (Component Models)", "parentId": "InDepth",           "isLeaf": false, "id": "InDepthComponentModels"},
         {"name": "Multi-Window Applications",               "parentId": "InDepth",           "isLeaf": false, "id": "MultiWindow"},

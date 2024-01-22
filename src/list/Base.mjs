@@ -285,7 +285,7 @@ class Base extends Component {
                 }
                 me.hasNavigator = true;
             }
-            Neo.main.addon.Navigator.?subscribe(me.navigator)
+            Neo.main.addon.Navigator.subscribe(me.navigator)
         }
     }
 
