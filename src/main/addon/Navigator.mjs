@@ -232,10 +232,15 @@ class Navigator extends Base {
         // Can navigate by index. This is useful if the active item is deleted.
         // We can navigate to the same index and preserve UI stability.
         if (typeof newActiveElement === 'number') {
-            newActiveElement = data.subject.querySelectorAll(data.selector)[newActiveElement];
+            newActiveElement = data.subject.querySelectorAll(data.selector)?.[newActiveElement];
         }
         else if (typeof newActiveElement === 'string') {
             newActiveElement = DomAccess.getElement(newActiveElement);
+        }
+
+        // Could not do what was asked because we could not find the requested item
+        if (!newActiveElement) {
+            return;
         }
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.

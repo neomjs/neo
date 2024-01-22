@@ -167,24 +167,6 @@ if (programOpts.info) {
 </head>
 <body>
     <script src="../../src/MicroLoader.mjs" type="module"></script>
-    <script>
-    new MutationObserver((mutationsList, observer) => {
-        for (let mutation of mutationsList) {
-            for (let addedNode of mutation.addedNodes) {
-                if (addedNode.className && addedNode.className.includes(\'neo-viewport\')) {
-                    addedNode.addEventListener("contextmenu", function (e) {
-                        if (!(e.ctrlKey || e.metaKey)) return;
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const event = new Event('neo-debug-item-select', {bubbles: true});
-                        e.target.dispatchEvent(event);
-                    });
-                    observer.disconnect(); // We found the viewport so we\'re finished listening
-                }
-            }
-        }
-    }).observe(document.body, {childList: true, subtree: false});
-    </script>
 </body>
 </html>
 `;
@@ -250,18 +232,6 @@ class ${className} extends Base {
         autoMount:  true,
         layout:     {ntype: 'fit'},
         items:      [{module:MainView}],
-    }
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        if (!value) return;
-        this.addDomListeners({
-            "neo-debug-item-select": (event) => {
-                event.path.forEach((item) => {
-                    const component = Neo.getComponent(item.id);
-                    if (component) console.log(component);
-                });
-            },
-        });
     }
 }
 Neo.applyClassConfig(${className});

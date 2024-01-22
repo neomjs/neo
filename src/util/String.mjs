@@ -16,7 +16,8 @@ class StringUtil extends Base {
         '"' : '&quot;',
         '\'': '&apos;',
         '$' : '&dollar;',
-        '\\': '&bsol;'
+        '\\': '&bsol;',
+        '/' : '&sol;'
     }
     /**
      * @member {RegExp} charPattern
@@ -27,7 +28,7 @@ class StringUtil extends Base {
      * @member {RegExp} entityPattern
      * @static
      */
-    static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&apos;)|(&dollar;)|(&bsol;)/g
+    static entityPattern = /(&amp;)|(&lt;)|(&gt;)|(&quot;)|(&apos;)|(&dollar;)|(&bsol;)|(&sol;)/g
 
     static config = {
         /**

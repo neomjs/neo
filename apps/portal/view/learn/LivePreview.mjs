@@ -75,6 +75,7 @@ class LivePreview extends Base {
         const moduleNameAndPath = [];
 
         const className = this.findLastClassName(source);
+
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
             if (importMatch) {
