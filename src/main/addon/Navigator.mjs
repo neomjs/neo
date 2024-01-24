@@ -3,6 +3,13 @@ import DomAccess from '../DomAccess.mjs';
 import DomUtils  from '../DomUtils.mjs';
 import DomEvents from '../DomEvents.mjs';
 
+// We do not need to inject a synthesized "click" event when we detect an ENTER
+// keypress on these element types.
+const enterActivatedTags= {
+    A      : 1,
+    BUTTON : 1
+};
+
 /**
  * Addon for Navigator
  * @class Neo.main.addon.Navigator
@@ -40,13 +47,27 @@ class Navigator extends Base {
      *
      * When navigation occurs from one navigable element to another, the `navigate` event
      * will be fired.
+     *
+     * Note that if focus is expected to enter the subject, the navigable elements
+     * designated by the `selector` must be focusable in some way. So if not using natively
+     * focusable elements, they must have `tabIndex="-1"`.
+     *
+     * Upon navigation, the `aria-activedescendant` property is automatically updated
+     * on the `eventSource` element (which defaults to the subject element, but may be external)
+     *
+     * Pressing `Enter` when an item is active clicks that item.
+     *
+     * if `autoClick` is set to `true` in the data, simply navigating to an element will click it.
      * @param {*} data
      * @param {String} data.id The element id to navigate in.
      * @param {String} [data.eventSource] Optional - the element id to read keystrokes from.
-     * defaults to the main element id.
+     * defaults to the main element id. Select field uses this. Focus remains in the field's
+     * `<input>` element while navigating its dropdown.
      * @param {String} data.selector A CSS selector which identifies the navigable elements.
      * @param {String} data.activeCls A CSS class to add to the currently active navigable element.
-     * @param {Boolean} wrap Pass as `true` to have navigation wrap from first to last and vice versa.
+     * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
+     * @param {Boolean} [data.autoClick=false] Pass as `true` to have navigation click the target navigated to.
+     * TabPanels will use this on their tab toolbar.
      */
     subscribe(data) {
         const
@@ -60,12 +81,16 @@ class Navigator extends Base {
             data.activeCls = 'neo-navigator-active-item'
         }
 
+        // Ensure that only *one* of the child focusables is actually tabbable.
+        // We use arrow keys for internal navigation. TAB must move out.
+        me.fixItemFocusability(data);
+
         // Finds a focusable item starting from a descendant el within one of our selector items
         data.findFocusable = el => DomUtils.closest(el, el =>
             // We're looking for an element that is focusable
             DomUtils.isFocusable(el) &&
             // And within our subject element
-            (subject.compcompareDocumentPosition(el) & Node.DOCUMENT_POSITION_CONTAINED_BY) &&
+            (subject.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_CONTAINED_BY) &&
             // And within an element that matches our selector
             el.closest(data.selector)
         );
@@ -80,9 +105,39 @@ class Navigator extends Base {
         });
 
         eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
-        subject.addEventListener('mousedown',    data.l2 = e => me.navigateMouseDownHandler(e, data));
-        subject.addEventListener('click',        data.l3 = e => me.navigateClickHandler(e, data));
-        subject.addEventListener('focusin',      data.l4 = e => me.navigateFocusInHandler(e, data));
+        subject.addEventListener('mousedown',   data.l2 = e => me.navigateMouseDownHandler(e, data));
+        subject.addEventListener('click',       data.l3 = e => me.navigateClickHandler(e, data));
+        subject.addEventListener('focusin',     data.l4 = e => me.navigateFocusInHandler(e, data));
+        subject.addEventListener('focusout',    data.l5 = e => me.navigateFocusOutHandler(e, data));
+    }
+
+    // The navigables we are dealing with, if they are focusable must *not* be tabbable.
+    // Only *one* must be tabbable, so that tabbing into the subject element goes to the
+    // one active element.
+    // 
+    // Tabbing *from* that must exit the subject element.
+    //
+    // So we must ensure that all the focusable elements except the first are not tabbable.
+    fixItemFocusability(data) {
+        // If the key events are being read from an external element, then that will always contain
+        // focus, so we have nothing to do here. The navigable items wil be inert and not
+        // focusable. Navigation will be "virtual". Select field navigates its dropdowns like this.
+        if (!data.subject.contains(data.eventSource)) {
+            return;
+        }
+
+        const
+            focusables        = DomUtils.queryAll(data.subject, DomUtils.isFocusable),
+            defaultActiveItem = focusables[0] || data.subject.querySelector(data.selector);
+
+        // Ensure the items are not tabbable.
+        // TAB navigates out of the subject.
+        focusables.forEach(e => e !== defaultActiveItem && (e.tabIndex = -1));
+
+        // Make at least one thing tabbable so focus can move into the subject element
+        if (defaultActiveItem) {
+            defaultActiveItem.tabIndex = 0;
+        }
     }
 
     unsubscribe(data) {
@@ -96,10 +151,15 @@ class Navigator extends Base {
             target.removeEventListener('mousedown',    data.l2);
             target.removeEventListener('click',        data.l3);
             target.removeEventListener('focusin',      data.l4);
+            target.removeEventListener('focusout',     data.l5);
         }
     }
 
+    // This is called if mutations take place within the subject element.
+    // We have to keep things in order if the list items change.
     navigateTargetChildListChange(mutations, data) {
+        this.fixItemFocusability(data);
+
         // Active item gone.
         // Try to activate the item at the same index;
         if (data.activeItem && !data.subject.contains(data.activeItem)) {
@@ -110,11 +170,33 @@ class Navigator extends Base {
     }
 
     navigateFocusInHandler(e, data) {
-        const target = e.target.closest(data.selector);
+        const
+            target            = e.target.closest(data.selector),
+            { relatedTarget } = e,
+            { subject }       = data;
 
         // If our targets are focusable and recieve focus, that is a navigation.
         if (target) {
             this.setActiveItem(target, data);
+
+            // This was internal navigation.
+            // The items must be focusable, but *not* tabbable.
+            // So remove tabbability on the last active item
+            if (subject.contains(relatedTarget)) {
+                relatedTarget.tabIndex = -1;
+            }
+        }
+    }
+
+    navigateFocusOutHandler(e, data) {
+        const { target } = e;
+
+        // Clear active class from the item we are leaving from.
+        target.closest(data.selector).classList.remove(data.activeCls);
+
+        // On focusout, leave the last active item as tabbable so user can TAB back in here
+        if (!DomUtils.isTabbable(target)) {
+            target.tabIndex = 0;
         }
     }
 
@@ -168,50 +250,66 @@ class Navigator extends Base {
             }
         }
 
-        let { key } = keyEvent,
+        let { key, target } = keyEvent,
             newActiveElement;
 
         switch(key) {
+            // Move to the previous navigable item
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
                 if (!newActiveElement && wrap) {
                     newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
                 }
                 break;
+            // Move to the next navigable item
             case data.nextKey:
                 newActiveElement = me.navigateGetAdjacent(1, data);
                 if (!newActiveElement && wrap) {
                     newActiveElement = subject.querySelector(data.selector);
                 }
                 break;
+            // Move to the first navigable item
             case 'Home':
                 newActiveElement = subject.querySelector(data.selector);
                 break;
+            // Move to the last navigable item
             case 'End':
                 newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
                 break;
+            // Click the currently active item if necessary
             case 'Enter':
-                if (data.activeItem) {
-                    const
-                        rect    = data.activeItem.getBoundingClientRect(),
-                        clientX = rect.x + (rect.width / 2),
-                        clientY = rect.y + (rect.height / 2);
-
-                    data.activeItem.dispatchEvent(new MouseEvent('click', {
-                        bubbles  : true,
-                        altKey   : Neo.altKeyDown,
-                        ctrlKey  : Neo.controlKeyDown,
-                        metaKey  : Neo.metaKeyDown,
-                        shiftKey : Neo.shiftKeyDown,
-                        clientX,
-                        clientY
-                    }))
+                if (data.activeItem && !enterActivatedTags[target.tagName]) {
+                    this.clickItem(data.activeItem);
                 }
         }
 
         if (newActiveElement) {
             keyEvent.preventDefault();
             me.navigateTo(newActiveElement, data);
+        }
+    }
+
+    clickItem(el) {
+        // The element knows how to click itself.
+        if (typeof el.click === 'function') {
+            el.click();
+        }
+        // It operates through a listenert, so needs an event firing into it.
+        else {
+            const
+                rect    = el.getBoundingClientRect(),
+                clientX = rect.x + (rect.width / 2),
+                clientY = rect.y + (rect.height / 2);
+
+            el.dispatchEvent(new MouseEvent('click', {
+                bubbles  : true,
+                altKey   : Neo.altKeyDown,
+                ctrlKey  : Neo.controlKeyDown,
+                metaKey  : Neo.metaKeyDown,
+                shiftKey : Neo.shiftKeyDown,
+                clientX,
+                clientY
+            }));
         }
     }
 
@@ -245,7 +343,7 @@ class Navigator extends Base {
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.
         // For example a Chip list in which .neo-list-items contain focusable Chips.
-        const focusTarget = [newActiveElement, ...newActiveElement.querySelectorAll('*')].find(DomUtils.isFocusable);
+        const focusTarget = DomUtils.query(newActiveElement, DomUtils.isFocusable);
 
         // If the item contains a focusable, we focus it and then react in navigateFocusInHandler
         if (focusTarget) {
@@ -275,7 +373,10 @@ class Navigator extends Base {
             block    : 'nearest',
             inline   : 'nearest',
             nehavior : 'smooth'
-        })
+        });
+
+        // Link the event source or the encapsulating element to the active item for A11Y
+        (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
 
         DomEvents.sendMessageToApp({
             type                : 'neonavigate',
@@ -291,7 +392,13 @@ class Navigator extends Base {
             ctrlKey             : Neo.controlKeyDown,
             metaKey             : Neo.metaKeyDown,
             shiftKey            : Neo.shiftKeyDown
-        })
+        });
+
+        // Navigation causes click if autoClick set.
+        // TabPanels work like this.
+        if (data.autoClick) {
+            this.clickItem(newActiveElement);
+        }
     }
 
     navigateGetAdjacent(direction = 1, data) {

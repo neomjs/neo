@@ -282,7 +282,15 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEscape(data) {
-        this.pickerIsMounted && this.hidePicker()
+        if (this.pickerIsMounted) {
+            this.hidePicker();
+
+            // We processed this event, and it should not proceed to ancestor components
+            data.cancelBubble = true;
+
+            // And no further listeers should be notified
+            return false;
+        }
     }
 
     /**
