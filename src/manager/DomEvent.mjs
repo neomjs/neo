@@ -111,7 +111,10 @@ class DomEvent extends Base {
                 // console.log('fire', eventName, data, listeners, path);
 
                 if (Array.isArray(listeners)) {
-                    listeners.forEach(listener => {
+                    // Stop iteration if a handler returns false
+                    listeners.every(listener => {
+                        let result;
+
                         if (listener && listener.fn) {
                             delegationTargetId = me.verifyDelegationPath(listener, data.path);
 
@@ -131,7 +134,7 @@ class DomEvent extends Base {
 
                                     // Handler needs to know which actual target matched the delegate
                                     data.currentTarget = delegationTargetId;
-                                    listener.fn.apply(listener.scope || globalThis, [data]);
+                                    result = listener.fn.apply(listener.scope || globalThis, [data]);
 
                                     if (!listener.bubble) {
                                         bubble = false;
@@ -139,6 +142,8 @@ class DomEvent extends Base {
                                 }
                             }
                         }
+                        // If a listener returns false, we stop iterating the listeners
+                        return result !== false
                     });
                 }
             }
@@ -153,7 +158,8 @@ class DomEvent extends Base {
                 break;
             }
 
-            if (!bubble) {
+            // Honour the Event cancelBubble property
+            if (!bubble || data.cancelBubble) {
                 break;
             }
         }

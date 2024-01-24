@@ -1266,6 +1266,8 @@ class Text extends Base {
      * @protected
      */
     onFocusEnter(data) {
+        super.onFocusEnter(data);
+
         let me  = this,
             cls = me.cls;
 
