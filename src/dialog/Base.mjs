@@ -100,6 +100,9 @@ class Base extends Panel {
          * @protected
          */
         isDragging: false,
+        keys: {
+            Escape: 'onKeyDownEscape'
+        },
         /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
@@ -216,8 +219,7 @@ class Base extends Panel {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me           = this,
-            domListeners = me.domListeners,
+        let me = this,
             cls;
 
         if (oldValue !== undefined && me.headerToolbar) {
@@ -230,21 +232,21 @@ class Base extends Panel {
             DragZone = module.default;
 
             if (!me.dragListenersAdded) {
-                domListeners.push(
+                const dragListeners = [
                     {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
                     {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
-                );
+                ];
 
                 if (me.dragZoneConfig?.alwaysFireDragMove) {
-                    domListeners.push(
+                    dragListeners.push(
                         {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
                     )
                 }
 
-                me.domListeners       = domListeners;
+                me.domListeners       = [...me.domListeners, ...dragListeners];
                 me.dragListenersAdded = true
             }
-        })
+        });
     }
 
     /**
@@ -444,6 +446,7 @@ class Base extends Panel {
     close(animate=!!this.animateTargetId) {
         let me = this;
 
+        me.revertFocus();
         if (animate) {
             me.animateHide()
         } else {
@@ -692,6 +695,10 @@ class Base extends Panel {
 
             me.style = style
         }
+    }
+
+    onKeyDownEscape() {
+        this.hidden = true;
     }
 
     /**

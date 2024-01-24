@@ -42,9 +42,31 @@ export default class DomUtils extends Base {
         }
     }
 
+    /**
+     * Analogous to the `HTMLElement` `querySelectorAll` method. Searches the passed element
+     * and all descendants for all elements for which the passed `filterFn` returns `true`.
+     * @param {HTMLElement} el The element to start from.
+     * @param {Function} filterFn A function which returns `true` when a desired element is reached.
+     * @returns {HTMLElement[]} An array of matching elements
+     */
+    static queryAll(el, filterFn) {
+        return [el, ...el.querySelectorAll('*')].filter(filterFn);
+    }
+
+    /**
+     * Analogous to the `HTMLElement` `querySelector` method. Searches the passed element
+     * and all descendants for the first element for which the passed `filterFn` returns `true`.
+     * @param {HTMLElement} el The element to start from.
+     * @param {Function} filterFn A function which returns `true` when the desired element is reached.
+     * @returns {HTMLElement} The first matching element
+     */
+    static query(el, filterFn) {
+        return [el, ...el.querySelectorAll('*')].find(filterFn);
+    }
+
     static isFocusable(e) {
         // May be used as a scopeless callback, so use "DomUtils", not "this"
-        return DomUtils.isTabbable(e) || e.getAttribute('tabIndex') == -1;
+        return DomUtils.isTabbable(e) || Number(e.getAttribute('tabIndex')) < 0;
     }
 
     static isTabbable(e) {
@@ -53,8 +75,9 @@ export default class DomUtils extends Base {
             style        = getComputedStyle(e),
             tabIndex     = e.getAttribute('tabIndex');
 
-        // Hidden elements not tabbable
-        if (!e.offsetParent || style.getPropertyValue('visibility') === 'hidden') {
+        // Hidden elements are not tabbable.
+        // Negative tabIndex also means not tabbable (Though still focusable)
+        if (!e.isConnected || !e.offsetParent || style.getPropertyValue('visibility') === 'hidden' || Number(tabIndex) < 0) {
             return false
         }
 

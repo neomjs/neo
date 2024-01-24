@@ -1,6 +1,6 @@
 {
   "name"            : "neo.mjs",
-  "version"         : "6.10.13",
+  "version"         : "6.10.14",
   "description"     : "The webworkers driven UI framework",
   "type"            : "module",
   "repository"      : {
@@ -60,7 +60,7 @@
     "siesta-lite"                   : "5.5.2",
     "showdown"                      : "^2.1.0",
     "url"                           : "^0.11.3",
-    "webpack"                       : "^5.89.0",
+    "webpack"                       : "^5.90.0",
     "webpack-cli"                   : "^5.1.4",
     "webpack-dev-server"            : "4.15.1",
     "webpack-hook-plugin"           : "^1.0.7",

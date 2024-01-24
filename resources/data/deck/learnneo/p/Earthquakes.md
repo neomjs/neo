@@ -183,7 +183,6 @@ later in the lab.
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EmptyEarthquakes.png"></img>
 
-
 </details>
 
 <details>
@@ -1402,8 +1401,5 @@ Now add a `markerClick` listener to the Google Map.
 Save, refresh, and confirm that you see the value logged when you click on a map marker.
 
 </details>
-
-
-
 
 <!-- /lab -->

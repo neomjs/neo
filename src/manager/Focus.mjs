@@ -168,7 +168,9 @@ class Focus extends CoreBase {
      * @protected
      */
     setComponentFocus(opts, containsFocus) {
-        let data = {},
+        let data = {
+                relatedTarget : opts.data.relatedTarget
+            },
             components = opts.componentPath.map(id => Neo.getComponent(id)),
             handler;
 
