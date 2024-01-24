@@ -81,6 +81,7 @@ StartTest(t => {
         t.hasAttributeValue(inputField, 'aria-activedescendant', 'neo-list-1__AL');
 
         await t.waitFor(100);
+
         // Select that first item.
         await t.type(null, '[ENTER]');
 
@@ -130,6 +131,7 @@ StartTest(t => {
         await t.waitForSelectorNotFound('.neo-picker-container:visible');
 
         await t.waitFor(100);
+
         t.is(inputField.value, 'Wyoming');
 
         await t.type(null, '[DOWN]');
@@ -142,6 +144,7 @@ StartTest(t => {
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item:contains("Wisconsin")');
 
         await t.waitFor(100);
+
         await t.type(null, '[ENTER]');
 
         await t.waitForSelectorNotFound('.neo-picker-container:visible');
@@ -187,6 +190,7 @@ StartTest(t => {
         await t.waitForSelector('.neo-list-item.neo-navigator-active-item:contains("Maryland")');
 
         await t.waitFor(100);
+
         // Matches three states
         t.selectorCountIs('.neo-picker-container .neo-list-item', 3);
 

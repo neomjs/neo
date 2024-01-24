@@ -79,7 +79,7 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let value  = config[field.name],
+                                let value  = config[field.mapping || field.name],
                                     symbol = Symbol.for(field.name),
                                     parsedValue;
 
@@ -212,7 +212,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.[Symbol.for('isRecord')] || false;
+        return record?.isRecord;
     }
 
     /**
