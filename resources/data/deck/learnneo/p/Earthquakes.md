@@ -289,7 +289,6 @@ layout: {
 
 <img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleVoxStartButton.png" style="width:80%"/>
 
-
 </details>
 
 <!-- /lab -->
@@ -348,7 +347,6 @@ will show the container hierarchy for the selected component.
 
 At this point the app is so simple there's not much to see, but in a more complex app you can see the hierarchy
 and inspect or update component.
-
 
 ##Lab. Debugging
 
@@ -1403,7 +1401,5 @@ Now add a `markerClick` listener to the Google Map.
 Save, refresh, and confirm that you see the value logged when you click on a map marker.
 
 </details>
-
-
 
 <!-- /lab -->
