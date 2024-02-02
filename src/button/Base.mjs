@@ -544,7 +544,6 @@ class Base extends Component {
 
         if (!hidden) {
             await this.timeout(50);
-//            menuList.focus()
         }
     }
 }
