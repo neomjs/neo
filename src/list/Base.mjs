@@ -254,8 +254,6 @@ class Base extends Component {
             activeIndex;
 
         if (Neo.isNumber(value)) {
-            //activeIndex = me.getActiveIndex(value);
-
             me.activeIndex = this.store.items.length < 1 ? null : value;
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null

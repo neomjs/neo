@@ -104,7 +104,6 @@ class List extends BaseList {
          * @member {Object} _vdom
          */
         _vdom:
-//        {tag: 'ul', tabIndex: -1, cn: []}
         {tag: 'ul', cn: []}
     }
 
