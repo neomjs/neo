@@ -27,6 +27,7 @@ class List extends BaseList {
          * @member {String[]} baseCls=['neo-menu-list','neo-list']
          */
         baseCls: ['neo-menu-list', 'neo-list'],
+        
         /**
          * setTimeout() id after a focus-leave event.
          * @member {Number|null} focusTimeoutId=null
@@ -43,6 +44,9 @@ class List extends BaseList {
          * @member {Object[]|null} items_=null
          */
         items_: null,
+
+        itemsFocusable: true,
+
         /**
          * Internal flag.
          * Sub-menus will bubble of focus changes to the top level.
@@ -100,7 +104,8 @@ class List extends BaseList {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'ul', tabIndex: -1, cn: []}
+//        {tag: 'ul', tabIndex: -1, cn: []}
+        {tag: 'ul', cn: []}
     }
 
     /**

@@ -364,7 +364,8 @@ class DomAccess extends Base {
             if (!DomUtils.isFocusable(node) && data.children) {
                 // Prefer to focus input fields over buttons.
                 // querySelector('input,textarea,button') returns buttons first, so use multiple calls. 
-                node = node.querySelector('input:not(:disabled)') || node.querySelector('textarea:not(:disabled)') || node.querySelector('button:not(:disabled)') || [...node.querySelectorAll('*')].find(DomUtils.isFocusable);
+                node = DomUtils.query(node, DomUtils.isFocusable);
+//                node = node.querySelector('input:not(:disabled)') || node.querySelector('textarea:not(:disabled)') || node.querySelector('button:not(:disabled)') || [...node.querySelectorAll('*')].find(DomUtils.isFocusable);
             }
             if (node) {
                 node.focus();

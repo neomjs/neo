@@ -254,9 +254,9 @@ class Base extends Component {
             activeIndex;
 
         if (Neo.isNumber(value)) {
-            activeIndex = me.getActiveIndex(value);
+            //activeIndex = me.getActiveIndex(value);
 
-            me.activeIndex = activeIndex
+            me.activeIndex = this.store.items.length < 1 ? null : value;
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
         }
@@ -272,8 +272,6 @@ class Base extends Component {
             me.activeIndex = null
         }
 
-        super.afterSetMounted(...arguments);
-
         if (value) {
             // Set up item navigation in the list
             if (!me.hasNavigator) {
@@ -287,6 +285,10 @@ class Base extends Component {
             }
             Neo.main.addon.Navigator.subscribe(me.navigator)
         }
+        
+        super.afterSetMounted(...arguments);
+
+
     }
 
     /**
