@@ -125,9 +125,17 @@ class Navigator extends Base {
         if (!data.subject.contains(data.eventSource)) {
             return;
         }
-
+        
         const
-            focusables        = DomUtils.queryAll(data.subject, DomUtils.isFocusable),
+            // Extract all our navigable items, and find the focusable within
+//            focusables        = Array.from(data.subject.querySelectorAll(data.selector)).map(item => DomUtils.query(item, DomUtils.isFocusable)),
+            focusables        = Array.from(data.subject.querySelectorAll(data.selector)).reduce((value,item ) => { 
+                const f = DomUtils.query(item, DomUtils.isFocusable);
+                if (f){
+                    value.push(f);
+                }
+                return value;
+            }, []),
             defaultActiveItem = focusables[0] || data.subject.querySelector(data.selector);
 
         // Ensure the items are not tabbable.
