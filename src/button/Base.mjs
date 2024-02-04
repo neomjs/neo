@@ -258,7 +258,7 @@ class Base extends Component {
                     menuConfig = isArray ? {} : value,
                     model      = me.getModel(),
 
-                config = {
+                config = Neo.merge({
                     module         : module.default,
                     align          : {edgeAlign : 't0-b0', target: me.id},
                     appName        : me.appName,
@@ -266,9 +266,8 @@ class Base extends Component {
                     floating       : true,
                     hidden         : true,
                     parentComponent: me,
-                    theme          : me.theme,
-                    ...menuConfig
-                };
+                    theme          : me.theme
+                }, menuConfig);
 
                 if (items) {
                     config.items = items
