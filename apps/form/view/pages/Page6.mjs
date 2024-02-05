@@ -20,24 +20,26 @@ class Page6 extends FormPageContainer {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module: TextArea
+            module  : TextArea,
+            autoGrow: true
         },
         /**
          * @member {Object[]} items
          */
         items: [{
-            height   : 200,
             labelText: 'Page 6 Field 1',
+            minHeight: 150,
             name     : 'field1',
             required : true,
             value    : 'Lorem ipsum'
         }, {
-            height   : 300,
             labelText: 'Page 6 Field 2',
+            minHeight: 150,
             name     : 'field2'
         }, {
             labelText: 'Page 6 Field 3',
-            name     : 'field3'
+            name     : 'field3',
+            readOnly : true
         }]
     }
 }

@@ -158,13 +158,24 @@ class TextArea extends Text {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let inputEl = this.getInputEl();
+        let me      = this,
+            inputEl = me.getInputEl();
 
         if (inputEl) {
             inputEl.html = StringUtil.escapeHtml(value);
         }
 
         super.afterSetValue(value, oldValue);
+
+        if (me.autoGrow && me.mounted && me.readOnly) {
+            setTimeout(() => {
+                Neo.main.DomAccess.monitorAutoGrowHandler({
+                    appName : me.appName,
+                    id      : inputEl.id,
+                    windowId: me.windowId
+                })
+            }, 50)
+        }
     }
 
     /**
