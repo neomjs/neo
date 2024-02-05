@@ -200,7 +200,7 @@ class Navigator extends Base {
         const { target } = e;
 
         // Clear active class from the item we are leaving from.
-        target.closest(data.selector).classList.remove(data.activeCls);
+        target.closest(data.selector)?.classList.remove(data.activeCls);
 
         // On focusout, leave the last active item as tabbable so user can TAB back in here
         if (!DomUtils.isTabbable(target)) {

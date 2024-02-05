@@ -1,5 +1,6 @@
 import Base      from '../core/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
+import NeoString from '../util/String.mjs';
 import Style     from '../util/Style.mjs';
 import VNode     from './VNode.mjs';
 import VNodeUtil from '../util/VNode.mjs';
@@ -580,6 +581,9 @@ class Helper extends Base {
                     string += ` ${key}`;
                 }
             } else if (key !== 'removeDom') {
+                if (key === 'value'){
+                    value = NeoString.escapeHtml(value);
+                }
                 string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`;
             }
         });
