@@ -250,24 +250,30 @@ class Base extends Component {
      * @protected
      */
     afterSetHeaderlessActiveIndex(value, oldValue) {
-        let me = this,
-            activeIndex;
+        let me = this;
 
         if (Neo.isNumber(value)) {
-            me.activeIndex = this.store.items.length < 1 ? null : value;
+            me.activeIndex = me.store.getCount() ? value: null
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
         }
     }
 
-    afterSetMounted(value) {
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
         const me = this;
 
         // Tear down navigation before we lose the element
         if (!value && me.hasNavigator) {
             Neo.main.addon.Navigator.unsubscribe(me.navigator);
+
             me.hasNavigator = false;
-            me.activeIndex = null
+            me.activeIndex  = null
         }
 
         if (value) {
@@ -278,15 +284,15 @@ class Base extends Component {
                     id       : me.id,
                     selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
                     ...me.navigator
-                }
-                me.hasNavigator = true;
+                };
+
+                me.hasNavigator = true
             }
+
             Neo.main.addon.Navigator.subscribe(me.navigator)
         }
-        
-        super.afterSetMounted(...arguments);
 
-
+        super.afterSetMounted(value, oldValue)
     }
 
     /**

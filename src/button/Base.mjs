@@ -544,7 +544,7 @@ class Base extends Component {
         menuList.hidden = hidden;
 
         if (!hidden) {
-            await this.timeout(50);
+            await this.timeout(50)
         }
     }
 }

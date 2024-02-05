@@ -494,7 +494,7 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(value) && !value[Symbol.for('isRecord')]) {
+        if (Neo.isObject(value) && !value.isRecord) {
             Object.entries(value).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(`${key}.${dataKey}`, dataValue, originModel)
             })
