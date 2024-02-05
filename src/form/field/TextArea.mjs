@@ -79,12 +79,20 @@ class TextArea extends Text {
         wrap_: null
     }
 
-    afterSetAutoGrow(autoGrow) {
-        autoGrow && this.syncAutoGrowMonitor();
+    /**
+     * Triggered after the autoGrow config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoGrow(value, oldValue) {
+        let me = this;
+
+        value && me.syncAutoGrowMonitor();
 
         // Restore any configured height if autoGrow turned off
-        if (!autoGrow) {
-            this.afterSetHeight(this._height);
+        if (!value) {
+            me.afterSetHeight(me._height);
         }
     }
 
@@ -150,13 +158,24 @@ class TextArea extends Text {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let inputEl = this.getInputEl();
+        let me      = this,
+            inputEl = me.getInputEl();
 
         if (inputEl) {
             inputEl.html = StringUtil.escapeHtml(value);
         }
 
         super.afterSetValue(value, oldValue);
+
+        if (me.autoGrow && me.mounted && me.readOnly) {
+            setTimeout(() => {
+                Neo.main.DomAccess.monitorAutoGrowHandler({
+                    appName : me.appName,
+                    id      : inputEl.id,
+                    windowId: me.windowId
+                })
+            }, 50)
+        }
     }
 
     /**
@@ -180,14 +199,19 @@ class TextArea extends Text {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
     }
 
+    /**
+     *
+     */
     async syncAutoGrowMonitor() {
-        if (this.mounted && this.autoGrow) {
-            // Delegate monitoring of sizes to the VDOM thread.
+        let me = this;
+
+        if (me.mounted && me.autoGrow) {
+            // Delegate monitoring of sizes to the main thread.
             Neo.main.DomAccess.monitorAutoGrow({
-                appName  : this.appName,
-                id       : this.getInputElId(),
-                autoGrow : this.autoGrow
-            });
+                appName  : me.appName,
+                id       : me.getInputElId(),
+                autoGrow : me.autoGrow
+            })
         }
     }
 }
