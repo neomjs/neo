@@ -1,73 +1,73 @@
 {
-  "name"            : "neo.mjs",
-  "version"         : "6.10.15",
-  "description"     : "The webworkers driven UI framework",
-  "type"            : "module",
-  "repository"      : {
-    "type" : "git",
-    "url"  : "https://github.com/neomjs/neo.git"
-  },
-  "bin"             : {
-    "neo-cc" : "./buildScripts/createClass.mjs"
-  },
-  "scripts"         : {
-    "add-config"             : "node ./buildScripts/addConfig.mjs",
-    "build-all"              : "node ./buildScripts/buildAll.mjs -f -n",
-    "build-all-questions"    : "node ./buildScripts/buildAll.mjs -f",
-    "build-themes"           : "node ./buildScripts/buildThemes.mjs -f",
-    "build-threads"          : "node ./buildScripts/webpack/buildThreads.mjs -f",
-    "convert-design-tokens"  : "node ./buildScripts/convertDesignTokens.mjs",
-    "create-app"             : "node ./buildScripts/createApp.mjs",
-    "create-app-minimal"     : "node ./buildScripts/createAppMinimal.mjs",
-    "create-class"           : "node ./buildScripts/createClass.mjs",
-    "create-component"       : "node ./buildScripts/createComponent.mjs",
-    "generate-docs-json"     : "node ./buildScripts/docs/jsdocx.mjs",
-    "inject-package-version" : "node ./buildScripts/injectPackageVersion.mjs",
-    "server-start"           : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
-    "test"                   : "echo \"Error: no test specified\" && exit 1",
-    "watch-themes"           : "node ./buildScripts/watchThemes.mjs"
-  },
-  "keywords"        : [
-    "javascript",
-    "frontend",
-    "framework",
-    "webworker",
-    "ecmascript",
-    "css",
-    "json"
-  ],
-  "author"          : "Tobias Uhlig, Rich Waters",
-  "license"         : "MIT",
-  "bugs"            : {
-    "url" : "https://github.com/neomjs/neo/issues"
-  },
-  "homepage"        : "https://neomjs.github.io/pages/",
-  "devDependencies" : {
-    "@fortawesome/fontawesome-free" : "^6.5.1",
-    "autoprefixer"                  : "^10.4.17",
-    "chalk"                         : "^5.3.0",
-    "clean-webpack-plugin"          : "^4.0.0",
-    "commander"                     : "^11.1.0",
-    "cssnano"                       : "^6.0.3",
-    "envinfo"                       : "^7.11.0",
-    "fs-extra"                      : "^11.2.0",
-    "highlightjs-line-numbers.js"   : "^2.8.0",
-    "inquirer"                      : "^9.2.12",
-    "neo-jsdoc"                     : "1.0.1",
-    "neo-jsdoc-x"                   : "1.0.5",
-    "postcss"                       : "^8.4.33",
-    "sass"                          : "^1.70.0",
-    "siesta-lite"                   : "5.5.2",
-    "showdown"                      : "^2.1.0",
-    "url"                           : "^0.11.3",
-    "webpack"                       : "^5.90.0",
-    "webpack-cli"                   : "^5.1.4",
-    "webpack-dev-server"            : "4.15.1",
-    "webpack-hook-plugin"           : "^1.0.7",
-    "webpack-node-externals"        : "^3.0.0"
-  },
-  "funding"         : {
-    "type" : "GitHub Sponsors",
-    "url"  : "https://github.com/sponsors/tobiu"
-  }
+    "name": "neo.mjs",
+    "version": "6.10.15",
+    "description": "The webworkers driven UI framework",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/neomjs/neo.git"
+    },
+    "bin": {
+        "neo-cc": "./buildScripts/createClass.mjs"
+    },
+    "scripts": {
+        "add-config": "node ./buildScripts/addConfig.mjs",
+        "build-all": "node ./buildScripts/buildAll.mjs -f -n",
+        "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
+        "build-themes": "node ./buildScripts/buildThemes.mjs -f",
+        "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "convert-design-tokens": "node ./buildScripts/convertDesignTokens.mjs",
+        "create-app": "node ./buildScripts/createApp.mjs",
+        "create-app-minimal": "node ./buildScripts/createAppMinimal.mjs",
+        "create-class": "node ./buildScripts/createClass.mjs",
+        "create-component": "node ./buildScripts/createComponent.mjs",
+        "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
+        "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
+        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "watch-themes": "node ./buildScripts/watchThemes.mjs"
+    },
+    "keywords": [
+        "javascript",
+        "frontend",
+        "framework",
+        "webworker",
+        "ecmascript",
+        "css",
+        "json"
+    ],
+    "author": "Tobias Uhlig, Rich Waters",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/neomjs/neo/issues"
+    },
+    "homepage": "https://neomjs.github.io/pages/",
+    "devDependencies": {
+        "@fortawesome/fontawesome-free": "^6.5.1",
+        "autoprefixer": "^10.4.17",
+        "chalk": "^5.3.0",
+        "clean-webpack-plugin": "^4.0.0",
+        "commander": "^11.1.0",
+        "cssnano": "^6.0.3",
+        "envinfo": "^7.11.0",
+        "fs-extra": "^11.2.0",
+        "highlightjs-line-numbers.js": "^2.8.0",
+        "inquirer": "^9.2.12",
+        "neo-jsdoc": "1.0.1",
+        "neo-jsdoc-x": "1.0.5",
+        "postcss": "^8.4.33",
+        "sass": "^1.70.0",
+        "siesta-lite": "5.5.2",
+        "showdown": "^2.1.0",
+        "url": "^0.11.3",
+        "webpack": "^5.90.0",
+        "webpack-cli": "^5.1.4",
+        "webpack-dev-server": "4.15.1",
+        "webpack-hook-plugin": "^1.0.7",
+        "webpack-node-externals": "^3.0.0"
+    },
+    "funding": {
+        "type": "GitHub Sponsors",
+        "url": "https://github.com/sponsors/tobiu"
+    }
 }
