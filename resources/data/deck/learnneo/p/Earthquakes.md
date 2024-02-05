@@ -289,6 +289,7 @@ layout: {
 
 <img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleVoxStartButton.png" style="width:80%"/>
 
+
 </details>
 
 <!-- /lab -->
@@ -1402,5 +1403,7 @@ Now add a `markerClick` listener to the Google Map.
 Save, refresh, and confirm that you see the value logged when you click on a map marker.
 
 </details>
+
+
 
 <!-- /lab -->

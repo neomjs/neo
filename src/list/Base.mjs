@@ -250,29 +250,31 @@ class Base extends Component {
      * @protected
      */
     afterSetHeaderlessActiveIndex(value, oldValue) {
-        let me = this,
-            activeIndex;
+        let me = this;
 
         if (Neo.isNumber(value)) {
-            activeIndex = me.getActiveIndex(value);
-
-            me.activeIndex = activeIndex
+            me.activeIndex = me.store.getCount() ? value: null
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
         }
     }
 
-    afterSetMounted(value) {
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
         const me = this;
 
         // Tear down navigation before we lose the element
         if (!value && me.hasNavigator) {
             Neo.main.addon.Navigator.unsubscribe(me.navigator);
-            me.hasNavigator = false;
-            me.activeIndex = null
-        }
 
-        super.afterSetMounted(...arguments);
+            me.hasNavigator = false;
+            me.activeIndex  = null
+        }
 
         if (value) {
             // Set up item navigation in the list
@@ -282,11 +284,15 @@ class Base extends Component {
                     id       : me.id,
                     selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
                     ...me.navigator
-                }
-                me.hasNavigator = true;
+                };
+
+                me.hasNavigator = true
             }
+
             Neo.main.addon.Navigator.subscribe(me.navigator)
         }
+
+        super.afterSetMounted(value, oldValue)
     }
 
     /**
@@ -546,10 +552,10 @@ class Base extends Component {
 
     /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
-     * @param {String} [id]
+     * @param {String} id
      */
     focus(id) {
-        Neo.main.addon.Navigator.navigateTo(id, this.navigator)
+        Neo.main.addon.Navigator.navigateTo([id, this.navigator])
     }
 
     /**

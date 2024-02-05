@@ -1,6 +1,6 @@
-import Base         from '../../../../src/container/Base.mjs';
+import Base from '../../../../src/container/Base.mjs';
 import TabContainer from '../../../../src/tab/Container.mjs';
-import TextArea     from '../../../../src/form/field/TextArea.mjs';
+import TextArea from '../../../../src/form/field/TextArea.mjs';
 
 /**
  * @class Portal.view.learn.LivePreview
@@ -75,6 +75,7 @@ class LivePreview extends Base {
         const moduleNameAndPath = [];
 
         const className = this.findLastClassName(source);
+
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
