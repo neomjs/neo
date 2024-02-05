@@ -30,9 +30,9 @@ class Navigator extends Base {
          */
         remote: {
             app: [
+                'navigateTo',
                 'subscribe',
-                'unsubscribe',
-                'navigateTo'
+                'unsubscribe'
             ]
         },
         /**
@@ -114,7 +114,7 @@ class Navigator extends Base {
     // The navigables we are dealing with, if they are focusable must *not* be tabbable.
     // Only *one* must be tabbable, so that tabbing into the subject element goes to the
     // one active element.
-    // 
+    //
     // Tabbing *from* that must exit the subject element.
     //
     // So we must ensure that all the focusable elements except the first are not tabbable.
@@ -125,11 +125,10 @@ class Navigator extends Base {
         if (!data.subject.contains(data.eventSource)) {
             return;
         }
-        
+
         const
             // Extract all our navigable items, and find the focusable within
-//            focusables        = Array.from(data.subject.querySelectorAll(data.selector)).map(item => DomUtils.query(item, DomUtils.isFocusable)),
-            focusables        = Array.from(data.subject.querySelectorAll(data.selector)).reduce((value,item ) => { 
+            focusables = Array.from(data.subject.querySelectorAll(data.selector)).reduce((value,item ) => {
                 const f = DomUtils.query(item, DomUtils.isFocusable);
                 if (f){
                     value.push(f);
@@ -213,7 +212,7 @@ class Navigator extends Base {
 
         // If there was a focusable under the mouse, mousedown will have focused it and and we
         // will have respond to that in navigateFocusInHandler.
-        // If not, we navigate programatically.
+        // If not, we navigate programmatically.
         if (target && !data.findFocusable(target)) {
             this.navigateTo(target, data);
         }
@@ -222,8 +221,8 @@ class Navigator extends Base {
     navigateMouseDownHandler(e, data) {
         const target = e.target.closest(data.selector);
 
-        // If there is a focusable undet the mouse, it will take focus, and we respond to that in navigateFocusInHandler.
-        // If not, we have to programatically activate on click, but we must not draw focus away from
+        // If there is a focusable under the mouse, it will take focus, and we respond to that in navigateFocusInHandler.
+        // If not, we have to programmatically activate on click, but we must not draw focus away from
         // where it is, so preventDefault
         if (target && !data.findFocusable(target)) {
             e.preventDefault();
@@ -249,12 +248,12 @@ class Navigator extends Base {
             if (containerStyle.display === 'flex' && containerStyle.flexDirection === 'row'
                 || itemStyle.display === 'inline' || itemStyle.display === 'inline-block') {
                 data.previousKey = 'ArrowLeft';
-                data.nextKey = 'ArrowRight';
+                data.nextKey     = 'ArrowRight';
             }
             // Child elements layed out vertically.
             else {
                 data.previousKey = 'ArrowUp';
-                data.nextKey = 'ArrowDown';
+                data.nextKey     = 'ArrowDown';
             }
         }
 
@@ -322,7 +321,7 @@ class Navigator extends Base {
     }
 
     /**
-     * Navigates to the passed 
+     * Navigates to the passed
      * @param {String|Number} newActiveElement The id of the new active element in the subject
      * element, or the index of the item.
      * @param {Object} data The data block as passed to {@link #subscribe}
