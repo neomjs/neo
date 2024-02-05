@@ -578,17 +578,18 @@ class Helper extends Base {
         Object.entries(attributes).forEach(([key, value]) => {
             if (this.voidAttributes.includes(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
-                    string += ` ${key}`;
+                    string += ` ${key}`
                 }
             } else if (key !== 'removeDom') {
-                if (key === 'value'){
-                    value = NeoString.escapeHtml(value);
+                if (key === 'value') {
+                    value = NeoString.escapeHtml(value)
                 }
-                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`;
+
+                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`
             }
         });
 
-        return string + '>';
+        return string + '>'
     }
 
     /**
