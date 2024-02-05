@@ -37,20 +37,23 @@ class MainView extends Base {
 Neo.applyClassConfig(MainView);
 </pre>
 
-View model properties are visible up the containment hierarchy:
+View model properties are visible down the containment hierarchy:
 Properties introduced in a parent container will be available to any child component, and properties
 introduces in a specific component are only visible to that component. This approach makes it easy to control scope.
 
-In this example the main view has three child items of type `MyPanel`. The main view has a view model with a 
-`foo` property, and the third child has its own view model with a `foo` property.
+In the example above, the main view has a view model that defined a property _foo_. A view model property is available
+within the view and its children. The child items &mdash; a label and a text field &mdash; can bind properties to
+_foo_. As _foo_ changes, the properties are automatically updated. The example also shows that a binding can be
+`twoWay`, which means a change to the property in the view is _pushed_ to the view model. 
 
-`MyPanel` contains a `Neo.componnet.Label` whose `text` value is bound to `foo`. To resolve the binding, Neo.mjs looks up the
-containment hierarchy until it finds the value. For the first two panels the label binding looks in the label, then in its `MyPanel`
-container, then in the main view where it finds `foo`. For the third child panel the label binding looks in the label,
-then in its `MyPanel` and finds it because the third copy of `MyPanel` has its own view model with the `foo` property.
+<img width="50%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchy.png"></img>
 
-The bottom line is the Neo.mjs view model and binding approach is simple and powerful, and gives you easy control over the scope
-of a value. Thus, you can share properties as globally or narrowly as needed.
+(Note that in the example above, the main view's view model is defined in-line. Normally your view model 
+would be  coded in its own class that extends 'Neo.model.Component', and you'd use that in your component.
+Just like with items component configs, trivial configs may be done in-line, and non-trivial configs are 
+usually coded as separate classes.)
+
+Below is another example.
 
 <pre data-neo>
 import Base            from  '../../../../src/container/Base.mjs';
@@ -92,6 +95,7 @@ class MainView extends Base {
             module: MyPanel,
         }, {
             module: MyPanel,
+            // You wouldn't normally configure a view model. We're doing it here to illustrate view model scope.
             model: {
                 data: {
                     foo: 'child'
@@ -104,11 +108,21 @@ class MainView extends Base {
 Neo.applyClassConfig(MainView);
 </pre>
 
+In this case, the main view has three child items of type `MyPanel`, each containing a label. 
+The main view has a view model with a `foo` property, and the third child has its own view model with a `foo` property.
+
+<img width="60%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchyFooShadowed.png"></img>
+
+`MyPanel` contains a `Neo.componnet.Label` whose `text` value is bound to `foo`. To resolve the binding, 
+Neo.mjs looks up the containment hierarchy until it finds the value. For the first two panels the label 
+binding looks in the label, then in its `MyPanel` container, then in the main view &mdash; where it finds `foo`. 
+
+For the third child panel the label binding looks in the label, then in its `MyPanel`, but this time it finds it
+because the third copy of `MyPanel` has its own view model with the `foo` property.
 
 
 
+## Conclusion
 
-Note that in the example above, the view model is in-line. Normally your view model would be 
-coded in its own class that extends 'Neo.model.Component', and you'd use that in your component.
-Just like with items component configs, trivial configs are often done in-line, and non-trivial 
-configs are coded as separate classes.
+The Neo.mjs view model and binding approach is simple and powerful. It gives you easy control 
+over the scope of a value, which means you can share properties as globally or narrowly as needed.

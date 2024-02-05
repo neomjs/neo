@@ -14,17 +14,20 @@ You'll do this in a series of labs:
 1. Listen to events
 1. Make the app multi-window
 
-##Goals 
+## Goals 
 
 What's the goal of this lengthy topic?
 
-- To touch on fundamental Neo concepts
+- To give you hands-on coding a simple app
+- To introduce fundamental Neo concepts
 - To do some coding without emphasizing syntax details
 
 Most of these labs are copy-and-paste because we're focusing on _what_ it's doing on rather than _how_.
 
-As we progress through the training we'll spend more and more time on syntax and how, and you'll be more and more proficient at writing your own code.
-##Key concepts
+As we progress through the training we'll spend more and more time on syntax and how, and you'll 
+become more and more proficient at writing your own code.
+
+## Key concepts
 
 A few key concepts we'll be discussing:
 
@@ -32,17 +35,17 @@ A few key concepts we'll be discussing:
 - Configuring components
 - Debugging
 - Class-based coding
-- Component (view) models
+- View models
 - Events
 - Controllers
 
-##Advice
+## Advice
 
-A word of advice: Throughout this tutorial, and others, Keep a high-level perspective, 
-especially early on. We'll have plenty of time to get into the code, and we'll do 
-most things multiple times. 
+A word of advice: Keep a high-level perspective, especially early on. We'll have plenty of time to get 
+into the code, and we'll do most things multiple times. In other words, focus on what you're accomplishing,
+and don't worry about syntax details. 
 
-##Lab. Generate a workspace
+## Lab. Generate a workspace
 
 In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
@@ -291,15 +294,13 @@ layout: {
 
 <!-- /lab -->
 
-##Introduction to Debugging
+## Debugging
 
 At startup a Neo.mjs application launches three Web Workers:
 
 - neomjs-app-worker
 - neomjs-data-worker
 - neomjs-vdom-worker
-
-<small>You can configure Neo to launch additional workers, such as a shared app worker.</small>
 
 As a developer, your code is run in _neomjs-app-worker_. When you're debugging,
 choose that worker in the DevTools JavaScript context dropdown.
@@ -1154,17 +1155,26 @@ and each class is simpler than using complex source files that try to configure 
 
 ### Google Maps Add-on
 
-Neo.mjs has a Google Map component. It's a little different than a component like a button or table, becauase
-it's implemented as a _main thread add-on_. Ultimately, normal components are responsible for specifying how 
+Neo.mjs has a Google Map component. This component is a little different than a button or table, 
+becauase it's implemented as a _main thread add-on_. 
+
+When you use Google Maps you use the Google Map API to ask it to draw the map and markers.
+In a normal app, Google Maps &mdahs; and everything else &mdash; runs in the main browser thread. 
+But as you know, Neo.mjs logic runs in _neomjs-app-worker_. That means Neo.mjs has to pass instructions 
+run in _neomjs-app-worker_ to the main thread.
+
+To handle this situation, Neo.mjs has the concept of a main-thread add-on, which is a class that exposes main 
+thread methods to the _neomjs-app-worker_ thread. In addition, if the library you're using has a UI, it's common 
+to also provide a wrapper class so it can be used like any other component within Neo.mjs. That's how Google
+Maps is implemented: there's a main-thread add-on and a corresponding Neo.mjs component. The add-on is 
+specified in _neo-config.json_, and the component is imported and used like any other component.
+
+Ultimately, normal components are responsible for specifying how 
 they're rendered (which is usually handled by Neo.mjs).
 
-The reason Google Maps is different because _Google_ is responsible for rendering the map and markers. 
-That's done via the Google Maps API, all of which is run in the main application thread. In situatations like
-that Neo.mjs wraps up the API, and exposes it to the _neomjs-app-worker_ thread.
-
-How do you choose which main-thread add-ons you want? If you recall the script you used to create the starter
-app, it hads a step that asks what add-ons you want. That results in populating the `mainThreadAddons` property
-in `neo-config.json`. We didn't choose Google Maps when we ran the script, but we need it. That means we'll
+How do you specify which main-thread add-ons you want? If you recall the script you used to create the starter
+app, it has a step that asks what add-ons you want. That results in populating the `mainThreadAddons` property
+in `neo-config.json`. We didn't choose Google Maps when we ran the script, but we need it. That means we
 need to edit `neo-config.json` and add it. Google Maps also requires an API key, which is also configured in
 `neo-config.json`.
 
@@ -1172,9 +1182,9 @@ The Google Maps component has a few key configs:
 
 - `center:{lat, lng}`
 - `zoom`
-- `store`
+- `markerStore`
 
-The store must have records with these properties:
+Marker store records are required to have these properties:
 
 - `position` &mdash; the location of the marker, of the form `{lat, lng}`
 - `title` &mdash; a description of the marker
@@ -1184,7 +1194,7 @@ The store must have records with these properties:
 <!-- lab -->
 
 <details>
-<summary>Speficy the main-thread add-on</summary>
+<summary>Specficy the main-thread add-on</summary>
 
 Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-on and the map key.
 
@@ -1327,21 +1337,73 @@ export default MainView;
 <details>
 <summary>Show the markers</summary>
 
- The markers are shown by setting up a `markerStore`. The _earthquakes_ store complies with the requirements
-of the Google Maps component &mdash; it has a _location_ and _title_. We assign the store using a `bind`,
- just like we did with the tables. 
+ The markers are shown by setting up the marker store, which is a regular store whose records must contain
+ _location_ and _title_. We assign the store using a `bind`, just like we did with the tables. 
  
 Add this config to the map.
 
-<pre javascript>
+<pre data-javascript>
 bind: {
     markerStore: 'stores.earthquakes'
 },
 </pre>
-
-
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/InitialMapWithMarkers.png"></img>
 
 </details>
+
+<!-- /lab -->
+
+## Events
+
+Neo.mjs has an `Neo.core.Observable` class that handles configuring listeners and associated event handler functions.
+All components are observable, and some non-visual classes, like stores, are also observable.
+
+Listeners are set up either declaratively, via the `listeners:{}` config, or procedurally, 
+via the `component.on()` method.
+
+## Lab. Events
+
+<!-- lab -->
+
+In this lab you'll set up an event handler for the table and map.
+
+<details>
+<summary>Add a listener to the table</summary>
+
+Tables fire a select event, passing an object that contains a reference to the corresponding row.
+
+Add this table config:
+
+    listeners: {
+        select: (data) => console.log(data.record)
+    }
+
+Save and refresh, then click on a table row. If you look at the debugger console you'll see the record being logged.
+
+Just for fun, expand the logged value and look for the size property. If you recall, that's a value from the feed, and one of the things we configured in the store's fields:[].
+
+In the console, click on the ellipses by size and enter a new value, like 2.5. (Don't enter a larger value, or you may destroy that part of Iceland.)
+
+<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/LogTableClick.png"></img>
+
+After changing the value you should immediately see it reflected in the table row.
+
+</details>
+
+<details>
+<summary>Add a listener to a map event
+</summary>
+
+Now add a `markerClick` listener to the Google Map.
+
+    listeners: {
+        markerClick: data => console.log(data.data.record)
+    },
+
+Save, refresh, and confirm that you see the value logged when you click on a map marker.
+
+</details>
+
+
 
 <!-- /lab -->

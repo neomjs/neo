@@ -76,7 +76,7 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let value  = config[field.name],
+                                let value  = config[field.mapping || field.name],
                                     symbol = Symbol.for(field.name),
                                     parsedValue;
 
@@ -126,8 +126,8 @@ class RecordFactory extends Base {
                                     }
                                 }
 
-                                Object.defineProperties(me, properties);
-                            });
+                                Object.defineProperties(me, properties)
+                            })
                         }
                     }
 
@@ -136,7 +136,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     set(fields) {
-                        instance.setRecordFields(model, this, fields);
+                        instance.setRecordFields(model, this, fields)
                     }
 
                     /**
@@ -144,17 +144,17 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     setSilent(fields) {
-                        instance.setRecordFields(model, this, fields, true);
+                        instance.setRecordFields(model, this, fields, true)
                     }
                 };
 
                 Object.defineProperty(cls.prototype, 'isRecord', { value : true });
                 Object.defineProperty(cls, 'isClass', { vale : true });
 
-                return ns[key];
+                return ns[key]
             }
 
-            return ns;
+            return ns
         }
     }
 
@@ -209,7 +209,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.[Symbol.for('isRecord')] || false;
+        return record?.isRecord;
     }
 
     /**

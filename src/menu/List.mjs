@@ -39,6 +39,10 @@ class List extends BaseList {
          */
         hideOnLeafItemClick: true,
         /**
+         * @member {Boolean} itemsFocusable=true
+         */
+        itemsFocusable: true,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -100,7 +104,7 @@ class List extends BaseList {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'ul', tabIndex: -1, cn: []}
+        {tag: 'ul', cn: []}
     }
 
     /**

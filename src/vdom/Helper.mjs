@@ -1,5 +1,6 @@
 import Base      from '../core/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
+import NeoString from '../util/String.mjs';
 import Style     from '../util/Style.mjs';
 import VNode     from './VNode.mjs';
 import VNodeUtil from '../util/VNode.mjs';
@@ -577,14 +578,18 @@ class Helper extends Base {
         Object.entries(attributes).forEach(([key, value]) => {
             if (this.voidAttributes.includes(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
-                    string += ` ${key}`;
+                    string += ` ${key}`
                 }
             } else if (key !== 'removeDom') {
-                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`;
+                if (key === 'value') {
+                    value = NeoString.escapeHtml(value)
+                }
+
+                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`
             }
         });
 
-        return string + '>';
+        return string + '>'
     }
 
     /**
