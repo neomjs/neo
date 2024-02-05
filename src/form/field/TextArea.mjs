@@ -188,14 +188,19 @@ class TextArea extends Text {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
     }
 
+    /**
+     *
+     */
     async syncAutoGrowMonitor() {
-        if (this.mounted && this.autoGrow) {
-            // Delegate monitoring of sizes to the VDOM thread.
+        let me = this;
+
+        if (me.mounted && me.autoGrow) {
+            // Delegate monitoring of sizes to the main thread.
             Neo.main.DomAccess.monitorAutoGrow({
-                appName  : this.appName,
-                id       : this.getInputElId(),
-                autoGrow : this.autoGrow
-            });
+                appName  : me.appName,
+                id       : me.getInputElId(),
+                autoGrow : me.autoGrow
+            })
         }
     }
 }
