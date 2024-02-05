@@ -79,12 +79,20 @@ class TextArea extends Text {
         wrap_: null
     }
 
-    afterSetAutoGrow(autoGrow) {
-        autoGrow && this.syncAutoGrowMonitor();
+    /**
+     * Triggered after the autoGrow config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoGrow(value, oldValue) {
+        let me = this;
+
+        value && me.syncAutoGrowMonitor();
 
         // Restore any configured height if autoGrow turned off
-        if (!autoGrow) {
-            this.afterSetHeight(this._height);
+        if (!value) {
+            me.afterSetHeight(me._height);
         }
     }
 
