@@ -17,6 +17,10 @@ class SideNavList extends List {
          */
         baseCls: ['form-side-nav-list', 'neo-list'],
         /**
+         * @member {Boolean} itemsFocusable=true
+         */
+        itemsFocusable: true,
+        /**
          * @member {Boolean} useHeaders=true
          */
         useHeaders: true
