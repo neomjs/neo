@@ -348,13 +348,19 @@ class Navigator extends Base {
             return;
         }
 
+        // Scroll the target into view smoothly before we focus it without triggering a scroll
+        newActiveElement.scrollIntoView({
+            block    : 'nearest',
+            behavior : 'smooth'
+        });
+
         // Find a focusable element which may be the item, or inside the item to draw focus to.
         // For example a Chip list in which .neo-list-items contain focusable Chips.
         const focusTarget = DomUtils.query(newActiveElement, DomUtils.isFocusable);
 
         // If the item contains a focusable, we focus it and then react in navigateFocusInHandler
         if (focusTarget) {
-            focusTarget.focus();
+            focusTarget.focus({ preventScroll : true });
         }
         // If not, we programatically navigate there
         else {
