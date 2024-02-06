@@ -83,7 +83,7 @@ class AccordionTree extends TreeList {
          */
         _vdom:
         {cn: [
-            {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], tabIndex: -1, cn: []}
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list', 'neo-accordion-style'], cn: []}
         ]}
     }
 
@@ -260,7 +260,8 @@ class AccordionTree extends TreeList {
                 id = me.getItemId(item.id);
 
                 tmpRoot.cn.push({
-                    tag: 'li',
+                    tabIndex : -1,
+                    tag      : 'li',
                     cls,
                     id,
                     cn : [{
