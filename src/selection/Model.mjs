@@ -96,7 +96,7 @@ class Model extends Base {
     deselect(item, silent, itemCollection=this.items, selectedCls) {
         // We hold vdom ids for now, so all incoming selections must be converted.
         item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
-        
+
         if (itemCollection.includes(item)) {
             let me   = this,
                 view = me.view,
@@ -231,7 +231,7 @@ class Model extends Base {
 
             items.forEach((node, i) => {
                 node = view.getVdomChild(node);
- 
+
                 if (node) {
                     node.cls = NeoArray.add(node.cls || [], selectedCls || me.selectedCls);
                     node['aria-selected'] = true;
@@ -257,10 +257,12 @@ class Model extends Base {
      * @param {Object} item
      */
     toggleSelection(item) {
-        if (this.isSelected(item)) {
-            this.deselect(item);
+        let me = this;
+
+        if (me.isSelected(item)) {
+            me.deselect(item)
         } else {
-            this.select(item);
+            me.select(item)
         }
     }
 
