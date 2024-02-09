@@ -411,14 +411,13 @@ class Base extends Component {
             itemContent    = me.createItemContent(record, index),
             itemId         = me.getItemId(record[me.getKeyProperty()]),
             selectionModel = me.selectionModel,
+            isSelected     = !me.disableSelection && selectionModel?.isSelected(itemId),
             item;
 
         isHeader && cls.push('neo-list-header');
 
-        if (!me.disableSelection && selectionModel) {
-            if (selectionModel.isSelected(itemId)) {
-                cls.push(selectionModel.selectedCls)
-            }
+        if (isSelected){
+            cls.push(selectionModel.selectedCls)
         }
 
         if (record.cls) {
@@ -432,7 +431,7 @@ class Base extends Component {
         item = {
             id  : itemId,
             tag : isHeader ? 'dt' : me.itemTagName,
-            'aria-selected' : false,
+            'aria-selected' : isSelected,
             cls
         };
 
