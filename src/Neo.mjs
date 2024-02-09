@@ -164,8 +164,7 @@ Neo = globalThis.Neo = Object.assign({
         proto = cls.prototype || cls;
 
         ntypeChain.forEach(ntype => {
-            ntype = Neo.camel(ntype);
-            proto[`is${ntype[0].toUpperCase() + ntype.slice(1)}`] = true
+            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
         });
 
         if (proto.singleton) {
@@ -254,6 +253,16 @@ Neo = globalThis.Neo = Object.assign({
      */
     camel(value) {
         return value.replace(camelRegex, match => match[1].toUpperCase())
+    },
+
+    /**
+     * Makes the first character of a string uppercase
+     * @memberOf module:Neo
+     * @param {String} value
+     * @returns {Boolean|String} Returns false for non string inputs
+     */
+    capitalize(value) {
+        return value[0].toUpperCase() + value.slice(1)
     },
 
     /**

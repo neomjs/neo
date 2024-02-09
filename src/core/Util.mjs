@@ -37,15 +37,6 @@ class Util extends Base {
     }
 
     /**
-     * Makes the first character of a string uppercase
-     * @param {String} value
-     * @returns {Boolean|String} Returns false for non string inputs
-     */
-    static capitalize(value) {
-        return value[0].toUpperCase() + value.slice(1)
-    }
-
-    /**
      * Transforms a styles string into a styles object using camelcase syntax
      * @param {String} string The styles string to parse
      * @returns {Object} The camelcase styles object
@@ -225,7 +216,6 @@ Neo.applyFromNs(Neo, Util, {
     bindMethods      : 'bindMethods',
     createStyleObject: 'createStyleObject',
     createStyles     : 'createStyles',
-    capitalize       : 'capitalize',
     decamel          : 'decamel',
     isArray          : 'isArray',
     isBoolean        : 'isBoolean',
