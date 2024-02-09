@@ -1,8 +1,10 @@
 import DefaultConfig from './DefaultConfig.mjs';
 
-const configSymbol = Symbol.for('configSymbol'),
-      getSetCache  = Symbol('getSetCache'),
-      typeDetector = {
+const
+    camelRegex   = /-./g,
+    configSymbol = Symbol.for('configSymbol'),
+    getSetCache  = Symbol('getSetCache'),
+    typeDetector = {
         function: (item) => {
             if (item.prototype?.constructor.isClass) {
                 return 'NeoClass'
@@ -162,6 +164,7 @@ Neo = globalThis.Neo = Object.assign({
         proto = cls.prototype || cls;
 
         ntypeChain.forEach(ntype => {
+            ntype = Neo.camel(ntype);
             proto[`is${ntype[0].toUpperCase() + ntype.slice(1)}`] = true
         });
 
@@ -241,6 +244,16 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return target
+    },
+
+    /**
+     * Converts kebab-case strings into camel-case
+     * @memberOf module:Neo
+     * @param {String} value The target object
+     * @returns {String}
+     */
+    camel(value) {
+        return value.replace(camelRegex, match => match[1].toUpperCase())
     },
 
     /**
