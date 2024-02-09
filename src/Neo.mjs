@@ -60,17 +60,19 @@ Neo = globalThis.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     applyClassConfig(cls) {
-        let baseCfg  = null,
-            ntypeMap = Neo.ntypeMap,
-            proto    = cls.prototype || cls,
-            protos   = [],
+        let baseCfg    = null,
+            ntypeChain = [],
+            ntypeMap   = Neo.ntypeMap,
+            proto      = cls.prototype || cls,
+            protos     = [],
             cfg, config, ctor, ntype;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
 
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseCfg = Neo.clone(ctor.config, true);
+                baseCfg    = Neo.clone(ctor.config, true);
+                ntypeChain = baseCfg.ntypeChain;
                 break
             }
 
@@ -113,6 +115,8 @@ Neo = globalThis.Neo = Object.assign({
             if (Object.hasOwn(cfg, 'ntype')) {
                 ntype = cfg.ntype;
 
+                ntypeChain.unshift(ntype);
+
                 // Running the docs app inside a workspace can pull in the same classes from different roots,
                 // so we want to check for different class names as well
                 if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
@@ -139,6 +143,8 @@ Neo = globalThis.Neo = Object.assign({
                     ctor.observable = true;
                 }
             }
+
+            cfg.ntypeChain = ntypeChain;
 
             delete cfg.mixins;
             delete config.mixins;
