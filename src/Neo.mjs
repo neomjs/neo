@@ -140,11 +140,9 @@ Neo = globalThis.Neo = Object.assign({
                 applyMixins(ctor, mixins);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
-                    ctor.observable = true;
+                    ctor.observable = true
                 }
             }
-
-            //cfg.ntypeChain = ntypeChain;
 
             delete cfg.mixins;
             delete config.mixins;
@@ -162,6 +160,10 @@ Neo = globalThis.Neo = Object.assign({
         });
 
         proto = cls.prototype || cls;
+
+        ntypeChain.forEach(ntype => {
+            proto[`is${ntype[0].toUpperCase() + ntype.slice(1)}`] = true
+        });
 
         if (proto.singleton) {
             cls = Neo.create(cls);
