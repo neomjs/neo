@@ -1,8 +1,10 @@
 import DefaultConfig from './DefaultConfig.mjs';
 
-const configSymbol = Symbol.for('configSymbol'),
-      getSetCache  = Symbol('getSetCache'),
-      typeDetector = {
+const
+    camelRegex   = /-./g,
+    configSymbol = Symbol.for('configSymbol'),
+    getSetCache  = Symbol('getSetCache'),
+    typeDetector = {
         function: (item) => {
             if (item.prototype?.constructor.isClass) {
                 return 'NeoClass'
@@ -60,17 +62,19 @@ Neo = globalThis.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     applyClassConfig(cls) {
-        let baseCfg  = null,
-            ntypeMap = Neo.ntypeMap,
-            proto    = cls.prototype || cls,
-            protos   = [],
+        let baseCfg    = null,
+            ntypeChain = [],
+            ntypeMap   = Neo.ntypeMap,
+            proto      = cls.prototype || cls,
+            protos     = [],
             cfg, config, ctor, ntype;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
 
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseCfg = Neo.clone(ctor.config, true);
+                baseCfg    = Neo.clone(ctor.config, true);
+                ntypeChain = [...ctor.ntypeChain];
                 break
             }
 
@@ -113,6 +117,8 @@ Neo = globalThis.Neo = Object.assign({
             if (Object.hasOwn(cfg, 'ntype')) {
                 ntype = cfg.ntype;
 
+                ntypeChain.unshift(ntype);
+
                 // Running the docs app inside a workspace can pull in the same classes from different roots,
                 // so we want to check for different class names as well
                 if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
@@ -136,7 +142,7 @@ Neo = globalThis.Neo = Object.assign({
                 applyMixins(ctor, mixins);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
-                    ctor.observable = true;
+                    ctor.observable = true
                 }
             }
 
@@ -148,13 +154,18 @@ Neo = globalThis.Neo = Object.assign({
             Object.assign(ctor, {
                 classConfigApplied: true,
                 config            : Neo.clone(config, true),
-                isClass           : true
+                isClass           : true,
+                ntypeChain
             });
 
             !config.singleton && this.applyToGlobalNs(cls)
         });
 
         proto = cls.prototype || cls;
+
+        ntypeChain.forEach(ntype => {
+            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
+        });
 
         if (proto.singleton) {
             cls = Neo.create(cls);
@@ -232,6 +243,26 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return target
+    },
+
+    /**
+     * Converts kebab-case strings into camel-case
+     * @memberOf module:Neo
+     * @param {String} value The target object
+     * @returns {String}
+     */
+    camel(value) {
+        return value.replace(camelRegex, match => match[1].toUpperCase())
+    },
+
+    /**
+     * Makes the first character of a string uppercase
+     * @memberOf module:Neo
+     * @param {String} value
+     * @returns {Boolean|String} Returns false for non string inputs
+     */
+    capitalize(value) {
+        return value[0].toUpperCase() + value.slice(1)
     },
 
     /**

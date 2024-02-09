@@ -221,10 +221,11 @@ class Tree extends Base {
                 }
 
                 tmpRoot.cn.push({
-                    tag  : 'li',
+                    tag      : 'li',
+                    tabIndex : -1,
                     cls,
-                    id   : me.getItemId(item.id),
-                    cn   : [{
+                    id       : me.getItemId(item.id),
+                    cn       : [{
                         tag      : 'span',
                         cls      : [itemCls + '-content', item.iconCls],
                         innerHTML: item.name,
@@ -232,7 +233,7 @@ class Tree extends Base {
                             pointerEvents: 'none'
                         }
                     }],
-                    style: {
+                    style    : {
                         padding : '10px',
                         position: item.isLeaf ? null : 'sticky',
                         top     : item.isLeaf ? null : (level * 38) + 'px',

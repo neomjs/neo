@@ -1,9 +1,14 @@
 .neo-tree-list {
-    border  : none;
-    color   : var(--tree-list-color);
-    display : flex;
-    overflow: hidden;
-    position: relative;
+    border         : none;
+    color          : var(--tree-list-color);
+    display        : flex;
+    flex-direction : column;
+    overflow       : hidden;
+    position       : relative;
+
+    // Allow item's scrollIntoView upwards to avoid
+    // being hidden below a sticky item stuck at the top.
+    scroll-padding-block-start : 3em;
 
     .neo-list {
         overflow   : visible;

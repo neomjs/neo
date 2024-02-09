@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "6.10.17",
+    "version": "6.11.0",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -55,7 +55,7 @@
         "inquirer": "^9.2.14",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
-        "postcss": "^8.4.33",
+        "postcss": "^8.4.35",
         "sass": "^1.70.0",
         "siesta-lite": "5.5.2",
         "showdown": "^2.1.0",
