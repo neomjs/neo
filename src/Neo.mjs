@@ -72,7 +72,7 @@ Neo = globalThis.Neo = Object.assign({
 
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
                 baseCfg    = Neo.clone(ctor.config, true);
-                ntypeChain = baseCfg.ntypeChain;
+                ntypeChain = [...ctor.ntypeChain];
                 break
             }
 
@@ -144,7 +144,7 @@ Neo = globalThis.Neo = Object.assign({
                 }
             }
 
-            cfg.ntypeChain = ntypeChain;
+            //cfg.ntypeChain = ntypeChain;
 
             delete cfg.mixins;
             delete config.mixins;
@@ -154,7 +154,8 @@ Neo = globalThis.Neo = Object.assign({
             Object.assign(ctor, {
                 classConfigApplied: true,
                 config            : Neo.clone(config, true),
-                isClass           : true
+                isClass           : true,
+                ntypeChain
             });
 
             !config.singleton && this.applyToGlobalNs(cls)

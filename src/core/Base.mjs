@@ -333,7 +333,7 @@ class Base {
      * @returns {Boolean}
      */
     hasNtype(ntype) {
-        return this.ntypeChain.includes(ntype)
+        return this.constructor.ntypeChain.includes(ntype)
     }
 
     /**
