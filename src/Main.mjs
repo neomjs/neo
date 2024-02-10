@@ -222,7 +222,7 @@ class Main extends core.Base {
             config           = Neo.config,
             mainThreadAddons = config.mainThreadAddons,
             imports          = [],
-            addon, modules, ns;
+            modules;
 
         DomAccess.onDomContentLoaded();
 
