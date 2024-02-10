@@ -1,12 +1,11 @@
-import Base       from '../../core/Base.mjs';
+import Base       from './Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
 import DomEvents  from '../DomEvents.mjs';
 import Observable from '../../core/Observable.mjs';
 
 /**
  * @class Neo.main.addon.GoogleMaps
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class GoogleMaps extends Base {
     static config = {
@@ -37,12 +36,7 @@ class GoogleMaps extends Base {
                 'setZoom',
                 'showMarker'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -52,11 +46,11 @@ class GoogleMaps extends Base {
     /**
      * @member {Object} maps={}
      */
-    maps     = {}
+    maps = {}
     /**
      * @member {Object} markers={}
      */
-    markers  = {}
+    markers = {}
 
     /**
      * @param {Object} config
@@ -278,6 +272,6 @@ class GoogleMaps extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(GoogleMaps);
+Neo.applyClassConfig(GoogleMaps);
 
-export default instance;
+export default GoogleMaps;

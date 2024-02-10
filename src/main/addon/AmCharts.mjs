@@ -1,12 +1,11 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
  * Helper class to include amCharts into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
  * @class Neo.main.addon.AmCharts
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class AmCharts extends Base {
     static config = {
@@ -45,16 +44,6 @@ class AmCharts extends Base {
          */
         fallbackPath: 'https://neomjs.github.io/pages/resources/amCharts/',
         /**
-         * @member {Boolean} scriptsLoaded_=true
-         * @protected
-         */
-        scriptsLoaded_: false,
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
          * @protected
@@ -68,7 +57,12 @@ class AmCharts extends Base {
                 'setProperty',
                 'updateData'
             ]
-        }
+        },
+        /**
+         * @member {Boolean} scriptsLoaded_=true
+         * @protected
+         */
+        scriptsLoaded_: false
     }
 
     /**
@@ -278,6 +272,6 @@ class AmCharts extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(AmCharts);
+Neo.applyClassConfig(AmCharts);
 
-export default instance;
+export default AmCharts;

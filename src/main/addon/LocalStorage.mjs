@@ -1,10 +1,9 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Basic CRUD support for window.localStorage
  * @class Neo.main.addon.LocalStorage
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class LocalStorage extends Base {
     static config = {
@@ -25,12 +24,7 @@ class LocalStorage extends Base {
                 'readLocalStorageItem',
                 'updateLocalStorageItem'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -76,6 +70,6 @@ class LocalStorage extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(LocalStorage);
+Neo.applyClassConfig(LocalStorage);
 
-export default instance;
+export default LocalStorage;

@@ -1,11 +1,10 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
  * main.addon.HighlightJS requires this file
  * @class Neo.main.addon.Stylesheet
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class Stylesheet extends Base {
     /**
@@ -34,12 +33,7 @@ class Stylesheet extends Base {
                 'setCssVariable',
                 'swapStyleSheet'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -301,6 +295,6 @@ class Stylesheet extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Stylesheet);
+Neo.applyClassConfig(Stylesheet);
 
-export default instance;
+export default Stylesheet;

@@ -1,4 +1,4 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Helper class to include Google's Material Web Components into your neo.mjs app
@@ -13,8 +13,7 @@ import Base from '../../core/Base.mjs';
  * into the neo-config.json of your app. E.g.: [..., "WS/Mwc"].
  *
  * @class Neo.main.addon.Mwc
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class Mwc extends Base {
     static config = {
@@ -23,11 +22,6 @@ class Mwc extends Base {
          * @protected
          */
         className: 'Neo.main.addon.Mwc',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -90,6 +84,6 @@ class Mwc extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Mwc);
+Neo.applyClassConfig(Mwc);
 
-export default instance;
+export default Mwc;

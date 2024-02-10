@@ -1,11 +1,10 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Helper class to include Google's Material Web Components into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
  * @class Neo.main.addon.PrefixField
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class PrefixField extends Base {
     static config = {
@@ -15,10 +14,16 @@ class PrefixField extends Base {
          */
         className: 'Neo.main.addon.PrefixField',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
+         * regex to calculate if entered value is acceptable
+         * Preset to numbers only
+         *
+         * @member {regex|null} accept
          */
-        singleton: true,
+        accept_: null,
+        /**
+         * @member {String} pattern=null
+         */
+        pattern_: null,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -33,18 +38,6 @@ class PrefixField extends Base {
                 'updateSlots',
             ]
         },
-
-        /**
-         * regex to calculate if entered value is acceptable
-         * Preset to numbers only
-         *
-         * @member {regex|null} accept
-         */
-        accept_: null,
-        /**
-         * @member {String} pattern=null
-         */
-        pattern_: null,
         /**
          * Only add a String. A Set will be automatically created
          * @member {String|Set|null} slots=null
@@ -52,15 +45,15 @@ class PrefixField extends Base {
         slots_: null
     }
 
+    elIds = new Map()
+
+    prev
+
+    back = false
+
     destroy() {
 
     }
-
-    elIds = new Map();
-
-    prev;
-
-    back = false;
 
     /**
      *
@@ -144,6 +137,6 @@ class PrefixField extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(PrefixField);
+Neo.applyClassConfig(PrefixField);
 
-export default instance;
+export default PrefixField;

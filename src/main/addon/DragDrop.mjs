@@ -1,11 +1,10 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
  * @class Neo.main.addon.DragDrop
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class DragDrop extends Base {
     static config = {
@@ -124,12 +123,7 @@ class DragDrop extends Base {
         /**
          * @member {Number} scrollFactorTop=1
          */
-        scrollFactorTop: 1,
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        scrollFactorTop: 1
     }
 
     /**
@@ -515,6 +509,6 @@ class DragDrop extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(DragDrop);
+Neo.applyClassConfig(DragDrop);
 
-export default instance;
+export default DragDrop;

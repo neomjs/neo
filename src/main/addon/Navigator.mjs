@@ -1,7 +1,7 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
-import DomUtils  from '../DomUtils.mjs';
 import DomEvents from '../DomEvents.mjs';
+import DomUtils  from '../DomUtils.mjs';
 
 // We do not need to inject a synthesized "click" event when we detect an ENTER
 // keypress on these element types.
@@ -13,8 +13,7 @@ const enterActivatedTags= {
 /**
  * Addon for Navigator
  * @class Neo.main.addon.Navigator
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class Navigator extends Base {
     static config = {
@@ -34,12 +33,7 @@ class Navigator extends Base {
                 'subscribe',
                 'unsubscribe'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -451,6 +445,6 @@ class Navigator extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Navigator);
+Neo.applyClassConfig(Navigator);
 
-export default instance;
+export default Navigator;
