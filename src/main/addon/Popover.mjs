@@ -1,10 +1,10 @@
-import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs'
+import Base      from './Base.mjs';
+import DomAccess from '../DomAccess.mjs';
+
 /**
  * Addon for Popover
  * @class Neo.main.addon.Popover
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class Popover extends Base {
     static config = {
@@ -24,12 +24,7 @@ class Popover extends Base {
                 'show',
                 'toggle'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -70,6 +65,6 @@ class Popover extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Popover);
+Neo.applyClassConfig(Popover);
 
-export default instance;
+export default Popover;

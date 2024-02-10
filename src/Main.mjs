@@ -209,7 +209,7 @@ class Main extends core.Base {
             module = await import(`./main/addon/${name}.mjs`)
         }
 
-        this.addon[module.default.constructor.name] = module.default;
+        this.registerAddon(module.default);
 
         return true
     }
@@ -222,7 +222,7 @@ class Main extends core.Base {
             config           = Neo.config,
             mainThreadAddons = config.mainThreadAddons,
             imports          = [],
-            modules;
+            addon, modules, ns;
 
         DomAccess.onDomContentLoaded();
 
@@ -254,7 +254,7 @@ class Main extends core.Base {
         me.addon = {};
 
         modules.forEach(module => {
-            me.addon[module.default.constructor.name] = module.default;
+            me.registerAddon(module.default)
         });
 
         WorkerManager.onWorkerConstructed({
@@ -368,6 +368,24 @@ class Main extends core.Base {
      */
     redirectTo(data) {
         window.location.href = data.url;
+    }
+
+    /**
+     * Helper method to register main thread addons
+     * @param {Neo.core.Base} addon Can either be a neo class or instance
+     */
+    registerAddon(addon) {
+        if (Neo.typeOf(addon) === 'NeoClass') {
+            // Addons could get imported multiple times. Ensure to only create an instance once.
+            if (Neo.typeOf(Neo.ns(addon.prototype.className)) !== 'NeoInstance') {
+                addon = Neo.create(addon)
+            }
+
+            // Main thread addons need to get registered as singletons inside the neo namespace
+            Neo.applyToGlobalNs(addon)
+        }
+
+        this.addon[addon.constructor.name] = addon;
     }
 
     /**

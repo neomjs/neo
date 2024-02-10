@@ -370,7 +370,7 @@ class Base {
             currentWorker = Neo.currentWorker,
             listenerId;
 
-        if (!me.singleton) {
+        if (!me.singleton && !me.isMainThreadAddon) {
             throw new Error('Remote method access is only functional for Singleton classes ' + className)
         }
 

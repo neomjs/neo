@@ -1,11 +1,10 @@
-import Base          from '../../core/Base.mjs';
+import Base          from './Base.mjs';
 import WorkerManager from '../../worker/Manager.mjs';
 
 /**
  * Creates a ServiceWorker instance, in case Neo.config.useServiceWorker is set to true
  * @class Neo.main.addon.ServiceWorker
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class ServiceWorker extends Base {
     static config = {
@@ -13,12 +12,7 @@ class ServiceWorker extends Base {
          * @member {String} className='Neo.main.addon.ServiceWorker'
          * @protected
          */
-        className: 'Neo.main.addon.ServiceWorker',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        className: 'Neo.main.addon.ServiceWorker'
     }
 
     /**
@@ -70,6 +64,6 @@ class ServiceWorker extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(ServiceWorker);
+Neo.applyClassConfig(ServiceWorker);
 
-export default instance;
+export default ServiceWorker;

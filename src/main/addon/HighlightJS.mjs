@@ -1,12 +1,11 @@
-import Base       from '../../core/Base.mjs';
+import Base       from './Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
 import Stylesheet from './Stylesheet.mjs'
 
 /**
  * Required for the docs app which uses highlight.js for the source views
  * @class Neo.main.addon.HighlightJS
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class HighlightJS extends Base {
     static config = {
@@ -41,11 +40,6 @@ class HighlightJS extends Base {
                 'highlightAuto'
             ]
         },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
         /**
          * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
          * @protected
@@ -187,6 +181,6 @@ class HighlightJS extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(HighlightJS);
+Neo.applyClassConfig(HighlightJS);
 
-export default instance;
+export default HighlightJS;
