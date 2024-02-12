@@ -1,10 +1,10 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
  * @class Neo.main.addon.ResizeObserver
- * @extends Neo.core.Base
+ * @extends Neo.main.addon.Base
  * @singleton
  */
 class NeoResizeObserver extends Base {
@@ -29,12 +29,7 @@ class NeoResizeObserver extends Base {
                 'register',
                 'unregister'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -111,6 +106,6 @@ class NeoResizeObserver extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(NeoResizeObserver);
+Neo.applyClassConfig(NeoResizeObserver);
 
-export default instance;
+export default NeoResizeObserver;

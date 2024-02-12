@@ -1,11 +1,10 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Basic helper class to create template DOM nodes and apply them to a target node via cloning.
  * See: https://github.com/neomjs/neo/blob/dev/apps/krausest/view/TableComponent.mjs
  * @class Neo.main.addon.CloneNode
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class CloneNode extends Base {
     static config = {
@@ -30,12 +29,7 @@ class CloneNode extends Base {
                 'applyClones',
                 'createNode'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -93,15 +87,16 @@ class CloneNode extends Base {
      */
     createNode(data) {
         let template = document.createElement(data.tag);
+
         template.innerHTML = data.html;
 
         this.map[data.id] = {
-            paths   : data.paths,
-            template: template
+            paths: data.paths,
+            template
         };
     }
 }
 
-let instance = Neo.applyClassConfig(CloneNode);
+Neo.applyClassConfig(CloneNode);
 
-export default instance;
+export default CloneNode;

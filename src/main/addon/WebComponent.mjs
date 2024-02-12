@@ -1,10 +1,9 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Addon to register WebComponents
  * @class Neo.main.addon.WebComponent
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class WebComponent extends Base {
     static config = {
@@ -12,12 +11,7 @@ class WebComponent extends Base {
          * @member {String} className='Neo.main.addon.WebComponent'
          * @protected
          */
-        className: 'Neo.main.addon.WebComponent',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        className: 'Neo.main.addon.WebComponent'
     }
 
     /**
@@ -48,6 +42,6 @@ class WebComponent extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(WebComponent);
+Neo.applyClassConfig(WebComponent);
 
-export default instance;
+export default WebComponent;

@@ -1,11 +1,10 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
  * See: https://github.com/CesiumGS/cesium
  * @class Neo.main.addon.CesiumJS
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class CesiumJS extends Base {
     static config = {
@@ -26,12 +25,7 @@ class CesiumJS extends Base {
                 'destroy',
                 'flyTo'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -117,6 +111,6 @@ class CesiumJS extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(CesiumJS);
+Neo.applyClassConfig(CesiumJS);
 
-export default instance;
+export default CesiumJS;

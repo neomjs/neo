@@ -801,12 +801,6 @@ class Base extends CoreBase {
         }
     }
 
-    revertFocus() {
-        if (this.containsFocus && this.focusEnterData?.relatedTarget) {
-            Neo.getComponent(this.focusEnterData.relatedTarget.id)?.focus();
-        }
-    }
-
     /**
      * Triggered after the reference config got changed
      * @param {String|null} value
@@ -1838,13 +1832,19 @@ class Base extends CoreBase {
         this.keys?.register(this)
     }
 
+    /**
+     * @param {Object} data
+     */
     onFocusEnter(data) {
         // If we are hidden, or unmounted while we still contain focus, we have to revert
         // focus to where it came from if possible
         this.focusEnterData = data;
     }
 
-    onFocusLeave() {
+    /**
+     * @param {Object} data
+     */
+    onFocusLeave(data) {
         this.focusEnterData = null;
     }
 
@@ -2064,6 +2064,17 @@ class Base extends CoreBase {
                 Neo.getComponent(id)?.update();
                 NeoArray.remove(me.childUpdateCache, id)
             })
+        }
+    }
+
+    /**
+     *
+     */
+    revertFocus() {
+        let relatedTarget = this.focusEnterData?.relatedTarget;
+
+        if (this.containsFocus && relatedTarget) {
+            Neo.getComponent(relatedTarget.id)?.focus()
         }
     }
 

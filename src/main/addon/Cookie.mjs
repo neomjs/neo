@@ -1,10 +1,9 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * Basic Read and write access for document.cookie
  * @class Neo.main.addon.Cookie
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class Cookie extends Base {
     static config = {
@@ -24,12 +23,7 @@ class Cookie extends Base {
                 'getCookies',
                 'setCookie'
             ]
-        },
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        }
     }
 
     /**
@@ -59,6 +53,6 @@ class Cookie extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Cookie);
+Neo.applyClassConfig(Cookie);
 
-export default instance;
+export default Cookie;

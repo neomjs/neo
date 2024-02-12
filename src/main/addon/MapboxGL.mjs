@@ -1,4 +1,4 @@
-import Base      from '../../core/Base.mjs';
+import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
@@ -7,8 +7,7 @@ import DomAccess from '../DomAccess.mjs';
  * In case you need more API methods to get exposed to the App worker,
  * please open issues inside the tracker and / or submit PRs.
  * @class Neo.main.addon.MapboxGL
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class MapboxGL extends Base {
     static config = {
@@ -49,23 +48,6 @@ class MapboxGL extends Base {
          */
         mapsToCreate: [],
         /**
-         * @member {Boolean} scriptsLoaded_=true
-         * @protected
-         */
-        scriptsLoaded_: false,
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
-         * Stores all map sources inside an object.
-         * key => map id, value => {Array} sources
-         * @member {Object} sources={}
-         * @protected
-         */
-        sources: {},
-        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -86,6 +68,18 @@ class MapboxGL extends Base {
                 'zoom'
             ]
         },
+        /**
+         * @member {Boolean} scriptsLoaded_=true
+         * @protected
+         */
+        scriptsLoaded_: false,
+        /**
+         * Stores all map sources inside an object.
+         * key => map id, value => {Array} sources
+         * @member {Object} sources={}
+         * @protected
+         */
+        sources: {},
         /**
          * Stores all map style objects inside an objects to prevent reloads when switching themes multiple times.
          * key => style name (url)
@@ -488,6 +482,6 @@ class MapboxGL extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(MapboxGL);
+Neo.applyClassConfig(MapboxGL);
 
-export default instance;
+export default MapboxGL;

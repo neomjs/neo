@@ -1,9 +1,8 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * @class Neo.main.addon.WindowPosition
- * @extends Neo.core.Base
- * @singleton
+ * @extends Neo.main.addon.Base
  */
 class WindowPosition extends Base {
     static config = {
@@ -49,11 +48,6 @@ class WindowPosition extends Base {
          * @member {Number|null} screenTop=null
          */
         screenTop: null,
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
         /**
          * @member {Object} windows={}
          * @protected
@@ -297,6 +291,6 @@ class WindowPosition extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(WindowPosition);
+Neo.applyClassConfig(WindowPosition);
 
-export default instance;
+export default WindowPosition;
