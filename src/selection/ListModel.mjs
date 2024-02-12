@@ -77,8 +77,10 @@ class ListModel extends Model {
             { view }  = this,
             { store } = view;
 
-        data.record = store.getAt(Math.min(data.activeIndex, store.getCount()));
-        view.fire('itemNavigate', data);
+        data.record      = store.getAt(Math.min(data.activeIndex, store.getCount()));
+        view._focusIndex = store.indexOf(data.record); // silent update, no need to refocus
+
+        view.fire('itemNavigate', data)
     }
 
     /**
