@@ -383,7 +383,7 @@ class Select extends Picker {
 
     /**
      * Returns the first selected record or null
-     * returns {Object}
+     * @returns {Object}
      */
     getRecord() {
         let list      = this.list,
@@ -401,6 +401,9 @@ class Select extends Picker {
         return me.record?.[me.valueField] || me.value
     }
 
+    /**
+     *
+     */
     onConstructed() {
         const inputEl = this.getInputEl();
 
