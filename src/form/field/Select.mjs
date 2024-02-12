@@ -661,7 +661,7 @@ class Select extends Picker {
                 cls: ['neo-input-field-wrapper'],
                 cn : [{
                     tag         : 'input',
-                    autocomplete: 'off',
+                    autocomplete: 'no', // while "off" is the correct value, browser vendors ignore it. Arbitrary strings do the trick.
                     autocorrect : 'off',
                     cls         : ['neo-textfield-input', 'neo-typeahead-input'],
                     disabled    : true,
