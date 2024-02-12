@@ -1,4 +1,3 @@
-import NeoArray from '../util/Array.mjs';
 import Model from './Model.mjs';
 
 /**
@@ -55,6 +54,9 @@ class ListModel extends Model {
      */
     onKeyDownUp(data) {}
 
+    /**
+     * @param {Object} data
+     */
     onListClick({ currentTarget }) {
         const { view } = this;
 
@@ -67,6 +69,9 @@ class ListModel extends Model {
         }
     }
 
+    /**
+     * @param {Object} data
+     */
     onListNavigate(data) {
         const
             { view }  = this,
