@@ -269,6 +269,7 @@ class List extends BaseList {
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {
+        super.onFocusEnter(data);
         this.menuFocus = true
     }
 
@@ -277,6 +278,8 @@ class List extends BaseList {
      * @param {Object[]} data.oldPath
      */
     onFocusLeave(data) {
+        super.onFocusLeave(data);
+
         let insideParent = false,
             parentId     = this.parentComponent?.id,
             item;
