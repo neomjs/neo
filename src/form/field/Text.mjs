@@ -318,7 +318,8 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoComplete(value, oldValue) {
-        this.changeInputElKey('autocomplete', value ? null : 'off')
+        // while "off" is the correct value, browser vendors ignore it. Arbitrary strings do the trick.
+        this.changeInputElKey('autocomplete', value ? null : 'no')
     }
 
     /**
