@@ -21,6 +21,7 @@ class Base extends Component {
          */
         ntype: 'list',
         /**
+         * Keeps track of the selected item index and allows bindings and programmatic changes
          * @member {Number|null} activeIndex_=null
          */
         activeIndex_: null,
@@ -63,6 +64,12 @@ class Base extends Component {
          * @member {Object} dragZoneConfig=null
          */
         dragZoneConfig: null,
+        /**
+         * Keeps track of the focussed item index and allows bindings and programmatic changes.
+         * You can either pass the index or the related record
+         * @member {Number|Object|null} focusIndex_=null
+         */
+        focusIndex_: null,
         /**
          * In case we are using list item headers and want to bind list item indexes to e.g. a card layout
          * for e.g. a sidenav, this config comes in handy.
@@ -178,15 +185,16 @@ class Base extends Component {
      * @param {Number|null} oldValue
      * @protected
      */
-    afterSetActiveIndex(value) {
-        let me = this;
+    afterSetActiveIndex(value, oldValue) {
+        let me             = this,
+            selectionModel = me.selectionModel;
 
         if (Neo.isNumber(value)) {
+            selectionModel?.selectAt(value);
             me.headerlessActiveIndex = me.getHeaderlessIndex(value)
-            Neo.main.addon.Navigator.navigateTo([value, this.navigator])
-        }
-        else if (value) {
-            Neo.main.addon.Navigator.navigateTo([me.getItemId(value[me.getKeyProperty()]), this.navigator])
+        } else if (Neo.isNumber(oldValue)) {
+            selectionModel.deselectAll();
+            me.headerlessActiveIndex = null
         }
     }
 
@@ -244,6 +252,22 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the focusIndex config got changed
+     * @param {Number|Object|null} value
+     * @param {Number|Object|null} oldValue
+     * @protected
+     */
+    afterSetFocusIndex(value, oldValue) {
+        let me = this;
+
+        if (Neo.isNumber(value)) {
+            Neo.main.addon.Navigator.navigateTo([me.getHeaderlessIndex(value), me.navigator])
+        } else if (value) {
+            Neo.main.addon.Navigator.navigateTo([me.getItemId(value[me.getKeyProperty()]), me.navigator])
+        }
+    }
+
+    /**
      * Triggered after the headerlessActiveIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -253,7 +277,7 @@ class Base extends Component {
         let me = this;
 
         if (Neo.isNumber(value)) {
-            me.activeIndex = me.store.getCount() ? value: null
+            me.activeIndex = me.store.getCount() ? me.getActiveIndex(value) : null
         } else if (Neo.isNumber(oldValue)) {
             me.activeIndex = null
         }
@@ -755,14 +779,16 @@ class Base extends Component {
      * @param {Number|String} item
      */
     selectItem(item) {
-        if (!this.disableSelection) {
+        let me = this;
+
+        if (!me.disableSelection) {
             // Selecting index
             if (Neo.isNumber(item)) {
-                this.selectionModel?.selectAt(item)
+                me.selectionModel?.selectAt(item)
             }
             // Selecting record
             else if (item) {
-                this.selectionModel?.selectAt(this.store.indexOf(item));
+                me.selectionModel?.selectAt(me.store.indexOf(item))
             }
         }
     }
