@@ -371,7 +371,7 @@ class Select extends Picker {
                 selectionModel.suspendEvents = false;
             }
             setTimeout(() => {
-                list.activeIndex = me.record || 0;
+                list.selectedIndex = me.store.indexOf(record) || 0;
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
@@ -577,8 +577,8 @@ class Select extends Picker {
                 me        = this,
                 { store } = me;
 
-            me.activeRecord = store.getAt(activeIndex)
-            me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty]
+            me.activeRecord   = store.getAt(activeIndex);
+            me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty];
 
             // Update typeahead hint (which updates DOM), or update DOM
             me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update();
