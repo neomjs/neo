@@ -35,7 +35,7 @@ class Viewport extends BaseViewport {
                 reference: 'side-nav',
 
                 bind: {
-                    headerlessActiveIndex: data => data.activeIndex,
+                    headerlessSelectedIndex: data => data.activeIndex,
                     store                : 'stores.sideNav'
                 }
             }]
