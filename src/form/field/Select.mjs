@@ -376,8 +376,8 @@ class Select extends Picker {
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
-        else if (picker) {
-            picker.hidden = true
+        else {
+            picker?.hide()
         }
     }
 
