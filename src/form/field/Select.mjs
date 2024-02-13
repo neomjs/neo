@@ -344,18 +344,19 @@ class Select extends Picker {
      */
     doFilter(value) {
         let me     = this,
-            filter = me.store.getFilter(me.displayField),
+            store  = me.store,
+            filter = store.getFilter(me.displayField),
             {
-                record,
-                picker
+                picker,
+                record
             }      = me;
 
         if (filter) {
-            filter.value = value;
+            filter.value = value
         }
 
         // Filter resulting in something to show
-        if (me.store.getCount()) {
+        if (store.getCount()) {
             me.getPicker().hidden = false;
 
             // List might not exist until the picker is created
@@ -368,15 +369,15 @@ class Select extends Picker {
                 // We do not want to hear back about our own selection
                 selectionModel.suspendEvents = true;
                 selectionModel.select(record);
-                selectionModel.suspendEvents = false;
+                selectionModel.suspendEvents = false
             }
             setTimeout(() => {
-                list.selectedIndex = me.store.indexOf(record) || 0;
+                list.selectedIndex = store.indexOf(record) || 0
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
         else if (picker) {
-            picker._hidden = true;
+            picker.hidden = true
         }
     }
 
