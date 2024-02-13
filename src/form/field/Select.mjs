@@ -385,10 +385,9 @@ class Select extends Picker {
      */
     filterOnInput(data) {
         if (data.value) {
-            this.doFilter(data.value);
-        }
-        else if (this.picker) {
-            this.picker?.hide();
+            this.doFilter(data.value)
+        } else {
+            this.picker?.hide()
         }
     }
 
