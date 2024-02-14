@@ -372,7 +372,8 @@ class Select extends Picker {
                 selectionModel.suspendEvents = false
             }
             setTimeout(() => {
-                list.focusIndex = store.indexOf(record) || 0
+                const index = store.indexOf(record);
+                list.focusIndex = index > -1 ? index : 0
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
