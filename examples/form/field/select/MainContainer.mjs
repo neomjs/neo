@@ -40,6 +40,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.forceSelection,
+            labelText: 'forceSelection',
+            listeners: {change: me.onConfigChange.bind(me, 'forceSelection')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.hideLabel,
             labelText: 'hideLabel',
             listeners: {change: me.onConfigChange.bind(me, 'hideLabel')},
