@@ -218,6 +218,11 @@ class Base extends CoreBase {
          */
         keys_: null,
         /**
+         * Gets used inside afterSetIsLoading() to define the CSS for the loading spinner icon
+         * @member {String[]} loadingSpinnerCls_=['fa','fa-spinner','fa-spin']
+         */
+        loadingSpinnerCls_: ['fa', 'fa-spinner', 'fa-spin'],
+        /**
          * Shortcut for style.maxHeight, defaults to px
          * @member {Number|String|null} maxHeight_=null
          */
@@ -702,7 +707,7 @@ class Base extends CoreBase {
                     cn : [{
                         cls: ['neo-load-mask-body'],
                         cn : [{
-                            cls: ['fa', 'fa-spinner', 'fa-spin']
+                            cls: me.loadingSpinnerCls
                         }, {
                             cls      : ['neo-loading-message'],
                             html     : value,
