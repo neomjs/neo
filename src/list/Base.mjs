@@ -179,25 +179,6 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the selectedIndex config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetSelectedIndex(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
-
-        if (Neo.isNumber(value)) {
-            selectionModel?.selectAt(value);
-            me.headerlessSelectedIndex = me.getHeaderlessIndex(value)
-        } else if (Neo.isNumber(oldValue)) {
-            selectionModel.deselectAll();
-            me.headerlessSelectedIndex = null
-        }
-    }
-
-    /**
      * Triggered after the animate config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -316,6 +297,25 @@ class Base extends Component {
         }
 
         super.afterSetMounted(value, oldValue)
+    }
+
+    /**
+     * Triggered after the selectedIndex config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetSelectedIndex(value, oldValue) {
+        let me             = this,
+            selectionModel = me.selectionModel;
+
+        if (Neo.isNumber(value)) {
+            selectionModel?.selectAt(value);
+            me.headerlessSelectedIndex = me.getHeaderlessIndex(value)
+        } else if (Neo.isNumber(oldValue)) {
+            selectionModel.deselectAll();
+            me.headerlessSelectedIndex = null
+        }
     }
 
     /**
