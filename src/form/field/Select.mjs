@@ -57,9 +57,9 @@ class Select extends Picker {
         /**
          * True will only fire a change event, in case the TextField input value matches a record.
          * onFocusLeave() will try to select a hint record, if needed and possible.
-         * @member {Boolean} forceSelection=false
+         * @member {Boolean} forceSelection=true
          */
-        forceSelection: false,
+        forceSelection: true,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
