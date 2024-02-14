@@ -372,7 +372,7 @@ class Select extends Picker {
                 selectionModel.suspendEvents = false
             }
             setTimeout(() => {
-                list.selectedIndex = store.indexOf(record) || 0
+                list.focusIndex = store.indexOf(record) || 0
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
@@ -519,8 +519,10 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownDown(data) {
-        if (!this.picker || this.picker?.hidden) {
-            this.onPickerTriggerClick();
+        let me = this;
+
+        if (!me.picker || me.picker?.hidden) {
+            me.onPickerTriggerClick()
         }
     }
 
@@ -606,7 +608,7 @@ class Select extends Picker {
         let me = this;
 
         if (me.picker?.isVisible) {
-            me.picker.hidden = true;
+            me.picker.hidden = true
         }
         else if (!me.readOnly && !me.disabled) {
             me.doFilter(null)
