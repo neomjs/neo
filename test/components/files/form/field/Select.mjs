@@ -35,7 +35,7 @@ StartTest(t => {
         return testId;
     }
 
-    // Clear the eway for each test
+    // Clear the way for each test
     t.beforeEach(async t => {
         if (testId) {
             await Neo.worker.App.destroyNeoInstance(testId);
@@ -217,7 +217,7 @@ StartTest(t => {
 
         await t.waitForSelector('.neo-list-item:contains(Foo)');
 
-        // All data ityems represented
+        // All data items represented
         t.selectorCountIs('.neo-list-item', 3);
     });
 });
