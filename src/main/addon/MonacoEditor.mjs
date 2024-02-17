@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Adds support for using the Monaco Code Editor within neo.
@@ -20,6 +21,7 @@ class MonacoEditor extends Base {
          */
         remote: {
             app: [
+                'createInstance',
                 'getValue',
                 'setValue'
             ]
@@ -31,8 +33,18 @@ class MonacoEditor extends Base {
      */
     construct(config) {
         super.construct(config);
+        this.loadFiles()
+    }
 
-        console.log('MonacoEditor addon loaded')
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    createInstance(data) {
+        monaco.editor.create(DomAccess.getElement(data.id), {
+            language: 'javascript',
+            value   : ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n')
+        })
     }
 
     /**
@@ -43,6 +55,22 @@ class MonacoEditor extends Base {
         console.log('getValue', data);
 
         return {}
+    }
+
+    /**
+     *
+     */
+    loadFiles() {
+        window.require = { paths: { vs: '../../../../node_modules/monaco-editor/min/vs' } };
+
+        Promise.all([
+            DomAccess.loadStylesheet('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
+            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/loader.js'),
+            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.nls.js'),
+            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.js')
+        ]).then(() => {
+            // console.log('files loaded');
+        })
     }
 
     /**

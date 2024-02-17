@@ -22,19 +22,18 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 300,
-            minValue : 30,
-            stepSize : 5,
-            style    : {marginTop: '10px'},
+            maxValue : 1000,
+            minValue : 300,
+            stepSize : 10,
             value    : me.exampleComponent.height
         }, {
             module   : NumberField,
             clearable: true,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
-            stepSize : 5,
+            maxValue : 1000,
+            minValue : 300,
+            stepSize : 10,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
@@ -46,9 +45,8 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: MonacoEditor,
-            height: 400,
-            style : {backgroundColor: 'blue'},
-            width : 400
+            height: 500,
+            width : 500
         })
     }
 }
