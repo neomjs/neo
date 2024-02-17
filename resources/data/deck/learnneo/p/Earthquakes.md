@@ -5,14 +5,14 @@ and show the information in two views: a table, and a map.
 
 You'll do this in a series of labs:
 
-1. Generate a workspace
-1. Generate a starter app
-1. Learn some debugging tricks
-1. Generate the earthquakes starter app
-1. Refactor a config into its own class
-1. Add a map
-1. Listen to events
-1. Make the app multi-window
+1. Generate a Workspace
+1. Create the Earthquakes Starter App
+1. Debugging
+1. Fetch Earthquakes Data and Show it in a Table
+1. Refactor the Table Into its Own Class
+1. Use a View Model
+1. Use the Google Maps Main-thread Add-on
+1. Events
 
 ## Goals 
 
@@ -45,7 +45,7 @@ A word of advice: Keep a high-level perspective, especially early on. We'll have
 into the code, and we'll do most things multiple times. In other words, focus on what you're accomplishing,
 and don't worry about syntax details. 
 
-## Lab. Generate a workspace
+## Lab. Generate a Workspace
 
 In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
@@ -137,7 +137,7 @@ doing builds, and starting a server. We'll use several of them throughout the tu
 - watch-themes &mdash; creates app .css as you save changes to any app
 
 
-##Lab. Create the earthquakes starter app
+##Lab. Create the Earthquakes Starter App
 
 <!-- lab -->
 
@@ -493,7 +493,7 @@ Then run `doFoo()` using that variable.
 
 At this point we have a application with minimal content. You also know how to do some debugging. Let's do something more interesting.
 
-##Lab. Fetch earthquakes data and show it in a table
+##Lab. Fetch Earthquakes Data and Show it in a Table
 
 <!-- lab -->
 

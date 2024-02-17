@@ -1,7 +1,6 @@
 import Base from '../../../../src/container/Base.mjs';
 import TabContainer from '../../../../src/tab/Container.mjs';
-import TextArea from '../../../../src/form/field/TextArea.mjs';
-
+import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
 /**
  * @class Portal.view.learn.LivePreview
  * @extends Neo.container.Base
@@ -27,15 +26,15 @@ class LivePreview extends Base {
             reference: 'tab-container',
             cls: 'live-preview-container',
             items: [{
-                module: TextArea,
+                module: MonacoEditor,
                 hideLabel: true,
-                style: {height: '100%'},
+                style: { height: '100%' },
                 reference: 'textArea',
                 tabButtonConfig: {
                     text: 'Source'
                 },
                 listeners: {
-                    change: data => data.component.up({className: 'Portal.view.learn.LivePreview'}).value = data.value
+                    change: data => data.component.up({ className: 'Portal.view.learn.LivePreview' }).value = data.value
                 }
             }, {
                 tabButtonConfig: {
@@ -155,7 +154,7 @@ class LivePreview extends Base {
             item,
             childItem;
 
-        for (; i < len; i++) {
+        for (;i < len;i++) {
             item = items[i];
             if (item.reference === reference) {
                 return item
