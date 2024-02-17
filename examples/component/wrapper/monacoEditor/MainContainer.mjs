@@ -46,6 +46,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module: MonacoEditor,
             height: 500,
+            value : ['function x() {', '\tconsole.log("Hello world!");', '}'],
             width : 500
         })
     }

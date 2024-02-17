@@ -15,7 +15,11 @@ class MonacoEditor extends Base {
          * @member {String} ntype='monaco-editor'
          * @protected
          */
-        ntype: 'monaco-editor'
+        ntype: 'monaco-editor',
+        /**
+         * @member {String|String[]} value_=''
+         */
+        value_: ''
     }
 
     /**
@@ -32,14 +36,33 @@ class MonacoEditor extends Base {
         if (value) {
             let opts = {
                 appName: me.appName,
-                id     : me.id
+                id     : me.id,
+                value  : me.stringifyValue(me.value)
             };
 
             setTimeout(() => {
                 Neo.main.addon.MonacoEditor.createInstance(opts).then(() => {
-                    me.onComponentMounted();
-                });
+                    me.onComponentMounted()
+                })
             }, 50)
+        }
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setValue({
+                appName: me.appName,
+                id     : me.id,
+                value  : me.stringifyValue(me.value)
+            })
         }
     }
 
@@ -60,6 +83,19 @@ class MonacoEditor extends Base {
      */
     onComponentMounted() {
         console.log('onComponentMounted', this.id);
+    }
+
+    /**
+     *
+     * @param {String|String[]} value
+     * @returns {String}
+     */
+    stringifyValue(value) {
+        if (Array.isArray(value)) {
+            value = value.join('\n')
+        }
+
+        return value
     }
 }
 

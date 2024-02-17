@@ -46,11 +46,12 @@ class MonacoEditor extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
+     * @param {String} data.value
      */
     createInstance(data) {
         this.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
             language: 'javascript',
-            value   : ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n')
+            value   : data.value
         })
     }
 
@@ -91,9 +92,11 @@ class MonacoEditor extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.value
      */
     setValue(data) {
-        console.log('setValue', data);
+        this.map[data.id].getModel().setValue(data.value)
     }
 }
 
