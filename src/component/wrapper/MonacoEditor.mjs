@@ -17,6 +17,38 @@ class MonacoEditor extends Base {
          */
         ntype: 'monaco-editor'
     }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (value) {
+            let opts = {
+                appName: me.appName,
+                id     : me.id
+            };
+
+            setTimeout(() => {
+                Neo.main.addon.MonacoEditor.createInstance(opts).then(() => {
+                    me.onComponentMounted();
+                });
+            }, 50)
+        }
+    }
+
+    /**
+     *
+     */
+    onComponentMounted() {
+        console.log('onComponentMounted', this.id);
+    }
 }
 
 Neo.applyClassConfig(MonacoEditor);
