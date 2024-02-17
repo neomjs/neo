@@ -126,12 +126,12 @@ const DefaultConfig = {
      * You can also create your own addons within your workspace scope. Make sure to put them inside 'src/main/addon/'
      * and prefix them with 'WS/' inside your neo-config.json file.
      * Example: ['DragDrop', 'Stylesheet', 'WS/MyAddon']
-     * @default ['DragDrop', 'Stylesheet']
+     * @default ['DragDrop', 'Navigator', 'Stylesheet']
      * @memberOf! module:Neo
      * @name config.mainThreadAddons
      * @type String[]
      */
-    mainThreadAddons: ['DragDrop', 'Stylesheet', 'Navigator'],
+    mainThreadAddons: ['DragDrop', 'Navigator', 'Stylesheet'],
     /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
