@@ -202,29 +202,29 @@ class Tree extends Base {
                     }
                 });
 
-                tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
+                tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1]
             } else {
-                tmpRoot = vdomRoot;
+                tmpRoot = vdomRoot
             }
 
             items.forEach(item => {
                 cls = [itemCls];
 
                 if (item.isLeaf) {
-                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'));
+                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'))
                 } else {
                     cls.push(folderCls);
 
                     if (!item.collapsed) {
-                        cls.push('neo-folder-open');
+                        cls.push('neo-folder-open')
                     }
                 }
 
                 tmpRoot.cn.push({
                     tag      : 'li',
-                    tabIndex : -1,
                     cls,
                     id       : me.getItemId(item.id),
+                    tabIndex : -1,
                     cn       : [{
                         tag      : 'span',
                         cls      : [itemCls + '-content', item.iconCls],
@@ -234,6 +234,7 @@ class Tree extends Base {
                         }
                     }],
                     style    : {
+                        display : item.hidden ? 'none' : 'flex',
                         padding : '10px',
                         position: item.isLeaf ? null : 'sticky',
                         top     : item.isLeaf ? null : (level * 38) + 'px',
@@ -241,11 +242,11 @@ class Tree extends Base {
                     }
                 });
 
-                tmpRoot = me.createItems(item.id, tmpRoot, level + 1);
-            });
+                me.createItems(item.id, tmpRoot, level + 1)
+            })
         }
 
-        return vdomRoot;
+        return vdomRoot
     }
 
     /**
@@ -264,13 +265,13 @@ class Tree extends Base {
 
                 if (!node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
-                    hasMatch = true;
+                    hasMatch = true
                 }
             }
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent ? '_vdom' : 'vdom'] = vdom
         }
     }
 
@@ -289,46 +290,46 @@ class Tree extends Base {
             childReturnValue, directMatch, node;
 
         if (!value) {
-            value = '';
+            value = ''
         }
 
         me.store.items.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
-                node = me.getVdomChild(me.getItemId(item.id), me.vdom);
+                node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
                     directMatch = true;
-                    return `<span class="neo-highlight-search">${match}</span>`;
+                    return `<span class="neo-highlight-search">${match}</span>`
                 });
 
                 if (item.isLeaf) {
-                    childReturnValue = true;
+                    childReturnValue = true
                 } else {
-                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
+                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch)
                 }
 
                 if (directMatch || parentMatch || childReturnValue === false || value === '') {
-                    isFiltered = false;
+                    isFiltered = false
                 }
 
-                node.style.display = isFiltered ? 'none' : 'list-item';
+                node.style.display = isFiltered ? 'none' : 'list-item'
             }
         });
 
         if (parentId === null) {
             me.expandAll(true);
-            me.update();
+            me.update()
         }
 
-        return isFiltered;
+        return isFiltered
     }
 
     /**
      * @returns {Object}
      */
     getListItemsRoot() {
-        return this.vdom.cn[this.showCollapseExpandAllIcons ? 2 : 0];
+        return this.vdom.cn[this.showCollapseExpandAllIcons ? 2 : 0]
     }
 
     /**
@@ -336,9 +337,9 @@ class Tree extends Base {
      */
     onClick(data) {
         if (data.target.cls.includes('neo-treelist-menu-item')) {
-            this.onMenuItemClick(data.target.cls);
+            this.onMenuItemClick(data.target.cls)
         } else {
-            super.onClick(data);
+            super.onClick(data)
         }
     }
 
@@ -365,7 +366,7 @@ class Tree extends Base {
                 }]
             });
 
-            me.update();
+            me.update()
         }
     }
 
@@ -388,7 +389,7 @@ class Tree extends Base {
             if (path.includes(vnodeId)) {
                 record = tmpItem;
                 item = me.getVdomChild(vnodeId);
-                break;
+                break
             }
         }
 
@@ -405,10 +406,10 @@ class Tree extends Base {
                  * @event leafItemClick
                  * @returns {Object} record
                  */
-                me.fire('leafItemClick', record);
+                me.fire('leafItemClick', record)
             }
 
-            super.onItemClick(node, data);
+            super.onItemClick(node, data)
         }
     }
 
@@ -427,9 +428,9 @@ class Tree extends Base {
      */
     onMenuItemClick(cls) {
         if (cls.includes('neo-treelist-collapse-all-icon')) {
-            this.collapseAll();
+            this.collapseAll()
         } else {
-            this.expandAll();
+            this.expandAll()
         }
     }
 }
