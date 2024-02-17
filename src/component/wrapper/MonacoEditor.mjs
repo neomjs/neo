@@ -5,6 +5,14 @@ import Base from '../../component/Base.mjs';
  * @extends Neo.component.Base
  */
 class MonacoEditor extends Base {
+    /**
+     * Valid values for editorTheme
+     * @member {String[]} editorThemes=['hc-black','hc-light','vs','vs-dark']
+     * @protected
+     * @static
+     */
+    static editorThemes = ['hc-black', 'hc-light', 'vs', 'vs-dark']
+
     static config = {
         /**
          * @member {String} className='Neo.component.wrapper.MonacoEditor'
@@ -17,7 +25,7 @@ class MonacoEditor extends Base {
          */
         ntype: 'monaco-editor',
         /**
-         * Options are: 'vs' (default), 'vs-dark', 'hc-black', 'hc-light
+         * Options are: 'vs' (default), 'vs-dark', 'hc-black', 'hc-light'
          * @member {String} editorTheme_='vs'
          */
         editorTheme_: 'vs',
@@ -88,6 +96,17 @@ class MonacoEditor extends Base {
                 value  : me.stringifyValue(me.value)
             })
         }
+    }
+
+    /**
+     * Triggered before the editorTheme config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetEditorTheme(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'editorTheme')
     }
 
     /**
