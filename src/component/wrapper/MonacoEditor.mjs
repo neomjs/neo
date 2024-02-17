@@ -145,6 +145,17 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Fetches the current value from the editor instance
+     * @returns {Promise<*>}
+     */
+    async getEditorValue() {
+        return Neo.main.addon.MonacoEditor.getValue({
+            appName: this.appName,
+            id     : this.id
+        })
+    }
+
+    /**
      *
      */
     onComponentMounted() {

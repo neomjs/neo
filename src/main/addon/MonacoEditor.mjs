@@ -71,12 +71,11 @@ class MonacoEditor extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.id
      * @returns {Object}
      */
     getValue(data) {
-        console.log('getValue', data);
-
-        return {}
+        return this.map[data.id].getModel().getValue()
     }
 
     /**
