@@ -17,6 +17,11 @@ class MonacoEditor extends Base {
          */
         ntype: 'monaco-editor',
         /**
+         * Options are: 'vs' (default), 'vs-dark', 'hc-black', 'hc-light
+         * @member {String} editorTheme_='vs'
+         */
+        editorTheme_: 'vs',
+        /**
          * @member {String|String[]} value_=''
          */
         value_: ''
@@ -37,6 +42,7 @@ class MonacoEditor extends Base {
             let opts = {
                 appName: me.appName,
                 id     : me.id,
+                theme  : me.editorTheme,
                 value  : me.stringifyValue(me.value)
             };
 
@@ -49,9 +55,27 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the editorTheme config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEditorTheme(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setTheme({
+                appName: me.appName,
+                id     : me.id,
+                theme  : me.editorTheme
+            })
+        }
+    }
+
+    /**
      * Triggered after the value config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {String|String[]} value
+     * @param {String|String[]} oldValue
      * @protected
      */
     afterSetValue(value, oldValue) {
