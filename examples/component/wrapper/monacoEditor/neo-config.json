@@ -3,5 +3,5 @@
     "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"]
+    "mainThreadAddons": ["DragDrop", "MonacoEditor", "Navigator", "Stylesheet"]
 }
