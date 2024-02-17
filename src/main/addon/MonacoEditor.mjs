@@ -29,6 +29,12 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Stores component DOM ids as keys and editor instances as values
+     * @member {Object} map={}
+     */
+    map = {}
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -41,7 +47,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     createInstance(data) {
-        monaco.editor.create(DomAccess.getElement(data.id), {
+        this.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
             language: 'javascript',
             value   : ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n')
         })
