@@ -44,6 +44,18 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        Neo.main.addon.MonacoEditor.destroyInstance({
+            appName: this.appName,
+            id     : this.id
+        });
+
+        super.destroy(...args)
+    }
+
+    /**
      *
      */
     onComponentMounted() {

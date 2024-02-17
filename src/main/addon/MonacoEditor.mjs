@@ -22,6 +22,7 @@ class MonacoEditor extends Base {
         remote: {
             app: [
                 'createInstance',
+                'destroyInstance',
                 'getValue',
                 'setValue'
             ]
@@ -51,6 +52,15 @@ class MonacoEditor extends Base {
             language: 'javascript',
             value   : ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n')
         })
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    destroyInstance(data) {
+        // todo: destroy the editor instance if possible
+        delete this.map[data.id]
     }
 
     /**
