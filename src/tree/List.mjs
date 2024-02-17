@@ -177,10 +177,11 @@ class Tree extends Base {
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
+     * @param {Boolean} hidden=false
      * @returns {Object} vdomRoot
      * @protected
      */
-    createItems(parentId, vdomRoot, level) {
+    createItems(parentId, vdomRoot, level, hidden=false) {
         let me        = this,
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
@@ -198,6 +199,7 @@ class Tree extends Base {
                     cls  : ['neo-list'],
                     cn   : [],
                     style: {
+                        display    : hidden ? 'none' : 'block',
                         paddingLeft: '15px'
                     }
                 });
@@ -242,7 +244,7 @@ class Tree extends Base {
                     }
                 });
 
-                me.createItems(item.id, tmpRoot, level + 1)
+                me.createItems(item.id, tmpRoot, level + 1, item.hidden || hidden)
             })
         }
 
