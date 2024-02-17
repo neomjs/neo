@@ -30,6 +30,10 @@ class MonacoEditor extends Base {
          */
         editorTheme_: 'vs',
         /**
+         * @member {String} language_='javascript'
+         */
+        language_: 'javascript',
+        /**
          * @member {String|String[]} value_=''
          */
         value_: ''
@@ -48,10 +52,11 @@ class MonacoEditor extends Base {
 
         if (value) {
             let opts = {
-                appName: me.appName,
-                id     : me.id,
-                theme  : me.editorTheme,
-                value  : me.stringifyValue(me.value)
+                appName : me.appName,
+                id      : me.id,
+                language: me.language,
+                theme   : me.editorTheme,
+                value   : me.stringifyValue(me.value)
             };
 
             setTimeout(() => {
@@ -75,7 +80,25 @@ class MonacoEditor extends Base {
             Neo.main.addon.MonacoEditor.setTheme({
                 appName: me.appName,
                 id     : me.id,
-                theme  : me.editorTheme
+                value
+            })
+        }
+    }
+
+    /**
+     * Triggered after the language config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLanguage(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setLanguage({
+                appName: me.appName,
+                id     : me.id,
+                value
             })
         }
     }
