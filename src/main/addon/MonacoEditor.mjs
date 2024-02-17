@@ -24,6 +24,7 @@ class MonacoEditor extends Base {
                 'createInstance',
                 'destroyInstance',
                 'getValue',
+                'setLanguage',
                 'setTheme',
                 'setValue'
             ]
@@ -47,12 +48,13 @@ class MonacoEditor extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
+     * @param {String} data.language
      * @param {String} data.theme
      * @param {String} data.value
      */
     createInstance(data) {
         this.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
-            language: 'javascript',
+            language: data.language,
             theme   : data.theme,
             value   : data.value
         })
@@ -96,10 +98,19 @@ class MonacoEditor extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
-     * @param {String} data.theme
+     * @param {String} data.value
+     */
+    setLanguage(data) {
+        this.map[data.id].getModel().setLanguage(data.value)
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.value
      */
     setTheme(data) {
-        this.map[data.id]._themeService.setTheme(data.theme)
+        this.map[data.id]._themeService.setTheme(data.value)
     }
 
     /**
