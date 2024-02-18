@@ -1,6 +1,7 @@
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import MonacoEditor          from '../../../../src/component/wrapper/MonacoEditor.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
+import Radio                 from '../../../../src/form/field/Radio.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.monacoEditor.MainContainer
@@ -18,6 +19,38 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module        : Radio,
+            checked       : me.exampleComponent.editorTheme === 'hc-black',
+            hideValueLabel: false,
+            labelText     : 'editorTheme',
+            listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'hc-black')},
+            name          : 'editorTheme',
+            valueLabelText: 'hc-black'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.editorTheme === 'hc-light',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'hc-light')},
+            name          : 'editorTheme',
+            valueLabelText: 'hc-light'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.editorTheme === 'vs',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'vs')},
+            name          : 'editorTheme',
+            valueLabelText: 'vs'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.editorTheme === 'vs-dark',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'vs-dark')},
+            name          : 'editorTheme',
+            valueLabelText: 'vs-dark'
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'height',
@@ -25,6 +58,7 @@ class MainContainer extends ConfigurationViewport {
             maxValue : 1000,
             minValue : 300,
             stepSize : 10,
+            style    : {marginTop: '10px'},
             value    : me.exampleComponent.height
         }, {
             module   : NumberField,
