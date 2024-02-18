@@ -716,7 +716,7 @@ class DomEvents extends Base {
                 parts.push('')
             }
 
-            key = decodeURIComponent(parts[0]);
+            key   = decodeURIComponent(parts[0]);
             value = decodeURIComponent(parts[1]);
 
             if (key.indexOf('[]') !== -1) {

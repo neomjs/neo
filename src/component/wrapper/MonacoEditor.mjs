@@ -44,6 +44,20 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            change: me.onContentChange,
+            scope : me
+        })
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -179,10 +193,13 @@ class MonacoEditor extends Base {
     }
 
     /**
-     *
+     * @param {Object} data
+     * @param {Object} data.event
+     * @param {String} data.id
+     * @param {String} data.value
      */
-    onComponentMounted() {
-        console.log('onComponentMounted', this.id);
+    onContentChange(data) {
+        this.fire('change', data)
     }
 
     /**

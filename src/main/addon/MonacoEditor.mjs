@@ -1,5 +1,6 @@
 import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * Adds support for using the Monaco Code Editor within neo.
@@ -55,13 +56,16 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     createInstance(data) {
-        this.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
-            fontSize: data.fontSize,
-            language: data.language,
-            minimap : { enabled: false },
-            theme   : data.theme,
-            value   : data.value
-        })
+        let me     = this,
+            editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
+                fontSize: data.fontSize,
+                language: data.language,
+                minimap : { enabled: false },
+                theme   : data.theme,
+                value   : data.value
+            });
+
+        editor.getModel().onDidChangeContent(me.onContentChange.bind(me, data.id))
     }
 
     /**
@@ -95,6 +99,24 @@ class MonacoEditor extends Base {
             DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.js')
         ]).then(() => {
             // console.log('files loaded');
+        })
+    }
+
+    /**
+     * Forwards content changes as DOM change events to the app-worker.
+     * @param {String} id
+     * @param {Object} event
+     */
+    onContentChange(id, event) {
+        let node = DomAccess.getElement(id),
+            path = DomEvents.getPathFromElement(node).map(e => DomEvents.getTargetData(e));
+
+        DomEvents.sendMessageToApp({
+            event,
+            id,
+            path,
+            type : 'change',
+            value: this.map[id].getModel().getValue()
         })
     }
 
