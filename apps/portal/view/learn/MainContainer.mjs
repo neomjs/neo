@@ -46,12 +46,16 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 4
         }, {
-            module   : ContentView,
-            reference: 'content',
-            listeners: {
-                edit   : 'onContentEdit',
-                refresh: 'onContentRefresh'
-            }
+            module      : Container,
+            cls         : ['learn-content-container'],
+            items:  [{
+                    module   : ContentView,
+                    reference: 'content',
+                    listeners: {
+                        edit   : 'onContentEdit',
+                        refresh: 'onContentRefresh'
+                    }
+            }]
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

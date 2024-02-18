@@ -124,6 +124,96 @@
           "value": "#5595F5",
           "type": "color"
         }
+      },
+      "surface": {
+        "primary": {
+          "default": {
+            "value": "{purple.400}",
+            "type": "color"
+          },
+          "hover": {
+            "value": "{purple.500}",
+            "type": "color"
+          },
+          "active": {
+            "value": "{purple.700}",
+            "type": "color"
+          },
+          "background": {
+            "value": "{purple.100}",
+            "type": "color"
+          }
+        },
+        "neutral": {
+          "default": {
+            "value": "{gray.50}",
+            "type": "color"
+          },
+          "highlighted": {
+            "value": "{white}",
+            "type": "color"
+          },
+          "hover": {
+            "value": "{black}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": ".05",
+                  "space": "srgb"
+                }
+              }
+            }
+          },
+          "active": {
+            "value": "{black}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": "0.1",
+                  "space": "srgb"
+                }
+              }
+            }
+          }
+        },
+        "disabled": {
+          "value": "{gray.200}",
+          "type": "color"
+        }
+      },
+      "text": {
+        "neutral": {
+          "default": {
+            "value": "{gray.900}",
+            "type": "color"
+          },
+          "contrast": {
+            "value": "{black}",
+            "type": "color"
+          },
+          "subdued": {
+            "value": "{gray.700}",
+            "type": "color"
+          },
+          "reversed": {
+            "value": "{white}",
+            "type": "color"
+          }
+        },
+        "disabled": {
+          "value": "{gray.300}",
+          "type": "color"
+        },
+        "primary": {
+          "default": {
+            "value": "{purple.400}",
+            "type": "color"
+          }
+        }
       }
     },
     "spacing": {

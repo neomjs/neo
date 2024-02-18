@@ -4,11 +4,28 @@ $border-color    : #ddd;
 $border-style    : solid;
 $border-width    : 1px;
 
-:root .neo-theme-neo-light { // .neo-button
-    --button-background-color                   : var(--cmp-button-primary-bg-default);
-    --button-background-color-active            : var(--cmp-button-primary-bg-active);
-    --button-background-color-disabled          : var(--cmp-button-primary-bg-disabled);
-    --button-background-color-hover             : var(--cmp-button-primary-bg-hover);
+:root .neo-theme-neo-light { 
+    // .neo-button
+    // Background Color
+    --button-background-color                   : var(--cmp-button-primary-surface-default);
+    --button-background-color-active            : var(--cmp-button-primary-surface-active);
+    --button-background-color-disabled          : var(--cmp-button-primary-surface-disabled);
+    --button-background-color-hover             : var(--cmp-button-primary-surface-hover);
+
+    // Text
+    --button-text-color                         : var(--sem-color-text-neutral-reversed);
+    --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
+    --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
+    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled);
+
+    //Border
+    --button-border                             : none;
+    --button-border-active                      : none;
+    --button-border-disabled                    : none;
+    --button-border-hover                       : none;
+    --button-border-pressed                     : none;
+    --button-border-radius                      : var(--cmp-button-borderradius);
+
     --button-background-image                   : none;
     --button-background-gradient-end            : #323536;
     --button-background-gradient-start          : #434749;
@@ -16,12 +33,6 @@ $border-width    : 1px;
     --button-badge-color                        : var(--sem-color-fg-neutral-contrast);
     --button-badge-margin-left                  : -10px;
     --button-badge-margin-top                   : -10px;
-    --button-border                             : none;
-    --button-border-active                      : none;
-    --button-border-disabled                    : none;
-    --button-border-hover                       : none;
-    --button-border-pressed                     : none;
-    --button-border-radius                      : var(--cmp-button-borderradius);
     --button-glyph-color                        : var(--sem-color-fg-neutral-contrast);
     --button-glyph-color-active                 : var(--sem-color-fg-neutral-contrast);
     --button-glyph-color-disabled               : var(--sem-color-fg-neutral-contrast);
@@ -32,10 +43,6 @@ $border-width    : 1px;
     --button-outline-active                     : none;
     --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
     --button-ripple-background-color            : transparent;
-    --button-text-color                         : var(--sem-color-fg-neutral-contrast);
-    --button-text-color-active                  : var(--sem-color-fg-neutral-contrast);
-    --button-text-color-disabled                : var(--sem-color-fg-neutral-disabled);
-    --button-text-color-hover                   : var(--sem-color-fg-neutral-contrast);
     --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
     --button-text-font-size                     : var(--core-fontsize-label);
     --button-text-font-weight                   : var(--core-fontweight-semibold);
@@ -44,10 +51,12 @@ $border-width    : 1px;
     --button-use-gradients                      : false;
 
     // {module: Button; ui: --ghost}
-    --button-ghost-background-color             : var(--cmp-button-ghost-bg-default);
-    --button-ghost-background-color-active      : var(--cmp-button-ghost-bg-active);
-    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-bg-disabled);
-    --button-ghost-background-color-hover       : var(--cmp-button-ghost-bg-hover);
+    // Background Color
+    --button-ghost-background-color             : var(--cmp-button-ghost-surface-default);
+    --button-ghost-background-color-hover       : var(--cmp-button-ghost-surface-hover);
+    --button-ghost-background-color-active      : var(--cmp-button-ghost-surface-active);
+    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-surface-disabled);
+
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : transparent;
     --button-ghost-badge-color                  : transparent;
