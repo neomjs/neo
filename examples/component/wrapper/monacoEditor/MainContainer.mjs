@@ -53,6 +53,15 @@ class MainContainer extends ConfigurationViewport {
         }, {
             module   : NumberField,
             clearable: true,
+            labelText: 'fontSize',
+            listeners: {change: me.onConfigChange.bind(me, 'fontSize')},
+            maxValue : 30,
+            minValue : 8,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.fontSize
+        }, {
+            module   : NumberField,
+            clearable: true,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
             maxValue : 1000,

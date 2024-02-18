@@ -30,6 +30,10 @@ class MonacoEditor extends Base {
          */
         editorTheme_: 'vs',
         /**
+         * @member {Number} fontSize_=14
+         */
+        fontSize_: 14,
+        /**
          * @member {String} language_='javascript'
          */
         language_: 'javascript',
@@ -54,6 +58,7 @@ class MonacoEditor extends Base {
             let opts = {
                 appName : me.appName,
                 id      : me.id,
+                fontSize: me.fontSize,
                 language: me.language,
                 theme   : me.editorTheme,
                 value   : me.stringifyValue(me.value)
@@ -81,6 +86,24 @@ class MonacoEditor extends Base {
                 appName: me.appName,
                 id     : me.id,
                 value
+            })
+        }
+    }
+
+    /**
+     * Triggered after the fontSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetFontSize(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setOptions({
+                appName: me.appName,
+                id     : me.id,
+                options: {fontSize: value}
             })
         }
     }
