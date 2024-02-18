@@ -55,9 +55,9 @@ class MonacoEditor extends Base {
     createInstance(data) {
         this.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
             language: data.language,
+            minimap : { enabled: false },
             theme   : data.theme,
-            value   : data.value,
-            minimap : { enabled: false }
+            value   : data.value
         })
     }
 
