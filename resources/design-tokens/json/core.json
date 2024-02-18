@@ -280,39 +280,39 @@
   },
   "purple": {
     "100": {
-      "value": "#efe3ff",
+      "value": "#D6E1FF",
       "type": "color"
     },
     "200": {
-      "value": "#d0aaff",
+      "value": "#9EB1FF",
       "type": "color"
     },
     "300": {
-      "value": "#b071ff",
+      "value": "#5472E4",
       "type": "color"
     },
     "400": {
-      "value": "#9039ff",
+      "value": "#3E63DD",
       "type": "color"
     },
     "500": {
-      "value": "#7100ff",
+      "value": "#435DB1",
       "type": "color"
     },
     "600": {
-      "value": "#5800c6",
+      "value": "#304384",
       "type": "color"
     },
     "700": {
-      "value": "#3f008e",
+      "value": "#253974",
       "type": "color"
     },
     "800": {
-      "value": "#260055",
+      "value": "#1D2E62",
       "type": "color"
     },
     "900": {
-      "value": "#0d001c",
+      "value": "#182449",
       "type": "color"
     }
   },
@@ -343,6 +343,10 @@
       "h2": {
         "value": "1.75rem",
         "type": "fontSizes"
+      },
+      "label": {
+        "value": "1rem",
+        "type": "fontSizes"
       }
     },
     "fontweight": {
@@ -371,6 +375,12 @@
       "paragraph": {
         "value": "1.5",
         "type": "lineHeights"
+      }
+    },
+    "textdecoration": {
+      "underline": {
+        "value": "underline",
+        "type": "textDecoration"
       }
     }
   }
