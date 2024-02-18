@@ -1,6 +1,5 @@
 import Base       from './Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
-import Stylesheet from './Stylesheet.mjs'
 
 /**
  * Required for the docs app which uses highlight.js for the source views
@@ -69,7 +68,7 @@ class HighlightJS extends Base {
             DomAccess.addScript({src: me.highlightJsLineNumbersPath});
         });
 
-        Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
 
         return true
     }
@@ -97,14 +96,14 @@ class HighlightJS extends Base {
      */
     switchTheme(theme) {
         let definedThemes = {
-                dark: './resources/highlightjs-custom-dark-theme.css',
+                dark : './resources/highlightjs-custom-dark-theme.css',
                 light: './resources/highlightjs-custom-github-theme.css'
             },
             switchToTheme = definedThemes[theme];
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
     }
 
     /**
