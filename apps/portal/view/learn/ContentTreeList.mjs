@@ -53,8 +53,6 @@ class ContentTreeList extends TreeList {
 
             modifiedHtml = this.extractNeoContent(modifiedHtml, neoDivs);
 
-
-
             await Neo.main.addon.Markdown.markdownToHtml(modifiedHtml)
                 .then(
                     html => {
@@ -70,12 +68,12 @@ class ContentTreeList extends TreeList {
             await this.timeout(50); // Do we need this?
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
-                let foo = Neo.create(LivePreview, {
-                    value: neoDivs[key],
+                Neo.create(LivePreview, {
+                    appName : this.appName,
                     parentId: key,
-                    appName: this.appName
+                    value   : neoDivs[key]
                 })
-            });
+            })
         }
     }
 

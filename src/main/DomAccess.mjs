@@ -551,9 +551,10 @@ class DomAccess extends Base {
     /**
      * Include a link into the document.head
      * @param {String} href
+     * @param {Object} dataset=null
      * @returns {Promise<unknown>}
      */
-    loadStylesheet(href) {
+    loadStylesheet(href, dataset=null) {
         let link;
 
         return new Promise((resolve, reject) => {
@@ -566,6 +567,10 @@ class DomAccess extends Base {
                 rel    : 'stylesheet',
                 type   : 'text/css'
             });
+
+            if (dataset) {
+                Object.assign(link.dataset, dataset)
+            }
 
             document.head.appendChild(link)
         })

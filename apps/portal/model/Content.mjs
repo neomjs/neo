@@ -21,6 +21,9 @@ class Content extends Model {
             name: 'collapsed',
             type: 'Boolean'
         }, {
+            name: 'hidden',
+            type: 'Boolean'
+        }, {
             name: 'id',
             type: 'Integer'
         }, {
