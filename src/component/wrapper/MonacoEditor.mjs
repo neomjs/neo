@@ -386,6 +386,19 @@ class MonacoEditor extends Base {
     }
 
     /**
+     *
+     * @param {String|String[]} value
+     * @returns {String}
+     */
+    stringifyValue(value) {
+        if (Array.isArray(value)) {
+            value = value.join('\n')
+        }
+
+        return value
+    }
+
+    /**
      * @param {Object} options
      */
     updateOptions(options) {
@@ -398,19 +411,6 @@ class MonacoEditor extends Base {
                 options
             })
         }
-    }
-
-    /**
-     *
-     * @param {String|String[]} value
-     * @returns {String}
-     */
-    stringifyValue(value) {
-        if (Array.isArray(value)) {
-            value = value.join('\n')
-        }
-
-        return value
     }
 }
 
