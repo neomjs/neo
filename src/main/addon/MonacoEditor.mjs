@@ -59,37 +59,21 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * @param {Object}  data
-     * @param {Boolean} data.contextmenu
-     * @param {String}  data.cursorBlinking
-     * @param {Boolean} data.domReadOnly
-     * @param {Number}  data.fontSize
-     * @param {String}  data.id
-     * @param {String}  data.language
-     * @param {String}  data.lineNumbers
-     * @param {Object}  data.minimap
-     * @param {Boolean} data.readOnly
-     * @param {Boolean} data.scrollBeyondLastLine
-     * @param {String}  data.theme
-     * @param {String}  data.value
+     * For a complete list of options see:
+     * https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor.IEditorOptions.html
+     * @param {Object} data
      */
     createInstance(data) {
-        let me     = this,
-            editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
-                contextmenu         : data.contextmenu,
-                cursorBlinking      : data.cursorBlinking,
-                domReadOnly         : data.domReadOnly,
-                fontSize            : data.fontSize,
-                language            : data.language,
-                lineNumbers         : data.lineNumbers,
-                minimap             : data.minimap,
-                readOnly            : data.readOnly,
-                scrollBeyondLastLine: data.scrollBeyondLastLine,
-                theme               : data.theme,
-                value               : data.value
-            });
+        let me = this,
+            id = data.id,
+            editor;
 
-        editor.getModel().onDidChangeContent(me.onContentChange.bind(me, data.id))
+        delete data.appName;
+        delete data.id;
+
+        editor = me.map[id] = monaco.editor.create(DomAccess.getElement(id), data);
+
+        editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
     }
 
     /**
