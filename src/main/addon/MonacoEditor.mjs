@@ -4,7 +4,8 @@ import DomEvents from '../DomEvents.mjs';
 
 /**
  * Adds support for using the Monaco Code Editor within neo.
- * See: https://github.com/microsoft/monaco-editor
+ * Repository: https://github.com/microsoft/monaco-editor
+ * API: https://microsoft.github.io/monaco-editor/typedoc/index.html
  * @class Neo.main.addon.MonacoEditor
  * @extends Neo.main.addon.Base
  */
@@ -30,9 +31,9 @@ class MonacoEditor extends Base {
                 'destroyInstance',
                 'getValue',
                 'setLanguage',
-                'setOptions',
                 'setTheme',
-                'setValue'
+                'setValue',
+                'updateOptions'
             ]
         }
     }
@@ -154,15 +155,6 @@ class MonacoEditor extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
-     * @param {Object} data.options
-     */
-    setOptions(data) {console.log(data.options);
-        this.map[data.id].updateOptions(data.options)
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.id
      * @param {String} data.value
      */
     setTheme(data) {
@@ -176,6 +168,15 @@ class MonacoEditor extends Base {
      */
     setValue(data) {
         this.map[data.id].getModel().setValue(data.value)
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.options
+     */
+    updateOptions(data) {
+        this.map[data.id].updateOptions(data.options)
     }
 }
 

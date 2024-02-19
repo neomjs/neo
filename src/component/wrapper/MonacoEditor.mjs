@@ -1,6 +1,7 @@
 import Base from '../../component/Base.mjs';
 
 /**
+ * Using this wrapper component requires to import the related main thread addon: Neo.main.addon.MonacoEditor
  * @class Neo.component.wrapper.MonacoEditor
  * @extends Neo.component.Base
  */
@@ -64,6 +65,16 @@ class MonacoEditor extends Base {
          */
         minimap_: {enabled: false},
         /**
+         * A generic config which allows changing all editor options which are not exposed as configs here.
+         * For a full list of available options see:
+         * https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor.IEditorOptions.html
+         *
+         * For initial options this config will win over related class configs.
+         * However, run-time changes of related class configs will dynamically change their option values.
+         * @member {Object} options_={}
+         */
+        options_: {},
+        /**
          * @member {Boolean} readOnly_=false
          */
         readOnly_: true,
@@ -98,7 +109,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetContextmenu(value, oldValue) {
-        this.setOptions({contextmenu: value})
+        this.updateOptions({contextmenu: value})
     }
 
     /**
@@ -108,7 +119,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetCursorBlinking(value, oldValue) {
-        this.setOptions({cursorBlinking: value})
+        this.updateOptions({cursorBlinking: value})
     }
 
     /**
@@ -118,7 +129,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetDomReadOnly(value, oldValue) {
-        this.setOptions({domReadOnly: value})
+        this.updateOptions({domReadOnly: value})
     }
 
     /**
@@ -142,7 +153,8 @@ class MonacoEditor extends Base {
                 minimap    : me.minimap,
                 readOnly   : me.readOnly,
                 theme      : me.editorTheme,
-                value      : me.stringifyValue(me.value)
+                value      : me.stringifyValue(me.value),
+                ...me.options
             };
 
             setTimeout(() => {
@@ -178,7 +190,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetFontSize(value, oldValue) {
-        this.setOptions({fontSize: value})
+        this.updateOptions({fontSize: value})
     }
 
     /**
@@ -206,7 +218,17 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetMinimap(value, oldValue) {
-        this.setOptions({minimap: value})
+        this.updateOptions({minimap: value})
+    }
+
+    /**
+     * Triggered after the options config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterupdateOptions(value, oldValue) {
+        this.updateOptions(value)
     }
 
     /**
@@ -216,7 +238,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        this.setOptions({readOnly: value})
+        this.updateOptions({readOnly: value})
     }
 
     /**
@@ -226,7 +248,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetShowLineNumbers(value, oldValue) {
-        this.setOptions({lineNumbers: value ? 'on' : 'off'})
+        this.updateOptions({lineNumbers: value ? 'on' : 'off'})
     }
 
     /**
@@ -305,11 +327,11 @@ class MonacoEditor extends Base {
     /**
      * @param {Object} options
      */
-    setOptions(options) {
+    updateOptions(options) {
         let me = this;
 
         if (me.mounted) {
-            Neo.main.addon.MonacoEditor.setOptions({
+            Neo.main.addon.MonacoEditor.updateOptions({
                 appName: me.appName,
                 id     : me.id,
                 options
