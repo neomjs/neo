@@ -61,6 +61,7 @@ class MonacoEditor extends Base {
      * @param {Number} data.fontSize
      * @param {String} data.id
      * @param {String} data.language
+     * @param {String} data.lineNumbers
      * @param {Object} data.minimap
      * @param {String} data.theme
      * @param {String} data.value
@@ -68,11 +69,12 @@ class MonacoEditor extends Base {
     createInstance(data) {
         let me     = this,
             editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
-                fontSize: data.fontSize,
-                language: data.language,
-                minimap : data.minimap,
-                theme   : data.theme,
-                value   : data.value
+                fontSize   : data.fontSize,
+                language   : data.language,
+                lineNumbers: data.lineNumbers,
+                minimap    : data.minimap,
+                theme      : data.theme,
+                value      : data.value
             });
 
         editor.getModel().onDidChangeContent(me.onContentChange.bind(me, data.id))

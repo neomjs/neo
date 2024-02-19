@@ -77,6 +77,12 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onToggleMinimap.bind(me)},
             style    : {marginTop: '10px'}
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.showLineNumbers,
+            labelText: 'showLineNumbers',
+            listeners: {change: me.onConfigChange.bind(me, 'showLineNumbers')},
+            style    : {marginTop: '10px'}
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'width',
