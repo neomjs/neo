@@ -150,6 +150,8 @@ class MonacoEditor extends Base {
         if (value) {
             let opts = {
                 appName             : me.appName,
+                contextmenu         : me.contextmenu,
+                cursorBlinking      : me.cursorBlinking,
                 domReadOnly         : me.domReadOnly,
                 id                  : me.id,
                 fontSize            : me.fontSize,
