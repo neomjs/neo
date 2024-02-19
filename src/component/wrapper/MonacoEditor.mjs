@@ -184,6 +184,17 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the height config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetHeight(value, oldValue) {
+        super.afterSetHeight(value, oldValue);
+        this.layoutEditor()
+    }
+
+    /**
      * Triggered after the language config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -270,6 +281,17 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the width config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWidth(value, oldValue) {
+        super.afterSetWidth(value, oldValue);
+        this.layoutEditor()
+    }
+
+    /**
      * Triggered before the cursorBlinking config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -337,6 +359,20 @@ class MonacoEditor extends Base {
             value               : me.stringifyValue(me.value),
             ...me.options
         }
+    }
+
+    /**
+     *
+     */
+    layoutEditor() {
+        let me = this;
+
+        me.mounted && setTimeout(() => {
+            Neo.main.addon.MonacoEditor.layoutEditor({
+                appName: me.appName,
+                id     : me.id
+            })
+        }, 50)
     }
 
     /**
