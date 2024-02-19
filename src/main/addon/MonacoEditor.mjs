@@ -16,6 +16,10 @@ class MonacoEditor extends Base {
          */
         className: 'Neo.main.addon.MonacoEditor',
         /**
+         * @member {String} libraryBasePath='../../../../node_modules/monaco-editor/min/vs'
+         */
+        libraryBasePath: '../../../../node_modules/monaco-editor/min/vs',
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -91,13 +95,15 @@ class MonacoEditor extends Base {
      *
      */
     loadFiles() {
-        window.require = { paths: { vs: '../../../../node_modules/monaco-editor/min/vs' } };
+        const path = this.libraryBasePath;
+
+        window.require = { paths: { vs: path } };
 
         Promise.all([
-            DomAccess.loadStylesheet('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
-            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/loader.js'),
-            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.nls.js'),
-            DomAccess.loadScript('../../../../node_modules/monaco-editor/min/vs/editor/editor.main.js')
+            DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
+            DomAccess.loadScript(path + '/loader.js'),
+            DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
+            DomAccess.loadScript(path + '/editor/editor.main.js')
         ]).then(() => {
             // console.log('files loaded');
         })
