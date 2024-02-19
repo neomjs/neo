@@ -42,6 +42,10 @@ class MonacoEditor extends Base {
          */
         minimap_: {enabled: false},
         /**
+         * @member {Boolean} showLineNumbers_=true
+         */
+        showLineNumbers_: true,
+        /**
          * @member {String|String[]} value_=''
          */
         value_: ''
@@ -74,13 +78,14 @@ class MonacoEditor extends Base {
 
         if (value) {
             let opts = {
-                appName : me.appName,
-                id      : me.id,
-                fontSize: me.fontSize,
-                language: me.language,
-                minimap : me.minimap,
-                theme   : me.editorTheme,
-                value   : me.stringifyValue(me.value)
+                appName    : me.appName,
+                id         : me.id,
+                fontSize   : me.fontSize,
+                language   : me.language,
+                lineNumbers: me.showLineNumbers ? 'on' : 'off',
+                minimap    : me.minimap,
+                theme      : me.editorTheme,
+                value      : me.stringifyValue(me.value)
             };
 
             setTimeout(() => {
@@ -159,6 +164,24 @@ class MonacoEditor extends Base {
                 appName: me.appName,
                 id     : me.id,
                 options: {minimap: value}
+            })
+        }
+    }
+
+    /**
+     * Triggered after the showLineNumbers config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowLineNumbers(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setOptions({
+                appName: me.appName,
+                id     : me.id,
+                options: {lineNumbers: value ? 'on' : 'off'}
             })
         }
     }
