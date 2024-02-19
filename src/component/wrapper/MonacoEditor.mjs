@@ -95,7 +95,7 @@ class MonacoEditor extends Base {
 
             setTimeout(() => {
                 Neo.main.addon.MonacoEditor.createInstance(opts).then(() => {
-                    me.onComponentMounted?.()
+                    me.onEditorMounted?.()
                 })
             }, 50)
         }
