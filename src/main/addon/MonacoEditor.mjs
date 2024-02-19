@@ -68,22 +68,24 @@ class MonacoEditor extends Base {
      * @param {String}  data.lineNumbers
      * @param {Object}  data.minimap
      * @param {Boolean} data.readOnly
+     * @param {Boolean} data.scrollBeyondLastLine
      * @param {String}  data.theme
      * @param {String}  data.value
      */
     createInstance(data) {
         let me     = this,
             editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
-                contextmenu   : data.contextmenu,
-                cursorBlinking: data.cursorBlinking,
-                domReadOnly   : data.domReadOnly,
-                fontSize      : data.fontSize,
-                language      : data.language,
-                lineNumbers   : data.lineNumbers,
-                minimap       : data.minimap,
-                readOnly      : data.readOnly,
-                theme         : data.theme,
-                value         : data.value
+                contextmenu         : data.contextmenu,
+                cursorBlinking      : data.cursorBlinking,
+                domReadOnly         : data.domReadOnly,
+                fontSize            : data.fontSize,
+                language            : data.language,
+                lineNumbers         : data.lineNumbers,
+                minimap             : data.minimap,
+                readOnly            : data.readOnly,
+                scrollBeyondLastLine: data.scrollBeyondLastLine,
+                theme               : data.theme,
+                value               : data.value
             });
 
         editor.getModel().onDidChangeContent(me.onContentChange.bind(me, data.id))

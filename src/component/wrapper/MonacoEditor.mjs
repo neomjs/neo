@@ -77,7 +77,11 @@ class MonacoEditor extends Base {
         /**
          * @member {Boolean} readOnly_=false
          */
-        readOnly_: true,
+        readOnly_: false,
+        /**
+         * @member {Boolean} scrollBeyondLastLine_=false
+         */
+        scrollBeyondLastLine_: false,
         /**
          * @member {Boolean} showLineNumbers_=true
          */
@@ -145,15 +149,16 @@ class MonacoEditor extends Base {
 
         if (value) {
             let opts = {
-                appName    : me.appName,
-                id         : me.id,
-                fontSize   : me.fontSize,
-                language   : me.language,
-                lineNumbers: me.showLineNumbers ? 'on' : 'off',
-                minimap    : me.minimap,
-                readOnly   : me.readOnly,
-                theme      : me.editorTheme,
-                value      : me.stringifyValue(me.value),
+                appName             : me.appName,
+                id                  : me.id,
+                fontSize            : me.fontSize,
+                language            : me.language,
+                lineNumbers         : me.showLineNumbers ? 'on' : 'off',
+                minimap             : me.minimap,
+                readOnly            : me.readOnly,
+                scrollBeyondLastLine: me.scrollBeyondLastLine,
+                theme               : me.editorTheme,
+                value               : me.stringifyValue(me.value),
                 ...me.options
             };
 
@@ -227,7 +232,7 @@ class MonacoEditor extends Base {
      * @param {Object} oldValue
      * @protected
      */
-    afterupdateOptions(value, oldValue) {
+    afterSetOptions(value, oldValue) {
         this.updateOptions(value)
     }
 
@@ -239,6 +244,16 @@ class MonacoEditor extends Base {
      */
     afterSetReadOnly(value, oldValue) {
         this.updateOptions({readOnly: value})
+    }
+
+    /**
+     * Triggered after the scrollBeyondLastLine config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetScrollBeyondLastLine(value, oldValue) {
+        this.updateOptions({scrollBeyondLastLine: value})
     }
 
     /**

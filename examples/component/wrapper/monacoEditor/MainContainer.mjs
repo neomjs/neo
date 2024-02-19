@@ -11,7 +11,7 @@ import Radio                 from '../../../../src/form/field/Radio.mjs';
 class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.component.wrapper.monacoEditor.MainContainer',
-        configItemLabelWidth: 160,
+        configItemLabelWidth: 170,
         configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
@@ -134,6 +134,12 @@ class MainContainer extends ConfigurationViewport {
             checked  : me.exampleComponent.readOnly,
             labelText: 'readOnly',
             listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.scrollBeyondLastLine,
+            labelText: 'scrollBeyondLastLine',
+            listeners: {change: me.onConfigChange.bind(me, 'scrollBeyondLastLine')},
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
