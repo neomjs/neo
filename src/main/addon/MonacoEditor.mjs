@@ -30,6 +30,7 @@ class MonacoEditor extends Base {
                 'createInstance',
                 'destroyInstance',
                 'getValue',
+                'layoutEditor',
                 'setLanguage',
                 'setTheme',
                 'setValue',
@@ -107,6 +108,15 @@ class MonacoEditor extends Base {
      */
     getValue(data) {
         return this.map[data.id].getModel().getValue()
+    }
+
+    /**
+     * Changing the size of the parent container will only get honored when re-triggering an editor layout
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    layoutEditor(data) {
+        this.map[data.id].layout()
     }
 
     /**
