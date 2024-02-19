@@ -42,6 +42,10 @@ class MonacoEditor extends Base {
          */
         minimap_: {enabled: false},
         /**
+         * @member {Boolean} readOnly_=false
+         */
+        readOnly_: false,
+        /**
          * @member {Boolean} showLineNumbers_=true
          */
         showLineNumbers_: true,
@@ -84,6 +88,7 @@ class MonacoEditor extends Base {
                 language   : me.language,
                 lineNumbers: me.showLineNumbers ? 'on' : 'off',
                 minimap    : me.minimap,
+                readOnly   : me.readOnly,
                 theme      : me.editorTheme,
                 value      : me.stringifyValue(me.value)
             };
@@ -164,6 +169,24 @@ class MonacoEditor extends Base {
                 appName: me.appName,
                 id     : me.id,
                 options: {minimap: value}
+            })
+        }
+    }
+
+    /**
+     * Triggered after the readOnly config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetReadOnly(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setOptions({
+                appName: me.appName,
+                id     : me.id,
+                options: {readOnly: value}
             })
         }
     }

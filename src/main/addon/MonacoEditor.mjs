@@ -57,14 +57,15 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @param {Number} data.fontSize
-     * @param {String} data.id
-     * @param {String} data.language
-     * @param {String} data.lineNumbers
-     * @param {Object} data.minimap
-     * @param {String} data.theme
-     * @param {String} data.value
+     * @param {Object}  data
+     * @param {Number}  data.fontSize
+     * @param {String}  data.id
+     * @param {String}  data.language
+     * @param {String}  data.lineNumbers
+     * @param {Object}  data.minimap
+     * @param {Boolean} data.readOnly
+     * @param {String}  data.theme
+     * @param {String}  data.value
      */
     createInstance(data) {
         let me     = this,
@@ -73,6 +74,7 @@ class MonacoEditor extends Base {
                 language   : data.language,
                 lineNumbers: data.lineNumbers,
                 minimap    : data.minimap,
+                readOnly   : data.readOnly,
                 theme      : data.theme,
                 value      : data.value
             });
