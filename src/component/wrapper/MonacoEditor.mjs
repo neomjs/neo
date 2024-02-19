@@ -38,6 +38,10 @@ class MonacoEditor extends Base {
          */
         language_: 'javascript',
         /**
+         * @member {Object} minimap_={enabled: false}
+         */
+        minimap_: {enabled: false},
+        /**
          * @member {String|String[]} value_=''
          */
         value_: ''
@@ -74,13 +78,14 @@ class MonacoEditor extends Base {
                 id      : me.id,
                 fontSize: me.fontSize,
                 language: me.language,
+                minimap : me.minimap,
                 theme   : me.editorTheme,
                 value   : me.stringifyValue(me.value)
             };
 
             setTimeout(() => {
                 Neo.main.addon.MonacoEditor.createInstance(opts).then(() => {
-                    me.onComponentMounted()
+                    me.onComponentMounted?.()
                 })
             }, 50)
         }
@@ -136,6 +141,24 @@ class MonacoEditor extends Base {
                 appName: me.appName,
                 id     : me.id,
                 value
+            })
+        }
+    }
+
+    /**
+     * Triggered after the minimap config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetMinimap(value, oldValue) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setOptions({
+                appName: me.appName,
+                id     : me.id,
+                options: {minimap: value}
             })
         }
     }
