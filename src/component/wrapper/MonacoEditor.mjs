@@ -41,6 +41,12 @@ class MonacoEditor extends Base {
          */
         cursorBlinking_: 'blink',
         /**
+         * additional property to only use in combination with readOnly === true.
+         * domReadOnly additionally sets the readonly attribute to the underlying textarea.
+         * @member {Boolean} domReadOnly_=false
+         */
+        domReadOnly_: false,
+        /**
          * Options are: 'vs', 'vs-dark', 'hc-black', 'hc-light'
          * @member {String} editorTheme_='vs'
          */
@@ -60,7 +66,7 @@ class MonacoEditor extends Base {
         /**
          * @member {Boolean} readOnly_=false
          */
-        readOnly_: false,
+        readOnly_: true,
         /**
          * @member {Boolean} showLineNumbers_=true
          */
@@ -103,6 +109,16 @@ class MonacoEditor extends Base {
      */
     afterSetCursorBlinking(value, oldValue) {
         this.setOptions({cursorBlinking: value})
+    }
+
+    /**
+     * Triggered after the domReadOnly config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDomReadOnly(value, oldValue) {
+        this.setOptions({domReadOnly: value})
     }
 
     /**
