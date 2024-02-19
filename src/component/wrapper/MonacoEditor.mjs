@@ -126,15 +126,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetFontSize(value, oldValue) {
-        let me = this;
-
-        if (me.mounted) {
-            Neo.main.addon.MonacoEditor.setOptions({
-                appName: me.appName,
-                id     : me.id,
-                options: {fontSize: value}
-            })
-        }
+        this.setOptions({fontSize: value})
     }
 
     /**
@@ -162,15 +154,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetMinimap(value, oldValue) {
-        let me = this;
-
-        if (me.mounted) {
-            Neo.main.addon.MonacoEditor.setOptions({
-                appName: me.appName,
-                id     : me.id,
-                options: {minimap: value}
-            })
-        }
+        this.setOptions({minimap: value})
     }
 
     /**
@@ -180,15 +164,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        let me = this;
-
-        if (me.mounted) {
-            Neo.main.addon.MonacoEditor.setOptions({
-                appName: me.appName,
-                id     : me.id,
-                options: {readOnly: value}
-            })
-        }
+        this.setOptions({readOnly: value})
     }
 
     /**
@@ -198,15 +174,7 @@ class MonacoEditor extends Base {
      * @protected
      */
     afterSetShowLineNumbers(value, oldValue) {
-        let me = this;
-
-        if (me.mounted) {
-            Neo.main.addon.MonacoEditor.setOptions({
-                appName: me.appName,
-                id     : me.id,
-                options: {lineNumbers: value ? 'on' : 'off'}
-            })
-        }
+        this.setOptions({lineNumbers: value ? 'on' : 'off'})
     }
 
     /**
@@ -269,6 +237,21 @@ class MonacoEditor extends Base {
      */
     onContentChange(data) {
         this.fire('change', data)
+    }
+
+    /**
+     * @param {Object} options
+     */
+    setOptions(options) {
+        let me = this;
+
+        if (me.mounted) {
+            Neo.main.addon.MonacoEditor.setOptions({
+                appName: me.appName,
+                id     : me.id,
+                options
+            })
+        }
     }
 
     /**
