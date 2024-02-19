@@ -66,6 +66,12 @@ class MainContainer extends ConfigurationViewport {
             name          : 'cursorBlinking',
             valueLabelText: 'solid'
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.domReadOnly,
+            labelText: 'domReadOnly',
+            listeners: {change: me.onConfigChange.bind(me, 'domReadOnly')},
+            style    : {marginTop: '10px'}
+        }, {
             module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'hc-black',
             hideValueLabel: false,

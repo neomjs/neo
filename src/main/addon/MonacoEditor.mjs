@@ -60,6 +60,7 @@ class MonacoEditor extends Base {
      * @param {Object}  data
      * @param {Boolean} data.contextmenu
      * @param {String}  data.cursorBlinking
+     * @param {Boolean} data.domReadOnly
      * @param {Number}  data.fontSize
      * @param {String}  data.id
      * @param {String}  data.language
@@ -74,6 +75,7 @@ class MonacoEditor extends Base {
             editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
                 contextmenu   : data.contextmenu,
                 cursorBlinking: data.cursorBlinking,
+                domReadOnly   : data.domReadOnly,
                 fontSize      : data.fontSize,
                 language      : data.language,
                 lineNumbers   : data.lineNumbers,
@@ -154,7 +156,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      * @param {Object} data.options
      */
-    setOptions(data) {
+    setOptions(data) {console.log(data.options);
         this.map[data.id].updateOptions(data.options)
     }
 
