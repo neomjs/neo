@@ -38,6 +38,11 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Will get set to true once all Monaco related files got loaded
+     * @member {Boolean} isReady=false
+     */
+    isReady = false
+    /**
      * Stores component DOM ids as keys and editor instances as values
      * @member {Object} map={}
      */
@@ -105,7 +110,7 @@ class MonacoEditor extends Base {
             DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
             DomAccess.loadScript(path + '/editor/editor.main.js')
         ]).then(() => {
-            // console.log('files loaded');
+            this.isReady = true
         })
     }
 
