@@ -78,6 +78,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.readOnly,
+            labelText: 'readOnly',
+            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.showLineNumbers,
             labelText: 'showLineNumbers',
             listeners: {change: me.onConfigChange.bind(me, 'showLineNumbers')},
