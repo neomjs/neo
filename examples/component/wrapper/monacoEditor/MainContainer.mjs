@@ -26,6 +26,47 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'contextmenu')}
         }, {
             module        : Radio,
+            checked       : me.exampleComponent.cursorBlinking === 'blink',
+            hideValueLabel: false,
+            labelText     : 'cursorBlinking',
+            listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'blink')},
+            name          : 'cursorBlinking',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'blink'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.cursorBlinking === 'expand',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'expand')},
+            name          : 'cursorBlinking',
+            valueLabelText: 'expand'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.cursorBlinking === 'phase',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'phase')},
+            name          : 'cursorBlinking',
+            valueLabelText: 'phase'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.cursorBlinking === 'smooth',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'smooth')},
+            name          : 'cursorBlinking',
+            valueLabelText: 'smooth'
+        }, {
+            module        : Radio,
+            checked       : me.exampleComponent.cursorBlinking === 'solid',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'solid')},
+            name          : 'cursorBlinking',
+            valueLabelText: 'solid'
+        }, {
+            module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'hc-black',
             hideValueLabel: false,
             labelText     : 'editorTheme',

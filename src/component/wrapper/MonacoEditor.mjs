@@ -6,6 +6,13 @@ import Base from '../../component/Base.mjs';
  */
 class MonacoEditor extends Base {
     /**
+     * Valid values for cursorBlinking
+     * @member {String[]} cursorBlinkings=['blink','expand','phase','smooth','solid']
+     * @protected
+     * @static
+     */
+    static cursorBlinkings = ['blink', 'expand', 'phase', 'smooth', 'solid']
+    /**
      * Valid values for editorTheme
      * @member {String[]} editorThemes=['hc-black','hc-light','vs','vs-dark']
      * @protected
@@ -29,7 +36,12 @@ class MonacoEditor extends Base {
          */
         contextmenu_: false,
         /**
-         * Options are: 'vs' (default), 'vs-dark', 'hc-black', 'hc-light'
+         * Options are: 'blink', 'expand', 'phase', 'smooth', 'solid'
+         * @member {String} cursorBlinking_='blink'
+         */
+        cursorBlinking_: 'blink',
+        /**
+         * Options are: 'vs', 'vs-dark', 'hc-black', 'hc-light'
          * @member {String} editorTheme_='vs'
          */
         editorTheme_: 'vs',
@@ -81,6 +93,16 @@ class MonacoEditor extends Base {
      */
     afterSetContextmenu(value, oldValue) {
         this.setOptions({contextmenu: value})
+    }
+
+    /**
+     * Triggered after the cursorBlinking config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCursorBlinking(value, oldValue) {
+        this.setOptions({cursorBlinking: value})
     }
 
     /**
@@ -207,6 +229,17 @@ class MonacoEditor extends Base {
                 value  : me.stringifyValue(me.value)
             })
         }
+    }
+
+    /**
+     * Triggered before the cursorBlinking config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetCursorBlinking(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'cursorBlinking')
     }
 
     /**
