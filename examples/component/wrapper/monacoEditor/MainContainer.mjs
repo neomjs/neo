@@ -1,3 +1,4 @@
+import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import MonacoEditor          from '../../../../src/component/wrapper/MonacoEditor.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
@@ -70,6 +71,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.height
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.minimap.enabled,
+            labelText: 'minimap',
+            listeners: {change: me.onToggleMinimap.bind(me)},
+            style    : {marginTop: '10px'}
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'width',
@@ -92,6 +99,15 @@ class MainContainer extends ConfigurationViewport {
             value : ['function x() {', '\tconsole.log("Hello world!");', '}'],
             width : 500
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onToggleMinimap(data) {
+        this.exampleComponent.minimap = {
+            enabled: data.value
+        }
     }
 }
 

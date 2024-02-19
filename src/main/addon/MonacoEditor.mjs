@@ -52,6 +52,7 @@ class MonacoEditor extends Base {
      * @param {Number} data.fontSize
      * @param {String} data.id
      * @param {String} data.language
+     * @param {Object} data.minimap
      * @param {String} data.theme
      * @param {String} data.value
      */
@@ -60,7 +61,7 @@ class MonacoEditor extends Base {
             editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
                 fontSize: data.fontSize,
                 language: data.language,
-                minimap : { enabled: false },
+                minimap : data.minimap,
                 theme   : data.theme,
                 value   : data.value
             });
