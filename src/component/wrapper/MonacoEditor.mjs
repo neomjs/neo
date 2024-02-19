@@ -145,29 +145,11 @@ class MonacoEditor extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
-
         if (value) {
-            let opts = {
-                appName             : me.appName,
-                contextmenu         : me.contextmenu,
-                cursorBlinking      : me.cursorBlinking,
-                domReadOnly         : me.domReadOnly,
-                id                  : me.id,
-                fontSize            : me.fontSize,
-                language            : me.language,
-                lineNumbers         : me.showLineNumbers ? 'on' : 'off',
-                minimap             : me.minimap,
-                readOnly            : me.readOnly,
-                scrollBeyondLastLine: me.scrollBeyondLastLine,
-                theme               : me.editorTheme,
-                value               : me.stringifyValue(me.value),
-                ...me.options
-            };
-
             setTimeout(() => {
-                Neo.main.addon.MonacoEditor.createInstance(opts).then(() => {
-                    me.onEditorMounted?.()
+                Neo.main.addon.MonacoEditor.createInstance(this.getInitialOptions()).then(() => {
+                    // use this custom method as needed inside your class extensions
+                    this.onEditorMounted?.()
                 })
             }, 50)
         }
@@ -330,6 +312,31 @@ class MonacoEditor extends Base {
             appName: this.appName,
             id     : this.id
         })
+    }
+
+    /**
+     * Override this method as needed inside your own class extensions
+     * @returns {Object}
+     */
+    getInitialOptions() {
+        let me = this;
+
+        return {
+            appName             : me.appName,
+            contextmenu         : me.contextmenu,
+            cursorBlinking      : me.cursorBlinking,
+            domReadOnly         : me.domReadOnly,
+            id                  : me.id,
+            fontSize            : me.fontSize,
+            language            : me.language,
+            lineNumbers         : me.showLineNumbers ? 'on' : 'off',
+            minimap             : me.minimap,
+            readOnly            : me.readOnly,
+            scrollBeyondLastLine: me.scrollBeyondLastLine,
+            theme               : me.editorTheme,
+            value               : me.stringifyValue(me.value),
+            ...me.options
+        }
     }
 
     /**
