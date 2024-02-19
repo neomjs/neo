@@ -58,6 +58,7 @@ class MonacoEditor extends Base {
 
     /**
      * @param {Object}  data
+     * @param {Boolean} data.contextmenu
      * @param {Number}  data.fontSize
      * @param {String}  data.id
      * @param {String}  data.language
@@ -70,6 +71,7 @@ class MonacoEditor extends Base {
     createInstance(data) {
         let me     = this,
             editor = me.map[data.id] = monaco.editor.create(DomAccess.getElement(data.id), {
+                contextmenu: data.contextmenu,
                 fontSize   : data.fontSize,
                 language   : data.language,
                 lineNumbers: data.lineNumbers,

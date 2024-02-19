@@ -25,6 +25,10 @@ class MonacoEditor extends Base {
          */
         ntype: 'monaco-editor',
         /**
+         * @member {Boolean} contextmenu_=false
+         */
+        contextmenu_: false,
+        /**
          * Options are: 'vs' (default), 'vs-dark', 'hc-black', 'hc-light'
          * @member {String} editorTheme_='vs'
          */
@@ -67,6 +71,16 @@ class MonacoEditor extends Base {
             change: me.onContentChange,
             scope : me
         })
+    }
+
+    /**
+     * Triggered after the contextmenu config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetContextmenu(value, oldValue) {
+        this.setOptions({contextmenu: value})
     }
 
     /**

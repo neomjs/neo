@@ -20,12 +20,18 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module   : CheckBox,
+            checked  : me.exampleComponent.contextmenu,
+            labelText: 'contextmenu',
+            listeners: {change: me.onConfigChange.bind(me, 'contextmenu')}
+        }, {
             module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'hc-black',
             hideValueLabel: false,
             labelText     : 'editorTheme',
             listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'hc-black')},
             name          : 'editorTheme',
+            style         : {marginTop: '10px'},
             valueLabelText: 'hc-black'
         }, {
             module        : Radio,
