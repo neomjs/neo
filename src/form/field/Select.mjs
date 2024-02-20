@@ -148,14 +148,13 @@ class Select extends Picker {
      */
     afterSetRecord(value, oldValue) {
         if (this._picker?.isVisible) {
-            let me             = this,
-                selectionModel = me.list?.selectionModel;
+            let selectionModel = this.list?.selectionModel;
 
             if (value) {
-                selectionModel?.select(value);
-            }
-            else {
-                selectionModel.deselectAll();
+                oldValue && selectionModel?.deselect(oldValue);
+                selectionModel?.select(value)
+            } else {
+                selectionModel.deselectAll()
             }
         }
     }
@@ -330,7 +329,7 @@ class Select extends Picker {
             noChange       : me.onListItemSelectionNoChange,
             selectionChange: me.onListItemSelectionChange,
             scope          : me
-        })
+        });
 
         return me.list;
     }
