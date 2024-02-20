@@ -48,7 +48,7 @@ class LivePreview extends Base {
 
     afterSetValue(value, oldValue) {
         if (value) {
-            this.getItem('textArea').value = value;
+            this.getItem('textArea').value = value?.trim();
         }
     }
 
