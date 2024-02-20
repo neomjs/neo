@@ -33,6 +33,6 @@ class User extends Model {
     }
 }
 
-Neo.applyClassConfig(User);
+Neo.setupClass(User);
 
 export default User;

@@ -33,6 +33,6 @@ class SideNav extends Model {
     }
 }
 
-Neo.applyClassConfig(SideNav);
+Neo.setupClass(SideNav);
 
 export default SideNav;

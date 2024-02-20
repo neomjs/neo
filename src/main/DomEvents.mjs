@@ -846,6 +846,6 @@ class DomEvents extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(DomEvents);
+let instance = Neo.setupClass(DomEvents);
 
 export default instance;

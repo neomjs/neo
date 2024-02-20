@@ -821,6 +821,6 @@ class Helper extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Helper);
+let instance = Neo.setupClass(Helper);
 
 export default instance;

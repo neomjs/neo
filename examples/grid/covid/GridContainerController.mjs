@@ -57,6 +57,6 @@ class GridContainerController extends Controller {
     }
 }
 
-Neo.applyClassConfig(GridContainerController);
+Neo.setupClass(GridContainerController);
 
 export default GridContainerController;

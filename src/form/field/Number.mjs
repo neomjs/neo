@@ -433,6 +433,6 @@ class Number extends Text {
     }
 }
 
-Neo.applyClassConfig(Number);
+Neo.setupClass(Number);
 
 export default Number;

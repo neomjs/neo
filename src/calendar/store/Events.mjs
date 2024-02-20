@@ -56,6 +56,6 @@ class Events extends Store {
     }
 }
 
-Neo.applyClassConfig(Events);
+Neo.setupClass(Events);
 
 export default Events;

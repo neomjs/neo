@@ -214,6 +214,6 @@ class ConfigurationViewport extends Viewport {
     }
 }
 
-Neo.applyClassConfig(ConfigurationViewport);
+Neo.setupClass(ConfigurationViewport);
 
 export default ConfigurationViewport;

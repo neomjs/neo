@@ -114,6 +114,6 @@ class CellColumnRowModel extends CellRowModel {
     }
 }
 
-Neo.applyClassConfig(CellColumnRowModel);
+Neo.setupClass(CellColumnRowModel);
 
 export default CellColumnRowModel;

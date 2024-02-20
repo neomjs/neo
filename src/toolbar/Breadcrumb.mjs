@@ -228,6 +228,6 @@ class Breadcrumb extends Toolbar {
     }
 }
 
-Neo.applyClassConfig(Breadcrumb);
+Neo.setupClass(Breadcrumb);
 
 export default Breadcrumb;

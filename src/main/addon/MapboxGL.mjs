@@ -482,6 +482,6 @@ class MapboxGL extends Base {
     }
 }
 
-Neo.applyClassConfig(MapboxGL);
+Neo.setupClass(MapboxGL);
 
 export default MapboxGL;

@@ -305,6 +305,6 @@ class DragDrop extends Base {
     }
 }
 
-Neo.applyClassConfig(DragDrop);
+Neo.setupClass(DragDrop);
 
 export default DragDrop;

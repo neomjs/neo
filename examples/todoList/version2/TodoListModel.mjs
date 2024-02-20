@@ -22,6 +22,6 @@ class TodoListModel extends Model {
     }
 }
 
-Neo.applyClassConfig(TodoListModel);
+Neo.setupClass(TodoListModel);
 
 export default TodoListModel;

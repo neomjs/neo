@@ -29,6 +29,6 @@ class Viewport extends BaseViewport {
     }
 }
 
-Neo.applyClassConfig(Viewport);
+Neo.setupClass(Viewport);
 
 export default Viewport;

@@ -121,6 +121,6 @@ class List extends BaseList {
     }
 }
 
-Neo.applyClassConfig(List);
+Neo.setupClass(List);
 
 export default List;

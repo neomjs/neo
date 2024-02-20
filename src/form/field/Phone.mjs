@@ -38,6 +38,6 @@ class Phone extends Text {
     }
 }
 
-Neo.applyClassConfig(Phone);
+Neo.setupClass(Phone);
 
 export default Phone;

@@ -188,6 +188,6 @@ class Task extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Task);
+let instance = Neo.setupClass(Task);
 
 export default instance;

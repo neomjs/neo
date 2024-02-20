@@ -36,6 +36,6 @@ class Tutorial extends Model {
     }
 }
 
-Neo.applyClassConfig(Tutorial);
+Neo.setupClass(Tutorial);
 
 export default Tutorial;

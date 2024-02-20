@@ -37,6 +37,6 @@ class StringField extends Field {
     }
 }
 
-Neo.applyClassConfig(StringField);
+Neo.setupClass(StringField);
 
 export default StringField;

@@ -39,6 +39,6 @@ class HistoricalData extends Model {
     }
 }
 
-Neo.applyClassConfig(HistoricalData);
+Neo.setupClass(HistoricalData);
 
 export default HistoricalData;

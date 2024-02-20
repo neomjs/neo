@@ -62,6 +62,6 @@ class FooterContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(FooterContainer);
+Neo.setupClass(FooterContainer);
 
 export default FooterContainer;

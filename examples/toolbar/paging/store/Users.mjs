@@ -47,6 +47,6 @@ class Users extends Store {
     }
 }
 
-Neo.applyClassConfig(Users);
+Neo.setupClass(Users);
 
 export default Users;

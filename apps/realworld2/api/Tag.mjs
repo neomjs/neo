@@ -18,7 +18,7 @@ class Tag extends Base {
     }
 }
 
-Neo.applyClassConfig(Tag);
+Neo.setupClass(Tag);
 
 let instance = Neo.create(Tag);
 

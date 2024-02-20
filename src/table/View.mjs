@@ -386,6 +386,6 @@ class View extends Component {
     }
 }
 
-Neo.applyClassConfig(View);
+Neo.setupClass(View);
 
 export default View;

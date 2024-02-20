@@ -605,6 +605,6 @@ class MembersList extends Base {
     }
 }
 
-Neo.applyClassConfig(MembersList);
+Neo.setupClass(MembersList);
 
 export default MembersList;

@@ -54,13 +54,13 @@ class MainContainer extends Panel {
             {
                 module: CenterContainer,
                 reference: 'center-container'
-        
+
             }
         ],
-  
+
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.setupClass(MainContainer);
 
 export default MainContainer;

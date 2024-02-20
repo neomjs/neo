@@ -198,6 +198,6 @@ class LivePreview extends Base {
     }
 }
 
-Neo.applyClassConfig(LivePreview);
+Neo.setupClass(LivePreview);
 
 export default LivePreview;

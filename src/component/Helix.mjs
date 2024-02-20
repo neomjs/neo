@@ -1036,6 +1036,6 @@ Object.defineProperties(Helix.prototype, {
     afterSetTranslateZ   : cfg
 });
 
-Neo.applyClassConfig(Helix);
+Neo.setupClass(Helix);
 
 export default Helix;

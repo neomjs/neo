@@ -37,6 +37,6 @@ class Picker extends Base {
     } 
 }
 
-Neo.applyClassConfig(Picker);
+Neo.setupClass(Picker);
 
 export default Picker;

@@ -15,7 +15,7 @@ class MetaContainer extends Container {
 
         baseCls: ['route_meta', 'route_meta_color','route_meta_center', 'neo-container'],
 
-        height: 55, 
+        height: 55,
         /**
          * @member {Object[]} items
          */
@@ -47,6 +47,6 @@ class MetaContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(MetaContainer);
+Neo.setupClass(MetaContainer);
 
 export default MetaContainer;

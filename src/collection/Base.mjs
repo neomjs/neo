@@ -1265,6 +1265,6 @@ class Base extends CoreBase {
  * @returns {Object}
  */
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

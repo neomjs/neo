@@ -323,7 +323,7 @@ class RecordFactory extends Base {
     }
 }
 
-Neo.applyClassConfig(RecordFactory);
+Neo.setupClass(RecordFactory);
 
 instance = Neo.create(RecordFactory);
 

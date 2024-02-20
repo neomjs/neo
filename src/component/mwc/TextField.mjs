@@ -229,6 +229,6 @@ class TextField extends Component {
     }
 }
 
-Neo.applyClassConfig(TextField);
+Neo.setupClass(TextField);
 
 export default TextField;

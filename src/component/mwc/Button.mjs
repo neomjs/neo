@@ -156,6 +156,6 @@ class Button extends Component {
     }
 }
 
-Neo.applyClassConfig(Button);
+Neo.setupClass(Button);
 
 export default Button;

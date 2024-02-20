@@ -133,6 +133,6 @@ class TagListComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(TagListComponent);
+Neo.setupClass(TagListComponent);
 
 export default TagListComponent;

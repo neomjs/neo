@@ -99,6 +99,6 @@ class HomeContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(HomeContainer);
+Neo.setupClass(HomeContainer);
 
 export default HomeContainer;

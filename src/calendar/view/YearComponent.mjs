@@ -865,6 +865,6 @@ class YearComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(YearComponent);
+Neo.setupClass(YearComponent);
 
 export default YearComponent;

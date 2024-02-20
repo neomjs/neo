@@ -31,6 +31,6 @@ class CardAdministration extends Container {
     }
 }
 
-Neo.applyClassConfig(CardAdministration);
+Neo.setupClass(CardAdministration);
 
 export default CardAdministration;

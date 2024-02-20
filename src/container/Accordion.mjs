@@ -125,6 +125,6 @@ class Accordion extends Panel {
     }
 }
 
-Neo.applyClassConfig(Accordion);
+Neo.setupClass(Accordion);
 
 export default Accordion;

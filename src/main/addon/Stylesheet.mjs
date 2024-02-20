@@ -295,6 +295,6 @@ class Stylesheet extends Base {
     }
 }
 
-Neo.applyClassConfig(Stylesheet);
+Neo.setupClass(Stylesheet);
 
 export default Stylesheet;

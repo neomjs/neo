@@ -205,6 +205,6 @@ class Base extends CoreBase {
     }
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;
