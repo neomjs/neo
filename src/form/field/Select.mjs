@@ -487,8 +487,10 @@ class Select extends Picker {
     onFocusLeave(data) {
         let me = this;
 
+        console.log(me.forceSelection, me.record, me.activeRecordId);
+
         if (me.forceSelection && !me.record) {
-            me.value = me.activeRecordId
+            me.value = me.store.get(me.activeRecordId)
         }
 
         super.onFocusLeave(data)
@@ -683,8 +685,8 @@ class Select extends Picker {
     }
 
     /**
-     * @param {String|null} [value=this.lastManualInput]
-     * @param {Boolean} [silent=false]
+     * @param {String|null} value=this.lastManualInput
+     * @param {Boolean} silent=false
      * @protected
      */
     updateTypeAheadValue(value=this.lastManualInput, silent=false) {
