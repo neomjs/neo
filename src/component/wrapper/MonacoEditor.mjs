@@ -14,6 +14,14 @@ class MonacoEditor extends Base {
      */
     static cursorBlinkings = ['blink', 'expand', 'phase', 'smooth', 'solid']
     /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        layoutEditor: {type: 'buffer', timer: 50}
+    }
+    /**
      * Valid values for editorTheme
      * @member {String[]} editorThemes=['hc-black','hc-light','vs','vs-dark']
      * @protected
@@ -367,12 +375,12 @@ class MonacoEditor extends Base {
     layoutEditor() {
         let me = this;
 
-        me.mounted && setTimeout(() => {
+        if (me.mounted) {
             Neo.main.addon.MonacoEditor.layoutEditor({
                 appName: me.appName,
                 id     : me.id
             })
-        }, 50)
+        }
     }
 
     /**

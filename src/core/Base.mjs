@@ -191,9 +191,9 @@ class Base {
         Object.entries(delayable).forEach(([key, value]) => {
             if (value) {
                 let map = {
+                    buffer()   {me[key] = new buffer(me[key],   me, value.timer)},
                     debounce() {me[key] = new debounce(me[key], me, value.timer)},
-                    throttle() {me[key] = new throttle(me[key], me, value.timer)},
-                    buffer()   {me[key] = new buffer(me[key],   me, value.timer)}
+                    throttle() {me[key] = new throttle(me[key], me, value.timer)}
                 };
 
                 map[value.type]?.()
