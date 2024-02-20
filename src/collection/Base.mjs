@@ -781,7 +781,7 @@ class Base extends CoreBase {
                 if (returnFirstMatch) {
                     return item;
                 }
-                
+
                 items.push(item);
             }
         }
@@ -833,10 +833,10 @@ class Base extends CoreBase {
     /**
      * Returns the object associated to the key, or undefined if there is none.
      * @param key
-     * @returns {Object|undefined}
+     * @returns {Object|null}
      */
     get(key) {
-        return this.map.get(key);
+        return this.map.get(key) || null
     }
 
     /**
