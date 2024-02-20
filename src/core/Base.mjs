@@ -1,5 +1,5 @@
-import {debounce, throttle, buffer} from '../util/Function.mjs';
-import IdGenerator          from './IdGenerator.mjs'
+import {buffer, debounce, throttle} from '../util/Function.mjs';
+import IdGenerator                  from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -12,7 +12,8 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * You can define methods which should get delayed
+     * You can define methods which should get delayed.
+     * Types are buffer, debounce & throttle.
      * @example
      *  delayable: {
      *      fireChangeEvent: {
