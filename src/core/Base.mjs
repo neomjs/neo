@@ -617,7 +617,7 @@ class Base {
     }
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 Base.instanceManagerAvailable = false;
 
