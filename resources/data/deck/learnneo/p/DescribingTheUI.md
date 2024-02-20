@@ -7,22 +7,26 @@ For example, if you wanted to create a button, you'd look in the API docs and se
 have a few key configs, including `text` and `iconCls`. The configs are properties you can 
 use to describe the component you're creating> You can also access or set the properties dynamically.
 
+
 <pre data-neo>
-import Base from '../../../../src/container/Base.mjs';
-import Button from '../../../../src/button/Base.mjs';
-class MainView extends Base {
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
+
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: Button,
-            text  : 'Home',
-            iconCls: 'fa fa-home'
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        items    : [{
+            module : Button,
+            iconCls: 'fa fa-home',
+            text   : 'Home'
         }]
     }
 }
+
 Neo.setupClass(MainView);
 </pre>
+
 
 The button config is just an object describing the button being created. In the example, it has three
 properties:
@@ -39,23 +43,25 @@ Containers also have a `layout` property, which describes how the items are arra
 Let's put a second button in the container.
 
 <pre data-neo>
-import Base from '../../../../src/container/Base.mjs';
-import Button from '../../../../src/button/Base.mjs';
-class MainView extends Base {
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
+
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
-        layout: {ntype:'vbox', align:'start'}, // Change the ntype to 'hbox'
-        items : [{
-            module: Button,
-            text  : 'Home',
-            iconCls: 'fa fa-home'
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'}, // Change the ntype to 'hbox'
+        items    : [{
+            module : Button,
+            iconCls: 'fa fa-home',
+            text   : 'Home'
         },{
-            module: Button,
-            text  : 'Star',
-            iconCls: 'fa fa-star'
+            module : Button,
+            iconCls: 'fa fa-star',
+            text   : 'Star'
         }]
     }
 }
+
 Neo.setupClass(MainView);
 </pre>
 
