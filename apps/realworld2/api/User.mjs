@@ -18,7 +18,7 @@ class User extends Base {
     }
 }
 
-Neo.applyClassConfig(User);
+Neo.setupClass(User);
 
 let instance = Neo.create(User);
 

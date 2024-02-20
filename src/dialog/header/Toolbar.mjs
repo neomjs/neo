@@ -99,6 +99,6 @@ class Toolbar extends Base {
     }
 }
 
-Neo.applyClassConfig(Toolbar);
+Neo.setupClass(Toolbar);
 
 export default Toolbar;

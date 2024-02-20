@@ -129,6 +129,6 @@ class MonthContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(MonthContainer);
+Neo.setupClass(MonthContainer);
 
 export default MonthContainer;

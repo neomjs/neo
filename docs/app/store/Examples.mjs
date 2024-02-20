@@ -23,6 +23,6 @@ class Examples extends Store {
     }
 }
 
-Neo.applyClassConfig(Examples);
+Neo.setupClass(Examples);
 
 export default Examples;

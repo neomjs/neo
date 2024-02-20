@@ -112,6 +112,6 @@ class HierarchyTreeList extends TreeList {
     }
 }
 
-Neo.applyClassConfig(HierarchyTreeList);
+Neo.setupClass(HierarchyTreeList);
 
 export default HierarchyTreeList;

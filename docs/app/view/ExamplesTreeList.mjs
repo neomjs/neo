@@ -46,6 +46,6 @@ class ExamplesTreeList extends TreeList {
     }
 }
 
-Neo.applyClassConfig(ExamplesTreeList);
+Neo.setupClass(ExamplesTreeList);
 
 export default ExamplesTreeList;

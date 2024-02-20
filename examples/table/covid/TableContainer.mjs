@@ -107,6 +107,6 @@ class TableContainer extends BaseTableContainer {
     }
 }
 
-Neo.applyClassConfig(TableContainer);
+Neo.setupClass(TableContainer);
 
 export default TableContainer;

@@ -650,6 +650,6 @@ class CheckBox extends Base {
     }
 }
 
-Neo.applyClassConfig(CheckBox);
+Neo.setupClass(CheckBox);
 
 export default CheckBox;

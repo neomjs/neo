@@ -53,6 +53,6 @@ class Cookie extends Base {
     }
 }
 
-Neo.applyClassConfig(Cookie);
+Neo.setupClass(Cookie);
 
 export default Cookie;

@@ -112,6 +112,6 @@ class ZipCode extends Text {
     }
 }
 
-Neo.applyClassConfig(ZipCode);
+Neo.setupClass(ZipCode);
 
 export default ZipCode;

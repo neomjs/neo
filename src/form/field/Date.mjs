@@ -288,6 +288,6 @@ class DateField extends Picker {
     }
 }
 
-Neo.applyClassConfig(DateField);
+Neo.setupClass(DateField);
 
 export default DateField;

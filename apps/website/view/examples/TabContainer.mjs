@@ -61,6 +61,6 @@ class TabContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(TabContainer);
+Neo.setupClass(TabContainer);
 
 export default TabContainer;

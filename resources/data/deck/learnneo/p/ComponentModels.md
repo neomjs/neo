@@ -34,7 +34,7 @@ class MainView extends Base {
         style: {padding: '1em'},
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 View model properties are visible down the containment hierarchy:
@@ -77,7 +77,7 @@ class MyPanel extends Panel {
         style: {margin: '1em'},
     }
 }
-Neo.applyClassConfig(MyPanel);
+Neo.setupClass(MyPanel);
 
 class MainView extends Base {
     static config = {
@@ -105,7 +105,7 @@ class MainView extends Base {
         style: {margin: '1em'},
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 In this case, the main view has three child items of type `MyPanel`, each containing a label. 

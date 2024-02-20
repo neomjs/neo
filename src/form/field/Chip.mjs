@@ -25,6 +25,6 @@ class Chip extends Select {
     }
 }
 
-Neo.applyClassConfig(Chip);
+Neo.setupClass(Chip);
 
 export default Chip;

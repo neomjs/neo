@@ -48,6 +48,6 @@ class GalleryContainer extends GalleryMainContainer {
     }
 }
 
-Neo.applyClassConfig(GalleryContainer);
+Neo.setupClass(GalleryContainer);
 
 export default GalleryContainer;

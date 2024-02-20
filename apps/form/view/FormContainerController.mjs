@@ -55,6 +55,6 @@ class FormContainerController extends Component {
     }
 }
 
-Neo.applyClassConfig(FormContainerController);
+Neo.setupClass(FormContainerController);
 
 export default FormContainerController;

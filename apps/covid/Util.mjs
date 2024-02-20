@@ -158,6 +158,6 @@ class Util extends Base {
     }
 }
 
-Neo.applyClassConfig(Util);
+Neo.setupClass(Util);
 
 export default Util;

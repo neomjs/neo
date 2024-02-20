@@ -27,6 +27,6 @@ class ProfileContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(ProfileContainer);
+Neo.setupClass(ProfileContainer);
 
 export default ProfileContainer;

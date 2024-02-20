@@ -133,6 +133,6 @@ class LineChartComponent extends AmChartComponent {
     }
 }
 
-Neo.applyClassConfig(LineChartComponent);
+Neo.setupClass(LineChartComponent);
 
 export default LineChartComponent;

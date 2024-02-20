@@ -84,6 +84,6 @@ class Mwc extends Base {
     }
 }
 
-Neo.applyClassConfig(Mwc);
+Neo.setupClass(Mwc);
 
 export default Mwc;

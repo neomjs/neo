@@ -21,7 +21,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 The button config is just an object describing the button being created. In the example, it has three
@@ -56,7 +56,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 If you run the example you'll see two buttons, arranged according to the `layout`. If you'd like, 

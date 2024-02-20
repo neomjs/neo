@@ -23,6 +23,6 @@ class Tutorials extends Store {
     }
 }
 
-Neo.applyClassConfig(Tutorials);
+Neo.setupClass(Tutorials);
 
 export default Tutorials;

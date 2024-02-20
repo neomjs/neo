@@ -163,6 +163,6 @@ class MapComponent extends GoogleMapsComponent {
     }
 }
 
-Neo.applyClassConfig(MapComponent);
+Neo.setupClass(MapComponent);
 
 export default MapComponent;

@@ -37,6 +37,6 @@ class IntegerField extends Field {
     }
 }
 
-Neo.applyClassConfig(IntegerField);
+Neo.setupClass(IntegerField);
 
 export default IntegerField;

@@ -316,6 +316,6 @@ class Base extends Component {
  * @returns {Object}
  */
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

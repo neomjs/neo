@@ -86,6 +86,6 @@ class HelixContainer extends HelixMainContainer {
     }
 }
 
-Neo.applyClassConfig(HelixContainer);
+Neo.setupClass(HelixContainer);
 
 export default HelixContainer;

@@ -1576,6 +1576,6 @@ class Text extends Base {
     }
 }
 
-Neo.applyClassConfig(Text);
+Neo.setupClass(Text);
 
 export default Text;

@@ -38,6 +38,6 @@ class Switch extends CheckBox {
     }
 }
 
-Neo.applyClassConfig(Switch);
+Neo.setupClass(Switch);
 
 export default Switch;

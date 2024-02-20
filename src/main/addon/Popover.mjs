@@ -65,6 +65,6 @@ class Popover extends Base {
     }
 }
 
-Neo.applyClassConfig(Popover);
+Neo.setupClass(Popover);
 
 export default Popover;

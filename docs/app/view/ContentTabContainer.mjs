@@ -100,6 +100,6 @@ class ContentTabContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(ContentTabContainer);
+Neo.setupClass(ContentTabContainer);
 
 export default ContentTabContainer;

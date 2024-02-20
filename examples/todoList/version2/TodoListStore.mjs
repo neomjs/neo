@@ -27,6 +27,6 @@ class TodoListStore extends Store {
     }
 }
 
-Neo.applyClassConfig(TodoListStore);
+Neo.setupClass(TodoListStore);
 
 export default TodoListStore;

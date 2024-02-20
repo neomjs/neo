@@ -220,6 +220,6 @@ class Split extends Button {
     }
 }
 
-Neo.applyClassConfig(Split);
+Neo.setupClass(Split);
 
 export default Split;

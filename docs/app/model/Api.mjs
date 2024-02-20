@@ -45,6 +45,6 @@ class Api extends Model {
     }
 }
 
-Neo.applyClassConfig(Api);
+Neo.setupClass(Api);
 
 export default Api;

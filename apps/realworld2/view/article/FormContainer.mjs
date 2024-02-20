@@ -63,6 +63,6 @@ class FormContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(FormContainer);
+Neo.setupClass(FormContainer);
 
 export default FormContainer;

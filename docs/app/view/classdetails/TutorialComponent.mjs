@@ -84,6 +84,6 @@ class TutorialComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(TutorialComponent);
+Neo.setupClass(TutorialComponent);
 
 export default TutorialComponent;

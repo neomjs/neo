@@ -24,6 +24,6 @@ class MainContainerModel extends Component {
     }
 }
 
-Neo.applyClassConfig(MainContainerModel);
+Neo.setupClass(MainContainerModel);
 
 export default MainContainerModel;

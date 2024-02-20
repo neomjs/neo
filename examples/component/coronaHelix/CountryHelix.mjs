@@ -214,6 +214,6 @@ class CountryHelix extends Helix {
     }
 }
 
-Neo.applyClassConfig(CountryHelix);
+Neo.setupClass(CountryHelix);
 
 export default CountryHelix;

@@ -443,6 +443,6 @@ class StatusBadge extends Base {
 
 }
 
-Neo.applyClassConfig(StatusBadge);
+Neo.setupClass(StatusBadge);
 
 export default StatusBadge;

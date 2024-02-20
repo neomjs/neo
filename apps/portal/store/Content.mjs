@@ -66,6 +66,6 @@ class Content extends Store {
     }
 }
 
-Neo.applyClassConfig(Content);
+Neo.setupClass(Content);
 
 export default Content;

@@ -323,6 +323,6 @@ class Timer extends Component {
     }
 }
 
-Neo.applyClassConfig(Timer);
+Neo.setupClass(Timer);
 
 export default Timer;

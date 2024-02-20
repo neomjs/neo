@@ -101,6 +101,6 @@ class MarkerDialog extends DialogBase {
     }
 }
 
-Neo.applyClassConfig(MarkerDialog);
+Neo.setupClass(MarkerDialog);
 
 export default MarkerDialog;

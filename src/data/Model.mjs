@@ -65,6 +65,6 @@ class Model extends Base {
     }
 }
 
-Neo.applyClassConfig(Model);
+Neo.setupClass(Model);
 
 export default Model;

@@ -36,7 +36,7 @@ class Profile extends Base {
     }
 }
 
-Neo.applyClassConfig(Profile);
+Neo.setupClass(Profile);
 
 let instance = Neo.create(Profile);
 

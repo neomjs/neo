@@ -44,6 +44,6 @@ class Display extends Text {
     }
 }
 
-Neo.applyClassConfig(Display);
+Neo.setupClass(Display);
 
 export default Display;

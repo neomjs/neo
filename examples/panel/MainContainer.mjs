@@ -165,6 +165,6 @@ class MainContainer extends Panel {
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.setupClass(MainContainer);
 
 export default MainContainer;

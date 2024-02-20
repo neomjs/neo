@@ -27,6 +27,6 @@ class Page14 extends FormPageContainer {
     }
 }
 
-Neo.applyClassConfig(Page14);
+Neo.setupClass(Page14);
 
 export default Page14;

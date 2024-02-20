@@ -95,6 +95,6 @@ class SideNavList extends List {
     }
 }
 
-Neo.applyClassConfig(SideNavList);
+Neo.setupClass(SideNavList);
 
 export default SideNavList;

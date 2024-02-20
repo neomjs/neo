@@ -150,7 +150,7 @@ function createMainContainer(classFolder, componentPath, componentChunk, name) {
         "   }",
         "}",
         "",
-        "Neo.applyClassConfig(MainContainer);",
+        "Neo.setupClass(MainContainer);",
         "",
         "export default MainContainer;"
     );
