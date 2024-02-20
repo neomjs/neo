@@ -54,7 +54,7 @@ class MainView extends Container {
             module : Button,
             iconCls: 'fa fa-home',
             text   : 'Home'
-        },{
+        }, {
             module : Button,
             iconCls: 'fa fa-star',
             text   : 'Star'
