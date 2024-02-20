@@ -1,14 +1,15 @@
+import { buffer }       from '../../util/Function.mjs';
 import ClassSystemUtil  from '../../util/ClassSystem.mjs';
 import ComponentManager from '../../manager/Component.mjs';
 import List             from '../../list/Base.mjs';
 import Picker           from './Picker.mjs';
 import Store            from '../../data/Store.mjs';
 import VDomUtil         from '../../util/VDom.mjs';
-import { buffer }       from '../../util/Function.mjs';
+
 /**
  * Provides a dropdown list to select one or multiple items.
  *
- * Conforms to ARIA accessiblity standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
+ * Conforms to ARIA accessibility standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
  * @class Neo.form.field.Select
  * @extends Neo.form.field.Picker
  */
@@ -131,10 +132,12 @@ class Select extends Picker {
     construct(config) {
         super.construct(config);
 
-        // Create buffered function to respond to input field mutation
-        this.filterOnInput = buffer(this.filterOnInput, this, this.filterDelay);
+        let me = this;
 
-        this.typeAhead && this.updateTypeAhead()
+        // Create buffered function to respond to input field mutation
+        me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
+
+        me.typeAhead && me.updateTypeAhead()
     }
 
     /**
@@ -302,15 +305,15 @@ class Select extends Picker {
         const me = this;
 
         me.list = Neo.create({
-            module          : List,
-            appName         : me.appName,
-            displayField    : me.displayField,
-            itemRole        : 'option',
-            navigator       : {eventSource : me.getInputElId()},
-            parentId        : me.id,
-            role            : 'listbox',
-            selectionModel  : {stayInList: false},
-            store           : me.store,
+            module        : List,
+            appName       : me.appName,
+            displayField  : me.displayField,
+            itemRole      : 'option',
+            navigator     : {eventSource: me.getInputElId()},
+            parentId      : me.id,
+            role          : 'listbox',
+            selectionModel: {stayInList: false},
+            store         : me.store,
             ...me.listConfig
         });
 
@@ -318,15 +321,15 @@ class Select extends Picker {
 
         me.list.addDomListeners({
             neonavigate: {
-                fn    : me.onListItemNavigate,
-                scope : me
+                fn   : me.onListItemNavigate,
+                scope: me
             }
         });
 
         me.list.selectionModel.on({
-            noChange        : me.onListItemSelectionNoChange,
-            selectionChange : me.onListItemSelectionChange,
-            scope           : me
+            noChange       : me.onListItemSelectionNoChange,
+            selectionChange: me.onListItemSelectionChange,
+            scope          : me
         })
 
         return me.list;
@@ -484,22 +487,8 @@ class Select extends Picker {
     onFocusLeave(data) {
         let me = this;
 
-        if (!me.record) {
-            if (me.forceSelection) {
-                me.value = me.forceSelection ? me.activeRecordId : null;
-            }
-            // If we exit without selecting a record, clear the filter input value.
-            else {
-                me.getInputEl().value = '';
-            }
-        }
-
-        // Clear any typeahead hint
-        me.updateTypeAheadValue('');
-
-        // The VDOM must not carry the empty string permanently. Only while clearing the value.
-        if (!me.record && !me.forceSelection) {
-            delete me.getInputEl().value;
+        if (me.forceSelection && !me.record) {
+            me.value = me.activeRecordId
         }
 
         super.onFocusLeave(data)
