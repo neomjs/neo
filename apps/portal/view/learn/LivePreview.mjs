@@ -23,6 +23,7 @@ class LivePreview extends Base {
          */
         items: [{
             module: TabContainer,
+            removeInactiveCards: false,
             reference: 'tab-container',
             cls: 'live-preview-container',
             items: [{
@@ -37,6 +38,7 @@ class LivePreview extends Base {
                     editorChange: data => {
                         let container = data.component.up({ className: 'Portal.view.learn.LivePreview' });
                         container.editorValue = data.value;
+                        console.log(container.editorValue);
                     }
                 }
             }, {
