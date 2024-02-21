@@ -34,7 +34,7 @@ class LivePreview extends Base {
                     text: 'Source'
                 },
                 listeners: {
-                    change: data => {
+                    editorChange: data => {
                         let container = data.component.up({ className: 'Portal.view.learn.LivePreview' });
                         container.editorValue = data.value;
                     }
