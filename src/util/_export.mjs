@@ -2,7 +2,7 @@ import NeoArray         from './Array.mjs';
 import ClassSystem      from './ClassSystem.mjs';
 import Css              from './Css.mjs';
 import Date             from './Date.mjs';
-import Function         from './Function.mjs';
+import * as Function    from './Function.mjs';
 import HashHistory      from './HashHistory.mjs';
 import KeyNavigation    from './KeyNavigation.mjs';
 import Logger           from './Logger.mjs';
