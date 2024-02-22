@@ -286,6 +286,6 @@ class ExecutiveIntroComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(ExecutiveIntroComponent);
+Neo.setupClass(ExecutiveIntroComponent);
 
 export default ExecutiveIntroComponent;

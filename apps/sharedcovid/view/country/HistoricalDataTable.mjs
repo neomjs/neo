@@ -85,6 +85,6 @@ class HistoricalDataTable extends Container {
     }
 }
 
-Neo.applyClassConfig(HistoricalDataTable);
+Neo.setupClass(HistoricalDataTable);
 
 export default HistoricalDataTable;

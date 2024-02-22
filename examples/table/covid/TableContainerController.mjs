@@ -57,6 +57,6 @@ class TableContainerController extends Controller {
     }
 }
 
-Neo.applyClassConfig(TableContainerController);
+Neo.setupClass(TableContainerController);
 
 export default TableContainerController;

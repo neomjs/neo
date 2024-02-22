@@ -387,6 +387,6 @@ class Component extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Component);
+let instance = Neo.setupClass(Component);
 
 export default instance;

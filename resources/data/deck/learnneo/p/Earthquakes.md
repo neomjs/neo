@@ -210,7 +210,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -253,7 +253,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -458,7 +458,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -555,7 +555,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -702,7 +702,7 @@ class Table extends Base {
     }
 }
 
-Neo.applyClassConfig(Table);
+Neo.setupClass(Table);
 
 export default Table;
 </pre>
@@ -781,7 +781,7 @@ static config = {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -948,7 +948,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 
@@ -1036,7 +1036,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -1101,7 +1101,7 @@ class MainViewModel extends Base {
     }
 }
 
-Neo.applyClassConfig(MainViewModel);
+Neo.setupClass(MainViewModel);
 
 export default MainViewModel;
 </pre>
@@ -1141,7 +1141,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 </pre>
@@ -1323,7 +1323,7 @@ class MainView extends Base {
     }
 }
 
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 
 export default MainView;
 

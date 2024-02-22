@@ -78,6 +78,6 @@ class WorldMapContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(WorldMapContainer);
+Neo.setupClass(WorldMapContainer);
 
 export default WorldMapContainer;

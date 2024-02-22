@@ -41,6 +41,6 @@ class SpinDown extends Base {
     }
 }
 
-Neo.applyClassConfig(SpinDown);
+Neo.setupClass(SpinDown);
 
 export default SpinDown;

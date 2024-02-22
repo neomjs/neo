@@ -173,6 +173,6 @@ class ColumnModel extends Model {
     }
 }
 
-Neo.applyClassConfig(ColumnModel);
+Neo.setupClass(ColumnModel);
 
 export default ColumnModel;

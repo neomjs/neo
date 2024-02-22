@@ -48,6 +48,6 @@ class AnalyticsByGoogle extends Base {
     }
 }
 
-Neo.applyClassConfig(AnalyticsByGoogle);
+Neo.setupClass(AnalyticsByGoogle);
 
 export default AnalyticsByGoogle;

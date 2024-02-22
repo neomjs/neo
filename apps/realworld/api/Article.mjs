@@ -48,7 +48,7 @@ class Article extends Base {
     }
 }
 
-Neo.applyClassConfig(Article);
+Neo.setupClass(Article);
 
 let instance = Neo.create(Article);
 

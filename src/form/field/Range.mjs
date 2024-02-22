@@ -113,6 +113,6 @@ class Range extends Number {
     }
 }
 
-Neo.applyClassConfig(Range);
+Neo.setupClass(Range);
 
 export default Range;

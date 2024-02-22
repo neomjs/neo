@@ -134,6 +134,6 @@ class Color extends Select {
     }
 }
 
-Neo.applyClassConfig(Color);
+Neo.setupClass(Color);
 
 export default Color;

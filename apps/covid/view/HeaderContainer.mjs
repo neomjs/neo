@@ -170,6 +170,6 @@ class HeaderContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(HeaderContainer);
+Neo.setupClass(HeaderContainer);
 
 export default HeaderContainer;

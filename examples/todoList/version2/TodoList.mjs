@@ -47,6 +47,6 @@ class TodoList extends List {
     }*/
 }
 
-Neo.applyClassConfig(TodoList);
+Neo.setupClass(TodoList);
 
 export default TodoList;

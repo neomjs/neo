@@ -33,6 +33,6 @@ class FormPageContainer extends FormContainer {
     }
 }
 
-Neo.applyClassConfig(FormPageContainer);
+Neo.setupClass(FormPageContainer);
 
 export default FormPageContainer;

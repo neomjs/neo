@@ -101,6 +101,6 @@ class HelixContainerController extends ComponentController {
     }
 }
 
-Neo.applyClassConfig(HelixContainerController);
+Neo.setupClass(HelixContainerController);
 
 export default HelixContainerController;

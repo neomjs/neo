@@ -144,6 +144,6 @@ class YearContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(YearContainer);
+Neo.setupClass(YearContainer);
 
 export default YearContainer;

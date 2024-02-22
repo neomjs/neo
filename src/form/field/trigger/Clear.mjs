@@ -141,6 +141,6 @@ class Clear extends Base {
     }
 }
 
-Neo.applyClassConfig(Clear);
+Neo.setupClass(Clear);
 
 export default Clear;

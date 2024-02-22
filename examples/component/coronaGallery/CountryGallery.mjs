@@ -183,6 +183,6 @@ class CountryGallery extends Gallery {
     }
 }
 
-Neo.applyClassConfig(CountryGallery);
+Neo.setupClass(CountryGallery);
 
 export default CountryGallery;

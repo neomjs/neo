@@ -179,6 +179,6 @@ class Process extends Base {
     }
 }
 
-Neo.applyClassConfig(Process);
+Neo.setupClass(Process);
 
 export default Process;

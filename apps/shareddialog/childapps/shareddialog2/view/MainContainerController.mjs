@@ -21,6 +21,6 @@ class MainContainerController extends ComponentController {
     }
 }
 
-Neo.applyClassConfig(MainContainerController);
+Neo.setupClass(MainContainerController);
 
 export default MainContainerController;

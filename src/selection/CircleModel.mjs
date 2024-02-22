@@ -97,6 +97,6 @@ class CircleModel extends Model {
     }
 }
 
-Neo.applyClassConfig(CircleModel);
+Neo.setupClass(CircleModel);
 
 export default CircleModel;

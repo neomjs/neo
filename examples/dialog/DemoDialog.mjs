@@ -157,6 +157,6 @@ class DemoDialog extends Dialog {
     }
 }
 
-Neo.applyClassConfig(DemoDialog);
+Neo.setupClass(DemoDialog);
 
 export default DemoDialog;

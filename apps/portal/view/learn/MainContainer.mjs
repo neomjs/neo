@@ -68,6 +68,6 @@ class MainContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.setupClass(MainContainer);
 
 export default MainContainer;

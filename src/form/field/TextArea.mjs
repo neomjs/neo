@@ -216,6 +216,6 @@ class TextArea extends Text {
     }
 }
 
-Neo.applyClassConfig(TextArea);
+Neo.setupClass(TextArea);
 
 export default TextArea;

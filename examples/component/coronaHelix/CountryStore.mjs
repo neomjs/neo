@@ -13,6 +13,6 @@ class CountryStore extends Store {
     }
 }
 
-Neo.applyClassConfig(CountryStore);
+Neo.setupClass(CountryStore);
 
 export default CountryStore;

@@ -266,7 +266,7 @@ if (programOpts.info) {
                 "    }",
                 "}",
                 "",
-                "Neo.applyClassConfig(MainContainer);",
+                "Neo.setupClass(MainContainer);",
                 "",
                 "export default MainContainer;"
             ].join(os.EOL);

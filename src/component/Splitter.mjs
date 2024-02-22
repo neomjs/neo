@@ -235,6 +235,6 @@ class Splitter extends Component {
     }
 }
 
-Neo.applyClassConfig(Splitter);
+Neo.setupClass(Splitter);
 
 export default Splitter;

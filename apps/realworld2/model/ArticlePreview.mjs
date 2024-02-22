@@ -42,6 +42,6 @@ class ArticlePreview extends Model {
     }
 }
 
-Neo.applyClassConfig(ArticlePreview);
+Neo.setupClass(ArticlePreview);
 
 export default ArticlePreview;

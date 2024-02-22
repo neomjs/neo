@@ -39,6 +39,6 @@ class Css extends Base {
     }
 }
 
-Neo.applyClassConfig(Css);
+Neo.setupClass(Css);
 
 export default Css;

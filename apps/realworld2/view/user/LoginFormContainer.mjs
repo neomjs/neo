@@ -77,6 +77,6 @@ class LoginFormContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(LoginFormContainer);
+Neo.setupClass(LoginFormContainer);
 
 export default LoginFormContainer;

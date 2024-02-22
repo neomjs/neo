@@ -107,6 +107,6 @@ class Base extends CoreBase {
     removeRenderAttributes() {}
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

@@ -62,6 +62,6 @@ class Style extends Base {
     }
 }
 
-Neo.applyClassConfig(Style);
+Neo.setupClass(Style);
 
 export default Style;

@@ -134,7 +134,7 @@ class MonacoEditor extends Base {
             event,
             id,
             path,
-            type : 'change',
+            type : 'editorChange', // we must not use "change", since the editor contains a textarea tag which also fires change.
             value: this.map[id].getModel().getValue()
         })
     }
@@ -176,6 +176,6 @@ class MonacoEditor extends Base {
     }
 }
 
-Neo.applyClassConfig(MonacoEditor);
+Neo.setupClass(MonacoEditor);
 
 export default MonacoEditor;

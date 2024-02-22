@@ -54,6 +54,6 @@ class Country extends Model {
     }
 }
 
-Neo.applyClassConfig(Country);
+Neo.setupClass(Country);
 
 export default Country;

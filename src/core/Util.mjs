@@ -209,7 +209,7 @@ class Util extends Base {
     }
 }
 
-Neo.applyClassConfig(Util);
+Neo.setupClass(Util);
 
 // aliases
 Neo.applyFromNs(Neo, Util, {

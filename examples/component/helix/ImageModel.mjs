@@ -33,6 +33,6 @@ class ImageModel extends Model {
     }
 }
 
-Neo.applyClassConfig(ImageModel);
+Neo.setupClass(ImageModel);
 
 export default ImageModel;

@@ -129,7 +129,7 @@ class Compare extends Base {
     }
 }
 
-Neo.applyClassConfig(Compare);
+Neo.setupClass(Compare);
 
 // alias
 Neo.isEqual = Compare.isEqual;

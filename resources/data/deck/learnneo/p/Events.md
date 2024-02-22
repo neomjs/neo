@@ -36,7 +36,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 If you run the example, and open the browser's debugger, you'll see the console being logged as you type or give
@@ -62,7 +62,7 @@ class MainViewController extends Controller {
         console.log(data.value);
     }
 }
-Neo.applyClassConfig(MainViewController);
+Neo.setupClass(MainViewController);
 
 
 class MainView extends Base {
@@ -79,7 +79,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 (It's important to keep in mind that in Neo.mjs, all class definitions are coded in their own
@@ -122,7 +122,7 @@ class ToggleButton extends Button {
         this.checked = !this.checked;      
     }
 }
-Neo.applyClassConfig(ToggleButton);
+Neo.setupClass(ToggleButton);
 
 
 class MainView extends Base {
@@ -138,5 +138,5 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>

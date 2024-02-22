@@ -23,18 +23,23 @@ class LivePreview extends Base {
          */
         items: [{
             module: TabContainer,
+            removeInactiveCards: false,
             reference: 'tab-container',
             cls: 'live-preview-container',
             items: [{
                 module: MonacoEditor,
                 hideLabel: true,
                 style: { height: '100%' },
-                reference: 'textArea',
+                reference: 'editor',
                 tabButtonConfig: {
                     text: 'Source'
                 },
                 listeners: {
-                    change: data => data.component.up({ className: 'Portal.view.learn.LivePreview' }).value = data.value
+                    editorChange: data => {
+                        let container = data.component.up({ className: 'Portal.view.learn.LivePreview' });
+                        container.editorValue = data.value;
+                        console.log(container.editorValue);
+                    }
                 }
             }, {
                 tabButtonConfig: {
@@ -48,7 +53,8 @@ class LivePreview extends Base {
 
     afterSetValue(value, oldValue) {
         if (value) {
-            this.getItem('textArea').value = value;
+            console.log(value);
+            this.getItem('editor').value = value;
         }
     }
 
@@ -61,7 +67,10 @@ class LivePreview extends Base {
     }
 
     doRunSource() {
-        let source = this.value;
+
+        let source = this.editorValue || this.value;
+
+
 
         const importRegex = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
         const exportRegex = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g;
@@ -198,6 +207,6 @@ class LivePreview extends Base {
     }
 }
 
-Neo.applyClassConfig(LivePreview);
+Neo.setupClass(LivePreview);
 
 export default LivePreview;

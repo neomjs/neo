@@ -225,6 +225,6 @@ class SettingsComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(SettingsComponent);
+Neo.setupClass(SettingsComponent);
 
 export default SettingsComponent;

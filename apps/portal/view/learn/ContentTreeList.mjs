@@ -192,6 +192,6 @@ class ContentTreeList extends TreeList {
     }
 }
 
-Neo.applyClassConfig(ContentTreeList);
+Neo.setupClass(ContentTreeList);
 
 export default ContentTreeList;

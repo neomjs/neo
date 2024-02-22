@@ -212,6 +212,6 @@ class TimeAxisComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(TimeAxisComponent);
+Neo.setupClass(TimeAxisComponent);
 
 export default TimeAxisComponent;

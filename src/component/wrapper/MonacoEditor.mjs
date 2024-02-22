@@ -109,8 +109,8 @@ class MonacoEditor extends Base {
         let me = this;
 
         me.addDomListeners({
-            change: me.onContentChange,
-            scope : me
+            editorChange: me.onContentChange,
+            scope       : me
         })
     }
 
@@ -390,7 +390,7 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     onContentChange(data) {
-        this.fire('change', data)
+        this.fire('editorChange', data)
     }
 
     /**
@@ -422,6 +422,6 @@ class MonacoEditor extends Base {
     }
 }
 
-Neo.applyClassConfig(MonacoEditor);
+Neo.setupClass(MonacoEditor);
 
 export default MonacoEditor;

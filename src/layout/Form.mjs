@@ -135,6 +135,6 @@ class Form extends Base {
     }
 }
 
-Neo.applyClassConfig(Form);
+Neo.setupClass(Form);
 
 export default Form;

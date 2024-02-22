@@ -3,5 +3,5 @@
     "basePath"        : "../",
     "environment"     : "development",
     "mainPath"        : "../src/Main.mjs",
-    "mainThreadAddons": ["DragDrop", "HighlightJS", "ResizeObserver", "Stylesheet"]
+    "mainThreadAddons": ["DragDrop", "HighlightJS", "Navigator", "ResizeObserver", "Stylesheet"]
 }

@@ -32,7 +32,7 @@ class Favorite extends Base {
     }
 }
 
-Neo.applyClassConfig(Favorite);
+Neo.setupClass(Favorite);
 
 let instance = Neo.create(Favorite);
 

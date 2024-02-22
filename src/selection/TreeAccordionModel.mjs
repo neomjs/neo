@@ -288,6 +288,6 @@ class TreeAccordionModel extends TreeModel {
     }
 }
 
-Neo.applyClassConfig(TreeAccordionModel);
+Neo.setupClass(TreeAccordionModel);
 
 export default TreeAccordionModel;

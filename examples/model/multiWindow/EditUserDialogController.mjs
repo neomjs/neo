@@ -32,6 +32,6 @@ class EditUserDialogController extends Component {
     }
 }
 
-Neo.applyClassConfig(EditUserDialogController);
+Neo.setupClass(EditUserDialogController);
 
 export default EditUserDialogController;

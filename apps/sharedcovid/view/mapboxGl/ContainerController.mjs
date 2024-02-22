@@ -55,6 +55,6 @@ class ContainerController extends ComponentController {
     }
 }
 
-Neo.applyClassConfig(ContainerController);
+Neo.setupClass(ContainerController);
 
 export default ContainerController;

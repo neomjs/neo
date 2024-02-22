@@ -53,6 +53,6 @@ class Country extends Select {
     }
 }
 
-Neo.applyClassConfig(Country);
+Neo.setupClass(Country);
 
 export default Country;

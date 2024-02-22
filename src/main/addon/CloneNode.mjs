@@ -97,6 +97,6 @@ class CloneNode extends Base {
     }
 }
 
-Neo.applyClassConfig(CloneNode);
+Neo.setupClass(CloneNode);
 
 export default CloneNode;

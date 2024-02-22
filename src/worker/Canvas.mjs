@@ -80,6 +80,6 @@ class Canvas extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Canvas);
+let instance = Neo.setupClass(Canvas);
 
 export default instance;

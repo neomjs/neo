@@ -156,6 +156,6 @@ class SourceViewComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(SourceViewComponent);
+Neo.setupClass(SourceViewComponent);
 
 export default SourceViewComponent;

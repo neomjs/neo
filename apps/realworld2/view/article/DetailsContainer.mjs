@@ -27,6 +27,6 @@ class DetailsContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(DetailsContainer);
+Neo.setupClass(DetailsContainer);
 
 export default DetailsContainer;

@@ -21,7 +21,7 @@ class MainViewController extends Controller {
         data.component.disabled = true;
     }
 }
-Neo.applyClassConfig(MainViewController);
+Neo.setupClass(MainViewController);
 
 
 class MainView extends Base {
@@ -36,7 +36,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 But what if we need to get a reference to another component in the view? In that case
@@ -59,7 +59,7 @@ class MainViewController extends Controller {
         this.getReference('myButton').disabled = false;
     }
 }
-Neo.applyClassConfig(MainViewController);
+Neo.setupClass(MainViewController);
 
 
 class MainView extends Base {
@@ -79,7 +79,7 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 
@@ -122,5 +122,5 @@ class MainView extends Base {
         }]
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>

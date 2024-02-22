@@ -80,6 +80,6 @@ class HashHistory extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(HashHistory);
+let instance = Neo.setupClass(HashHistory);
 
 export default instance;

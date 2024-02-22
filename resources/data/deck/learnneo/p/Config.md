@@ -24,7 +24,7 @@ class Simple extends Component {
     }
 
 }
-Neo.applyClassConfig(Simple);
+Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -41,7 +41,7 @@ class MainView extends Container {
 
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 The `Simple` class doesn't have any content, so if you run the code you won't see anything. We'll 
@@ -78,7 +78,7 @@ class Simple extends Component {
     }
 
 }
-Neo.applyClassConfig(Simple);
+Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -95,7 +95,7 @@ class MainView extends Container {
 
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 
 This time if you run the code you'll "hi there" in the view. That's because the Simple instance is
@@ -131,7 +131,7 @@ class Simple extends Component {
     }
 
 }
-Neo.applyClassConfig(Simple);
+Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -152,6 +152,6 @@ class MainView extends Container {
 
     }
 }
-Neo.applyClassConfig(MainView);
+Neo.setupClass(MainView);
 </pre>
 

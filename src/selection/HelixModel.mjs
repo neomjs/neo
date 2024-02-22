@@ -299,6 +299,6 @@ class HelixModel extends Model {
     }
 }
 
-Neo.applyClassConfig(HelixModel);
+Neo.setupClass(HelixModel);
 
 export default HelixModel;

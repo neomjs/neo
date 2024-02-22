@@ -52,6 +52,6 @@ class ButtonBar extends Base {
     }
 }
 
-Neo.applyClassConfig(ButtonBar);
+Neo.setupClass(ButtonBar);
 
 export default ButtonBar;

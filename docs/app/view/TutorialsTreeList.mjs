@@ -46,6 +46,6 @@ class TutorialsTreeList extends TreeList {
     }
 }
 
-Neo.applyClassConfig(TutorialsTreeList);
+Neo.setupClass(TutorialsTreeList);
 
 export default TutorialsTreeList;

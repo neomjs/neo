@@ -65,6 +65,6 @@ class SortZone extends BaseSortZone {
     }
 }
 
-Neo.applyClassConfig(SortZone);
+Neo.setupClass(SortZone);
 
 export default SortZone;

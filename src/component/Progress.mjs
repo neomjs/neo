@@ -108,6 +108,6 @@ class Progress extends Base {
     }
 }
 
-Neo.applyClassConfig(Progress);
+Neo.setupClass(Progress);
 
 export default Progress;

@@ -91,6 +91,6 @@ class ToggleOperatorsButton extends Button {
     }
 }
 
-Neo.applyClassConfig(ToggleOperatorsButton);
+Neo.setupClass(ToggleOperatorsButton);
 
 export default ToggleOperatorsButton;

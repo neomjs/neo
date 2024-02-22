@@ -41,6 +41,6 @@ class Siesta extends Base {
     }
 }
 
-Neo.applyClassConfig(Siesta);
+Neo.setupClass(Siesta);
 
 export default Siesta;
