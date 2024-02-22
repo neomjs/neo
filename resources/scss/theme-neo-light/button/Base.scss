@@ -12,12 +12,21 @@ $border-width    : 1px;
     --button-background-color-disabled          : var(--cmp-button-primary-surface-disabled);
     --button-background-color-hover             : var(--cmp-button-primary-surface-hover);
 
-    // Text
+    // Text & Glyph 
+    --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
+    --button-text-font-size                     : var(--core-fontsize-label);
+    --button-text-font-weight                   : var(--core-fontweight-semibold);
+    --button-text-line-height                   : inherit;
+    --button-text-transform                     : none;
     --button-text-color                         : var(--sem-color-text-neutral-reversed);
     --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
     --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
     --button-text-color-disabled                : var(--sem-color-text-neutral-disabled);
-
+    --button-glyph-color                        : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-hover                  : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-active                 : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-disabled               : var(--sem-color-text-neutral-disabled);
+    
     //Border
     --button-border                             : none;
     --button-border-active                      : none;
@@ -26,6 +35,11 @@ $border-width    : 1px;
     --button-border-pressed                     : none;
     --button-border-radius                      : var(--cmp-button-borderradius);
 
+    // Spacings & Height
+    --button-height                             : var(--cmp-button-height);
+    --button-margin                             : var(--cmp-button-gap);
+    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
+
     --button-background-image                   : none;
     --button-background-gradient-end            : #323536;
     --button-background-gradient-start          : #434749;
@@ -33,21 +47,9 @@ $border-width    : 1px;
     --button-badge-color                        : var(--sem-color-fg-neutral-contrast);
     --button-badge-margin-left                  : -10px;
     --button-badge-margin-top                   : -10px;
-    --button-glyph-color                        : var(--sem-color-fg-neutral-contrast);
-    --button-glyph-color-active                 : var(--sem-color-fg-neutral-contrast);
-    --button-glyph-color-disabled               : var(--sem-color-fg-neutral-contrast);
-    --button-glyph-color-hover                  : var(--sem-color-fg-neutral-contrast);
-    --button-height                             : var(--cmp-button-height);
-    --button-margin                             : var(--cmp-button-gap);
     --button-opacity-disabled                   : inherit;
     --button-outline-active                     : none;
-    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
     --button-ripple-background-color            : transparent;
-    --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
-    --button-text-font-size                     : var(--core-fontsize-label);
-    --button-text-font-weight                   : var(--core-fontweight-semibold);
-    --button-text-line-height                   : inherit;
-    --button-text-transform                     : none;
     --button-use-gradients                      : false;
 
     // {module: Button; ui: --ghost}
@@ -76,19 +78,25 @@ $border-width    : 1px;
     --button-ghost-text-color-disabled          : var(--cmp-button-ghost-fg-disabled);
     --button-ghost-text-color-hover             : inherit;
 
+
     // {module: Button; ui: --secondary}
-    --button-secondary-background-color         : var(--cmp-button-secondary-bg-default);
-    --button-secondary-background-color-active  : var(--cmp-button-secondary-bg-active);
-    --button-secondary-background-color-disabled: inherit;
-    --button-secondary-background-color-hover   : var(--cmp-button-secondary-bg-hover);
-    --button-secondary-background-image         : none;
-    --button-secondary-badge-background-color   : transparent;
-    --button-secondary-badge-color              : transparent;
+    // Background Color
+    --button-secondary-background-color         : var(--cmp-button-secondary-surface-default);
+    --button-secondary-background-color-hover   : var(--cmp-button-secondary-surface-hover);
+    --button-secondary-background-color-active  : var(--cmp-button-secondary-surface-active);
+    --button-secondary-background-color-disabled: var(--cmp-button-secondary-surface-disabled);
+
+    // Border
     --button-secondary-border                   : var(--cmp-button-secondary-border-default-width) solid var(--cmp-button-secondary-border-default-color);
     --button-secondary-border-active            : inherit;
     --button-secondary-border-disabled          : var(--cmp-button-secondary-border-default-width) solid var(--cmp-button-secondary-border-disabled-color);
-    --button-secondary-border-hover             : inherit
-    --button-secondary-border-pressed           : inherit
+    --button-secondary-border-hover             : inherit;
+    --button-secondary-border-pressed           : inherit;
+    
+    --button-secondary-background-image         : none;
+    --button-secondary-badge-background-color   : transparent;
+    --button-secondary-badge-color              : transparent;
+   
     --button-secondary-glyph-color              : var(--sem-color-fg-neutral-contrast);
     --button-secondary-glyph-color-active       : var(--sem-color-fg-neutral-contrast);
     --button-secondary-glyph-color-disabled     : var(--sem-color-fg-neutral-disabled);
