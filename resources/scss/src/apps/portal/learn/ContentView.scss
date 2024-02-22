@@ -1,15 +1,13 @@
 .learn-content {
 
     max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
+    padding: 0 3rem;
+    margin: 0 auto;
     background-color: white;
     border-radius: 8px;
-    // margin: 8px 8px 8px 0;
 
     letter-spacing: 1px;
     overflow: scroll;
-    // padding: 1em;
 
     pre[data-javascript] {
         border-radius: 4px;
