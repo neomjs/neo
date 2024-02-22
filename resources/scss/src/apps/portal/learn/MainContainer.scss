@@ -10,6 +10,7 @@
 .learn-content-container {
     // align-items: center !important;
     // padding: 0 3rem;
+    overflow: scroll;
 }
 
 
@@ -19,7 +20,7 @@
 
     box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
     border-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-    
+
     .neo-tab-header-toolbar {
         background-color: var(--sem-color-surface-neutral-default);
         padding: var(--cmp-tab-strip-height);
