@@ -1,14 +1,19 @@
 import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
+import DomUtils     from './DomUtils.mjs';
 import Observable   from '../core/Observable.mjs';
 import Rectangle    from '../util/Rectangle.mjs';
-import String       from '../util/String.mjs';
-import DomUtils     from './DomUtils.mjs';
+import StringUtil   from '../util/String.mjs';
 
 const
     doPreventDefault = e => e.preventDefault(),
     filterTabbable   = e => !e.classList.contains('neo-focus-trap') && DomUtils.isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     lengthRE         = /^\d+\w+$/,
+
+    capturePassive = {
+        capture : true,
+        passive : true
+    },
 
     fontSizeProps = [
         'font-family',
@@ -25,10 +30,6 @@ const
         'word-break'
     ],
 
-    capturePassive = {
-        capture : true,
-        passive : true
-    },
     modifierKeys = {
         Shift   : 1,
         Alt     : 1,
@@ -72,7 +73,7 @@ class DomAccess extends Base {
         ],
         /**
          * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
+         * @member {Object} remote
          * @protected
          */
         remote: {
@@ -185,15 +186,15 @@ class DomAccess extends Base {
 
     onDocumentKeyDown(keyEvent) {
         if (modifierKeys[keyEvent.key]) {
-            // eg Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
+            // e.g. Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
             // Selection can consult this value
-            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = true;
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = true;
         }
     }
 
     onDocumentKeyUp(keyEvent) {
         if (modifierKeys[keyEvent.key]) {
-            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = false;
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = false;
         }
     }
 
