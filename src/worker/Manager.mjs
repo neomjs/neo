@@ -87,6 +87,9 @@ class Manager extends Base {
             data: {
                 fileName: devMode ? 'Data.mjs'   : 'dataworker.js'
             },
+            task: {
+                fileName: devMode ? 'Task.mjs'   : 'taskworker.js'
+            },
             vdom: {
                 fileName: devMode ? 'VDom.mjs'   : 'vdomworker.js'
             }
@@ -124,7 +127,7 @@ class Manager extends Base {
             'message:readDom'           : {fn: DomAccess.onReadDom,            scope: DomAccess},
             'message:registerRemote'    : {fn: me.onRegisterRemote,            scope: me},
             'message:workerConstructed' : {fn: me.onWorkerConstructed,         scope: me}
-        });
+        })
     }
 
     /**
@@ -135,9 +138,10 @@ class Manager extends Base {
         Object.keys(this.workers).forEach(name => {
             if (!(
                 name === 'canvas' && !NeoConfig.useCanvasWorker ||
+                name === 'task'   && !NeoConfig.useTaskWorker   ||
                 name === 'vdom'   && !NeoConfig.useVdomWorker
             )) {
-                this.sendMessage(name, msg);
+                this.sendMessage(name, msg)
             }
         });
     }
@@ -163,7 +167,7 @@ class Manager extends Base {
 
         me.activeWorkers++;
 
-        return worker;
+        return worker
     }
 
     /**
@@ -193,17 +197,18 @@ class Manager extends Base {
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||
+                key === 'task'   && !config.useTaskWorker   ||
                 key === 'vdom'   && !config.useVdomWorker
             ) {
-                continue;
+                continue
             }
 
             try {
-                value.worker = me.createWorker(value);
+                value.worker = me.createWorker(value)
             } catch (e) {
                 document.body.innerHTML = e;
                 me.stopCommunication = true;
-                break;
+                break
             }
 
             me.sendMessage(key, {
@@ -223,13 +228,13 @@ class Manager extends Base {
         NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (window.Worker) {
-            me.webWorkersEnabled = true;
+            me.webWorkersEnabled = true
         } else {
-            throw new Error('Your browser does not support Web Workers');
+            throw new Error('Your browser does not support Web Workers')
         }
 
         if (window.SharedWorker) {
-            me.sharedWorkersEnabled = true;
+            me.sharedWorkersEnabled = true
         }
     }
 
@@ -239,10 +244,10 @@ class Manager extends Base {
      */
     getWorker(name) {
         if (name === 'service') {
-            return navigator.serviceWorker?.controller || this.serviceWorker;
+            return navigator.serviceWorker?.controller || this.serviceWorker
         }
 
-        return name instanceof Worker ? name : this.workers[name].worker;
+        return name instanceof Worker ? name : this.workers[name].worker
     }
 
     /**
@@ -253,7 +258,7 @@ class Manager extends Base {
             action       : 'loadApplication',
             path,
             resourcesPath: NeoConfig.resourcesPath
-        });
+        })
     }
 
     /**
@@ -265,9 +270,9 @@ class Manager extends Base {
         me.constructedThreads++;
 
         if (me.constructedThreads === me.activeWorkers) {
-            NeoConfig.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
+            NeoConfig.appPath && setTimeout(() => { // better safe than sorry => all remotes need to be registered
                 me.loadApplication(NeoConfig.appPath);
-            }, NeoConfig.loadApplicationDelay);
+            }, NeoConfig.loadApplicationDelay)
         }
     }
 
@@ -277,7 +282,7 @@ class Manager extends Base {
      */
     onWorkerError(e) {
         // starting a worker from a JS module will show JS errors in a correct way
-        !devMode && console.log('Worker Error:', e);
+        !devMode && console.log('Worker Error:', e)
     }
 
     /**
@@ -307,12 +312,12 @@ class Manager extends Base {
                     // we want to delay the message until the rendering queue has processed it
                     // see: https://github.com/neomjs/neo/issues/2864
                     me.promiseForwardMessage(data).then(msgData => {
-                        me.sendMessage(msgData.destination, msgData);
-                    });
+                        me.sendMessage(msgData.destination, msgData)
+                    })
                 }
             } else {
                 if (data.destination === 'main') {
-                    data = data.data;
+                    data = data.data
                 }
 
                 promise[data.reject ? 'reject' : 'resolve'](data);
@@ -322,7 +327,7 @@ class Manager extends Base {
 
         if (dest !== 'main' && action !== 'reply') {
             if (data.transfer) {
-                transfer = [data.transfer];
+                transfer = [data.transfer]
             }
 
             me.promiseMessage(dest, data, transfer).then(response => {
@@ -333,8 +338,8 @@ class Manager extends Base {
                     reject : true,
                     replyId: data.id,
                     error  : err.message
-                });
-            });
+                })
+            })
         }
 
         // only needed for SharedWorkers
@@ -344,11 +349,11 @@ class Manager extends Base {
             me.broadcast({
                 action : 'registerApp',
                 appName: data.appName
-            });
+            })
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {
-            me.onRemoteMethod(data);
+            me.onRemoteMethod(data)
         }
     }
 
@@ -359,8 +364,8 @@ class Manager extends Base {
      */
     promiseForwardMessage(data) {
         return new Promise((resolve, reject) => {
-            this.promises[data.replyId] = { data, reject, resolve };
-        });
+            this.promises[data.replyId] = { data, reject, resolve }
+        })
     }
 
     /**
@@ -378,8 +383,8 @@ class Manager extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = { reject, resolve };
-        });
+            me.promises[msgId] = { reject, resolve }
+        })
     }
 
     /**
@@ -391,7 +396,7 @@ class Manager extends Base {
 
             if (promise) {
                 promise.resolve(promise.data);
-                delete this.promises[replyId];
+                delete this.promises[replyId]
             }
         }
     }
@@ -412,13 +417,13 @@ class Manager extends Base {
         if (!me.stopCommunication) {
             if (opts.channelPort) {
                 worker = opts.channelPort;
-                delete opts.channelPort;
+                delete opts.channelPort
             } else {
-                worker = me.getWorker(dest);
+                worker = me.getWorker(dest)
             }
 
             if (!worker) {
-                throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
+                throw new Error('Called sendMessage for a worker that does not exist: ' + dest)
             }
 
             opts.destination = dest;
@@ -426,7 +431,7 @@ class Manager extends Base {
             message = new Message(opts);
 
             (worker.port ? worker.port : worker).postMessage(message, transfer);
-            return message;
+            return message
         }
     }
 }
