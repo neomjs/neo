@@ -20,12 +20,8 @@
     --cmp-button-primary-surface-hover          : var(--sem-color-surface-primary-hover);
     --cmp-button-primary-text-default           : var(--sem-color-text-neutral-reversed);
     --cmp-button-primary-text-disabled          : var(--sem-color-text-disabled);
-    --cmp-button-secondary-border-default-color : var(--sem-color-border-default);
-    --cmp-button-secondary-border-default-style : solid;
-    --cmp-button-secondary-border-default-width : 1px;
-    --cmp-button-secondary-border-disabled-color: var(--sem-color-border-subtle);
-    --cmp-button-secondary-border-disabled-style: solid;
-    --cmp-button-secondary-border-disabled-width: 1px;
+    --cmp-button-secondary-border-default       : var(--sem-color-border-default);
+    --cmp-button-secondary-border-disabled      : var(--sem-color-border-subtle);
     --cmp-button-secondary-surface-active       : var(--sem-color-surface-neutral-active);
     --cmp-button-secondary-surface-default      : transparent;
     --cmp-button-secondary-surface-disabled     : var(--sem-color-surface-disabled);

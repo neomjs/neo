@@ -4,82 +4,58 @@ $border-color    : #ddd;
 $border-style    : solid;
 $border-width    : 1px;
 
-:root .neo-theme-neo-light { 
-    // .neo-button
+:root .neo-theme-neo-light {
+
+    // .neo-button – Styles that will be inherited by ALL button styles
+    --button-height                             : var(--cmp-button-height);
+    --button-margin                             : var(--cmp-button-gap);
+    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
+    --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
+    --button-text-font-size                     : var(--core-fontsize-label);
+    --button-text-font-weight                   : var(--core-fontweight-semibold);
+    --button-text-line-height                   : inherit;
+    --button-text-transform                     : none;
+    --button-border-radius                      : var(--cmp-button-borderradius);
+    --button-badge-background-color             : var(--sem-color-fg-neutral-contrast);
+    --button-badge-color                        : var(--sem-color-fg-neutral-contrast);
+    --button-badge-margin-left                  : -10px;
+    --button-badge-margin-top                   : -10px;
+
+    // {module: Button; ui: --primary} –––––––––––––––––––––––––––––––––––––––––––––––––––––
     // Background Color
     --button-background-color                   : var(--cmp-button-primary-surface-default);
     --button-background-color-active            : var(--cmp-button-primary-surface-active);
     --button-background-color-disabled          : var(--cmp-button-primary-surface-disabled);
     --button-background-color-hover             : var(--cmp-button-primary-surface-hover);
 
-    // Text & Glyph 
-    --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
-    --button-text-font-size                     : var(--core-fontsize-label);
-    --button-text-font-weight                   : var(--core-fontweight-semibold);
-    --button-text-line-height                   : inherit;
-    --button-text-transform                     : none;
-    --button-text-color                         : var(--sem-color-text-neutral-reversed);
-    --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
-    --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
-    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled);
-    --button-glyph-color                        : var(--sem-color-text-neutral-reversed);
-    --button-glyph-color-hover                  : var(--sem-color-text-neutral-reversed);
-    --button-glyph-color-active                 : var(--sem-color-text-neutral-reversed);
-    --button-glyph-color-disabled               : var(--sem-color-text-neutral-disabled);
-    
     //Border
     --button-border                             : none;
     --button-border-active                      : none;
     --button-border-disabled                    : none;
     --button-border-hover                       : none;
     --button-border-pressed                     : none;
-    --button-border-radius                      : var(--cmp-button-borderradius);
 
-    // Spacings & Height
-    --button-height                             : var(--cmp-button-height);
-    --button-margin                             : var(--cmp-button-gap);
-    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
+    // Text Color 
+    --button-text-color                         : var(--sem-color-text-neutral-reversed);
+    --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
+    --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
+    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled)
+
+    // Icon Color
+    --button-glyph-color                        : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-hover                  : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-active                 : var(--sem-color-text-neutral-reversed);
+    --button-glyph-color-disabled               : var(--sem-color-text-neutral-disabled);
 
     --button-background-image                   : none;
     --button-background-gradient-end            : #323536;
     --button-background-gradient-start          : #434749;
-    --button-badge-background-color             : var(--sem-color-fg-neutral-contrast);
-    --button-badge-color                        : var(--sem-color-fg-neutral-contrast);
-    --button-badge-margin-left                  : -10px;
-    --button-badge-margin-top                   : -10px;
     --button-opacity-disabled                   : inherit;
     --button-outline-active                     : none;
     --button-ripple-background-color            : transparent;
     --button-use-gradients                      : false;
 
-    // {module: Button; ui: --ghost}
-    // Background Color
-    --button-ghost-background-color             : var(--cmp-button-ghost-surface-default);
-    --button-ghost-background-color-hover       : var(--cmp-button-ghost-surface-hover);
-    --button-ghost-background-color-active      : var(--cmp-button-ghost-surface-active);
-    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-surface-disabled);
-
-    --button-ghost-background-image             : none;
-    --button-ghost-badge-background-color       : transparent;
-    --button-ghost-badge-color                  : transparent;
-    --button-ghost-border                       : none;
-    --button-ghost-border-active                : none;
-    --button-ghost-border-disabled              : inherit;
-    --button-ghost-border-hover                 : none;
-    --button-ghost-border-pressed               : none;
-    --button-ghost-glyph-color                  : var(--cmp-button-ghost-fg-default);
-    --button-ghost-glyph-color-active           : inherit;
-    --button-ghost-glyph-color-disabled         : var(--cmp-button-ghost-fg-disabled);
-    --button-ghost-glyph-color-hover            : inherit;
-    --button-ghost-opacity-disabled             : inherit;
-    --button-ghost-ripple-background-color      : inherit;
-    --button-ghost-text-color                   : var(--cmp-button-ghost-fg-default);
-    --button-ghost-text-color-active            : inherit;
-    --button-ghost-text-color-disabled          : var(--cmp-button-ghost-fg-disabled);
-    --button-ghost-text-color-hover             : inherit;
-
-
-    // {module: Button; ui: --secondary}
+    // {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
     // Background Color
     --button-secondary-background-color         : var(--cmp-button-secondary-surface-default);
     --button-secondary-background-color-hover   : var(--cmp-button-secondary-surface-hover);
@@ -87,53 +63,104 @@ $border-width    : 1px;
     --button-secondary-background-color-disabled: var(--cmp-button-secondary-surface-disabled);
 
     // Border
-    --button-secondary-border                   : var(--cmp-button-secondary-border-default-width) solid var(--cmp-button-secondary-border-default-color);
-    --button-secondary-border-active            : inherit;
-    --button-secondary-border-disabled          : var(--cmp-button-secondary-border-default-width) solid var(--cmp-button-secondary-border-disabled-color);
-    --button-secondary-border-hover             : inherit;
-    --button-secondary-border-pressed           : inherit;
+    --button-secondary-border                   : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-hover             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-active            : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-disabled          : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled)
+    --button-secondary-border-pressed           : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+
+    // Text Color
+    --button-secondary-text-color               : var(--sem-color-text-neutral-default);
+    --button-secondary-text-color-hover         : var(--sem-color-text-neutral-contrast);
+    --button-secondary-text-color-active        : var(--sem-color-text-neutral-contrast);
+    --button-secondary-text-color-disabled      : var(--sem-color-text-neutral-disabled);
+
+    // Icon Color
+    --button-secondary-glyph-color              : var(--sem-color-icon-neutral-default);
+    --button-secondary-glyph-color-hover        : var(--sem-color-icon-neutral-contrast);
+    --button-secondary-glyph-color-active       : var(--sem-color-icon-neutral-contrast);
+    --button-secondary-glyph-color-disabled     : var(--sem-color-icon-neutral-disabled);
     
     --button-secondary-background-image         : none;
     --button-secondary-badge-background-color   : transparent;
     --button-secondary-badge-color              : transparent;
-   
-    --button-secondary-glyph-color              : var(--sem-color-fg-neutral-contrast);
-    --button-secondary-glyph-color-active       : var(--sem-color-fg-neutral-contrast);
-    --button-secondary-glyph-color-disabled     : var(--sem-color-fg-neutral-disabled);
-    --button-secondary-glyph-color-hover        : var(--sem-color-fg-neutral-contrast);
     --button-secondary-opacity-disabled         : none;
     --button-secondary-ripple-background-color  : inherit;
-    --button-secondary-text-color               : var(--sem-color-fg-neutral-contrast);
-    --button-secondary-text-color-active        : var(--sem-color-fg-neutral-contrast);
-    --button-secondary-text-color-disabled      : var(--sem-color-fg-neutral-disabled);
-    --button-secondary-text-color-hover         : var(--sem-color-fg-neutral-contrast);
 
-    // {module: Button; ui: --tertiary}
+
+    // {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
+    // Background Color
+    --button-ghost-background-color             : var(--cmp-button-ghost-surface-default);
+    --button-ghost-background-color-hover       : var(--cmp-button-ghost-surface-hover);
+    --button-ghost-background-color-active      : var(--cmp-button-ghost-surface-active);
+    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-surface-disabled);
+
+    // Border
+    --button-ghost-border                       : none;
+    --button-ghost-border-active                : none;
+    --button-ghost-border-disabled              : inherit;
+    --button-ghost-border-hover                 : none;
+    --button-ghost-border-pressed               : none;
+
+    // Text Color
+    --button-ghost-text-color                   : var(--sem-color-text-neutral-default);
+    --button-ghost-text-color-hover             : var(--sem-color-text-neutral-contrast);
+    --button-ghost-text-color-active            : var(--sem-color-text-neutral-contrast);
+    --button-ghost-text-color-disabled          : var(--sem-color-text-neutral-disabled);
+
+    // Icon Color
+    --button-ghost-glyph-color                  : var(--sem-color-icon-neutral-default);
+    --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
+    --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
+    --button-ghost-glyph-color-disabled         : var(--sem-color-icon-neutral-disabled);
+    
+    --button-ghost-background-image             : none;
+    --button-ghost-badge-background-color       : transparent;
+    --button-ghost-badge-color                  : transparent;
+    --button-ghost-opacity-disabled             : inherit;
+    --button-ghost-ripple-background-color      : inherit;
+
+
+    // {module: Button; ui: --tertiary}  –––––––––––––––––––––––––––––––––––––––––––––––––––
+    // Background color
     --button-tertiary-background-color          : transparent;
-    --button-tertiary-background-color-active   : #{$border-color};
-    --button-tertiary-background-color-disabled : inherit;
-    --button-tertiary-background-color-hover    : var(--button-background-color-hover);
+    --button-tertiary-background-color-hover    : transparent;
+    --button-tertiary-background-color-active   : transparent;
+    --button-tertiary-background-color-disabled : transparent;
+    
+    // Border
+    --button-tertiary-border                    : none;
+    --button-tertiary-border-hover              : none;
+    --button-tertiary-border-active             : none;
+    --button-tertiary-border-disabled           : none;
+    --button-tertiary-border-pressed            : none;
+
+    // Text color
+    --button-tertiary-text-color                : var(--sem-color-text-primary-default);
+    --button-tertiary-text-color-hover          : var(--sem-color-text-primary-default);
+    --button-tertiary-text-color-active         : var(--sem-color-text-primary-contrast);
+    --button-tertiary-text-color-disabled       : var(--sem-color-text-neutral-disabled);
+
+    // Icon color
+    --button-tertiary-glyph-color               : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-active        : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-disabled      : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-hover         : var(--sem-color-icon-primary-default);
+    
     --button-tertiary-background-image          : none;
     --button-tertiary-badge-background-color    : var(--button-badge-background-color);
     --button-tertiary-badge-color               : var(--button-badge-color);
-    --button-tertiary-border                    : #{$border-width} #{$border-style} transparent;
-    --button-tertiary-border-active             : #{$border-width} #{$border-style} #{$border-color};
-    --button-tertiary-border-disabled           : inherit;
-    --button-tertiary-border-hover              : #{$border-width} #{$border-style} #{$text-color};
-    --button-tertiary-border-pressed            : #{$border-width} #{$border-style} #{$text-color};
-    --button-tertiary-glyph-color               : var(--button-glyph-color);
-    --button-tertiary-glyph-color-active        : var(--button-glyph-color);
-    --button-tertiary-glyph-color-disabled      : inherit;
-    --button-tertiary-glyph-color-hover         : var(--button-glyph-color);
     --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
     --button-tertiary-ripple-background-color   : inherit;
-    --button-tertiary-text-color                : var(--button-text-color);
-    --button-tertiary-text-color-active         : var(--button-text-color);
-    --button-tertiary-text-color-disabled       : inherit;
-    --button-tertiary-text-color-hover          : var(--button-text-color);
+
 
     // custom overrides
     .neo-button {
         min-width: var(--cmp-button-height);
+        &.neo-button-tertiary {
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--sem-color-text-primary-default);
+        }
     }
 }
