@@ -55,7 +55,7 @@ Neo = globalThis.Neo = Object.assign({
     insideWorker: typeof DedicatedWorkerGlobalScope !== 'undefined' || typeof WorkerGlobalScope !== 'undefined',
 
     /**
-     * @deprecated in neo.mjs v8.0
+     * @deprecated in neo.mjs v7.0
      */
     applyClassConfig(cls) {
         return Neo.setupClass(cls)
