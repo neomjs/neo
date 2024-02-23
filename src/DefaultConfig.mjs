@@ -219,6 +219,14 @@ const DefaultConfig = {
      */
     useSharedWorkers: false,
     /**
+     * True will generate a new task worker, which can get filled with own expensive remote methods
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useTaskWorker
+     * @type Boolean
+     */
+    useTaskWorker: false,
+    /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true
      * @memberOf! module:Neo
