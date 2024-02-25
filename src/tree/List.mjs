@@ -126,7 +126,7 @@ class Tree extends Base {
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, TreeModel);
+        return ClassSystemUtil.beforeSetInstance(value, TreeModel)
     }
 
     /**
@@ -140,10 +140,10 @@ class Tree extends Base {
         if (!value) {
             value = Neo.create(Collection, {
                 keyProperty: 'id'
-            });
+            })
         }
 
-        return super.beforeSetStore(value, oldValue);
+        return super.beforeSetStore(value, oldValue)
     }
 
 
@@ -169,7 +169,7 @@ class Tree extends Base {
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent ? '_vdom' : 'vdom'] = vdom
         }
     }
 
@@ -398,7 +398,7 @@ class Tree extends Base {
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
-                me.update();
+                me.update()
             } else {
                 me.onLeafItemClick(record);
 
