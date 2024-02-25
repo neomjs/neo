@@ -35,11 +35,11 @@ $border-width    : 1px;
     --button-border-hover                       : none;
     --button-border-pressed                     : none;
 
-    // Text Color 
+    // Text Color
     --button-text-color                         : var(--sem-color-text-neutral-reversed);
     --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
     --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
-    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled)
+    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled);
 
     // Icon Color
     --button-glyph-color                        : var(--sem-color-text-neutral-reversed);
@@ -66,7 +66,7 @@ $border-width    : 1px;
     --button-secondary-border                   : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
     --button-secondary-border-hover             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
     --button-secondary-border-active            : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-secondary-border-disabled          : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled)
+    --button-secondary-border-disabled          : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled);
     --button-secondary-border-pressed           : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
 
     // Text Color
@@ -80,7 +80,7 @@ $border-width    : 1px;
     --button-secondary-glyph-color-hover        : var(--sem-color-icon-neutral-contrast);
     --button-secondary-glyph-color-active       : var(--sem-color-icon-neutral-contrast);
     --button-secondary-glyph-color-disabled     : var(--sem-color-icon-neutral-disabled);
-    
+
     --button-secondary-background-image         : none;
     --button-secondary-badge-background-color   : transparent;
     --button-secondary-badge-color              : transparent;
@@ -113,7 +113,7 @@ $border-width    : 1px;
     --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-disabled         : var(--sem-color-icon-neutral-disabled);
-    
+
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : transparent;
     --button-ghost-badge-color                  : transparent;
@@ -127,7 +127,7 @@ $border-width    : 1px;
     --button-tertiary-background-color-hover    : transparent;
     --button-tertiary-background-color-active   : transparent;
     --button-tertiary-background-color-disabled : transparent;
-    
+
     // Border
     --button-tertiary-border                    : none;
     --button-tertiary-border-hover              : none;
@@ -146,7 +146,7 @@ $border-width    : 1px;
     --button-tertiary-glyph-color-active        : var(--sem-color-icon-primary-default);
     --button-tertiary-glyph-color-disabled      : var(--sem-color-icon-primary-default);
     --button-tertiary-glyph-color-hover         : var(--sem-color-icon-primary-default);
-    
+
     --button-tertiary-background-image          : none;
     --button-tertiary-badge-background-color    : var(--button-badge-background-color);
     --button-tertiary-badge-color               : var(--button-badge-color);
