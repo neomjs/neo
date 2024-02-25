@@ -25,7 +25,7 @@ class Content extends Model {
             type: 'Boolean'
         }, {
             name: 'id',
-            type: 'Integer'
+            type: 'String'
         }, {
             name: 'isLeaf',
             type: 'Boolean'
