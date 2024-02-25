@@ -1,11 +1,12 @@
-import Base from '../../../../src/container/Base.mjs';
-import TabContainer from '../../../../src/tab/Container.mjs';
+import Container    from '../../../../src/container/Base.mjs';
 import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
+import TabContainer from '../../../../src/tab/Container.mjs';
+
 /**
  * @class Portal.view.learn.LivePreview
  * @extends Neo.container.Base
  */
-class LivePreview extends Base {
+class LivePreview extends Container {
     static config = {
         /**
          * @member {String} className='Portal.view.learn.LivePreview'
@@ -38,7 +39,6 @@ class LivePreview extends Base {
                     editorChange: data => {
                         let container = data.component.up({ className: 'Portal.view.learn.LivePreview' });
                         container.editorValue = data.value;
-                        console.log(container.editorValue);
                     }
                 }
             }, {
@@ -53,7 +53,6 @@ class LivePreview extends Base {
 
     afterSetValue(value, oldValue) {
         if (value) {
-            console.log(value);
             this.getItem('editor').value = value;
         }
     }
