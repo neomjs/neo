@@ -199,7 +199,7 @@ class Tree extends Base {
                     cls  : ['neo-list'],
                     cn   : [],
                     style: {
-                        display    : hidden ? 'none' : 'block',
+                        display    : hidden ? 'none' : null,
                         paddingLeft: '15px'
                     }
                 });
