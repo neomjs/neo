@@ -7,40 +7,41 @@ to test.
 Consider this code. It's a panel with a header and a table. The table has a store. 
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Panel.mjs';
-import Button      from  '../../../../src/button/Base.mjs';
-import Table       from  '../../../../src/table/Container.mjs';
+import Button from  '../../../../src/button/Base.mjs';
+import Panel  from  '../../../../src/container/Panel.mjs';
+import Table  from  '../../../../src/table/Container.mjs';
 
-class MainView extends Base {
+class MainView extends Panel {
     static config = {
-        className : 'Example.view.MainView',
-        headers: [{
-            dock: 'top',
+        className: 'Example.view.MainView',
+        headers  : [{
+            dock : 'top',
             items: [{
-                module: Button,
-                text: 'She loves me...',
+                module : Button,
+                text   : 'She loves me...',
                 handler: () => Neo.Main.alert({message: 'Yeah, yeah yeah!'})
             }]
         }],
-        items : [{
+        items: [{
             module: Table,
-            store: {
+            store : {
                 autoLoad: true,
-                url: '../../resources/data/deck/learnneo/data/theBeatles.json',
-                model: {
+                url     : '../../resources/data/deck/learnneo/data/theBeatles.json',
+                model   : {
                     fields: [{name: 'first'}, {name: 'last'}, {name: 'dob', type: 'date'}]
                 }
             },
             columns: [{
-                text: 'First',
                 dataField: 'first',
+                text     : 'First'
             }, {
-                text: 'Last',
                 dataField: 'last',
+                text     : 'Last'
             }]
         }]
     }
 }
+
 Neo.setupClass(MainView);
 </pre>
 
@@ -49,16 +50,16 @@ have been refactored into their own classes, and the main view is using them. Th
 more abstract, and each class can be reused, tested, and maintained independently. 
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Panel.mjs';
-import Button      from  '../../../../src/button/Base.mjs';
-import Table       from  '../../../../src/table/Container.mjs';
-import Store       from  '../../../../src/data/Store.mjs';
+import Button from  '../../../../src/button/Base.mjs';
+import Panel  from  '../../../../src/container/Panel.mjs';
+import Store  from  '../../../../src/data/Store.mjs';
+import Table  from  '../../../../src/table/Container.mjs';
 
 class BeatlesButton extends Button {
     static config = {
         className: 'Example.view.BeatlesButton',
-        text: 'She loves me...',
-        handler: () => Neo.Main.alert({message: 'Yeah, yeah yeah!'})
+        text     : 'She loves me...',
+        handler  : () => Neo.Main.alert({message: 'Yeah, yeah yeah!'})
     }
 }
 Neo.setupClass(BeatlesButton);
@@ -66,9 +67,9 @@ Neo.setupClass(BeatlesButton);
 class BeatlesStore extends Store {
     static config = {
         className: 'Example.view.BeatlesStore',
-        autoLoad: true,
-        url: '../../resources/data/deck/learnneo/data/theBeatles.json',
-        model: {
+        autoLoad : true,
+        url      : '../../resources/data/deck/learnneo/data/theBeatles.json',
+        model    : {
             fields: [{name: 'first'}, {name: 'last'}, {name: 'dob', type: 'date'}]
         }
     }
@@ -78,31 +79,27 @@ Neo.setupClass(BeatlesStore);
 class BeatlesTable extends Table {
     static config = {
         className: 'Example.view.BeatlesTable',
-        columns: [{
-            text: 'First',
+        columns  : [{
             dataField: 'first',
+            text     : 'First'
         }, {
-            text: 'Last',
             dataField: 'last',
+            text     : 'Last'
         }]
    }
 }
 Neo.setupClass(BeatlesTable);
 
-class MainView extends Base {
+class MainView extends Panel {
     static config = {
-        className : 'Example.view.MainView',
-        headers: [{
-            dock: 'top',
-            items: [{
-                module: BeatlesButton,
-            }]
+        className: 'Example.view.MainView',
+        headers  : [{
+            dock : 'top',
+            items: [BeatlesButton]
         }],
         items : [{
             module: BeatlesTable,
-            store: {
-                module: BeatlesStore
-            },
+            store : BeatlesStore
         }]
     }
 }
