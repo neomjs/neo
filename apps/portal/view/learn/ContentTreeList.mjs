@@ -42,12 +42,15 @@ class ContentTreeList extends TreeList {
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            const data = await fetch(path);
-            const content = await data.text();
+            let data    = await fetch(path),
+                content = await data.text();
+
+            content = `#${record.name}\n${content}'`;
+
             let modifiedHtml = await this.highlightPreContent(content);
 
             // Replace <pre data-neo></neo> with <div id='neo-preview-1'/>
-            // and creaet a map keyed by ID, whose value is the javascript
+            // and create a map keyed by ID, whose value is the javascript
             // from the <pre>
             let neoDivs = {};
 

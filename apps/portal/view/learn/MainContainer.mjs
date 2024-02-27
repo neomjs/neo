@@ -1,6 +1,6 @@
 import Container               from '../../../../src/container/Base.mjs';
-import ContentView             from './ContentView.mjs';
 import ContentTreeList         from './ContentTreeList.mjs';
+import ContentView             from './ContentView.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
