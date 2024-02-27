@@ -5,8 +5,8 @@
     margin: 0 auto;
     background-color: white;
     border-radius: 8px;
-
     letter-spacing: 1px;
+    overflow: unset;
 
     pre[data-javascript] {
         border-radius: 4px;
@@ -70,6 +70,4 @@
     .lab:hover {
         box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
     }
-
-
 }

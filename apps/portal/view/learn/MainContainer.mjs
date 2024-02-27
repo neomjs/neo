@@ -44,7 +44,7 @@ class MainContainer extends Container {
             module      : Splitter,
             cls         : ['main-content-splitter'],
             resizeTarget: 'previous',
-            size        : 4
+            size        : 1
         }, {
             module      : Container,
             cls         : ['learn-content-container'],

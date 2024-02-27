@@ -64,8 +64,8 @@
         }
 
         &.neo-navigator-active-item {
-            outline        : 1px solid var(--list-item-border-color-active);
-            outline-offset : -1px;
+            outline        : var(--list-item-focus-outline);
+            outline-offset : 0px;
         }
 
         &[aria-selected="true"] {

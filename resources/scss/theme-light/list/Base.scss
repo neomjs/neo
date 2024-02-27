@@ -6,7 +6,7 @@
     --list-item-background-color-hover    : #{lighten(#33343d, 70%)};
     --list-item-background-color-selected : #{lighten(#64B5F6, 22%)};
     --list-item-color-selected            : #2b2b2b;
-    --list-item-border-color-active       : darkorange;
+    --list-item-focus-outline             : 1px solid darkorange;
     --list-item-glyph-color               : #{lighten(#33343d, 20%)};
     --list-item-highlight-search-color    : red;
     --list-item-padding                   : 5px;
