@@ -106,19 +106,17 @@ class MonacoEditor extends Base {
     /**
      *
      */
-    loadFiles() {
+    async loadFiles() {
         const path = this.libraryBasePath;
 
         window.require = { paths: { vs: path } };
 
-        Promise.all([
-            DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
-            DomAccess.loadScript(path + '/loader.js'),
-            DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
-            DomAccess.loadScript(path + '/editor/editor.main.js')
-        ]).then(() => {
-            this.isReady = true
-        })
+        await DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'});
+        await DomAccess.loadScript(path + '/loader.js');
+        await DomAccess.loadScript(path + '/editor/editor.main.nls.js');
+        await DomAccess.loadScript(path + '/editor/editor.main.js');
+
+        this.isReady = true
     }
 
     /**
