@@ -53,7 +53,7 @@ class LivePreview extends Container {
 
     afterSetValue(value, oldValue) {
         if (value) {
-            this.getItem('editor').value = value
+            this.getItem('editor').value = value?.trim()
         }
     }
 
