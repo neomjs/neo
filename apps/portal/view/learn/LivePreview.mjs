@@ -65,6 +65,7 @@ class LivePreview extends Container {
         // we want to add a normal (non-header) button
         tabContainer.getTabBar().add({
             handler  : me.popoutPreview.bind(me),
+            hidden   : tabContainer.activeIndex !== 1,
             iconCls  : 'far fa-window-maximize',
             reference: 'popout-window-button',
             style    : {marginLeft: 'auto'},
@@ -196,6 +197,8 @@ class LivePreview extends Container {
         if (data.item.reference === 'preview') {
             this.doRunSource()
         }
+
+        this.getReference('popout-window-button').hidden = data.value !== 1
     }
 
     findLastClassName(sourceCode) {
