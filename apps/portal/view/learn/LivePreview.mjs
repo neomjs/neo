@@ -2,7 +2,6 @@ import Container    from '../../../../src/container/Base.mjs';
 import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../../../../src/tab/Container.mjs';
 
-
 const
     classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
     exportRegex           = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
@@ -72,29 +71,24 @@ class LivePreview extends Container {
      *
      */
     doRunSource() {
-        let source = this.editorValue || this.value;
+        let me     = this,
+            source = me.editorValue || me.value;
 
-        const cleanLines        = [];
-        const importPromises    = [];
-        const importModuleNames = [];
-
-        const moduleNameAndPath = [];
-
-        const className = this.findLastClassName(source);
+        const
+            cleanLines        = [],
+            importModuleNames = [],
+            moduleNameAndPath = [],
+            className         = me.findLastClassName(source);
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
+
             if (importMatch) {
-                let moduleName = importMatch[1];
-                let path       = importMatch[2];
-                moduleNameAndPath.push({
-                    moduleName,
-                    path
-                });
-                // importPromises.push(import(path));
-                // importPromises.push(import(path).then(module => {
-                //     eval(`const ${moduleName} = module.default;`)
-                // }));
+                let moduleName = importMatch[1],
+                    path       = importMatch[2];
+
+                moduleNameAndPath.push({moduleName, path});
+
                 importModuleNames.push(moduleName);
             } else if (line.match(exportRegex)) {
                 // Skip export statements
@@ -102,6 +96,7 @@ class LivePreview extends Container {
                 cleanLines.push(line);
             }
         });
+
         var params = [];
         var vars   = [];
         // Figure out the parts of the source we'll be running.
@@ -142,8 +137,7 @@ class LivePreview extends Container {
         container.removeAll();
 
         try {
-            const dynamicCode = new Function('container', codeString);
-            dynamicCode(container)
+            new Function('container', codeString)(container);
         } catch (error) {
             container.add({
                 ntype: 'component',
@@ -157,8 +151,8 @@ class LivePreview extends Container {
      * @returns {String|null}
      */
     findLastClassName(sourceCode) {
-        let match;
-        let lastClassName = null;
+        let lastClassName = null,
+            match;
 
         // Iterate through all matches of the regular expression
         while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
