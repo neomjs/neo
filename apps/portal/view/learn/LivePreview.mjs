@@ -50,12 +50,21 @@ class LivePreview extends Container {
         }]
     }
 
+    /**
+     * Triggered after the value config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetValue(value, oldValue) {
         if (value) {
             this.getItem('editor').value = value?.trim()
         }
     }
 
+    /**
+     *
+     */
     doRunSource() {
         let source = this.editorValue || this.value;
 
@@ -140,6 +149,10 @@ class LivePreview extends Container {
         }
     }
 
+    /**
+     * @param {String} sourceCode
+     * @returns {String|null}
+     */
     findLastClassName(sourceCode) {
         // Define a regular expression to match class declarations
         const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
