@@ -45,7 +45,7 @@ class ContentTreeList extends TreeList {
         if (record.isLeaf && path) {
             data    = await fetch(path);
             content = await data.text();
-            content = `#${record.name}\n${content}'`;
+            content = `#${record.name}\n${content}`;
 
             let modifiedHtml = await me.highlightPreContent(content);
 
@@ -169,7 +169,7 @@ class ContentTreeList extends TreeList {
     doLoadStore() {
         const me = this;
         Neo.Xhr.promiseJson({
-            url: `${this.contentPath}/t.json`
+            url: `${me.contentPath}/t.json`
         }).then(data => {
             // TODO: Tree lists should do this themselves when their store is loaded.
             me.store.data = data.json.data;
