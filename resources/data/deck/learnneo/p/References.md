@@ -9,29 +9,29 @@ Here's an example with one button. Clicking on the button will disable it.
 As you can see, the handler uses the component reference pass in via `data.component`.
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Base.mjs';
-import Controller  from  '../../../../src/controller/Component.mjs';
-import Button      from   '../../../../src/Button/Base.mjs';
+import Button     from '../../../../src/Button/Base.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController'
     }
-    onDisableButtonClick(data){
+    onDisableButtonClick(data) {
         data.component.disabled = true;
     }
 }
 Neo.setupClass(MainViewController);
 
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className : 'Example.view.MainView',
         controller: MainViewController,
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: Button,
-            text: 'Disable this button',
+        layout    : {ntype:'vbox', align:'start'},
+        items     : [{
+            module : Button,
+            text   : 'Disable this button',
             handler: 'onDisableButtonClick'
         }]
     }
@@ -44,9 +44,9 @@ you tag the component you need with a `reference` config, then use `getReference
 the controller.
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Base.mjs';
-import Controller  from  '../../../../src/controller/Component.mjs';
-import Button      from   '../../../../src/Button/Base.mjs';
+import Button     from '../../../../src/Button/Base.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
@@ -62,19 +62,19 @@ class MainViewController extends Controller {
 Neo.setupClass(MainViewController);
 
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className : 'Example.view.MainView',
         controller: MainViewController,
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: Button,
+        layout    : {ntype:'vbox', align:'start'},
+        items     : [{
+            module   : Button,
             reference: 'myButton',
-            text: 'Disable this button',
-            handler: 'onDisableButtonClick'
+            text     : 'Disable this button',
+            handler  : 'onDisableButtonClick'
         }, {
-            module: Button,
-            text: 'Enable the other button',
+            module : Button,
+            text   : 'Enable the other button',
             handler: 'onEnableButtonClick'
         }]
     }
@@ -98,23 +98,23 @@ The following example gets a reference to the _Learn_ button at the top of this 
 Again &mdash; that use of `Neo.findFirst()` might be handy when debugging, but it should never be used in app logic.
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Base.mjs';
-import Button      from   '../../../../src/Button/Base.mjs';
+import Button    from  '../../../../src/Button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: Button,
-            text: 'Change Learn caption',
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        items    : [{
+            module : Button,
+            text   : 'Change Learn caption',
             handler: data=>{
                 const component = Neo.findFirst({text:'Learn'});
                 if (component) component.text = 'Yikes!';
             }
         }, {
-            module: Button,
-            text: 'Restore Learn caption',
+            module : Button,
+            text   : 'Restore Learn caption',
             handler: data=>{
                 const component = Neo.findFirst({text:'Yikes!'});
                 if (component) component.text = 'Learn';
