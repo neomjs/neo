@@ -2,6 +2,12 @@ import Container    from '../../../../src/container/Base.mjs';
 import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../../../../src/tab/Container.mjs';
 
+
+const
+    classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
+    exportRegex           = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
+    importRegex           = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
+
 /**
  * @class Portal.view.learn.LivePreview
  * @extends Neo.container.Base
@@ -67,9 +73,6 @@ class LivePreview extends Container {
      */
     doRunSource() {
         let source = this.editorValue || this.value;
-
-        const importRegex = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
-        const exportRegex = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g;
 
         const cleanLines        = [];
         const importPromises    = [];
@@ -154,9 +157,6 @@ class LivePreview extends Container {
      * @returns {String|null}
      */
     findLastClassName(sourceCode) {
-        // Define a regular expression to match class declarations
-        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
-
         let match;
         let lastClassName = null;
 
