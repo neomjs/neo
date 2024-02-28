@@ -17,13 +17,13 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.learn.MainContainer',
         /**
-         * @member {Neo.controller.Component} controller=MainContainerController
-         */
-        controller: MainContainerController,
-        /**
          * @member {String[]} cls=['learnneo-maincontainer']
          */
         cls: ['learnneo-maincontainer'],
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
+        controller: MainContainerController,
         /**
          * @member {Object[]} items
          */
@@ -51,12 +51,12 @@ class MainContainer extends Container {
             cls   : ['learn-content-container'],
 
             items: [{
-                    module   : ContentView,
-                    reference: 'content',
-                    listeners: {
-                        edit   : 'onContentEdit',
-                        refresh: 'onContentRefresh'
-                    }
+                module   : ContentView,
+                reference: 'content',
+                listeners: {
+                    edit   : 'onContentEdit',
+                    refresh: 'onContentRefresh'
+                }
             }]
         }],
         /**

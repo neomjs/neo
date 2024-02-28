@@ -24,10 +24,11 @@ class LivePreview extends Container {
          */
         items: [{
             module             : TabContainer,
-            removeInactiveCards: false,
+            cls                : ['live-preview-container'],
             reference          : 'tab-container',
-            cls                : 'live-preview-container',
-            items              : [{
+            removeInactiveCards: false,
+
+            items: [{
                 module         : MonacoEditor,
                 hideLabel      : true,
                 style          : {height: '100%'},
@@ -42,11 +43,9 @@ class LivePreview extends Container {
                     }
                 }
             }, {
-                tabButtonConfig: {
-                    text: 'Preview'
-                },
+                ntype          : 'container',
                 reference      : 'preview',
-                ntype          : 'container'
+                tabButtonConfig: {text: 'Preview'}
             }]
         }]
     }
@@ -60,9 +59,19 @@ class LivePreview extends Container {
     onConstructed() {
         super.onConstructed();
 
-        let me = this;
+        let me           = this,
+            tabContainer = me.getReference('tab-container');
 
-        me.getReference('tab-container').on('activeIndexChange', me.onActiveIndexChange, me)
+        // we want to add a normal (non-header) button
+        tabContainer.getTabBar().add({
+            handler  : me.popoutPreview.bind(me),
+            iconCls  : 'far fa-window-maximize',
+            reference: 'popout-window-button',
+            style    : {marginLeft: 'auto'},
+            ui       : 'ghost'
+        });
+
+        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me)
     }
 
     doRunSource() {
@@ -117,11 +126,12 @@ class LivePreview extends Container {
         // Making the promise part of the eval seems weird, but it made it easier to
         // set up the import vars.
 
-        let promises     = moduleNameAndPath.map(item => {
+        let promises = moduleNameAndPath.map(item => {
             params.push(`${item.moduleName}Module`);
             vars.push(`const ${item.moduleName} = ${item.moduleName}Module.default`);
-            return `import("${item.path}")`;
+            return `import("${item.path}")`
         });
+
         const codeString = `
             Promise.all([
                 ${promises.join(',\n')}
@@ -136,6 +146,7 @@ class LivePreview extends Container {
 
         const container = this.getReference('preview');
         container.removeAll();
+
         try {
             const dynamicCode = new Function('container', codeString);
             dynamicCode(container)
@@ -201,6 +212,13 @@ class LivePreview extends Container {
         }
 
         return lastClassName
+    }
+
+    /**
+     * @param {Object} data
+     */
+    popoutPreview(data) {
+        console.log('popoutPreview', this)
     }
 }
 
