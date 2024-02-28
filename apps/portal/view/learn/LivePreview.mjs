@@ -56,25 +56,6 @@ class LivePreview extends Container {
         }
     }
 
-    onConstructed() {
-        super.onConstructed();
-
-        let me           = this,
-            tabContainer = me.getReference('tab-container');
-
-        // we want to add a normal (non-header) button
-        tabContainer.getTabBar().add({
-            handler  : me.popoutPreview.bind(me),
-            hidden   : tabContainer.activeIndex !== 1,
-            iconCls  : 'far fa-window-maximize',
-            reference: 'popout-window-button',
-            style    : {marginLeft: 'auto'},
-            ui       : 'ghost'
-        });
-
-        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me)
-    }
-
     doRunSource() {
         let source = this.editorValue || this.value;
 
@@ -159,6 +140,22 @@ class LivePreview extends Container {
         }
     }
 
+    findLastClassName(sourceCode) {
+        // Define a regular expression to match class declarations
+        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
+
+        let match;
+        let lastClassName = null;
+
+        // Iterate through all matches of the regular expression
+        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
+            // Update the last class name found
+            lastClassName = match[1]
+        }
+
+        return lastClassName
+    }
+
     /**
      * @param {String} reference
      * @param {Object[]} items=this.items
@@ -201,20 +198,26 @@ class LivePreview extends Container {
         this.getReference('popout-window-button').hidden = data.value !== 1
     }
 
-    findLastClassName(sourceCode) {
-        // Define a regular expression to match class declarations
-        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
 
-        let match;
-        let lastClassName = null;
+        let me           = this,
+            tabContainer = me.getReference('tab-container');
 
-        // Iterate through all matches of the regular expression
-        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
-            // Update the last class name found
-            lastClassName = match[1]
-        }
+        // we want to add a normal (non-header) button
+        tabContainer.getTabBar().add({
+            handler  : me.popoutPreview.bind(me),
+            hidden   : tabContainer.activeIndex !== 1,
+            iconCls  : 'far fa-window-maximize',
+            reference: 'popout-window-button',
+            style    : {marginLeft: 'auto'},
+            ui       : 'ghost'
+        });
 
-        return lastClassName
+        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me)
     }
 
     /**
