@@ -4,13 +4,13 @@ A _view model_ &mdash; `Neo.model.Component` &mdash; instance holds properties t
 can be bound to component properties.
 
 <pre data-neo>
-import Base            from  '../../../../src/container/Base.mjs';
-import Label           from  '../../../../src/component/Label.mjs';
-import TextField       from  '../../../../src/form/field/Text.mjs';
+import Container from  '../../../../src/container/Base.mjs';
+import Label     from  '../../../../src/component/Label.mjs';
+import TextField from  '../../../../src/form/field/Text.mjs';
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className: 'Example.view.MainView',
 
         model: {
             data: {
@@ -29,9 +29,9 @@ class MainView extends Base {
                 value: {twoWay: true, value: data => data.foo}      // "twoWay" means data.foo is set as the text field changes
             },
             labelText: 'Bound to foo:',
-            width: 300,
+            width: 300
         }],
-        style: {padding: '1em'},
+        style: {padding: '1em'}
     }
 }
 Neo.setupClass(MainView);
@@ -56,15 +56,15 @@ usually coded as separate classes.)
 Below is another example.
 
 <pre data-neo>
-import Base            from  '../../../../src/container/Base.mjs';
-import Panel           from  '../../../../src/container/Panel.mjs';
-import Label           from  '../../../../src/component/Label.mjs';
+import Container from  '../../../../src/container/Base.mjs';
+import Label     from  '../../../../src/component/Label.mjs';
+import Panel     from  '../../../../src/container/Panel.mjs';
 
 class MyPanel extends Panel {
     static config = {
-        className : 'Example.view.MyPanel',
+        className: 'Example.view.MyPanel',
         headers: [{
-            dock: 'top',
+            dock : 'top',
             items: [{ module: Label, text: 'MyPanel' }]
         }],
         items: [{ 
@@ -74,14 +74,14 @@ class MyPanel extends Panel {
             },
             style: {margin: '1em'}
         }],
-        style: {margin: '1em'},
+        style: {margin: '1em'}
     }
 }
 Neo.setupClass(MyPanel);
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className: 'Example.view.MainView',
 
         model: {
             data: {
@@ -90,9 +90,9 @@ class MainView extends Base {
         },
         layout: 'hbox',
         items: [{
-            module: MyPanel,
+            module: MyPanel
         }, {
-            module: MyPanel,
+            module: MyPanel
         }, {
             module: MyPanel,
             // You wouldn't normally configure a view model. We're doing it here to illustrate view model scope.
@@ -102,7 +102,7 @@ class MainView extends Base {
                 }
             }
         }],
-        style: {margin: '1em'},
+        style: {margin: '1em'}
     }
 }
 Neo.setupClass(MainView);
