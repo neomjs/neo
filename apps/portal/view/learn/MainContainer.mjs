@@ -29,10 +29,11 @@ class MainContainer extends Container {
          */
         items: [{
             module  : Container,
+            cls     : ['sidenav-container'],
             layout  : 'fit',
             minWidth: 350,
             width   : 350,
-            cls     : 'sidenav-container',
+
             items: [{
                 module   : ContentTreeList,
                 reference: 'tree',
@@ -46,9 +47,10 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 1
         }, {
-            module      : Container,
-            cls         : ['learn-content-container'],
-            items:  [{
+            module: Container,
+            cls   : ['learn-content-container'],
+
+            items: [{
                     module   : ContentView,
                     reference: 'content',
                     listeners: {
