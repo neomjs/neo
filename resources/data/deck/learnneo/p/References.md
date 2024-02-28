@@ -98,7 +98,7 @@ The following example gets a reference to the _Learn_ button at the top of this 
 Again &mdash; that use of `Neo.findFirst()` might be handy when debugging, but it should never be used in app logic.
 
 <pre data-neo>
-import Button    from  '../../../../src/Button/Base.mjs';
+import Button    from '../../../../src/Button/Base.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 class MainView extends Container {
