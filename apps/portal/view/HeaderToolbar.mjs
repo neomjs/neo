@@ -1,5 +1,4 @@
-import Base  from '../../../src/toolbar/Base.mjs';
-import Label from '../../../src/component/Label.mjs';
+import Base from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Portal.view.HeaderToolbar
@@ -44,7 +43,7 @@ class HeaderToolbar extends Base {
             iconCls: 'fa-brands fa-github',
             url    : 'https://github.com/neomjs/neo',
             tooltip: {
-                html: 'GitHub',
+                html     : 'GitHub',
                 showDelay: '0',
                 hideDelay: '0'
             }
@@ -52,7 +51,15 @@ class HeaderToolbar extends Base {
             iconCls: 'fa-brands fa-slack',
             url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
             tooltip: {
-                html: 'Join Slack',
+                html     : 'Join Slack',
+                showDelay: '0',
+                hideDelay: '0'
+            }
+        }, {
+            iconCls: 'fa-brands fa-discord',
+            url    : 'https://discord.gg/6p8paPq',
+            tooltip: {
+                html     : 'Join Discord',
                 showDelay: '0',
                 hideDelay: '0'
             }
