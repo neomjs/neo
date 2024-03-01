@@ -74,7 +74,8 @@ class ContentTreeList extends TreeList {
                     appName        : me.appName,
                     parentComponent: me,
                     parentId       : key,
-                    value          : neoDivs[key]
+                    value          : neoDivs[key],
+                    windowId       : me.windowId
                 })
             })
         }
