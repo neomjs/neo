@@ -252,8 +252,13 @@ class LivePreview extends Container {
      * @param {Object} data
      */
     async popoutPreview(data) {
+        let me = this;
+
         data.component.disabled = true;
-        await this.createPopupWindow()
+        await me.createPopupWindow();
+
+        // this component requires a view controller to manage connected apps
+        me.getController().connectedApps.push(me.id)
     }
 }
 
