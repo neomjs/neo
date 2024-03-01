@@ -71,9 +71,10 @@ class ContentTreeList extends TreeList {
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
                 Neo.create(LivePreview, {
-                    appName : me.appName,
-                    parentId: key,
-                    value   : neoDivs[key]
+                    appName        : me.appName,
+                    parentComponent: me,
+                    parentId       : key,
+                    value          : neoDivs[key]
                 })
             })
         }

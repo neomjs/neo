@@ -14,22 +14,53 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    onAppConnect(data) {
+        console.log('onAppConnect', data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    onAppDisconnect(data) {
+        Neo.Main.windowClose({
+            names: this.connectedApps
+        })
+    }
+
+    /**
      *
      */
     onConstructed() {
         super.onConstructed();
 
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        });
+
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
                 const searchString = data?.substr(1) || '';
                 const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
-                this.getModel().setData('deck', search.deck || 'learnneo');
+                me.getModel().setData('deck', search.deck || 'learnneo');
             });
 
         fetch('../../../../resources/data/deck/EditorConfig.json')
             .then(response => response.json()
                 .then(data =>
-                    this.getModel().setData('editorConfig', data)
+                    me.getModel().setData('editorConfig', data)
                 ))
     }
 
