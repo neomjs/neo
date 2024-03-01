@@ -266,6 +266,14 @@ class Base extends CoreBase {
          */
         needsVdomUpdate_: false,
         /**
+         * If the parentId does not match a neo component id, you can manually set this value for finding
+         * view controllers or models.
+         * Use case: manually dropping components into a vdom structure
+         * @member {Neo.component.Base|null} parentComponent_=null
+         * @protected
+         */
+        parentComponent_: null,
+        /**
          * The parent component id or document.body
          * @member {String} parentId='document.body'
          */
@@ -402,7 +410,9 @@ class Base extends CoreBase {
      * @returns {Neo.component.Base|null}
      */
     get parent() {
-        return this.parentId !== 'document.body' ? Neo.getComponent(this.parentId) : null
+        let me = this;
+
+        return me.parentComponent || me.parentId !== 'document.body' ? Neo.getComponent(me.parentId) : null
     }
 
     /**
@@ -1032,6 +1042,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered when accessing the parentComponent config
+     * @param {Object} value
+     * @protected
+     */
+    beforeParentComponent(value) {
+        return value || this.parent
+    }
+
+    /**
      * Triggered when accessing the style config
      * @param {Object} value
      * @protected
@@ -1414,20 +1433,20 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base|null}
      */
     getConfigInstanceByNtype(configName, ntype) {
-        let me     = this,
-            config = me[configName],
-            parentComponent;
+        let me              = this,
+            config          = me[configName],
+            parentComponent = me.parentComponent;
 
         if (config && (!ntype || ntype === config.ntype)) {
             return config
         }
 
-        if (me.parentId) {
+        if (!parentComponent && me.parentId) {
             parentComponent = me.parent || Neo.get(me.parentId);
+        }
 
-            if (parentComponent) {
-                return parentComponent.getConfigInstanceByNtype(configName, ntype)
-            }
+        if (parentComponent) {
+            return parentComponent.getConfigInstanceByNtype(configName, ntype)
         }
 
         return null
