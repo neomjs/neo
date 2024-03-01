@@ -46,7 +46,7 @@ within the view and its children. The child items &mdash; a label and a text fie
 _foo_. As _foo_ changes, the properties are automatically updated. The example also shows that a binding can be
 `twoWay`, which means a change to the property in the view is _pushed_ to the view model. 
 
-<img width="50%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchy.png"></img>
+<img width="75%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchy.png"></img>
 
 (Note that in the example above, the main view's view model is defined in-line. Normally your view model 
 would be  coded in its own class that extends 'Neo.model.Component', and you'd use that in your component.
@@ -111,7 +111,7 @@ Neo.setupClass(MainView);
 In this case, the main view has three child items of type `MyPanel`, each containing a label. 
 The main view has a view model with a `foo` property, and the third child has its own view model with a `foo` property.
 
-<img width="60%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchyFooShadowed.png"></img>
+<img width="75%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchyFooShadowed.png"></img>
 
 `MyPanel` contains a `Neo.componnet.Label` whose `text` value is bound to `foo`. To resolve the binding, 
 Neo.mjs looks up the containment hierarchy until it finds the value. For the first two panels the label 
