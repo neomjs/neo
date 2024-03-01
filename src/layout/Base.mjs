@@ -38,13 +38,20 @@ class Base extends CoreBase {
     }
 
     /**
+     * @returns {Neo.container.Base|null}
+     */
+    get container() {
+        return Neo.getComponent(this.containerId)
+    }
+
+    /**
      * Triggered after the appName config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+        value && Neo.currentWorker.insertThemeFiles(value, this.container.windowId, this.__proto__);
     }
 
     /**
@@ -66,9 +73,9 @@ class Base extends CoreBase {
     destroy() {
         let me = this;
 
-        me.bind && Neo.getComponent(me.containerId).getModel()?.removeBindings(me.id);
+        me.bind && me.container.getModel()?.removeBindings(me.id);
 
-        super.destroy();
+        super.destroy()
     }
 
     /**
@@ -77,7 +84,7 @@ class Base extends CoreBase {
      * @returns {Neo.model.Component|null}
      */
     getModel(ntype) {
-        return Neo.getComponent(this.containerId).getModel();
+        return this.container.getModel();
     }
 
     /**
@@ -90,7 +97,7 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.bind && Neo.getComponent(me.containerId).getModel()?.parseConfig(me);
+        me.bind && me.container.getModel()?.parseConfig(me);
     }
 
     /**
