@@ -88,7 +88,7 @@ class LivePreview extends Container {
         top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
         Neo.Main.windowOpen({
-            url           : './childapps/preview/index.html',
+            url           : `./childapps/preview/index.html?id=${me.id}`,
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
             windowName    : me.id
         })
