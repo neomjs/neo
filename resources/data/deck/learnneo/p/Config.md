@@ -1,7 +1,9 @@
 As you've probably noticed, Neo.mjs classes have a `static config` property. 
 
-The `config` specifies properties that are applied to instances as they are
-created. In addition, Neo.mjs uses that information to set up propoerty lifecycle 
+The config describes properties you can specify as you create an instance of the class.
+Any config in the class, or its ancestors, can be specified. 
+
+In addition, Neo.mjs uses that information to set up propoerty lifecycle 
 methods.
 
 Here's an example of a new component class `Simple` with three config properties:
@@ -49,7 +51,7 @@ change that in the next example.
 
 Note that the `bar` property is defined with an underscore at the end. That tags the property as
 a _lifecyle property_. A lifecycle property provides methods that are run as the property is
-updated or accessed. You're free to implment the methods to implement business rules, normalize
+updated or accessed. You're free to implment these methods to provide business rules, normalize
 values, or have side-effects, such as updating a view or firing an event.
 
 <pre data-neo>
@@ -65,12 +67,11 @@ class Simple extends Component {
 
     }
 
-    beforeGetBar(){
-
+    beforeGetBar(value){
+        return value; // Return whatever you want here. 
     }
     beforeSetBar(value, oldValue){
-        // Use value if it's not empty
-        if (value) return value; 
+        if (value) return value;  // Use value if it's not empty
     }
     afterSetBar(value, oldValue){
         this.html = value;
@@ -98,11 +99,12 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 </pre>
 
-This time if you run the code you'll "hi there" in the view. That's because the Simple instance is
+This time if you run the code you'll see "hi there" in the view. That's because the Simple instance is
 configured with `bar: 'hi there'`, and since that's a lifecycle property the `afterSetBar()` method
 is run. That method updates the view with the passed value.
 
-Updating a view is a common use case for the _afterSet_ method. It's also often used to fire an event. 
+Typically, the _afterSet_ method is used to update a view or to fire an event.
+
 Look at this code: `afterSetBar()` fires an event, and the config in the `items[]` is listening to it.
 
 <pre data-neo>
@@ -116,14 +118,6 @@ class Simple extends Component {
         foo: 1,        // An instance field and its initial (default) value
         bar_: null     // Another instance field -- note the underscore at the end
 
-    }
-
-    beforeGetBar(){
-
-    }
-    beforeSetBar(value, oldValue){
-        // Use value if it's not empty
-        if (value) return value; 
     }
     afterSetBar(value, oldValue){
         this.html = value;
