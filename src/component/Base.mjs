@@ -1363,7 +1363,8 @@ class Base extends CoreBase {
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
-            opts.appName = me.appName
+            opts.appName  = me.appName;
+            opts.windowId = me.windowId
         }
 
         me.isVdomUpdating = true;
@@ -2054,6 +2055,7 @@ class Base extends CoreBase {
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
+                windowId   : me.windowId,
                 ...me.vdom
             });
 
