@@ -194,15 +194,18 @@ class Base extends Container {
             singletons[app.name] = Neo.create('Neo.tooltip.Base', {
                 appName     : app.name,
                 componentId : app.mainView.id,
-                resetCfg    : {},
-                isShared    : true,
                 delegate    : this.delegateFilter,
+                isShared    : true,
+                resetCfg    : {},
+                windowId    : app.mainView.windowId,
                 listeners : {
                     // Reconfigure on over a target
                     async targetOver({ target, data }) {
+                        const me = this;
+
                         // Revert last pointerOver config set to initial setting.
-                        this.set(this.resetCfg);
-                        this.resetCfg = {};
+                        me.set(me.resetCfg);
+                        me.resetCfg = {};
 
                         // Use the tooltip config block that the target was configured with
                         // to reconfigure this instance, or if there was none, check the
@@ -211,11 +214,11 @@ class Base extends Container {
 
                         // Cache things we have to reset
                         for (const key in config) {
-                            this.resetCfg[key] = this[key];
+                            me.resetCfg[key] = me[key];
                         }
 
                         // Set ourself up as the target wants
-                        this.set(config);
+                        me.set(config);
                     }
                 }
             });

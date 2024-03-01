@@ -1261,7 +1261,7 @@ class Base extends CoreBase {
     createTooltip(value) {
         if (typeof value === 'string') {
             value = {
-                text : value
+                text: value
             };
         }
 
@@ -1271,14 +1271,14 @@ class Base extends CoreBase {
             me._tooltip = Neo.create('Neo.tooltip.Base', {
                 ...value,
                 appName    : me.appName,
-                componentId: me.id
-            });
-        }
-        else {
+                componentId: me.id,
+                windowId   : me.windowId
+            })
+        } else {
             me._tooltip = value;
             Neo.tooltip.Base.createSingleton(me.app);
             me.addCls('neo-uses-shared-tooltip');
-            me.update();
+            me.update()
         }
     }
 

@@ -218,11 +218,17 @@ class Base extends Component {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        value && this.items?.forEach(item => {
+        let me = this;
+
+        value && me.items?.forEach(item => {
             if (Neo.isObject(item)) {
                 item.windowId = value
             }
         })
+
+        if (value && me.layout) {
+            me.layout.windowId = value
+        }
     }
 
     /**
@@ -272,7 +278,7 @@ class Base extends Component {
      */
     createItem(item, index) {
         let me       = this,
-            config   = {appName: me.appName, parentId: me.id, parentIndex: index},
+            config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
             defaults = {...me.itemDefaults},
             lazyLoadItem, module;
 
@@ -391,11 +397,13 @@ class Base extends Component {
         if (value) {
             if (value instanceof LayoutBase && value.isLayout) {
                 value.appName     = me.appName;
-                value.containerId = me.id
+                value.containerId = me.id;
+                value.windowId    = me.windowId;
             } else {
                 value = me.parseLayoutClass(value);
                 value.appName     = me.appName;
                 value.containerId = me.id;
+                value.windowId    = me.windowId;
                 value = Neo.ntype(value)
             }
         }

@@ -305,18 +305,18 @@ class App extends Base {
                 }
 
                 if (parent && parent !== Neo.core.Base.prototype) {
-                    if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
+                    if (!Neo.ns(`${windowId}.${parent.className}`, false, cssMap)) {
                         me.insertThemeFiles(appName, windowId, parent)
                     }
                 }
 
                 themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
-
-                if (themeFolders && !Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
+                //console.log(cssMap);
+                if (themeFolders && !Neo.ns(`${windowId}.${className}`, false, cssMap)) {
                     classPath = className.split('.');
                     fileName  = classPath.pop();
                     classPath = classPath.join('.');
-                    ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
+                    ns        = Neo.ns(`${windowId}.${classPath}`, true, cssMap);
 
                     ns[fileName] = true;
 
