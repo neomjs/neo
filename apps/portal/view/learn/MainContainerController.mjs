@@ -19,11 +19,28 @@ class MainContainerController extends Controller {
     connectedApps = []
 
     /**
+     * @param {String} searchString
+     * @returns {Object}
+     */
+    decodeUri(searchString) {
+        return searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {}
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      */
-    onAppConnect(data) {
-        console.log('onAppConnect', data);
+    async onAppConnect(data) {
+        let me              = this,
+            app             = Neo.apps[data.appName],
+            mainView        = app.mainView,
+            windowId        = mainView.windowId,
+            searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
+            livePreviewId   = me.decodeUri(searchString.substring(1)).id,
+            sourceContainer = Neo.getComponent(livePreviewId).getReference('preview'),
+            sourceView      = sourceContainer.removeAt(0, false);
+
+        mainView.add(sourceView)
     }
 
     /**
@@ -52,8 +69,7 @@ class MainContainerController extends Controller {
 
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
-                const searchString = data?.substr(1) || '';
-                const search = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+                const search = me.decodeUri(data?.substring(1) || '');
                 me.getModel().setData('deck', search.deck || 'learnneo');
             });
 

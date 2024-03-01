@@ -580,6 +580,7 @@ class Base extends Component {
      * @param {Neo.component.Base} component
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
+     * @returns {Neo.component.Base|null}
      */
     remove(component, destroyItem=true, silent=false) {
         let items = [...this.items],
@@ -623,6 +624,7 @@ class Base extends Component {
      * @param {Number} index
      * @param {Boolean} destroyItem=true
      * @param {Boolean} silent=false
+     * @returns {Neo.component.Base|null}
      */
     removeAt(index, destroyItem=true, silent=false) {
         let me    = this,
@@ -642,9 +644,11 @@ class Base extends Component {
             me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy(true, silent)
+                item.destroy(true, silent);
+                return null
             } else {
-                item.mounted = false
+                item.mounted = false;
+                return item
             }
         }
     }
