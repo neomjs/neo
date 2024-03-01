@@ -17,7 +17,13 @@ class LivePreview extends Container {
          * @member {String} className='Portal.view.learn.LivePreview'
          * @protected
          */
-        className : 'Portal.view.learn.LivePreview',
+        className: 'Portal.view.learn.LivePreview',
+        /**
+         * @member {String} ntype='live-preview'
+         * @protected
+         */
+        ntype: 'live-preview',
+
         baseCls   : ['learn-live-preview'],
         value_    : null,
         autoMount : true,
