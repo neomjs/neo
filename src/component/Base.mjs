@@ -494,7 +494,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+        value && Neo.currentWorker.insertThemeFiles(value, this.windowId, this.__proto__)
     }
 
     /**

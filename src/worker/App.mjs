@@ -276,13 +276,14 @@ class App extends Base {
     /**
      * In case you don't want to include prototype based CSS files, use the className param instead
      * @param {String} appName
+     * @param {Number} windowId
      * @param {Neo.core.Base} [proto]
      * @param {String} [className]
      */
-    insertThemeFiles(appName, proto, className) {
+    insertThemeFiles(appName, windowId, proto, className) {
         if (Neo.config.themes.length > 0) {
             className = className || proto.className;
-
+            //console.log(windowId, className);
             let me       = this,
                 lAppName = appName.toLowerCase(),
                 cssMap   = Neo.cssMap,
@@ -290,7 +291,7 @@ class App extends Base {
                 classPath, classRoot, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
-                me.themeFilesCache.push([appName, proto])
+                me.themeFilesCache.push([appName, windowId, proto])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
@@ -305,7 +306,7 @@ class App extends Base {
 
                 if (parent && parent !== Neo.core.Base.prototype) {
                     if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
-                        me.insertThemeFiles(appName, parent)
+                        me.insertThemeFiles(appName, windowId, parent)
                     }
                 }
 
