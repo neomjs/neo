@@ -51,6 +51,10 @@ class LivePreview extends Container {
                     editorChange: data => {
                         let container         = data.component.up({className: 'Portal.view.learn.LivePreview'});
                         container.editorValue = data.value;
+
+                        if (container.previewContainer) {
+                            container.doRunSource()
+                        }
                     }
                 }
             }, {
@@ -60,6 +64,12 @@ class LivePreview extends Container {
             }]
         }]
     }
+
+    /**
+     * Link the preview output to different targets
+     * @member {Neo.component.Base} previewContainer=null
+     */
+    previewContainer = null
 
     /**
      * Triggered after the value config got changed
@@ -160,7 +170,7 @@ class LivePreview extends Container {
             .catch(error=>container.add({ntype:'component',html:error.message}));
         `;
 
-        const container = this.getReference('preview');
+        const container = me.getPreviewContainer();
         container.removeAll();
 
         try {
@@ -218,6 +228,19 @@ class LivePreview extends Container {
     }
 
     /**
+     * @returns {Neo.component.Base|null}
+     */
+    getPreviewContainer() {
+        let me = this;
+
+        if (me.previewContainer) {
+            return me.previewContainer
+        }
+
+        return me.getReference('preview')
+    }
+
+    /**
      * @param {Object} data
      * @param {Neo.component.Base} data.item
      * @param {Number} data.oldValue
@@ -264,7 +287,7 @@ class LivePreview extends Container {
         await me.createPopupWindow();
 
         // this component requires a view controller to manage connected apps
-        me.getController().connectedApps.push(me.id)
+        me.getController()?.connectedApps.push(me.id)
     }
 }
 
