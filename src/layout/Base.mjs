@@ -34,7 +34,11 @@ class Base extends CoreBase {
          * @member {Boolean} isLayout=true
          * @protected
          */
-        isLayout: true
+        isLayout: true,
+        /**
+         * @member {Number|null} windowId=null
+         */
+        windowId: null
     }
 
     /**
