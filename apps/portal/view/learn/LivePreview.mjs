@@ -70,6 +70,27 @@ class LivePreview extends Container {
     /**
      *
      */
+    async createPopupWindow() {
+        let me      = this,
+            winData = await Neo.Main.getWindowData(),
+            rect    = await me.getDomRect(me.id);
+
+        let {height, left, top, width} = rect;
+
+        height -= 50; // popup header in Chrome
+        left   += winData.screenLeft;
+        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        Neo.Main.windowOpen({
+            url           : './childapps/preview/index.html',
+            windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowName    : me.id
+        })
+    }
+
+    /**
+     *
+     */
     doRunSource() {
         let me     = this,
             source = me.editorValue || me.value;
@@ -230,8 +251,9 @@ class LivePreview extends Container {
     /**
      * @param {Object} data
      */
-    popoutPreview(data) {
-        console.log('popoutPreview', this)
+    async popoutPreview(data) {
+        data.component.disabled = true;
+        await this.createPopupWindow()
     }
 }
 
