@@ -54,7 +54,7 @@ class LivePreview extends Container {
                     }
                 }
             }, {
-                ntype          : 'container',
+                module         : Container,
                 reference      : 'preview',
                 tabButtonConfig: {text: 'Preview'}
             }]
@@ -79,7 +79,7 @@ class LivePreview extends Container {
     async createPopupWindow() {
         let me      = this,
             winData = await Neo.Main.getWindowData(),
-            rect    = await me.getDomRect(me.id);
+            rect    = await me.getDomRect(me.getReference('preview').id);
 
         let {height, left, top, width} = rect;
 
