@@ -39,10 +39,15 @@ class MainContainerController extends Controller {
             livePreviewId   = me.decodeUri(searchString.substring(1)).id,
             livePreview     = Neo.getComponent(livePreviewId),
             sourceContainer = livePreview.getReference('preview'),
+            tabContainer    = livePreview.tabContainer,
             sourceView      = sourceContainer.removeAt(0, false);
 
         livePreview.previewContainer = mainView;
-        mainView.add(sourceView)
+        mainView.add(sourceView);
+
+        tabContainer.activeIndex = 0; // switch to the source view
+
+        tabContainer.getTabAtIndex(1).disabled = true
     }
 
     /**
