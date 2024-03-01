@@ -82,6 +82,7 @@ class Helper extends Base {
      * @param {String} opts.parentId
      * @param {Number} opts.parentIndex
      * @param {Object} opts.vdom
+     * @param {Number} opts.windowId
      * @returns {Neo.vdom.VNode|Promise<Neo.vdom.VNode>}
      */
     create(opts) {
@@ -90,12 +91,14 @@ class Helper extends Base {
             autoMount   = opts.autoMount === true,
             parentId    = opts.parentId,
             parentIndex = opts.parentIndex,
+            windowId    = opts.windowId,
             node;
 
         delete opts.appName;
         delete opts.autoMount;
         delete opts.parentId;
         delete opts.parentIndex;
+        delete opts.windowId;
 
         node           = me.parseHelper(opts);
         node.outerHTML = me.createStringFromVnode(node);
@@ -105,8 +108,9 @@ class Helper extends Base {
                 appName,
                 autoMount: true,
                 parentId,
-                parentIndex
-            });
+                parentIndex,
+                windowId
+            })
         }
 
         return Neo.config.useVdomWorker ? node : Promise.resolve(node);
