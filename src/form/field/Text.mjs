@@ -881,6 +881,18 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        value && this.triggers?.forEach(item => {
+            item.windowId = value
+        })
+    }
+
+    /**
      * Return a shallow copy of the triggers config
      * @param {Array|null} value
      * @protected
