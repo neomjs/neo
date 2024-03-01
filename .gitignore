@@ -16,6 +16,8 @@
 !/apps/portal/neo-config.json
 !/apps/portal/index.html
 !/apps/portal/**/*.mjs
+!/apps/portal/childapps/preview/index.html
+!/apps/portal/childapps/preview/neo-config.json
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
 !/apps/realworld/neo-config.json
