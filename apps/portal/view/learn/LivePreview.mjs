@@ -72,6 +72,13 @@ class LivePreview extends Container {
     previewContainer = null
 
     /**
+     * @returns {Neo.component.Base|null}
+     */
+    get tabContainer() {
+        return this.getReference('tab-container')
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
