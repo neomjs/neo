@@ -51,6 +51,7 @@ class Main extends core.Base {
                 'getByPath',
                 'getWindowData',
                 'importAddon',
+                'log',
                 'redirectTo',
                 'setNeoConfig',
                 'setRoute',
@@ -211,6 +212,17 @@ class Main extends core.Base {
 
         this.registerAddon(module.default);
 
+        return true
+    }
+
+    /**
+     * Import main thread addons at run-time from within the app worker
+     * @param {Object} data
+     * @param {String} data.value
+     * @returns {Boolean}
+     */
+    log(data) {
+        console.log(data.value);
         return true
     }
 
