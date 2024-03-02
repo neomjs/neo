@@ -221,11 +221,12 @@ class Main extends core.Base {
      * @param {Object} data
      * @param {String} [data.appName]
      * @param {String} data.value
+     * @param {String} [data.method] defaults to 'log'
      * @param {Number} [data.windowId]
      * @returns {Boolean}
      */
     log(data) {
-        console.log(data.value);
+        console[data.method || 'log'](data.value);
         return true
     }
 
