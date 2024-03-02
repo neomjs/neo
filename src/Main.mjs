@@ -216,9 +216,12 @@ class Main extends core.Base {
     }
 
     /**
-     * Import main thread addons at run-time from within the app worker
+     * Remote console access to main threads.
+     * You can use appName or windowId to target specific windows.
      * @param {Object} data
+     * @param {String} [data.appName]
      * @param {String} data.value
+     * @param {Number} [data.windowId]
      * @returns {Boolean}
      */
     log(data) {
