@@ -73,6 +73,7 @@ class MainContainerController extends Controller {
 
         tabContainer.activeIndex = 1; // switch to the source view
 
+        livePreview.getReference('popout-window-button').disabled = false;
         tabContainer.getTabAtIndex(1).disabled = false;
 
         /*Neo.Main.windowClose({
