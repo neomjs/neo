@@ -54,10 +54,30 @@ class MainContainerController extends Controller {
      * @param {Object} data
      * @param {String} data.appName
      */
-    onAppDisconnect(data) {
-        Neo.Main.windowClose({
-            names: this.connectedApps
-        })
+    async onAppDisconnect(data) {
+        let me              = this,
+            app             = Neo.apps[data.appName],
+            mainView        = app.mainView,
+            windowId        = mainView.windowId,
+            searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
+            livePreviewId   = me.decodeUri(searchString.substring(1)).id,
+            livePreview     = Neo.getComponent(livePreviewId),
+            sourceContainer = livePreview.getReference('preview'),
+            tabContainer    = livePreview.tabContainer,
+            sourceView      = mainView.removeAt(0, false);
+
+        console.log(data, me.connectedApps);
+
+        livePreview.previewContainer = null;
+        sourceContainer.add(sourceView);
+
+        tabContainer.activeIndex = 1; // switch to the source view
+
+        tabContainer.getTabAtIndex(1).disabled = false;
+
+        /*Neo.Main.windowClose({
+            names: me.connectedApps
+        })*/
     }
 
     /**
