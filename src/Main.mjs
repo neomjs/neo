@@ -190,7 +190,7 @@ class Main extends core.Base {
                 width      : screen.width
             },
             screenLeft: win.screenLeft,
-            screenTop : win.screenTop,
+            screenTop : win.screenTop
         }
     }
 
