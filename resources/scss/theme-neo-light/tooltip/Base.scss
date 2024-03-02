@@ -1,5 +1,6 @@
 :root .neo-theme-neo-light { // .neo-tooltip
-    --tooltip-bg            : var(--cmp-tooltip-bg);
+    // --tooltip-bg            : var(--cmp-tooltip-bg);
+    --tooltip-bg            : red;
     --tooltip-border        : none;
     --tooltip-borderradius  : var(--cmp-tooltip-borderradius);
     --tooltip-boxshadow     : none;
@@ -8,6 +9,3 @@
     --tooltip-height        : var(--cmp-tooltip-height);
     --tooltip-padding       : 2px var(--cmp-tooltip-spacinghorizontal) 0;
 }
-
-
-// 3px 3px 4px rgba(0,0,0, .6);
