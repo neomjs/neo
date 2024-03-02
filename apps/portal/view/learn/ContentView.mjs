@@ -1,5 +1,6 @@
 import Component from '../../../../src/component/Base.mjs';
 
+debugger;
 /**
  * @class Portal.view.learn.ContentView
  * @extends Neo.component.Base
@@ -27,15 +28,15 @@ class ContentView extends Component {
      * @param {Object} data
      */
     onClick(data) {
-        let me     = this,
+        let me = this,
             record = me.record;
 
         if (data.altKey && data.shiftKey && !data.metaKey) {
-            me.fire('edit', {component: me, record})
+            me.fire('edit', { component: me, record })
         }
         // Command/windows shift click = refresh
         else if (!data.altKey && data.shiftKey && data.metaKey) {
-            me.fire('refresh', {component: me, record})
+            me.fire('refresh', { component: me, record })
         }
     }
 
