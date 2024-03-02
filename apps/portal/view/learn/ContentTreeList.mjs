@@ -42,16 +42,15 @@ class ContentTreeList extends TreeList {
     async doFetchContent(record) {
         let me   = this,
             path = `${me.contentPath}`,
-            content, data, html;
+            content, data, html, modifiedHtml;
 
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
-            content = `#${record.name}\n${content}`;
-
-            let modifiedHtml = await me.highlightPreContent(content);
+            data         = await fetch(path);
+            content      = await data.text();
+            content      = `#${record.name}\n${content}`;
+            modifiedHtml = await me.highlightPreContent(content);
 
             // Replace <pre data-neo></neo> with <div id='neo-preview-1'/>
             // and create a map keyed by ID, whose value is the javascript
