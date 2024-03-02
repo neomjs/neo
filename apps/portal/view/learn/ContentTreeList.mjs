@@ -1,6 +1,10 @@
 import ContentStore from '../../store/Content.mjs'
-import LivePreview  from './LivePreview.mjs';
-import TreeList     from '../../../../src/tree/List.mjs';
+import LivePreview from './LivePreview.mjs';
+import TreeList    from '../../../../src/tree/List.mjs';
+
+const
+    labCloseRegex = /<!--\s*\/lab\s*-->/g,
+    labOpenRegex  = /<!--\s*lab\s*-->/g;
 
 /**
  * @class Portal.view.learn.ContentTreeList
@@ -99,7 +103,7 @@ class ContentTreeList extends TreeList {
         return htmlString.replace(preRegex, (match, preContent) => {
             const key = `pre-live-preview-${Neo.core.IdGenerator.getId()}-${count++}`;
             map[key] = preContent;
-            return `<div id="${key}"></div>`;
+            return `<div id="${key}"></div>`
         })
     }
 
@@ -109,12 +113,12 @@ class ContentTreeList extends TreeList {
      */
     insertLabDivs(inputString) {
         // Replace <!-- lab --> with <div class="lab">
-        let modifiedString = inputString.replace(/<!--\s*lab\s*-->/g, '<div class="lab">');
+        inputString = inputString.replace(labOpenRegex, '<div class="lab">');
 
         // Replace <!-- /lab --> with </div>
-        modifiedString = modifiedString.replace(/<!--\s*\/lab\s*-->/g, '</div>');
+        inputString = inputString.replace(labCloseRegex, '</div>');
 
-        return modifiedString
+        return inputString
     }
 
     /**
@@ -162,7 +166,7 @@ class ContentTreeList extends TreeList {
     getHighlightPromise(preContent, token, id) {
         // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
         return Neo.main.addon.HighlightJS.highlightAuto(preContent)
-            .then(highlight => ({after: `<pre data-javascript id="${id}">${highlight.value}</pre>`, token}));
+            .then(highlight => ({after: `<pre data-javascript id="${id}">${highlight.value}</pre>`, token}))
     }
 
     /**
@@ -189,9 +193,9 @@ class ContentTreeList extends TreeList {
         let me = this;
 
         Neo.main.addon.HighlightJS.loadLibrary({
-            appName: me.appName,
+            appName        : me.appName,
             highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
-            themePath: '../../docs/resources/highlightjs-custom-github-theme.css'
+            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
         });
 
         Neo.Main.getByPath({path: 'location.search'})
