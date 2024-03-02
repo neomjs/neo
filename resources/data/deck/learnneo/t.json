@@ -5,6 +5,7 @@
         {"name": "Extreme Speed",                           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Speed"},
         {"name": "Quick Application Development",           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Quick"},
         {"name": "Multi-Window Applications",               "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Multi-Window"},
+        {"name": "Complexity and Effort",                   "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Effort"},
     {"name": "Getting Started",                             "parentId": null,                "isLeaf": false, "id": "GettingStarted"},
         {"name": "Setup",                                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "Setup", "hidden":  true},
         {"name": "Workspaces and Applications",             "parentId": "GettingStarted",    "isLeaf": true,  "id": "2023-10-14T19-25-08-153Z"},

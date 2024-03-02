@@ -22,16 +22,16 @@ class MainView extends Base {
             module: TextField,
             labelText  : 'First name',
             listeners: {
-                change: data=>console.log(data.value), // There are other properties, like oldValue
-                focusEnter: data=>console.log(`Entering ${data.component.labelText}`) 
+                change: data => Neo.Main.log({value:data.value}),
+                focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
             }
         },
         {
             module: TextField,
             labelText  : 'Last name',
             listeners: {
-                change: data=>console.log(data.value), // There are other properties, like oldValue
-                focusEnter: data=>console.log(`Entering ${data.component.labelText}`) 
+                change: data => Neo.Main.log({value: data.value}),
+                focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
             }
         }]
     }
