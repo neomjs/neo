@@ -234,11 +234,11 @@ class RecordFactory extends Base {
      */
     parseRecordValue(record, field, value, recordConfig=null) {
         if (field.calculate) {
-            return field.calculate(record, field, recordConfig);
+            return field.calculate(record, field, recordConfig)
         }
 
         if (field.convert) {
-            value = field.convert(value);
+            value = field.convert(value)
         }
 
         let fieldName = field.name,
@@ -256,41 +256,49 @@ class RecordFactory extends Base {
                 key = ns.pop();
 
             ns    = Neo.ns(ns, true, recordConfig);
-            value = ns[key];
+            value = ns[key]
         }
 
         if (Object.hasOwn(field, 'maxLength')) {
             if (value?.toString().length > maxLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with maxLength: ${maxLength}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (Object.hasOwn(field, 'minLength')) {
             if (value?.toString().length < minLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with minLength: ${minLength}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (Object.hasOwn(field, 'nullable')) {
             if (nullable === false && value === null) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with nullable: ${nullable}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (type === 'date' && Neo.typeOf(value) !== 'Date') {
-            return new Date(value);
+            return new Date(value)
         }
 
-        if (type === 'html' && value) {
-            value = value + '';
+        else if (type === 'float' && value) {
+            value = parseFloat(value)
         }
 
-        if (type === 'string' && value) {
+        else if (type === 'html' && value) {
+            value = value + ''
+        }
+
+        else if ((type === 'int' || type === 'integer') && value) {
+            value = parseInt(value)
+        }
+
+        else if (type === 'string' && value) {
             value = value + '';
-            value =  value.replace(/(<([^>]+)>)/ig, '');
+            value =  value.replace(/(<([^>]+)>)/ig, '')
         }
 
         return value;
