@@ -42,10 +42,10 @@ class RecordFactory extends Base {
         let recordClass = Neo.ns(`${this.recordNamespace}.${model.className}.${model.id}`);
 
         if (!recordClass) {
-            recordClass = this.createRecordClass(model);
+            recordClass = this.createRecordClass(model)
         }
 
-        return new recordClass(config);
+        return new recordClass(config)
     }
 
     /**
@@ -81,7 +81,7 @@ class RecordFactory extends Base {
                                     parsedValue;
 
                                 if (!Object.hasOwn(config, field.name) && Object.hasOwn(field, 'defaultValue')) {
-                                    value = field.defaultValue;
+                                    value = field.defaultValue
                                 }
 
                                 parsedValue = instance.parseRecordValue(me, field, value, config);
@@ -113,7 +113,7 @@ class RecordFactory extends Base {
                                                     fields: [{name: field.name, oldValue, value}],
                                                     model,
                                                     record: me
-                                                });
+                                                })
                                             }
                                         }
                                     }
@@ -174,14 +174,14 @@ class RecordFactory extends Base {
                 field = fields[i];
 
                 if (!Neo.isEqual(record[field], record[this.ovPrefix + field])) {
-                    return true;
+                    return true
                 }
             }
 
-            return false;
+            return false
         }
 
-        return record._isModified;
+        return record._isModified
     }
 
     /**
@@ -191,13 +191,13 @@ class RecordFactory extends Base {
      */
     isModifiedField(record, fieldName) {
         if (!record.hasOwnProperty(fieldName)) {
-            Logger.logError('The record does not contain the field', fieldName, record);
+            Logger.logError('The record does not contain the field', fieldName, record)
         }
 
         let modifiedField = this.ovPrefix + fieldName;
 
         if (record.hasOwnProperty(modifiedField)) {
-            return !Neo.isEqual(record[fieldName], record[modifiedField]);
+            return !Neo.isEqual(record[fieldName], record[modifiedField])
         }
 
         return null;
@@ -209,7 +209,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.isRecord;
+        return record?.isRecord
     }
 
     /**
@@ -221,7 +221,7 @@ class RecordFactory extends Base {
      * @param {Object} opts.record
      */
     onRecordChange(opts) {
-        Neo.get(opts.model.storeId)?.onRecordChange(opts);
+        Neo.get(opts.model.storeId)?.onRecordChange(opts)
     }
 
     /**
@@ -301,7 +301,7 @@ class RecordFactory extends Base {
             value =  value.replace(/(<([^>]+)>)/ig, '')
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -321,12 +321,12 @@ class RecordFactory extends Base {
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
                 record._isModified = true;
-                changedFields.push({name: key, oldValue, value});
+                changedFields.push({name: key, oldValue, value})
             }
         });
 
         if (!silent && Object.keys(changedFields).length > 0) {
-            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record});
+            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
         }
     }
 }
