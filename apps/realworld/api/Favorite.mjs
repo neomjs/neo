@@ -32,10 +32,6 @@ class Favorite extends Base {
     }
 }
 
-Neo.setupClass(Favorite);
-
-let instance = Neo.create(Favorite);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.setupClass(Favorite);
 
 export default instance;

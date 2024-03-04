@@ -48,10 +48,6 @@ class Article extends Base {
     }
 }
 
-Neo.setupClass(Article);
-
-let instance = Neo.create(Article);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.setupClass(Article);
 
 export default instance;
