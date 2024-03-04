@@ -174,7 +174,7 @@ class ContentTreeList extends TreeList {
     doLoadStore() {
         const me = this;
         Neo.Xhr.promiseJson({
-            url: `${me.contentPath}/t.json`
+            url: `${me.contentPath}/tree.json`
         }).then(data => {
             // TODO: Tree lists should do this themselves when their store is loaded.
             me.store.data = data.json.data;
