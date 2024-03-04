@@ -1,6 +1,5 @@
 import Component from '../../../../src/component/Base.mjs';
 
-debugger;
 /**
  * @class Portal.view.learn.ContentView
  * @extends Neo.component.Base
