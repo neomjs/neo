@@ -18,7 +18,7 @@ class ContentSection extends Model {
             name: 'id',
             type: 'Int'
         }, {
-            name: 'value',
+            name: 'name',
             type: 'String'
         }]
     }

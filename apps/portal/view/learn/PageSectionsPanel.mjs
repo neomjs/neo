@@ -1,3 +1,4 @@
+import List  from '../../../../src/list/Base.mjs';
 import Panel from '../../../../src/container/Panel.mjs';
 
 /**
@@ -25,7 +26,10 @@ class PageSectionsPanel extends Panel {
         /**
          * @member {Object[]} items
          */
-        items: []
+        items: [{
+            module: List,
+            bind  : {store: 'stores.contentSections'}
+        }]
     }
 }
 
