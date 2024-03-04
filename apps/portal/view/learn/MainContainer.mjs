@@ -3,6 +3,7 @@ import ContentTreeList         from './ContentTreeList.mjs';
 import ContentView             from './ContentView.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
+import PageSectionsPanel       from './PageSectionsPanel.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
@@ -45,7 +46,7 @@ class MainContainer extends Container {
             module      : Splitter,
             cls         : ['main-content-splitter'],
             resizeTarget: 'previous',
-            size        : 1
+            size        : 3
         }, {
             module: Container,
             cls   : ['learn-content-container'],
@@ -58,6 +59,13 @@ class MainContainer extends Container {
                     refresh: 'onContentRefresh'
                 }
             }]
+        }, {
+            module: Splitter,
+            cls   : ['main-content-splitter'],
+            size  : 3
+        }, {
+            module: PageSectionsPanel,
+            width : 350
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
