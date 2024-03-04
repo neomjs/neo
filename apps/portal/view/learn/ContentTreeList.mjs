@@ -47,8 +47,11 @@ class ContentTreeList extends TreeList {
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            data         = await fetch(path);
-            content      = await data.text();
+            data    = await fetch(path);
+            content = await data.text();
+
+            me.updateContentSectionsStore(content);
+
             content      = `#${record.name}\n${content}`;
             modifiedHtml = await me.highlightPreContent(content);
 
@@ -215,6 +218,26 @@ class ContentTreeList extends TreeList {
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
         this.doFetchContent(record)
+    }
+
+    /**
+     * @param {String} content
+     */
+    updateContentSectionsStore(content) {
+        let contentArray = content.split('\n'),
+            i            = 1,
+            storeData    = [];
+
+        contentArray.forEach(line => {
+            if (line.startsWith('##') && line.charAt(2) !== '#') {
+                line = line.substring(2).trim();
+
+                storeData.push({id: i, name: line});
+                i++
+            }
+        });
+
+        this.getModel().getStore('contentSections').data = storeData
     }
 }
 
