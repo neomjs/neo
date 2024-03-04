@@ -27,10 +27,35 @@ class PageSectionsPanel extends Panel {
          * @member {Object[]} items
          */
         items: [{
-            module: List,
-            bind  : {store: 'stores.contentSections'},
-            cls   : ['topics-tree']
+            module   : List,
+            bind     : {store: 'stores.contentSections'},
+            cls      : ['topics-tree'],
+            reference: 'list'
         }]
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        // me.getReference('list').on('selectionChange', me.onSelectionChange, me) // todo
+        me.getReference('list').on('itemClick', me.onSelectionChange, me)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSelectionChange(data) {
+        let record = data.record;
+
+        record && Neo.main.DomAccess.scrollIntoView({
+            id      : `${record.sourceId}__section__${record.id}`,
+            windowId: this.windowId
+        })
     }
 }
 

@@ -287,6 +287,7 @@ class Base extends Component {
                     appName  : me.appName,
                     id       : me.id,
                     selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    windowId : me.windowId,
                     ...me.navigator
                 };
 
@@ -642,7 +643,7 @@ class Base extends Component {
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type?.toLowerCase();
 
-        if (keyType === 'integer' || keyType === 'number') {
+        if (keyType === 'int' || keyType === 'integer') {
             itemId = parseInt(itemId)
         }
 
@@ -717,7 +718,9 @@ class Base extends Component {
          * @param {String} id the record matching the list item
          * @returns {Object}
          */
-        me.fire('itemClick', record)
+        me.fire('itemClick', {
+            record
+        })
     }
 
     /**
