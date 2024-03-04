@@ -1,10 +1,8 @@
-
 .sidenav-container {
     background-color: transparent;
 }
 
 .topics-tree {
-
     background-color: white;
     padding         : 8px 2px 8px 8px;
 
@@ -13,7 +11,7 @@
     }
 
     .neo-list-container>.neo-list-item {
-        font-size: 18px !important;
+        font-size  : 18px !important;
         font-weight: 500;
     }
 
@@ -26,6 +24,7 @@
         align-items     : center;
         margin-bottom   : 3px;
     }
+
     .neo-list-container ul {
         padding: 0 !important;
 
@@ -35,7 +34,6 @@
 
         ul .neo-list-item {
             padding: 0 0 0 48px !important;
-            
         }
     }
 

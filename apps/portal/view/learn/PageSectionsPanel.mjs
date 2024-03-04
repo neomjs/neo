@@ -28,7 +28,8 @@ class PageSectionsPanel extends Panel {
          */
         items: [{
             module: List,
-            bind  : {store: 'stores.contentSections'}
+            bind  : {store: 'stores.contentSections'},
+            cls   : ['topics-tree']
         }]
     }
 }
