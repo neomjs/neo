@@ -20,6 +20,9 @@ class ContentSection extends Model {
         }, {
             name: 'name',
             type: 'String'
+        }, {
+            name: 'sourceId',
+            type: 'String'
         }]
     }
 }

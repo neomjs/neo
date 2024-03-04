@@ -47,11 +47,9 @@ class ContentTreeList extends TreeList {
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
         if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
-
-            me.updateContentSectionsStore(content);
-
+            data         = await fetch(path);
+            content      = await data.text();
+            content      = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
             content      = `#${record.name}\n${content}`;
             modifiedHtml = await me.highlightPreContent(content);
 
@@ -221,23 +219,30 @@ class ContentTreeList extends TreeList {
     }
 
     /**
+     * Updates the contentSections VM store and replaces ## with h2 tags
      * @param {String} content
+     * @returns {String}
      */
     updateContentSectionsStore(content) {
-        let contentArray = content.split('\n'),
+        let me           = this,
+            contentArray = content.split('\n'),
             i            = 1,
             storeData    = [];
 
-        contentArray.forEach(line => {
+        contentArray.forEach((line, index) => {
             if (line.startsWith('##') && line.charAt(2) !== '#') {
                 line = line.substring(2).trim();
 
-                storeData.push({id: i, name: line});
+                storeData.push({id: i, name: line, sourceId: me.id});
                 i++
+
+                contentArray[index] = `<h2 id="${me.id}__section__${i}">${line}</h2>`
             }
         });
 
-        this.getModel().getStore('contentSections').data = storeData
+        me.getModel().getStore('contentSections').data = storeData;
+
+        return contentArray.join('\n')
     }
 }
 
