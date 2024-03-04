@@ -1,5 +1,6 @@
-import Component from '../../../../src/model/Component.mjs';
-import Store     from '../../store/Content.mjs';
+import Component           from '../../../../src/model/Component.mjs';
+import ContentStore        from '../../store/Content.mjs';
+import ContentSectionStore from '../../store/ContentSections.mjs';
 
 /**
  * @class Portal.view.learn.MainContainerModel
@@ -20,8 +21,11 @@ class MainContainerModel extends Component {
          * @member {Object} stores
          */
         stores: {
+            contentSections: {
+                module: ContentSectionStore
+            },
             tree: {
-                module      : Store,
+                module      : ContentStore,
                 responseRoot: 'data'
             }
         }
