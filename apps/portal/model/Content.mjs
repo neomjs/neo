@@ -34,7 +34,7 @@ class Content extends Model {
             type: 'String'
         }, {
             name: 'parentId',
-            type: 'Integer'
+            type: 'String'
         }, {
             name: 'path',
             type: 'String'
