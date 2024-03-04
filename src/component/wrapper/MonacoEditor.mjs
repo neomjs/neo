@@ -110,6 +110,7 @@ class MonacoEditor extends Base {
 
         me.addDomListeners({
             editorChange: me.onContentChange,
+            resize      : me.layoutEditor,
             scope       : me
         })
     }
@@ -153,14 +154,19 @@ class MonacoEditor extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value) {
-            setTimeout(() => {
-                Neo.main.addon.MonacoEditor.createInstance(this.getInitialOptions()).then(() => {
-                    // use this custom method as needed inside your class extensions
-                    this.onEditorMounted?.()
-                })
-            }, 50)
-        }
+        value && setTimeout(() => {
+            let me = this;
+
+            Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
+                Neo.main.addon.ResizeObserver.register({
+                    id      : me.id,
+                    windowId: me.windowId
+                });
+
+                // use this custom method as needed inside your class extensions
+                me.onEditorMounted?.()
+            })
+        }, 50)
     }
 
     /**
@@ -174,9 +180,9 @@ class MonacoEditor extends Base {
 
         if (me.mounted) {
             Neo.main.addon.MonacoEditor.setTheme({
-                appName: me.appName,
-                id     : me.id,
-                value
+                id      : me.id,
+                value,
+                windowId: me.windowId
             })
         }
     }
@@ -192,17 +198,6 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * Triggered after the height config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetHeight(value, oldValue) {
-        super.afterSetHeight(value, oldValue);
-        this.layoutEditor()
-    }
-
-    /**
      * Triggered after the language config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -213,9 +208,9 @@ class MonacoEditor extends Base {
 
         if (me.mounted) {
             Neo.main.addon.MonacoEditor.setLanguage({
-                appName: me.appName,
-                id     : me.id,
-                value
+                id      : me.id,
+                value,
+                windowId: me.windowId
             })
         }
     }
@@ -281,22 +276,11 @@ class MonacoEditor extends Base {
 
         if (me.mounted) {
             Neo.main.addon.MonacoEditor.setValue({
-                appName: me.appName,
-                id     : me.id,
-                value  : me.stringifyValue(me.value)
+                id      : me.id,
+                value   : me.stringifyValue(me.value),
+                windowId: me.windowId
             })
         }
-    }
-
-    /**
-     * Triggered after the width config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetWidth(value, oldValue) {
-        super.afterSetWidth(value, oldValue);
-        this.layoutEditor()
     }
 
     /**
@@ -325,9 +309,16 @@ class MonacoEditor extends Base {
      * @param args
      */
     destroy(...args) {
+        let me = this;
+
+        me.mounted && Neo.main.addon.ResizeObserver.unregister({
+            id      : me.id,
+            windowId: me.windowId
+        });
+
         Neo.main.addon.MonacoEditor.destroyInstance({
-            appName: this.appName,
-            id     : this.id
+            id      : me.id,
+            windowId: me.windowId
         });
 
         super.destroy(...args)
@@ -338,9 +329,11 @@ class MonacoEditor extends Base {
      * @returns {Promise<*>}
      */
     async getEditorValue() {
+        let me = this;
+
         return Neo.main.addon.MonacoEditor.getValue({
-            appName: this.appName,
-            id     : this.id
+            id      : me.id,
+            windowId: me.windowId
         })
     }
 
@@ -377,8 +370,8 @@ class MonacoEditor extends Base {
 
         if (me.mounted) {
             Neo.main.addon.MonacoEditor.layoutEditor({
-                appName: me.appName,
-                id     : me.id
+                id      : me.id,
+                windowId: me.windowId
             })
         }
     }
@@ -414,8 +407,8 @@ class MonacoEditor extends Base {
 
         if (me.mounted) {
             Neo.main.addon.MonacoEditor.updateOptions({
-                appName: me.appName,
-                id     : me.id,
+                id      : me.id,
+                windowId: me.windowId,
                 options
             })
         }
