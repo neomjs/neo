@@ -234,9 +234,10 @@ class ContentTreeList extends TreeList {
                 line = line.substring(2).trim();
 
                 storeData.push({id: i, name: line, sourceId: me.id});
-                i++
 
-                contentArray[index] = `<h2 id="${me.id}__section__${i}">${line}</h2>`
+                contentArray[index] = `<h2 id="${me.id}__section__${i}">${line}</h2>`;
+
+                i++
             }
         });
 
