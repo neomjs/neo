@@ -1,6 +1,7 @@
 import ContentStore from '../../store/Content.mjs'
-import LivePreview from './LivePreview.mjs';
-import TreeList    from '../../../../src/tree/List.mjs';
+import LivePreview  from './LivePreview.mjs';
+import TreeList     from '../../../../src/tree/List.mjs';
+import {marked}     from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const
     labCloseRegex = /<!--\s*\/lab\s*-->/g,
@@ -42,7 +43,7 @@ class ContentTreeList extends TreeList {
     async doFetchContent(record) {
         let me   = this,
             path = `${me.contentPath}`,
-            content, data, html, modifiedHtml;
+            content, data, html, modifiedHtml, neoDivs;
 
         path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
 
@@ -50,17 +51,16 @@ class ContentTreeList extends TreeList {
             data         = await fetch(path);
             content      = await data.text();
             content      = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
-            content      = `#${record.name}\n${content}`;
+            content      = `# ${record.name}\n${content}`;
             modifiedHtml = await me.highlightPreContent(content);
+            neoDivs      = {};
 
             // Replace <pre data-neo></neo> with <div id='neo-preview-1'/>
             // and create a map keyed by ID, whose value is the javascript
             // from the <pre>
-            let neoDivs = {};
-
             modifiedHtml = me.extractNeoContent(modifiedHtml, neoDivs);
 
-            html = await Neo.main.addon.Markdown.markdownToHtml(modifiedHtml);
+            html = marked.parse(modifiedHtml);
             html = me.insertLabDivs(html);
 
             me.fire('contentChange', {
