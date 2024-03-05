@@ -1,4 +1,4 @@
-##Introduction 
+## Introduction 
 
 In this topic you'll create an application that fetches data on earthquakes in Iceland,
 and show the information in two views: a table, and a map.
@@ -58,7 +58,7 @@ then run
 
     npx neo-app@latest
 
-You'll be propted for a workspace name, starter app name, etc &mdash; accept the default for everything.
+You'll be prompted for a workspace name, starter app name, etc &mdash; accept the default for everything.
 As the command finishes it starts a server and opens a browser window.
 </details>
 
@@ -193,9 +193,9 @@ following class definition:
 
 <pre data-javascript>
 
-import Base        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller  from './MainViewController.mjs';
-import ViewModel   from './MainViewModel.mjs';
+import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller from './MainViewController.mjs';
+import ViewModel  from './MainViewModel.mjs';
 
 class MainView extends Base {
     static config = {
@@ -232,10 +232,10 @@ which method to run when the button is clicked. We'll use `text`.
 
 <pre data-javascript>
 
-import Base        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Button      from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Controller  from './MainViewController.mjs';
-import ViewModel   from './MainViewModel.mjs';
+import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Controller from './MainViewController.mjs';
+import ViewModel  from './MainViewModel.mjs';
 
 class MainView extends Base {
     static config = {
@@ -430,10 +430,10 @@ Edit `apps/earthquakes/view/MainView.mjs` and add a method.
 
 <pre data-javascript>
 
-import Base        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Button      from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Controller  from './MainViewController.mjs';
-import ViewModel   from './MainViewModel.mjs';
+import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Controller from './MainViewController.mjs';
+import ViewModel  from './MainViewModel.mjs';
 
 class MainView extends Base {
     static config = {
@@ -453,7 +453,7 @@ class MainView extends Base {
             text: 'Button!'
         }],
     }
-    doFoo (){
+    doFoo() {
         console.log('foo!');
     }
 }
@@ -504,11 +504,11 @@ Replace the button with a table by replacing `MainView.mjs` with the following c
 
 <pre data-javascript>
 
-import Base        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Table       from '../../../node_modules/neo.mjs/src/table/Container.mjs';
-import Store       from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import Controller  from './MainViewController.mjs';
-import ViewModel   from './MainViewModel.mjs';
+import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Table      from '../../../node_modules/neo.mjs/src/table/Container.mjs';
+import Store      from '../../../node_modules/neo.mjs/src/data/Store.mjs';
+import Controller from './MainViewController.mjs';
+import ViewModel  from './MainViewModel.mjs';
 
 class MainView extends Base {
     static config = {
@@ -541,17 +541,19 @@ class MainView extends Base {
             columns: [{
                 dataField: "timestamp",
                 text: "Date",
-                renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}),
+                renderer: (data) => data.value.toLocaleDateString(undefined,
+                    {weekday: "long", year: "numeric", month: "long", day: "numeric"}
+                )
             }, {
                 dataField: "humanReadableLocation",
-                text: "Location",
+                text: "Location"
             }, {
                 dataField: "size",
                 text: "Magnitude",
                 align: "right",
-                renderer: (data) => data.value.toLocaleString(),
-            }],
-        }],
+                renderer: (data) => data.value.toLocaleString()
+            }]
+        }]
     }
 }
 
@@ -657,7 +659,7 @@ By default, a column just runs `toString()` on the record property specified in 
 You can also provide a `renderer`, which is a function you provide to format the value any way you'd like.
 In the code above it's using standard JavaScript methods to format the data and magnitude.
 
-## Definining Views as Reusable Components
+## Defining Views as Reusable Components
 
 The way we've coded the app, the grid is _not_ reusable. In other words, if we needed two identical grids we'd 
 have to copy-and-paste the same config block.
@@ -744,9 +746,9 @@ You can confirm that an instance _was created_ by using the DevTools console and
 
 <pre data-javascript>
 import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller       from './MainViewController.mjs';
 import EarthquakesTable from './earthquakes/Table.mjs';
 import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import Controller       from './MainViewController.mjs';
 import ViewModel        from './MainViewModel.mjs';
 
 class MainView extends Base {
@@ -868,11 +870,10 @@ View models have two key configs: `data` and `stores`.
 Add a `stores` property to the view model config that holds a copy of the store.
 
 <pre data-javascript>
-
 import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller       from './MainViewController.mjs';
 import EarthquakesTable from './earthquakes/Table.mjs';
 import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import Controller       from './MainViewController.mjs';
 import ViewModel        from './MainViewModel.mjs';
 
 class MainView extends Base {
@@ -888,17 +889,17 @@ class MainView extends Base {
                     module: Store,
                     model: {
                         fields: [{
-                            name: "humanReadableLocation",
+                            name: "humanReadableLocation"
                         }, {
-                            name: "size",
+                            name: "size"
                         }, {
                             name: "timestamp",
-                            type: "Date",
-                        }],
+                            type: "Date"
+                        }]
                     },
                     url: "https://apis.is/earthquake/is",
                     responseRoot: "results",
-                    autoLoad: true,
+                    autoLoad: true
                 },    
             }
         },
@@ -912,38 +913,38 @@ class MainView extends Base {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation",
+                        name: "humanReadableLocation"
                     }, {
-                        name: "size",
+                        name: "size"
                     }, {
                         name: "timestamp",
-                        type: "Date",
-                    }],
+                        type: "Date"
+                    }]
                 },
                 url: "https://apis.is/earthquake/is",
                 responseRoot: "results",
-                autoLoad: true,
+                autoLoad: true
             },
-            style: {width: '100%'},
+            style: {width: '100%'}
         },{
             module: EarthquakesTable,
             store: {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation",
+                        name: "humanReadableLocation"
                     }, {
-                        name: "size",
+                        name: "size"
                     }, {
                         name: "timestamp",
-                        type: "Date",
-                    }],
+                        type: "Date"
+                    }]
                 },
                 url: "https://apis.is/earthquake/is",
                 responseRoot: "results",
-                autoLoad: true,
+                autoLoad: true
             },
-            style: {width: '100%'},
+            style: {width: '100%'}
         }],
     }
 }
@@ -987,9 +988,9 @@ Replace each table's `store` config with the binding.
 <pre data-javascript>
 
 import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller       from './MainViewController.mjs';
 import EarthquakesTable from './earthquakes/Table.mjs';
 import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import Controller       from './MainViewController.mjs';
 import ViewModel        from './MainViewModel.mjs';
 
 class MainView extends Base {
@@ -1004,17 +1005,17 @@ class MainView extends Base {
                     module: Store,
                     model: {
                         fields: [{
-                            name: "humanReadableLocation",
+                            name: "humanReadableLocation"
                         }, {
-                            name: "size",
+                            name: "size"
                         }, {
                             name: "timestamp",
-                            type: "Date",
-                        }],
+                            type: "Date"
+                        }]
                     },
                     url: "https://apis.is/earthquake/is",
                     responseRoot: "results",
-                    autoLoad: true,
+                    autoLoad: true
                 },    
             }
         },
@@ -1025,13 +1026,13 @@ class MainView extends Base {
             bind: {
                 store: 'stores.earthquakes'
             },
-            style: {width: '100%'},
+            style: {width: '100%'}
         },{
             module: EarthquakesTable,
             bind: {
                 store: 'stores.earthquakes'
             },
-            style: {width: '100%'},
+            style: {width: '100%'}
         }],
     }
 }
@@ -1071,11 +1072,10 @@ Since the starter app already provides `MainViewModel`, all we need to do is cop
 Here's the resulting code you should place into `MainViewModel.mjs`.
 
 <pre data-javascript>
+import Model from '../../../node_modules/neo.mjs/src/model/Component.mjs';
+import Store from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
-import Base   from '../../../node_modules/neo.mjs/src/model/Component.mjs';
-import Store  from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-
-class MainViewModel extends Base {
+class MainViewModel extends Model {
     static config = {
         className: 'Earthquakes.view.MainViewModel',
 
@@ -1085,17 +1085,17 @@ class MainViewModel extends Base {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation",
+                        name: "humanReadableLocation"
                     }, {
-                        name: "size",
+                        name: "size"
                     }, {
                         name: "timestamp",
-                        type: "Date",
-                    }],
+                        type: "Date"
+                    }]
                 },
                 url: "https://apis.is/earthquake/is",
                 responseRoot: "results",
-                autoLoad: true,
+                autoLoad: true
             },    
         }
     }
@@ -1109,13 +1109,12 @@ export default MainViewModel;
 And you need to remove the `stores` config from the main view as follows.
 
 <pre data-javascript>
-
-import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import EarthquakesTable from './earthquakes/Table.mjs';
+import Container        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller       from './MainViewController.mjs';
+import EarthquakesTable from './earthquakes/Table.mjs';
 import ViewModel        from './MainViewModel.mjs';
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
@@ -1130,14 +1129,14 @@ class MainView extends Base {
             bind: {
                 store: 'stores.earthquakes'
             },
-            style: {width: '100%'},
+            style: {width: '100%'}
         },{
             module: EarthquakesTable,
             bind: {
                 store: 'stores.earthquakes'
             },
-            style: {width: '100%'},
-        }],
+            style: {width: '100%'}
+        }]
     }
 }
 
@@ -1194,7 +1193,7 @@ Marker store records are required to have these properties:
 <!-- lab -->
 
 <details>
-<summary>Specficy the main-thread add-on</summary>
+<summary>Specify the main-thread add-on</summary>
 
 Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-on and the map key.
 
@@ -1278,7 +1277,7 @@ and show it implace of the top table. The map should be centered on Iceland. To 
         lat: 64.8014187,
         lng: -18.3096357
     },
-    zoom: 6,
+    zoom: 6
 }
 </pre>
 
@@ -1286,13 +1285,13 @@ If we replace the top table with the map, `view/MainView.mjs` ends up with this 
 
 <pre data-javascript>
 
-import Base                from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import EarthquakesTable    from './earthquakes/Table.mjs';
+import Container           from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller          from './MainViewController.mjs';
-import ViewModel           from './MainViewModel.mjs';
+import EarthquakesTable    from './earthquakes/Table.mjs';
 import GoogleMapsComponent from '../../../src/component/wrapper/GoogleMaps.mjs';
+import ViewModel           from './MainViewModel.mjs';
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
@@ -1309,7 +1308,7 @@ class MainView extends Base {
                 lat: 64.8014187,
                 lng: -18.3096357
             },
-            zoom: 6,
+            zoom: 6
         },{
             module: EarthquakesTable,
             bind: {
@@ -1326,7 +1325,6 @@ class MainView extends Base {
 Neo.setupClass(MainView);
 
 export default MainView;
-
 </pre>
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CenteredMap.png"></img>
