@@ -307,7 +307,7 @@ choose that worker in the DevTools JavaScript context dropdown.
 
 <img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/DevToolsJavaScriptContext.png">
 
-A basic debugging (and coding!) task is getting a referernce to a component.
+A basic debugging (and coding!) task is getting a reference to a component.
 You can then see and update the component's state and run its methods.
 
 There are a few ways to get a component reference.
