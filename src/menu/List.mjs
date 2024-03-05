@@ -39,10 +39,6 @@ class List extends BaseList {
          */
         hideOnLeafItemClick: true,
         /**
-         * @member {Boolean} itemsFocusable=true
-         */
-        itemsFocusable: true,
-        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
