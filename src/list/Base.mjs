@@ -95,6 +95,10 @@ class Base extends Component {
          */
         itemWidth_: null,
         /**
+         * @member {Boolean} itemsFocusable=true
+         */
+        itemsFocusable: true,
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
