@@ -30,7 +30,7 @@ class Markdown extends Base {
          * @member {String} showdownPath='https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
          * @protected
          */
-        showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
+        showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js'
     }
 
     /**

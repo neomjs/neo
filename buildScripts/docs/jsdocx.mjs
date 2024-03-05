@@ -1,11 +1,10 @@
 import fs       from 'fs-extra';
 import helper   from 'neo-jsdoc-x/src/lib/helper.js';
 import jsdocx   from 'neo-jsdoc-x';
+import {marked} from 'marked';
 import path     from 'path';
-import showdown from 'showdown';
 
 const __dirname   = path.resolve(),
-      markdown    = new showdown.Converter(),
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
@@ -326,12 +325,12 @@ jsdocx.parse(options)
             namespace.classData.push(item);
 
             if (item.description) {
-                item.description = markdown.makeHtml(item.description)
+                item.description = marked.parse(item.description)
             }
 
             item.params?.forEach(param => {
                 if (param.description) {
-                    param.description = markdown.makeHtml(param.description)
+                    param.description = marked.parse(param.description)
                 }
             });
 

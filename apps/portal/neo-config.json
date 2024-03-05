@@ -3,7 +3,7 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "HighlightJS", "Markdown", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"],
+    "mainThreadAddons": ["DragDrop", "HighlightJS", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"],
     "themes"          : ["neo-theme-neo-light"],
     "useSharedWorkers": true
 }
