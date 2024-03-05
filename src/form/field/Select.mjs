@@ -308,6 +308,7 @@ class Select extends Picker {
             appName       : me.appName,
             displayField  : me.displayField,
             itemRole      : 'option',
+            itemsFocusable: false,
             navigator     : {eventSource: me.getInputElId()},
             parentId      : me.id,
             role          : 'listbox',
