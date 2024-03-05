@@ -464,7 +464,7 @@ class Base extends Component {
         };
 
         if (me.itemsFocusable) {
-            item.tabIndex = -1;
+            item.tabIndex = -1
         }
 
         if (record.hidden) {

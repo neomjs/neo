@@ -186,7 +186,7 @@ class Tree extends Base {
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
             folderCls = me.folderCls,
-            cls, tmpRoot;
+            cls, itemVdom, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -222,27 +222,30 @@ class Tree extends Base {
                     }
                 }
 
-                tmpRoot.cn.push({
-                    tag      : 'li',
+                itemVdom = {
+                    tag: 'li',
                     cls,
-                    id       : me.getItemId(item.id),
-                    tabIndex : -1,
-                    cn       : [{
+                    id : me.getItemId(item.id),
+                    cn : [{
                         tag      : 'span',
                         cls      : [itemCls + '-content', item.iconCls],
                         innerHTML: item.name,
-                        style    : {
-                            pointerEvents: 'none'
-                        }
+                        style    : {pointerEvents: 'none'}
                     }],
-                    style    : {
+                    style: {
                         display : item.hidden ? 'none' : 'flex',
                         padding : '10px',
                         position: item.isLeaf ? null : 'sticky',
                         top     : item.isLeaf ? null : (level * 38) + 'px',
-                        zIndex  : item.isLeaf ? null : (20 / (level + 1)),
+                        zIndex  : item.isLeaf ? null : (20 / (level + 1))
                     }
-                });
+                };
+
+                if (me.itemsFocusable) {
+                    itemVdom.tabIndex = -1
+                }
+
+                tmpRoot.cn.push(itemVdom);
 
                 me.createItems(item.id, tmpRoot, level + 1, item.hidden || hidden)
             })
