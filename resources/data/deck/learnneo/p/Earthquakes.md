@@ -312,7 +312,7 @@ You can then see and update the component's state and run its methods.
 
 There are a few ways to get a component reference.
 - `Neo.manager.Component.items` <tt>// Returns [Component]</tt>
-- `Neo.find({property:'value'})` <tt>// Returns [{}] of instances<t/t>
+- `Neo.find({property:'value'})` <tt>// Returns [{}] of instances</tt>
 - `Neo.findFirst({property:'value'})` <tt>// Returns first instance</tt>
 - Doing a Shift-Ctrl-right-click on a component
 
