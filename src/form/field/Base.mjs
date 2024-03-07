@@ -1,5 +1,6 @@
 import Component        from '../../component/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
+import NeoArray         from '../../util/Array.mjs';
 
 /**
  * Abstract base class for form fields
@@ -35,6 +36,11 @@ class Base extends Component {
          */
         formGroup_: null,
         /**
+         * True indicates that a user has interacted with the form field
+         * @member {Boolean} isTouched_=false
+         */
+        isTouched_: false,
+        /**
          * @member {String|null} name_=null
          */
         name_: null,
@@ -68,6 +74,18 @@ class Base extends Component {
      * @member {String|null} path=null
      */
     path = null
+
+    /**
+     * Triggered after the name isTouched got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetIsTouched(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, 'neo-is-touched', value);
+        this.cls = cls;
+    }
 
     /**
      * Triggered after the name config got changed
