@@ -29,6 +29,11 @@ class Chip extends ComponentList {
             iconCls: 'fa fa-home'
         },
         /**
+         * Chip components get their own tabIndex, so list items must not contain one as well.
+         * @member {Boolean} itemsFocusable=false
+         */
+        itemsFocusable: false,
+        /**
          * The type of the node / tag for each list item
          * @member {String} itemTagName='div'
          */
