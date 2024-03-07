@@ -487,6 +487,10 @@ class Text extends Base {
      * @protected
      */
     afterSetInputValue(value, oldValue) {
+        let me = this;
+
+        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+
         this.value = value
     }
 
@@ -852,7 +856,6 @@ class Text extends Base {
 
     /**
      * Triggered after the value config got changed
-     * todo: add validation logic
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -864,8 +867,7 @@ class Text extends Base {
             cls;
 
         me.silentVdomUpdate = true;
-
-        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+        me.inputValue       = value;
 
         me.validate(); // silent
 
@@ -873,8 +875,8 @@ class Text extends Base {
 
         me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
 
-        NeoArray[me.hasContent() ? 'add' : 'remove'](cls, 'neo-has-content');
-        NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
+        NeoArray.toggle(cls, 'neo-is-dirty',    isDirty);
         me.cls = cls;
 
         me.silentVdomUpdate = false;
@@ -1205,7 +1207,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     hasContent() {
-        let value = this.value;
+        let value = this.inputValue;
 
         return this.placeholderText?.length > 0 || value !== null && value.toString().length > 0
     }
