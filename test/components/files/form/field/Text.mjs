@@ -84,4 +84,53 @@ StartTest(t => {
 
         t.hasCls(fieldComponent, 'neo-is-touched');
     });
+
+    t.it('Label Positions', async t => {
+        t.diag('left');
+        await setup({});
+
+        let label = t.query(`.neo-textfield-label`)[0];
+
+        t.isInView(label);
+
+        t.diag('top');
+        await Neo.worker.App.setConfigs({
+            id           : testId,
+            labelPosition: 'top'
+        });
+
+        await t.waitFor(50);
+
+        t.hasCls(fieldComponent, 'label-top');
+
+        t.diag('bottom');
+        await Neo.worker.App.setConfigs({
+            id           : testId,
+            labelPosition: 'bottom'
+        });
+
+        await t.waitFor(50);
+
+        t.hasCls(fieldComponent, 'label-bottom');
+
+        t.diag('right');
+        await Neo.worker.App.setConfigs({
+            id           : testId,
+            labelPosition: 'right'
+        });
+
+        await t.waitFor(50);
+
+        t.hasCls(fieldComponent, 'label-right');
+
+        t.diag('inline');
+        await Neo.worker.App.setConfigs({
+            id           : testId,
+            labelPosition: 'inline'
+        });
+
+        await t.waitFor(50);
+
+        t.hasCls(fieldComponent, 'label-inline');
+    });
 });
