@@ -1346,28 +1346,30 @@ class Text extends Base {
     }
 
     /**
+     * Gets triggered by the 'input' DOM event.
      * @param {Object} data
      * @protected
      */
     onInputValueChange(data) {
-        let me       = this,
-            oldValue = me.value,
-            value    = data.value,
-            vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+        let me         = this,
+            oldValue   = me.value,
+            inputValue = data.value,
+            vnode      = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
-            // required for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = value
+            // Update the current state (modified DOM by the user) to enable the delta-updates logic.
+            // Required e.g. for validation -> revert a wrong user input
+            vnode.vnode.attributes.value = inputValue
         }
 
-        if (Neo.isString(value)) {
-            value = value.trim()
+        if (Neo.isString(inputValue)) {
+            inputValue = inputValue.trim()
         }
 
-        me.clean = false;
-        me.value = me.inputValueAdjustor(value);
+        me.clean      = false;
+        me.inputValue = me.inputValueAdjustor(inputValue); // updates this.value
 
-        me.fireUserChangeEvent(value, oldValue)
+        me.fireUserChangeEvent(me.value, oldValue)
     }
 
     /**
