@@ -87,7 +87,8 @@ project.plan(
             {
                 group: 'field',
                 items: [
-                    'files/form/field/Select.mjs'
+                    'files/form/field/Select.mjs',
+                    'files/form/field/Text.mjs'
                 ]
             }
         ]

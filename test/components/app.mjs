@@ -3,7 +3,7 @@
 
 import '../../src/button/Base.mjs';
 import '../../src/component/DateSelector.mjs';
+import '../../src/list/Chip.mjs';
 import '../../src/form/field/Select.mjs';
-import '../../src/list/Chip.mjs'
 
 export const onStart = () => Neo.app({name: 'AppEmpty'})
