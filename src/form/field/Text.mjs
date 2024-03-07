@@ -480,6 +480,17 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the inputValue config got changed.
+     * Override the method in class extensions as needed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetInputValue(value, oldValue) {
+        this.value = value
+    }
+
+    /**
      * Triggered after the labelCls config got changed
      * @param {String[]} value
      * @param {String[]} oldValue
