@@ -480,8 +480,7 @@ class Text extends Base {
     }
 
     /**
-     * Triggered after the inputValue config got changed.
-     * Override the method in class extensions as needed
+     * Triggered after the inputValue config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -491,7 +490,7 @@ class Text extends Base {
 
         me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
 
-        this.value = value
+        me.value = me.updateValueFromInputValue(value)
     }
 
     /**
@@ -867,7 +866,7 @@ class Text extends Base {
             cls;
 
         me.silentVdomUpdate = true;
-        me.inputValue       = value;
+        me.inputValue       = me.updateInputValueFromValue(value);
 
         me.validate(); // silent
 
@@ -1502,6 +1501,16 @@ class Text extends Base {
     }
 
     /**
+     * Override this method as needed inside class extensions.
+     * @param {*} value
+     * @returns {String}
+     * @protected
+     */
+    updateInputValueFromValue(value) {
+        return value
+    }
+
+    /**
      * Calculates the new inputWidth based on the labelWidth & total width
      * @protected
      */
@@ -1546,6 +1555,16 @@ class Text extends Base {
                 _mounted : true
             })
         })
+    }
+
+    /**
+     * Override this method as needed inside class extensions.
+     * @param {String} inputValue
+     * @returns {*}
+     * @protected
+     */
+    updateValueFromInputValue(inputValue) {
+        return inputValue
     }
 
     /**
