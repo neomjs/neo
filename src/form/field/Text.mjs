@@ -138,6 +138,10 @@ class Text extends Base {
          */
         inputType_: 'text',
         /**
+         * @member {String|null} inputValue_=null
+         */
+        inputValue_: null,
+        /**
          * @member {String[]} labelBaseCls=['neo-textfield-label']
          */
         labelBaseCls: ['neo-textfield-label'],
