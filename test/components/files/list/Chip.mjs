@@ -62,12 +62,12 @@ StartTest(t => {
                 }]
             }
         }, config));
-        
+
 
         return testId;
     }
 
-    // Clear the eway for each test
+    // Clear the way for each test
     t.beforeEach(async t => {
         if (testId) {
             await Neo.worker.App.destroyNeoInstance(testId);
@@ -80,7 +80,7 @@ StartTest(t => {
 
         // Click on the *item*, *not* the focusable chip.
         // We are testing that the Navigator directs focus to the focusable heart of the
-        // item - the Chip - which will then recieve focus and cause item activation.
+        // item - the Chip - which will then receive focus and cause item activation.
         await t.click('.neo-list-item', null, null, null, ['100%-1', 1]);
 
         // That should select and activate the clicked item.
