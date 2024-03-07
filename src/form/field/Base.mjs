@@ -17,6 +17,13 @@ class Base extends Component {
         fireChangeEvent    : {type: 'debounce', timer: 1000},
         fireUserChangeEvent: {type: 'debounce', timer: 1000}
     }
+    /**
+     * Valid values for isTouchedEvent
+     * @member {String[]} isTouchedEvents=['focusEnter','focusLeave']
+     * @protected
+     * @static
+     */
+    static isTouchedEvents = ['focusEnter', 'focusLeave']
 
     static config = {
         /**
@@ -40,6 +47,11 @@ class Base extends Component {
          * @member {Boolean} isTouched_=false
          */
         isTouched_: false,
+        /**
+         * Event name which sets isTouched to true. Valid options are 'focusEnter' & 'focusLeave'
+         * @member {String} isTouched_=false
+         */
+        isTouchedEvent_: 'focusLeave',
         /**
          * @member {String|null} name_=null
          */
@@ -144,6 +156,16 @@ class Base extends Component {
         me.formGroupString = returnValue;
 
         return returnValue
+    }
+
+    /**
+     * Triggered before the isTouchedEvent config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetIsTouchedEvent(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'isTouchedEvent')
     }
 
     /**
