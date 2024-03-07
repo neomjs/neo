@@ -307,15 +307,30 @@ class Base extends Component {
 
     /**
      * @param {Object} data
+     */
+    onFocusEnter(data) {
+        super.onFocusLeave(data);
+
+        if (this.isTouchedEvent === 'focusEnter') {
+            this.isTouched = true
+        }
+    }
+
+    /**
+     * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected
      */
     onFocusLeave(data) {
-        super.onFocusLeave?.(data);
+        super.onFocusLeave(data);
 
         let me            = this,
             FormContainer = Neo.form?.Container,
             opts          = {...data, component: me, value: me.getValue()};
+
+        if (me.isTouchedEvent === 'focusLeave') {
+            me.isTouched = true
+        }
 
         if (Neo.isFunction(me.getGroupValue)) {
             opts.groupValue = me.getGroupValue()
