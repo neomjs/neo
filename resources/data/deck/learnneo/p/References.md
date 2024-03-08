@@ -110,14 +110,14 @@ class MainView extends Container {
             text   : 'Change Learn caption',
             handler: data=>{
                 const component = Neo.findFirst({text:'Learn'});
-                if (component) component.text = 'Yikes!';
+                component?.set({text: 'Yikes!', style: {backgroundColor: 'red'}});
             }
         }, {
             module : Button,
             text   : 'Restore Learn caption',
             handler: data=>{
                 const component = Neo.findFirst({text:'Yikes!'});
-                if (component) component.text = 'Learn';
+                component?.set({text: 'Learn', style: {backgroundColor: null}});
             }
         }]
     }
