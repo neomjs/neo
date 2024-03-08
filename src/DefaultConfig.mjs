@@ -44,6 +44,22 @@ const DefaultConfig = {
      */
     cesiumJsToken: null,
     /**
+     * Set this config to false to disable the component logging using Ctrl-Right-Click
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.enableComponentLogger
+     * @type Boolean
+     */
+    enableComponentLogger: true,
+    /**
+     * Set this config to true to enable util.Logger (Neo.log()) based logs in production
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.enableLogsInProduction
+     * @type Boolean
+     */
+    enableLogsInProduction: false,
+    /**
      * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
      * This config will get auto-generated
      * @default 'dist/production'

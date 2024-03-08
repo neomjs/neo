@@ -13,24 +13,6 @@ class Logger extends Base {
          */
         className: 'Neo.util.Logger',
         /**
-         * Set this config to false to disable the logging in production
-         * To change this on the fly use:
-         *
-         *     Neo.util.Logger.enableLogsInProduction = true;
-         *
-         * @member {Boolean} enableLogsInProduction=true
-         */
-        enableLogsInProduction: false,
-        /**
-         * Set this config to false to disable the component logging using Ctrl-Right Click
-         * To turn it on, add:
-         *
-         *      Neo.util.Logger.enableComponentLogger = true;
-         *
-         * @member {Boolean} enableComponentLogger=true
-         */
-        enableComponentLogger: true,
-        /**
          * Set the minimum level, which you want to output.
          * Change this at any time using a value of logLevels: ['info', 'log', 'warn', 'error']
          *
@@ -77,10 +59,8 @@ class Logger extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
-
         // aliases
-        Neo.applyFromNs(Neo, me, {
+        Neo.applyFromNs(Neo, this, {
             error   : 'error',
             info    : 'info',
             log     : 'log',
@@ -89,14 +69,14 @@ class Logger extends Base {
         }, true);
 
         setTimeout(() => {
-            if (!me.enableLogsInProduction && Neo.config.environment === 'dist/production') {
-                me.write = Neo.emptyFn
+            if (!Neo.config.enableLogsInProduction && Neo.config.environment === 'dist/production') {
+                this.write = Neo.emptyFn
             }
         }, 50)
     }
 
     /**
-     * Ctrl-Right Click will show the current component
+     * Ctrl-Right-Click will show the current component
      * @param {Neo.component.Base} view
      */
     addContextMenuListener(view) {
@@ -185,10 +165,12 @@ class Logger extends Base {
      * @param {Object} data
      */
     onContextMenu(data) {
+        let config = Neo.config;
+
         if (
             data.ctrlKey
-            && this.enableComponentLogger
-            && !(Neo.config.env === 'dist/production' && this.enableLogsInProduction)
+            && config.enableComponentLogger
+            && !(config.env === 'dist/production' && config.enableLogsInProduction)
         ) {
             let isGroupSet = false,
                 component;
