@@ -50,6 +50,14 @@ and don't worry about syntax details.
 In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
 <!-- lab -->
+
+<details>
+<summary>Wait!</summary>
+You may already have a workspace! If so, you can skip this lab. For example, if you followed the _Getting Started > Setup_ topic, above, you should already have a workspace.
+
+If you don't have a workspace, then continue on to the next step.
+</details>
+
 <details>
 <summary>Use the command-line to generate the workspace</summary>
 
