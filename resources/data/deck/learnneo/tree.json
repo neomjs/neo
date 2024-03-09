@@ -7,7 +7,7 @@
         {"name": "Multi-Window Applications",               "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Multi-Window"},
         {"name": "Complexity and Effort",                   "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Effort"},
     {"name": "Getting Started",                             "parentId": null,                "isLeaf": false, "id": "GettingStarted"},
-        {"name": "Setup",                                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "Setup", "hidden":  true},
+        {"name": "Setup",                                   "parentId": "GettingStarted",    "isLeaf": true,  "id": "Setup", "hidden":  false},
         {"name": "Workspaces and Applications",             "parentId": "GettingStarted",    "isLeaf": true,  "id": "2023-10-14T19-25-08-153Z"},
         {"name": "Describing a View",                       "parentId": "GettingStarted",    "isLeaf": true,  "id": "DescribingTheUI"},
         {"name": "Events",                                  "parentId": "GettingStarted",    "isLeaf": true,  "id": "Events"},
