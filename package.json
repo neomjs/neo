@@ -55,7 +55,7 @@
         "highlightjs-line-numbers.js": "^2.8.0",
         "inquirer": "^9.2.15",
         "marked": "^12.0.1",
-        "monaco-editor": "^0.46.0",
+        "monaco-editor": "^0.47.0",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
         "postcss": "^8.4.35",
