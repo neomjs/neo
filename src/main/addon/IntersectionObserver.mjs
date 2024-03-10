@@ -27,32 +27,27 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
-     *
      * @param {IntersectionObserverEntry[]} entries
      * @param {IntersectionObserver} observer
      */
     findTopmostItem(entries, observer) {
+        let me = this,
+            data, path, rect, target;
+
         entries.forEach(entry => {
-            const target = entry.target;
+            target = entry.target;
+            data   = target.dataset && {...target.dataset} || null;
+            path   = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+            rect   = target.getBoundingClientRect();
 
-            if (entry.isIntersecting) {
-                if (target.getBoundingClientRect().y < 200) {
-                    console.log(target.id);
-                    console.log(target.innerText);
-                    console.log(entry.isIntersecting);
-                    console.log(entry);
-                    console.log(observer);
-
-                    let data = target.dataset && {...target.dataset} || null,
-                        path = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
-
-                    this.sendMessage({
-                        data,
-                        id            : observer.rootId,
-                        isIntersecting: true,
-                        path,
-                        targetId      : target.id
-                    })
+            if (rect.y < 200) {
+                // scroll in from top => direct match
+                if (entry.isIntersecting) {
+                    me.sendMessage({data, id: observer.rootId, isIntersecting: true, path, targetId: target.id})
+                } else {
+                    // scroll out from top
+                    // not perfect since the node is already outside the view
+                    me.sendMessage({data, id: observer.rootId, isIntersecting: true, path, targetId: target.id})
                 }
             }
         })
