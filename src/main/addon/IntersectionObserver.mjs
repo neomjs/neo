@@ -2,7 +2,7 @@ import Base      from './Base.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
- * Creating IntersectionObserver to get infos about DOM node visibility.
+ * Creating IntersectionObservers to get infos about DOM node visibility.
  * See: https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
  * @class Neo.main.addon.IntersectionObserver
  * @extends Neo.main.addon.Base
@@ -57,8 +57,8 @@ class NeoIntersectionObserver extends Base {
             path   = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
             rect   = target.getBoundingClientRect();
 
+            // 200 is just a random number to ignore intersection changes at the bottom of the view
             if (rect.y < 200) {
-
                 // scroll in from top => direct match
                 if (entry.isIntersecting) {
                     me.sendMessage({data, id: observer.rootId, isIntersecting: true, path, targetId: target.id})
