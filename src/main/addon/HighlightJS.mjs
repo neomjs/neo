@@ -30,13 +30,13 @@ class HighlightJS extends Base {
          */
         remote: {
             app: [
+                'highlightAuto',
                 'loadLibrary',
                 'scrollIntoView',
                 'syntaxHighlight',
                 'switchTheme',
                 'syntaxHighlightInit',
-                'syntaxHighlightLine',
-                'highlightAuto'
+                'syntaxHighlightLine'
             ]
         },
         /**
@@ -47,10 +47,16 @@ class HighlightJS extends Base {
     }
 
     /**
-     * @param {Object} config
+     * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
+     * @param {String} html
+     * @returns {Object} of the form {language, relevance, value, secondBest}
      */
-    construct(config) {
-        super.construct(config);
+    highlightAuto(html) {
+        if (hljs) {
+            return hljs.highlightAuto(html)
+        } else {
+            console.error('highlight.js is not included inside the main thread.')
+        }
     }
 
     /**
@@ -103,7 +109,7 @@ class HighlightJS extends Base {
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme)
     }
 
     /**
@@ -115,7 +121,7 @@ class HighlightJS extends Base {
             let node = document.getElementById(data.vnodeId);
 
             hljs.highlightBlock(node);
-            hljs.lineNumbersBlock(node);
+            hljs.lineNumbersBlock(node)
         } else {
             console.error('highlight.js is not included inside the main thread.')
         }
@@ -127,25 +133,11 @@ class HighlightJS extends Base {
     syntaxHighlightInit(data) {
         if (hljs) {
             let blocks = document.querySelectorAll('pre code:not(.hljs)');
-            Array.prototype.forEach.call(blocks, hljs.highlightBlock);
+            Array.prototype.forEach.call(blocks, hljs.highlightBlock)
         } else {
             console.error('highlight.js is not included inside the main thread.')
         }
     }
-
-    /**
-     * See https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
-     * @param {String} html
-     * @returns {Object} of the form {language, relevance, value, secondBest}
-     */
-    highlightAuto(html) {
-        if (hljs) {
-            return hljs.highlightAuto(html);
-        } else {
-            console.error('highlight.js is not included inside the main thread.')
-        }
-    }
-
 
     /**
      * @param {Object} data
@@ -174,8 +166,7 @@ class HighlightJS extends Base {
 
         if (Neo.isNumber(data.removeLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.removeLine + '"]');
-
-            el && el.parentNode.classList.remove(cls)
+            el?.parentNode.classList.remove(cls)
         }
     }
 }
