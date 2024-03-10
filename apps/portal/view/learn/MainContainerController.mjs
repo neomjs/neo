@@ -141,7 +141,7 @@ class MainContainerController extends Controller {
         const subDir = vm.getData('deck')
         if (!editorConfig || !subDir) return;
 
-        const filePath = `${editorConfig.root}/${subDir}/p/${data.record.id}.md`;
+        const filePath = `${editorConfig.root}/${subDir}/pages/${data.record.id}.md`;
 
         await fetch('http://localhost:3000/openInEditor', {
             method: 'POST',

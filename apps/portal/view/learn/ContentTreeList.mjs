@@ -45,7 +45,7 @@ class ContentTreeList extends TreeList {
             path = `${me.contentPath}`,
             content, data, html, modifiedHtml, neoDivs;
 
-        path += record.path ? `/pages/${record.path}` : `/p/${record.id}.md`;
+        path += `/pages/${record.id}.md`;
 
         if (record.isLeaf && path) {
             data         = await fetch(path);
