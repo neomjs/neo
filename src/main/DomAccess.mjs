@@ -840,15 +840,19 @@ class DomAccess extends Base {
     }
 
     /**
+     * You can either pass the id or a querySelector
      * @param {Object} data
-     * @param {String} data.id
-     * @param {String} [data.behavior='smooth']
-     * @param {String} [data.block='start']
-     * @param {String} [data.inline='nearest']
+     * @param {String} [data.id]
+     * @param {String} data.behavior='smooth'
+     * @param {String} data.block='start'
+     * @param {String} data.inline='nearest'
+     * @param {String} [data.querySelector]
      * @returns {Object} obj.id => the passed id
      */
     scrollIntoView(data) {
-        let node = this.getElement(data.id);
+        let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector);
+
+        console.log(data.querySelector, node);
 
         node?.scrollIntoView({
             behavior: data.behavior || 'smooth',
@@ -856,7 +860,7 @@ class DomAccess extends Base {
             inline  : data.inline   || 'nearest'
         });
 
-        return {id: data.id}
+        return {id: data.id, querySelector: data.querySelector}
     }
 
     /**

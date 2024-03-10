@@ -57,8 +57,8 @@ class PageSectionsPanel extends Panel {
         let record = data.record;
 
         record && Neo.main.DomAccess.scrollIntoView({
-            id      : `${record.sourceId}__section__${record.id}`,
-            windowId: this.windowId
+            querySelector: `[data-record-id='${record.id}']`,
+            windowId     : this.windowId
         })
     }
 }
