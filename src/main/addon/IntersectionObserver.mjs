@@ -48,6 +48,7 @@ class NeoIntersectionObserver extends Base {
             rect   = target.getBoundingClientRect();
 
             if (rect.y < 200) {
+
                 // scroll in from top => direct match
                 if (entry.isIntersecting) {
                     me.sendMessage({data, id: observer.rootId, isIntersecting: true, path, targetId: target.id})
@@ -67,22 +68,19 @@ class NeoIntersectionObserver extends Base {
      * @param {String} data.observe The querySelector to match elements
      * @param {String} data.root
      * @param {String} data.rootMargin='0px'
-     * @param {Number|Number[]} data.threshold=1.0
+     * @param {Number|Number[]} data.threshold=0.0
      */
     register(data) {
-        let me = this,
-            observer, targets;
+        let me      = this,
+            targets = document.querySelectorAll(data.observe),
+            observer;
 
-        // todo: using an options object (even when empty) breaks the observer in chrome
-        /*me.map[data.id] = observer = new IntersectionObserver(me.callback.bind(me), {
+        me.map[data.id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
             root      : document.querySelector(data.root),
             rootMargin: data.rootMargin || '0px',
-            threshold : data.threshold  || 1.0
-        });*/
+            threshold : data.threshold  || 0.0
+        });
 
-        me.map[data.id] = observer = new IntersectionObserver(me[data.callback].bind(me));
-
-        targets = document.querySelectorAll(data.observe);
 
         observer.rootId = data.id; // storing the component id
 
