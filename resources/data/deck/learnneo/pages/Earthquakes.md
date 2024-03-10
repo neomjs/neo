@@ -3,29 +3,19 @@
 In this topic you'll create an application that fetches data on earthquakes in Iceland,
 and show the information in two views: a table, and a map.
 
-You'll do this in a series of labs:
-
-1. Generate a Workspace
-1. Create the Earthquakes Starter App
-1. Debugging
-1. Fetch Earthquakes Data and Show it in a Table
-1. Refactor the Table Into its Own Class
-1. Use a View Model
-1. Use the Google Maps Main-thread Add-on
-1. Events
+You'll do this in a series of labs. 
 
 ## Goals 
 
-What's the goal of this lengthy topic?
+What are the goals of this lengthy topic?
 
 - To give you hands-on coding a simple app
 - To introduce fundamental Neo concepts
-- To do some coding without emphasizing syntax details
 
-Most of these labs are copy-and-paste because we're focusing on _what_ it's doing on rather than _how_.
+Most of these labs are copy-and-paste because we're focusing on _what_ the code is doing on rather than _how_.
 
-As we progress through the training we'll spend more and more time on syntax and how, and you'll 
-become more and more proficient at writing your own code.
+For this tutorial don't worry about syntax details. Other tutorials and guides will spend more and 
+more time on syntax.e
 
 ## Key concepts
 
@@ -134,8 +124,8 @@ Parallel processing &mdash; along wih the efficient way the `neomjs-vdom-worker`
 
 ##Commonly-used Scripts
 
-If you look in the `package.json` script block you'll see several scripts used for generating applications and classes, 
-doing builds, and starting a server. We'll use several of them throughout the tutorials.
+If you look in the `package.json` script block you'll see several scripts used for generating applications 
+and classes, doing builds, and starting a server. We'll use several of them throughout the tutorials.
 
 - create-app &mdash; creates a simple demo app
 - create-app-minimal &mdash; creates a application shell with no content
@@ -235,7 +225,7 @@ are no items in the starter app. The `layout` config specifies how the items are
 Let's add a button. To do that, add an import for the button base class, then configure it
 in the container's `items:[]`. If you were to read the API docs for buttons, you'd see 
 that buttons have various configs, such as `text`, which is the button text, `iconCls`, which
-is typically a FontAwesome CSS class used to show an icon, and `handler`, which specified
+is typically a FontAwesome CSS class used to show an icon, and `handler`, which specifies
 which method to run when the button is clicked. We'll use `text`.
 
 <pre data-javascript>
@@ -316,18 +306,19 @@ choose that worker in the DevTools JavaScript context dropdown.
 <img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/DevToolsJavaScriptContext.png">
 
 A basic debugging (and coding!) task is getting a reference to a component.
-You can then see and update the component's state and run its methods.
+You can then get or update the component's state and run its methods.
 
-There are a few ways to get a component reference.
-- `Neo.manager.Component.items` <tt>// Returns [Component]</tt>
-- `Neo.find({property:'value'})` <tt>// Returns [{}] of instances</tt>
-- `Neo.findFirst({property:'value'})` <tt>// Returns first instance</tt>
+When you're debugging, there are a few ways to get a component reference.
+
 - Doing a Shift-Ctrl-right-click on a component
+- `Neo.manager.Component.items` &mdash; Returns an array of all components in the app
+- `Neo.find({property:'value'})` &mdash; Returns an array of components matching the specified properties
+- `Neo.findFirst({property:'value'})` &mdash; Returns the first component that matches the specified properties
 
 Keep in mind that `Neo.manager.Component.items`, `Neo.find()` and `Neo.findFirst()`
-are debugging aids _only_, and _should never be used in app logic_.
+are debugging aids _only_, and <u>_should never be used in app logic_</u>.
 
-Why? There's nothing stopping you from using then, and they would work fine,
+Why? There's nothing stopping you from using these statements, and they would work fine,
 but those methods completely break encapsulation and scoping principles! Their 
 use would make an application brittle and hard to maintain.
 
@@ -339,7 +330,7 @@ context, we can inspect the button.
 <img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButton.png">
 
 Once we find the component, we can expand it and scroll down until we see the grayed-out properties &mdash; 
-those are setter/getter properties.
+those are set/get properties.
 
 We can choose whatever property we're interested in, and click on the ellipses. That runs the getter, and if 
 we change the value we'll be running the setter. An obvious button property to change is `text`.
@@ -362,6 +353,8 @@ and inspect or update component.
 
 In this lab you'll get a little debugging practice by getting component references, changing properties, 
 and runing methods.
+
+Remember that when using the debugger console you need to be in the _neo-app-worker_ context.
 
 <!-- lab -->
 
@@ -499,7 +492,7 @@ Then run `doFoo()` using that variable.
 
 <!-- /lab -->
 
-At this point we have a application with minimal content. You also know how to do some debugging. Let's do something more interesting.
+At this point we have a application with minimal content. You also know how to do some debugging. Now let's do something more interesting.
 
 ##Lab. Fetch Earthquakes Data and Show it in a Table
 
