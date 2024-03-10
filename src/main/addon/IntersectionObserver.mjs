@@ -22,6 +22,7 @@ class NeoIntersectionObserver extends Base {
         remote: {
             app: [
                 'disconnect',
+                'observe',
                 'register'
             ]
         }
@@ -71,17 +72,36 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
+     * Add more or new items into an existing observer instance
+     * @param {Object} data
+     * @param {Boolean} data.disconnect=false true removes all currently observed targets
+     * @param {String} data.id
+     * @param {String} data.observe The querySelector to match elements
+     */
+    observe(data) {
+        let me       = this,
+            targets  = document.querySelectorAll(data.observe),
+            observer = me.map[data.id];
+
+        data.disconnect && observer.disconnect();
+
+        targets.forEach(target => {
+            observer.observe(target)
+        })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.callback
      * @param {String} data.id
-     * @param {String} data.observe The querySelector to match elements
+     * @param {String} [data.observe] The querySelector to match elements
      * @param {String} data.root
      * @param {String} data.rootMargin='0px'
      * @param {Number|Number[]} data.threshold=0.0
      */
     register(data) {
         let me      = this,
-            targets = document.querySelectorAll(data.observe),
+            targets = data.observe && document.querySelectorAll(data.observe),
             observer;
 
         me.map[data.id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
@@ -92,7 +112,7 @@ class NeoIntersectionObserver extends Base {
 
         observer.rootId = data.id; // storing the component id
 
-        targets.forEach(target => {
+        targets?.forEach(target => {
             observer.observe(target)
         })
     }
