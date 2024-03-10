@@ -235,7 +235,7 @@ class ContentTreeList extends TreeList {
 
                 storeData.push({id: i, name: line, sourceId: me.id});
 
-                contentArray[index] = `<h2 class="neo-h2" id="${me.id}__section__${i}" data-record-id="${i}">${line}</h2>`;
+                contentArray[index] = `<h2 class="neo-h2" data-record-id="${i}">${line}</h2>`;
 
                 i++
             }
