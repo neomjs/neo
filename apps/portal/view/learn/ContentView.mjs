@@ -53,11 +53,10 @@ class ContentView extends Component {
             Neo.main.addon.IntersectionObserver.register({
                 callback: 'findTopmostItem',
                 id      : me.id,
-                observe : '.neo-h2',
                 root    : `#${me.parentId}`,
                 windowId: me.windowId
             })
-        }, 5000)
+        }, 50)
     }
 
     /**

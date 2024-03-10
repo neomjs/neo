@@ -111,13 +111,23 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onContentChange(data) {
-        let content = this.getReference('content');
+    async onContentChange(data) {
+        let me      = this,
+            content = me.getReference('content');
 
         content.toggleCls('lab', data.isLab);
 
         content.html   = data.html;
         content.record = data.record;
+
+        await me.timeout(100);
+
+        Neo.main.addon.IntersectionObserver.observe({
+            disconnect: true,
+            id        : content.id,
+            observe   : '.neo-h2',
+            windowId  : me.windowId
+        })
     }
 
     /**
