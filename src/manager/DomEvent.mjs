@@ -24,16 +24,17 @@ const globalDomEvents = [
     'focusin',
     'focusout',
     'input',
+    'intersect',
     'keydown',
     'keyup',
     'mousedown',
     'mouseenter',
     'mouseleave',
     'mouseup',
+    'neonavigate',
     'scroll',
     'selectionchange',
-    'wheel',
-    'neonavigate'
+    'wheel'
 ];
 
 /**

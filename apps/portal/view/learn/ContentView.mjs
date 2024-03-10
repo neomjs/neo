@@ -24,6 +24,21 @@ class ContentView extends Component {
     record = null
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            click    : me.onClick,
+            intersect: 'onIntersect', // view controller
+            scope    : me
+        })
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -47,7 +62,7 @@ class ContentView extends Component {
     /**
      * @param {Object} data
      */
-    onClick(data) {
+    onClick(data) {console.log('click');
         let me = this,
             record = me.record;
 
@@ -59,21 +74,6 @@ class ContentView extends Component {
             me.fire('refresh', { component: me, record })
         }
     }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.addDomListeners({
-            click: me.onClick,
-            scope: me
-        })
-    }
-
 }
 
 Neo.setupClass(ContentView);

@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * Creating IntersectionObserver to get infos about DOM node visibility.
@@ -25,8 +26,39 @@ class NeoIntersectionObserver extends Base {
         }
     }
 
-    callback() {
-        console.log('callback', arguments);
+    /**
+     *
+     * @param {IntersectionObserverEntry[]} entries
+     * @param {IntersectionObserver} observer
+     */
+    callback(entries, observer) {
+        entries.forEach(entry => {
+            const target = entry.target;
+
+            if (entry.isIntersecting) {
+                if (target.getBoundingClientRect().y < 200) {
+                    console.log(entry.target.id);
+                    console.log(entry.target.innerText);
+                    console.log(entry.isIntersecting);
+                    console.log(entry.target.getBoundingClientRect());
+                    console.log(entry);
+                    console.log(observer);
+
+                    let path = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+
+                    Neo.worker.Manager.sendMessage('app', {
+                        action   : 'domEvent',
+                        eventName: 'intersect',
+                        data: {
+                            id            : observer.rootId,
+                            isIntersecting: true,
+                            path,
+                            targetId      : target.id
+                        }
+                    })
+                }
+            }
+        })
     }
 
     /**
@@ -42,13 +74,22 @@ class NeoIntersectionObserver extends Base {
 
         let me = this,
 
-        observer = new IntersectionObserver(me.callback.bind(me), {
-            root      : document.querySelector(data.root),
+        /*observer = new IntersectionObserver(me.callback.bind(me), {
+            //root      : document.querySelector(data.root),
             rootMargin: data.rootMargin || '0px',
             threshold : data.threshold  || 1.0
+        }),*/
+
+        observer = new IntersectionObserver(me.callback.bind(me)),
+
+        targets = document.querySelectorAll(data.observe);
+
+        observer.rootId = data.id; // hack
+
+        targets.forEach(target => {
+            observer.observe(target)
         });
 
-        observer.observe(document.querySelector(data.observe));
         console.log(observer);
     }
 }

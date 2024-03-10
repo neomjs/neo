@@ -64,8 +64,9 @@ class MainContainer extends Container {
             cls   : ['main-content-splitter'],
             size  : 3
         }, {
-            module: PageSectionsPanel,
-            width : 350
+            module   : PageSectionsPanel,
+            reference: 'page-sections-panel',
+            width    : 350
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
