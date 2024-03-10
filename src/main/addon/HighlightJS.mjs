@@ -65,10 +65,10 @@ class HighlightJS extends Base {
         me.set(data);
 
         await DomAccess.loadScript(me.highlightJsPath).then(() => {
-            DomAccess.addScript({src: me.highlightJsLineNumbersPath});
+            DomAccess.addScript({src: me.highlightJsLineNumbersPath})
         });
 
-        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
 
         return true
     }

@@ -25,10 +25,16 @@ class MainContainerController extends Component {
     construct(config) {
         super.construct(config);
 
-        // todo: remove once paths are neo configs
-        Neo.main.addon.HighlightJS.loadLibrary({
-            appName: this.appName
-        })
+        let me      = this,
+            appName = me.component.appName,
+            opts    = {appName, windowId: me.component.windowId};
+
+        if (appName === 'Portal') {
+            opts.highlightJsPath = '../../docs/resources/highlight/highlight.pack.js';
+            opts.themePath       = '../../docs/resources/highlightjs-custom-github-theme.css'
+        }
+
+        Neo.main.addon.HighlightJS.loadLibrary(opts)
     }
 
     /**
@@ -114,7 +120,7 @@ class MainContainerController extends Component {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHashChange(value, oldValue) {
+    onHashChange(value, oldValue) {return; // todo
         let me                  = this,
             hash                = value?.hash,
             contentTabContainer = me.getReference('content-tabcontainer'),
