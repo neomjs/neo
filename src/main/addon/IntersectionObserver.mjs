@@ -40,24 +40,18 @@ class NeoIntersectionObserver extends Base {
                     console.log(target.id);
                     console.log(target.innerText);
                     console.log(entry.isIntersecting);
-                    console.log(target.getBoundingClientRect());
                     console.log(entry);
                     console.log(observer);
-                    console.log(target.dataset && {...target.dataset});
 
                     let data = target.dataset && {...target.dataset} || null,
                         path = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
 
-                    Neo.worker.Manager.sendMessage('app', {
-                        action   : 'domEvent',
-                        eventName: 'intersect',
-                        data: {
-                            data,
-                            id            : observer.rootId,
-                            isIntersecting: true,
-                            path,
-                            targetId      : target.id
-                        }
+                    this.sendMessage({
+                        data,
+                        id            : observer.rootId,
+                        isIntersecting: true,
+                        path,
+                        targetId      : target.id
                     })
                 }
             }
@@ -94,6 +88,17 @@ class NeoIntersectionObserver extends Base {
         });
 
         console.log(observer);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    sendMessage(data) {
+        Neo.worker.Manager.sendMessage('app', {
+            action   : 'domEvent',
+            eventName: 'intersect',
+            data
+        })
     }
 }
 
