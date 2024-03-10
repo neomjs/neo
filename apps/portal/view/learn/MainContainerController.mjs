@@ -149,11 +149,11 @@ class MainContainerController extends Controller {
         this.getReference('tree').doFetchContent(data.record)
     }
 
+    /**
+     * @param {Object} data
+     */
     onIntersect(data) {
-        console.log('onIntersect', data);
-
-        let me       = this,
-            panel    = me.getReference('page-sections-panel'),
+        let panel    = this.getReference('page-sections-panel'),
             list     = panel.list,
             recordId = parseInt(data.data.recordId);
 
