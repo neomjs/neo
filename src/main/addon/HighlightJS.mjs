@@ -48,12 +48,13 @@ class HighlightJS extends Base {
 
     /**
      * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
-     * @param {String} html
+     * @param {Object} data
+     * @param {String} data.html
      * @returns {Object} of the form {language, relevance, value, secondBest}
      */
-    highlightAuto(html) {
+    highlightAuto(data) {
         if (hljs) {
-            return hljs.highlightAuto(html)
+            return hljs.highlightAuto(data.html)
         } else {
             console.error('highlight.js is not included inside the main thread.')
         }
