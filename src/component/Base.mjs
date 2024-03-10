@@ -127,15 +127,12 @@ class Base extends CoreBase {
          * @example
          * afterSetStayOnHover(value, oldValue) {
          *     if (value) {
-         *         let me           = this,
-         *             domListeners = me.domListeners;
+         *         let me = this;
          *
-         *         domListeners.push(
+         *         me.addDomListeners(
          *             {mouseenter: me.onMouseEnter, scope: me},
          *             {mouseleave: me.onMouseLeave, scope: me}
-         *         );
-         *
-         *        me.domListeners = domListeners;
+         *         )
          *    }
          *}
          */
