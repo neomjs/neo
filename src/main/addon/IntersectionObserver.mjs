@@ -6,7 +6,7 @@ import Base from './Base.mjs';
  * @class Neo.main.addon.IntersectionObserver
  * @extends Neo.main.addon.Base
  */
-class IntersectionObserver extends Base {
+class NeoIntersectionObserver extends Base {
     static config = {
         /**
          * @member {String} className='Neo.main.addon.IntersectionObserver'
@@ -20,19 +20,39 @@ class IntersectionObserver extends Base {
          */
         remote: {
             app: [
-                'create'
+                'register'
             ]
         }
     }
 
+    callback() {
+        console.log('callback', arguments);
+    }
+
     /**
-     * @param {String} value
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.observe The querySelector to match elements
+     * @param {String} data.root
+     * @param {String} data.rootMargin='0px'
+     * @param {Number|Number[]} data.threshold=1.0
      */
-    create(value) {
-        console.log('create')
+    register(data) {
+        console.log('register', data.root);
+
+        let me = this,
+
+        observer = new IntersectionObserver(me.callback.bind(me), {
+            root      : document.querySelector(data.root),
+            rootMargin: data.rootMargin || '0px',
+            threshold : data.threshold  || 1.0
+        });
+
+        observer.observe(document.querySelector(data.observe));
+        console.log(observer);
     }
 }
 
-Neo.setupClass(IntersectionObserver);
+Neo.setupClass(NeoIntersectionObserver);
 
-export default IntersectionObserver;
+export default NeoIntersectionObserver;
