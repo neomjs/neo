@@ -852,8 +852,6 @@ class DomAccess extends Base {
     scrollIntoView(data) {
         let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector);
 
-        console.log(data.querySelector, node);
-
         node?.scrollIntoView({
             behavior: data.behavior || 'smooth',
             block   : data.block    || 'start',
