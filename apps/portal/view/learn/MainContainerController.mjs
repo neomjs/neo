@@ -152,13 +152,10 @@ class MainContainerController extends Controller {
     onIntersect(data) {
         console.log('onIntersect', data);
 
-        let me    = this,
-            panel = me.getReference('page-sections-panel'),
-            list  = panel.list,
-            recordId = parseInt(data.targetId.split('__')[2]);
-
-        console.log(list.store);
-        console.log(recordId)
+        let me       = this,
+            panel    = me.getReference('page-sections-panel'),
+            list     = panel.list,
+            recordId = parseInt(data.data.recordId);
 
         list.selectionModel.select(list.store.get(recordId));
     }
