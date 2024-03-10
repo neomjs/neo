@@ -37,7 +37,8 @@ class HeaderToolbar extends Base {
             reference: 'blog-header-button',
             route    : '/blog'
         }, {
-            text: 'Docs'
+            text : 'Docs',
+            route: '/docs'
         }, {
             cls    : ['github-button'],
             iconCls: 'fa-brands fa-github',

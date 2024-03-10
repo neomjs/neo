@@ -20,6 +20,7 @@ class ViewportController extends Controller {
          */
         routes: {
             '/blog' : 'onBlogRoute',
+            '/docs' : 'onDocsRoute',
             '/home' : 'onHomeRoute',
             '/learn': 'onLearnRoute'
         }
@@ -46,6 +47,15 @@ class ViewportController extends Controller {
      */
     onBlogSearchFieldChange(data) {
         this.getReference('blog-list').filterItems(data)
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onDocsRoute(params, value, oldValue) {
+        this.setMainContentIndex(3)
     }
 
     /**
