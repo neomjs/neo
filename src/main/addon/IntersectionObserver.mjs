@@ -37,19 +37,22 @@ class NeoIntersectionObserver extends Base {
 
             if (entry.isIntersecting) {
                 if (target.getBoundingClientRect().y < 200) {
-                    console.log(entry.target.id);
-                    console.log(entry.target.innerText);
+                    console.log(target.id);
+                    console.log(target.innerText);
                     console.log(entry.isIntersecting);
-                    console.log(entry.target.getBoundingClientRect());
+                    console.log(target.getBoundingClientRect());
                     console.log(entry);
                     console.log(observer);
+                    console.log(target.dataset && {...target.dataset});
 
-                    let path = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+                    let data = target.dataset && {...target.dataset} || null,
+                        path = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
 
                     Neo.worker.Manager.sendMessage('app', {
                         action   : 'domEvent',
                         eventName: 'intersect',
                         data: {
+                            data,
                             id            : observer.rootId,
                             isIntersecting: true,
                             path,

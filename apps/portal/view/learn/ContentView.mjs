@@ -62,7 +62,7 @@ class ContentView extends Component {
     /**
      * @param {Object} data
      */
-    onClick(data) {console.log('click');
+    onClick(data) {
         let me = this,
             record = me.record;
 
