@@ -34,6 +34,10 @@ class PageSectionsPanel extends Panel {
         }]
     }
 
+    get list() {
+        return this.getReference('list')
+    }
+
     /**
      *
      */

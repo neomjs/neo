@@ -110,17 +110,14 @@ class MainContainerController extends Controller {
 
     /**
      * @param {Object} data
-     * @returns {Promise<void>}
      */
-    async onContentChange(data) {
-        let me = this,
-            content = me.getReference('content');
+    onContentChange(data) {
+        let content = this.getReference('content');
 
         content.toggleCls('lab', data.isLab);
 
-        content.html = data.html;
+        content.html   = data.html;
         content.record = data.record;
-
     }
 
     /**
@@ -150,6 +147,20 @@ class MainContainerController extends Controller {
      */
     onContentRefresh(data) {
         this.getReference('tree').doFetchContent(data.record)
+    }
+
+    onIntersect(data) {
+        console.log('onIntersect', data);
+
+        let me    = this,
+            panel = me.getReference('page-sections-panel'),
+            list  = panel.list,
+            recordId = parseInt(data.targetId.split('__')[2]);
+
+        console.log(list.store);
+        console.log(recordId)
+
+        list.selectionModel.select(list.store.get(recordId));
     }
 }
 
