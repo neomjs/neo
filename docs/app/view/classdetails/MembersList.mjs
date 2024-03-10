@@ -292,8 +292,8 @@ class MembersList extends Base {
                     cn :[{
                         tag      : 'a',
                         cls      : ['neo-docs-view-source-link'],
-                        href     : '#viewSource=' + item.neoClassName + '&line=' + item.meta.lineno,
-                        innerHTML: 'Source: ' + path + '/' + item.meta.filename + ' (Line ' + item.meta.lineno + ')'
+                        href     : `#/viewSource/${item.neoClassName}/line/${item.meta.lineno}`,
+                        innerHTML: `Source: ${path}/${item.meta.filename} (Line ${item.meta.lineno})`
                     }]
                 }, {
                     innerHTML: item.description

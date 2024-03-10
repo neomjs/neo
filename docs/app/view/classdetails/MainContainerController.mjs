@@ -19,22 +19,9 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onHeaderClick(data) {
-        let me                  = this,
-            record              = me.component.structureData,
-            mainContainer       = me.component.up('main-container'),
-            contentTabContainer = mainContainer.down('docs-content-tabcontainer'),
-            className           = (record.path ? record.path + '.' : '') + record.name;
-
-        contentTabContainer.add({
-            module       : SourceViewComponent,
-            id           : className + '__source',
-            structureData: record,
-
-            tabButtonConfig: {
-                iconCls: 'fa fa-code',
-                text   : className
-            }
-        });
+        Neo.Main.setRoute({
+            value: `/viewSource/${this.component.structureData.className}`
+        })
     }
 
     /**
