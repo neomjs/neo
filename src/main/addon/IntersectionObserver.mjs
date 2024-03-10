@@ -21,6 +21,7 @@ class NeoIntersectionObserver extends Base {
          */
         remote: {
             app: [
+                'disconnect',
                 'register'
             ]
         }
@@ -32,6 +33,14 @@ class NeoIntersectionObserver extends Base {
      * @protected
      */
     map = {}
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    disconnect(data) {
+        this.map[data.id]?.disconnect()
+    }
 
     /**
      * @param {IntersectionObserverEntry[]} entries
@@ -81,12 +90,11 @@ class NeoIntersectionObserver extends Base {
             threshold : data.threshold  || 0.0
         });
 
-
         observer.rootId = data.id; // storing the component id
 
         targets.forEach(target => {
             observer.observe(target)
-        });
+        })
     }
 
     /**
