@@ -27,6 +27,13 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
+     * Storing component ids and their IntersectionObservers
+     * @member {Object} map={}
+     * @protected
+     */
+    map = {}
+
+    /**
      * @param {IntersectionObserverEntry[]} entries
      * @param {IntersectionObserver} observer
      */
@@ -63,27 +70,25 @@ class NeoIntersectionObserver extends Base {
      * @param {Number|Number[]} data.threshold=1.0
      */
     register(data) {
-        console.log('register', data.root);
-
         let me = this,
+            observer, targets;
 
-        /*observer = new IntersectionObserver(me.callback.bind(me), {
-            //root      : document.querySelector(data.root),
+        // todo: using an options object (even when empty) breaks the observer in chrome
+        /*me.map[data.id] = observer = new IntersectionObserver(me.callback.bind(me), {
+            root      : document.querySelector(data.root),
             rootMargin: data.rootMargin || '0px',
             threshold : data.threshold  || 1.0
-        }),*/
+        });*/
 
-        observer = new IntersectionObserver(me[data.callback].bind(me)),
+        me.map[data.id] = observer = new IntersectionObserver(me[data.callback].bind(me));
 
         targets = document.querySelectorAll(data.observe);
 
-        observer.rootId = data.id; // hack
+        observer.rootId = data.id; // storing the component id
 
         targets.forEach(target => {
             observer.observe(target)
         });
-
-        console.log(observer);
     }
 
     /**
