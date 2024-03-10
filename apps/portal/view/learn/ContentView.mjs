@@ -24,6 +24,27 @@ class ContentView extends Component {
     record = null
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        value && setTimeout(() => {
+            Neo.main.addon.IntersectionObserver.register({
+                id      : me.id,
+                observe : '.neo-h2',
+                root    : `#${me.parentId}`,
+                windowId: me.windowId
+            })
+        }, 5000)
+    }
+
+    /**
      * @param {Object} data
      */
     onClick(data) {
