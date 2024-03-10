@@ -43,12 +43,12 @@ class SourceViewComponent extends Component {
             overflow: 'auto'
         },
         /**
-         * @member {Object} _vdom={cn: [//...]}
+         * @member {Object} _vdom
          */
         _vdom:
         {cn: [
             {tag: 'pre', cn: [
-                {tag: 'code', class: 'javascript'}
+                {tag: 'code', class: 'language-javascript'}
             ]}
         ]}
     }
@@ -99,7 +99,7 @@ class SourceViewComponent extends Component {
                     addLine   : me.line,
                     appName   : me.appName,
                     removeLine: me.previousLine,
-                    vnodeId   : me.vdom.cn[0].id
+                    vnodeId   : me.vdom.cn[0].cn[0].id
                 });
             }, 50)
         }
@@ -145,7 +145,7 @@ class SourceViewComponent extends Component {
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
             appName: me.appName,
-            vnodeId: me.vdom.cn[0].id
+            vnodeId: me.vdom.cn[0].cn[0].id
         }).then(() => {
             if (!me.isHighlighted) {
                 me.isHighlighted = true;
