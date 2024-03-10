@@ -51,6 +51,7 @@ class ContentView extends Component {
 
         value && setTimeout(() => {
             Neo.main.addon.IntersectionObserver.register({
+                callback: 'findTopmostItem',
                 id      : me.id,
                 observe : '.neo-h2',
                 root    : `#${me.parentId}`,

@@ -31,7 +31,7 @@ class NeoIntersectionObserver extends Base {
      * @param {IntersectionObserverEntry[]} entries
      * @param {IntersectionObserver} observer
      */
-    callback(entries, observer) {
+    findTopmostItem(entries, observer) {
         entries.forEach(entry => {
             const target = entry.target;
 
@@ -60,6 +60,7 @@ class NeoIntersectionObserver extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.callback
      * @param {String} data.id
      * @param {String} data.observe The querySelector to match elements
      * @param {String} data.root
@@ -77,7 +78,7 @@ class NeoIntersectionObserver extends Base {
             threshold : data.threshold  || 1.0
         }),*/
 
-        observer = new IntersectionObserver(me.callback.bind(me)),
+        observer = new IntersectionObserver(me[data.callback].bind(me)),
 
         targets = document.querySelectorAll(data.observe);
 
