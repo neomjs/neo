@@ -377,7 +377,7 @@ class Base extends CoreBase {
     resolveUpdateCache = []
 
     /**
-     * Convenience method to access the App this component belongs to
+     * Convenience shortcut to access the App this component belongs to
      * @returns {Neo.controller.Application|null}
      */
     get app() {
