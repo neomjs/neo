@@ -74,10 +74,12 @@ class MainContainerModel extends Component {
 
         switch(key) {
             case 'currentPageRecord': {
-                let data       = me.data,
-                    countPages = data.countPages,
-                    store      = me.getStore('contentTree'),
-                    index      = store.indexOf(value),
+                let data               = me.data,
+                    countPages         = data.countPages,
+                    store              = me.getStore('contentTree'),
+                    index              = store.indexOf(value),
+                    nextPageRecord     = null,
+                    previousPageRecord = null,
                     i, record;
 
                 // the logic assumes that the tree store is sorted
@@ -85,20 +87,24 @@ class MainContainerModel extends Component {
                     record = store.getAt(i);
 
                     if (record.isLeaf) {
-                        me.data.previousPageRecord = record;
+                        previousPageRecord = record;
                         break
                     }
                 }
+
+                me.setData({previousPageRecord});
 
                 // the logic assumes that the tree store is sorted
                 for (i=index+1; i < countPages; i++) {
                     record = store.getAt(i);
 
                     if (record.isLeaf) {
-                        me.data.nextPageRecord = record;
+                        nextPageRecord = record;
                         break
                     }
                 }
+
+                me.setData({nextPageRecord});
 
                 break
             }
