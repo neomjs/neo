@@ -1,4 +1,3 @@
-import ContentStore from '../../store/Content.mjs'
 import LivePreview  from './LivePreview.mjs';
 import TreeList     from '../../../../src/tree/List.mjs';
 import {marked}     from '../../../../node_modules/marked/lib/marked.esm.js';
@@ -19,17 +18,19 @@ class ContentTreeList extends TreeList {
          */
         className: 'Portal.view.learn.ContentTreeList',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            store: 'stores.tree'
+        },
+        /**
          * @member {String[]} cls=['topics-tree']
          */
         cls: ['topics-tree'],
         /**
          * @member {Boolean} showCollapseExpandAllIcons=false
          */
-        showCollapseExpandAllIcons: false,
-        /**
-         * @member {Neo.data.Store} store=ContentStore
-         */
-        store: ContentStore
+        showCollapseExpandAllIcons: false
     }
 
     get contentPath() {
