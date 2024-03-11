@@ -219,11 +219,9 @@ class ContentTreeList extends TreeList {
     async onLeafItemClick(record) {
         super.onLeafItemClick(record);
 
-        let me = this;
+        this.getModel().data.currentPageRecord = record;
 
-        me.getModel().data.selectedPageRecordIndex = me.store.indexOf(record);
-
-        await me.doFetchContent(record)
+        await this.doFetchContent(record)
     }
 
     /**
