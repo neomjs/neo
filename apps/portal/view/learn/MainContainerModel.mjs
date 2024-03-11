@@ -18,9 +18,13 @@ class MainContainerModel extends Component {
          */
         data: {
             /**
-             * @member {Number|null} data.selectedPageRecordId=null
+             * @member {Number|null} data.countPages=null
              */
-            selectedPageRecordId: null
+            countPages: null,
+            /**
+             * @member {Number|null} data.selectedPageRecordIndex=null
+             */
+            selectedPageRecordIndex: null
         },
         /**
          * @member {Object} stores
