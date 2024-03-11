@@ -37,11 +37,11 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             items : [{
-                reference: 'prev-page-button',
-                text     : 'Previous Page'
+                hidden   : true,
+                reference: 'prev-page-button'
             }, '->', {
-                reference: 'next-page-button',
-                text     : 'Next Page'
+                hidden   : true,
+                reference: 'next-page-button'
             }]
         }],
         /**
@@ -51,43 +51,65 @@ class PageContainer extends Container {
     }
 
     /**
+     * Convenience shortcut
+     * @member {Neo.button.Base} nextPageButton
+     */
+    get nextPageButton() {
+        return this.getReference('next-page-button')
+    }
+
+    /**
+     * Convenience shortcut
+     * @member {Neo.button.Base} prevPageButton
+     */
+    get prevPageButton() {
+        return this.getReference('prev-page-button')
+    }
+
+    /**
      * Triggered after the recordIndex config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      */
     afterSetRecordIndex(value, oldValue) {
-        let me         = this,
-            model      = me.getModel(),
-            countPages = model.getData('countPages'),
-            store      = model.getStore('contentTree'),
-            i, nextRecord, prevRecord, record;
+        if (oldValue !== undefined) {
+            let me         = this,
+                model      = me.getModel(),
+                countPages = model.getData('countPages'),
+                store      = model.getStore('contentTree'),
+                i, nextRecord, prevRecord, record;
 
-        // the logic assumes that the tree store is sorted
-        for (i=value-1; i >= 0; i--) {
-            record = store.getAt(i);
+            // the logic assumes that the tree store is sorted
+            for (i=value-1; i >= 0; i--) {
+                record = store.getAt(i);
 
-            if (record.isLeaf) {
-                prevRecord = record;
-                break
+                if (record.isLeaf) {
+                    prevRecord = record;
+                    break
+                }
             }
-        }
 
-        if (prevRecord) {
-            me.getReference('prev-page-button').text = prevRecord.name
-        }
-
-        // the logic assumes that the tree store is sorted
-        for (i=value+1; i < countPages; i++) {
-            record = store.getAt(i);
-
-            if (record.isLeaf) {
-                nextRecord = record;
-                break
+            if (prevRecord) {
+                me.prevPageButton.set({hidden: false, text: prevRecord.name})
+            } else {
+                me.prevPageButton.hidden = true
             }
-        }
 
-        if (nextRecord) {
-            me.getReference('next-page-button').text = nextRecord.name
+            // the logic assumes that the tree store is sorted
+            for (i=value+1; i < countPages; i++) {
+                record = store.getAt(i);
+
+                if (record.isLeaf) {
+                    nextRecord = record;
+                    break
+                }
+            }
+
+            if (nextRecord) {
+                me.nextPageButton.set({hidden: false, text: nextRecord.name})
+            } else {
+                me.nextPageButton.hidden = true
+            }
         }
     }
 }
