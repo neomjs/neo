@@ -15,8 +15,9 @@ class ContentTreeList extends TreeList {
          * @member {Object} bind
          */
         bind: {
-            contentPath: data => data.contentPath,
-            store      : 'stores.contentTree'
+            contentPath      : data => data.contentPath,
+            currentPageRecord: data => data.currentPageRecord,
+            store            : 'stores.contentTree'
         },
         /**
          * @member {String[]} cls=['topics-tree']
@@ -26,6 +27,10 @@ class ContentTreeList extends TreeList {
          * @member {String|null} contentPath_=null
          */
         contentPath_: null,
+        /**
+         * @member {Object} currentPageRecord=null
+         */
+        currentPageRecord_: null,
         /**
          * @member {Boolean} showCollapseExpandAllIcons=false
          */
@@ -39,6 +44,15 @@ class ContentTreeList extends TreeList {
      */
     afterSetContentPath(value, oldValue) {
         value && this.doLoadStore()
+    }
+
+    /**
+     * Triggered after the currentPageRecord config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    afterSetCurrentPageRecord(value, oldValue) {
+        value && this.selectionModel.select(value)
     }
 
     /**
