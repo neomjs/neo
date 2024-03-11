@@ -167,7 +167,9 @@ class MainContainerController extends Controller {
             list     = panel.list,
             recordId = parseInt(data.data.recordId);
 
-        list.selectionModel.select(list.store.get(recordId));
+        if (!panel.isAnimating) {
+            list.selectionModel.select(list.store.get(recordId))
+        }
     }
 }
 

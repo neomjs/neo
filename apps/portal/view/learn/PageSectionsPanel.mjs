@@ -34,6 +34,16 @@ class PageSectionsPanel extends Panel {
         }]
     }
 
+    /**
+     * Internal flag to indicate that node.scrollIntoView() is running with an animation
+     * @member {Boolean} isAnimating=false
+     */
+    isAnimating = false
+
+    /**
+     * Convenience shortcut
+     * @member {Neo.list.Base} list
+     */
     get list() {
         return this.getReference('list')
     }
@@ -53,13 +63,23 @@ class PageSectionsPanel extends Panel {
     /**
      * @param {Object} data
      */
-    onSelectionChange(data) {
-        let record = data.record;
+    async onSelectionChange(data) {
+        let me     = this,
+            record = data.record;
 
-        record && Neo.main.DomAccess.scrollIntoView({
-            querySelector: `[data-record-id='${record.id}']`,
-            windowId     : this.windowId
-        })
+        if (record) {
+            me.isAnimating = true;
+
+            await Neo.main.DomAccess.scrollIntoView({
+                querySelector: `[data-record-id='${record.id}']`,
+                windowId     : me.windowId
+            });
+
+            // better safe than sorry
+            await me.timeout(200);
+
+            me.isAnimating = false
+        }
     }
 }
 

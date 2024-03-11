@@ -847,18 +847,36 @@ class DomAccess extends Base {
      * @param {String} data.block='start'
      * @param {String} data.inline='nearest'
      * @param {String} [data.querySelector]
-     * @returns {Object} obj.id => the passed id
+     * @returns {Promise<any>}
      */
     scrollIntoView(data) {
-        let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector);
+        let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector),
+            opts = {
+                behavior: data.behavior || 'smooth',
+                block   : data.block    || 'start',
+                inline  : data.inline   || 'nearest'
+            };
 
-        node?.scrollIntoView({
-            behavior: data.behavior || 'smooth',
-            block   : data.block    || 'start',
-            inline  : data.inline   || 'nearest'
-        });
+        if (opts.behavior !== 'smooth') {
+            node.scrollIntoView(opts);
+        } else {
+            // scrollIntoView() does not provide a callback yet.
+            // See: https://github.com/w3c/csswg-drafts/issues/3744
+            return new Promise(resolve => {
+                if (node) {
+                    let hasListener = 'scrollend' in window;
 
-        return {id: data.id, querySelector: data.querySelector}
+                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture : true, once: true});
+
+                    node.scrollIntoView(opts);
+
+                    !hasListener && setTimeout(() => resolve(), 500)
+                } else {
+                    resolve()
+                }
+            })
+        }
+
     }
 
     /**
