@@ -1,6 +1,6 @@
 import Component           from '../../../../src/model/Component.mjs';
-import ContentStore        from '../../store/Content.mjs';
 import ContentSectionStore from '../../store/ContentSections.mjs';
+import ContentStore        from '../../store/Content.mjs';
 
 /**
  * @class Portal.view.learn.MainContainerModel
@@ -16,7 +16,12 @@ class MainContainerModel extends Component {
         /**
          * @member {Object} data
          */
-        data: {},
+        data: {
+            /**
+             * @member {Number|null} data.selectedPageRecordId=null
+             */
+            selectedPageRecordId: null
+        },
         /**
          * @member {Object} stores
          */

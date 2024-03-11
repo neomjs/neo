@@ -213,9 +213,12 @@ class ContentTreeList extends TreeList {
     /**
      * @param {Object} record
      */
-    onLeafItemClick(record) {
+    async onLeafItemClick(record) {
         super.onLeafItemClick(record);
-        this.doFetchContent(record)
+
+        this.getModel().data.selectedPageRecordId = record.id;
+
+        await this.doFetchContent(record)
     }
 
     /**
