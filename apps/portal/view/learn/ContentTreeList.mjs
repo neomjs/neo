@@ -21,7 +21,7 @@ class ContentTreeList extends TreeList {
          * @member {Object} bind
          */
         bind: {
-            store: 'stores.tree'
+            store: 'stores.contentTree'
         },
         /**
          * @member {String[]} cls=['topics-tree']

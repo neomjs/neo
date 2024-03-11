@@ -29,9 +29,8 @@ class MainContainerModel extends Component {
             contentSections: {
                 module: ContentSectionStore
             },
-            tree: {
-                module      : ContentStore,
-                responseRoot: 'data'
+            contentTree: {
+                module: ContentStore
             }
         }
     }
