@@ -22,7 +22,8 @@ class PageContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            recordIndex: data => data.selectedPageRecordIndex
+            nextPageRecord    : data => data.nextPageRecord,
+            previousPageRecord: data => data.previousPageRecord
         },
         /**
          * @member {Object[]} items
@@ -45,9 +46,13 @@ class PageContainer extends Container {
             }]
         }],
         /**
-         * @member {String|null} recordIndex_
+         * @member {Object} nextPageRecord_=null
          */
-        recordIndex_: null
+        nextPageRecord_: null,
+        /**
+         * @member {Object} previousPageRecord_=null
+         */
+        previousPageRecord_: null
     }
 
     /**
@@ -67,48 +72,31 @@ class PageContainer extends Container {
     }
 
     /**
-     * Triggered after the recordIndex config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * Triggered after the nextPageRecord config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    afterSetRecordIndex(value, oldValue) {
+    afterSetNextPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
-            let me         = this,
-                model      = me.getModel(),
-                countPages = model.getData('countPages'),
-                store      = model.getStore('contentTree'),
-                i, nextRecord, prevRecord, record;
-
-            // the logic assumes that the tree store is sorted
-            for (i=value-1; i >= 0; i--) {
-                record = store.getAt(i);
-
-                if (record.isLeaf) {
-                    prevRecord = record;
-                    break
-                }
-            }
-
-            if (prevRecord) {
-                me.prevPageButton.set({hidden: false, text: prevRecord.name})
+            if (value) {
+                this.nextPageButton.set({hidden: false, text: value.name})
             } else {
-                me.prevPageButton.hidden = true
+                this.nextPageButton.hidden = true
             }
+        }
+    }
 
-            // the logic assumes that the tree store is sorted
-            for (i=value+1; i < countPages; i++) {
-                record = store.getAt(i);
-
-                if (record.isLeaf) {
-                    nextRecord = record;
-                    break
-                }
-            }
-
-            if (nextRecord) {
-                me.nextPageButton.set({hidden: false, text: nextRecord.name})
+    /**
+     * Triggered after the previousPageRecord config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    afterSetPreviousPageRecord(value, oldValue) {
+        if (oldValue !== undefined) {
+            if (value) {
+                this.prevPageButton.set({hidden: false, text: value.name})
             } else {
-                me.nextPageButton.hidden = true
+                this.prevPageButton.hidden = true
             }
         }
     }

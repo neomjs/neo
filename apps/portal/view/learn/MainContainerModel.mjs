@@ -22,6 +22,21 @@ class MainContainerModel extends Component {
              */
             countPages: null,
             /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            currentPageRecord: null,
+            /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            nextPageRecord: null,
+            /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            previousPageRecord: null,
+            /**
              * @member {Number|null} data.selectedPageRecordIndex=null
              */
             selectedPageRecordIndex: null
@@ -35,6 +50,44 @@ class MainContainerModel extends Component {
             },
             contentTree: {
                 module: ContentStore
+            }
+        }
+    }
+
+    /**
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        if (key === 'currentPageRecord') {
+            let me         = this,
+                data       = me.data,
+                countPages = data.countPages,
+                store      = me.getStore('contentTree'),
+                index      = store.indexOf(value),
+                i, record;
+
+            // the logic assumes that the tree store is sorted
+            for (i=index-1; i >= 0; i--) {
+                record = store.getAt(i);
+
+                if (record.isLeaf) {
+                    me.data.previousPageRecord = record;
+                    break
+                }
+            }
+
+            // the logic assumes that the tree store is sorted
+            for (i=index+1; i < countPages; i++) {
+                record = store.getAt(i);
+
+                if (record.isLeaf) {
+                    me.data.nextPageRecord = record;
+                    break
+                }
             }
         }
     }
