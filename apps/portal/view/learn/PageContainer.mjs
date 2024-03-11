@@ -37,6 +37,7 @@ class PageContainer extends Container {
             }
         }, {
             module: Toolbar,
+            flex  : 'none',
             items : [{
                 handler  : 'onPreviousPageButtonClick',
                 hidden   : true,
