@@ -3,6 +3,7 @@ import ContentTreeList         from './ContentTreeList.mjs';
 import ContentView             from './ContentView.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
+import PageContainer           from './PageContainer.mjs';
 import PageSectionsPanel       from './PageSectionsPanel.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
 
@@ -48,17 +49,7 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 3
         }, {
-            module: Container,
-            cls   : ['learn-content-container'],
-
-            items: [{
-                module   : ContentView,
-                reference: 'content',
-                listeners: {
-                    edit   : 'onContentEdit',
-                    refresh: 'onContentRefresh'
-                }
-            }]
+            module: PageContainer
         }, {
             module: Splitter,
             cls   : ['main-content-splitter'],
