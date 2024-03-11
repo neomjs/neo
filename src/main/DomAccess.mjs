@@ -876,7 +876,6 @@ class DomAccess extends Base {
                 }
             })
         }
-
     }
 
     /**
