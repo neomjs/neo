@@ -1,6 +1,5 @@
 import Container               from '../../../../src/container/Base.mjs';
 import ContentTreeList         from './ContentTreeList.mjs';
-import ContentView             from './ContentView.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
 import PageContainer           from './PageContainer.mjs';
@@ -38,10 +37,7 @@ class MainContainer extends Container {
 
             items: [{
                 module   : ContentTreeList,
-                reference: 'tree',
-                listeners: {
-                    contentChange: 'onContentChange',
-                }
+                reference: 'tree'
             }]
         }, {
             module      : Splitter,

@@ -19,6 +19,28 @@ class MainContainerController extends Controller {
     connectedApps = []
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this,
+            search, searchString;
+
+        Neo.Main.getByPath({
+            path    : 'location.search',
+            windowId: me.windowId
+        }).then(data => {
+            searchString = data?.substr(1) || '';
+            search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
+
+            me.getModel().setData({
+                deck: search.deck || 'learnneo'
+            })
+        })
+    }
+
+    /**
      * @param {String} searchString
      * @returns {Object}
      */
@@ -101,33 +123,12 @@ class MainContainerController extends Controller {
                 me.getModel().setData('deck', search.deck || 'learnneo');
             });
 
-        fetch('../../../../resources/data/deck/EditorConfig.json')
+        // todo: target file does not exist inside the repo
+        /*fetch('../../../../resources/data/deck/EditorConfig.json')
             .then(response => response.json()
                 .then(data =>
                     me.getModel().setData('editorConfig', data)
-                ))
-    }
-
-    /**
-     * @param {Object} data
-     */
-    async onContentChange(data) {
-        let me      = this,
-            content = me.getReference('content');
-
-        content.toggleCls('lab', data.isLab);
-
-        content.html   = data.html;
-        content.record = data.record;
-
-        await me.timeout(100);
-
-        Neo.main.addon.IntersectionObserver.observe({
-            disconnect: true,
-            id        : content.id,
-            observe   : '.neo-h2',
-            windowId  : me.windowId
-        })
+                ))*/
     }
 
     /**
