@@ -19,6 +19,12 @@ class PageContainer extends Container {
          */
         baseCls: ['learn-content-container', 'neo-container'],
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            recordId: data => data.selectedPageRecordId
+        },
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -31,11 +37,29 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             items : [{
-                text: 'Previous Page'
+                reference: 'previous-page',
+                text     : 'Previous Page'
             }, '->', {
-                text: 'Next Page'
+                reference: 'next-page',
+                text     : 'Next Page'
             }]
-        }]
+        }],
+        /**
+         * @member {String|null} recordId_
+         */
+        recordId_: null
+    }
+
+    /**
+     * Triggered after the recordId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetRecordId(value, oldValue) {
+        let me    = this,
+            store = me.getModel().getStore('contentTree');
+
+        console.log('afterSetRecordId', value, store);
     }
 }
 
