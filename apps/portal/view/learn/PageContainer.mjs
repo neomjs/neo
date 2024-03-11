@@ -38,9 +38,11 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             items : [{
+                handler  : 'onPreviousPageButtonClick',
                 hidden   : true,
                 reference: 'prev-page-button'
             }, '->', {
+                handler  : 'onNextPageButtonClick',
                 hidden   : true,
                 reference: 'next-page-button'
             }]
