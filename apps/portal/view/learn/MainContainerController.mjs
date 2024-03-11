@@ -171,6 +171,22 @@ class MainContainerController extends Controller {
             list.selectionModel.select(list.store.get(recordId))
         }
     }
+
+    /**
+     * @param {Object} data
+     */
+    onNextPageButtonClick(data) {
+        let model = this.getModel();
+        model.setData('currentPageRecord', model.getData('nextPageRecord'))
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPreviousPageButtonClick(data) {
+        let model = this.getModel();
+        model.setData('currentPageRecord', model.getData('previousPageRecord'))
+    }
 }
 
 Neo.setupClass(MainContainerController);
