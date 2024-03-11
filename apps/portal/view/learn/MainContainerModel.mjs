@@ -35,11 +35,7 @@ class MainContainerModel extends Component {
              * The record which gets shown as the content page
              * @member {Object} data.currentRecord=null
              */
-            previousPageRecord: null,
-            /**
-             * @member {Number|null} data.selectedPageRecordIndex=null
-             */
-            selectedPageRecordIndex: null
+            previousPageRecord: null
         },
         /**
          * @member {Object} stores
