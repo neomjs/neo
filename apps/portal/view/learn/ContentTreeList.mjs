@@ -174,12 +174,14 @@ class ContentTreeList extends TreeList {
      *
      */
     doLoadStore() {
-        const me = this;
+        let me = this;
+
         Neo.Xhr.promiseJson({
             url: `${me.contentPath}/tree.json`
         }).then(data => {
             // TODO: Tree lists should do this themselves when their store is loaded.
             me.store.data = data.json.data;
+            me.getModel().data.countPages = me.store.getCount();
             me.createItems(null, me.getListItemsRoot(), 0);
             me.update()
         })
@@ -217,9 +219,11 @@ class ContentTreeList extends TreeList {
     async onLeafItemClick(record) {
         super.onLeafItemClick(record);
 
-        this.getModel().data.selectedPageRecordId = record.id;
+        let me = this;
 
-        await this.doFetchContent(record)
+        me.getModel().data.selectedPageRecordIndex = me.store.indexOf(record);
+
+        await me.doFetchContent(record)
     }
 
     /**

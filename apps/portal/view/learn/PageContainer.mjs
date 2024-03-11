@@ -22,7 +22,7 @@ class PageContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            recordId: data => data.selectedPageRecordId
+            recordIndex: data => data.selectedPageRecordIndex
         },
         /**
          * @member {Object[]} items
@@ -37,29 +37,58 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             items : [{
-                reference: 'previous-page',
+                reference: 'prev-page-button',
                 text     : 'Previous Page'
             }, '->', {
-                reference: 'next-page',
+                reference: 'next-page-button',
                 text     : 'Next Page'
             }]
         }],
         /**
-         * @member {String|null} recordId_
+         * @member {String|null} recordIndex_
          */
-        recordId_: null
+        recordIndex_: null
     }
 
     /**
-     * Triggered after the recordId config got changed
+     * Triggered after the recordIndex config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      */
-    afterSetRecordId(value, oldValue) {
-        let me    = this,
-            store = me.getModel().getStore('contentTree');
+    afterSetRecordIndex(value, oldValue) {
+        let me         = this,
+            model      = me.getModel(),
+            countPages = model.getData('countPages'),
+            store      = model.getStore('contentTree'),
+            i, nextRecord, prevRecord, record;
 
-        console.log('afterSetRecordId', value, store);
+        // the logic assumes that the tree store is sorted
+        for (i=value-1; i >= 0; i--) {
+            record = store.getAt(i);
+
+            if (record.isLeaf) {
+                prevRecord = record;
+                break
+            }
+        }
+
+        if (prevRecord) {
+            me.getReference('prev-page-button').text = prevRecord.name
+        }
+
+        // the logic assumes that the tree store is sorted
+        for (i=value+1; i < countPages; i++) {
+            record = store.getAt(i);
+
+            if (record.isLeaf) {
+                nextRecord = record;
+                break
+            }
+        }
+
+        if (nextRecord) {
+            me.getReference('next-page-button').text = nextRecord.name
+        }
     }
 }
 
