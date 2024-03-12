@@ -9,7 +9,7 @@ Here's an example with one button. Clicking on the button will disable it.
 As you can see, the handler uses the component reference pass in via `data.component`.
 
 <pre data-neo>
-import Button     from '../../../../src/Button/Base.mjs';
+import Button     from '../../../../src/button/Base.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Controller from '../../../../src/controller/Component.mjs';
 
@@ -44,7 +44,7 @@ you tag the component you need with a `reference` config, then use `getReference
 the controller.
 
 <pre data-neo>
-import Button     from '../../../../src/Button/Base.mjs';
+import Button     from '../../../../src/button/Base.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Controller from '../../../../src/controller/Component.mjs';
 
@@ -98,7 +98,7 @@ The following example gets a reference to the _Learn_ button at the top of this 
 Again &mdash; that use of `Neo.findFirst()` might be handy when debugging, but it should never be used in app logic.
 
 <pre data-neo>
-import Button    from '../../../../src/Button/Base.mjs';
+import Button    from '../../../../src/button/Base.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 class MainView extends Container {
