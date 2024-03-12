@@ -99,6 +99,6 @@ class CesiumJS extends Component {
     }
 }
 
-Neo.applyClassConfig(CesiumJS);
+Neo.setupClass(CesiumJS);
 
 export default CesiumJS;

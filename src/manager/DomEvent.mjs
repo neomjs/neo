@@ -24,12 +24,14 @@ const globalDomEvents = [
     'focusin',
     'focusout',
     'input',
+    'intersect',
     'keydown',
     'keyup',
     'mousedown',
     'mouseenter',
     'mouseleave',
     'mouseup',
+    'neonavigate',
     'scroll',
     'selectionchange',
     'wheel',
@@ -515,6 +517,6 @@ class DomEvent extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(DomEvent);
+let instance = Neo.setupClass(DomEvent);
 
 export default instance;

@@ -97,6 +97,6 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.applyClassConfig(MainContainer);
+Neo.setupClass(MainContainer);
 
 export default MainContainer;

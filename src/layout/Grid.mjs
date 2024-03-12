@@ -37,6 +37,6 @@ class Grid extends Base {
     }
 }
 
-Neo.applyClassConfig(Grid);
+Neo.setupClass(Grid);
 
 export default Grid;

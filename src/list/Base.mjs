@@ -21,11 +21,6 @@ class Base extends Component {
          */
         ntype: 'list',
         /**
-         * Keeps track of the selected item index and allows bindings and programmatic changes
-         * @member {Number|null} activeIndex_=null
-         */
-        activeIndex_: null,
-        /**
          * @member {Boolean} animate_=false
          */
         animate_: false,
@@ -73,9 +68,9 @@ class Base extends Component {
         /**
          * In case we are using list item headers and want to bind list item indexes to e.g. a card layout
          * for e.g. a sidenav, this config comes in handy.
-         * @member {Number|null} headerlessActiveIndex_=null
+         * @member {Number|null} headerlessSelectedIndex_=null
          */
-        headerlessActiveIndex_: null,
+        headerlessSelectedIndex_: null,
         /**
          * @member {Boolean} highlightFilterValue=true
          */
@@ -100,6 +95,10 @@ class Base extends Component {
          */
         itemWidth_: null,
         /**
+         * @member {Boolean} itemsFocusable=true
+         */
+        itemsFocusable: true,
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -109,6 +108,11 @@ class Base extends Component {
          * @member {Object} pluginAnimateConfig=null
          */
         pluginAnimateConfig: null,
+        /**
+         * Keeps track of the selected item index and allows bindings and programmatic changes
+         * @member {Number|null} selectedIndex_=null
+         */
+        selectedIndex_: null,
         /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
@@ -142,19 +146,18 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'ul', cn: []},
-
-        /**
-         * An object to help configure the navigation. Used to pass to {@link Neo.main.addon.Navigator#subscribe}.
-         * @member {Object} navigator={}
-         */
-        navigator : {}
+        {tag: 'ul', cn: []}
     }
 
     /**
      * @member {String|null} itemRole=null
      */
     itemRole = null
+    /**
+     * An object to help configure the navigation. Used to pass to {@link Neo.main.addon.Navigator#subscribe}.
+     * @member {Object} navigator={}
+     */
+    navigator = {}
     /**
      * Defaults to false in case useHeaders is set to true
      * @member {Boolean} scrollIntoViewOnFocus=true
@@ -177,25 +180,6 @@ class Base extends Component {
             click: me.onClick,
             scope: me
         })
-    }
-
-    /**
-     * Triggered after the activeIndex config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetActiveIndex(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
-
-        if (Neo.isNumber(value)) {
-            selectionModel?.selectAt(value);
-            me.headerlessActiveIndex = me.getHeaderlessIndex(value)
-        } else if (Neo.isNumber(oldValue)) {
-            selectionModel.deselectAll();
-            me.headerlessActiveIndex = null
-        }
     }
 
     /**
@@ -268,18 +252,18 @@ class Base extends Component {
     }
 
     /**
-     * Triggered after the headerlessActiveIndex config got changed
+     * Triggered after the headerlessSelectedIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetHeaderlessActiveIndex(value, oldValue) {
+    afterSetHeaderlessSelectedIndex(value, oldValue) {
         let me = this;
 
         if (Neo.isNumber(value)) {
-            me.activeIndex = me.store.getCount() ? me.getActiveIndex(value) : null
+            me.selectedIndex = me.store.getCount() ? me.getSelectedIndex(value) : null
         } else if (Neo.isNumber(oldValue)) {
-            me.activeIndex = null
+            me.selectedIndex = null
         }
     }
 
@@ -296,8 +280,8 @@ class Base extends Component {
         if (!value && me.hasNavigator) {
             Neo.main.addon.Navigator.unsubscribe(me.navigator);
 
-            me.hasNavigator = false;
-            me.activeIndex  = null
+            me.hasNavigator  = false;
+            me.selectedIndex = null
         }
 
         if (value) {
@@ -307,6 +291,7 @@ class Base extends Component {
                     appName  : me.appName,
                     id       : me.id,
                     selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    windowId : me.windowId,
                     ...me.navigator
                 };
 
@@ -317,6 +302,25 @@ class Base extends Component {
         }
 
         super.afterSetMounted(value, oldValue)
+    }
+
+    /**
+     * Triggered after the selectedIndex config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetSelectedIndex(value, oldValue) {
+        let me             = this,
+            selectionModel = me.selectionModel;
+
+        if (Neo.isNumber(value)) {
+            selectionModel?.selectAt(value);
+            me.headerlessSelectedIndex = me.getHeaderlessIndex(value)
+        } else if (Neo.isNumber(oldValue)) {
+            selectionModel.deselectAll();
+            me.headerlessSelectedIndex = null
+        }
     }
 
     /**
@@ -460,7 +464,7 @@ class Base extends Component {
         };
 
         if (me.itemsFocusable) {
-            item.tabIndex = -1;
+            item.tabIndex = -1
         }
 
         if (record.hidden) {
@@ -532,18 +536,18 @@ class Base extends Component {
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      */
     createItems(silent=false) {
-        let me                    = this,
-            headerlessActiveIndex = me.headerlessActiveIndex,
-            vdom                  = me.getVdomRoot(),
+        let me                      = this,
+            headerlessSelectedIndex = me.headerlessSelectedIndex,
+            vdom                    = me.getVdomRoot(),
             listItem;
 
-        // in case we set headerlessActiveIndex before the store was loaded, activeIndex can be null
+        // in case we set headerlessSelectedIndex before the store was loaded, selectedIndex can be null
         // and the wanted selection is not initially there
-        if (Neo.isNumber(headerlessActiveIndex) && !Neo.isNumber(me.activeIndex)) {
-            me.afterSetHeaderlessActiveIndex(headerlessActiveIndex, null)
+        if (Neo.isNumber(headerlessSelectedIndex) && !Neo.isNumber(me.selectedIndex)) {
+            me.afterSetHeaderlessSelectedIndex(headerlessSelectedIndex, null)
         }
 
         if (!(me.animate && !me.getPlugin('animate'))) {
@@ -583,14 +587,14 @@ class Base extends Component {
 
     /**
      * Transforms an index excluding list item headers into the real store index
-     * @param {Number} headerlessIndex
+     * @param {Number} headerlessSelectedIndex
      * @returns {Number}
      */
-    getActiveIndex(headerlessIndex) {
+    getSelectedIndex(headerlessSelectedIndex) {
         let delta   = 0,
             i       = 0,
             records = this.store.items,
-            len     = headerlessIndex;
+            len     = headerlessSelectedIndex;
 
         if (records.length < 1) {
             return null
@@ -603,7 +607,7 @@ class Base extends Component {
             }
         }
 
-        return headerlessIndex + delta
+        return headerlessSelectedIndex + delta
     }
 
     /**
@@ -643,7 +647,7 @@ class Base extends Component {
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type?.toLowerCase();
 
-        if (keyType === 'integer' || keyType === 'number') {
+        if (keyType === 'int' || keyType === 'integer') {
             itemId = parseInt(itemId)
         }
 
@@ -718,7 +722,9 @@ class Base extends Component {
          * @param {String} id the record matching the list item
          * @returns {Object}
          */
-        me.fire('itemClick', record)
+        me.fire('itemClick', {
+            record
+        })
     }
 
     /**
@@ -794,6 +800,6 @@ class Base extends Component {
     }
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

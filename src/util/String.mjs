@@ -85,7 +85,7 @@ class StringUtil extends Base {
 
     /**
      * Returns the passed string with the first letter uncapitalized.
-     * @param {String} value 
+     * @param {String} value
      * @returns  {String}
      */
     static uncapitalize(value) {
@@ -93,6 +93,6 @@ class StringUtil extends Base {
     }
 }
 
-Neo.applyClassConfig(StringUtil);
+Neo.setupClass(StringUtil);
 
 export default StringUtil;

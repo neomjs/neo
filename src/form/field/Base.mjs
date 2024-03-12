@@ -1,5 +1,6 @@
 import Component        from '../../component/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
+import NeoArray         from '../../util/Array.mjs';
 
 /**
  * Abstract base class for form fields
@@ -16,6 +17,13 @@ class Base extends Component {
         fireChangeEvent    : {type: 'debounce', timer: 1000},
         fireUserChangeEvent: {type: 'debounce', timer: 1000}
     }
+    /**
+     * Valid values for isTouchedEvent
+     * @member {String[]} isTouchedEvents=['focusEnter','focusLeave']
+     * @protected
+     * @static
+     */
+    static isTouchedEvents = ['focusEnter', 'focusLeave']
 
     static config = {
         /**
@@ -34,6 +42,16 @@ class Base extends Component {
          * @member {String|null} formGroup_=null
          */
         formGroup_: null,
+        /**
+         * True indicates that a user has interacted with the form field
+         * @member {Boolean} isTouched_=false
+         */
+        isTouched_: false,
+        /**
+         * Event name which sets isTouched to true. Valid options are 'focusEnter' & 'focusLeave'
+         * @member {String} isTouched_=false
+         */
+        isTouchedEvent_: 'focusLeave',
         /**
          * @member {String|null} name_=null
          */
@@ -68,6 +86,18 @@ class Base extends Component {
      * @member {String|null} path=null
      */
     path = null
+
+    /**
+     * Triggered after the name isTouched got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetIsTouched(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray.toggle(cls, 'neo-is-touched', value);
+        this.cls = cls;
+    }
 
     /**
      * Triggered after the name config got changed
@@ -126,6 +156,16 @@ class Base extends Component {
         me.formGroupString = returnValue;
 
         return returnValue
+    }
+
+    /**
+     * Triggered before the isTouchedEvent config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetIsTouchedEvent(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'isTouchedEvent')
     }
 
     /**
@@ -267,15 +307,30 @@ class Base extends Component {
 
     /**
      * @param {Object} data
+     */
+    onFocusEnter(data) {
+        super.onFocusLeave(data);
+
+        if (this.isTouchedEvent === 'focusEnter') {
+            this.isTouched = true
+        }
+    }
+
+    /**
+     * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected
      */
     onFocusLeave(data) {
-        super.onFocusLeave?.(data);
+        super.onFocusLeave(data);
 
         let me            = this,
             FormContainer = Neo.form?.Container,
             opts          = {...data, component: me, value: me.getValue()};
+
+        if (me.isTouchedEvent === 'focusLeave') {
+            me.isTouched = true
+        }
 
         if (Neo.isFunction(me.getGroupValue)) {
             opts.groupValue = me.getGroupValue()
@@ -316,6 +371,6 @@ class Base extends Component {
  * @returns {Object}
  */
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

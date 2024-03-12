@@ -1,5 +1,5 @@
-import {debounce, throttle, buffer} from '../util/Function.mjs';
-import IdGenerator          from './IdGenerator.mjs'
+import {buffer, debounce, throttle} from '../util/Function.mjs';
+import IdGenerator                  from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -12,7 +12,8 @@ const configSymbol       = Symbol.for('configSymbol'),
  */
 class Base {
     /**
-     * You can define methods which should get delayed
+     * You can define methods which should get delayed.
+     * Types are buffer, debounce & throttle.
      * @example
      *  delayable: {
      *      fireChangeEvent: {
@@ -191,9 +192,9 @@ class Base {
         Object.entries(delayable).forEach(([key, value]) => {
             if (value) {
                 let map = {
+                    buffer()   {me[key] = new buffer(me[key],   me, value.timer)},
                     debounce() {me[key] = new debounce(me[key], me, value.timer)},
-                    throttle() {me[key] = new throttle(me[key], me, value.timer)},
-                    buffer()   {me[key] = new buffer(me[key],   me, value.timer)}
+                    throttle() {me[key] = new throttle(me[key], me, value.timer)}
                 };
 
                 map[value.type]?.()
@@ -616,7 +617,7 @@ class Base {
     }
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 Base.instanceManagerAvailable = false;
 

@@ -36,10 +36,6 @@ class Profile extends Base {
     }
 }
 
-Neo.applyClassConfig(Profile);
-
-let instance = Neo.create(Profile);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.setupClass(Profile);
 
 export default instance;

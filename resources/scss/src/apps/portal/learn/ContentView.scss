@@ -1,23 +1,17 @@
 .learn-content {
 
+    max-width: 900px;
+    padding: 0 3rem;
+    margin: 0 auto;
     background-color: white;
     border-radius: 8px;
-    margin: 8px 8px 8px 0;
-
     letter-spacing: 1px;
-    overflow: scroll;
-    padding: 1em;
+    overflow: unset;
 
     pre[data-javascript] {
         border-radius: 4px;
         padding: 12px;
         border: thin solid lightgray;
-    }
-
-    em,
-    i {
-        font-family: Palatino, "Times New Roman", serif;
-        font-size: 1.07em;
     }
 
     p {
@@ -76,6 +70,4 @@
     .lab:hover {
         box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
     }
-
-
 }

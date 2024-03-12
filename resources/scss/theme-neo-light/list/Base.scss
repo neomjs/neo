@@ -1,34 +1,22 @@
+
 :root .neo-theme-neo-light { // .neo-list-container
     --list-container-background-color    : #fff;
-    --list-container-border              : 0;
+    --list-container-border              : none;
     --list-container-list-color          : var(--sem-color-fg-neutral-contrast);
-    --list-item-background-color         : white;
-    --list-item-background-color-hover   : var(--sem-color-bg-neutral-hover);
-    --list-item-background-color-active  : var(--sem-color-bg-neutral-active);
-    --list-item-background-color-selected: var(--sem-color-bg-primary-background);
-    --list-item-color-selected           : var(--sem-color-fg-neutral-contrast);
-    --list-item-border-color-active      : #f6d199;
-    --list-item-glyph-color              : var(--sem-color-fg-neutral-default);
+
+    //Background Color
+    --list-item-background-color         : var(--cmp-list-item-surface-default);
+    --list-item-background-color-hover   : var(--cmp-list-item-surface-hover);
+    --list-item-background-color-active  : var(--cmp-list-item-surface-active);
+    --list-item-background-color-selected: var(--cmp-list-item-surface-selected);
+
+    //Text Color
+    --list-item-color-selected           : var(--sem-color-text-primary-default);
+
+    --list-item-focus-outline            : 3px solid var(--sem-color-border-focus);
+    --list-item-focus-outline-offset     : -1px;
+    --list-item-glyph-color              : var(--sem-color-icon-neutral-default);
+
     --list-item-highlight-search-color   : red;
     --list-item-padding                  : 5px;
-}
-
-
-
-
-
-.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder.neo-folder-open .neo-list-item-content:before {
-    content: unset !important;
-}
-
-.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder .neo-list-item-content:before {
-    content: unset !important;
-}
-
-.topics-tree.neo-tree-list .neo-list-container .neo-list-item.neo-list-folder .neo-list-item-content:before {
-    content: unset !important;
-}
-
-.neo-tree-list .neo-list-item .neo-list-item-content:before {
-    content: unset !important;
 }

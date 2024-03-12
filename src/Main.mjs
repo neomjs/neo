@@ -51,6 +51,7 @@ class Main extends core.Base {
                 'getByPath',
                 'getWindowData',
                 'importAddon',
+                'log',
                 'redirectTo',
                 'setNeoConfig',
                 'setRoute',
@@ -115,7 +116,7 @@ class Main extends core.Base {
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
 
         if (document.readyState !== 'loading') {
-            DomEvents.onDomContentLoaded();
+            DomEvents.onDomContentLoaded()
         }
     }
 
@@ -125,7 +126,7 @@ class Main extends core.Base {
      * @param {String} data.message
      */
     alert(data) {
-        alert(data.message);
+        alert(data.message)
     }
 
     /**
@@ -138,18 +139,18 @@ class Main extends core.Base {
             hashArr = [];
 
         if (typeof data === 'string') {
-            data = DomEvents.parseHash(data);
+            data = DomEvents.parseHash(data)
         }
 
         Object.assign(hashObj, data);
 
         Object.entries(hashObj).forEach(([key, value]) => {
             if (value !== null) {
-                hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+                hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value))
             }
         });
 
-        window.location.hash = hashArr.join('&');
+        window.location.hash = hashArr.join('&')
     }
 
     /**
@@ -189,8 +190,8 @@ class Main extends core.Base {
                 width      : screen.width
             },
             screenLeft: win.screenLeft,
-            screenTop : win.screenTop,
-        };
+            screenTop : win.screenTop
+        }
     }
 
     /**
@@ -215,6 +216,21 @@ class Main extends core.Base {
     }
 
     /**
+     * Remote console access to main threads.
+     * You can use appName or windowId to target specific windows.
+     * @param {Object} data
+     * @param {String} [data.appName]
+     * @param {String} data.value
+     * @param {String} [data.method] defaults to 'log'
+     * @param {Number} [data.windowId]
+     * @returns {Boolean}
+     */
+    log(data) {
+        console[data.method || 'log'](data.value);
+        return true
+    }
+
+    /**
      *
      */
     async onDomContentLoaded() {
@@ -229,23 +245,23 @@ class Main extends core.Base {
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
         if (config.environment !== 'development') {
-            __webpack_require__.p = config.basePath.substring(6);
+            __webpack_require__.p = config.basePath.substring(6)
         }
 
         // intended for the online examples where we need an easy way to add GA to every generated app
         if (config.useGoogleAnalytics && !mainThreadAddons.includes('AnalyticsByGoogle')) {
-            mainThreadAddons.push('AnalyticsByGoogle');
+            mainThreadAddons.push('AnalyticsByGoogle')
         }
 
         if (config.useServiceWorker && !mainThreadAddons.includes('ServiceWorker')) {
-            mainThreadAddons.push('ServiceWorker');
+            mainThreadAddons.push('ServiceWorker')
         }
 
         mainThreadAddons.forEach(addon => {
             if (addon.startsWith('WS/')) {
-                imports.push(import(`../../../src/main/addon/${addon.substring(3)}.mjs`));
+                imports.push(import(`../../../src/main/addon/${addon.substring(3)}.mjs`))
             } else {
-                imports.push(import(`./main/addon/${addon}.mjs`));
+                imports.push(import(`./main/addon/${addon}.mjs`))
             }
         });
 
@@ -280,14 +296,14 @@ class Main extends core.Base {
      */
     onRender(data) {
         data.data.replyId = data.replyId;
-        this.queueWrite(data.data);
+        this.queueWrite(data.data)
     }
 
     /**
      * @param {Object} data
      */
     onUpdateDom(data) {
-        this.queueUpdate(data);
+        this.queueUpdate(data)
     }
 
     /**
@@ -295,7 +311,7 @@ class Main extends core.Base {
      */
     onUpdateVdom(data) {
         data.data.replyId = data.replyId;
-        this.queueUpdate(data.data);
+        this.queueUpdate(data.data)
     }
 
     /**
@@ -312,10 +328,10 @@ class Main extends core.Base {
         while (operation = queue.shift()) {
             if (new Date() - start > limit) {
                 queue.unshift(operation);
-                return requestAnimationFrame(me.renderFrame.bind(me));
+                return requestAnimationFrame(me.renderFrame.bind(me))
             } else {
                 DomAccess[me.mode](operation);
-                WorkerManager.resolveDomOperationPromise(operation.replyId);
+                WorkerManager.resolveDomOperationPromise(operation.replyId)
             }
         }
     }
@@ -330,7 +346,7 @@ class Main extends core.Base {
 
         if (!me.running) {
             me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me));
+            requestAnimationFrame(me.renderFrame.bind(me))
         }
     }
 
@@ -344,7 +360,7 @@ class Main extends core.Base {
 
         if (!me.running) {
             me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me));
+            requestAnimationFrame(me.renderFrame.bind(me))
         }
     }
 
@@ -358,7 +374,7 @@ class Main extends core.Base {
 
         if (!me.running) {
             me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me));
+            requestAnimationFrame(me.renderFrame.bind(me))
         }
     }
 
@@ -367,7 +383,7 @@ class Main extends core.Base {
      * @param {String} data.url
      */
     redirectTo(data) {
-        window.location.href = data.url;
+        window.location.href = data.url
     }
 
     /**
@@ -385,7 +401,7 @@ class Main extends core.Base {
             Neo.applyToGlobalNs(addon)
         }
 
-        this.addon[addon.constructor.name] = addon;
+        this.addon[addon.constructor.name] = addon
     }
 
     /**
@@ -402,31 +418,31 @@ class Main extends core.Base {
 
         if (Neo.config.logDeltaUpdates) {
             me.totalFrameCount++;
-            console.log('Total Frames: ' + me.totalFrameCount);
+            console.log('Total Frames: ' + me.totalFrameCount)
         }
 
         if (reading || !write.length) {
             me.mode = 'read';
             if (me.processQueue(read, start)) {
-                return;
+                return
             }
         }
 
         if (update.length) {
             me.mode = 'update';
             if (me.processQueue(update, start)) {
-                return;
+                return
             }
         }
 
         if (write.length) {
             me.mode = 'write';
             if (me.processQueue(write, start)) {
-                return;
+                return
             }
         }
 
-        me.running = false;
+        me.running = false
     }
 
     /**
@@ -436,7 +452,7 @@ class Main extends core.Base {
      * @param {*} data.value
      */
     setNeoConfig(data) {
-        Neo.config[data.key] = data.value;
+        Neo.config[data.key] = data.value
     }
 
     /**
@@ -445,7 +461,7 @@ class Main extends core.Base {
      * @param {String} data.value
      */
     setRoute(data) {
-        window.location.hash = data.value;
+        window.location.hash = data.value
     }
 
     /**
@@ -455,12 +471,12 @@ class Main extends core.Base {
      */
     windowClose(data) {
         if (!Array.isArray(data.names)) {
-            data.names = [data.names];
+            data.names = [data.names]
         }
 
         data.names.forEach(name => {
-            this.openWindows[name].close();
-            delete this.openWindows[name];
+            this.openWindows[name]?.close();
+            delete this.openWindows[name]
         })
     }
 
@@ -472,7 +488,7 @@ class Main extends core.Base {
      * @param {String} data.y
      */
     windowMoveTo(data) {
-        this.openWindows[data.windowName]?.moveTo(data.x, data.y);
+        this.openWindows[data.windowName]?.moveTo(data.x, data.y)
     }
 
     /**
@@ -488,10 +504,10 @@ class Main extends core.Base {
             success      = !!openedWindow;
 
         if (success) {
-            this.openWindows[data.windowName] = openedWindow;
+            this.openWindows[data.windowName] = openedWindow
         }
 
-        return success;
+        return success
     }
 
     /**
@@ -506,10 +522,10 @@ class Main extends core.Base {
             height = data.height || win.outerHeight,
             width  = data.width  || win.outerWidth;
 
-        win.resizeTo(width, height);
+        win.resizeTo(width, height)
     }
 }
 
-let instance = Neo.applyClassConfig(Main);
+let instance = Neo.setupClass(Main);
 
 export default instance;

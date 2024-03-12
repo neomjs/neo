@@ -32,6 +32,6 @@ class CenterContainer extends Base {
         }
 }
 
-Neo.applyClassConfig(CenterContainer);
+Neo.setupClass(CenterContainer);
 
 export default CenterContainer;

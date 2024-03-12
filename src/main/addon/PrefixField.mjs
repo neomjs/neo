@@ -137,6 +137,6 @@ class PrefixField extends Base {
     }
 }
 
-Neo.applyClassConfig(PrefixField);
+Neo.setupClass(PrefixField);
 
 export default PrefixField;

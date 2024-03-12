@@ -109,6 +109,6 @@ class Data extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(Data);
+let instance = Neo.setupClass(Data);
 
 export default instance;

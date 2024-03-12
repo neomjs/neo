@@ -166,7 +166,7 @@ class DragZone extends Base {
      */
     afterSetAppName(value, oldValue) {
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+            Neo.currentWorker.insertThemeFiles(value, this.owner.windowId, this.__proto__);
         }
     }
 
@@ -445,6 +445,6 @@ class DragZone extends Base {
     }
 }
 
-Neo.applyClassConfig(DragZone);
+Neo.setupClass(DragZone);
 
 export default DragZone;

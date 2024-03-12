@@ -119,6 +119,6 @@ class MainComponent extends Base {
     }
 }
 
-Neo.applyClassConfig(MainComponent);
+Neo.setupClass(MainComponent);
 
 export default MainComponent;

@@ -1,5 +1,6 @@
-import Component from '../../../../src/model/Component.mjs';
-import Store     from '../../store/Content.mjs';
+import Component           from '../../../../src/model/Component.mjs';
+import ContentSectionStore from '../../store/ContentSections.mjs';
+import ContentStore        from '../../store/Content.mjs';
 
 /**
  * @class Portal.view.learn.MainContainerModel
@@ -13,21 +14,112 @@ class MainContainerModel extends Component {
          */
         className: 'Portal.view.learn.MainContainerModel',
         /**
+         * @member {String} contentBasePath='../../resources/data/deck/'
+         */
+        contentBasePath: '../../resources/data/deck/',
+        /**
          * @member {Object} data
          */
-        data: {},
+        data: {
+            /**
+             * @member {String|null} data.contentPath=null
+             */
+            contentPath: null,
+            /**
+             * @member {Number|null} data.countPages=null
+             */
+            countPages: null,
+            /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            currentPageRecord: null,
+            /**
+             * @member {String|null} data.deck=null
+             */
+            deck: null,
+            /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            nextPageRecord: null,
+            /**
+             * The record which gets shown as the content page
+             * @member {Object} data.currentRecord=null
+             */
+            previousPageRecord: null
+        },
         /**
          * @member {Object} stores
          */
         stores: {
-            tree: {
-                module      : Store,
-                responseRoot: 'data'
+            contentSections: {
+                module: ContentSectionStore
+            },
+            contentTree: {
+                module: ContentStore
+            }
+        }
+    }
+
+    /**
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        let me = this;
+
+        switch(key) {
+            case 'currentPageRecord': {
+                let data               = me.data,
+                    countPages         = data.countPages,
+                    store              = me.getStore('contentTree'),
+                    index              = store.indexOf(value),
+                    nextPageRecord     = null,
+                    previousPageRecord = null,
+                    i, record;
+
+                // the logic assumes that the tree store is sorted
+                for (i=index-1; i >= 0; i--) {
+                    record = store.getAt(i);
+
+                    if (record.isLeaf) {
+                        previousPageRecord = record;
+                        break
+                    }
+                }
+
+                me.setData({previousPageRecord});
+
+                // the logic assumes that the tree store is sorted
+                for (i=index+1; i < countPages; i++) {
+                    record = store.getAt(i);
+
+                    if (record.isLeaf) {
+                        nextPageRecord = record;
+                        break
+                    }
+                }
+
+                me.setData({nextPageRecord});
+
+                break
+            }
+
+            case 'deck': {
+                if (value) {
+                    me.data.contentPath = me.contentBasePath + value;
+                }
+
+                break
             }
         }
     }
 }
 
-Neo.applyClassConfig(MainContainerModel);
+Neo.setupClass(MainContainerModel);
 
 export default MainContainerModel;

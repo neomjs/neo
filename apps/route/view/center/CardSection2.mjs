@@ -22,6 +22,6 @@ class CardSection2 extends Container {
     }
 }
 
-Neo.applyClassConfig(CardSection2);
+Neo.setupClass(CardSection2);
 
 export default CardSection2;

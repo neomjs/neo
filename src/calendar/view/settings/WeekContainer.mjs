@@ -129,6 +129,6 @@ class WeekContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(WeekContainer);
+Neo.setupClass(WeekContainer);
 
 export default WeekContainer;

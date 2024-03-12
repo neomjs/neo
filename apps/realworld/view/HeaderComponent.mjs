@@ -170,6 +170,6 @@ class HeaderComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(HeaderComponent);
+Neo.setupClass(HeaderComponent);
 
 export default HeaderComponent;

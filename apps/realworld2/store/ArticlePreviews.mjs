@@ -14,6 +14,6 @@ class ArticlePreviews extends Store {
     }
 }
 
-Neo.applyClassConfig(ArticlePreviews);
+Neo.setupClass(ArticlePreviews);
 
 export default ArticlePreviews;

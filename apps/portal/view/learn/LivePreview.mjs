@@ -1,95 +1,138 @@
-import Base from '../../../../src/container/Base.mjs';
+import Container    from '../../../../src/container/Base.mjs';
+import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../../../../src/tab/Container.mjs';
-import TextArea from '../../../../src/form/field/TextArea.mjs';
+
+const
+    classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
+    exportRegex           = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
+    importRegex           = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
 
 /**
  * @class Portal.view.learn.LivePreview
  * @extends Neo.container.Base
  */
-class LivePreview extends Base {
+class LivePreview extends Container {
     static config = {
         /**
          * @member {String} className='Portal.view.learn.LivePreview'
          * @protected
          */
         className: 'Portal.view.learn.LivePreview',
-        baseCls: ['learn-live-preview'],
-        value_: null,
-        autoMount: true,
+        /**
+         * @member {String} ntype='live-preview'
+         * @protected
+         */
+        ntype: 'live-preview',
+
+        baseCls   : ['learn-live-preview'],
+        value_    : null,
+        autoMount : true,
         autoRender: true,
-        height: 400,
-        layout: 'fit',
+        height    : 400,
+        layout    : 'fit',
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: TabContainer,
-            reference: 'tab-container',
-            cls: 'live-preview-container',
+            module             : TabContainer,
+            cls                : ['live-preview-container'],
+            reference          : 'tab-container',
+            removeInactiveCards: false,
+
             items: [{
-                module: TextArea,
-                hideLabel: true,
-                style: {height: '100%'},
-                reference: 'textArea',
+                module         : MonacoEditor,
+                hideLabel      : true,
+                style          : {height: '100%'},
+                reference      : 'editor',
                 tabButtonConfig: {
                     text: 'Source'
                 },
-                listeners: {
-                    change: data => data.component.up({className: 'Portal.view.learn.LivePreview'}).value = data.value
+                listeners      : {
+                    editorChange: data => {
+                        let container         = data.component.up({className: 'Portal.view.learn.LivePreview'});
+                        container.editorValue = data.value;
+
+                        if (container.previewContainer) {
+                            container.doRunSource()
+                        }
+                    }
                 }
             }, {
-                tabButtonConfig: {
-                    text: 'Preview'
-                },
-                reference: 'preview',
-                ntype: 'container'
+                module         : Container,
+                reference      : 'preview',
+                tabButtonConfig: {text: 'Preview'}
             }]
         }]
     }
 
+    /**
+     * Link the preview output to different targets
+     * @member {Neo.component.Base} previewContainer=null
+     */
+    previewContainer = null
+
+    /**
+     * @returns {Neo.component.Base|null}
+     */
+    get tabContainer() {
+        return this.getReference('tab-container')
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetValue(value, oldValue) {
         if (value) {
-            this.getItem('textArea').value = value;
+            this.getItem('editor').value = value?.trim()
         }
     }
 
-    onConstructed() {
-        super.onConstructed();
+    /**
+     *
+     */
+    async createPopupWindow() {
+        let me      = this,
+            winData = await Neo.Main.getWindowData(),
+            rect    = await me.getDomRect(me.getReference('preview').id);
 
-        let me = this;
+        let {height, left, top, width} = rect;
 
-        me.getReference('tab-container').on('activeIndexChange', me.onActiveIndexChange, me)
+        height -= 50; // popup header in Chrome
+        left   += winData.screenLeft;
+        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        Neo.Main.windowOpen({
+            url           : `./childapps/preview/index.html?id=${me.id}`,
+            windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowName    : me.id
+        })
     }
 
+    /**
+     *
+     */
     doRunSource() {
-        let source = this.value;
+        let me     = this,
+            source = me.editorValue || me.value;
 
-        const importRegex = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
-        const exportRegex = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g;
-
-
-        const cleanLines = [];
-        const importPromises = [];
-        const importModuleNames = [];
-
-        const moduleNameAndPath = [];
-
-        const className = this.findLastClassName(source);
-
+        const
+            cleanLines        = [],
+            importModuleNames = [],
+            moduleNameAndPath = [],
+            className         = me.findLastClassName(source);
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
+
             if (importMatch) {
-                let moduleName = importMatch[1];
-                let path = importMatch[2];
-                moduleNameAndPath.push({
-                    moduleName,
-                    path
-                });
-                // importPromises.push(import(path));
-                // importPromises.push(import(path).then(module => {
-                //     eval(`const ${moduleName} = module.default;`)
-                // }));
+                let moduleName = importMatch[1],
+                    path       = importMatch[2];
+
+                moduleNameAndPath.push({moduleName, path});
+
                 importModuleNames.push(moduleName);
             } else if (line.match(exportRegex)) {
                 // Skip export statements
@@ -97,8 +140,9 @@ class LivePreview extends Base {
                 cleanLines.push(line);
             }
         });
+
         var params = [];
-        var vars = [];
+        var vars   = [];
         // Figure out the parts of the source we'll be running.
         // o The promises/import() corresponding to the user's import statements
         // o The vars holding the name of the imported module based on the module name for each import
@@ -118,8 +162,9 @@ class LivePreview extends Base {
         let promises = moduleNameAndPath.map(item => {
             params.push(`${item.moduleName}Module`);
             vars.push(`const ${item.moduleName} = ${item.moduleName}Module.default`);
-            return `import("${item.path}")`;
+            return `import("${item.path}")`
         });
+
         const codeString = `
             Promise.all([
                 ${promises.join(',\n')}
@@ -132,25 +177,43 @@ class LivePreview extends Base {
             .catch(error=>container.add({ntype:'component',html:error.message}));
         `;
 
-        const container = this.getReference('preview');
+        const container = me.getPreviewContainer();
         container.removeAll();
+
         try {
-            const dynamicCode = new Function('container', codeString);
-            dynamicCode(container);
+            new Function('container', codeString)(container);
         } catch (error) {
             container.add({
                 ntype: 'component',
-                html: error.message
+                html : error.message
             })
         }
     }
 
     /**
-    * @param {String} reference
-    * @returns {Object|Neo.component.Base|null}
-    */
-    getItem(reference, items = this.items) {
-        let i = 0,
+     * @param {String} sourceCode
+     * @returns {String|null}
+     */
+    findLastClassName(sourceCode) {
+        let lastClassName = null,
+            match;
+
+        // Iterate through all matches of the regular expression
+        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
+            // Update the last class name found
+            lastClassName = match[1]
+        }
+
+        return lastClassName
+    }
+
+    /**
+     * @param {String} reference
+     * @param {Object[]} items=this.items
+     * @returns {Object|Neo.component.Base|null}
+     */
+    getItem(reference, items=this.items) {
+        let i   = 0,
             len = items.length,
             item,
             childItem;
@@ -163,11 +226,25 @@ class LivePreview extends Base {
                 childItem = this.getItem(reference, item.items);
 
                 if (childItem) {
-                    return childItem;
+                    return childItem
                 }
             }
         }
+
         return null
+    }
+
+    /**
+     * @returns {Neo.component.Base|null}
+     */
+    getPreviewContainer() {
+        let me = this;
+
+        if (me.previewContainer) {
+            return me.previewContainer
+        }
+
+        return me.getReference('preview')
     }
 
     /**
@@ -178,27 +255,49 @@ class LivePreview extends Base {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        if (data.item.reference !== 'preview') return;
-        this.doRunSource();
-    }
-    findLastClassName(sourceCode) {
-        // Define a regular expression to match class declarations
-        const classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g;
-
-        let match;
-        let lastClassName = null;
-
-        // Iterate through all matches of the regular expression
-        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
-            // Update the last class name found
-            lastClassName = match[1];
+        if (data.item.reference === 'preview') {
+            this.doRunSource()
         }
 
-        return lastClassName;
+        this.getReference('popout-window-button').hidden = data.value !== 1
+    }
 
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me           = this,
+            tabContainer = me.getReference('tab-container');
+
+        // we want to add a normal (non-header) button
+        tabContainer.getTabBar().add({
+            handler  : me.popoutPreview.bind(me),
+            hidden   : tabContainer.activeIndex !== 1,
+            iconCls  : 'far fa-window-maximize',
+            reference: 'popout-window-button',
+            style    : {marginLeft: 'auto'},
+            ui       : 'ghost'
+        });
+
+        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async popoutPreview(data) {
+        let me = this;
+
+        data.component.disabled = true;
+        await me.createPopupWindow();
+
+        // this component requires a view controller to manage connected apps
+        me.getController()?.connectedApps.push(me.id)
     }
 }
 
-Neo.applyClassConfig(LivePreview);
+Neo.setupClass(LivePreview);
 
 export default LivePreview;

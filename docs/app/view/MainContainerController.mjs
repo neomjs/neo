@@ -16,7 +16,15 @@ class MainContainerController extends Component {
          * @member {String} ntype='docs-maincontainer-controller'
          * @protected
          */
-        ntype: 'docs-maincontainer-controller'
+        ntype: 'docs-maincontainer-controller',
+        /**
+         * @member {Object} routes
+         * @protected
+         */
+        routes: {
+            '/viewSource/{className}'                  : 'onViewSourceRoute',
+            '/viewSource/{className}/line/{lineNumber}': 'onViewSourceRoute'
+        }
     }
 
     /**
@@ -25,10 +33,16 @@ class MainContainerController extends Component {
     construct(config) {
         super.construct(config);
 
-        // todo: remove once paths are neo configs
-        Neo.main.addon.HighlightJS.loadLibrary({
-            appName: this.appName
-        })
+        let me      = this,
+            appName = me.component.appName,
+            opts    = {appName, windowId: me.component.windowId};
+
+        if (appName === 'Portal') {
+            opts.highlightJsPath = '../../docs/resources/highlight/highlight.pack.js';
+            opts.themePath       = '../../docs/resources/highlightjs-custom-github-theme.css'
+        }
+
+        Neo.main.addon.HighlightJS.loadLibrary(opts)
     }
 
     /**
@@ -111,39 +125,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @param {Object} value
-     * @param {Object} oldValue
-     */
-    onHashChange(value, oldValue) {
-        let me                  = this,
-            hash                = value?.hash,
-            contentTabContainer = me.getReference('content-tabcontainer'),
-            structureStore      = me.getReference('api-treelist').store,
-            record, tab;
-
-        if (hash?.hasOwnProperty('viewSource')) {
-            record = structureStore.find('className', hash.viewSource)[0];
-
-            if (record) {
-                tab = contentTabContainer.add({
-                    ntype        : 'classdetails-sourceviewcomponent',
-                    id           : hash.viewSource + '__source',
-                    line         : hash.line,
-                    structureData: record,
-
-                    tabButtonConfig: {
-                        iconCls: 'fa fa-code',
-                        text   : record.name
-                    }
-                });
-
-                // adjust the highlighted line for already added source view tabs
-                tab.line = hash.line;
-            }
-        }
-    }
-
-    /**
      * @param {Object} data
      */
     onNavigationSearchFieldChange(data) {
@@ -159,7 +140,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onNavTabContainerResize(data) {
-        console.log('onNavTabContainerResize', data)
+        // console.log('onNavTabContainerResize', data)
     }
 
     /**
@@ -237,8 +218,41 @@ class MainContainerController extends Component {
             }
         })
     }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.className
+     * @param {String} data.lineNumber
+     */
+    onViewSourceRoute(data) {
+        let me                  = this,
+            className           = data.className,
+            lineNumber          = data.lineNumber && parseInt(data.lineNumber) || null,
+            contentTabContainer = me.getReference('content-tabcontainer'),
+            structureStore      = me.getReference('api-treelist').store,
+            record              = structureStore.find('className', className)[0],
+            tab;
+
+        if (record) {
+            tab = contentTabContainer.add({
+                ntype        : 'classdetails-sourceviewcomponent',
+                id           : className + '__source',
+                line         : lineNumber,
+                structureData: record,
+
+                tabButtonConfig: {
+                    iconCls: 'fa fa-code',
+                    text   : record.name
+                }
+            });
+
+
+            // adjust the highlighted line for already added source view tabs
+            tab.line = lineNumber
+        }
+    }
 }
 
-Neo.applyClassConfig(MainContainerController);
+Neo.setupClass(MainContainerController);
 
 export default MainContainerController;

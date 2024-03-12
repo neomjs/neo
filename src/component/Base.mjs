@@ -127,15 +127,12 @@ class Base extends CoreBase {
          * @example
          * afterSetStayOnHover(value, oldValue) {
          *     if (value) {
-         *         let me           = this,
-         *             domListeners = me.domListeners;
+         *         let me = this;
          *
-         *         domListeners.push(
+         *         me.addDomListeners(
          *             {mouseenter: me.onMouseEnter, scope: me},
          *             {mouseleave: me.onMouseLeave, scope: me}
-         *         );
-         *
-         *        me.domListeners = domListeners;
+         *         )
          *    }
          *}
          */
@@ -218,6 +215,11 @@ class Base extends CoreBase {
          */
         keys_: null,
         /**
+         * Gets used inside afterSetIsLoading() to define the CSS for the loading spinner icon
+         * @member {String[]} loadingSpinnerCls_=['fa','fa-spinner','fa-spin']
+         */
+        loadingSpinnerCls_: ['fa', 'fa-spinner', 'fa-spin'],
+        /**
          * Shortcut for style.maxHeight, defaults to px
          * @member {Number|String|null} maxHeight_=null
          */
@@ -260,6 +262,14 @@ class Base extends CoreBase {
          * @protected
          */
         needsVdomUpdate_: false,
+        /**
+         * If the parentId does not match a neo component id, you can manually set this value for finding
+         * view controllers or models.
+         * Use case: manually dropping components into a vdom structure
+         * @member {Neo.component.Base|null} parentComponent_=null
+         * @protected
+         */
+        parentComponent_: null,
         /**
          * The parent component id or document.body
          * @member {String} parentId='document.body'
@@ -367,7 +377,7 @@ class Base extends CoreBase {
     resolveUpdateCache = []
 
     /**
-     * Convenience method to access the App this component belongs to
+     * Convenience shortcut to access the App this component belongs to
      * @returns {Neo.controller.Application|null}
      */
     get app() {
@@ -397,7 +407,9 @@ class Base extends CoreBase {
      * @returns {Neo.component.Base|null}
      */
     get parent() {
-        return this.parentId !== 'document.body' ? Neo.getComponent(this.parentId) : null
+        let me = this;
+
+        return me.parentComponent || me.parentId !== 'document.body' ? Neo.getComponent(me.parentId) : null
     }
 
     /**
@@ -479,7 +491,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+        value && Neo.currentWorker.insertThemeFiles(value, this.windowId, this.__proto__)
     }
 
     /**
@@ -702,7 +714,7 @@ class Base extends CoreBase {
                     cn : [{
                         cls: ['neo-load-mask-body'],
                         cn : [{
-                            cls: ['fa', 'fa-spinner', 'fa-spin']
+                            cls: me.loadingSpinnerCls
                         }, {
                             cls      : ['neo-loading-message'],
                             html     : value,
@@ -1027,6 +1039,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered when accessing the parentComponent config
+     * @param {Object} value
+     * @protected
+     */
+    beforeParentComponent(value) {
+        return value || this.parent
+    }
+
+    /**
      * Triggered when accessing the style config
      * @param {Object} value
      * @protected
@@ -1237,7 +1258,7 @@ class Base extends CoreBase {
     createTooltip(value) {
         if (typeof value === 'string') {
             value = {
-                text : value
+                text: value
             };
         }
 
@@ -1247,14 +1268,14 @@ class Base extends CoreBase {
             me._tooltip = Neo.create('Neo.tooltip.Base', {
                 ...value,
                 appName    : me.appName,
-                componentId: me.id
-            });
-        }
-        else {
+                componentId: me.id,
+                windowId   : me.windowId
+            })
+        } else {
             me._tooltip = value;
             Neo.tooltip.Base.createSingleton(me.app);
             me.addCls('neo-uses-shared-tooltip');
-            me.update();
+            me.update()
         }
     }
 
@@ -1339,7 +1360,8 @@ class Base extends CoreBase {
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
-            opts.appName = me.appName
+            opts.appName  = me.appName;
+            opts.windowId = me.windowId
         }
 
         me.isVdomUpdating = true;
@@ -1409,20 +1431,20 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base|null}
      */
     getConfigInstanceByNtype(configName, ntype) {
-        let me     = this,
-            config = me[configName],
-            parentComponent;
+        let me              = this,
+            config          = me[configName],
+            parentComponent = me.parentComponent;
 
         if (config && (!ntype || ntype === config.ntype)) {
             return config
         }
 
-        if (me.parentId) {
+        if (!parentComponent && me.parentId) {
             parentComponent = me.parent || Neo.get(me.parentId);
+        }
 
-            if (parentComponent) {
-                return parentComponent.getConfigInstanceByNtype(configName, ntype)
-            }
+        if (parentComponent) {
+            return parentComponent.getConfigInstanceByNtype(configName, ntype)
         }
 
         return null
@@ -2030,6 +2052,7 @@ class Base extends CoreBase {
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
+                windowId   : me.windowId,
                 ...me.vdom
             });
 
@@ -2434,6 +2457,6 @@ class Base extends CoreBase {
  * @param {Object[]} data.oldPath dom element ids upwards
  */
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

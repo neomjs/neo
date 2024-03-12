@@ -78,7 +78,7 @@ class Base extends CoreBase {
             if (key.toLowerCase() === 'default'){
                 me.defaultRoute = value[key]
             } else {
-                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-]+)')+'$')
+                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, '([\\w-.]+)')+'$')
             }
         })
     }
@@ -205,6 +205,6 @@ class Base extends CoreBase {
     }
 }
 
-Neo.applyClassConfig(Base);
+Neo.setupClass(Base);
 
 export default Base;

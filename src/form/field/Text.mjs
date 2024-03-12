@@ -138,6 +138,10 @@ class Text extends Base {
          */
         inputType_: 'text',
         /**
+         * @member {String|null} inputValue_=null
+         */
+        inputValue_: null,
+        /**
          * @member {String[]} labelBaseCls=['neo-textfield-label']
          */
         labelBaseCls: ['neo-textfield-label'],
@@ -281,8 +285,8 @@ class Text extends Base {
 
         me.addDomListeners([
             {input     : me.onInputValueChange, scope: me},
-            {mouseenter: me.onMouseEnter, scope: me},
-            {mouseleave: me.onMouseLeave, scope: me}
+            {mouseenter: me.onMouseEnter,       scope: me},
+            {mouseleave: me.onMouseLeave,       scope: me}
         ])
     }
 
@@ -296,7 +300,7 @@ class Text extends Base {
         super.afterSetAppName(value, oldValue);
 
         value && this.triggers?.forEach(item => {
-            item.appName = value;
+            item.appName = value
         })
     }
 
@@ -458,7 +462,7 @@ class Text extends Base {
         if (this.inputPatternDOM) {
             if (value) {
                 value = value.toString();
-                value = value.substring(1, value.length - 1);
+                value = value.substring(1, value.length - 1)
             }
 
             this.changeInputElKey('pattern', value)
@@ -473,6 +477,26 @@ class Text extends Base {
      */
     afterSetInputType(value, oldValue) {
         this.changeInputElKey('type', value)
+    }
+
+    /**
+     * Triggered after the inputValue config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetInputValue(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+
+        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
+
+        NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
+        me.cls = cls;
+
+        me.value = me.updateValueFromInputValue(value)
     }
 
     /**
@@ -524,7 +548,7 @@ class Text extends Base {
 
             vdom.cn[0].removeDom = me.hideLabel;
             vdom.cn[0].width     = me.labelWidth;
-            me.updateInputWidth();
+            me.updateInputWidth()
         } else if (value === 'inline') {
             centerBorderElCls = ['neo-center-border'];
             isEmpty           = me.isEmpty();
@@ -577,7 +601,7 @@ class Text extends Base {
         if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {
                 if (!isEmpty) {
-                    delete me.getCenterBorderEl()?.width;
+                    delete me.getCenterBorderEl()?.width
                 }
 
                 me.promiseUpdate().then(() => {
@@ -817,9 +841,9 @@ class Text extends Base {
                     width: inputEl.width
                 };
 
-                delete inputEl.width;
+                delete inputEl.width
             } else {
-                inputEl.cn = [...preTriggers, me.getInputEl(), ...postTriggers];
+                inputEl.cn = [...preTriggers, me.getInputEl(), ...postTriggers]
             }
         } else {
             if (inputEl.tag !== 'input') {
@@ -837,7 +861,6 @@ class Text extends Base {
 
     /**
      * Triggered after the value config got changed
-     * todo: add validation logic
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -849,17 +872,12 @@ class Text extends Base {
             cls;
 
         me.silentVdomUpdate = true;
-
-        me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
+        me.inputValue       = me.updateInputValueFromValue(value);
 
         me.validate(); // silent
 
         cls = me.cls;
-
-        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
-
-        NeoArray[me.hasContent() ? 'add' : 'remove'](cls, 'neo-has-content');
-        NeoArray[isDirty ? 'add' : 'remove'](cls, 'neo-is-dirty');
+        NeoArray.toggle(cls, 'neo-is-dirty', isDirty);
         me.cls = cls;
 
         me.silentVdomUpdate = false;
@@ -881,13 +899,25 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        value && this.triggers?.forEach(item => {
+            item.windowId = value
+        })
+    }
+
+    /**
      * Return a shallow copy of the triggers config
      * @param {Array|null} value
      * @protected
      */
     beforeGetTriggers(value) {
         if (Array.isArray(value)) {
-            return [...value];
+            return [...value]
         }
 
         return value
@@ -939,10 +969,10 @@ class Text extends Base {
 
         if (me.showOptionalText && !me.required) {
             if (!hasOptionalText) {
-                value += labelOptionalText;
+                value += labelOptionalText
             }
         } else if (value && hasOptionalText) {
-            value = value.replace(labelOptionalText, '');
+            value = value.replace(labelOptionalText, '')
         }
 
         return value
@@ -971,7 +1001,7 @@ class Text extends Base {
         if (!value) {
             value = [];
         } else if (!Array.isArray(value)) {
-            value = [value];
+            value = [value]
         }
 
         let me = this;
@@ -982,15 +1012,15 @@ class Text extends Base {
                     appName: me.appName,
                     id     : me.getTriggerId(item.prototype.type),
                     field  : me
-                });
+                })
             } else if (!(item instanceof BaseTrigger)) {
                 if (!item.module && !item.ntype) {
-                    item.ntype = 'trigger';
+                    item.ntype = 'trigger'
                 }
 
                 if (item.module) {
                     item.className = item.module.prototype.className;
-                    item.id        = me.getTriggerId(item.module.prototype.type);
+                    item.id        = me.getTriggerId(item.module.prototype.type)
                 }
 
                 value[index] = Neo[item.className ? 'create' : 'ntype']({
@@ -1178,7 +1208,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     hasContent() {
-        let value = this.value;
+        let value = this.inputValue;
 
         return this.placeholderText?.length > 0 || value !== null && value.toString().length > 0
     }
@@ -1246,8 +1276,7 @@ class Text extends Base {
     }
 
     /**
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @param args
      * @returns {Object} config
      */
     mergeConfig(...args) {
@@ -1306,7 +1335,7 @@ class Text extends Base {
             me.cls = cls;
 
             if (centerBorderEl && me.isEmpty()) {
-                delete centerBorderEl.width;
+                delete centerBorderEl.width
             }
         }
 
@@ -1320,28 +1349,30 @@ class Text extends Base {
     }
 
     /**
+     * Gets triggered by the 'input' DOM event.
      * @param {Object} data
      * @protected
      */
     onInputValueChange(data) {
-        let me       = this,
-            oldValue = me.value,
-            value    = data.value,
-            vnode    = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+        let me         = this,
+            oldValue   = me.value,
+            inputValue = data.value,
+            vnode      = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
-            // required for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = value
+            // Update the current state (modified DOM by the user) to enable the delta-updates logic.
+            // Required e.g. for validation -> revert a wrong user input
+            vnode.vnode.attributes.value = inputValue
         }
 
-        if (Neo.isString(value)) {
-            value = value.trim()
+        if (Neo.isString(inputValue)) {
+            inputValue = inputValue.trim()
         }
 
-        me.clean = false;
-        me.value = me.inputValueAdjustor(value);
+        me.clean      = false;
+        me.inputValue = me.inputValueAdjustor(inputValue); // updates this.value
 
-        me.fireUserChangeEvent(value, oldValue)
+        me.fireUserChangeEvent(me.value, oldValue)
     }
 
     /**
@@ -1391,12 +1422,12 @@ class Text extends Base {
             if (trigger.type === type) {
                 NeoArray.remove(triggers, trigger);
                 len--;
-                hasMatch = true;
+                hasMatch = true
             }
         }
 
         if (hasMatch && !silent) {
-            me.triggers = triggers;
+            me.triggers = triggers
         }
 
         return hasMatch
@@ -1412,7 +1443,7 @@ class Text extends Base {
 
         if (me.clearToOriginalValue) {
             if (value) {
-                me.originalConfig.value = value;
+                me.originalConfig.value = value
             } else {
                 value = me.originalConfig.value
             }
@@ -1460,15 +1491,25 @@ class Text extends Base {
             errorNode    = errorWrapper.cn[0];
 
             if (value) {
-                errorNode.html = value;
+                errorNode.html = value
             } else {
-                delete errorNode.html;
+                delete errorNode.html
             }
 
             errorWrapper.removeDom = !value;
 
             !silent && me.update()
         }
+    }
+
+    /**
+     * Override this method as needed inside class extensions.
+     * @param {*} value
+     * @returns {String}
+     * @protected
+     */
+    updateInputValueFromValue(value) {
+        return value
     }
 
     /**
@@ -1494,7 +1535,7 @@ class Text extends Base {
     updateReadOnlyState() {
         let me = this;
 
-        me.changeInputElKey('readonly', !me.editable || me.readOnly || null);
+        me.changeInputElKey('readonly', !me.editable || me.readOnly || null)
     }
 
     /**
@@ -1519,6 +1560,16 @@ class Text extends Base {
     }
 
     /**
+     * Override this method as needed inside class extensions.
+     * @param {String} inputValue
+     * @returns {*}
+     * @protected
+     */
+    updateValueFromInputValue(inputValue) {
+        return inputValue
+    }
+
+    /**
      * Checks for client-side field errors
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
@@ -1538,36 +1589,36 @@ class Text extends Base {
 
         if (!silent) {
             // in case we manually call validate(false) on a form or field before it is mounted, we do want to see errors.
-            me.clean = false;
+            me.clean = false
         }
 
         if (isEmpty) {
             if (required) {
                 me._error   = me.errorTextRequired;
-                returnValue = false;
+                returnValue = false
             }
         } else {
             if (Neo.isNumber(maxLength) && valueLength > maxLength) {
                 me._error   = me.errorTextMaxLength(errorParam);
-                returnValue = false;
+                returnValue = false
             } else if (Neo.isNumber(minLength) && valueLength < minLength) {
                 me._error   = me.errorTextMinLength(errorParam);
-                returnValue = false;
+                returnValue = false
             } else if (inputPattern && !inputPattern.test(value)) {
                 me._error   = me.errorTextInputPattern(errorParam);
-                returnValue = false;
+                returnValue = false
             } else if (Neo.isFunction(me.validator)) {
                 errorText = me.validator(me);
 
                 if (errorText !== true) {
                     me._error   = errorText;
-                    returnValue = false;
+                    returnValue = false
                 }
             }
         }
 
         if (returnValue) {
-            me._error = null;
+            me._error = null
         }
 
         !me.clean && me.updateError(me._error, silent);
@@ -1576,6 +1627,6 @@ class Text extends Base {
     }
 }
 
-Neo.applyClassConfig(Text);
+Neo.setupClass(Text);
 
 export default Text;

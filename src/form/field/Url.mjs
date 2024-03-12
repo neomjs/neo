@@ -38,6 +38,6 @@ class Url extends Text {
     }
 }
 
-Neo.applyClassConfig(Url);
+Neo.setupClass(Url);
 
 export default Url;

@@ -34,10 +34,14 @@ p {
     line-height     : var(--core-lineheight-paragraph);
 }
 
+i, em {
+    font-style: italic;
+}
+
 code {
     background-color: #F0F2F0;
     border          : 1px solid var(--sem-color-border-subtle);
-    border-radius   : 2px;
+    border-radius   : 4px;
     color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-mono);
     font-size       : var(--core-fontsize-body);

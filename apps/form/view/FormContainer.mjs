@@ -100,6 +100,6 @@ class FormContainer extends BaseFormContainer {
     }
 }
 
-Neo.applyClassConfig(FormContainer);
+Neo.setupClass(FormContainer);
 
 export default FormContainer;

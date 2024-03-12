@@ -54,83 +54,7 @@
             cursor: pointer;
 
             &:hover {
-                background-color: var(--list-item-background-color-hover) !important;
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
-                color           : var(--list-container-list-color);
-            }
-            &:active {
-                background-color: var(--list-item-background-color-active);
+                background-color: var(--list-item-background-color-hover);
                 color           : var(--list-container-list-color);
             }
             &:active {
@@ -140,8 +64,8 @@
         }
 
         &.neo-navigator-active-item {
-            outline        : 1px solid var(--list-item-border-color-active);
-            outline-offset : -1px;
+            outline       : var(--list-item-focus-outline);
+            outline-offset: var(--list-item-focus-outline-offset);
         }
 
         &[aria-selected="true"] {

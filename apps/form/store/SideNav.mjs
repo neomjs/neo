@@ -19,6 +19,6 @@ class SideNav extends Store {
     }
 }
 
-Neo.applyClassConfig(SideNav);
+Neo.setupClass(SideNav);
 
 export default SideNav;

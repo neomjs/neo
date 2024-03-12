@@ -155,6 +155,6 @@ class NeoArray extends Base {
     }
 }
 
-Neo.applyClassConfig(NeoArray);
+Neo.setupClass(NeoArray);
 
 export default NeoArray;

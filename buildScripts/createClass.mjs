@@ -696,13 +696,13 @@ if (programOpts.info) {
 
         if (isSingleton) {
             classContent.push(
-                `let instance = Neo.applyClassConfig(${file});`,
+                `let instance = Neo.setupClass(${file});`,
                 "",
                 "export default instance;"
             );
         } else {
             classContent.push(
-                `Neo.applyClassConfig(${file});`,
+                `Neo.setupClass(${file});`,
                 "",
                 `export default ${file};`
             );

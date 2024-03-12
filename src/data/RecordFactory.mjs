@@ -42,10 +42,10 @@ class RecordFactory extends Base {
         let recordClass = Neo.ns(`${this.recordNamespace}.${model.className}.${model.id}`);
 
         if (!recordClass) {
-            recordClass = this.createRecordClass(model);
+            recordClass = this.createRecordClass(model)
         }
 
-        return new recordClass(config);
+        return new recordClass(config)
     }
 
     /**
@@ -61,16 +61,13 @@ class RecordFactory extends Base {
             if (!ns) {
                 nsArray = className.split('.');
                 key     = nsArray.pop();
-                ns      = Neo.ns(nsArray, true),
+                ns      = Neo.ns(nsArray, true);
                 cls     = ns[key] = class Record {
                     constructor(config) {
                         let me = this,
                             properties;
 
                         Object.defineProperties(me, {
-                            [Symbol.for('isRecord')]: {
-                                value: true
-                            },
                             _isModified: {
                                 value   : false,
                                 writable: true
@@ -84,7 +81,7 @@ class RecordFactory extends Base {
                                     parsedValue;
 
                                 if (!Object.hasOwn(config, field.name) && Object.hasOwn(field, 'defaultValue')) {
-                                    value = field.defaultValue;
+                                    value = field.defaultValue
                                 }
 
                                 parsedValue = instance.parseRecordValue(me, field, value, config);
@@ -116,7 +113,7 @@ class RecordFactory extends Base {
                                                     fields: [{name: field.name, oldValue, value}],
                                                     model,
                                                     record: me
-                                                });
+                                                })
                                             }
                                         }
                                     }
@@ -177,14 +174,14 @@ class RecordFactory extends Base {
                 field = fields[i];
 
                 if (!Neo.isEqual(record[field], record[this.ovPrefix + field])) {
-                    return true;
+                    return true
                 }
             }
 
-            return false;
+            return false
         }
 
-        return record._isModified;
+        return record._isModified
     }
 
     /**
@@ -194,13 +191,13 @@ class RecordFactory extends Base {
      */
     isModifiedField(record, fieldName) {
         if (!record.hasOwnProperty(fieldName)) {
-            Logger.logError('The record does not contain the field', fieldName, record);
+            Logger.logError('The record does not contain the field', fieldName, record)
         }
 
         let modifiedField = this.ovPrefix + fieldName;
 
         if (record.hasOwnProperty(modifiedField)) {
-            return !Neo.isEqual(record[fieldName], record[modifiedField]);
+            return !Neo.isEqual(record[fieldName], record[modifiedField])
         }
 
         return null;
@@ -212,7 +209,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.isRecord;
+        return record?.isRecord
     }
 
     /**
@@ -224,7 +221,7 @@ class RecordFactory extends Base {
      * @param {Object} opts.record
      */
     onRecordChange(opts) {
-        Neo.get(opts.model.storeId)?.onRecordChange(opts);
+        Neo.get(opts.model.storeId)?.onRecordChange(opts)
     }
 
     /**
@@ -237,11 +234,11 @@ class RecordFactory extends Base {
      */
     parseRecordValue(record, field, value, recordConfig=null) {
         if (field.calculate) {
-            return field.calculate(record, field, recordConfig);
+            return field.calculate(record, field, recordConfig)
         }
 
         if (field.convert) {
-            value = field.convert(value);
+            value = field.convert(value)
         }
 
         let fieldName = field.name,
@@ -259,44 +256,52 @@ class RecordFactory extends Base {
                 key = ns.pop();
 
             ns    = Neo.ns(ns, true, recordConfig);
-            value = ns[key];
+            value = ns[key]
         }
 
         if (Object.hasOwn(field, 'maxLength')) {
             if (value?.toString().length > maxLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with maxLength: ${maxLength}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (Object.hasOwn(field, 'minLength')) {
             if (value?.toString().length < minLength) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with minLength: ${minLength}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (Object.hasOwn(field, 'nullable')) {
             if (nullable === false && value === null) {
                 console.warn(`Setting record field: ${fieldName} value: ${value} conflicts with nullable: ${nullable}`);
-                return oldValue;
+                return oldValue
             }
         }
 
         if (type === 'date' && Neo.typeOf(value) !== 'Date') {
-            return new Date(value);
+            return new Date(value)
         }
 
-        if (type === 'html' && value) {
+        else if (type === 'float' && value) {
+            value = parseFloat(value)
+        }
+
+        else if (type === 'html' && value) {
+            value = value + ''
+        }
+
+        else if ((type === 'int' || type === 'integer') && value) {
+            value = parseInt(value)
+        }
+
+        else if (type === 'string' && value) {
             value = value + '';
+            value =  value.replace(/(<([^>]+)>)/ig, '')
         }
 
-        if (type === 'string' && value) {
-            value = value + '';
-            value =  value.replace(/(<([^>]+)>)/ig, '');
-        }
-
-        return value;
+        return value
     }
 
     /**
@@ -316,20 +321,16 @@ class RecordFactory extends Base {
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
                 record._isModified = true;
-                changedFields.push({name: key, oldValue, value});
+                changedFields.push({name: key, oldValue, value})
             }
         });
 
         if (!silent && Object.keys(changedFields).length > 0) {
-            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record});
+            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
         }
     }
 }
 
-Neo.applyClassConfig(RecordFactory);
-
-instance = Neo.create(RecordFactory);
-
-Neo.applyToGlobalNs(instance);
+instance = Neo.setupClass(RecordFactory);
 
 export default instance;

@@ -170,6 +170,6 @@ class RowModel extends Model {
     }
 }
 
-Neo.applyClassConfig(RowModel);
+Neo.setupClass(RowModel);
 
 export default RowModel;

@@ -36,6 +36,6 @@ class Example extends Model {
     }
 }
 
-Neo.applyClassConfig(Example);
+Neo.setupClass(Example);
 
 export default Example;

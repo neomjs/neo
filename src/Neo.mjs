@@ -55,124 +55,10 @@ Neo = globalThis.Neo = Object.assign({
     insideWorker: typeof DedicatedWorkerGlobalScope !== 'undefined' || typeof WorkerGlobalScope !== 'undefined',
 
     /**
-     * Internally used at the end of each class / module definition
-     * @memberOf module:Neo
-     * @param {Neo.core.Base} cls The Neo class to apply configs to
-     * @protected
-     * @tutorial 02_ClassSystem
+     * @deprecated in neo.mjs v7.0
      */
     applyClassConfig(cls) {
-        let baseCfg    = null,
-            ntypeChain = [],
-            ntypeMap   = Neo.ntypeMap,
-            proto      = cls.prototype || cls,
-            protos     = [],
-            cfg, config, ctor, ntype;
-
-        while (proto.__proto__) {
-            ctor = proto.constructor;
-
-            if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseCfg    = Neo.clone(ctor.config, true);
-                ntypeChain = [...ctor.ntypeChain];
-                break
-            }
-
-            protos.unshift(proto);
-            proto = proto.__proto__
-        }
-
-        config = baseCfg || {};
-
-        protos.forEach(element => {
-            let mixins;
-
-            ctor = element.constructor;
-
-            cfg = ctor.config || {};
-
-            if (Neo.overwrites) {
-                ctor.applyOverwrites(cfg)
-            }
-
-            Object.entries(cfg).forEach(([key, value]) => {
-                if (key.slice(-1) === '_') {
-                    delete cfg[key];
-                    key = key.slice(0, -1);
-                    cfg[key] = value;
-                    autoGenerateGetSet(element, key)
-                }
-
-                // only apply properties which have no setters inside the prototype chain
-                // those will get applied on create (Neo.core.Base -> initConfig)
-                else if (!Neo.hasPropertySetter(element, key)) {
-                    Object.defineProperty(element, key, {
-                        enumerable: true,
-                        value,
-                        writable  : true
-                    })
-                }
-            });
-
-            if (Object.hasOwn(cfg, 'ntype')) {
-                ntype = cfg.ntype;
-
-                ntypeChain.unshift(ntype);
-
-                // Running the docs app inside a workspace can pull in the same classes from different roots,
-                // so we want to check for different class names as well
-                if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
-                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`)
-                }
-
-                ntypeMap[ntype] = cfg.className;
-            }
-
-            mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
-
-            if (ctor.observable) {
-                mixins.push('Neo.core.Observable')
-            }
-
-            if (Object.hasOwn(cfg, 'mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
-                mixins.push(...cfg.mixins)
-            }
-
-            if (mixins.length > 0) {
-                applyMixins(ctor, mixins);
-
-                if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
-                    ctor.observable = true
-                }
-            }
-
-            delete cfg.mixins;
-            delete config.mixins;
-
-            Object.assign(config, cfg);
-
-            Object.assign(ctor, {
-                classConfigApplied: true,
-                config            : Neo.clone(config, true),
-                isClass           : true,
-                ntypeChain
-            });
-
-            !config.singleton && this.applyToGlobalNs(cls)
-        });
-
-        proto = cls.prototype || cls;
-
-        ntypeChain.forEach(ntype => {
-            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
-        });
-
-        if (proto.singleton) {
-            cls = Neo.create(cls);
-            Neo.applyToGlobalNs(cls)
-        }
-
-        return cls
+        return Neo.setupClass(cls)
     },
 
     /**
@@ -529,6 +415,126 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return Neo.create(className, config)
+    },
+
+    /**
+     * Internally used at the end of each class / module definition
+     * @memberOf module:Neo
+     * @param {Neo.core.Base} cls The Neo class to apply configs to
+     * @protected
+     */
+    setupClass(cls) {
+        let baseCfg    = null,
+            ntypeChain = [],
+            ntypeMap   = Neo.ntypeMap,
+            proto      = cls.prototype || cls,
+            protos     = [],
+            cfg, config, ctor, ntype;
+
+        while (proto.__proto__) {
+            ctor = proto.constructor;
+
+            if (Object.hasOwn(ctor, 'classConfigApplied')) {
+                baseCfg    = Neo.clone(ctor.config, true);
+                ntypeChain = [...ctor.ntypeChain];
+                break
+            }
+
+            protos.unshift(proto);
+            proto = proto.__proto__
+        }
+
+        config = baseCfg || {};
+
+        protos.forEach(element => {
+            let mixins;
+
+            ctor = element.constructor;
+
+            cfg = ctor.config || {};
+
+            if (Neo.overwrites) {
+                ctor.applyOverwrites(cfg)
+            }
+
+            Object.entries(cfg).forEach(([key, value]) => {
+                if (key.slice(-1) === '_') {
+                    delete cfg[key];
+                    key = key.slice(0, -1);
+                    cfg[key] = value;
+                    autoGenerateGetSet(element, key)
+                }
+
+                    // only apply properties which have no setters inside the prototype chain
+                // those will get applied on create (Neo.core.Base -> initConfig)
+                else if (!Neo.hasPropertySetter(element, key)) {
+                    Object.defineProperty(element, key, {
+                        enumerable: true,
+                        value,
+                        writable  : true
+                    })
+                }
+            });
+
+            if (Object.hasOwn(cfg, 'ntype')) {
+                ntype = cfg.ntype;
+
+                ntypeChain.unshift(ntype);
+
+                // Running the docs app inside a workspace can pull in the same classes from different roots,
+                // so we want to check for different class names as well
+                if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
+                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`)
+                }
+
+                ntypeMap[ntype] = cfg.className;
+            }
+
+            mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
+
+            if (ctor.observable) {
+                mixins.push('Neo.core.Observable')
+            }
+
+            if (Object.hasOwn(cfg, 'mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
+                mixins.push(...cfg.mixins)
+            }
+
+            if (mixins.length > 0) {
+                applyMixins(ctor, mixins);
+
+                if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
+                    ctor.observable = true
+                }
+            }
+
+            delete cfg.mixins;
+            delete config.mixins;
+
+            Object.assign(config, cfg);
+
+            Object.assign(ctor, {
+                classConfigApplied: true,
+                config            : Neo.clone(config, true),
+                isClass           : true,
+                ntypeChain
+            });
+
+            !config.singleton && this.applyToGlobalNs(cls)
+        });
+
+        proto = cls.prototype || cls;
+
+        ntypeChain.forEach(ntype => {
+            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
+        });
+
+        if (proto.singleton) {
+            cls = Neo.create(cls);
+            Neo.applyToGlobalNs(cls)
+        }
+
+        return cls
     },
 
     /**

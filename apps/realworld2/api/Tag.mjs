@@ -18,10 +18,6 @@ class Tag extends Base {
     }
 }
 
-Neo.applyClassConfig(Tag);
-
-let instance = Neo.create(Tag);
-
-Neo.applyToGlobalNs(instance);
+let instance = Neo.setupClass(Tag);
 
 export default instance;

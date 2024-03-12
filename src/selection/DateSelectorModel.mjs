@@ -168,6 +168,6 @@ class DateSelectorModel extends Model {
     }
 }
 
-Neo.applyClassConfig(DateSelectorModel);
+Neo.setupClass(DateSelectorModel);
 
 export default DateSelectorModel;

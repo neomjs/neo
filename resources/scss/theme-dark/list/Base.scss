@@ -6,7 +6,8 @@
     --list-item-background-color-hover    : #{lighten(#33343d, 10%)};
     --list-item-background-color-selected : #5a7082;
     --list-item-color-selected            : #2b2b2b;
-    --list-item-border-color-active       : #f6d199;
+    --list-item-focus-outline             : 1px solid #f6d199;
+    --list-item-focus-outline-offset      : -1px;
     --list-item-glyph-color               : inherit;
     --list-item-highlight-search-color    : #fff;
     --list-item-padding                   : 5px;

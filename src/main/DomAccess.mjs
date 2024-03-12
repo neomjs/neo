@@ -1,14 +1,19 @@
 import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixin/DeltaUpdates.mjs';
+import DomUtils     from './DomUtils.mjs';
 import Observable   from '../core/Observable.mjs';
 import Rectangle    from '../util/Rectangle.mjs';
-import String       from '../util/String.mjs';
-import DomUtils     from './DomUtils.mjs';
+import StringUtil   from '../util/String.mjs';
 
 const
     doPreventDefault = e => e.preventDefault(),
     filterTabbable   = e => !e.classList.contains('neo-focus-trap') && DomUtils.isTabbable(e) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
     lengthRE         = /^\d+\w+$/,
+
+    capturePassive = {
+        capture : true,
+        passive : true
+    },
 
     fontSizeProps = [
         'font-family',
@@ -25,10 +30,6 @@ const
         'word-break'
     ],
 
-    capturePassive = {
-        capture : true,
-        passive : true
-    },
     modifierKeys = {
         Shift   : 1,
         Alt     : 1,
@@ -72,7 +73,7 @@ class DomAccess extends Base {
         ],
         /**
          * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
+         * @member {Object} remote
          * @protected
          */
         remote: {
@@ -185,15 +186,15 @@ class DomAccess extends Base {
 
     onDocumentKeyDown(keyEvent) {
         if (modifierKeys[keyEvent.key]) {
-            // eg Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
+            // e.g. Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
             // Selection can consult this value
-            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = true;
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = true;
         }
     }
 
     onDocumentKeyUp(keyEvent) {
         if (modifierKeys[keyEvent.key]) {
-            Neo[`${String.uncapitalize(keyEvent.key)}KeyDown`] = false;
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = false;
         }
     }
 
@@ -551,9 +552,10 @@ class DomAccess extends Base {
     /**
      * Include a link into the document.head
      * @param {String} href
+     * @param {Object} dataset=null
      * @returns {Promise<unknown>}
      */
-    loadStylesheet(href) {
+    loadStylesheet(href, dataset=null) {
         let link;
 
         return new Promise((resolve, reject) => {
@@ -566,6 +568,10 @@ class DomAccess extends Base {
                 rel    : 'stylesheet',
                 type   : 'text/css'
             });
+
+            if (dataset) {
+                Object.assign(link.dataset, dataset)
+            }
 
             document.head.appendChild(link)
         })
@@ -834,23 +840,42 @@ class DomAccess extends Base {
     }
 
     /**
+     * You can either pass the id or a querySelector
      * @param {Object} data
-     * @param {String} data.id
-     * @param {String} [data.behavior='smooth']
-     * @param {String} [data.block='start']
-     * @param {String} [data.inline='nearest']
-     * @returns {Object} obj.id => the passed id
+     * @param {String} [data.id]
+     * @param {String} data.behavior='smooth'
+     * @param {String} data.block='start'
+     * @param {String} data.inline='nearest'
+     * @param {String} [data.querySelector]
+     * @returns {Promise<any>}
      */
     scrollIntoView(data) {
-        let node = this.getElement(data.id);
+        let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector),
+            opts = {
+                behavior: data.behavior || 'smooth',
+                block   : data.block    || 'start',
+                inline  : data.inline   || 'nearest'
+            };
 
-        node?.scrollIntoView({
-            behavior: data.behavior || 'smooth',
-            block   : data.block    || 'start',
-            inline  : data.inline   || 'nearest'
-        });
+        if (opts.behavior !== 'smooth') {
+            node.scrollIntoView(opts);
+        } else {
+            // scrollIntoView() does not provide a callback yet.
+            // See: https://github.com/w3c/csswg-drafts/issues/3744
+            return new Promise(resolve => {
+                if (node) {
+                    let hasListener = 'scrollend' in window;
 
-        return {id: data.id}
+                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture : true, once: true});
+
+                    node.scrollIntoView(opts);
+
+                    !hasListener && setTimeout(() => resolve(), 500)
+                } else {
+                    resolve()
+                }
+            })
+        }
     }
 
     /**
@@ -1093,6 +1118,6 @@ class DomAccess extends Base {
     }
 }
 
-let instance = Neo.applyClassConfig(DomAccess);
+let instance = Neo.setupClass(DomAccess);
 
 export default instance;

@@ -233,6 +233,6 @@ class Fieldset extends FormContainer {
     }
 }
 
-Neo.applyClassConfig(Fieldset);
+Neo.setupClass(Fieldset);
 
 export default Fieldset;

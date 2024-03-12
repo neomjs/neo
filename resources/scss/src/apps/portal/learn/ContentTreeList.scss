@@ -1,17 +1,17 @@
-
 .sidenav-container {
     background-color: transparent;
-    margin: 8px 0 8px 8px;
 }
 
 .topics-tree {
-
     background-color: white;
-    border-radius   : 8px;
-    padding         : 8px;
+    padding         : 8px 2px 8px 8px;
+
+    .neo-list-container {
+        padding: 0 3px 3px 3px;
+    }
 
     .neo-list-container>.neo-list-item {
-        font-size: 18px !important;
+        font-size  : 18px !important;
         font-weight: 500;
     }
 
@@ -22,13 +22,14 @@
         height          : 48px;
         display         : flex;
         align-items     : center;
+        margin-bottom   : 3px;
     }
 
     .neo-list-container ul {
         padding: 0 !important;
 
         .neo-list-item {
-            padding: 0 0 0 32px !important;
+            padding: 0 0 3px 32px !important;
         }
 
         ul .neo-list-item {

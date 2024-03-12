@@ -27,6 +27,6 @@ class ImageStore extends Store {
     }
 }
 
-Neo.applyClassConfig(ImageStore);
+Neo.setupClass(ImageStore);
 
 export default ImageStore;

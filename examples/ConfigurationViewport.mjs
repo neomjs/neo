@@ -203,8 +203,9 @@ class ConfigurationViewport extends Viewport {
 
         if (target === 'cmp') {
             me.exampleComponent.theme = newTheme;
-        } else {console.log(newTheme, oldTheme);
+        } else {
             Neo.applyDeltas(me.appName, {
+                id : me.id, // the viewport can get imported into other apps, so an id makes sense for scoping
                 cls: {
                     add   : [newTheme],
                     remove: [oldTheme]
@@ -214,6 +215,6 @@ class ConfigurationViewport extends Viewport {
     }
 }
 
-Neo.applyClassConfig(ConfigurationViewport);
+Neo.setupClass(ConfigurationViewport);
 
 export default ConfigurationViewport;

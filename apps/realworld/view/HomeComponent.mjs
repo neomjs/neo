@@ -457,6 +457,6 @@ class HomeComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(HomeComponent);
+Neo.setupClass(HomeComponent);
 
 export default HomeComponent;

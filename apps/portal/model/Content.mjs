@@ -21,8 +21,11 @@ class Content extends Model {
             name: 'collapsed',
             type: 'Boolean'
         }, {
+            name: 'hidden',
+            type: 'Boolean'
+        }, {
             name: 'id',
-            type: 'Integer'
+            type: 'String'
         }, {
             name: 'isLeaf',
             type: 'Boolean'
@@ -31,14 +34,11 @@ class Content extends Model {
             type: 'String'
         }, {
             name: 'parentId',
-            type: 'Integer'
-        }, {
-            name: 'path',
             type: 'String'
         }]
     }
 }
 
-Neo.applyClassConfig(Content);
+Neo.setupClass(Content);
 
 export default Content;

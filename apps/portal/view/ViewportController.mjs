@@ -20,6 +20,7 @@ class ViewportController extends Controller {
          */
         routes: {
             '/blog' : 'onBlogRoute',
+            '/docs' : 'onDocsRoute',
             '/home' : 'onHomeRoute',
             '/learn': 'onLearnRoute'
         }
@@ -53,6 +54,15 @@ class ViewportController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
+    onDocsRoute(params, value, oldValue) {
+        this.setMainContentIndex(3)
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
     onHomeRoute(params, value, oldValue) {
         this.setMainContentIndex(0)
     }
@@ -74,6 +84,6 @@ class ViewportController extends Controller {
     }
 }
 
-Neo.applyClassConfig(ViewportController);
+Neo.setupClass(ViewportController);
 
 export default ViewportController;

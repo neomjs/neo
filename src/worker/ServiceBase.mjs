@@ -388,6 +388,6 @@ class ServiceBase extends Base {
     }
 }
 
-Neo.applyClassConfig(ServiceBase);
+Neo.setupClass(ServiceBase);
 
 export default ServiceBase;

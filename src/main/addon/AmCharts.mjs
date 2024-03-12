@@ -272,6 +272,6 @@ class AmCharts extends Base {
     }
 }
 
-Neo.applyClassConfig(AmCharts);
+Neo.setupClass(AmCharts);
 
 export default AmCharts;

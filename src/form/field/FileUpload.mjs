@@ -447,7 +447,7 @@ class FileUpload extends Base {
         // We have to wait for the DOM to have changed, and the action button to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
         me.focus(me.vdom.cn[2].id);
-        
+
         me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(file.name);
         me.update();
         me.state = 'uploading';
@@ -861,6 +861,6 @@ class FileUpload extends Base {
     }
 }
 
-Neo.applyClassConfig(FileUpload);
+Neo.setupClass(FileUpload);
 
 export default FileUpload;

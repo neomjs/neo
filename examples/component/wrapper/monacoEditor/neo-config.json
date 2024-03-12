@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/component/wrapper/monacoEditor/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"]
+}

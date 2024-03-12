@@ -126,7 +126,7 @@ class Tree extends Base {
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, TreeModel);
+        return ClassSystemUtil.beforeSetInstance(value, TreeModel)
     }
 
     /**
@@ -140,10 +140,10 @@ class Tree extends Base {
         if (!value) {
             value = Neo.create(Collection, {
                 keyProperty: 'id'
-            });
+            })
         }
 
-        return super.beforeSetStore(value, oldValue);
+        return super.beforeSetStore(value, oldValue)
     }
 
 
@@ -169,7 +169,7 @@ class Tree extends Base {
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent ? '_vdom' : 'vdom'] = vdom
         }
     }
 
@@ -177,15 +177,16 @@ class Tree extends Base {
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
+     * @param {Boolean} hidden=false
      * @returns {Object} vdomRoot
      * @protected
      */
-    createItems(parentId, vdomRoot, level) {
+    createItems(parentId, vdomRoot, level, hidden=false) {
         let me        = this,
             items     = me.store.find('parentId', parentId),
             itemCls   = me.itemCls,
             folderCls = me.folderCls,
-            cls, tmpRoot;
+            cls, itemVdom, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -198,54 +199,59 @@ class Tree extends Base {
                     cls  : ['neo-list'],
                     cn   : [],
                     style: {
+                        display    : hidden ? 'none' : null,
                         paddingLeft: '15px'
                     }
                 });
 
-                tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1];
+                tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1]
             } else {
-                tmpRoot = vdomRoot;
+                tmpRoot = vdomRoot
             }
 
             items.forEach(item => {
                 cls = [itemCls];
 
                 if (item.isLeaf) {
-                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'));
+                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'))
                 } else {
                     cls.push(folderCls);
 
                     if (!item.collapsed) {
-                        cls.push('neo-folder-open');
+                        cls.push('neo-folder-open')
                     }
                 }
 
-                tmpRoot.cn.push({
-                    tag      : 'li',
-                    tabIndex : -1,
+                itemVdom = {
+                    tag: 'li',
                     cls,
-                    id       : me.getItemId(item.id),
-                    cn       : [{
+                    id : me.getItemId(item.id),
+                    cn : [{
                         tag      : 'span',
                         cls      : [itemCls + '-content', item.iconCls],
                         innerHTML: item.name,
-                        style    : {
-                            pointerEvents: 'none'
-                        }
+                        style    : {pointerEvents: 'none'}
                     }],
-                    style    : {
+                    style: {
+                        display : item.hidden ? 'none' : 'flex',
                         padding : '10px',
                         position: item.isLeaf ? null : 'sticky',
                         top     : item.isLeaf ? null : (level * 38) + 'px',
-                        zIndex  : item.isLeaf ? null : (20 / (level + 1)),
+                        zIndex  : item.isLeaf ? null : (20 / (level + 1))
                     }
-                });
+                };
 
-                tmpRoot = me.createItems(item.id, tmpRoot, level + 1);
-            });
+                if (me.itemsFocusable) {
+                    itemVdom.tabIndex = -1
+                }
+
+                tmpRoot.cn.push(itemVdom);
+
+                me.createItems(item.id, tmpRoot, level + 1, item.hidden || hidden)
+            })
         }
 
-        return vdomRoot;
+        return vdomRoot
     }
 
     /**
@@ -264,13 +270,13 @@ class Tree extends Base {
 
                 if (!node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
-                    hasMatch = true;
+                    hasMatch = true
                 }
             }
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent ? '_vdom' : 'vdom'] = vdom
         }
     }
 
@@ -289,46 +295,46 @@ class Tree extends Base {
             childReturnValue, directMatch, node;
 
         if (!value) {
-            value = '';
+            value = ''
         }
 
         me.store.items.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
-                node = me.getVdomChild(me.getItemId(item.id), me.vdom);
+                node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
                     directMatch = true;
-                    return `<span class="neo-highlight-search">${match}</span>`;
+                    return `<span class="neo-highlight-search">${match}</span>`
                 });
 
                 if (item.isLeaf) {
-                    childReturnValue = true;
+                    childReturnValue = true
                 } else {
-                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
+                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch)
                 }
 
                 if (directMatch || parentMatch || childReturnValue === false || value === '') {
-                    isFiltered = false;
+                    isFiltered = false
                 }
 
-                node.style.display = isFiltered ? 'none' : 'list-item';
+                node.style.display = isFiltered ? 'none' : 'list-item'
             }
         });
 
         if (parentId === null) {
             me.expandAll(true);
-            me.update();
+            me.update()
         }
 
-        return isFiltered;
+        return isFiltered
     }
 
     /**
      * @returns {Object}
      */
     getListItemsRoot() {
-        return this.vdom.cn[this.showCollapseExpandAllIcons ? 2 : 0];
+        return this.vdom.cn[this.showCollapseExpandAllIcons ? 2 : 0]
     }
 
     /**
@@ -336,9 +342,9 @@ class Tree extends Base {
      */
     onClick(data) {
         if (data.target.cls.includes('neo-treelist-menu-item')) {
-            this.onMenuItemClick(data.target.cls);
+            this.onMenuItemClick(data.target.cls)
         } else {
-            super.onClick(data);
+            super.onClick(data)
         }
     }
 
@@ -365,7 +371,7 @@ class Tree extends Base {
                 }]
             });
 
-            me.update();
+            me.update()
         }
     }
 
@@ -388,14 +394,14 @@ class Tree extends Base {
             if (path.includes(vnodeId)) {
                 record = tmpItem;
                 item = me.getVdomChild(vnodeId);
-                break;
+                break
             }
         }
 
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
-                me.update();
+                me.update()
             } else {
                 me.onLeafItemClick(record);
 
@@ -405,10 +411,10 @@ class Tree extends Base {
                  * @event leafItemClick
                  * @returns {Object} record
                  */
-                me.fire('leafItemClick', record);
+                me.fire('leafItemClick', record)
             }
 
-            super.onItemClick(node, data);
+            super.onItemClick(node, data)
         }
     }
 
@@ -427,13 +433,13 @@ class Tree extends Base {
      */
     onMenuItemClick(cls) {
         if (cls.includes('neo-treelist-collapse-all-icon')) {
-            this.collapseAll();
+            this.collapseAll()
         } else {
-            this.expandAll();
+            this.expandAll()
         }
     }
 }
 
-Neo.applyClassConfig(Tree);
+Neo.setupClass(Tree);
 
 export default Tree;

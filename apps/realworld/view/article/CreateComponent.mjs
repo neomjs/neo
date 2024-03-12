@@ -261,6 +261,6 @@ class CreateComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(CreateComponent);
+Neo.setupClass(CreateComponent);
 
 export default CreateComponent;

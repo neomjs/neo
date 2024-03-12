@@ -235,11 +235,11 @@ class Resizable extends Base {
         let me = this;
 
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, me.__proto__);
+            Neo.currentWorker.insertThemeFiles(value, me.owner.windowId, me.__proto__)
         }
 
         if (me.dragZone) {
-            me.dragZone.appName = value;
+            me.dragZone.appName = value
         }
     }
 
@@ -577,6 +577,6 @@ class Resizable extends Base {
     }
 }
 
-Neo.applyClassConfig(Resizable);
+Neo.setupClass(Resizable);
 
 export default Resizable;

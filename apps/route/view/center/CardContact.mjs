@@ -24,6 +24,6 @@ class CardContact extends Container {
 
 }
 
-Neo.applyClassConfig(CardContact);
+Neo.setupClass(CardContact);
 
 export default CardContact;

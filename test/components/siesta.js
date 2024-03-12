@@ -67,31 +67,30 @@ project.configure({
     })
 });
 
-project.plan(
-    {
-        group: 'button',
+project.plan({
+    group: 'button',
+    items: [
+        'files/button/Base.mjs'
+    ]
+}, {
+    group: 'component',
+    items: [
+        'files/component/DateSelector.mjs'
+    ]
+}, {
+    group: 'form',
+    items: [{
+        group: 'field',
         items: [
-            'files/button/Base.mjs'
+            'files/form/field/Select.mjs',
+            'files/form/field/Text.mjs'
         ]
-    },
-    {
-        group: 'component',
-        items: [
-            'files/component/DateSelector.mjs',
-            'files/component/ChipList.mjs'
-        ]
-    },
-    {
-        group: 'form',
-        items: [
-            {
-                group: 'field',
-                items: [
-                    'files/form/field/Select.mjs'
-                ]
-            }
-        ]
-    }
-);
+    }]
+}, {
+    group: 'list',
+    items: [
+        'files/list/Chip.mjs'
+    ]
+});
 
 project.start();

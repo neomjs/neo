@@ -21,6 +21,6 @@ class CardAdministrationDenied extends Container {
     }
 }
 
-Neo.applyClassConfig(CardAdministrationDenied);
+Neo.setupClass(CardAdministrationDenied);
 
 export default CardAdministrationDenied;

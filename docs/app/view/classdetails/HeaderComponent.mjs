@@ -38,9 +38,9 @@ class HeaderComponent extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                    {tag: 'span', cls: ['neo-docs-header-text']}
-                ]}
+        {cn: [
+            {tag: 'span', cls: ['neo-docs-header-text']}
+        ]}
     }
 
     /**
@@ -77,6 +77,6 @@ class HeaderComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(HeaderComponent);
+Neo.setupClass(HeaderComponent);
 
 export default HeaderComponent;

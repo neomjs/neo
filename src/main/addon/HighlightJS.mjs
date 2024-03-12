@@ -1,6 +1,5 @@
 import Base       from './Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
-import Stylesheet from './Stylesheet.mjs'
 
 /**
  * Required for the docs app which uses highlight.js for the source views
@@ -31,13 +30,13 @@ class HighlightJS extends Base {
          */
         remote: {
             app: [
+                'highlightAuto',
                 'loadLibrary',
                 'scrollIntoView',
                 'syntaxHighlight',
                 'switchTheme',
                 'syntaxHighlightInit',
-                'syntaxHighlightLine',
-                'highlightAuto'
+                'syntaxHighlightLine'
             ]
         },
         /**
@@ -48,10 +47,17 @@ class HighlightJS extends Base {
     }
 
     /**
-     * @param {Object} config
+     * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
+     * @param {Object} data
+     * @param {String} data.html
+     * @returns {Object} of the form {language, relevance, value, secondBest}
      */
-    construct(config) {
-        super.construct(config);
+    highlightAuto(data) {
+        if (hljs) {
+            return hljs.highlightAuto(data.html)
+        } else {
+            console.error('highlight.js is not included inside the main thread.')
+        }
     }
 
     /**
@@ -66,10 +72,10 @@ class HighlightJS extends Base {
         me.set(data);
 
         await DomAccess.loadScript(me.highlightJsPath).then(() => {
-            DomAccess.addScript({src: me.highlightJsLineNumbersPath});
+            DomAccess.addScript({src: me.highlightJsLineNumbersPath})
         });
 
-        Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
 
         return true
     }
@@ -97,14 +103,14 @@ class HighlightJS extends Base {
      */
     switchTheme(theme) {
         let definedThemes = {
-                dark: './resources/highlightjs-custom-dark-theme.css',
+                dark : './resources/highlightjs-custom-dark-theme.css',
                 light: './resources/highlightjs-custom-github-theme.css'
             },
             switchToTheme = definedThemes[theme];
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme);
+        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme)
     }
 
     /**
@@ -116,7 +122,7 @@ class HighlightJS extends Base {
             let node = document.getElementById(data.vnodeId);
 
             hljs.highlightBlock(node);
-            hljs.lineNumbersBlock(node);
+            hljs.lineNumbersBlock(node)
         } else {
             console.error('highlight.js is not included inside the main thread.')
         }
@@ -128,25 +134,11 @@ class HighlightJS extends Base {
     syntaxHighlightInit(data) {
         if (hljs) {
             let blocks = document.querySelectorAll('pre code:not(.hljs)');
-            Array.prototype.forEach.call(blocks, hljs.highlightBlock);
+            Array.prototype.forEach.call(blocks, hljs.highlightBlock)
         } else {
             console.error('highlight.js is not included inside the main thread.')
         }
     }
-
-    /**
-     * See https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
-     * @param {String} html
-     * @returns {Object} of the form {language, relevance, value, secondBest}
-     */
-    highlightAuto(html) {
-        if (hljs) {
-            return hljs.highlightAuto(html);
-        } else {
-            console.error('highlight.js is not included inside the main thread.')
-        }
-    }
-
 
     /**
      * @param {Object} data
@@ -175,12 +167,11 @@ class HighlightJS extends Base {
 
         if (Neo.isNumber(data.removeLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.removeLine + '"]');
-
-            el && el.parentNode.classList.remove(cls)
+            el?.parentNode.classList.remove(cls)
         }
     }
 }
 
-Neo.applyClassConfig(HighlightJS);
+Neo.setupClass(HighlightJS);
 
 export default HighlightJS;

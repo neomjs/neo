@@ -230,6 +230,6 @@ class Card extends Base {
     }
 }
 
-Neo.applyClassConfig(Card);
+Neo.setupClass(Card);
 
 export default Card;

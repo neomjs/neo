@@ -44,6 +44,22 @@ const DefaultConfig = {
      */
     cesiumJsToken: null,
     /**
+     * Set this config to false to disable the component logging using Ctrl-Right-Click
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.enableComponentLogger
+     * @type Boolean
+     */
+    enableComponentLogger: true,
+    /**
+     * Set this config to true to enable util.Logger (Neo.log()) based logs in production
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.enableLogsInProduction
+     * @type Boolean
+     */
+    enableLogsInProduction: false,
+    /**
      * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
      * This config will get auto-generated
      * @default 'dist/production'
@@ -126,12 +142,12 @@ const DefaultConfig = {
      * You can also create your own addons within your workspace scope. Make sure to put them inside 'src/main/addon/'
      * and prefix them with 'WS/' inside your neo-config.json file.
      * Example: ['DragDrop', 'Stylesheet', 'WS/MyAddon']
-     * @default ['DragDrop', 'Stylesheet']
+     * @default ['DragDrop', 'Navigator', 'Stylesheet']
      * @memberOf! module:Neo
      * @name config.mainThreadAddons
      * @type String[]
      */
-    mainThreadAddons: ['DragDrop', 'Stylesheet', 'Navigator'],
+    mainThreadAddons: ['DragDrop', 'Navigator', 'Stylesheet'],
     /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
@@ -218,6 +234,14 @@ const DefaultConfig = {
      * @type Boolean
      */
     useSharedWorkers: false,
+    /**
+     * True will generate a new task worker, which can get filled with own expensive remote methods
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useTaskWorker
+     * @type Boolean
+     */
+    useTaskWorker: false,
     /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true

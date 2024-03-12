@@ -47,6 +47,6 @@ class HeaderToolbarController extends ComponentController {
     }
 }
 
-Neo.applyClassConfig(HeaderToolbarController);
+Neo.setupClass(HeaderToolbarController);
 
 export default HeaderToolbarController;

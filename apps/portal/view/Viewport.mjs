@@ -32,7 +32,8 @@ class Viewport extends BaseViewport {
             items: [
                 {module: () => import('./home/MainContainer.mjs')},
                 {module: () => import('./learn/MainContainer.mjs')},
-                {module: () => import('./blog/Container.mjs')}
+                {module: () => import('./blog/Container.mjs')},
+                {module: () => import('../../../docs/app/view/MainContainer.mjs')}
             ]
         }]
     }
@@ -54,6 +55,6 @@ class Viewport extends BaseViewport {
     }
 }
 
-Neo.applyClassConfig(Viewport);
+Neo.setupClass(Viewport);
 
 export default Viewport;

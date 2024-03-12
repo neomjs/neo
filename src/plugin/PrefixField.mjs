@@ -128,22 +128,23 @@ class PrefixField extends Base {
      * @protected
      */
     addListeners() {
-        const me = this;
-        let listenerId;
+        let me    = this,
+            owner = me.owner,
+            listenerId;
 
-        me.owner.addDomListeners([
+        owner.addDomListeners([
             {keydown        : me.onFieldKeyDown        , scope: me},
             {focusin        : me.onFieldFocus          , scope: me},
             {focusout       : me.onFieldBlur           , scope: me},
             {selectionchange: me.onFieldSelectionChange, scope: me}
         ]);
 
-        listenerId = me.owner.on('mounted', (test) => {
-            Neo.currentWorker.insertThemeFiles(me.owner.appName, me.__proto__);
+        listenerId = me.owner.on('mounted', () => {
+            Neo.currentWorker.insertThemeFiles(owner.appName, owner.windowId, me.__proto__);
 
-            me.owner.un('mounted', listenerId);
+            owner.un('mounted', listenerId);
             listenerId = null;
-        });
+        })
     }
 
 
@@ -299,6 +300,6 @@ class PrefixField extends Base {
     }
 }
 
-Neo.applyClassConfig(PrefixField);
+Neo.setupClass(PrefixField);
 
 export default PrefixField;
