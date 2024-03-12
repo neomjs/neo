@@ -1,9 +1,13 @@
+## Introduction
+
 Controllers often need to get references to components in order to update 
 the UI or access component properties. 
 There are two common ways of doing that:
 
 - Using the component references passed to the event handler
 - Tagging a component with a `reference` and using `this.getReference()` in the controller
+
+## References are usually passed to event handlers
 
 Here's an example with one button. Clicking on the button will disable it. 
 As you can see, the handler uses the component reference pass in via `data.component`.
@@ -38,6 +42,8 @@ class MainView extends Container {
 }
 Neo.setupClass(MainView);
 </pre>
+
+## Using getReference() 
 
 But what if we need to get a reference to another component in the view? In that case
 you tag the component you need with a `reference` config, then use `getReference()` in
@@ -82,6 +88,7 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 </pre>
 
+## Getting a referencce when debugging
 
 There are other ways of getting references, but these are either non-standard or for debugging.
 For example, components have an `up()` method, and containers have a `down()` method. These look 
