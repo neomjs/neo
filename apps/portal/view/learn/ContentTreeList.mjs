@@ -77,6 +77,12 @@ class ContentTreeList extends TreeList {
      */
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
+
+        Neo.Main.setRoute({
+            value   : `/learn/${record.id}`,
+            windowId: this.windowId
+        });
+
         this.getModel().data.currentPageRecord = record
     }
 }
