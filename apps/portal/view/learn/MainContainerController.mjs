@@ -55,6 +55,16 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @param {String} learnItem
+     */
+    navigateTo(learnItem) {
+        Neo.Main.setRoute({
+            value   : `/learn/${learnItem}`,
+            windowId: this.component.windowId
+        })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -183,16 +193,14 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onNextPageButtonClick(data) {
-        let model = this.getModel();
-        model.setData('currentPageRecord', model.getData('nextPageRecord'))
+        this.navigateTo(this.getModel().getData('nextPageRecord').id)
     }
 
     /**
      * @param {Object} data
      */
     onPreviousPageButtonClick(data) {
-        let model = this.getModel();
-        model.setData('currentPageRecord', model.getData('previousPageRecord'))
+        this.navigateTo(this.getModel().getData('previousPageRecord').id)
     }
 
     /**
@@ -205,9 +213,11 @@ class MainContainerController extends Controller {
         if (store.getCount() > 0) {
             model.data.currentPageRecord = store.get(data.itemId)
         } else {
-            store.on('load', () => {
-                model.data.currentPageRecord = store.get(data.itemId)
-            }, this, {single: true})
+            store.on({
+                load : () => {model.data.currentPageRecord = store.get(data.itemId)},
+                delay: 10,
+                once : true
+            })
         }
     }
 }
