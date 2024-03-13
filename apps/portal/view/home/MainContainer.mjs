@@ -51,7 +51,6 @@ class Viewport extends Container {
                 route : '/learn'
             }]
         }, {
-
             module: Container,
             flex  : '1 0 auto',
             layout: {ntype: 'hbox', align: 'stretch'},
