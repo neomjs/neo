@@ -18,6 +18,7 @@
     {"name": "Tutorials",                                   "parentId": null,                "isLeaf": false, "expanded": false, "id": "Tutorials"},
         {"name": "Rock Scissors Paper",                     "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "RSP", "hidden":  true},
         {"name": "Earthquakes",                             "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "Earthquakes"},
+        {"name": "Todo List",                               "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "TodoList"},
     {"name": "Guides",                                      "parentId": null,                "isLeaf": false, "expanded": false, "id": "InDepth"},
         {"name": "Config",                                  "parentId": "InDepth",           "isLeaf": false, "id": "Config"},
         {"name": "Instance Lifecycle",                      "parentId": "InDepth",           "isLeaf": false, "id": "InstanceLifecycle"},
