@@ -126,6 +126,18 @@ class Observable extends Base {
     }
 
     /**
+     * Internal helper method for events which use the delay option
+     * @param {Object} cb
+     * @param {Array} args
+     * @param {Number} delay
+     */
+    delayedCallback(cb, args, delay) {
+        setTimeout(() => {
+            cb.fn.apply(cb.scope, args)
+        }, delay)
+    }
+
+    /**
      * @param name
      */
     fire(name) {
@@ -168,18 +180,6 @@ class Observable extends Base {
                 }
             }
         }
-    }
-
-    /**
-     *
-     * @param {Object} cb
-     * @param {Array} args
-     * @param {Number} delay
-     */
-    delayedCallback(cb, args, delay) {
-        setTimeout(() => {
-            cb.fn.apply(cb.scope, args)
-        }, delay)
     }
 
     /**
