@@ -53,24 +53,30 @@ class Viewport extends Container {
             layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
-                module : ContentBox,
-                header : 'Quick Application Development',
+                module: ContentBox,
+                header: 'Quick Application Development',
+                route : '#/learn/WhyNeo-Quick',
+
                 content: [
                     'Item 1',
                     'Item 2',
                     'Item 3'
                 ]
             }, {
-                module : ContentBox,
-                header : 'Extreme Performance',
+                module: ContentBox,
+                header: 'Extreme Speed',
+                route : '#/learn/WhyNeo-Speed',
+
                 content: [
                     'Item 1',
                     'Item 2',
                     'Item 3'
                 ]
             }, {
-                module : ContentBox,
-                header : 'Multi Window Apps',
+                module: ContentBox,
+                header: 'Multi Window Apps',
+                route : '#/learn/WhyNeo-Multi-Window',
+
                 content: [
                     'Item 1',
                     'Item 2',

@@ -25,10 +25,14 @@ class ContentBox extends Base {
          */
         header_: null,
         /**
+         * @member {String|null} route_=null
+         */
+        route_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
+        {tag: 'a', cn: [
             {tag: 'h3', cls: ['portal-content-box-headline']},
             {tag: 'ul', cls: ['portal-content-box-content'], cn: []}
         ]}
@@ -56,6 +60,17 @@ class ContentBox extends Base {
      */
     afterSetHeader(value, oldValue) {
         this.vdom.cn[0].html = value;
+        this.update()
+    }
+
+    /**
+     * Triggered after the route config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRoute(value, oldValue) {
+        this.vdom.href = value;
         this.update()
     }
 }

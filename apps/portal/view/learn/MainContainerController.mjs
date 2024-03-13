@@ -199,8 +199,16 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onRouteLearnItem(data) {
-        let model = this.getModel();
-        model.data.currentPageRecord = model.getStore('contentTree').get(data.itemId)
+        let model = this.getModel(),
+            store = model.getStore('contentTree');
+
+        if (store.getCount() > 0) {
+            model.data.currentPageRecord = store.get(data.itemId)
+        } else {
+            store.on('load', () => {
+                model.data.currentPageRecord = store.get(data.itemId)
+            }, this, {single: true})
+        }
     }
 }
 
