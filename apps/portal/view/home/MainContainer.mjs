@@ -18,6 +18,10 @@ class Viewport extends Container {
          */
         cls: ['newwebsite-viewport'],
         /**
+         * @member {Object} layout={ntype:'vbox',align:'center',pack:'center'}
+         */
+        layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -42,14 +46,14 @@ class Viewport extends Container {
                 url   : 'https://github.com/neomjs/neo'
             }, {
                 module: Button,
-                cls   : 'get-started-button',
-                text  : 'Get started',
                 flex  : 'none',
+                text  : 'Get started',
                 route : '/learn'
             }]
         }, {
 
             module: Container,
+            flex  : '1 0 auto',
             layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
