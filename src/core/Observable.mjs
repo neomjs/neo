@@ -29,28 +29,46 @@ class Observable extends Base {
      * @param {Object} [scope]
      * @param {String} [eventId]
      * @param {Object} [data]
-     * @param {Number} [order]
+     * @param {Number|String} [order]
      * @returns {String|null} eventId null in case an object gets passed as the name (multiple ids)
      */
     addListener(name, opts, scope, eventId, data, order) {
         let me         = this,
+            delay      = 0,
             nameObject = typeof name === 'object',
+            once       = false,
             listener, existing, eventConfig;
 
         if (nameObject) {
+            if (name.hasOwnProperty('delay')) {
+                delay = name.delay;
+                delete name.delay
+            }
+
+            if (name.hasOwnProperty('once')) {
+                once = name.once;
+                delete name.once
+            }
+
             if (name.hasOwnProperty('scope')) {
                 scope = name.scope;
-                delete name.scope;
+                delete name.scope
             }
 
             Object.entries(name).forEach(([key, value]) => {
-                me.addListener(key, value, scope);
-            });
+                if (Neo.isObject(value)) {
+                    me.addListener(key, {delay, once, scope, ...value})
+                } else {
+                    me.addListener(key, {delay, fn: value, once, scope})
+                }
+            })
         } else if (typeof opts === 'object') {
-            scope    = scope || opts.scope;
-            listener = opts.fn;
-            order    = order || opts.order;
+            delay    = delay   || opts.delay;
             eventId  = eventId || opts.eventId;
+            listener = opts.fn;
+            once     = once    || opts.once;
+            order    = order   || opts.order;
+            scope    = scope   || opts.scope;
         } else if (typeof opts === 'function') {
             listener = opts;
         } else if (typeof opts === 'string') {
@@ -61,10 +79,12 @@ class Observable extends Base {
 
         if (!nameObject) {
             eventConfig = {
-                fn: listener,
-                scope,
                 data,
-                id: eventId || Neo.getId('event')
+                delay,
+                fn: listener,
+                id: eventId || Neo.getId('event'),
+                once,
+                scope
             };
 
             if (existing = me.listeners?.[name]) {
@@ -85,10 +105,10 @@ class Observable extends Base {
                 me.listeners[name] = [eventConfig];
             }
 
-            return eventConfig.id;
+            return eventConfig.id
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -101,8 +121,7 @@ class Observable extends Base {
     callback(fn, scope=this, args) {
         if (fn) {
             const handler = this.resolveCallback(fn, scope);
-
-            handler.fn.apply(handler.scope, args);
+            handler.fn.apply(handler.scope, args)
         }
     }
 
@@ -113,33 +132,54 @@ class Observable extends Base {
         let me        = this,
             args      = [].slice.call(arguments, 1),
             listeners = me.listeners,
-            handler, handlers, i, len;
+            delay, handler, handlers, i, len;
 
         if (listeners && listeners[name]) {
             handlers = [...listeners[name]];
-            len    = handlers.length;
+            len      = handlers.length;
 
             for (i = 0; i < len; i++) {
                 handler = handlers[i];
+                delay   = handler.delay;
 
-                // Resolve function name on the scope (oe me), or, if it starts with 'up.'
+                // Resolve function name on the scope (or me), or, if it starts with 'up.'
                 // look in the ownership hierarchy from me.
                 const cb = me.resolveCallback(handler.fn, handler.scope || me);
 
-                // remove the listener, in case the scope no longer exists
+                // remove the listener if the scope no longer exists
                 if (cb.scope && !cb.scope.id) {
-                    listeners[name].splice(i, 1);
+                    listeners[name].splice(i, 1)
                 } else {
                     if (!me.suspendEvents) {
                         // Object event format. Inject firer reference in as 'source'
-                        if (args.length === 1 && typeof(args[0]) === 'object') {
-                            args[0].source = me.id;
+                        if (args.length === 1 && Neo.isObject(args[0])) {
+                            args[0].source = me.id
                         }
-                        cb.fn.apply(cb.scope, handler.data ? args.concat(handler.data) : args);
+
+                        // remove the listener if it has the once flag
+                        handler.once && listeners[name].splice(i, 1)
+
+                        if (Neo.isNumber(delay) && delay > 0) {
+                            me.delayedCallback(cb, handler.data ? args.concat(handler.data) : args, delay)
+                        } else {
+                            cb.fn.apply(cb.scope, handler.data ? args.concat(handler.data) : args)
+                        }
                     }
                 }
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} cb
+     * @param {Array} args
+     * @param {Number} delay
+     */
+    delayedCallback(cb, args, delay) {
+        setTimeout(() => {
+            cb.fn.apply(cb.scope, args)
+        }, delay)
     }
 
     /**
