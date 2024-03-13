@@ -62,9 +62,9 @@ class Viewport extends Container {
                 route : '#/learn/WhyNeo-Quick',
 
                 content: [
-                    'Item 1',
-                    'Item 2',
-                    'Item 3'
+                    'Property lifecycle hooks',
+                    'Elegant state management',
+                    'Simple and powerful debugging'
                 ]
             }, {
                 module: ContentBox,
