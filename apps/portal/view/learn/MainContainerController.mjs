@@ -10,7 +10,13 @@ class MainContainerController extends Controller {
          * @member {String} className='Portal.view.learn.MainContainerController'
          * @protected
          */
-        className: 'Portal.view.learn.MainContainerController'
+        className: 'Portal.view.learn.MainContainerController',
+        /**
+         * @member {Object} routes
+         */
+        routes: {
+            '/learn/{itemId}': 'onRouteLearnItem'
+        }
     }
 
     /**
@@ -187,6 +193,14 @@ class MainContainerController extends Controller {
     onPreviousPageButtonClick(data) {
         let model = this.getModel();
         model.setData('currentPageRecord', model.getData('previousPageRecord'))
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRouteLearnItem(data) {
+        let model = this.getModel();
+        model.data.currentPageRecord = model.getStore('contentTree').get(data.itemId)
     }
 }
 

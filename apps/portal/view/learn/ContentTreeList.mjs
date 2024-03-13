@@ -81,9 +81,7 @@ class ContentTreeList extends TreeList {
         Neo.Main.setRoute({
             value   : `/learn/${record.id}`,
             windowId: this.windowId
-        });
-
-        this.getModel().data.currentPageRecord = record
+        })
     }
 }
 
