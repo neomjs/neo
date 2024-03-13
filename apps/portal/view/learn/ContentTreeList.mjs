@@ -51,8 +51,11 @@ class ContentTreeList extends TreeList {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    afterSetCurrentPageRecord(value, oldValue) {
-        value && this.selectionModel.select(value)
+    async afterSetCurrentPageRecord(value, oldValue) {
+        if (value) {
+            await this.timeout(20);
+            this.selectionModel.select(value)
+        }
     }
 
     /**

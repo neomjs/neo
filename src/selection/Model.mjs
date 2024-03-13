@@ -226,7 +226,7 @@ class Model extends Base {
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect) {
-                me.deselectAll(true);
+                me.deselectAll(true)
             }
 
             items.forEach((node, i) => {
@@ -245,11 +245,11 @@ class Model extends Base {
             view.onSelect?.(items);
 
             me.fire('selectionChange', {
-                selection : itemCollection
-            });
+                selection: itemCollection
+            })
         }
         else {
-            me.fire('noChange');
+            me.fire('noChange')
         }
     }
 
