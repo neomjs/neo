@@ -32,23 +32,20 @@ class Viewport extends Container {
             module: Container,
             cls   : ['button-group'],
             flex  : 'none',
+            layout: {ntype: 'hbox'},
 
             items: [{
-                module : Button,
-                cls    : 'get-started-button',
-                text   : 'Get started',
-                flex   : 'none',
-                tooltip: {
-                    text     : 'Coming soon',
-                    showDelay: 0,
-                    hideDelay: 0
-                }
-            }, {
                 module: Button,
                 flex  : 'none',
                 text  : 'View on GitHub',
                 ui    : 'secondary',
                 url   : 'https://github.com/neomjs/neo'
+            }, {
+                module: Button,
+                cls   : 'get-started-button',
+                text  : 'Get started',
+                flex  : 'none',
+                route : '/learn'
             }]
         }, {
 
