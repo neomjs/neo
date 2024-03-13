@@ -95,12 +95,16 @@ class Base extends CoreBase {
     /**
      *
      */
-    onConstructed() {
-        let currentHash = HashHistory.first(),
-            defaultHash = this.defaultHash;
+    async onConstructed() {
+        let me          = this,
+            currentHash = HashHistory.first(),
+            defaultHash = me.defaultHash;
+
+        // get outside the construction chain => a related cmp & vm has to be constructed too
+        await me.timeout(1);
 
         if (currentHash) {
-            this.onHashChange(currentHash, null)
+            await me.onHashChange(currentHash, null)
         } else {
             /*
              * worker.App: onLoadApplication() will push config.hash into the HashHistory with a 5ms delay.
