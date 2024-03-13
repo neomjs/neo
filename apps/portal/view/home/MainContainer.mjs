@@ -1,5 +1,6 @@
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button     from '../../../../src/button/Base.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import ContentBox from './ContentBox.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
@@ -48,6 +49,36 @@ class Viewport extends Container {
                 text  : 'View on GitHub',
                 ui    : 'secondary',
                 url   : 'https://github.com/neomjs/neo'
+            }]
+        }, {
+
+            module: Container,
+            layout: {ntype: 'hbox', align: 'stretch'},
+
+            items: [{
+                module : ContentBox,
+                header : 'Quick Application Development',
+                content: [
+                    'Item 1',
+                    'Item 2',
+                    'Item 3'
+                ]
+            }, {
+                module : ContentBox,
+                header : 'Extreme Performance',
+                content: [
+                    'Item 1',
+                    'Item 2',
+                    'Item 3'
+                ]
+            }, {
+                module : ContentBox,
+                header : 'Multi Window Apps',
+                content: [
+                    'Item 1',
+                    'Item 2',
+                    'Item 3'
+                ]
             }]
         }]
     }
