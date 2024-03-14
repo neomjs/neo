@@ -25,9 +25,8 @@ class Viewport extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            cls   : ['vector'],
-            flex  : 'none'
+            cls  : ['vector'],
+            flex : 'none'
         }, {
             cls : 'neo-h1',
             flex: 'none',
