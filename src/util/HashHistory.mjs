@@ -56,6 +56,7 @@ class HashHistory extends Base {
      * @param {String} data.appName
      * @param {Object} data.hash
      * @param {String} data.hashString
+     * @param {Number} data.windowId
      */
     push(data) {
         let me    = this,
