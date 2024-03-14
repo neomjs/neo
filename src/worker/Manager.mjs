@@ -192,7 +192,8 @@ class Manager extends Base {
         if (hash) {
             config.hash = {
                 hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1)
+                hashString: hash.substring(1),
+                windowId  : me.windowId
             }
         }
 

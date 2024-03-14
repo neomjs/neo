@@ -55,7 +55,11 @@ class Application extends Base {
          * @member {Boolean} rendering=false
          * @protected
          */
-        rendering: false
+        rendering: false,
+        /**
+         * @member {Number|null} windowId=null
+         */
+        windowId: null
     }
 
     /**
@@ -70,6 +74,8 @@ class Application extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.windowId = Neo.config.windowId;
 
         Neo.apps = Neo.apps || {};
 
