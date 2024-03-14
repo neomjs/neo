@@ -104,7 +104,9 @@ class Base extends CoreBase {
         await me.timeout(1);
 
         if (currentHash) {
-            await me.onHashChange(currentHash, null)
+            if (currentHash.windowId === me.windowId) {
+                await me.onHashChange(currentHash, null)
+            }
         } else {
             /*
              * worker.App: onLoadApplication() will push config.hash into the HashHistory with a 5ms delay.
@@ -121,6 +123,11 @@ class Base extends CoreBase {
      * @param {Object} oldValue
      */
     async onHashChange(value, oldValue) {
+        // We only want to trigger hash changes for the same browser window (SharedWorker context)
+        if (value.windowId !== this.windowId) {
+            return
+        }
+
         let me                = this,
             counter           = 0,
             hasRouteBeenFound = false,
