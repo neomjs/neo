@@ -513,7 +513,8 @@ class DomEvents extends Base {
             data  : {
                 appNames: manager.appNames,
                 hash    : this.parseHash(hashString),
-                hashString
+                hashString,
+                windowId: manager.windowId
             }
         })
     }
