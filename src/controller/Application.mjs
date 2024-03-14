@@ -21,6 +21,11 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
+         * @member {String} ntype='application'
+         * @protected
+         */
+        ntype: 'application',
+        /**
          * @member {String|null} appThemeFolder=null
          */
         appThemeFolder: null,
