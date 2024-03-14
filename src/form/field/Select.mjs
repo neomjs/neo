@@ -387,11 +387,11 @@ class Select extends Picker {
     }
 
     /**
-     * @param {Object} data
+     * @param {String} value
      */
-    filterOnInput(data) {
-        if (data.value) {
-            this.doFilter(data.value)
+    filterOnInput(value) {
+        if (value) {
+            this.doFilter(value)
         } else {
             this.picker?.hide()
         }
@@ -485,26 +485,19 @@ class Select extends Picker {
      * @protected
      */
     onFocusLeave(data) {
-        let me = this;
-
-        console.log(me.forceSelection, me.record, me.activeRecordId);
+        let me = this,
+            record;
 
         if (me.forceSelection && !me.record) {
-            me.value = me.store.get(me.activeRecordId)
+            record = me.store.get(me.activeRecordId);
+            me.value = record;
+
+            if (!record) {
+                me.inputValue = null
+            }
         }
 
         super.onFocusLeave(data)
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    onInputValueChange(data) {
-        // We do not call super here. The value of the Select is *not* connected to the value
-        // typed into the input area. The input area is just a filter value to filter the list.
-        this.lastManualInput = data.value
-        this.filterOnInput(data);
     }
 
     /**
@@ -715,6 +708,16 @@ class Select extends Picker {
         }
 
         !silent && me.update()
+    }
+
+    /**
+     * @param {String} inputValue
+     * @returns {*}
+     * @protected
+     */
+    updateValueFromInputValue(inputValue) {
+        this.lastManualInput = inputValue
+        this.filterOnInput(inputValue)
     }
 }
 

@@ -496,7 +496,7 @@ class Text extends Base {
         NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
         me.cls = cls;
 
-        me.value = me.updateValueFromInputValue(value)
+        me.updateValueFromInputValue(value)
     }
 
     /**
@@ -1566,7 +1566,7 @@ class Text extends Base {
      * @protected
      */
     updateValueFromInputValue(inputValue) {
-        return inputValue
+        this.value = inputValue
     }
 
     /**
