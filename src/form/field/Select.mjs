@@ -127,11 +127,6 @@ class Select extends Picker {
      */
     preStoreLoadValue = null
     /**
-     * Internal flag to not show a picker when calling doFilter()
-     * @member {Boolean} preventFiltering=false
-     */
-    preventFiltering = false
-    /**
      * Internal flag to not show a picker when non user-based input value changes happen
      * @member {Boolean} programmaticValueChange=false
      */
@@ -373,16 +368,12 @@ class Select extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        if (this.preventFiltering) {
-            return
-        }
-
         let me     = this,
             store  = me.store,
             filter = store.getFilter(me.displayField),
             picker = me.picker,
             record = me.value;
-        console.log('doFilter', value, record);
+
         if (filter) {
             filter.value = value
         }
@@ -418,7 +409,7 @@ class Select extends Picker {
     /**
      * @param {String} value
      */
-    filterOnInput(value) {console.log('filterOnInput', value);
+    filterOnInput(value) {
         if (value) {
             this.doFilter(value)
         } else {
@@ -516,16 +507,13 @@ class Select extends Picker {
     onFocusLeave(data) {
         let me = this;
 
-        console.log('onFocusLeave start', me.value, me.store.get(me.activeRecordId));
-
         if (me.forceSelection && !me.value) {
-            me.preventFiltering = true;
-            me.value            = me.store.get(me.activeRecordId);
-            me.preventFiltering = false;
+            me.programmaticValueChange = true;
+            me.value                   = me.store.get(me.activeRecordId);
+            me.programmaticValueChange = false;
         }
 
         me.updateTypeAheadValue(null);
-        console.log('onFocusLeave end', me.value);
 
         super.onFocusLeave(data)
     }
@@ -637,7 +625,7 @@ class Select extends Picker {
     onStoreLoad(items) {
         let me    = this,
             value = me.preStoreLoadValue;
-console.log('onStoreLoad', value);
+
         if (value !== null) {
             me._value = undefined; // silent update
             me.value  = value
@@ -682,8 +670,6 @@ console.log('onStoreLoad', value);
      * @protected
      */
     updateInputValueFromValue(value) {
-        console.log('updateInputValueFromValue', this.id, value);
-
         let inputValue = null;
 
         if (Neo.isObject(value)) {
