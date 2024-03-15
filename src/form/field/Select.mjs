@@ -122,10 +122,20 @@ class Select extends Picker {
     }
 
     /**
+     * Internal flag to store the value, in case it was set before the store was loaded
+     * @member {Number|String} preStoreLoadValue=null
+     */
+    preStoreLoadValue = null
+    /**
      * Internal flag to not show a picker when calling doFilter()
      * @member {Boolean} preventFiltering=false
      */
     preventFiltering = false
+    /**
+     * Internal flag to not show a picker when non user-based input value changes happen
+     * @member {Boolean} programmaticValueChange=false
+     */
+    programmaticValueChange = false
 
     /**
      * @param {Object} config
@@ -136,30 +146,9 @@ class Select extends Picker {
         let me = this;
 
         // Create buffered function to respond to input field mutation
-        me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
+        //me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
 
         me.typeAhead && me.updateTypeAhead()
-    }
-
-    /**
-     * Triggered after the value config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
-     */
-    afterSetValue(value, oldValue) {
-        super.afterSetValue(value, oldValue);
-
-        if (this._picker?.isVisible) {
-            let selectionModel = this.list?.selectionModel;
-
-            if (value) {
-                oldValue && selectionModel?.deselect(oldValue);
-                selectionModel?.select(value)
-            } else {
-                selectionModel.deselectAll()
-            }
-        }
     }
 
     /**
@@ -180,7 +169,7 @@ class Select extends Picker {
                     includeEmptyValues: true,
                     operator          : me.filterOperator,
                     property          : me.displayField,
-                    value             : value.get(me.value)?.[me.displayField] || me.value
+                    value             : value?.[me.displayField] || null
                 });
 
                 value.filters = filters
@@ -202,6 +191,31 @@ class Select extends Picker {
      */
     afterSetTypeAhead(value, oldValue) {
         this.rendered && this.updateTypeAhead()
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        super.afterSetValue(value, oldValue);
+
+        let me = this;
+
+        me.programmaticValueChange = false;
+
+        if (me._picker?.isVisible) {
+            let selectionModel = me.list?.selectionModel;
+
+            if (value) {
+                oldValue && selectionModel?.deselect(oldValue);
+                selectionModel?.select(value)
+            } else {
+                selectionModel.deselectAll()
+            }
+        }
     }
 
     /**
@@ -239,11 +253,12 @@ class Select extends Picker {
                         v = {
                             [valueField]   : v,
                             [displayField] : v
-                        };
+                        }
                     }
-                    return v;
+
+                    return v
                 })
-            };
+            }
         }
 
         // to reduce boilerplate code, a store config object without a defined model should default
@@ -272,28 +287,41 @@ class Select extends Picker {
 
     /**
      * Triggered before the value config gets changed.
-     * @param {Number|String|null} value
-     * @param {Number|String|null} oldValue
-     * @returns {Number|String|null}
+     * @param {Number|Object|String} value
+     * @param {Number|Object|String} oldValue
+     * @returns {Number|Object|String}
      * @protected
      */
-    beforeSetValue(value, oldValue) {console.log('beforeSetValue', value);
+    beforeSetValue(value, oldValue) {
         let me           = this,
             displayField = me.displayField,
             store        = me.store,
             record;
 
+        me.programmaticValueChange = true;
+
+        // getting a record, nothing to do
         if (Neo.isObject(value)) {
             return value
-        } else {
+        }
+
+        if (value === null) {
+            return null
+        }
+
+        // we can only match record ids or display values in case the store is loaded
+        if (store.getCount() > 0) {
             record = store.isFiltered() ? store.allItems.get(value) : store.get(value);
 
             if (record) {
                 return record
             }
-        }
 
-        return store.find(displayField, value)[0] || null
+            return store.find(displayField, value)[0] || null
+        } else {
+            // store not loaded yet
+            me.preStoreLoadValue = value
+        }
     }
 
     /**
@@ -348,15 +376,13 @@ class Select extends Picker {
         if (this.preventFiltering) {
             return
         }
-console.log('doFilter', value);
+
         let me     = this,
             store  = me.store,
             filter = store.getFilter(me.displayField),
-            {
-                picker,
-                record
-            }      = me;
-
+            picker = me.picker,
+            record = me.value;
+        console.log('doFilter', value, record);
         if (filter) {
             filter.value = value
         }
@@ -392,7 +418,7 @@ console.log('doFilter', value);
     /**
      * @param {String} value
      */
-    filterOnInput(value) {
+    filterOnInput(value) {console.log('filterOnInput', value);
         if (value) {
             this.doFilter(value)
         } else {
@@ -498,6 +524,7 @@ console.log('doFilter', value);
             me.preventFiltering = false;
         }
 
+        me.updateTypeAheadValue(null);
         console.log('onFocusLeave end', me.value);
 
         super.onFocusLeave(data)
@@ -529,17 +556,18 @@ console.log('doFilter', value);
     onListItemSelectionChange({ selection }) {
         if (selection?.length) {
             const
-                me           = this,
-                oldValue     = me.value,
-                selected     = selection[0],
-                record       = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
+                me       = this,
+                selected = selection[0],
+                record   = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
 
             me.hidePicker();
             me.hintRecordId = null;
-            me._value       = record;
-            me.getInputHintEl().value = null;
 
-            me.afterSetValue(record, oldValue, true); // prevent the list from getting filtered
+            me.updateTypeAheadValue(null, true);
+
+            me.preventFiltering = true;
+            me.value            = record;
+            me.preventFiltering = false;
 
             me.fire('select', {
                 value: record
@@ -580,9 +608,11 @@ console.log('doFilter', value);
         const inputEl = this.getInputEl();
 
         super.onPickerHiddenChange(...arguments);
+
         if (value) {
-            inputEl['aria-activedescendant'] = '';
+            inputEl['aria-activedescendant'] = ''
         }
+
         inputEl['aria-expanded'] = !value;
         this.update();
     }
@@ -595,8 +625,7 @@ console.log('doFilter', value);
 
         if (me.picker?.isVisible) {
             me.picker.hidden = true
-        }
-        else if (!me.readOnly && !me.disabled) {
+        } else if (!me.disabled && !me.readOnly) {
             me.doFilter(null)
         }
     }
@@ -607,10 +636,10 @@ console.log('doFilter', value);
      */
     onStoreLoad(items) {
         let me    = this,
-            value = me.value;
-
-        if (value) {
-            me._value = null; // silent update
+            value = me.preStoreLoadValue;
+console.log('onStoreLoad', value);
+        if (value !== null) {
+            me._value = undefined; // silent update
             me.value  = value
         }
     }
@@ -638,13 +667,13 @@ console.log('doFilter', value);
 
         if (!Neo.isNumber(index)) {
             if (me.activeRecordId) {
-                index = me.store.indexOfKey(me.activeRecordId);
+                index = me.store.indexOfKey(me.activeRecordId)
             } else {
-                index = 0;
+                index = 0
             }
         }
 
-        me.list.selectItem(index);
+        me.list.selectItem(index)
     }
 
     /**
@@ -653,7 +682,7 @@ console.log('doFilter', value);
      * @protected
      */
     updateInputValueFromValue(value) {
-        console.log('updateInputValueFromValue', value);
+        console.log('updateInputValueFromValue', this.id, value);
 
         let inputValue = null;
 
@@ -715,7 +744,7 @@ console.log('doFilter', value);
 
             if (match && inputHintEl) {
                 inputHintEl.value = value + match[displayField].substr(value.length);
-                me.activeRecord = match;
+                me.activeRecord   = match;
                 me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
             }
         }
@@ -732,14 +761,16 @@ console.log('doFilter', value);
      * @protected
      */
     updateValueFromInputValue(inputValue) {
-        console.log('updateValueFromInputValue', inputValue);
-
         let me = this;
 
-        me._value = null; // changing the input => silent record reset
+        me.lastManualInput = inputValue;
 
-        this.lastManualInput = inputValue;
-        this.filterOnInput(inputValue)
+        if (!me.programmaticValueChange) {
+            // changing the input => silent record reset
+            me._value = null;
+
+            me.filterOnInput(inputValue)
+        }
     }
 }
 

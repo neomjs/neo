@@ -210,9 +210,10 @@ StartTest(t => {
 
     t.it('With store as data', async t => {
         await setup({
-            labelText : 'Foo',
-            store     : ['Foo', 'Bar', 'Bletch']
+            labelText: 'Foo',
+            store    : ['Foo', 'Bar', 'Bletch']
         });
+
         await t.click('.neo-field-trigger.fa-caret-down');
 
         await t.waitForSelector('.neo-list-item:contains(Foo)');
