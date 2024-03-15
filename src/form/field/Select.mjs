@@ -426,19 +426,10 @@ class Select extends Picker {
     fireChangeEvent(value, oldValue) {
         let me            = this,
             FormContainer = Neo.form?.Container,
-            record        = me.record,
-            oldRecord, params;
+            params;
 
-        if (!(me.forceSelection && !record)) {
-            oldRecord = me.store.get(oldValue) || null;
-
-            params = {
-                component: me,
-                oldRecord,
-                oldValue,
-                record,
-                value
-            };
+        if (!(me.forceSelection && !value)) {
+            params = {component: me, oldValue, value};
 
             me.fire('change', params);
 
@@ -568,7 +559,7 @@ class Select extends Picker {
      * For example clicking on already selected list item.
      */
     onListItemSelectionNoChange() {
-        this.hidePicker();
+        this.hidePicker()
     }
 
     /**
@@ -602,7 +593,7 @@ class Select extends Picker {
         }
 
         inputEl['aria-expanded'] = !value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -741,7 +732,6 @@ class Select extends Picker {
 
         !silent && me.update()
     }
-
     /**
      * @param {String} inputValue
      * @protected
