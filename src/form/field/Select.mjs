@@ -483,7 +483,7 @@ class Select extends Picker {
     getValue() {
         let me = this;
 
-        return me.record?.[me.valueField] || me.value
+        return me.value?.[me.valueField] || me.emptyValue
     }
 
     /**
