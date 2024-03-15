@@ -89,11 +89,6 @@ class Select extends Picker {
          */
         pickerHeight: null,
         /**
-         * @member {Object} record_=null
-         * @protected
-         */
-        record_: null,
-        /**
          * @member {String|null} role='combobox'
          */
         role: 'combobox',
@@ -127,6 +122,12 @@ class Select extends Picker {
     }
 
     /**
+     * Internal flag to not show a picker when calling doFilter()
+     * @member {Boolean} preventFiltering=false
+     */
+    preventFiltering = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -141,12 +142,14 @@ class Select extends Picker {
     }
 
     /**
-     * Triggered after the record config got changed
+     * Triggered after the value config got changed
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
      */
-    afterSetRecord(value, oldValue) {
+    afterSetValue(value, oldValue) {
+        super.afterSetValue(value, oldValue);
+
         if (this._picker?.isVisible) {
             let selectionModel = this.list?.selectionModel;
 
@@ -274,27 +277,23 @@ class Select extends Picker {
      * @returns {Number|String|null}
      * @protected
      */
-    beforeSetValue(value, oldValue) {
+    beforeSetValue(value, oldValue) {console.log('beforeSetValue', value);
         let me           = this,
             displayField = me.displayField,
             store        = me.store,
             record;
 
         if (Neo.isObject(value)) {
-            me.record = value;
-            return value[displayField];
+            return value
         } else {
             record = store.isFiltered() ? store.allItems.get(value) : store.get(value);
 
             if (record) {
-                me.record = record;
-                return record[displayField];
+                return record
             }
         }
 
-        me.record = store.find(displayField, value)[0] || null;
-
-        return value
+        return store.find(displayField, value)[0] || null
     }
 
     /**
@@ -346,6 +345,10 @@ class Select extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
+        if (this.preventFiltering) {
+            return
+        }
+console.log('doFilter', value);
         let me     = this,
             store  = me.store,
             filter = store.getFilter(me.displayField),
@@ -485,17 +488,17 @@ class Select extends Picker {
      * @protected
      */
     onFocusLeave(data) {
-        let me = this,
-            record;
+        let me = this;
 
-        if (me.forceSelection && !me.record) {
-            record = me.store.get(me.activeRecordId);
-            me.value = record;
+        console.log('onFocusLeave start', me.value, me.store.get(me.activeRecordId));
 
-            if (!record) {
-                me.inputValue = null
-            }
+        if (me.forceSelection && !me.value) {
+            me.preventFiltering = true;
+            me.value            = me.store.get(me.activeRecordId);
+            me.preventFiltering = false;
         }
+
+        console.log('onFocusLeave end', me.value);
 
         super.onFocusLeave(data)
     }
@@ -529,20 +532,17 @@ class Select extends Picker {
                 me           = this,
                 oldValue     = me.value,
                 selected     = selection[0],
-                record       = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected,
-                value        = record[me.displayField];
+                record       = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
 
             me.hidePicker();
             me.hintRecordId = null;
-            me.record       = record;
-            me._value       = value;
+            me._value       = record;
             me.getInputHintEl().value = null;
 
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+            me.afterSetValue(record, oldValue, true); // prevent the list from getting filtered
 
             me.fire('select', {
-                record,
-                value
+                value: record
             })
         }
     }
@@ -648,6 +648,23 @@ class Select extends Picker {
     }
 
     /**
+     * Override this method as needed inside class extensions.
+     * @param {*} value
+     * @protected
+     */
+    updateInputValueFromValue(value) {
+        console.log('updateInputValueFromValue', value);
+
+        let inputValue = null;
+
+        if (Neo.isObject(value)) {
+            inputValue = value[this.displayField]
+        }
+
+        this.inputValue = inputValue
+    }
+
+    /**
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -692,7 +709,7 @@ class Select extends Picker {
                         = me,
             inputHintEl = me.getInputHintEl();
 
-        if (!me.record && value?.length > 0) {
+        if (!me.value && value?.length > 0) {
             const search = value.toLocaleLowerCase();
             match = store.items.find(r => r[displayField]?.toLowerCase?.()?.startsWith(search));
 
@@ -712,11 +729,16 @@ class Select extends Picker {
 
     /**
      * @param {String} inputValue
-     * @returns {*}
      * @protected
      */
     updateValueFromInputValue(inputValue) {
-        this.lastManualInput = inputValue
+        console.log('updateValueFromInputValue', inputValue);
+
+        let me = this;
+
+        me._value = null; // changing the input => silent record reset
+
+        this.lastManualInput = inputValue;
         this.filterOnInput(inputValue)
     }
 }

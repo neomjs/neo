@@ -485,7 +485,7 @@ class Text extends Base {
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetInputValue(value, oldValue) {
+    afterSetInputValue(value, oldValue) {console.log('afterSetInputValue', value, oldValue);
         let me  = this,
             cls = me.cls;
 
@@ -872,7 +872,8 @@ class Text extends Base {
             cls;
 
         me.silentVdomUpdate = true;
-        me.inputValue       = me.updateInputValueFromValue(value);
+
+        me.updateInputValueFromValue(value);
 
         me.validate(); // silent
 
@@ -1505,11 +1506,10 @@ class Text extends Base {
     /**
      * Override this method as needed inside class extensions.
      * @param {*} value
-     * @returns {String}
      * @protected
      */
     updateInputValueFromValue(value) {
-        return value
+        this.inputValue = value
     }
 
     /**
@@ -1562,7 +1562,6 @@ class Text extends Base {
     /**
      * Override this method as needed inside class extensions.
      * @param {String} inputValue
-     * @returns {*}
      * @protected
      */
     updateValueFromInputValue(inputValue) {
