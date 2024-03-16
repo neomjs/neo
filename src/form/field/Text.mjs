@@ -485,7 +485,7 @@ class Text extends Base {
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetInputValue(value, oldValue) {console.log('afterSetInputValue', value, oldValue);
+    afterSetInputValue(value, oldValue) {
         let me  = this,
             cls = me.cls;
 
