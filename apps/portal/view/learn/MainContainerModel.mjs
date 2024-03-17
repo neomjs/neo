@@ -86,7 +86,7 @@ class MainContainerModel extends Component {
                 for (i=index-1; i >= 0; i--) {
                     record = store.getAt(i);
 
-                    if (record.isLeaf) {
+                    if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         previousPageRecord = record;
                         break
                     }
@@ -98,7 +98,7 @@ class MainContainerModel extends Component {
                 for (i=index+1; i < countPages; i++) {
                     record = store.getAt(i);
 
-                    if (record.isLeaf) {
+                    if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         nextPageRecord = record;
                         break
                     }
@@ -117,6 +117,25 @@ class MainContainerModel extends Component {
                 break
             }
         }
+    }
+
+    /**
+     * We need to check the parent-node chain inside the tree.
+     * => Any hidden parent-node results in a hidden record.
+     * @param {Object} record
+     * @param {Neo.data.Store} store
+     * @returns {Boolean}
+     */
+    recordIsHidden(record, store) {
+        if (record.hidden) {
+            return true
+        }
+
+        if (record.parentId !== null) {
+            return this.recordIsHidden(store.get(record.parentId), store)
+        }
+
+        return false
     }
 }
 
