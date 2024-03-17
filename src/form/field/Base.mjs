@@ -82,6 +82,14 @@ class Base extends Component {
      */
     formGroupString = null
     /**
+     * Base implementation to check if the fields value has changed.
+     * Can get overridden in superclasses.
+     * @returns {Boolean}
+     */
+    get isDirty() {
+        return this.value === this.originalConfig.value
+    }
+    /**
      * An internal cache for formGroup(s) and the field name
      * @member {String|null} path=null
      */
