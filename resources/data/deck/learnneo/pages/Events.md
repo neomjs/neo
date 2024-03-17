@@ -7,7 +7,7 @@ which fires a `load` event after the store is loaded with data.
 Some terminology related to events is that events are _fired_, and as a result, some 
 event _handler_ &mdash; or _listener_ &mdash; is run.
 
-## listeners:{}
+## Listeners
 
 To specify an event handler, use `listeners: {}`, specifying in as many event/handler
 pairs as you need. 
@@ -125,7 +125,9 @@ class ToggleButton extends Button {
     }
     afterSetChecked(checked) {
         this.iconCls = checked ? 'fa fa-square-check' : 'fa fa-square';
-        this.fire('change', {component: this, checked}) // This is where our custom event is being fired
+        
+        // This is where our custom event is being fired
+        this.fire('change', {component: this, checked})
     }
     onClick(data) {
         super.onClick(data); 
