@@ -40,14 +40,19 @@ class MainContainerModel extends Component {
             deck: null,
             /**
              * The record which gets shown as the content page
-             * @member {Object} data.currentRecord=null
+             * @member {Object} data.nextPageRecord=null
              */
             nextPageRecord: null,
             /**
              * The record which gets shown as the content page
-             * @member {Object} data.currentRecord=null
+             * @member {Object} data.previousPageRecord=null
              */
-            previousPageRecord: null
+            previousPageRecord: null,
+            /**
+             * Merging the direct parent text
+             * @member {String|null} data.previousPageText=null
+             */
+            previousPageText: null
         },
         /**
          * @member {Object} stores
@@ -60,6 +65,22 @@ class MainContainerModel extends Component {
                 module: ContentStore
             }
         }
+    }
+
+    /**
+     * Combines the record parent node name (if available) with the record name
+     * @param {Object} record
+     * @param {Neo.data.Store} store
+     * @returns {String|null}
+     */
+    getRecordTreeName(record, store) {
+        let parentText = record.name;
+
+        if (record.parentId !== null) {
+            parentText = store.get(record.parentId).name + ': ' + parentText
+        }
+
+        return parentText
     }
 
     /**
@@ -79,7 +100,9 @@ class MainContainerModel extends Component {
                     store              = me.getStore('contentTree'),
                     index              = store.indexOf(value),
                     nextPageRecord     = null,
+                    nextPageText       = null,
                     previousPageRecord = null,
+                    previousPageText   = null,
                     i, record;
 
                 // the logic assumes that the tree store is sorted
@@ -88,11 +111,12 @@ class MainContainerModel extends Component {
 
                     if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         previousPageRecord = record;
+                        previousPageText   = me.getRecordTreeName(record, store);
                         break
                     }
                 }
 
-                me.setData({previousPageRecord});
+                me.setData({previousPageText, previousPageRecord});
 
                 // the logic assumes that the tree store is sorted
                 for (i=index+1; i < countPages; i++) {
@@ -100,11 +124,12 @@ class MainContainerModel extends Component {
 
                     if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         nextPageRecord = record;
+                        nextPageText   = me.getRecordTreeName(record, store);
                         break
                     }
                 }
 
-                me.setData({nextPageRecord});
+                me.setData({nextPageText, nextPageRecord});
 
                 break
             }
