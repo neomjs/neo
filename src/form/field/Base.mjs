@@ -104,7 +104,7 @@ class Base extends Component {
         let cls = this.cls;
 
         NeoArray.toggle(cls, 'neo-is-touched', value);
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -126,7 +126,7 @@ class Base extends Component {
      */
     afterSetRole(value, oldValue) {
         this.getInputEl().role = value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -150,7 +150,7 @@ class Base extends Component {
             returnValue;
 
         if (me.formGroupString) {
-            return me.formGroupString;
+            return me.formGroupString
         }
 
         value && group.push(value);
@@ -186,9 +186,9 @@ class Base extends Component {
         let me = this;
 
         if (value || Neo.isBoolean(value) || value === 0) {
-            me.getInputEl()[key] = value;
+            me.getInputEl()[key] = value
         } else {
-            delete me.getInputEl()[key];
+            delete me.getInputEl()[key]
         }
 
         !silent && me.update()
@@ -303,14 +303,14 @@ class Base extends Component {
      * @returns {*}
      */
     getValue() {
-        return this.value;
+        return this.value
     }
 
     /**
      * @returns {Boolean}
      */
     isValid() {
-        return true;
+        return true
     }
 
     /**
@@ -358,7 +358,8 @@ class Base extends Component {
      * @param {*} value=null
      */
     reset(value=null) {
-        this.value = value;
+        this.originalConfig.value = value;
+        this.value = value
     }
 
     /**
@@ -367,7 +368,7 @@ class Base extends Component {
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
-        return true;
+        return true
     }
 }
 
