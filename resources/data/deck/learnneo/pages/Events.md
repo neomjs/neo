@@ -23,20 +23,19 @@ class MainView extends Container {
     static config = {
         className: 'Example.view.MainView',
         layout   : {ntype:'vbox', align:'start'},
-        items    : [{
+
+        itemDefaults: {
             module   : TextField,
-            labelText: 'First name',
             listeners: {
                 change    : data => Neo.Main.log({value:data.value}),
                 focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
             }
+        },
+
+        items: [{
+            labelText: 'First name'
         }, {
-            module   : TextField,
-            labelText: 'Last name',
-            listeners: {
-                change    : data => Neo.Main.log({value: data.value}),
-                focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
-            }
+            labelText: 'Last name'
         }]
     }
 }
