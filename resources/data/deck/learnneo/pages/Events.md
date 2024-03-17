@@ -13,28 +13,28 @@ To specify an event handler, use `listeners: {}`, specifying in as many event/ha
 pairs as you need. 
 
 The code below shows two text fields, with `listeners` for `change` and `focusEnter`.
-(The events for any component are documened in the API docs.)
+(The events for any component are documented in the API docs.)
 
 <pre data-neo>
-import Base from '../../../../src/container/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
 import TextField from '../../../../src/form/field/Text.mjs';
-class MainView extends Base {
+
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: TextField,
-            labelText  : 'First name',
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        items    : [{
+            module   : TextField,
+            labelText: 'First name',
             listeners: {
-                change: data => Neo.Main.log({value:data.value}),
+                change    : data => Neo.Main.log({value:data.value}),
                 focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
             }
-        },
-        {
-            module: TextField,
-            labelText  : 'Last name',
+        }, {
+            module   : TextField,
+            labelText: 'Last name',
             listeners: {
-                change: data => Neo.Main.log({value: data.value}),
+                change    : data => Neo.Main.log({value: data.value}),
                 focusEnter: data => Neo.Main.log({value: `Entering ${data.component.labelText}`}) 
             }
         }]
@@ -53,32 +53,32 @@ you'd want better separation of concerns by placing those event handlers in a se
 that with a _component controller_. 
 
 A `Neo.controller.Component` is a simple class associated with a component class. As a view is created, an 
-instance of its associated contoller is automatically created. 
+instance of its associated controller is automatically created. 
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Base.mjs';
-import Controller  from  '../../../../src/controller/Component.mjs';
-import TextField  from   '../../../../src/form/field/Text.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
+import TextField  from  '../../../../src/form/field/Text.mjs';
 
 class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController'
     }
-    onChange(data){
-        console.log(data.value);
+    onChange(data) {
+        console.log(data.value)
     }
 }
 Neo.setupClass(MainViewController);
 
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className : 'Example.view.MainView',
         controller: MainViewController,
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: TextField,
-            labelText  : 'Name',
+        layout    : {ntype:'vbox', align:'start'},
+        items     : [{
+            module   : TextField,
+            labelText: 'Name',
             listeners: {
                 change: 'onChange'
             }
@@ -115,36 +115,36 @@ before the value is accessed. We're using the _after_ method to fire a `change` 
 
 
 <pre data-neo>
-import Base        from  '../../../../src/container/Base.mjs';
-import Button  from  '../../../../src/button/Base.mjs';
-import TextField  from   '../../../../src/form/field/Text.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
 
 class ToggleButton extends Button {
     static config = {
         className: 'Example.view.ToggleButton',
-        checked_: false
+        checked_ : false
     }
-    afterSetChecked(checked){
-        this.iconCls = checked?'fa fa-square-check':'fa fa-square';
-        this.fire('change', {component: this, checked}); // This is where our custom event is being fired
+    afterSetChecked(checked) {
+        this.iconCls = checked ? 'fa fa-square-check' : 'fa fa-square';
+        this.fire('change', {component: this, checked}) // This is where our custom event is being fired
     }
-    onClick(data){
+    onClick(data) {
         super.onClick(data); 
-        this.checked = !this.checked;      
+        this.checked = !this.checked
     }
 }
 Neo.setupClass(ToggleButton);
 
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
-        layout: {ntype:'vbox', align:'start'},
-        items : [{
-            module: ToggleButton,
-            text: 'Toggle',
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        items    : [{
+            module   : ToggleButton,
+            text     : 'Toggle',
             listeners: {
-                change: data => console.log(data.checked) // Here, we're listening to the custom event
+                // Here, we're listening to the custom event
+                change: data => Neo.Main.log({value: data.checked})
             }
         }]
     }
