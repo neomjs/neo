@@ -65,7 +65,7 @@ class MainViewController extends Controller {
         className: 'Example.view.MainViewController'
     }
     onChange(data) {
-        console.log(data.value)
+        Neo.Main.log({value: data.value})
     }
 }
 Neo.setupClass(MainViewController);
