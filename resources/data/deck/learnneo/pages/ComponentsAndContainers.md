@@ -25,6 +25,8 @@ Containers have two key properties:
 The component base class introduces common component features, but is rarely used itself because it's so
 primitive. Components introduce various properties, such as `width`, `height`, `cls` (to specify CSS classes for the component).
 
+Here's a container, with one child item.
+
 <pre data-neo>
 import Container from '../../../../src/container/Base.mjs';
 
@@ -73,11 +75,9 @@ Neo.setupClass(MainView);
 The `layout` config specifies how components are arranged within a container. Here are examples of 
 some commonly-used layouts.
 
-- `fit`. Used when there's a single child. The component is sized to fit the container.
-- `vbox`, `hbox`
-- `card` 
-
 ### Fit layout
+
+Fix is used when there's a single child. The component is sized to fit the container.
 
 <pre data-neo>
 import Container from '../../../../src/container/Base.mjs';
@@ -97,6 +97,8 @@ Neo.setupClass(MainView);
 </pre>
 
 ### Vbox and hbox
+
+Items are arranged vertically or horizontally. On-axis and off-axis alignment can be specified.
 
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';
@@ -123,15 +125,45 @@ Neo.setupClass(MainView);
 
 ### Card
 
+Having multiple child items, one of which is visible. 
+
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Base from '../../../../src/container/Base.mjs';
 
-class MainView extends Container {
+class MainView extends Base {
     static config = {
         className: 'Example.view.MainView',
-        layout   : 'card',
+        layout   : 'vbox',
         items    : [{
+            ntype: 'toolbar',
+            dock : 'top',
+            items: [{
+                ntype: 'button',
+                text: 'Click me to cycle through the cards',
+                ui: 'ghost',
+                iconCls: 'fa fa-chevron-right',
+                iconPosition: 'right',
+                handler: data => {
+                    const container = data.component.up('container').getReference('cardContainer');
+                    container.layout.activeIndex = (container.layout.activeIndex +1) % container.items.length;
+                }
+            }]
+        }, {
+            ntype: 'container',
+            reference: 'cardContainer',
+            layout: 'card',
+            flex: 1,
+            items: [{
+                ntype : 'component',
+                style: {backgroundColor: 'lightsalmon'}, // The camel-cased property converts to the hyphated css style
+            }, {
+                ntype : 'component',
+                style: {backgroundColor: 'darkseagreen'} // https://drafts.csswg.org/css-color/#named-colors
+            }, {
+                ntype : 'component',
+                style: {backgroundColor: 'cornflowerblue'} // Who came up with these names?
+            }]
         }]
     }
 }
