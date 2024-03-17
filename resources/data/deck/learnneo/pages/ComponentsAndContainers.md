@@ -10,7 +10,7 @@ event handling, binding, and some life-cycle methods.
 
 `Neo.container.Base` is the base class for all containers. Containers are also components.
 
-## Neo.conainer.Base
+## Neo.container.Base
 
 Containers are commonly used, although there are many specialized sub-classes, such as panels and toolbars.
 
@@ -34,9 +34,9 @@ class MainView extends Container {
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             ntype : 'component', // Or module:Component
-            style: {border: 'thin solid red;'}, // Styling is usually done via "cls"
+            style : {border: 'thin solid red;'}, // Styling is usually done via "cls"
             height: 100,
-            width: 200
+            width : 200
         }]
     }
 }
@@ -56,10 +56,10 @@ class MainView extends Container {
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             ntype : 'component', // Or module:Component
-            style: {border: 'thin solid red;'}, // Styling is usually done via "cls"
-            html: 'This is a placeholder for a more sophisticated component we\'ll add later.',
+            style : {border: 'thin solid red;'}, // Styling is usually done via "cls"
+            html  : 'This is a placeholder for a more sophisticated component we\'ll add later.',
             height: 100,
-            width: 200
+            width : 200
         }]
     }
 }
@@ -80,7 +80,6 @@ some commonly-used layouts.
 ### Fit layout
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 class MainView extends Container {
@@ -88,8 +87,8 @@ class MainView extends Container {
         className: 'Example.view.MainView',
         layout   : 'fit', // If no configs are needed, simply use the ntype of the layout
         items    : [{
-            ntype : 'component',
-            style: {backgroundColor: 'lightgreen'}, // The camel-cased property converts to the hyphated css style
+            ntype: 'component',
+            style: {backgroundColor: 'lightgreen'}, // The camel-cased property converts to the hyphenated css style
         }]
     }
 }
