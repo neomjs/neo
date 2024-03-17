@@ -87,7 +87,8 @@ class Base extends Component {
      * @returns {Boolean}
      */
     get isDirty() {
-        let originalValue = this.originalConfig.value;
+        let originalValue = this.originalConfig.value,
+            value         = this.value;
 
         return value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue)
     }
