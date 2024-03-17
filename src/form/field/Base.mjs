@@ -87,7 +87,9 @@ class Base extends Component {
      * @returns {Boolean}
      */
     get isDirty() {
-        return this.value === this.originalConfig.value
+        let originalValue = this.originalConfig.value;
+
+        return value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue)
     }
     /**
      * An internal cache for formGroup(s) and the field name
