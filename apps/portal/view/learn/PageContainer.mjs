@@ -38,22 +38,22 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             flex  : 'none',
-            cls   : 'content-bottom-toolbar', 
+            cls   : 'content-bottom-toolbar',
             items : [{
-                cls      : 'content-bottom-toolbar-previous',
+                cls      : ['content-bottom-toolbar-previous'],
                 handler  : 'onPreviousPageButtonClick',
                 hidden   : true,
-                ui       : 'secondary',
                 iconCls  : 'fa fa-chevron-left',
-                reference: 'prev-page-button'
+                reference: 'prev-page-button',
+                ui       : 'secondary'
             }, {
-                cls      : 'content-bottom-toolbar-next',
-                handler  : 'onNextPageButtonClick',
-                hidden   : true,
-                ui       : 'secondary',
-                iconCls  : 'fa fa-chevron-right',
+                cls         : ['content-bottom-toolbar-next'],
+                handler     : 'onNextPageButtonClick',
+                hidden      : true,
+                iconCls     : 'fa fa-chevron-right',
                 iconPosition: 'right',
-                reference: 'next-page-button'
+                reference   : 'next-page-button',
+                ui          : 'secondary'
             }]
         }],
         /**
