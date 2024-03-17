@@ -866,9 +866,7 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me            = this,
-            originalValue = me.originalConfig.value,
-            isDirty       = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue),
+        let me = this,
             cls;
 
         me.silentVdomUpdate = true;
@@ -878,7 +876,7 @@ class Text extends Base {
         me.validate(); // silent
 
         cls = me.cls;
-        NeoArray.toggle(cls, 'neo-is-dirty', isDirty);
+        NeoArray.toggle(cls, 'neo-is-dirty', me.isDirty);
         me.cls = cls;
 
         me.silentVdomUpdate = false;
