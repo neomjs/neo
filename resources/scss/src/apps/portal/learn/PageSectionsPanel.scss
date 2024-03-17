@@ -1,6 +1,10 @@
 .portal-page-sections-panel.neo-panel {
     border: none; // reset the default 1px
 
+    @media only screen and (max-width: 1200px) {
+        display: none;
+    }
+
     .neo-list .neo-list-item {
         white-space: normal;
     }

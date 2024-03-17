@@ -9,8 +9,38 @@
         // align-items: center !important;
         // padding: 0 3rem;
         overflow: scroll;
+
+
+        .content-bottom-toolbar {
+            padding: 0 3rem;
+            gap: 8px;
+
+            button {
+                height: 75px;
+                flex: 1 !important;
+                justify-content: flex-start;
+
+                .neo-button-text, .neo-button-glyph {
+                    padding-top: 16px;
+                }
+            }
+
+            .content-bottom-toolbar-previous:before {
+                content         : 'Previous Page';
+                font-family     : var(--core-fontfamily-sans);
+                position        : absolute;
+                top             : var(--cmp-button-spacinghorizontal);
+                left            : var(--cmp-button-spacinghorizontal);
+            }
+            .content-bottom-toolbar-next:before {
+                content         : 'Next Page';
+                font-family     : var(--core-fontfamily-sans);
+                position        : absolute;
+                top             : var(--cmp-button-spacinghorizontal);
+                right            : var(--cmp-button-spacinghorizontal);
+            }
+        }
     }
-    
 }
 
 
