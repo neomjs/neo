@@ -295,7 +295,7 @@ class Navigator extends Base {
         if (typeof el.click === 'function') {
             el.click();
         }
-        // It operates through a listenert, so needs an event firing into it.
+        // It operates through a listener, so needs an event firing into it.
         else {
             const
                 rect    = el.getBoundingClientRect(),
@@ -324,7 +324,7 @@ class Navigator extends Base {
         if (!data.subject) {
             // If subject has been unmounted, we cannot navigate
             if (!(data = DomAccess.getElement(data.id)?.$navigator)) {
-                return;
+                return
             }
         }
 
@@ -344,8 +344,8 @@ class Navigator extends Base {
 
         // Scroll the target into view smoothly before we focus it without triggering a scroll
         newActiveElement.scrollIntoView({
-            block    : 'nearest',
-            behavior : 'smooth'
+            behavior : 'smooth',
+            block    : 'nearest'
         });
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.
@@ -356,7 +356,7 @@ class Navigator extends Base {
         if (focusTarget) {
             focusTarget.focus({ preventScroll : true });
         }
-        // If not, we programatically navigate there
+        // If not, we programmatically navigate there
         else {
             this.setActiveItem(newActiveElement, data);
         }
@@ -377,34 +377,37 @@ class Navigator extends Base {
         data.activeIndex = newActiveElement ? allItems.indexOf(newActiveElement) : -1;
 
         newActiveElement.scrollIntoView({
-            block    : 'nearest',
-            inline   : 'nearest',
-            nehavior : 'smooth'
+            behavior: 'smooth',
+            block   : 'nearest',
+            inline  : 'nearest'
         });
 
         // Link the event source or the encapsulating element to the active item for A11Y
         (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
 
-        DomEvents.sendMessageToApp({
-            type                : 'neonavigate',
-            target              : data.id,
-            path                : [{
-                id : data.id
-            }],
-            activeItem          : data.activeItem.id,
-            previousActiveItem  : data.previousActiveItem?.id,
-            activeIndex         : data.activeIndex,
-            previousActiveIndex : data.previousActiveIndex,
-            altKey              : Neo.altKeyDown,
-            ctrlKey             : Neo.controlKeyDown,
-            metaKey             : Neo.metaKeyDown,
-            shiftKey            : Neo.shiftKeyDown
-        });
+        // navigating to the same element should get ignored
+        if (data.activeItem !== data.previousActiveItem) {
+            DomEvents.sendMessageToApp({
+                type                : 'neonavigate',
+                target              : data.id,
+                path                : [{
+                    id : data.id
+                }],
+                activeItem          : data.activeItem.id,
+                previousActiveItem  : data.previousActiveItem?.id,
+                activeIndex         : data.activeIndex,
+                previousActiveIndex : data.previousActiveIndex,
+                altKey              : Neo.altKeyDown,
+                ctrlKey             : Neo.controlKeyDown,
+                metaKey             : Neo.metaKeyDown,
+                shiftKey            : Neo.shiftKeyDown
+            })
+        }
 
         // Navigation causes click if autoClick set.
         // TabPanels work like this.
         if (data.autoClick) {
-            this.clickItem(newActiveElement);
+            this.clickItem(newActiveElement)
         }
     }
 
