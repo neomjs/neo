@@ -544,14 +544,13 @@ class Select extends Picker {
      * @param {Object[]} selectionChangeEvent.selection
      * @protected
      */
-    onListItemSelectionChange({ selection }) {
+    async onListItemSelectionChange({ selection }) {
         if (selection?.length) {
             const
                 me       = this,
                 selected = selection[0],
                 record   = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
 
-            me.hidePicker();
             me.hintRecordId = null;
 
             me.updateTypeAheadValue(null, true);
@@ -562,7 +561,13 @@ class Select extends Picker {
 
             me.fire('select', {
                 value: record
-            })
+            });
+
+            // Short delay to let selection DOM updates get applied.
+            // Alternatively, we could hide the picker before the selection happen and limit updates to the vdom.
+            //await me.timeout(20);
+
+            await me.hidePicker()
         }
     }
 
