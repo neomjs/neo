@@ -202,8 +202,9 @@ StartTest(t => {
 
         await t.waitFor(100);
 
-        // Inputs must have been cleared. Both typeahead and filter.
-        t.isDeeply(t.query(`#${testId} input`).map(i => i.value), ['', '']);
+        // typeahead input must be cleared, forceSelection must pick the closest value onFocusLeave
+        // todo: add another test without forceSelection => Inputs must have been cleared. Both typeahead and filter.
+        t.isDeeply(t.query(`#${testId} input`).map(i => i.value), ['', 'Marshall Islands']);
 
         blurEl.remove();
     });
