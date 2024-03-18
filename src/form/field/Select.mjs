@@ -147,6 +147,17 @@ class Select extends Picker {
     }
 
     /**
+     * Triggered after the inputValue config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetInputValue(value, oldValue) {
+        super.afterSetInputValue(value, oldValue);
+        this.updateTypeAheadValue(value);
+    }
+
+    /**
      * Triggered after the store config got changed
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
@@ -315,7 +326,8 @@ class Select extends Picker {
             return store.find(displayField, value)[0] || null
         } else {
             // store not loaded yet
-            me.preStoreLoadValue = value
+            me.preStoreLoadValue = value;
+            return null;
         }
     }
 
@@ -566,7 +578,9 @@ class Select extends Picker {
      * @param {Object} record
      * @protected
      */
-    onListItemNavigate({ activeItem, activeIndex }) {
+    onListItemNavigate(record) {
+        let {activeItem, activeIndex} = record;
+
         if (activeIndex >= 0) {
             const
                 me        = this,
@@ -706,31 +720,29 @@ class Select extends Picker {
      * @protected
      */
     updateTypeAheadValue(value=this.lastManualInput, silent=false) {
-        let me          = this,
-            match       = false,
-            {
-                store,
-                displayField
+        let me                    = this,
+            match                 = false,
+            inputHintEl           = me.getInputHintEl(),
+            {displayField, store} = me;
+
+        if (me.typeAhead) {
+            if (!me.value && value?.length > 0) {
+                const search = value.toLocaleLowerCase();
+                match = store.items.find(r => r[displayField]?.toLowerCase?.()?.startsWith(search));
+
+                if (match && inputHintEl) {
+                    inputHintEl.value = value + match[displayField].substr(value.length);
+                    me.activeRecord   = match;
+                    me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
+                }
             }
-                        = me,
-            inputHintEl = me.getInputHintEl();
 
-        if (!me.value && value?.length > 0) {
-            const search = value.toLocaleLowerCase();
-            match = store.items.find(r => r[displayField]?.toLowerCase?.()?.startsWith(search));
-
-            if (match && inputHintEl) {
-                inputHintEl.value = value + match[displayField].substr(value.length);
-                me.activeRecord   = match;
-                me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
+            if (!match && inputHintEl) {
+                inputHintEl.value = me.activeRecord = me.activeRecordId = null;
             }
-        }
 
-        if (!match && inputHintEl) {
-            inputHintEl.value = me.activeRecord = me.activeRecordId = null;
+            !silent && me.update()
         }
-
-        !silent && me.update()
     }
     /**
      * @param {String} inputValue
