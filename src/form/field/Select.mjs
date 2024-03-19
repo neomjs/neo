@@ -257,8 +257,8 @@ class Select extends Picker {
                     // Simplest case is just picking string values.
                     if (typeof v === 'string') {
                         v = {
-                            [valueField]   : v,
-                            [displayField] : v
+                            [valueField]  : v,
+                            [displayField]: v
                         }
                     }
 
@@ -327,7 +327,7 @@ class Select extends Picker {
         } else {
             // store not loaded yet
             me.preStoreLoadValue = value;
-            return null;
+            return null
         }
     }
 
@@ -366,7 +366,7 @@ class Select extends Picker {
             scope          : me
         });
 
-        return me.list;
+        return me.list
     }
 
     /**
@@ -565,7 +565,7 @@ class Select extends Picker {
 
             // Short delay to let selection DOM updates get applied.
             // Alternatively, we could hide the picker before the selection happen and limit updates to the vdom.
-            //await me.timeout(20);
+            await me.timeout(20);
 
             await me.hidePicker()
         }
