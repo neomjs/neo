@@ -1,15 +1,11 @@
 .newwebsite-viewport {
-    align-items    : center !important;
-    display        : flex !important;
-    gap            : 48px;
-    justify-content: center !important;
-    padding        : 10% 15% 15% 15%;
+    gap       : 48px;
+    overflow-y: scroll;
+    padding   : 5%;
 }
 
 .button-group {
-    display       : flex !important;
-    flex-direction: row-reverse !important;
-    gap           : 8px !important;
+    gap: 8px !important;
 }
 
 .neo-h1 {
@@ -25,8 +21,4 @@
     background-size    : contain;
     height             : 150px;
     width              : 100%;
-}
-
-.get-started-button {
-    cursor: not-allowed !important;
 }

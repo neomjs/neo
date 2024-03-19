@@ -496,7 +496,7 @@ class Text extends Base {
         NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
         me.cls = cls;
 
-        me.value = me.updateValueFromInputValue(value)
+        me.updateValueFromInputValue(value)
     }
 
     /**
@@ -866,18 +866,17 @@ class Text extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me            = this,
-            originalValue = me.originalConfig.value,
-            isDirty       = value !== originalValue && Neo.isEmpty(value) !== Neo.isEmpty(originalValue),
+        let me = this,
             cls;
 
         me.silentVdomUpdate = true;
-        me.inputValue       = me.updateInputValueFromValue(value);
+
+        me.updateInputValueFromValue(value);
 
         me.validate(); // silent
 
         cls = me.cls;
-        NeoArray.toggle(cls, 'neo-is-dirty', isDirty);
+        NeoArray.toggle(cls, 'neo-is-dirty', me.isDirty);
         me.cls = cls;
 
         me.silentVdomUpdate = false;
@@ -1505,11 +1504,10 @@ class Text extends Base {
     /**
      * Override this method as needed inside class extensions.
      * @param {*} value
-     * @returns {String}
      * @protected
      */
     updateInputValueFromValue(value) {
-        return value
+        this.inputValue = value
     }
 
     /**
@@ -1562,11 +1560,10 @@ class Text extends Base {
     /**
      * Override this method as needed inside class extensions.
      * @param {String} inputValue
-     * @returns {*}
      * @protected
      */
     updateValueFromInputValue(inputValue) {
-        return inputValue
+        this.value = inputValue
     }
 
     /**

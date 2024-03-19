@@ -370,7 +370,24 @@ class App extends Base {
             app = module.onStart();
 
             // short delay to ensure Component Controllers are ready
-            config.hash && setTimeout(() => HashHistory.push(config.hash), 5)
+            config.hash && setTimeout(() => {
+                HashHistory.push(config.hash);
+                // apps which will get created later must not use outdated hash values
+                delete config.hash
+            }, 5)
+        })
+    }
+
+    /**
+     * Fire event on all apps
+     * @param {Object} data
+     * @param {Number} data.angle
+     * @param {String} data.layout landscape|portrait
+     * @param {Number} data.type landscape-primary|landscape-secondary|portrait-primary|portrait-secondary
+     */
+    onOrientationChange(data) {
+        Object.values(Neo.apps).forEach(app => {
+            app.fire('orientationchange', data.data)
         })
     }
 

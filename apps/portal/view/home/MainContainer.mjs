@@ -1,5 +1,6 @@
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button     from '../../../../src/button/Base.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import ContentBox from './ContentBox.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
@@ -17,12 +18,15 @@ class Viewport extends Container {
          */
         cls: ['newwebsite-viewport'],
         /**
+         * @member {Object} layout={ntype:'vbox',align:'center',pack:'center'}
+         */
+        layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            cls   : ['vector'],
-            flex  : 'none'
+            cls  : ['vector'],
+            flex : 'none'
         }, {
             cls : 'neo-h1',
             flex: 'none',
@@ -31,23 +35,55 @@ class Viewport extends Container {
             module: Container,
             cls   : ['button-group'],
             flex  : 'none',
+            layout: {ntype: 'hbox'},
 
             items: [{
-                module : Button,
-                cls    : 'get-started-button',
-                text   : 'Get started',
-                flex   : 'none',
-                tooltip: {
-                    text     : 'Coming soon',
-                    showDelay: 0,
-                    hideDelay: 0
-                }
-            }, {
                 module: Button,
                 flex  : 'none',
                 text  : 'View on GitHub',
                 ui    : 'secondary',
                 url   : 'https://github.com/neomjs/neo'
+            }, {
+                module: Button,
+                flex  : 'none',
+                text  : 'Get started',
+                route : '/learn'
+            }]
+        }, {
+            module: Container,
+            flex  : '1 0 auto',
+            layout: {ntype: 'hbox', align: 'stretch'},
+
+            items: [{
+                module: ContentBox,
+                header: 'Quick Application Development',
+                route : '#/learn/WhyNeo-Quick',
+
+                content: [
+                    'Property lifecycle hooks',
+                    'Elegant state management',
+                    'Simple and powerful debugging'
+                ]
+            }, {
+                module: ContentBox,
+                header: 'Extreme Speed',
+                route : '#/learn/WhyNeo-Speed',
+
+                content: [
+                    'Item 1',
+                    'Item 2',
+                    'Item 3'
+                ]
+            }, {
+                module: ContentBox,
+                header: 'Multi Window Apps',
+                route : '#/learn/WhyNeo-Multi-Window',
+
+                content: [
+                    'Item 1',
+                    'Item 2',
+                    'Item 3'
+                ]
             }]
         }]
     }

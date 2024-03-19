@@ -51,8 +51,11 @@ class ContentTreeList extends TreeList {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    afterSetCurrentPageRecord(value, oldValue) {
-        value && this.selectionModel.select(value)
+    async afterSetCurrentPageRecord(value, oldValue) {
+        if (value) {
+            await this.timeout(20);
+            this.selectionModel.select(value)
+        }
     }
 
     /**
@@ -77,7 +80,11 @@ class ContentTreeList extends TreeList {
      */
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
-        this.getModel().data.currentPageRecord = record
+
+        Neo.Main.setRoute({
+            value   : `/learn/${record.id}`,
+            windowId: this.windowId
+        })
     }
 }
 

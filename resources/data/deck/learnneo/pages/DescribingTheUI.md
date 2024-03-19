@@ -1,3 +1,5 @@
+## Introduction 
+
 A Neo.mjs view is comprised of components and containers. A component is a visual widget, like a button,
 and a container is a visual collection of components. 
 
@@ -7,6 +9,8 @@ For example, if you wanted to create a button, you'd look in the API docs and se
 have a few key configs, including `text` and `iconCls`. The configs are properties you can 
 use to describe the component you're creating> You can also access or set the properties dynamically.
 
+
+## A view with one component
 
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';
@@ -41,6 +45,8 @@ components. Containers have an `items:[]` config, which is an array of the compo
 Containers also have a `layout` property, which describes how the items are arranged. 
 
 Let's put a second button in the container.
+
+## A view with two components
 
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';

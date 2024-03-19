@@ -10,7 +10,13 @@ class MainContainerController extends Controller {
          * @member {String} className='Portal.view.learn.MainContainerController'
          * @protected
          */
-        className: 'Portal.view.learn.MainContainerController'
+        className: 'Portal.view.learn.MainContainerController',
+        /**
+         * @member {Object} routes
+         */
+        routes: {
+            '/learn/{itemId}': 'onRouteLearnItem'
+        }
     }
 
     /**
@@ -46,6 +52,16 @@ class MainContainerController extends Controller {
      */
     decodeUri(searchString) {
         return searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {}
+    }
+
+    /**
+     * @param {String} learnItem
+     */
+    navigateTo(learnItem) {
+        Neo.Main.setRoute({
+            value   : `/learn/${learnItem}`,
+            windowId: this.component.windowId
+        })
     }
 
     /**
@@ -177,16 +193,32 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onNextPageButtonClick(data) {
-        let model = this.getModel();
-        model.setData('currentPageRecord', model.getData('nextPageRecord'))
+        this.navigateTo(this.getModel().getData('nextPageRecord').id)
     }
 
     /**
      * @param {Object} data
      */
     onPreviousPageButtonClick(data) {
-        let model = this.getModel();
-        model.setData('currentPageRecord', model.getData('previousPageRecord'))
+        this.navigateTo(this.getModel().getData('previousPageRecord').id)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRouteLearnItem(data) {
+        let model = this.getModel(),
+            store = model.getStore('contentTree');
+
+        if (store.getCount() > 0) {
+            model.data.currentPageRecord = store.get(data.itemId)
+        } else {
+            store.on({
+                load : () => {model.data.currentPageRecord = store.get(data.itemId)},
+                delay: 10,
+                once : true
+            })
+        }
     }
 }
 

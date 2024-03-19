@@ -30,7 +30,11 @@ class Component extends Base {
          * @member {Object} references=null
          * @protected
          */
-        references: null
+        references: null,
+        /**
+         * @member {Number|null} windowId=null
+         */
+        windowId: null
     }
 
     /**

@@ -202,17 +202,19 @@ StartTest(t => {
 
         await t.waitFor(100);
 
-        // Inputs must have been cleared. Both typeahead and filter.
-        t.isDeeply(t.query(`#${testId} input`).map(i => i.value), ['', '']);
+        // typeahead input must be cleared, forceSelection must pick the closest value onFocusLeave
+        // todo: add another test without forceSelection => Inputs must have been cleared. Both typeahead and filter.
+        t.isDeeply(t.query(`#${testId} input`).map(i => i.value), ['', 'Marshall Islands']);
 
         blurEl.remove();
     });
 
     t.it('With store as data', async t => {
         await setup({
-            labelText : 'Foo',
-            store     : ['Foo', 'Bar', 'Bletch']
+            labelText: 'Foo',
+            store    : ['Foo', 'Bar', 'Bletch']
         });
+
         await t.click('.neo-field-trigger.fa-caret-down');
 
         await t.waitForSelector('.neo-list-item:contains(Foo)');

@@ -120,7 +120,7 @@ As you can see, `MicroLoader.mjs` runs `Main.mjs`, which in turn spawns the thre
 - `neomjs-app-worker` is where app logic is run
 
 Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.  
-Parallel processing &mdash; along wih the efficient way the `neomjs-vdom-worker` applies delta updates &mdash; is why Neo.mjs applications run so fast. 
+Parallel processing &mdash; along wih the efficient way the vdom worker applies delta updates &mdash; is why Neo.mjs applications run so fast. 
 
 ##Commonly-used Scripts
 
@@ -294,7 +294,7 @@ layout: {
 
 ## Debugging
 
-At startup a Neo.mjs application launches three Web Workers:
+At startup, a Neo.mjs application launches three Web Workers:
 
 - neomjs-app-worker
 - neomjs-data-worker
@@ -1153,7 +1153,7 @@ and each class is simpler than using complex source files that try to configure 
 
 <!-- /lab -->
 
-### Google Maps Add-on
+## Google Maps Add-on
 
 Neo.mjs has a Google Map component. This component is a little different than a button or table, 
 becauase it's implemented as a _main thread add-on_. 
@@ -1169,14 +1169,10 @@ to also provide a wrapper class so it can be used like any other component withi
 Maps is implemented: there's a main-thread add-on and a corresponding Neo.mjs component. The add-on is 
 specified in _neo-config.json_, and the component is imported and used like any other component.
 
-Ultimately, normal components are responsible for specifying how 
-they're rendered (which is usually handled by Neo.mjs).
-
 How do you specify which main-thread add-ons you want? If you recall the script you used to create the starter
 app, it has a step that asks what add-ons you want. That results in populating the `mainThreadAddons` property
-in `neo-config.json`. We didn't choose Google Maps when we ran the script, but we need it. That means we
-need to edit `neo-config.json` and add it. Google Maps also requires an API key, which is also configured in
-`neo-config.json`.
+in `neo-config.json`. We didn't choose Google Maps when we ran the script, but we need it, which means we'll
+need to edit `neo-config.json`. Google Maps also requires an API key, which is also configured there.
 
 The Google Maps component has a few key configs:
 
@@ -1192,6 +1188,20 @@ Marker store records are required to have these properties:
 ## Lab. Use the Google Maps Main-thread Add-on
 
 <!-- lab -->
+
+<details>
+<summary>Get the code for the custom add-on</summary>
+At the time this tutorial was written, the Neo.mjs Google Maps addon was about to be updated to 
+accomodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on. 
+
+Download and unzip this file, and copy the two source files to the corresponding subdirectories in 
+your workspace's `src` directory. Note that `src` already contains some files, so don't replace the whole
+directory, but instead, move the files to their individual locations.
+
+<a href="https://s3.amazonaws.com/mjs.neo.learning.images/zip/src.zip">src.zip</a>
+
+<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CopyGoogleMapsFiles.png" width="30%%"></img>
+</details>
 
 <details>
 <summary>Specify the main-thread add-on</summary>
@@ -1214,6 +1224,10 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
     "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
 </pre>
+
+It's unusual to need to edit `neo-config.json`. The app theme is specified there, and so are main thread add-ons. 
+In our case, we're adding `WS/GoogleMaps` which in turn requires that we specify the map key. The `WS/`
+prefix tells Neo.mjs that the add-on is in our workspace, rather than an add-on provided by Neo.mjs. 
 
 Save and refresh, and you'll see a console log emanating from the plugin.
 
@@ -1406,3 +1420,16 @@ Save, refresh, and confirm that you see the value logged when you click on a map
 
 
 <!-- /lab -->
+
+## Summary
+
+Congratulations on completing the tutorial! 
+
+The goals was to give you hands-on coding a simple app to let you get a feel for syntax
+and to introduce some basic Neo.mjs concepts
+
+- Declarative, abstract code
+- Class-based coding, and the ability to extend any class, such as `view/earthquakes/Table.mjs`
+- View models, to share properties and objects, such as the store shared by the table and map
+- Events, specified via `listeners:{}`
+- Controllers, to hold event listeners and other procedural logic

@@ -58,13 +58,13 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onListClick({ currentTarget }) {
-        const { view } = this;
+        const {view} = this;
 
         if (!view.disableSelection) {
             const record = view.store.get(view.getItemRecordId(currentTarget));
 
             if (record) {
-                this.select(record);
+                this.select(record)
             }
         }
     }
@@ -74,8 +74,8 @@ class ListModel extends Model {
      */
     onListNavigate(data) {
         const
-            { view }  = this,
-            { store } = view;
+            {view}  = this,
+            {store} = view;
 
         data.record      = store.getAt(Math.min(data.activeIndex, store.getCount()));
         view._focusIndex = store.indexOf(data.record); // silent update, no need to refocus
@@ -89,16 +89,16 @@ class ListModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.addDomListeners([{
-            click    : me.onListClick,
+            click: me.onListClick,
+            scope: me,
 
             // Should be `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`
             // TODO parse delegate selectors
-            delegate : path => {
+            delegate: path => {
                 for (let i = 0, { length } = path; i < length; i++) {
                     const { cls } = path[i];
 
@@ -106,12 +106,11 @@ class ListModel extends Model {
                         return i;
                     }
                 }
-            },
-            scope    : me
+            }
         }, {
             neonavigate : me.onListNavigate,
-            scope    : me
-        }])
+            scope       : me
+        }]);
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},
@@ -132,7 +131,7 @@ class ListModel extends Model {
             itemId    = recordKey && view.getItemId(recordKey);
 
         if (itemId) {
-            this.select(itemId);
+            this.select(itemId)
         }
     }
 

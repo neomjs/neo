@@ -21,6 +21,11 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
+         * @member {String} ntype='application'
+         * @protected
+         */
+        ntype: 'application',
+        /**
          * @member {String|null} appThemeFolder=null
          */
         appThemeFolder: null,
@@ -50,7 +55,11 @@ class Application extends Base {
          * @member {Boolean} rendering=false
          * @protected
          */
-        rendering: false
+        rendering: false,
+        /**
+         * @member {Number|null} windowId=null
+         */
+        windowId: null
     }
 
     /**
@@ -65,6 +74,8 @@ class Application extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.windowId = Neo.config.windowId;
 
         Neo.apps = Neo.apps || {};
 

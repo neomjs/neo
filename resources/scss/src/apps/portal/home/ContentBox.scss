@@ -1,0 +1,26 @@
+.portal-content-box {
+    border         : 1px solid darkgray;
+    cursor         : pointer;
+    color          : #000;
+    height         : 200px;
+    margin-top     : 2em;
+    padding        : 0 1em 1em 1em;
+    text-decoration: none;
+    width          : 300px;
+
+    &:hover {
+        background-color: lightblue;
+    }
+
+    &:not(:last-child) {
+        margin-right: 3em;
+    }
+
+    .portal-content-box-content {
+
+    }
+
+    .portal-content-box-header {
+
+    }
+}

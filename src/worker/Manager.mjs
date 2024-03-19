@@ -6,12 +6,11 @@ import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 const NeoConfig = Neo.config,
-      devMode   = NeoConfig.environment === 'development',
-      windowId  = new Date().getTime();
+      devMode   = NeoConfig.environment === 'development';
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
- * Also responsible for sending messages from the main thread to the different workers.
+ * Also, responsible for sending messages from the main thread to the different workers.
  * @class Neo.worker.Manager
  * @extends Neo.core.Base
  * @singleton
@@ -72,6 +71,12 @@ class Manager extends Base {
          * @protected
          */
         webWorkersEnabled: false,
+        /**
+         * Using the current timestamp as an unique window identifier
+         * @member {Number} windowId=new Date().getTime()
+         * @protected
+         */
+        windowId: new Date().getTime(),
         /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers
@@ -174,9 +179,10 @@ class Manager extends Base {
      * Calls createWorker for each worker inside the this.workers config.
      */
     createWorkers() {
-        let me     = this,
-            config = Neo.clone(NeoConfig, true),
-            hash   = location.hash,
+        let me       = this,
+            config   = Neo.clone(NeoConfig, true),
+            hash     = location.hash,
+            windowId = me.windowId,
             key, value;
 
         // remove configs which are not relevant for the workers scope
@@ -186,7 +192,8 @@ class Manager extends Base {
         if (hash) {
             config.hash = {
                 hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1)
+                hashString: hash.substring(1),
+                windowId  : me.windowId
             }
         }
 

@@ -1,0 +1,35 @@
+.learn-content-container {
+    // align-items: center !important;
+    // padding: 0 3rem;
+    overflow: scroll;
+
+    .content-bottom-toolbar {
+        gap    : 8px;
+        padding: 0 3rem;
+
+        .neo-button {
+            flex           : 1 !important;
+            height         : 75px;
+            justify-content: flex-start;
+
+            .neo-button-text, .neo-button-glyph {
+                padding-top: 16px;
+            }
+        }
+
+        .content-bottom-toolbar-previous:before {
+            content         : 'Previous Page';
+            font-family     : var(--core-fontfamily-sans);
+            position        : absolute;
+            top             : var(--cmp-button-spacinghorizontal);
+            left            : var(--cmp-button-spacinghorizontal);
+        }
+        .content-bottom-toolbar-next:before {
+            content         : 'Next Page';
+            font-family     : var(--core-fontfamily-sans);
+            position        : absolute;
+            top             : var(--cmp-button-spacinghorizontal);
+            right            : var(--cmp-button-spacinghorizontal);
+        }
+    }
+}

@@ -38,14 +38,22 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             flex  : 'none',
+            cls   : 'content-bottom-toolbar',
             items : [{
+                cls      : ['content-bottom-toolbar-previous'],
                 handler  : 'onPreviousPageButtonClick',
                 hidden   : true,
-                reference: 'prev-page-button'
-            }, '->', {
-                handler  : 'onNextPageButtonClick',
-                hidden   : true,
-                reference: 'next-page-button'
+                iconCls  : 'fa fa-chevron-left',
+                reference: 'prev-page-button',
+                ui       : 'secondary'
+            }, {
+                cls         : ['content-bottom-toolbar-next'],
+                handler     : 'onNextPageButtonClick',
+                hidden      : true,
+                iconCls     : 'fa fa-chevron-right',
+                iconPosition: 'right',
+                reference   : 'next-page-button',
+                ui          : 'secondary'
             }]
         }],
         /**
@@ -81,10 +89,12 @@ class PageContainer extends Container {
      */
     afterSetNextPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
+            let me = this;
+
             if (value) {
-                this.nextPageButton.set({hidden: false, text: value.name})
+                me.nextPageButton.set({hidden: false, text: me.getModel().getData('nextPageText')})
             } else {
-                this.nextPageButton.hidden = true
+                me.nextPageButton.hidden = true
             }
         }
     }
@@ -96,10 +106,12 @@ class PageContainer extends Container {
      */
     afterSetPreviousPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
+            let me = this;
+
             if (value) {
-                this.prevPageButton.set({hidden: false, text: value.name})
+                me.prevPageButton.set({hidden: false, text: me.getModel().getData('previousPageText')})
             } else {
-                this.prevPageButton.hidden = true
+                me.prevPageButton.hidden = true
             }
         }
     }

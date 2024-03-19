@@ -934,6 +934,20 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let controller = this.controller;
+
+        if (controller && value) {
+            controller.windowId = value
+        }
+    }
+
+    /**
      * Triggered after the wrapperCls config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
@@ -1119,7 +1133,8 @@ class Base extends CoreBase {
 
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, null, {
-                component: this
+                component: this,
+                windowId : this.windowId
             })
         }
 
