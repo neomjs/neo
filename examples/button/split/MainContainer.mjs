@@ -1,8 +1,8 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ComboBox              from '../../../src/form/field/ComboBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
-import SelectField           from '../../../src/form/field/Select.mjs';
 import SplitButton           from '../../../src/button/Split.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
 
@@ -89,7 +89,7 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
-            module        : SelectField,
+            module        : ComboBox,
             forceSelection: true,
             labelText     : 'ui',
             listeners     : {change: me.onConfigChange.bind(me, 'ui')},

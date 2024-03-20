@@ -1,20 +1,20 @@
 import Model  from '../../../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.form.field.select.MainModel
+ * @class Neo.examples.form.field.combobox.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static config = {
-        className  : 'Neo.examples.form.field.select.MainModel',
+        className  : 'Neo.examples.form.field.combobox.MainModel',
         keyProperty: 'abbreviation',
 
         fields: [{
             name: 'abbreviation',
-            type: 'string'
+            type: 'String'
         }, {
             name: 'name',
-            type: 'string'
+            type: 'String'
         }]
     }
 }

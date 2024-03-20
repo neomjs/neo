@@ -1,10 +1,10 @@
 import Button                  from '../../../src/button/Base.mjs';
 import CheckBox                from '../../../src/form/field/CheckBox.mjs';
+import ComboBox                from '../../../src/form/field/ComboBox.mjs';
 import Component               from '../../../src/component/Base.mjs';
 import FormContainer           from '../../../src/form/Container.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
-import SelectField             from '../../../src/form/field/Select.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -51,19 +51,19 @@ class MainContainer extends Viewport {
                 labelText: 'iconCls',
                 name     : 'iconCls'
             }, {
-                module    : SelectField,
+                module    : ComboBox,
                 labelText : 'position = tr',
                 name      : 'position',
                 store     : {data: [{name: 'tl'}, {name: 'tc'}, {name: 'tr'}, {name: 'bl'}, {name: 'bc'}, {name: 'br'}]},
                 valueField: 'name'
             }, {
-                module   : SelectField,
+                module   : ComboBox,
                 labelText: 'slideDirection = right',
                 name     : 'slideDirection',
                 store    : {data: [{name: 'down'}, {name: 'up'}, {name: 'left'}, {name: 'right'}]},
                 valueField: 'name'
             }, {
-                module   : SelectField,
+                module   : ComboBox,
                 labelText: 'ui = info',
                 name     : 'ui',
                 store    : {data: [{name: 'info'}, {name: 'danger'}, {name: 'success'}]},
