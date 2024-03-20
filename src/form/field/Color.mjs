@@ -1,12 +1,12 @@
 import ColorList from '../../list/Color.mjs'
-import Select    from './Select.mjs';
+import ComboBox  from './ComboBox.mjs';
 import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.form.field.Color
- * @extends Neo.form.field.Select
+ * @extends Neo.form.field.ComboBox
  */
-class Color extends Select {
+class Color extends ComboBox {
     static config = {
         /**
          * @member {String} className='Neo.form.field.Color'

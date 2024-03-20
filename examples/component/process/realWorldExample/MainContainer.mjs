@@ -1,15 +1,15 @@
-import Button                from "../../../../src/button/Base.mjs";
-import CheckBox              from "../../../../src/form/field/CheckBox.mjs";
+import Button                from '../../../../src/button/Base.mjs';
+import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
+import ComboBox              from '../../../../src/form/field/ComboBox.mjs';
 import Component             from '../../../../src/component/Base.mjs';
 import Container             from '../../../../src/container/Base.mjs';
-import DisplayField          from "../../../../src/form/field/Display.mjs"
-import Form                  from "../../../../src/form/Container.mjs"
-import NumberField           from "../../../../src/form/field/Number.mjs"
+import DisplayField          from '../../../../src/form/field/Display.mjs';
+import Form                  from '../../../../src/form/Container.mjs';
+import NumberField           from '../../../../src/form/field/Number.mjs';
 import Process               from '../../../../src/component/Process.mjs';
-import RangeField            from "../../../../src/form/field/Range.mjs"
-import SelectField           from "../../../../src/form/field/Select.mjs";
-import TextField             from "../../../../src/form/field/Text.mjs"
+import RangeField            from '../../../../src/form/field/Range.mjs';
+import TextField             from '../../../../src/form/field/Text.mjs';
 import Toast                 from '../../../../src/component/Toast.mjs';
 
 /**
@@ -188,22 +188,22 @@ class MainContainer extends ConfigurationViewport {
                     value            : 20
                 },
                 items       : [{
-                    module      : SelectField,
+                    module      : ComboBox,
                     displayField: 'name',
                     labelText   : 'Fahrstil',
                     value       : 'normal',
 
                     store: {
                         data : [
-                            {style: 'sportStyle', name: 'sport', code: 'sportCode'},
-                            {style: 'nomalStyle', name: 'normal', code: 'normalCode'},
-                            {style: 'ecoStyle', name: 'eco', code: 'ecoCode'},
+                            {style: 'sportStyle',  name: 'sport',  code: 'sportCode'},
+                            {style: 'normalStyle', name: 'normal', code: 'normalCode'},
+                            {style: 'ecoStyle',    name: 'eco',    code: 'ecoCode'},
                         ],
                         model: {
                             fields: [
-                                {name: 'style', type: 'string'},
-                                {name: 'name', type: 'string'},
-                                {name: 'code', type: 'string'}
+                                {name: 'style', type: 'String'},
+                                {name: 'name',  type: 'String'},
+                                {name: 'code',  type: 'String'}
                             ]
                         }
                     }

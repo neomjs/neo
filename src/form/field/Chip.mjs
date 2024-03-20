@@ -1,10 +1,10 @@
-import Select from './Select.mjs';
+import ComboBox from './ComboBox.mjs';
 
 /**
  * @class Neo.form.field.Chip
- * @extends Neo.form.field.Select
+ * @extends Neo.form.field.ComboBox
  */
-class Chip extends Select {
+class Chip extends ComboBox {
     static config = {
         /**
          * @member {String} className='Neo.form.field.Chip'

@@ -2,5 +2,5 @@ import MainContainer from './MainContainer.mjs';
 
 export const onStart = () => Neo.app({
     mainView: MainContainer,
-    name    : 'Neo.examples.form.field.select'
+    name    : 'Neo.examples.form.field.combobox'
 });

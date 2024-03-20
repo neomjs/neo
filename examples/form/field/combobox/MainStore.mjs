@@ -2,12 +2,12 @@ import Store from '../../../../src/data/Store.mjs';
 import Model from './MainModel.mjs';
 
 /**
- * @class Neo.examples.form.field.select.MainStore
+ * @class Neo.examples.form.field.combobox.MainStore
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
     static config = {
-        className  : 'Neo.examples.form.field.select.MainStore',
+        className  : 'Neo.examples.form.field.combobox.MainStore',
         autoLoad   : true,
         keyProperty: 'abbreviation',
         model      : Model,

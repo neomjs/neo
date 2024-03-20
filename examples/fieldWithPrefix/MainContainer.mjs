@@ -1,8 +1,7 @@
+import ComboBox              from '../../src/form/field/ComboBox.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
-
-import PrefixPlugin from '../../src/plugin/PrefixField.mjs';
-import SelectField  from '../../src/form/field/Select.mjs';
-import TextField    from '../../src/form/field/Text.mjs';
+import PrefixPlugin          from '../../src/plugin/PrefixField.mjs';
+import TextField             from '../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.fieldWithPrefix.MainContainer
@@ -50,7 +49,7 @@ class MainContainer extends ConfigurationViewport {
             value    : '_',
             style    : {marginTop: '10px'}
         }, {
-            module: SelectField,
+            module: ComboBox,
             store : {
                 model: {fields: [{name: 'id'}, {name: 'name'}, {name: 'value'}]},
                 data : [

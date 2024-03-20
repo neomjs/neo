@@ -10,10 +10,10 @@ import VDomUtil         from '../../util/VDom.mjs';
  * Provides a dropdown list to select one or multiple items.
  *
  * Conforms to ARIA accessibility standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
- * @class Neo.form.field.Select
+ * @class Neo.form.field.ComboBox
  * @extends Neo.form.field.Picker
  */
-class Select extends Picker {
+class ComboBox extends Picker {
     /**
      * Valid values for triggerAction
      * @member {String[]} triggerActions=['all','filtered']
@@ -24,23 +24,23 @@ class Select extends Picker {
 
     static config = {
         /**
-         * @member {String} className='Neo.form.field.Select'
+         * @member {String} className='Neo.form.field.ComboBox'
          * @protected
          */
-        className: 'Neo.form.field.Select',
+        className: 'Neo.form.field.ComboBox',
         /**
-         * @member {String} ntype='selectfield'
+         * @member {String} ntype='combobox'
          * @protected
          */
-        ntype: 'selectfield',
+        ntype: 'combobox',
         /**
          * @member {String|Number|null} activeRecordId=null
          */
         activeRecordId: null,
         /**
-         * @member {String[]} baseCls=['neo-selectfield','neo-pickerfield','neo-textfield']
+         * @member {String[]} baseCls=['neo-combobox','neo-pickerfield','neo-textfield']
          */
-        baseCls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-combobox', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {String} displayField='name'
          */
@@ -257,8 +257,8 @@ class Select extends Picker {
                     // Simplest case is just picking string values.
                     if (typeof v === 'string') {
                         v = {
-                            [valueField]   : v,
-                            [displayField] : v
+                            [valueField]  : v,
+                            [displayField]: v
                         }
                     }
 
@@ -327,7 +327,7 @@ class Select extends Picker {
         } else {
             // store not loaded yet
             me.preStoreLoadValue = value;
-            return null;
+            return null
         }
     }
 
@@ -366,7 +366,7 @@ class Select extends Picker {
             scope          : me
         });
 
-        return me.list;
+        return me.list
     }
 
     /**
@@ -565,7 +565,7 @@ class Select extends Picker {
 
             // Short delay to let selection DOM updates get applied.
             // Alternatively, we could hide the picker before the selection happen and limit updates to the vdom.
-            //await me.timeout(20);
+            await me.timeout(20);
 
             await me.hidePicker()
         }
@@ -775,6 +775,6 @@ class Select extends Picker {
  * @returns {Object}
  */
 
-Neo.setupClass(Select);
+Neo.setupClass(ComboBox);
 
-export default Select;
+export default ComboBox;

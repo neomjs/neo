@@ -392,19 +392,6 @@ class App extends Base {
     }
 
     /**
-     * Fire event on all apps
-     * @param {Object} data
-     * @param {Number} data.angle
-     * @param {String} data.layout landscape|portrait
-     * @param {Number} data.type landscape-primary|landscape-secondary|portrait-primary|portrait-secondary
-     */
-    onOrientationChange(data) {
-        Object.values(Neo.apps).forEach(app => {
-            app.fire('orientationchange', data.data)
-        })
-    }
-
-    /**
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
