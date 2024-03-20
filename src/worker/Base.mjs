@@ -109,11 +109,12 @@ class Base extends CoreBase {
      * Only relevant for SharedWorkers
      * @param {Object} data
      */
-    onConnect(data) {
+    async onConnect(data) {
         // short delay to ensure app VCs are in place
-        setTimeout(() => {
-            this.fire('connect', {appName: data.appName})
-        }, 10)
+        await this.timeout(10);
+
+        let {appName, windowId} = data;
+        this.fire('connect', {appName, windowId})
     }
 
     /**
@@ -162,7 +163,8 @@ class Base extends CoreBase {
      * @param {Object} data
      */
     onDisconnect(data) {
-        this.fire('disconnect', {appName: data.appName})
+        let {appName, windowId} = data;
+        this.fire('disconnect', {appName, windowId})
     }
 
     /**
@@ -212,7 +214,7 @@ class Base extends CoreBase {
         for (port of me.ports) {
             if (!port.appName) {
                 port.appName = appName;
-                me.onConnect({appName});
+                me.onConnect({appName, windowId: port.windowId});
                 break
             }
         }

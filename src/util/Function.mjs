@@ -152,34 +152,3 @@ export function throttle(callback, scope, delay=300) {
         }
     }
 }
-
-/**
- * @param {Function} callback
- * @param {Neo.core.Base} scope
- * @param {Number} delay=300
- * @returns {Function}
- */
-export function buffer(callback, scope, delay=300) {
-    let timeoutId;
-
-    const wrapper = function(...args) {
-        // callback invocation comes "delay" ms after the last call to wrapper
-        // so cancel any pending invocation.
-        clearTimeout(timeoutId);
-
-        wrapper.isPending = true;
-
-        timeoutId = setTimeout(() => {
-            timeoutId = 0;
-            wrapper.isPending = false;
-            callback.apply(scope, args);
-        }, delay);
-    };
-
-    wrapper.cancel = () => {
-        wrapper.isPending = false;
-        clearTimeout(timeoutId);
-    };
-
-    return wrapper;
-}
