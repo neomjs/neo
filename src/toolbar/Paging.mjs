@@ -1,5 +1,5 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import SelectField     from '../form/field/Select.mjs';
+import ComboBox        from '../form/field/ComboBox.mjs';
 import Toolbar         from './Base.mjs';
 
 /**
@@ -75,7 +75,7 @@ class Paging extends Toolbar {
                 text : 'Rows per page:'
             },
             rowsPerPage: {
-                module       : SelectField,
+                module       : ComboBox,
                 clearable    : false,
                 hideLabel    : true,
                 listConfig   : {highlightFilterValue: false},

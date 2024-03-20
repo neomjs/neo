@@ -1,6 +1,6 @@
+import ComboBox     from '../../../src/form/field/ComboBox.mjs';
 import Container    from '../../../src/container/Base.mjs';
 import CountryStore from '../store/Countries.mjs';
-import SelectField  from '../../../src/form/field/Select.mjs';
 
 /**
  * @class Covid.view.HeaderContainer
@@ -116,7 +116,7 @@ class HeaderContainer extends Container {
                 },
 
                 items : [{
-                    module       : SelectField,
+                    module       : ComboBox,
                     displayField : 'country',
                     flex         : 'none',
                     height       : 25,

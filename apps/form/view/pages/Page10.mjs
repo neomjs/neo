@@ -1,5 +1,5 @@
+import ComboBox          from '../../../../src/form/field/ComboBox.mjs';
 import FormPageContainer from '../FormPageContainer.mjs';
-import SelectField       from '../../../../src/form/field/Select.mjs';
 
 /**
  * @class Form.view.pages.Page10
@@ -16,7 +16,7 @@ class Page10 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : SelectField,
+            module   : ComboBox,
             editable : false,
             labelText: 'Page 10 Field 1',
             name     : 'page10field1',

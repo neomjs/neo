@@ -10,10 +10,10 @@ import VDomUtil         from '../../util/VDom.mjs';
  * Provides a dropdown list to select one or multiple items.
  *
  * Conforms to ARIA accessibility standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
- * @class Neo.form.field.Select
+ * @class Neo.form.field.ComboBox
  * @extends Neo.form.field.Picker
  */
-class Select extends Picker {
+class ComboBox extends Picker {
     /**
      * Valid values for triggerAction
      * @member {String[]} triggerActions=['all','filtered']
@@ -24,23 +24,23 @@ class Select extends Picker {
 
     static config = {
         /**
-         * @member {String} className='Neo.form.field.Select'
+         * @member {String} className='Neo.form.field.ComboBox'
          * @protected
          */
-        className: 'Neo.form.field.Select',
+        className: 'Neo.form.field.ComboBox',
         /**
-         * @member {String} ntype='selectfield'
+         * @member {String} ntype='combobox'
          * @protected
          */
-        ntype: 'selectfield',
+        ntype: 'combobox',
         /**
          * @member {String|Number|null} activeRecordId=null
          */
         activeRecordId: null,
         /**
-         * @member {String[]} baseCls=['neo-selectfield','neo-pickerfield','neo-textfield']
+         * @member {String[]} baseCls=['neo-combobox','neo-pickerfield','neo-textfield']
          */
-        baseCls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        baseCls: ['neo-combobox', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {String} displayField='name'
          */
@@ -775,6 +775,6 @@ class Select extends Picker {
  * @returns {Object}
  */
 
-Neo.setupClass(Select);
+Neo.setupClass(ComboBox);
 
-export default Select;
+export default ComboBox;

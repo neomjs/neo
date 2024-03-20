@@ -3,7 +3,7 @@ StartTest(t => {
 
     async function setup(config = {}) {
         testId = await Neo.worker.App.createNeoInstance(Neo.merge({
-            ntype        : 'selectfield',
+            ntype        : 'combobox',
             labelPosition: 'inline',
             labelText    : 'US States',
             labelWidth   : 80,
@@ -17,10 +17,10 @@ StartTest(t => {
                 model: {
                     fields: [{
                         name: 'abbreviation',
-                        type: 'string'
+                        type: 'String'
                     }, {
                         name: 'name',
-                        type: 'string'
+                        type: 'String'
                     }]
                 }
             }

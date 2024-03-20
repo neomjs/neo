@@ -1,6 +1,6 @@
-import Button      from '../../src/button/Base.mjs';
-import Dialog      from '../../src/dialog/Base.mjs';
-import SelectField from '../../src/form/field/Select.mjs';
+import Button   from '../../src/button/Base.mjs';
+import ComboBox from '../../src/form/field/ComboBox.mjs';
+import Dialog   from '../../src/dialog/Base.mjs';
 
 /**
  * @class Neo.examples.dialog.DemoDialog
@@ -57,7 +57,7 @@ class DemoDialog extends Dialog {
         const me = this;
 
         me.items = [{
-            module    : SelectField,
+            module    : ComboBox,
             labelText : 'Select',
             labelWidth: 80,
 
