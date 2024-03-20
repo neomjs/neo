@@ -1,8 +1,8 @@
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ColorField            from '../../../src/form/field/Color.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import Process               from '../../../src/component/Process.mjs';
 import Container             from '../../../src/container/Base.mjs';
-import CheckBox              from "../../../src/form/field/CheckBox.mjs";
-import ColorField             from "../../../src/form/field/Color.mjs"
+import Process               from '../../../src/component/Process.mjs';
 
 /**
  * @class Neo.examples.component.process.MainContainer

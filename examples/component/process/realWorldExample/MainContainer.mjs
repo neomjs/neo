@@ -4,12 +4,12 @@ import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
 import ComboBox              from '../../../../src/form/field/ComboBox.mjs';
 import Component             from '../../../../src/component/Base.mjs';
 import Container             from '../../../../src/container/Base.mjs';
-import DisplayField          from '../../../../src/form/field/Display.mjs'
-import Form                  from '../../../../src/form/Container.mjs'
-import NumberField           from '../../../../src/form/field/Number.mjs'
+import DisplayField          from '../../../../src/form/field/Display.mjs';
+import Form                  from '../../../../src/form/Container.mjs';
+import NumberField           from '../../../../src/form/field/Number.mjs';
 import Process               from '../../../../src/component/Process.mjs';
-import RangeField            from '../../../../src/form/field/Range.mjs'
-import TextField             from '../../../../src/form/field/Text.mjs'
+import RangeField            from '../../../../src/form/field/Range.mjs';
+import TextField             from '../../../../src/form/field/Text.mjs';
 import Toast                 from '../../../../src/component/Toast.mjs';
 
 /**
