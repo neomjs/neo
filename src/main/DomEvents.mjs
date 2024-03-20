@@ -412,7 +412,7 @@ class DomEvents extends Base {
         let manager = Neo.worker.Manager;
 
         manager.appNames.forEach(appName => {
-            manager.broadcast({action: 'disconnect', appName})
+            manager.broadcast({action: 'disconnect', appName, windowId: manager.windowId})
         })
     }
 
