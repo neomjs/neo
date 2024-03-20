@@ -56,22 +56,3 @@ mark {
     color           : black;
     padding         : 0.1em 0.2em;
 }
-
-
-
-.neo-splitter {
-    opacity: 1;
-    margin: 8px 2px;
-    border-radius: 100px;
-    border: unset !important;
-
-    &:hover, &:active {
-        background-color: #5595F5 !important;
-    }
-}
-
-.neo-dragproxy {
-    &.neo-splitter {
-        background-color: #5595F5 !important;
-    }
-}
