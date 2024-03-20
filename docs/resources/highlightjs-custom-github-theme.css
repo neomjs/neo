@@ -14,7 +14,7 @@ pre.hljs {
     display   : block;
     font-size : 12px;
     overflow-x: auto;
-    padding   : 0.5em;
+    padding   : 0;
 }
 
 .hljs-comment,
