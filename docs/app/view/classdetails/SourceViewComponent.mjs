@@ -47,7 +47,7 @@ class SourceViewComponent extends Component {
          */
         _vdom:
         {cn: [
-            {tag: 'pre', cn: [
+            {tag: 'pre', cls: ['hljs'], cn: [
                 {tag: 'code', class: 'language-javascript'}
             ]}
         ]}

@@ -306,6 +306,7 @@ class MembersList extends Base {
                 item.examples.forEach(example => {
                     itemConfig.cn.push({
                         tag: 'pre',
+                        cls: ['hljs'],
                         cn : [{
                             tag : 'code',
                             html: example
