@@ -1,12 +1,8 @@
 {
-    "appPath"    : "examples/popover/app.mjs",
-    "basePath"   : "../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs",
-    "themes"     : ["neo-theme-dark", "neo-theme-light"],
-    "mainThreadAddons": [
-        "DragDrop",
-        "Stylesheet",
-        "Popover"
-    ]
+    "appPath"         : "examples/popover/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "Popover", "Stylesheet"],
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
 }

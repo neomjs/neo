@@ -1,8 +1,7 @@
 {
-    "appPath"         : "examples/grid/covid/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Stylesheet"],
-    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+    "appPath"    : "examples/grid/covid/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-dark", "neo-theme-light"]
 }
