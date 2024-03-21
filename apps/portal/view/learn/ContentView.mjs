@@ -247,15 +247,26 @@ class ContentView extends Component {
         let me           = this,
             contentArray = content.split('\n'),
             i            = 1,
-            storeData    = [];
+            storeData    = [],
+            tag;
 
         contentArray.forEach((line, index) => {
+            tag = null;
+
             if (line.startsWith('##') && line.charAt(2) !== '#') {
                 line = line.substring(2).trim();
+                tag  = 'h2';
+            }
 
-                storeData.push({id: i, name: line, sourceId: me.id});
+            else if (line.startsWith('###') && line.charAt(3) !== '#') {
+                line = line.substring(3).trim();
+                tag  = 'h3';
+            }
 
-                contentArray[index] = `<h2 class="neo-h2" data-record-id="${i}">${line}</h2>`;
+            if (tag) {
+                storeData.push({id: i, name: line, sourceId: me.id, tag});
+
+                contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${line}</${tag}>`;
 
                 i++
             }
