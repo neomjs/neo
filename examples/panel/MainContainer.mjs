@@ -37,8 +37,7 @@ class MainContainer extends Panel {
                 flex : 1
             }, {
                 handler: 'onButton2Click',
-                iconCls: 'fa fa-user',
-                text   : 'Button 2'
+                iconCls: 'fa fa-user'
             }]
         }, {
             dock : 'left',
