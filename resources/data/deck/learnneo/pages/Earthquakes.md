@@ -588,7 +588,7 @@ The app logic
 
 Let's review the code and see what it's doing. 
 
-### The store
+### The Store
 
 A store is a collection of records. A record is described in the `model` and the model's `fields`.
 Here's the config for the store.
