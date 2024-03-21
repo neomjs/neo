@@ -89,12 +89,10 @@ class PageContainer extends Container {
      */
     afterSetNextPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
             if (value) {
-                me.nextPageButton.set({hidden: false, text: me.getModel().getData('nextPageText')})
+                this.nextPageButton.set({hidden: false, text: value.name})
             } else {
-                me.nextPageButton.hidden = true
+                this.nextPageButton.hidden = true
             }
         }
     }
@@ -106,12 +104,10 @@ class PageContainer extends Container {
      */
     afterSetPreviousPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
             if (value) {
-                me.prevPageButton.set({hidden: false, text: me.getModel().getData('previousPageText')})
+                this.prevPageButton.set({hidden: false, text: value.name})
             } else {
-                me.prevPageButton.hidden = true
+                this.prevPageButton.hidden = true
             }
         }
     }
