@@ -1,7 +1,6 @@
 {
-    "appPath"         : "examples/calendar/weekview/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Stylesheet"]
+    "appPath"    : "examples/calendar/weekview/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
 }
