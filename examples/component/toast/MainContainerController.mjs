@@ -20,6 +20,7 @@ class MainContainerController extends ComponentController {
     construct(config) {
         super.construct(config);
         Neo.main.addon.HighlightJS.switchTheme('dark');
+        Neo.main.addon.HighlightJS.loadLibrary({});
     }
 
     /**
