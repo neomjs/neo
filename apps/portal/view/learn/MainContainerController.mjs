@@ -69,7 +69,7 @@ class MainContainerController extends Controller {
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
-    async onAppConnect(data) {console.log(data);
+    async onAppConnect(data) {
         let me              = this,
             app             = Neo.apps[data.appName],
             mainView        = app.mainView,
@@ -119,10 +119,7 @@ class MainContainerController extends Controller {
         }
         // Close popup windows when closing or reloading the main window
         else {
-            Neo.Main.windowClose({
-                names: me.connectedApps,
-                windowId
-            })
+            Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
 
