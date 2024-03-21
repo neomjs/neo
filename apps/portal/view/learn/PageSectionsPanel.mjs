@@ -20,8 +20,15 @@ class PageSectionsPanel extends Panel {
          * @member {Object[]} headers
          */
         headers: [{
-            dock: 'top',
-            text: 'On this page'
+            dock : 'top',
+            items: [{
+                ntype: 'label',
+                text : 'On this page'
+            }, '->', {
+                iconCls: 'fas fa-chevron-right',
+                ui     : 'secondary',
+                tooltip: 'Collapse Sections'
+            }]
         }],
         /**
          * @member {Object[]} items
