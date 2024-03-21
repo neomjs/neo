@@ -1,8 +1,7 @@
 {
-    "appPath"         : "examples/model/extendedClass/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"],
-    "themes"          : ["neo-theme-dark"]
+    "appPath"    : "examples/model/extendedClass/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-dark"]
 }

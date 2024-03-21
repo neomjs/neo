@@ -1,7 +1,6 @@
 {
-    "appPath"         : "examples/list/animate/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"]
+    "appPath"    : "examples/list/animate/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
 }
