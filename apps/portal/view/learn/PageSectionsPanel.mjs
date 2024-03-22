@@ -19,21 +19,27 @@ class PageSectionsPanel extends Panel {
         /**
          * @member {Object[]} headers
          */
-        headers: [{
-            dock : 'top',
-            items: [{
-                ntype: 'label',
-                text : 'On this page'
-            }, '->', {
-                iconCls: 'fas fa-chevron-right',
-                ui     : 'secondary',
-                tooltip: 'Collapse Sections'
-            }]
-        }],
+        // headers: [{
+        //     dock : 'top',
+        //     items: [{
+        //         ntype: 'label',
+        //         text : 'On this page'
+        //     }, '->', {
+        //         iconCls: 'fas fa-chevron-right',
+        //         ui     : 'secondary',
+        //         tooltip: 'Collapse Sections'
+        //     }]
+        // }],
         /**
          * @member {Object[]} items
          */
         items: [{
+            vdom:
+                { cn: [                        
+                    { tag: 'h3', html: 'On this page' },
+                ]}
+            
+        },{
             module   : PageSectionsList,
             reference: 'list'
         }]

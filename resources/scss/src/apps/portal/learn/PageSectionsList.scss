@@ -1,12 +1,23 @@
+
+
 .portal-page-sections-list.neo-list {
     .neo-h3 {
         margin-left: 1.5em;
     }
 
     .neo-list-item {
-        color      : #7d7d7d;
-        height     : 32px;
-        line-height: 1;
+        color      : var(--sem-color-text-neutral-subdued);
+        height     : unset;
         white-space: normal;
+        padding: 8px 0 8px 8px !important;
+
+        &[aria-selected=true] {
+            background-color: transparent !important;
+            color           : var(--list-item-color-selected) !important;
+            font-weight     : 600 !important;
+            cursor          : default !important;
+
+        }
     }
 }
+
