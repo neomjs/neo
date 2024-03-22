@@ -47,12 +47,7 @@ class MainContainerModel extends Component {
              * The record which gets shown as the content page
              * @member {Object} data.previousPageRecord=null
              */
-            previousPageRecord: null,
-            /**
-             * Merging the direct parent text
-             * @member {String|null} data.previousPageText=null
-             */
-            previousPageText: null
+            previousPageRecord: null
         },
         /**
          * @member {Object} stores
@@ -65,22 +60,6 @@ class MainContainerModel extends Component {
                 module: ContentStore
             }
         }
-    }
-
-    /**
-     * Combines the record parent node name (if available) with the record name
-     * @param {Object} record
-     * @param {Neo.data.Store} store
-     * @returns {String|null}
-     */
-    getRecordTreeName(record, store) {
-        let parentText = record.name;
-
-        if (record.parentId !== null) {
-            parentText = store.get(record.parentId).name + ': ' + parentText
-        }
-
-        return parentText
     }
 
     /**
@@ -111,7 +90,6 @@ class MainContainerModel extends Component {
 
                     if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         previousPageRecord = record;
-                        previousPageText   = me.getRecordTreeName(record, store);
                         break
                     }
                 }
@@ -124,7 +102,6 @@ class MainContainerModel extends Component {
 
                     if (record.isLeaf && !me.recordIsHidden(record, store)) {
                         nextPageRecord = record;
-                        nextPageText   = me.getRecordTreeName(record, store);
                         break
                     }
                 }

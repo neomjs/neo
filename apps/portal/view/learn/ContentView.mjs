@@ -4,7 +4,9 @@ import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const
     labCloseRegex = /<!--\s*\/lab\s*-->/g,
-    labOpenRegex  = /<!--\s*lab\s*-->/g;
+    labOpenRegex  = /<!--\s*lab\s*-->/g,
+    preJsRegex    = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g,
+    preNeoRegex   = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g;
 
 /**
  * @class Portal.view.learn.ContentView
@@ -147,13 +149,10 @@ class ContentView extends Component {
         // 1. Replace <pre data-neo> with <div id='neo-preview-2'/>
         // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
 
-        // Define a regular expression to match <pre data-javascript> tags
-        const preRegex = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g;
-
         let count = 0;
 
         // Replace the content with tokens, and create a promise to update the corresponding content
-        return htmlString.replace(preRegex, (match, preContent) => {
+        return htmlString.replace(preNeoRegex, (match, preContent) => {
             const key = `pre-live-preview-${Neo.core.IdGenerator.getId()}-${count++}`;
             map[key] = preContent;
             return `<div id="${key}"></div>`
@@ -182,15 +181,12 @@ class ContentView extends Component {
 
         // Note that if we were to import HighlightJS directly, we wouldn't need all this async code.
 
-        // Define a regular expression to match <pre data-javascript> tags
-        const preRegex = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g;
-
         // Create an array to store promises for each replacement
         const replacementPromises = [];
         let count = 0;
 
         // Replace the content with tokens, and create a promise to update the corresponding content
-        let updatedHtml = htmlString.replace(preRegex, (match, preContent) => {
+        let updatedHtml = htmlString.replace(preJsRegex, (match, preContent) => {
             const token = `__NEO-PRE-TOKEN-${++count}__`;
             replacementPromises.push(this.getHighlightPromise(preContent, token, `pre-preview-${Neo.core.IdGenerator.getId()}`));
             return token
@@ -247,15 +243,26 @@ class ContentView extends Component {
         let me           = this,
             contentArray = content.split('\n'),
             i            = 1,
-            storeData    = [];
+            storeData    = [],
+            tag;
 
         contentArray.forEach((line, index) => {
+            tag = null;
+
             if (line.startsWith('##') && line.charAt(2) !== '#') {
                 line = line.substring(2).trim();
+                tag  = 'h2';
+            }
 
-                storeData.push({id: i, name: line, sourceId: me.id});
+            else if (line.startsWith('###') && line.charAt(3) !== '#') {
+                line = line.substring(3).trim();
+                tag  = 'h3';
+            }
 
-                contentArray[index] = `<h2 class="neo-h2" data-record-id="${i}">${line}</h2>`;
+            if (tag) {
+                storeData.push({id: i, name: line, sourceId: me.id, tag});
+
+                contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${line}</${tag}>`;
 
                 i++
             }

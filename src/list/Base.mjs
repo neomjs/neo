@@ -486,6 +486,12 @@ class Base extends Component {
             }
 
             case 'Object': {
+                // We want a merge for custom cls rules
+                if (itemContent.cls) {
+                    NeoArray.add(item.cls, itemContent.cls);
+                    delete itemContent.cls
+                }
+
                 Object.assign(item, itemContent);
                 break;
             }
@@ -493,6 +499,7 @@ class Base extends Component {
             case 'Number':
             case 'String': {
                 item.html = itemContent;
+                break;
             }
         }
 
