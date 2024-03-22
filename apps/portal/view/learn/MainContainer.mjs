@@ -46,14 +46,16 @@ class MainContainer extends Container {
             size        : 3
         }, {
             module: PageContainer
-        }, {
-            module: Splitter,
-            cls   : ['main-content-splitter'],
-            size  : 3
-        }, {
+        }, 
+        // {
+        //     module: Splitter,
+        //     cls   : ['main-content-splitter'],
+        //     size  : 3
+        // }, 
+        {
             module   : PageSectionsPanel,
             reference: 'page-sections-panel',
-            width    : 350
+            width    : 250
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

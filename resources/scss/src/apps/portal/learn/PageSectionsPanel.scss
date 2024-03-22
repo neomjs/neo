@@ -1,8 +1,23 @@
 .portal-page-sections-panel.neo-panel {
     border: none; // reset the default 1px
 
-    @media only screen and (max-width: 1200px) {
+
+    background-color: transparent;
+    display: block;
+    width: 250px;
+    flex-shrink: 0;
+    z-index: 1;
+    position: fixed;
+    top: 80px;
+    right: 0px;
+    bottom: 0px;
+
+    @media only screen and (max-width: 1100px) {
         display: none;
+    }
+
+    h3 {
+        margin-left: 16px;
     }
 
     .neo-panel-header-toolbar {
@@ -21,4 +36,5 @@
             }
         }
     }
+
 }

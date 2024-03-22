@@ -48,9 +48,9 @@ class ComboBox extends Picker {
         /**
          * The millisecond time to delay between input field mutation and applying the input field's
          * new value to the filter
-         * @member {Number} filterDelay=300
+         * @member {Number} filterDelay=50
          */
-        filterDelay : 300,
+        filterDelay : 50,
         /**
          * @member {String} filterOperator_='like'
          */
@@ -141,7 +141,7 @@ class ComboBox extends Picker {
         let me = this;
 
         // Create buffered function to respond to input field mutation
-        //me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
+        me.filterOnInput = buffer(me.filterOnInput, me, me.filterDelay);
 
         me.typeAhead && me.updateTypeAhead()
     }
@@ -206,10 +206,11 @@ class ComboBox extends Picker {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        super.afterSetValue(value, oldValue);
-
         let me = this;
 
+        // input value changes (super call) need a flag to prevent showing the picker
+        me.programmaticValueChange = true;
+        super.afterSetValue(value, oldValue);
         me.programmaticValueChange = false;
 
         if (me._picker?.isVisible) {
@@ -303,8 +304,6 @@ class ComboBox extends Picker {
             displayField = me.displayField,
             store        = me.store,
             record;
-
-        me.programmaticValueChange = true;
 
         // getting a record, nothing to do
         if (Neo.isObject(value)) {

@@ -26,6 +26,15 @@ h2 {
     line-height     : var(--core-lineheight-headline);
 }
 
+h3 {
+    color           : var(--sem-color-fg-neutral-contrast);
+    font-family     : var(--core-fontfamily-sans);
+    font-size       : var(--core-fontsize-h3);
+    font-weight     : var(--core-fontweight-semibold);
+    letter-spacing  : -0.02em;
+    line-height     : var(--core-lineheight-headline);
+}
+
 p {
     color           : var(--sem-color-fg-neutral-contrast);
     font-family     : var(--core-fontfamily-sans);
