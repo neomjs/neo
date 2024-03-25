@@ -126,7 +126,11 @@ class Viewport extends BaseViewport {
      * @param {Object} data
      */
     onResize(data) {
-        this.size = this.getSize(data.borderBoxSize.inlineSize)
+        let me = this;
+
+        if (me.id === data.id) {
+            me.size = me.getSize(data.borderBoxSize.inlineSize)
+        }
     }
 }
 
