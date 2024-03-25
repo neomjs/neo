@@ -30,14 +30,11 @@ class MainContainer extends Container {
          */
         items: [{
             module  : Container,
+            bind    : {hidden: data => data.size === 'x-small'},
             cls     : ['sidenav-container'],
             layout  : 'fit',
             minWidth: 350,
             width   : 350,
-
-            bind: {
-                hidden: data => data.size === 'x-small'
-            },
 
             items: [{
                 module   : ContentTreeList,
@@ -45,6 +42,7 @@ class MainContainer extends Container {
             }]
         }, {
             module      : Splitter,
+            bind        : {hidden: data => data.size === 'x-small'},
             cls         : ['main-content-splitter'],
             resizeTarget: 'previous',
             size        : 3
@@ -52,6 +50,7 @@ class MainContainer extends Container {
             module: PageContainer
         }, {
             module   : PageSectionsPanel,
+            bind     : {hidden: data => data.size === 'small' || data.size === 'x-small'},
             reference: 'page-sections-panel',
             width    : 250
         }],
