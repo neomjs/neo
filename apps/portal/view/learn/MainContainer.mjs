@@ -35,6 +35,10 @@ class MainContainer extends Container {
             minWidth: 350,
             width   : 350,
 
+            bind: {
+                hidden: data => data.size === 'x-small'
+            },
+
             items: [{
                 module   : ContentTreeList,
                 reference: 'tree'
@@ -46,13 +50,7 @@ class MainContainer extends Container {
             size        : 3
         }, {
             module: PageContainer
-        }, 
-        // {
-        //     module: Splitter,
-        //     cls   : ['main-content-splitter'],
-        //     size  : 3
-        // }, 
-        {
+        }, {
             module   : PageSectionsPanel,
             reference: 'page-sections-panel',
             width    : 250
