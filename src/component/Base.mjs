@@ -370,7 +370,6 @@ class Base extends CoreBase {
      * @member {String[]} childUpdateCache=[]
      */
     childUpdateCache = []
-
     /**
      * @member {Function[]} resolveUpdateCache=[]
      */
