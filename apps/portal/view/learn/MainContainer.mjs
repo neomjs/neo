@@ -50,7 +50,7 @@ class MainContainer extends Container {
             module: PageContainer
         }, {
             module   : PageSectionsContainer,
-            bind     : {hidden: data => data.size === 'small' || data.size === 'x-small'},
+            bind     : {hidden: data => data.size !== 'large'},
             reference: 'page-sections-container',
             width    : 250
         }],

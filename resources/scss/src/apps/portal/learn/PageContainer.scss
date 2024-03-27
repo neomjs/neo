@@ -1,12 +1,10 @@
 .learn-content-container {
-    // align-items: center !important;
-    // padding: 0 3rem;
-    overflow: scroll;
+    overflow: auto;
 
     .content-bottom-toolbar {
         gap    : 8px;
         padding: 0 3rem;
-        margin-top: 100px; 
+        margin-top: 100px;
 
         .neo-button {
             flex           : 1 !important;
@@ -32,5 +30,11 @@
             top             : var(--cmp-button-spacinghorizontal);
             right            : var(--cmp-button-spacinghorizontal);
         }
+    }
+}
+
+.portal-size-large {
+    .content-bottom-toolbar {
+        margin-right: 250px;
     }
 }
