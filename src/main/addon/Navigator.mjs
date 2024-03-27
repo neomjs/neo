@@ -284,12 +284,14 @@ class Navigator extends Base {
     navigateTargetChildListChange(mutations, data) {
         this.fixItemFocusability(data);
 
-        // Active item gone.
-        // Try to activate the item at the same index;
-        if (data.activeItem && !data.subject.contains(data.activeItem)) {
-            const allItems = data.subject.querySelectorAll(data.selector);
+        if (data.keepFocusIndex) {
+            // Active item gone.
+            // Try to activate the item at the same index;
+            if (data.activeItem && !data.subject.contains(data.activeItem)) {
+                const allItems = data.subject.querySelectorAll(data.selector);
 
-            allItems.length && this.navigateTo(allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)], data);
+                allItems.length && this.navigateTo(allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)], data);
+            }
         }
     }
 

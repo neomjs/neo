@@ -99,6 +99,12 @@ class Base extends Component {
          */
         itemsFocusable: true,
         /**
+         * The config will get passed to the navigator main thread addon.
+         * E.g. for ComboBoxes, which shall preserve their focussed list item when filtering the store, use true.
+         * @member {Boolean} keepFocusIndex=false
+         */
+        keepFocusIndex: false,
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -288,10 +294,11 @@ class Base extends Component {
             // Set up item navigation in the list
             if (!me.hasNavigator) {
                 me.navigator = {
-                    appName  : me.appName,
-                    id       : me.id,
-                    selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
-                    windowId : me.windowId,
+                    appName       : me.appName,
+                    id            : me.id,
+                    keepFocusIndex: me.keepFocusIndex,
+                    selector      : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    windowId      : me.windowId,
                     ...me.navigator
                 };
 
