@@ -107,22 +107,6 @@ class Viewport extends BaseViewport {
     }
 
     /**
-     *
-     */
-    async onConstructed() {
-        super.onConstructed();
-
-        let me           = this,
-            data         = await Neo.Main.getByPath({path: 'location.search'}),
-            searchString = data?.substr(1),
-            search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
-
-        me.deck = search.deck || 'learnneo';
-
-        me.addCls(me.deck)
-    }
-
-    /**
      * @param {Object} data
      */
     onResize(data) {
