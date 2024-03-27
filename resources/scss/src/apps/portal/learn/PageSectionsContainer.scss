@@ -1,0 +1,14 @@
+.portal-page-sections-container.neo-container {
+    background-color: transparent;
+    border          : none; // reset the default 1px
+    display         : block;
+    flex-shrink     : 0;
+    position        : fixed;
+    right           : 0;
+    width           : 250px;
+    z-index         : 1;
+
+    h3 {
+        margin-left: 16px;
+    }
+}

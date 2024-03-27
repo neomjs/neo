@@ -3,7 +3,7 @@ import ContentTreeList         from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
 import PageContainer           from './PageContainer.mjs';
-import PageSectionsPanel       from './PageSectionsPanel.mjs';
+import PageSectionsContainer   from './PageSectionsContainer.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
@@ -49,9 +49,9 @@ class MainContainer extends Container {
         }, {
             module: PageContainer
         }, {
-            module   : PageSectionsPanel,
+            module   : PageSectionsContainer,
             bind     : {hidden: data => data.size === 'small' || data.size === 'x-small'},
-            reference: 'page-sections-panel',
+            reference: 'page-sections-container',
             width    : 250
         }],
         /**

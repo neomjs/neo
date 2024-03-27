@@ -184,7 +184,7 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onIntersect(data) {
-        let panel    = this.getReference('page-sections-panel'),
+        let panel    = this.getReference('page-sections-container'),
             list     = panel.list,
             recordId = parseInt(data.data.recordId);
 

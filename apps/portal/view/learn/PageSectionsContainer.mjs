@@ -2,20 +2,20 @@ import Container        from '../../../../src/container/Base.mjs';
 import PageSectionsList from './PageSectionsList.mjs';
 
 /**
- * @class Portal.view.learn.PageSectionsPanel
+ * @class Portal.view.learn.PageSectionsContainer
  * @extends Neo.container.Base
  */
-class PageSectionsPanel extends Container {
+class PageSectionsContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.PageSectionsPanel'
+         * @member {String} className='Portal.view.learn.PageSectionsContainer'
          * @protected
          */
-        className: 'Portal.view.learn.PageSectionsPanel',
+        className: 'Portal.view.learn.PageSectionsContainer',
         /**
-         * @member {String[]} cls=['portal-page-sections-panel']
+         * @member {String[]} cls=['portal-page-sections-container']
          */
-        cls: ['portal-page-sections-panel'],
+        cls: ['portal-page-sections-container'],
         /**
          * @member {Object[]} items
          */
@@ -46,6 +46,6 @@ class PageSectionsPanel extends Container {
     }
 }
 
-Neo.setupClass(PageSectionsPanel);
+Neo.setupClass(PageSectionsContainer);
 
-export default PageSectionsPanel;
+export default PageSectionsContainer;
