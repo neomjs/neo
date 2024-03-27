@@ -6,6 +6,7 @@
     max-width       : 900px;
     overflow        : unset;
     padding         : 0 3rem;
+    width           : -webkit-fill-available;
 
     pre[data-javascript] {
         border       : thin solid lightgray;
