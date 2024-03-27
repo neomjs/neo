@@ -1,18 +1,12 @@
-.portal-page-sections-panel.neo-panel {
+.portal-page-sections-panel.neo-container {
     background-color: transparent;
     border          : none; // reset the default 1px
-    bottom          : 0;
     display         : block;
     flex-shrink     : 0;
     position        : fixed;
     right           : 0;
-    top             : 80px;
     width           : 250px;
     z-index         : 1;
-
-    @media only screen and (max-width: 1100px) {
-        display: none;
-    }
 
     h3 {
         margin-left: 16px;

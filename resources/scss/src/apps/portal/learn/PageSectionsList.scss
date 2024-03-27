@@ -4,10 +4,11 @@
     }
 
     .neo-list-item {
-        color      : var(--sem-color-text-neutral-subdued);
-        height     : unset;
-        white-space: normal;
-        padding: 8px 0 8px 8px !important;
+        color        : var(--sem-color-text-neutral-subdued);
+        height       : unset;
+        margin-bottom: 0;
+        padding      : 5px 0 5px 5px !important;
+        white-space  : normal;
 
         &[aria-selected=true] {
             background-color: transparent !important;
