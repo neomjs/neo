@@ -1,10 +1,10 @@
-import { buffer } from '../../util/Function.mjs';
-import ClassSystemUtil from '../../util/ClassSystem.mjs';
+import { buffer }       from '../../util/Function.mjs';
+import ClassSystemUtil  from '../../util/ClassSystem.mjs';
 import ComponentManager from '../../manager/Component.mjs';
-import List from '../../list/Base.mjs';
-import Picker from './Picker.mjs';
-import Store from '../../data/Store.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import List             from '../../list/Base.mjs';
+import Picker           from './Picker.mjs';
+import Store            from '../../data/Store.mjs';
+import VDomUtil         from '../../util/VDom.mjs';
 
 /**
  * Provides a dropdown list to select one or multiple items.
@@ -50,7 +50,7 @@ class ComboBox extends Picker {
          * new value to the filter
          * @member {Number} filterDelay=50
          */
-        filterDelay: 50,
+        filterDelay : 50,
         /**
          * @member {String} filterOperator_='like'
          */
@@ -66,7 +66,7 @@ class ComboBox extends Picker {
          * @member {Object} keys
          */
         keys: {
-            Down: 'onKeyDownDown',
+            Down  : 'onKeyDownDown',
             Escape: 'onKeyDownEscape'
         },
         /**
@@ -173,9 +173,9 @@ class ComboBox extends Picker {
 
                 filters.push({
                     includeEmptyValues: true,
-                    operator: me.filterOperator,
-                    property: me.displayField,
-                    value: value?.[me.displayField] || null
+                    operator          : me.filterOperator,
+                    property          : me.displayField,
+                    value             : value?.[me.displayField] || null
                 });
 
                 value.filters = filters
@@ -246,19 +246,19 @@ class ComboBox extends Picker {
      */
     beforeSetStore(value, oldValue) {
         const
-            me = this,
-            { valueField, displayField } = me;
+            me                          = this,
+            { valueField, displayField} = me;
 
         oldValue?.destroy();
 
         // Promote an array of items to be a Store
         if (Array.isArray(value)) {
             value = {
-                data: value.map((v, i) => {
+                data : value.map((v, i) => {
                     // Simplest case is just picking string values.
                     if (typeof v === 'string') {
                         v = {
-                            [valueField]: v,
+                            [valueField]  : v,
                             [displayField]: v
                         }
                     }
@@ -273,8 +273,8 @@ class ComboBox extends Picker {
         if (Neo.typeOf(value) === 'Object' && !value.model && !value.module && !value.ntype) {
             value.model = {
                 fields: [
-                    { name: valueField, type: 'String' },
-                    { name: displayField, type: 'String' }
+                    {name: valueField,   type: 'String'},
+                    {name: displayField, type: 'String'}
                 ]
             }
         }
@@ -300,9 +300,9 @@ class ComboBox extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        let me = this,
+        let me           = this,
             displayField = me.displayField,
-            store = me.store,
+            store        = me.store,
             record;
 
         // getting a record, nothing to do
@@ -337,17 +337,16 @@ class ComboBox extends Picker {
         const me = this;
 
         me.list = Neo.create({
-            module: List,
-            appName: me.appName,
-            displayField: me.displayField,
-            itemRole: 'option',
+            module        : List,
+            appName       : me.appName,
+            displayField  : me.displayField,
+            itemRole      : 'option',
             itemsFocusable: false,
-            keepFocusIndex: true,
-            navigator: { eventSource: me.getInputElId() },
-            parentId: me.id,
-            role: 'listbox',
-            selectionModel: { stayInList: false },
-            store: me.store,
+            navigator     : {eventSource: me.getInputElId()},
+            parentId      : me.id,
+            role          : 'listbox',
+            selectionModel: {stayInList: false},
+            store         : me.store,
             ...me.listConfig
         });
 
@@ -355,15 +354,15 @@ class ComboBox extends Picker {
 
         me.list.addDomListeners({
             neonavigate: {
-                fn: me.onListItemNavigate,
+                fn   : me.onListItemNavigate,
                 scope: me
             }
         });
 
         me.list.selectionModel.on({
-            noChange: me.onListItemSelectionNoChange,
+            noChange       : me.onListItemSelectionNoChange,
             selectionChange: me.onListItemSelectionChange,
-            scope: me
+            scope          : me
         });
 
         return me.list
@@ -380,8 +379,8 @@ class ComboBox extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        let me = this,
-            store = me.store,
+        let me     = this,
+            store  = me.store,
             filter = store.getFilter(me.displayField),
             picker = me.picker,
             record = me.value;
@@ -396,7 +395,7 @@ class ComboBox extends Picker {
 
             // List might not exist until the picker is created
             const
-                { list } = me,
+                { list }           = me,
                 { selectionModel } = list;
 
             // On show, set the active item to be the current selected record or the first
@@ -409,7 +408,7 @@ class ComboBox extends Picker {
             setTimeout(() => {
                 const index = store.indexOf(record);
                 list._focusIndex = -1; // silent update to ensure afterSetFocusIndex() always gets called
-                list.focusIndex = index > -1 ? index : 0
+                list.focusIndex  = index > -1 ? index : 0
             }, 100)
         }
         // Filtered down to nothing - hide picker if it has been created.
@@ -436,12 +435,12 @@ class ComboBox extends Picker {
      * @override
      */
     fireChangeEvent(value, oldValue) {
-        let me = this,
+        let me            = this,
             FormContainer = Neo.form?.Container,
             params;
 
         if (!(me.forceSelection && !value)) {
-            params = { component: me, oldValue, value };
+            params = {component: me, oldValue, value};
 
             me.fire('change', params);
 
@@ -474,7 +473,7 @@ class ComboBox extends Picker {
      * @returns {Object}
      */
     getRecord() {
-        let list = this.list,
+        let list      = this.list,
             recordKey = list.selectionModel.getSelection()[0];
 
         return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null
@@ -496,8 +495,8 @@ class ComboBox extends Picker {
         const inputEl = this.getInputEl();
 
         inputEl['aria-activedescendant'] = '';
-        inputEl['aria-expanded'] = false;
-        inputEl['aria-haspopup'] = 'listbox';
+        inputEl['aria-expanded']         = false;
+        inputEl['aria-haspopup']         = 'listbox';
 
         super.onConstructed(...arguments)
     }
@@ -512,7 +511,7 @@ class ComboBox extends Picker {
 
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
-            me.value = me.store.get(me.activeRecordId);
+            me.value                   = me.store.get(me.activeRecordId);
             me.programmaticValueChange = false;
         }
 
@@ -547,16 +546,16 @@ class ComboBox extends Picker {
     async onListItemSelectionChange({ selection }) {
         if (selection?.length) {
             const
-                me = this,
+                me       = this,
                 selected = selection[0],
-                record = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
+                record   = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
 
             me.hintRecordId = null;
 
             me.updateTypeAheadValue(null, true);
 
             me.preventFiltering = true;
-            me.value = record;
+            me.value            = record;
             me.preventFiltering = false;
 
             me.fire('select', {
@@ -584,14 +583,14 @@ class ComboBox extends Picker {
      * @protected
      */
     onListItemNavigate(record) {
-        let { activeItem, activeIndex } = record;
+        let {activeItem, activeIndex} = record;
 
         if (activeIndex >= 0) {
             const
-                me = this,
+                me        = this,
                 { store } = me;
 
-            me.activeRecord = store.getAt(activeIndex);
+            me.activeRecord   = store.getAt(activeIndex);
             me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty];
 
             // Update typeahead hint (which updates DOM), or update DOM
@@ -633,12 +632,12 @@ class ComboBox extends Picker {
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-        let me = this,
+        let me    = this,
             value = me.preStoreLoadValue;
 
         if (value !== null) {
             me._value = undefined; // silent update
-            me.value = value
+            me.value  = value
         }
     }
 
@@ -653,7 +652,7 @@ class ComboBox extends Picker {
      *
      */
     selectLastListItem() {
-        this.selectListItem(this.store.getCount() - 1)
+        this.selectListItem(this.store.getCount() -1)
     }
 
     /**
@@ -693,23 +692,23 @@ class ComboBox extends Picker {
      * @param {Boolean} [silent=false]
      * @protected
      */
-    updateTypeAhead(silent = false) {
-        let me = this,
-            inputEl = VDomUtil.findVdomChild(me.vdom, { flag: 'neo-real-input' }),
-            vdom = me.vdom;
+    updateTypeAhead(silent=false) {
+        let me      = this,
+            inputEl = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-real-input'}),
+            vdom    = me.vdom;
 
         if (me.typeAhead) {
             inputEl.parentNode.cn[inputEl.index] = {
                 tag: 'span',
                 cls: ['neo-input-field-wrapper'],
-                cn: [{
-                    tag: 'input',
+                cn : [{
+                    tag         : 'input',
                     autocomplete: 'no', // while "off" is the correct value, browser vendors ignore it. Arbitrary strings do the trick.
-                    autocorrect: 'off',
-                    cls: ['neo-textfield-input', 'neo-typeahead-input'],
-                    disabled: true,
-                    id: me.getInputHintId(),
-                    spellcheck: 'false'
+                    autocorrect : 'off',
+                    cls         : ['neo-textfield-input', 'neo-typeahead-input'],
+                    disabled    : true,
+                    id          : me.getInputHintId(),
+                    spellcheck  : 'false'
                 }, inputEl.vdom]
             }
         } else {
@@ -724,11 +723,11 @@ class ComboBox extends Picker {
      * @param {Boolean} silent=false
      * @protected
      */
-    updateTypeAheadValue(value = this.lastManualInput, silent = false) {
-        let me = this,
-            match = false,
-            inputHintEl = me.getInputHintEl(),
-            { displayField, store } = me;
+    updateTypeAheadValue(value=this.lastManualInput, silent=false) {
+        let me                    = this,
+            match                 = false,
+            inputHintEl           = me.getInputHintEl(),
+            {displayField, store} = me;
 
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {
@@ -737,7 +736,7 @@ class ComboBox extends Picker {
 
                 if (match && inputHintEl) {
                     inputHintEl.value = value + match[displayField].substr(value.length);
-                    me.activeRecord = match;
+                    me.activeRecord   = match;
                     me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
                 }
             }

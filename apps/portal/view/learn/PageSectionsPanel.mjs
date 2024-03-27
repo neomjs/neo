@@ -1,11 +1,11 @@
-import Container from '../../../../src/container/Base.mjs';
 import PageSectionsList from './PageSectionsList.mjs';
+import Panel            from '../../../../src/container/Panel.mjs';
 
 /**
  * @class Portal.view.learn.PageSectionsPanel
- * @extends Neo.container.Base
+ * @extends Neo.container.Panel
  */
-class PageSectionsPanel extends Container {
+class PageSectionsPanel extends Panel {
     static config = {
         /**
          * @member {String} className='Portal.view.learn.PageSectionsPanel'
@@ -17,26 +17,32 @@ class PageSectionsPanel extends Container {
          */
         cls: ['portal-page-sections-panel'],
         /**
+         * @member {Object[]} headers
+         */
+        // headers: [{
+        //     dock : 'top',
+        //     items: [{
+        //         ntype: 'label',
+        //         text : 'On this page'
+        //     }, '->', {
+        //         iconCls: 'fas fa-chevron-right',
+        //         ui     : 'secondary',
+        //         tooltip: 'Collapse Sections'
+        //     }]
+        // }],
+        /**
          * @member {Object[]} items
          */
         items: [{
             vdom:
-            {
-                cn: [
-                    { tag: 'h3', html: 'On this page' }
-                ]
-            }
-
-        }, {
-            module: PageSectionsList,
+                { cn: [                        
+                    { tag: 'h3', html: 'On this page' },
+                ]}
+            
+        },{
+            module   : PageSectionsList,
             reference: 'list'
-        }],
-        /**
-         * @member {Object} layout={ntype:'vbox'}
-         */
-        layout: {
-            ntype: 'vbox'
-        }
+        }]
     }
 
     /**

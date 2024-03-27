@@ -1,8 +1,8 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Component from '../component/Base.mjs';
-import ListModel from '../selection/ListModel.mjs';
-import NeoArray from '../util/Array.mjs';
-import Store from '../data/Store.mjs';
+import Component       from '../component/Base.mjs';
+import ListModel       from '../selection/ListModel.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Store           from '../data/Store.mjs';
 
 /**
  * @class Neo.list.Base
@@ -99,12 +99,6 @@ class Base extends Component {
          */
         itemsFocusable: true,
         /**
-         * The config will get passed to the navigator main thread addon.
-         * E.g. for ComboBoxes, which shall preserve their focussed list item when filtering the store, use true.
-         * @member {Boolean} keepFocusIndex=false
-         */
-        keepFocusIndex: false,
-        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -152,7 +146,7 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            { tag: 'ul', cn: [] }
+        {tag: 'ul', cn: []}
     }
 
     /**
@@ -196,13 +190,13 @@ class Base extends Component {
      */
     afterSetAnimate(value, oldValue) {
         value && import('./plugin/Animate.mjs').then(module => {
-            let me = this,
+            let me      = this,
                 plugins = me.plugins || [];
 
             plugins.push({
-                module: module.default,
+                module : module.default,
                 appName: me.appName,
-                id: 'animate',
+                id     : 'animate',
                 ...me.pluginAnimateConfig
             });
 
@@ -232,9 +226,9 @@ class Base extends Component {
         if (value && !me.dragZone) {
             import('../draggable/list/DragZone.mjs').then(module => {
                 me.dragZone = Neo.create({
-                    module: module.default,
+                    module : module.default,
                     appName: me.appName,
-                    owner: me,
+                    owner  : me,
                     ...me.dragZoneConfig
                 })
             })
@@ -286,7 +280,7 @@ class Base extends Component {
         if (!value && me.hasNavigator) {
             Neo.main.addon.Navigator.unsubscribe(me.navigator);
 
-            me.hasNavigator = false;
+            me.hasNavigator  = false;
             me.selectedIndex = null
         }
 
@@ -294,11 +288,10 @@ class Base extends Component {
             // Set up item navigation in the list
             if (!me.hasNavigator) {
                 me.navigator = {
-                    appName: me.appName,
-                    id: me.id,
-                    keepFocusIndex: me.keepFocusIndex,
-                    selector: `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
-                    windowId: me.windowId,
+                    appName  : me.appName,
+                    id       : me.id,
+                    selector : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    windowId : me.windowId,
                     ...me.navigator
                 };
 
@@ -318,7 +311,7 @@ class Base extends Component {
      * @protected
      */
     afterSetSelectedIndex(value, oldValue) {
-        let me = this,
+        let me             = this,
             selectionModel = me.selectionModel;
 
         if (Neo.isNumber(value)) {
@@ -350,11 +343,11 @@ class Base extends Component {
         let me = this;
 
         value?.on({
-            filter: 'onStoreFilter',
-            load: 'onStoreLoad',
+            filter      : 'onStoreFilter',
+            load        : 'onStoreLoad',
             recordChange: 'onStoreRecordChange',
-            sort: 'onStoreSort',
-            scope: me
+            sort        : 'onStoreSort',
+            scope       : me
         });
 
         value?.getCount() > 0 && me.onStoreLoad()
@@ -367,7 +360,7 @@ class Base extends Component {
      * @protected
      */
     afterSetUseCheckBoxes(value, oldValue) {
-        let me = this,
+        let me  = this,
             cls = me.cls;
 
         NeoArray.toggle(cls, 'neo-use-checkicons', !!value);
@@ -396,15 +389,15 @@ class Base extends Component {
      * @protected
      */
     afterSetUseWrapperNode(value, oldValue) {
-        let me = this,
-            cls = me.cls,
+        let me         = this,
+            cls        = me.cls,
             wrapperCls = me.wrapperCls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
         NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
 
         me.wrapperCls = wrapperCls;
-        me.cls = cls
+        me.cls        = cls
     }
 
     /**
@@ -438,20 +431,20 @@ class Base extends Component {
      * @returns {Object} The list item vdom object
      */
     createItem(record, index) {
-        let me = this,
-            cls = [me.itemCls],
-            hasItemHeight = me.itemHeight !== null,
-            hasItemWidth = me.itemWidth !== null,
-            isHeader = me.useHeaders && record.isHeader,
-            itemContent = me.createItemContent(record, index),
-            itemId = me.getItemId(record[me.getKeyProperty()]),
+        let me             = this,
+            cls            = [me.itemCls],
+            hasItemHeight  = me.itemHeight !== null,
+            hasItemWidth   = me.itemWidth  !== null,
+            isHeader       = me.useHeaders && record.isHeader,
+            itemContent    = me.createItemContent(record, index),
+            itemId         = me.getItemId(record[me.getKeyProperty()]),
             selectionModel = me.selectionModel,
-            isSelected = !me.disableSelection && selectionModel?.isSelected(itemId),
+            isSelected     = !me.disableSelection && selectionModel?.isSelected(itemId),
             item;
 
         isHeader && cls.push('neo-list-header');
 
-        if (isSelected) {
+        if (isSelected){
             cls.push(selectionModel.selectedCls)
         }
 
@@ -464,9 +457,9 @@ class Base extends Component {
         }
 
         item = {
-            id: itemId,
-            tag: isHeader ? 'dt' : me.itemTagName,
-            'aria-selected': isSelected,
+            id  : itemId,
+            tag : isHeader ? 'dt' : me.itemTagName,
+            'aria-selected' : isSelected,
             cls
         };
 
@@ -532,7 +525,7 @@ class Base extends Component {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me = this,
+        let me       = this,
             itemText = record[me.displayField],
             filter;
 
@@ -540,7 +533,7 @@ class Base extends Component {
             filter = me.store.getFilter(me.displayField);
 
             if (filter && filter.value !== null && filter.value !== '') {
-                itemText = itemText.replace(new RegExp(filter.value, 'gi'), function (match) {
+                itemText = itemText.replace(new RegExp(filter.value, 'gi'), function(match) {
                     return '<span class="neo-highlight-search">' + match + '</span>'
                 })
             }
@@ -552,10 +545,10 @@ class Base extends Component {
     /**
      * @param {Boolean} silent=false
      */
-    createItems(silent = false) {
-        let me = this,
+    createItems(silent=false) {
+        let me                      = this,
             headerlessSelectedIndex = me.headerlessSelectedIndex,
-            vdom = me.getVdomRoot(),
+            vdom                    = me.getVdomRoot(),
             listItem;
 
         // in case we set headerlessSelectedIndex before the store was loaded, selectedIndex can be null
@@ -605,16 +598,16 @@ class Base extends Component {
      * @returns {Number}
      */
     getSelectedIndex(headerlessSelectedIndex) {
-        let delta = 0,
-            i = 0,
+        let delta   = 0,
+            i       = 0,
             records = this.store.items,
-            len = headerlessSelectedIndex;
+            len     = headerlessSelectedIndex;
 
         if (records.length < 1) {
             return null
         }
 
-        for (;i <= len;i++) {
+        for (; i <= len; i++) {
             if (records[i].isHeader) {
                 delta++;
                 len++
@@ -631,10 +624,10 @@ class Base extends Component {
      */
     getHeaderlessIndex(index) {
         let headerlessIndex = 0,
-            i = 0,
-            records = this.store.items;
+            i               = 0,
+            records         = this.store.items;
 
-        for (;i < index;i++) {
+        for (; i < index; i++) {
             if (!records[i].isHeader) {
                 headerlessIndex++
             }
@@ -656,10 +649,10 @@ class Base extends Component {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId = vnodeId.split('__')[1],
-            model = this.store.model,
+        let itemId   = vnodeId.split('__')[1],
+            model    = this.store.model,
             keyField = model?.getField(model.keyProperty),
-            keyType = keyField?.type?.toLowerCase();
+            keyType  = keyField?.type?.toLowerCase();
 
         if (keyType === 'int' || keyType === 'integer') {
             itemId = parseInt(itemId)
@@ -724,7 +717,7 @@ class Base extends Component {
      * @param {Object} data
      */
     onItemClick(node, data) {
-        let me = this,
+        let me     = this,
             record = me.store.get(me.getItemRecordId(node.id));
 
         // pass the record to class extensions
@@ -774,7 +767,7 @@ class Base extends Component {
      *
      */
     onStoreRecordChange(data) {
-        let me = this,
+        let me    = this,
             index = data.index;
 
         // ignore changes for records which have not been added to the list yet
