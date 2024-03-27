@@ -1,4 +1,3 @@
-
 In theory, a Neo.mjs app could be defined in a single `.mjs` source file. But that would be very hard to 
 maintain, and any reusable configs would have to be duplicated. Instead, each of your views and reusable 
 widgets will be defined as its own class. The result is simpler views which are inherently reusable and easier 
