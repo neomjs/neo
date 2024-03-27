@@ -1,4 +1,4 @@
-import Container from '../../../../src/container/Base.mjs';
+import Container        from '../../../../src/container/Base.mjs';
 import PageSectionsList from './PageSectionsList.mjs';
 
 /**
@@ -21,14 +21,12 @@ class PageSectionsPanel extends Container {
          */
         items: [{
             vdom:
-            {
-                cn: [
-                    { tag: 'h3', html: 'On this page' }
-                ]
-            }
+                {cn: [
+                        {tag: 'h3', html: 'On this page'}
+                    ]}
 
         }, {
-            module: PageSectionsList,
+            module   : PageSectionsList,
             reference: 'list'
         }],
         /**

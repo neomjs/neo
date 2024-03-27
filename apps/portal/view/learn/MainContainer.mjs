@@ -1,10 +1,10 @@
-import Container from '../../../../src/container/Base.mjs';
-import ContentTreeList from './ContentTreeList.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import ContentTreeList         from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel from './MainContainerModel.mjs';
-import PageContainer from './PageContainer.mjs';
-import PageSectionsPanel from './PageSectionsPanel.mjs';
-import Splitter from '../../../../src/component/Splitter.mjs';
+import MainContainerModel      from './MainContainerModel.mjs';
+import PageContainer           from './PageContainer.mjs';
+import PageSectionsPanel       from './PageSectionsPanel.mjs';
+import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
  * @class Portal.view.learn.MainContainer
@@ -29,35 +29,35 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            bind: { hidden: data => data.size === 'x-small' },
-            cls: ['sidenav-container'],
-            layout: 'fit',
+            module  : Container,
+            bind    : {hidden: data => data.size === 'x-small'},
+            cls     : ['sidenav-container'],
+            layout  : 'fit',
             minWidth: 350,
-            width: 350,
+            width   : 350,
 
             items: [{
-                module: ContentTreeList,
+                module   : ContentTreeList,
                 reference: 'tree'
             }]
         }, {
-            module: Splitter,
-            bind: { hidden: data => data.size === 'x-small' },
-            cls: ['main-content-splitter'],
+            module      : Splitter,
+            bind        : {hidden: data => data.size === 'x-small'},
+            cls         : ['main-content-splitter'],
             resizeTarget: 'previous',
-            size: 3
+            size        : 3
         }, {
             module: PageContainer
         }, {
-            module: PageSectionsPanel,
-            bind: { hidden: data => data.size === 'small' || data.size === 'x-small' },
+            module   : PageSectionsPanel,
+            bind     : {hidden: data => data.size === 'small' || data.size === 'x-small'},
             reference: 'page-sections-panel',
-            width: 250
+            width    : 250
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          */
-        layout: { ntype: 'hbox', align: 'stretch' },
+        layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Neo.model.Component} model=MainContainerModel
          */
