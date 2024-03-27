@@ -36,6 +36,9 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {HTMLElement} el
+     */
     clickItem(el) {
         // The element knows how to click itself.
         if (typeof el.click === 'function') {
@@ -56,17 +59,20 @@ class Navigator extends Base {
                 shiftKey : Neo.shiftKeyDown,
                 clientX,
                 clientY
-            }));
+            }))
         }
     }
 
-    // The navigables we are dealing with, if they are focusable must *not* be tabbable.
-    // Only *one* must be tabbable, so that tabbing into the subject element goes to the
-    // one active element.
-    //
-    // Tabbing *from* that must exit the subject element.
-    //
-    // So we must ensure that all the focusable elements except the first are not tabbable.
+    /**
+     * The navigables we are dealing with, if they are focusable must *not* be tabbable.
+     * Only *one* must be tabbable, so that tabbing into the subject element goes to the
+     * one active element.
+     *
+     * Tabbing *from* that must exit the subject element.
+     *
+     * So we must ensure that all the focusable elements except the first are not tabbable.
+     * @param {Object} data
+     */
     fixItemFocusability(data) {
         // If the key events are being read from an external element, then that will always contain
         // focus, so we have nothing to do here. The navigable items wil be inert and not
@@ -96,6 +102,10 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {MouseEvent} e
+     * @param {Object} data
+     */
     navigateClickHandler(e, data) {
         const target = e.target.closest(data.selector);
 
@@ -107,6 +117,10 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {FocusEvent} e
+     * @param {Object} data
+     */
     navigateFocusInHandler(e, data) {
         const
             target            = e.target.closest(data.selector),
@@ -126,6 +140,10 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {FocusEvent} e
+     * @param {Object} data
+     */
     navigateFocusOutHandler(e, data) {
         const { target } = e;
 
@@ -138,7 +156,11 @@ class Navigator extends Base {
         }
     }
 
-    navigateGetAdjacent(direction = 1, data) {
+    /**
+     * @param {Number} direction
+     * @param {Object} data
+     */
+    navigateGetAdjacent(direction=1, data) {
         const { treeWalker } = data;
 
         // Walk forwards or backwards to the next or previous node which matches our selector
@@ -159,6 +181,10 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {KeyboardEvent} keyEvent
+     * @param {Object} data
+     */
     navigateKeyDownHandler(keyEvent, data) {
         const
             me        = this,
@@ -226,6 +252,10 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {MouseEvent} e
+     * @param {Object} data
+     */
     navigateMouseDownHandler(e, data) {
         const target = e.target.closest(data.selector);
 
@@ -237,12 +267,20 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {HTMLElement} node
+     * @param {Object} data
+     */
     navigateNodeFilter(node, data) {
         return node.offsetParent && node.matches?.(data.selector) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
     }
 
-    // This is called if mutations take place within the subject element.
-    // We have to keep things in order if the list items change.
+    /**
+     * This is called if mutations take place within the subject element.
+     * We have to keep things in order if the list items change.
+     * @param {MutationRecord[]} mutations
+     * @param {Object} data
+     */
     navigateTargetChildListChange(mutations, data) {
         this.fixItemFocusability(data);
 
@@ -303,8 +341,12 @@ class Navigator extends Base {
         }
     }
 
+    /**
+     * @param {Object} data
+     * @returns {HTMLElement|null}
+     */
     navigatorGetActiveItem(data) {
-        let activeItem = data.activeItem && DomAccess.getElement(data.activeItem.id);
+        let activeItem = data.activeItem && DomAccess.getElement(data.activeItem.id) || null;
 
         if (!activeItem && ('activeIndex' in data)) {
             const allItems = data.subject.querySelectorAll(data.selector);
@@ -314,6 +356,10 @@ class Navigator extends Base {
         return activeItem;
     }
 
+    /**
+     * @param {HTMLElement} newActiveElement
+     * @param {Object} data
+     */
     setActiveItem(newActiveElement, data) {
         const allItems = Array.from(data.subject.querySelectorAll(data.selector));
 
@@ -432,13 +478,17 @@ class Navigator extends Base {
         subject.addEventListener('focusout',    data.l5 = e => me.navigateFocusOutHandler(e, data));
     }
 
+    /**
+     * @param {Object} data
+     */
     unsubscribe(data) {
         const target = DomAccess.getElement(data.id);
 
         data = target?.$navigator;
+
         if (data) {
             delete target.$navigator;
-            data.targetMutationMonitor.disconnect(target);
+            data.targetMutationMonitor.disconnect();
             data.eventSource.removeEventListener('keydown', data.l1);
             target.removeEventListener('mousedown',    data.l2);
             target.removeEventListener('click',        data.l3);
