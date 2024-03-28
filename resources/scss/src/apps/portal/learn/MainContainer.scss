@@ -6,39 +6,9 @@
     }
 }
 
-
-
-
-
-// Live preview Container
-.live-preview-container {
-
-    box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
-    border-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-
-    .neo-tab-header-toolbar {
-        background-color: var(--sem-color-surface-neutral-default);
-        padding: var(--cmp-tab-strip-height);
-        border: 1px solid #e6e6e6;
-        border-top-left-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-        border-top-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-    }
-
-    .neo-tab-strip {
-       margin-top: calc(var(--cmp-tab-strip-height) * (-1) - 1px);
-    }
-
-    .neo-tab-content-container {
-        background-color: transparent;
-        border: 1px solid #e6e6e6;
-        border-top: 0;
-        border-bottom-left-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-        border-bottom-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
-    }
-}
-
+// todo: @mxmrtns this makes scrollbars globally(!) invisible
 // Scrollbar Behaviour
-::-webkit-scrollbar {
+/*::-webkit-scrollbar {
     width: 6px;
 }
 
@@ -62,4 +32,4 @@ background: transparent;
         background: #b2b2b2;
         border-radius: 100px;
     }
-}
+}*/

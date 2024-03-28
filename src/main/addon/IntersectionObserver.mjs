@@ -29,6 +29,12 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
+     * Storing data from observe() calls which arrived prior to register()
+     * @member {Object} map={}
+     * @protected
+     */
+    cache = {}
+    /**
      * Storing component ids and their IntersectionObservers
      * @member {Object} map={}
      * @protected
@@ -77,17 +83,29 @@ class NeoIntersectionObserver extends Base {
      * @param {Boolean} data.disconnect=false true removes all currently observed targets
      * @param {String} data.id
      * @param {String} data.observe The querySelector to match elements
+     * @returns {Boolean} true in case the targets got observed, false in case they got cached prior to a register() call
      */
     observe(data) {
         let me       = this,
+            cache    = me.cache,
             targets  = document.querySelectorAll(data.observe),
             observer = me.map[data.id];
 
-        data.disconnect && observer.disconnect();
+        if (observer) {
+            data.disconnect && observer.disconnect();
 
-        targets.forEach(target => {
-            observer.observe(target)
-        })
+            targets.forEach(target => {
+                observer.observe(target)
+            })
+        } else {
+            if (!cache[data.id]) {
+                cache[data.id] = []
+            }
+
+            cache[data.id].push(data);
+        }
+
+        return !!observer
     }
 
     /**
@@ -101,6 +119,7 @@ class NeoIntersectionObserver extends Base {
      */
     register(data) {
         let me      = this,
+            cache   = me.cache,
             targets = data.observe && document.querySelectorAll(data.observe),
             observer;
 
@@ -114,7 +133,12 @@ class NeoIntersectionObserver extends Base {
 
         targets?.forEach(target => {
             observer.observe(target)
-        })
+        });
+
+        if (cache[data.id]) {
+            cache[data.id].forEach(item => me.observe(item));
+            delete cache[data.id]
+        }
     }
 
     /**

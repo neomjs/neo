@@ -3,7 +3,7 @@ import ContentTreeList         from './ContentTreeList.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import MainContainerModel      from './MainContainerModel.mjs';
 import PageContainer           from './PageContainer.mjs';
-import PageSectionsPanel       from './PageSectionsPanel.mjs';
+import PageSectionsContainer   from './PageSectionsContainer.mjs';
 import Splitter                from '../../../../src/component/Splitter.mjs';
 
 /**
@@ -30,6 +30,7 @@ class MainContainer extends Container {
          */
         items: [{
             module  : Container,
+            bind    : {hidden: data => data.size === 'x-small'},
             cls     : ['sidenav-container'],
             layout  : 'fit',
             minWidth: 350,
@@ -41,20 +42,16 @@ class MainContainer extends Container {
             }]
         }, {
             module      : Splitter,
+            bind        : {hidden: data => data.size === 'x-small'},
             cls         : ['main-content-splitter'],
             resizeTarget: 'previous',
             size        : 3
         }, {
             module: PageContainer
-        }, 
-        // {
-        //     module: Splitter,
-        //     cls   : ['main-content-splitter'],
-        //     size  : 3
-        // }, 
-        {
-            module   : PageSectionsPanel,
-            reference: 'page-sections-panel',
+        }, {
+            module   : PageSectionsContainer,
+            bind     : {hidden: data => data.size !== 'large'},
+            reference: 'page-sections-container',
             width    : 250
         }],
         /**

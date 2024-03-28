@@ -342,6 +342,7 @@ class ComboBox extends Picker {
             displayField  : me.displayField,
             itemRole      : 'option',
             itemsFocusable: false,
+            keepFocusIndex: true,
             navigator     : {eventSource: me.getInputElId()},
             parentId      : me.id,
             role          : 'listbox',

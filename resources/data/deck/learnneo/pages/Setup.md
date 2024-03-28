@@ -1,5 +1,3 @@
-## Introduction
-
 Setting up Neo.mjs is pretty easy &mdash; all you have to do is confirm that you have some required
 software then follow a single npx script.
 

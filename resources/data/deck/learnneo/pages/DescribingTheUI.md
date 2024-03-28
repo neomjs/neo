@@ -1,5 +1,3 @@
-## Introduction 
-
 A Neo.mjs view is comprised of components and containers. A component is a visual widget, like a button,
 and a container is a visual collection of components. 
 

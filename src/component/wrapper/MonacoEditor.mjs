@@ -41,6 +41,11 @@ class MonacoEditor extends Base {
          */
         ntype: 'monaco-editor',
         /**
+         * @member {String[]} baseCls=['neo-monaco-editor']
+         * @protected
+         */
+        baseCls: ['neo-monaco-editor'],
+        /**
          * @member {Boolean} contextmenu_=false
          */
         contextmenu_: false,

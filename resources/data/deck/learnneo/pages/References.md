@@ -1,5 +1,3 @@
-## Introduction
-
 Controllers often need to get references to components in order to update 
 the UI or access component properties. 
 There are two common ways of doing that:

@@ -1,5 +1,5 @@
-import {buffer, debounce, throttle} from '../util/Function.mjs';
-import IdGenerator                  from './IdGenerator.mjs'
+import {buffer, debounce, intercept, throttle} from '../util/Function.mjs';
+import IdGenerator                             from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -149,6 +149,13 @@ class Base {
         });
 
         me.applyDelayable();
+
+        /*
+         * We do not want to force devs to check for the `isDestroyed` flag in every possible class extension.
+         * So, we are intercepting the top-most `destroy()` call to check for the flag there.
+         * Rationale: `destroy()` must only get called once.
+         */
+        intercept(me, 'destroy', me.isDestroyedCheck, me);
 
         me.remote && setTimeout(me.initRemote.bind(me), 1)
     }
@@ -305,9 +312,14 @@ class Base {
 
         Object.keys(me).forEach(key => {
             if (Object.getOwnPropertyDescriptor(me, key).writable) {
-                delete me[key]
+                // We must not delete some custom destroy() interceptor
+                if (key !== 'destroy' && key !== '_id') {
+                    delete me[key]
+                }
             }
-        })
+        });
+
+        me.isDestroyed = true
     }
 
     /**
@@ -385,6 +397,14 @@ class Base {
                 Base.sendRemotes(className, remote)
             }
         }
+    }
+
+    /**
+     * Intercepts destroy() calls to ensure they will only get called once
+     * @returns {Boolean}
+     */
+    isDestroyedCheck() {
+        return !this.isDestroyed
     }
 
     /**
