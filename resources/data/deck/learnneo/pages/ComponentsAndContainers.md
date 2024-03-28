@@ -86,7 +86,7 @@ class MainView extends Container {
         layout   : 'fit', // If no configs are needed, simply use the ntype of the layout
         items    : [{
             ntype: 'component',
-            style: {backgroundColor: 'lightgreen'}, // The camel-cased property converts to the hyphenated css style
+            style: {backgroundColor: 'lightgreen'}, // The camel-cased backgroundColor property converts to the hyphenated css style
         }]
     }
 }
@@ -96,7 +96,7 @@ Neo.setupClass(MainView);
 
 ### Vbox and hbox
 
-Items are arranged vertically or horizontally. On-axis and off-axis alignment can be specified.
+With `vbox` and `hbox`, items are arranged vertically or horizontally.
 
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';
@@ -123,7 +123,7 @@ Neo.setupClass(MainView);
 
 ### Card
 
-Having multiple child items, one of which is visible. 
+A card container has multiple child items, one of which is visible. 
 
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';
@@ -144,7 +144,7 @@ class MainView extends Base {
                 iconPosition: 'right',
                 handler: data => {
                     const container = data.component.up('container').getReference('cardContainer');
-                    container.layout.activeIndex = (container.layout.activeIndex +1) % container.items.length;
+                    container.layout.activeIndex = (container.layout.activeIndex + 1) % container.items.length;
                 }
             }]
         }, {
@@ -154,13 +154,13 @@ class MainView extends Base {
             flex: 1,
             items: [{
                 ntype : 'component',
-                style: {backgroundColor: 'lightsalmon'}, // The camel-cased property converts to the hyphated css style
+                style: {backgroundColor: 'lightsalmon'} // https://drafts.csswg.org/css-color/#named-colors
             }, {
                 ntype : 'component',
-                style: {backgroundColor: 'darkseagreen'} // https://drafts.csswg.org/css-color/#named-colors
+                style: {backgroundColor: 'darkseagreen'} // Who came up with these names?
             }, {
                 ntype : 'component',
-                style: {backgroundColor: 'cornflowerblue'} // Who came up with these names?
+                style: {backgroundColor: 'cornflowerblue'} 
             }]
         }]
     }
@@ -172,7 +172,42 @@ Neo.setupClass(MainView);
 
 
 
-## Reusing containers
+## Reusing components
+
+Neo.mjs is class-based, and thus, any component or container can be defined as its own class, and reused like any
+other component in the framework.
+
+<pre data-neo>
+import Button    from '../../../../src/button/Base.mjs';
+// In practice this would be some handy reusable component
+class MySpecialButton extends Button {
+    static config = {
+        className: 'Example.view.MySpecialButton',
+        iconCls: 'far fa-face-grin-wide',
+        ui: 'ghost'
+    }
+}
+
+Neo.setupClass(MySpecialButton);
 
 
-## Lifecycle methods
+import Container from '../../../../src/container/Base.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        items    : [{
+            module : Button,
+            iconCls: 'fa fa-home',
+            text   : 'A framework button'
+        }, {
+            module : MySpecialButton,
+            text   : 'My special button'
+        }]
+    }
+}
+
+Neo.setupClass(MainView);
+</pre>
+
