@@ -150,6 +150,11 @@ class Base {
 
         me.applyDelayable();
 
+        /*
+         * We do not want to force devs to check for the `isDestroyed` flag in every possible class extension.
+         * So, we are intercepting the top-most `destroy()` call to check for the flag there.
+         * Rationale: `destroy()` must only get called once.
+         */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
         me.remote && setTimeout(me.initRemote.bind(me), 1)
