@@ -12,16 +12,43 @@ If the default four threads aren't enough, you're free to launch additional web-
 to run other specialized logic. 
 
 
-<details>
-<summary>Example</summary>
-Look at this example. It's complex. As you pan left and right, and zoom in and out, the upper-right
-shows you the number of delta updates being applied. If you move really quickly, you might reach 20,000 
+### Example
+
+Look at this example. It's the `Neo.component.Helix` component. It illustrates how quickly Neo.mjs can update a complex user interface. 
+
+Use your mouse or trackpad to pan and zoom &mdash; the helix zooms and spirals accordingly, very very rapidly. If you move quickly, you might reach 20,000 
 or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per second &mdash;
 but we've never actually hit the limit.
 
-<a href="https://neomjs.com/node_modules/neo.mjs/examples/component/helix/index.html" target="_example">Helix Example</a>
+<pre data-neo>
+import Base from '../../../../src/container/Base.mjs';
+import Helix from '../../../../src/component/Helix.mjs';
+class Foo extends Base {
+    static config = {
+        className: 'Foo',
+        layout: 'fit',
+        items: [{
+            module: Helix,
+            imageField : 'image',
+            imageSource: '../../../../resources/examples/',
+            store: {
+                autoLoad: true,
+                model: {
+                    fields: [
+                        { name: 'firstname' , type: 'String'   }, 
+                        { name: 'id'        , type: 'Integer'  }, 
+                        { name: 'image'     , type: 'String'   }, 
+                        { name: 'isOnline'  , type: 'Boolean'  }, 
+                        { name: 'lastname'  , type: 'String'   }
+                    ],
+                },
+                url: '../../../../resources/examples/data/ai_contacts.json'
+            }
+        }]
+    }
+}
+Neo.setupClass(Foo);
+</pre>
 
-<a href="https://neomjs.com/node_modules/neo.mjs/examples/component/helix/index.html" target="_example">
-<img width="75%" src="https://s3.amazonaws.com/mjs.neo.learning.images/Helix.png"></img>
-</a>
-</details>
+If you're interested, there's <a href="../../examples/component/helix/index.html" target="_blank">a more full-featured helix example</a> that includes showing delta updates, 
+along with some other control. Look at the upper-right corner to see delta updates.
