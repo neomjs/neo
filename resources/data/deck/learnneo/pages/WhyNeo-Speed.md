@@ -1,4 +1,4 @@
-Web-worker processes are automatically run in parallel, on separate CPU cores.
+The Neo.mjs web-worker processes are automatically run in parallel, on separate CPU cores.
 
 By contrast, other JavaScript frameworks run in a single thread, so all business logic, 
 data handling, and DOM rendering compete for CPU resources.
@@ -16,9 +16,9 @@ to run other specialized logic.
 
 Look at this example. It's the `Neo.component.Helix` component. It illustrates how quickly Neo.mjs can update a complex user interface. 
 
-Use your mouse or trackpad to pan and zoom &mdash; the helix zooms and spirals accordingly, very very rapidly. If you move quickly, you might reach 20,000 
-or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per second &mdash;
-but we've never actually hit the limit.
+Click on Preview, then use your mouse or trackpad to pan and zoom &mdash; the helix zooms and spirals accordingly, very very rapidly. 
+If you move quickly, you might reach 20,000 or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per 
+second &mdash; but we've never actually hit the limit.
 
 <pre data-neo>
 import Base from '../../../../src/container/Base.mjs';
@@ -34,13 +34,7 @@ class Foo extends Base {
             store: {
                 autoLoad: true,
                 model: {
-                    fields: [
-                        { name: 'firstname' , type: 'String'   }, 
-                        { name: 'id'        , type: 'Integer'  }, 
-                        { name: 'image'     , type: 'String'   }, 
-                        { name: 'isOnline'  , type: 'Boolean'  }, 
-                        { name: 'lastname'  , type: 'String'   }
-                    ],
+                    fields: [ { name: 'image' , type: 'String'   } ],
                 },
                 url: '../../../../resources/examples/data/ai_contacts.json'
             }
@@ -49,6 +43,7 @@ class Foo extends Base {
 }
 Neo.setupClass(Foo);
 </pre>
+
 
 If you're interested, there's <a href="../../examples/component/helix/index.html" target="_blank">a more full-featured helix example</a> that includes showing delta updates, 
 along with some other control. Look at the upper-right corner to see delta updates.
