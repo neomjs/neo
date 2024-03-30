@@ -32,7 +32,7 @@ where we want to present high-level points and reveal details when the disclosur
 
 <details>
 <summary>This is a disclosure widget</summary>
-This is a fascinating piece of information which is revealed when the widget is expanded.
+<p style="background-color:lightgreen;padding:8px">This is a fascinating piece of information which is revealed when the widget is expanded.</p>
 </details>
 
 Topics also sometimes contain runnable examples. These are shown as tab panels with Source and Preview tabs.
