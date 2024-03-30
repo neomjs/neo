@@ -14,7 +14,7 @@ to run other specialized logic.
 
 ### Example
 
-Look at this example. It's the `Neo.component.Helix` component. It illustrates how quickly Neo.mjs can update a complex user interface. 
+Look at this example. It's the `Neo.component.Helix` component. Besides looking cool, it illustrates how quickly Neo.mjs can update a complex user interface. 
 
 Click on Preview, then use your mouse or trackpad to pan and zoom &mdash; the helix zooms and spirals accordingly, very very rapidly. 
 If you move quickly, you might reach 20,000 or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per 
