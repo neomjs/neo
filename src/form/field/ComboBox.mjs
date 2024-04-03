@@ -761,6 +761,7 @@ class ComboBox extends Picker {
         if (!me.programmaticValueChange) {
             // changing the input => silent record reset
             me._value = null;
+            me.list?.selectionModel.deselectAll();
 
             me.filterOnInput(inputValue)
         }
