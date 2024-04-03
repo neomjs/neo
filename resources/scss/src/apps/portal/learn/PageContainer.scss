@@ -2,9 +2,10 @@
     overflow: auto;
 
     .content-bottom-toolbar {
-        gap    : 8px;
-        padding: 0 3rem;
-        margin-top: 100px;
+        gap          : 8px;
+        padding      : 0 3rem;
+        margin-bottom: 3rem;
+        margin-top   : 3rem;
 
         .neo-button {
             flex           : 1 !important;

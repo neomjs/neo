@@ -8,11 +8,11 @@ across windows, running seamlessly as a single application.
 
 <details>
 <summary><h3>Example</h3></summary>
-An easy way to show this is by looking at a code preview example. Below, click Preview, 
+An easy way to show this is by looking at a code preview example. In the example below, click Preview, 
 then click on the new window icon on the right side of the toolbar. This launches a new window 
 running the code. Even though it's running in a new window, it's still part of the app. 
-(In this case, the app is the Neo.mjs portal.) That means both the code in both windows seamlessly 
-share events, bound data, etc. &mdash; the code doesn't care that some code is running in a
+(In this case, the app is the web site you're looking at now.) That means both the code in both windows 
+seamlessly share events, data, etc. &mdash; the code doesn't care that some code is running in a
 separate window.
 <pre data-neo>
 import Button    from '../../../../src/button/Base.mjs';

@@ -1,7 +1,6 @@
 To code a live preview, enclose the code in a `pre` tag with the `data-neo` attribute.
 
-<pre>&lt;pre data-neo> 
-&lt;/pre> 
+<code>&lt;pre data-neo>...&lt;/pre&gt; &lt;</code> 
 
 Imports are relative to the portal app running within the framework. That means
 Neo.mjs imports should be coded to go up four levels, then look into the `src`

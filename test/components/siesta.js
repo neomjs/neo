@@ -75,6 +75,7 @@ project.plan({
 }, {
     group: 'component',
     items: [
+        'files/component/Base.mjs',
         'files/component/DateSelector.mjs'
     ]
 }, {
