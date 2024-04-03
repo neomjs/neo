@@ -80,16 +80,25 @@ class NeoIntersectionObserver extends Base {
     /**
      * Add more or new items into an existing observer instance
      * @param {Object} data
-     * @param {Boolean} data.disconnect=false true removes all currently observed targets
+     * @param {Boolean} [data.disconnect=false] true removes all currently observed targets
      * @param {String} data.id
-     * @param {String} data.observe The querySelector to match elements
+     * @param {String|String[]} data.observe The querySelector to match elements
      * @returns {Boolean} true in case the targets got observed, false in case they got cached prior to a register() call
      */
     observe(data) {
-        let me       = this,
-            cache    = me.cache,
-            targets  = document.querySelectorAll(data.observe),
-            observer = me.map[data.id];
+        let me            = this,
+            cache         = me.cache,
+            {id, observe} = data,
+            observer      = me.map[data.id],
+            targets       = [];
+
+        if (!Neo.isArray(observe)) {
+            observe = [observe]
+        }
+
+        observe.forEach(item => {
+            targets.push(...document.querySelectorAll(item))
+        })
 
         if (observer) {
             data.disconnect && observer.disconnect();
@@ -98,11 +107,11 @@ class NeoIntersectionObserver extends Base {
                 observer.observe(target)
             })
         } else {
-            if (!cache[data.id]) {
-                cache[data.id] = []
+            if (!cache[id]) {
+                cache[id] = []
             }
 
-            cache[data.id].push(data);
+            cache[id].push(data);
         }
 
         return !!observer
@@ -112,18 +121,18 @@ class NeoIntersectionObserver extends Base {
      * @param {Object} data
      * @param {String} data.callback
      * @param {String} data.id
-     * @param {String} [data.observe] The querySelector to match elements
+     * @param {String|String[]} [data.observe] The querySelector to match elements
      * @param {String} data.root
      * @param {String} data.rootMargin='0px'
      * @param {Number|Number[]} data.threshold=0.0
      */
     register(data) {
-        let me      = this,
-            cache   = me.cache,
-            targets = data.observe && document.querySelectorAll(data.observe),
+        let me            = this,
+            cache         = me.cache,
+            {id, observe} = data,
             observer;
 
-        me.map[data.id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
+        me.map[id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
             root      : document.querySelector(data.root),
             rootMargin: data.rootMargin || '0px',
             threshold : data.threshold  || 0.0
@@ -131,13 +140,11 @@ class NeoIntersectionObserver extends Base {
 
         observer.rootId = data.id; // storing the component id
 
-        targets?.forEach(target => {
-            observer.observe(target)
-        });
+        observe && me.observe({id, observe});
 
-        if (cache[data.id]) {
-            cache[data.id].forEach(item => me.observe(item));
-            delete cache[data.id]
+        if (cache[id]) {
+            cache[id].forEach(item => me.observe(item));
+            delete cache[id]
         }
     }
 
