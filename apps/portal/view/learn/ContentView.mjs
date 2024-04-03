@@ -134,7 +134,7 @@ class ContentView extends Component {
             Neo.main.addon.IntersectionObserver.observe({
                 disconnect: true,
                 id        : me.id,
-                observe   : '.neo-h2',
+                observe   : ['.neo-h2', '.neo-h3'],
                 windowId  : me.windowId
             })
         }
