@@ -510,6 +510,11 @@ class ComboBox extends Picker {
     onFocusLeave(data) {
         let me = this;
 
+        /*
+         * If we are leaving the field, using forceSelection=true and the field does not have a selected record,
+         * we do want to pick the closest match => the focussed record (honoring filters).
+         * If no record is found, we will clear the field instead.
+         */
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
             me.value                   = me.store.get(me.activeRecordId);
