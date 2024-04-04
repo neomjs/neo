@@ -483,7 +483,7 @@ class ComboBox extends Picker {
     /**
      * @returns {Number|String}
      */
-    getValue() {
+    getSubmitValue() {
         let me = this;
 
         return me.value?.[me.valueField] || me.emptyValue

@@ -1146,6 +1146,15 @@ class Text extends Base {
     }
 
     /**
+     * @returns {*}
+     */
+    getSubmitValue() {
+        let superSubmitValue = super.getSubmitValue();
+
+        return this.xssProtected ? StringUtil.escapeHtml(superSubmitValue) : superSubmitValue
+    }
+
+    /**
      * @param {String} type
      * @returns {Neo.form.field.trigger.Base|null}
      */
@@ -1190,17 +1199,6 @@ class Text extends Base {
      */
     getTriggerId(type) {
         return this.id + '-trigger-' + type
-    }
-
-    /**
-     * @returns {*}
-    */
-    getValue() {
-        if (this.xssProtected) {
-            return StringUtil.escapeHtml(super.getValue())
-        } else {
-            return super.getValue()
-        }
     }
 
     /**
