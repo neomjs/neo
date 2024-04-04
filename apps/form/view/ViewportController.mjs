@@ -20,7 +20,7 @@ class ViewportController extends Component {
         let me         = this,
             form       = me.getReference('main-form'),
             formState  = await form.getFormState(),
-            formValues = await form.getValues();
+            formValues = await form.getSubmitValues();
 
         console.log('All pages', {formState, formValues});
 
@@ -34,7 +34,7 @@ class ViewportController extends Component {
         let me          = this,
             activeIndex = me.getModel().data.activeIndex,
             activeCard  = me.getReference('pages-container').items[activeIndex],
-            formValues  = await activeCard.getValues();
+            formValues  = await activeCard.getSubmitValues();
 
         await me.updateRecordValidityState(activeIndex)
 

@@ -70,7 +70,7 @@ class LoginFormContainer extends Container {
      *
      */
     onLoginButtonClick() {
-        let values = this.getValues();
+        let values = this.getSubmitValues();
 
         console.log(values);
         console.log(this.isValid());
