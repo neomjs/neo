@@ -345,7 +345,7 @@ class Base extends Component {
 
         let me            = this,
             FormContainer = Neo.form?.Container,
-            opts          = {...data, component: me, value: me.getSubmitValue()()};
+            opts          = {...data, component: me, value: me.getSubmitValue()};
 
         if (me.isTouchedEvent === 'focusLeave') {
             me.isTouched = true
