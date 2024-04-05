@@ -1,0 +1,11 @@
+.neo-dateselector.neo-container {
+    background-color: var(--dateselector-background-color);
+    color           : var(--dateselector-color);
+    font-size       : 16px; // todo: em-based once table headers are em based
+    font-weight     : 400;
+    user-select     : none;
+
+    .date-card {
+        border: 1px solid var(--dateselector-border-color);
+    }
+}

@@ -31,9 +31,9 @@ class DateSelector extends Container {
          */
         ntype: 'container-dateselector',
         /**
-         * @member {String[]} baseCls=['neo-dateselector']
+         * @member {String[]} baseCls=['neo-dateselector','neo-container']
          */
-        baseCls: ['neo-dateselector'],
+        baseCls: ['neo-dateselector', 'neo-container'],
         /**
          * Date object created on the value config
          * @member {Date|null} currentDate_=null
@@ -70,6 +70,7 @@ class DateSelector extends Container {
             items : [{
                 text: 'prev'
             }, {
+                flex: 1,
                 text: '2024'
             }, {
                 text: 'next'
@@ -78,7 +79,8 @@ class DateSelector extends Container {
             module: Container,
             layout: 'card',
             items : [{
-                vdom: {html: 'body'}
+                baseCls: ['date-card'],
+                vdom   : {html: 'body'}
             }]
         }],
         /**
