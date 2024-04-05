@@ -69,12 +69,12 @@ class DateSelector extends Container {
             cls   : ['header-toolbar'],
             flex  : 'none',
             items : [{
-                text: 'prev'
+                iconCls: 'fas fa-circle-chevron-left'
             }, {
                 flex: 1,
                 text: '2024'
             }, {
-                text: 'next'
+                iconCls: 'fas fa-circle-chevron-right'
             }]
         }, {
             module: Container,
