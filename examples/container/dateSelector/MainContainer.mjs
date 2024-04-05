@@ -52,37 +52,37 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'Apr'
         }, {
             module        : Radio,
-            checked       : exampleComponent.currentDate.getFullYear() === 2021,
+            checked       : exampleComponent.currentDate.getFullYear() === 2025,
             hideValueLabel: false,
             labelText     : 'currentDate (year)',
-            listeners     : {change: me.onYearRadioChange.bind(me, 2021)},
+            listeners     : {change: me.onYearRadioChange.bind(me, 2025)},
             name          : 'year',
             style         : {marginTop: '10px'},
-            valueLabelText: '2021'
+            valueLabelText: '2025'
         }, {
             module        : Radio,
-            checked       : exampleComponent.currentDate.getFullYear() === 2020,
+            checked       : exampleComponent.currentDate.getFullYear() === 2024,
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onYearRadioChange.bind(me, 2020)},
+            listeners     : {change: me.onYearRadioChange.bind(me, 2024)},
             name          : 'year',
-            valueLabelText: '2020'
+            valueLabelText: '2024'
         }, {
             module        : Radio,
-            checked       : exampleComponent.currentDate.getFullYear() === 2019,
+            checked       : exampleComponent.currentDate.getFullYear() === 2023,
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onYearRadioChange.bind(me, 2019)},
+            listeners     : {change: me.onYearRadioChange.bind(me, 2023)},
             name          : 'year',
-            valueLabelText: '2019'
+            valueLabelText: '2023'
         }, {
             module        : Radio,
-            checked       : exampleComponent.currentDate.getFullYear() === 2018,
+            checked       : exampleComponent.currentDate.getFullYear() === 2022,
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onYearRadioChange.bind(me, 2018)},
+            listeners     : {change: me.onYearRadioChange.bind(me, 2022)},
             name          : 'year',
-            valueLabelText: '2018'
+            valueLabelText: '2022'
         }, {
             module        : Radio,
             checked       : exampleComponent.dayNameFormat === 'narrow',
