@@ -1,3 +1,4 @@
+import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Container         from '../container/Base.mjs';
 import DateSelectorModel from '../selection/DateSelectorModel.mjs';
 import DateUtil          from '../util/Date.mjs';
@@ -24,10 +25,11 @@ class DateSelector extends Container {
          */
         className: 'Neo.container.DateSelector',
         /**
-         * @member {String} ntype='dateselector'
+         * todo: switch to 'dateselector' once the migration is complete
+         * @member {String} ntype='container-dateselector'
          * @protected
          */
-        ntype: 'dateselector',
+        ntype: 'container-dateselector',
         /**
          * @member {String[]} baseCls=['neo-dateselector']
          */
@@ -53,6 +55,12 @@ class DateSelector extends Container {
          * @protected
          */
         intlFormat_day: null,
+        /**
+         * Internal flag to prevent changing the date while change animations are still running
+         * @member {Boolean} isUpdating_=false
+         * @protected
+         */
+        isUpdating_: false,
         /**
          * @member {Object[]} items
          */
@@ -135,6 +143,78 @@ class DateSelector extends Container {
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
+    }
+
+    /**
+     * Stores the last date change which got triggered while a month / year transition was running
+     * @member {Date|null} cachedUpdate=null
+     * @protected
+     */
+    cachedUpdate = null
+
+    /**
+     * Triggered after the value config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (!me.isUpdating) {
+                me.currentDate = new Date(`${value}T00:00:00.000Z`);
+
+                me.fire('change', {
+                    component: me,
+                    oldValue,
+                    value
+                })
+            } else {
+                me.cacheUpdate()
+            }
+        }
+    }
+
+    /**
+     * Triggered before the dayNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetDayNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats)
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue && oldValue.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, DateSelectorModel)
+    }
+
+    /**
+     * Triggered before the weekStartDay config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetWeekStartDay(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays)
+    }
+
+    /**
+     * Stores the last date change which could not get applied while a transition was running
+     * @param {Date} [date=this.currentDate]
+     * @protected
+     */
+    cacheUpdate(date=this.currentDate) {
+        this.cachedUpdate = date
     }
 }
 
