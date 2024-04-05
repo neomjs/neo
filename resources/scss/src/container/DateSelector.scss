@@ -8,4 +8,11 @@
     .date-card {
         border: 1px solid var(--dateselector-border-color);
     }
+
+    .header-toolbar {
+        background-color: var(--dateselector-header-background-color);
+        border          : 1px solid var(--dateselector-border-color);
+        border-bottom   : var(--dateselector-header-border-bottom);
+        min-height      : 30px;
+    }
 }

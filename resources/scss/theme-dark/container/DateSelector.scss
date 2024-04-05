@@ -1,0 +1,24 @@
+:root .neo-theme-dark { // .neo-dateselector
+    --dateselector-background-color              : #323232;
+    --dateselector-border-color                  : #3c3f41;
+    --dateselector-cell-background-color         : #323232;
+    --dateselector-cell-background-color-disabled: #323232;
+    --dateselector-cell-color                    : #bbb;
+    --dateselector-cell-color-disabled           : #555;
+    --dateselector-cell-color-selected           : #fff;
+    --dateselector-cell-opacity-disabled         : 1;
+    --dateselector-cell-today-border-color       : #5d83a7;
+    --dateselector-color                         : #bbb;
+    --dateselector-content-border-top            : none;
+    --dateselector-header-background-color       : #323232;
+    --dateselector-header-border-bottom          : none;
+    --dateselector-header-cell-background-color  : #33343d;
+    --dateselector-header-cell-border-bottom     : none;
+    --dateselector-header-cell-color             : #bbb;
+    --dateselector-header-month-text-color       : #ccc;
+    --dateselector-header-year-text-color        : #bbb;
+    --dateselector-nav-button-background-color   : #323232;
+    --dateselector-nav-button-color              : #bbb;
+    --dateselector-nav-button-color-hover        : #ddd;
+    --dateselector-nav-button-inner-border       : none;
+}

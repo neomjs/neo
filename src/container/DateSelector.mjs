@@ -66,6 +66,7 @@ class DateSelector extends Container {
          */
         items: [{
             module: Toolbar,
+            cls   : ['header-toolbar'],
             flex  : 'none',
             items : [{
                 text: 'prev'
@@ -79,8 +80,8 @@ class DateSelector extends Container {
             module: Container,
             layout: 'card',
             items : [{
-                baseCls: ['date-card'],
-                vdom   : {html: 'body'}
+                cls : ['date-card'],
+                vdom: {html: 'body'}
             }]
         }],
         /**
