@@ -1,10 +1,11 @@
-import Base from '../container/Base.mjs';
+import Container from '../container/Base.mjs';
+import Toolbar   from '../toolbar/Base.mjs';
 
 /**
  * @class Neo.container.DateSelector
  * @extends Neo.container.Base
  */
-class DateSelector extends Base {
+class DateSelector extends Container {
     static config = {
         /**
          * @member {String} className='Neo.container.DateSelector'
@@ -14,7 +15,23 @@ class DateSelector extends Base {
         /**
          * @member {Object[]} items
          */
-        items: []
+        items: [{
+            module: Toolbar,
+            flex  : 'none',
+            items : [{
+                text: 'prev'
+            }, {
+                text: '2024'
+            }, {
+                text: 'next'
+            }]
+        }, {
+            module: Container,
+            layout: 'card',
+            items : [{
+                vdom: {html: 'body'}
+            }]
+        }]
     }
 }
 
