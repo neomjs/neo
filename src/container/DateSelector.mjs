@@ -69,11 +69,13 @@ class DateSelector extends Container {
             cls   : ['header-toolbar'],
             flex  : 'none',
             items : [{
+                handler: 'up.onPrevButtonClick',
                 iconCls: 'fas fa-circle-chevron-left'
             }, {
                 flex: 1,
                 text: '2024'
             }, {
+                handler: 'up.onNextButtonClick',
                 iconCls: 'fas fa-circle-chevron-right'
             }]
         }, {
@@ -397,6 +399,20 @@ class DateSelector extends Container {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onNextButtonClick(data) {
+        console.log('onNextButtonClick', data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPrevButtonClick(data) {
+        console.log('onPrevButtonClick', data)
     }
 
     /**

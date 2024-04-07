@@ -316,9 +316,11 @@ class Observable extends Base {
                 fn = fn.slice(3);
                 while (!scope[fn] && (scope = scope.parent));
             }
-            fn = scope[fn];
+
+            fn = scope[fn]
         }
-        return { scope,  fn };
+
+        return {fn, scope}
     }
 
     /**
