@@ -15,4 +15,98 @@
         border-bottom   : var(--dateselector-header-border-bottom);
         min-height      : 30px;
     }
+
+    .neo-day-view {
+        border        : 1px solid var(--dateselector-border-color);
+        border-top    : var(--dateselector-content-border-top);
+        display       : flex;
+        flex          : 1;
+        flex-direction: column;
+        font-size     : 12px;
+
+        .neo-row {
+            border-bottom: 1px solid var(--dateselector-border-color);
+            display      : flex;
+            flex         : 1;
+
+            &.neo-header-row {
+                border-bottom: var(--dateselector-header-cell-border-bottom) !important;
+                flex         : none;
+                height       : 30px;
+
+                .neo-cell {
+                    background-color: var(--dateselector-header-cell-background-color);
+                    color           : var(--dateselector-header-cell-color);
+                    cursor          : default;
+                    pointer-events  : none;
+                }
+            }
+
+            &:last-child {
+                border-bottom: 0;
+            }
+
+            .neo-cell {
+                align-items     : center;
+                background-color: var(--dateselector-cell-background-color);
+                border-right    : 1px solid var(--dateselector-border-color);
+                color           : var(--dateselector-cell-color);
+                cursor          : pointer;
+                display         : flex;
+                flex            : 1;
+                padding         : 2px;
+                justify-content : center;
+
+                &:focus {
+                    outline: 0;
+                }
+
+                &:last-child {
+                    border-right: 0;
+                }
+
+                &.neo-disabled {
+                    background-color: var(--dateselector-cell-background-color-disabled);
+                    color           : var(--dateselector-cell-color-disabled);
+                    opacity         : var(--dateselector-cell-opacity-disabled);
+                }
+
+                &.neo-disabled {
+                    cursor        : default;
+                    pointer-events: none;
+                }
+
+                &.neo-selected {
+                    .neo-cell-content {
+                        background-color: var(--dateselector-cell-today-border-color);
+                        border          : 1px solid var(--dateselector-header-cell-background-color);
+                        border-radius   : 50%;
+                        color           : var(--dateselector-cell-color-selected);
+
+                        &:before {
+                            content    : '';
+                            display    : inline-block;
+                            padding-top: 100%;
+                        }
+                    }
+                }
+
+                .neo-cell-content {
+                    align-items    : center;
+                    display        : flex;
+                    flex-basis     : 0.1px;
+                    flex-grow      : 0.2;
+                    justify-content: center;
+                    min-height     : 22px;
+                    min-width      : 22px;
+                    pointer-events : none;
+
+                    &.neo-today {
+                        border       : 1px solid var(--dateselector-cell-today-border-color);
+                        border-radius: 50%;
+                    }
+                }
+            }
+        }
+    }
 }

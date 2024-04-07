@@ -80,8 +80,9 @@ class DateSelector extends Container {
             module: Container,
             layout: 'card',
             items : [{
-                cls : ['date-card'],
-                vdom: {html: 'body'}
+                cls      : ['neo-day-view'],
+                reference: 'day-view',
+                vdom     : {cn: []}
             }]
         }],
         /**
@@ -156,6 +157,43 @@ class DateSelector extends Container {
     cachedUpdate = null
 
     /**
+     * Convenience shortcut
+     * @returns {Object|Neo.component.Base|null}
+     */
+    get dayView() {
+        return this.getItem('day-view')
+    }
+
+    /**
+     * Triggered after the currentDate config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        let me = this,
+            dayIncrement, method, methodParams,  monthIncrement, yearIncrement;
+
+        if (me.mounted) {
+            // todo
+        } else if (value) {
+            // me.updateHeaderMonth(0, 0, true);
+            // me.updateHeaderYear(0, true);
+            me.recreateDayViewContent(false, false)
+        }
+    }
+
+    /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        this.updateHeaderDays(value, oldValue)
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -218,6 +256,203 @@ class DateSelector extends Container {
      */
     cacheUpdate(date=this.currentDate) {
         this.cachedUpdate = date
+    }
+
+
+    /**
+     * @returns {Object}
+     */
+    createDayNamesRow() {
+        let me   = this,
+            date = DateUtil.clone(me.currentDate),
+            i    = 0,
+            len  = 7,
+            row  = {cls: ['neo-row', 'neo-header-row'], cn: []},
+            config, day;
+
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+        for (; i < len; i++) {
+            config =
+            {cls: ['neo-cell'], cn: [
+                {cls : ['neo-cell-content'], html: me.intlFormat_day.format(date)}
+            ]};
+
+            day = date.getDay();
+
+            if (!me.showWeekends && (day === 0 || day === 6)) {
+                config.removeDom = true
+            }
+
+            row.cn.push(config);
+
+            date.setDate(date.getDate() + 1)
+        }
+
+        return row
+    }
+
+    /**
+     * @param {Boolean} silent=false true to update the vdom silently
+     * @param {Object} [containerEl]
+     */
+    createDayViewContent(silent=false, containerEl) {
+        let me              = this,
+            currentDate     = me.currentDate,
+            currentDay      = currentDate.getDate(),
+            currentMonth    = currentDate.getMonth(),
+            currentYear     = currentDate.getFullYear(),
+            date            = me.currentDate, // cloned
+            maxDate         = me.maxValue && new Date(`${me.maxValue}T00:00:00.000Z`),
+            minDate         = me.minValue && new Date(`${me.minValue}T00:00:00.000Z`),
+            valueDate       = new Date(`${me.value}T00:00:00.000Z`),
+            valueMonth      = valueDate.getMonth(),
+            valueYear       = valueDate.getFullYear(),
+            daysInMonth     = DateUtil.getDaysInMonth(currentDate),
+            firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
+            firstDayOffset  = firstDayInMonth - me.weekStartDay,
+            centerEl        = containerEl || me.dayView.vdom,
+            columns         = 7,
+            i               = 0,
+            cellId, config, dateDay, day, hasContent, j, row, rows;
+
+        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+        rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+        day            = 1 - firstDayOffset;
+
+        date.setDate(day);
+
+        centerEl.cn.push(me.createDayNamesRow());
+
+        for (; i < rows; i++) {
+            row = {cls: ['neo-row'], cn: []};
+
+            for (j=0; j < columns; j++) {
+                hasContent = day > 0 && day <= daysInMonth;
+                cellId     = me.getCellId(currentYear, currentMonth + 1, day);
+
+                dateDay = date.getDay();
+
+                config ={
+                    id      : cellId,
+                    cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
+                    tabIndex: hasContent ? -1 : null,
+                    cn: [{
+                        cls : ['neo-cell-content'],
+                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                    }]
+                };
+
+                if (dateDay === 0 || dateDay === 6) {
+                    if (!me.showWeekends) {
+                        config.removeDom = true
+                    }
+
+                    config.cls.push('neo-weekend');
+                }
+
+                if (maxDate && date > maxDate || minDate && date < minDate) {
+                    NeoArray.add(config.cls, 'neo-disabled')
+                }
+
+                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    config.cn[0].cls.push('neo-today')
+                }
+
+                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                    config.cls.push('neo-selected');
+                    me.selectionModel.items = [cellId] // silent update
+                }
+
+                row.cn.push(config);
+
+                date.setDate(date.getDate() + 1);
+
+                day++
+            }
+
+            centerEl.cn.push(row)
+        }
+
+        !silent && me.update()
+    }
+
+    /**
+     * @param {Number|String} year
+     * @param {Number|String} month
+     * @param {Number|String} day
+     * @returns {String} id
+     */
+    getCellId(year, month, day) {
+        day = day.toString();
+
+        if (day.length < 2) {
+            day = '0' + day
+        }
+
+        month = month.toString();
+
+        if (month.length < 2) {
+            month = '0' + month
+        }
+
+        return this.id + '__' + year + '-' + month + '-' + day
+    }
+
+    /**
+     * Recreates the current month view
+     * @param {Boolean} [syncIds=true]
+     * @protected
+     */
+    recreateDayViewContent(syncIds=true) {
+        let me      = this,
+            dayView = me.dayView;
+
+        dayView.vdom.cn = [];
+        me.createDayViewContent(true);
+
+        // using force => we do want to keep the same ids
+        syncIds && me.syncVdomIds(dayView.vnode, dayView.vdom, true);
+
+        dayView.update?.()
+    }
+
+    /**
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     */
+    updateHeaderDays(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            let centerEl = me.dayView.vdom.cn[0],
+                date     = me.currentDate, // cloned
+                i        = 0,
+                day, node;
+
+            date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+            for (; i < 7; i++) {
+                node = centerEl.cn[i];
+
+                node.cn[0].html = me.intlFormat_day.format(date);
+
+                day = date.getDay();
+
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true
+                } else {
+                    delete node.removeDom
+                }
+
+                date.setDate(date.getDate() + 1)
+            }
+
+            !silent && me.update()
+        }
     }
 }
 
