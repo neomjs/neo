@@ -425,6 +425,38 @@ class Base extends Component {
     }
 
     /**
+     * An alternative for `getReference()` which is useful before a component tree got created.
+     * `getReference()` relies on child items being registered inside `manager.Component`,
+     * while this method simply walks down the items array.
+     *
+     * However, classes / modules inside the items tree can not get parsed further.
+     * @param {String} reference
+     * @param {Object[]} items=this.items
+     * @returns {Object|Neo.component.Base|null}
+     */
+    getItem(reference, items=this.items) {
+        let i   = 0,
+            len = items.length,
+            item,
+            childItem;
+
+        for (; i < len; i++) {
+            item = items[i];
+            if (item.reference === reference) {
+                return item
+            } else if (item.items) {
+                childItem = this.getItem(reference, item.items);
+
+                if (childItem) {
+                    return childItem
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Specify a different vdom items root if needed (useful in case this container uses a wrapper node).
      * @returns {Object} The new vdom items root
      */
