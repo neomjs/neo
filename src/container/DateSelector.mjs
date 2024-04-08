@@ -274,6 +274,14 @@ class DateSelector extends Container {
         this.cachedUpdate = date
     }
 
+    /**
+     * @param {Number} increment
+     */
+    changeMonth(increment) {
+        let date = this.currentDate; // cloned
+        date.setMonth(date.getMonth() + increment);
+        this.value = DateUtil.convertToyyyymmdd(date)
+    }
 
     /**
      * @returns {Object}
@@ -419,14 +427,14 @@ class DateSelector extends Container {
      * @param {Object} data
      */
     onNextButtonClick(data) {
-        console.log('onNextButtonClick', data)
+        this.changeMonth(1)
     }
 
     /**
      * @param {Object} data
      */
     onPrevButtonClick(data) {
-        console.log('onPrevButtonClick', data)
+        this.changeMonth(-1)
     }
 
     /**
