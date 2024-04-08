@@ -8,7 +8,6 @@ import MainContainerController from './MainContainerController.mjs';
 import SourceViewComponent     from './classdetails/SourceViewComponent.mjs';
 import Splitter                from '../../../src/component/Splitter.mjs';
 import TutorialComponent       from './classdetails/TutorialComponent.mjs';
-import TutorialsTreeList       from './TutorialsTreeList.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
@@ -72,15 +71,6 @@ class MainContainer extends Viewport {
                         text   : 'API'
                     }
                 }, {
-                    module   : TutorialsTreeList,
-                    listeners: {leafItemClick: 'onTutorialListLeafClick'},
-                    reference: 'tutorials-treelist',
-
-                    tabButtonConfig: {
-                        iconCls: 'fa fa-hands-helping',
-                        text   : 'Tutorials'
-                    }
-                }, {
                     module   : ExamplesTreeList,
                     listeners: {leafItemClick: 'onExamplesListLeafClick'},
                     reference: 'examples-treelist',
@@ -123,7 +113,7 @@ class MainContainer extends Viewport {
         }
 
         // Disable the examples Tab for dist versions until the webpack builds can handle this (see: #140)
-        me.items[1].items[0].items[2].tabButtonConfig.disabled = Neo.config.environment !== 'development';
+        me.items[1].items[0].items[1].tabButtonConfig.disabled = Neo.config.environment !== 'development';
     }
 
     /**
