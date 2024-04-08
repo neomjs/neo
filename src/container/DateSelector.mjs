@@ -68,6 +68,12 @@ class DateSelector extends Container {
             module: Toolbar,
             cls   : ['neo-header-toolbar'],
             flex  : 'none',
+
+            itemDefaults: {
+                ntype: 'button',
+                ui   : 'tertiary' // todo: should be ghost
+            },
+
             items : [{
                 handler: 'up.onPrevButtonClick',
                 iconCls: 'fas fa-circle-chevron-left'
