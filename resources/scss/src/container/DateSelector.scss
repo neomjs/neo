@@ -5,11 +5,19 @@
     font-weight     : 400;
     user-select     : none;
 
-    .date-card {
-        border: 1px solid var(--dateselector-border-color);
+    &.neo-hide-inner-borders {
+        .neo-day-view {
+            .neo-row {
+                border: none !important;
+
+                .neo-cell {
+                    border: none !important;
+                }
+            }
+        }
     }
 
-    .header-toolbar {
+    .neo-header-toolbar {
         background-color: var(--dateselector-header-background-color);
         border          : 1px solid var(--dateselector-border-color);
         border-bottom   : var(--dateselector-header-border-bottom);

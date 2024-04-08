@@ -66,7 +66,7 @@ class DateSelector extends Container {
          */
         items: [{
             module: Toolbar,
-            cls   : ['header-toolbar'],
+            cls   : ['neo-header-toolbar'],
             flex  : 'none',
             items : [{
                 handler: 'up.onPrevButtonClick',
@@ -193,6 +193,20 @@ class DateSelector extends Container {
      */
     afterSetDayNameFormat(value, oldValue) {
         this.updateHeaderDays(value, oldValue)
+    }
+
+    /**
+     * Triggered after the showCellBorders config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowCellBorders(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
+        me.cls = cls
     }
 
     /**
