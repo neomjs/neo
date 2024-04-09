@@ -1,6 +1,7 @@
 import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Container         from '../container/Base.mjs';
 import DateSelectorModel from '../selection/DateSelectorModel.mjs';
+import DayViewComponent  from './DayViewComponent.mjs';
 import DateUtil          from '../util/Date.mjs';
 import NeoArray          from '../util/Array.mjs';
 import Toolbar           from '../toolbar/Base.mjs';
@@ -87,9 +88,8 @@ class SelectorContainer extends Container {
             module: Container,
             layout: 'card',
             items : [{
-                cls      : ['neo-day-view'],
+                module   : DayViewComponent,
                 reference: 'day-view',
-                vdom     : {cn: []}
             }]
         }],
         /**

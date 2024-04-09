@@ -12,10 +12,20 @@ class DayViewComponent extends Base {
          */
         className: 'Neo.date.DayViewComponent',
         /**
+         * @member {String} className='day-view-component'
+         * @protected
+         */
+        ntype: 'day-view-component',
+        /**
+         * @member {String[]} baseCls=['neo-day-view']
+         * @protected
+         */
+        baseCls: ['neo-day-view'],
+        /**
          * @member {Object} _vdom
          */
         _vdom:
-        {}
+        {cn: []}
     }
 }
 
