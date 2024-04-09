@@ -14,22 +14,21 @@ const today = {
 };
 
 /**
- * @class Neo.container.DateSelector
+ * @class Neo.date.SelectorContainer
  * @extends Neo.container.Base
  */
-class DateSelector extends Container {
+class SelectorContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Neo.container.DateSelector'
+         * @member {String} className='Neo.date.SelectorContainer'
          * @protected
          */
-        className: 'Neo.container.DateSelector',
+        className: 'Neo.date.SelectorContainer',
         /**
-         * todo: switch to 'dateselector' once the migration is complete
-         * @member {String} ntype='container-dateselector'
+         * @member {String} ntype='date-selector'
          * @protected
          */
-        ntype: 'container-dateselector',
+        ntype: 'date-selector',
         /**
          * @member {String[]} baseCls=['neo-dateselector','neo-container']
          */
@@ -500,6 +499,6 @@ class DateSelector extends Container {
     }
 }
 
-Neo.setupClass(DateSelector);
+Neo.setupClass(SelectorContainer);
 
-export default DateSelector;
+export default SelectorContainer;

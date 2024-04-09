@@ -1,17 +1,17 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import DateField             from '../../../src/form/field/Date.mjs';
-import DateSelector          from '../../../src/container/DateSelector.mjs';
+import DateSelector          from '../../../src/date/SelectorContainer.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
- * @class Neo.examples.container.dateSelector.MainContainer
+ * @class Neo.examples.date.selectorContainer.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className: 'Neo.examples.container.dateSelector.MainContainer'
+        className: 'Neo.examples.date.selectorContainer.MainContainer'
     }
 
     createConfigurationComponents() {

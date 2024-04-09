@@ -1,5 +1,5 @@
 {
-    "appPath"    : "examples/container/dateSelector/app.mjs",
+    "appPath"    : "examples/date/selectorContainer/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
     "mainPath"   : "./Main.mjs"
