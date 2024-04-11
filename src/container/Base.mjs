@@ -123,7 +123,7 @@ class Base extends Component {
 
         if (value && me.items) {
             me.items.forEach(item => {
-                if (Neo.isObject(item)) {
+                if (!Neo.isString(item)) {
                     item.appName = value
                 }
             })
@@ -221,7 +221,7 @@ class Base extends Component {
         let me = this;
 
         value && me.items?.forEach(item => {
-            if (Neo.isObject(item)) {
+            if (!Neo.isString(item)) {
                 item.windowId = value
             }
         })
@@ -392,18 +392,15 @@ class Base extends Component {
      * @returns {Neo.layout.Base}
      */
     createLayout(value) {
-        let me = this;
-
         if (value) {
+            let me                      = this,
+                {appName, id, windowId} = me;
+
             if (value instanceof LayoutBase && value.isLayout) {
-                value.appName     = me.appName;
-                value.containerId = me.id;
-                value.windowId    = me.windowId;
+                Object.assign(value, {appName, containerId: id, windowId})
             } else {
                 value = me.parseLayoutClass(value);
-                value.appName     = me.appName;
-                value.containerId = me.id;
-                value.windowId    = me.windowId;
+                Object.assign(value, {appName, containerId: id, windowId});
                 value = Neo.ntype(value)
             }
         }
@@ -599,16 +596,12 @@ class Base extends Component {
      */
     parseLayoutClass(config) {
         if (Neo.isObject(config)) {
-            if (config.ntype.indexOf('layout-') < 0) {
-                config.ntype = 'layout-' + config.ntype
-            }
-        } else if (config.indexOf('layout-') < 0) {
-            config = {
-                ntype: 'layout-' + config
+            if (!config.ntype.startsWith('layout-')) {
+                config.ntype = `layout-${config.ntype}`
             }
         } else {
             config = {
-                ntype: config
+                ntype: config.startsWith('layout-') ? config : `layout-${config}`
             }
         }
 
