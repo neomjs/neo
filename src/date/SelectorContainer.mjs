@@ -33,7 +33,8 @@ class SelectorContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            weekStartDay: {twoWay: true, value: data => data.weekStartDay}
+            intlFormatDay: {twoWay: true, value: data => data.intlFormatDay},
+            weekStartDay : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
          * Date object created on the value config
@@ -205,18 +206,6 @@ class SelectorContainer extends Container {
     }
 
     /**
-     * Triggered after the intlFormatDay config got changed
-     * @param {Intl.DateTimeFormat|null} value
-     * @param {Intl.DateTimeFormat|null} oldValue
-     * @protected
-     */
-    afterSetIntlFormatDay(value, oldValue) {
-        if (value) {
-            this.dayView.intlFormatDay = value
-        }
-    }
-
-    /**
      * Triggered after the showCellBorders config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -326,6 +315,7 @@ class SelectorContainer extends Container {
     updateHeaderDays(value, oldValue, silent=false) {
         let me = this;
 
+        let foo = me.intlFormatDay; // todo
         me.intlFormatDay = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
         if (oldValue !== undefined) {

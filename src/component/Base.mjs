@@ -536,7 +536,7 @@ class Base extends CoreBase {
             let binding = this.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getModel()?.setData(binding.key, value)
+                this.getModel()?.setData(key, value)
             }
         }
     }

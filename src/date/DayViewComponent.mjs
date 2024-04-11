@@ -35,7 +35,8 @@ class DayViewComponent extends Base {
          * @member {Object} bind
          */
         bind: {
-            weekStartDay: data => data.weekStartDay
+            intlFormatDay: data => data.intlFormatDay,
+            weekStartDay : data => data.weekStartDay
         },
         /**
          * @member {Date|null} currentDate_=null

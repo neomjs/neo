@@ -16,6 +16,10 @@ class SelectorContainerModel extends Component {
          */
         data: {
             /**
+             * @member {Intl.DateTimeFormat|null} data.intlFormatDay=null
+             */
+            intlFormatDay: null,
+            /**
              * 0-6 => Sun-Sat
              * @member {Number} data.weekStartDay=0
              */
