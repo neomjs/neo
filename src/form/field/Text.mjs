@@ -1003,14 +1003,16 @@ class Text extends Base {
             value = [value]
         }
 
-        let me = this;
+        let me                  = this,
+            {appName, windowId} = me;
 
         value.forEach((item, index) => {
             if (item.isClass) {
                 value[index] = Neo.create(item, {
-                    appName: me.appName,
-                    id     : me.getTriggerId(item.prototype.type),
-                    field  : me
+                    appName,
+                    id   : me.getTriggerId(item.prototype.type),
+                    field: me,
+                    windowId
                 })
             } else if (!(item instanceof BaseTrigger)) {
                 if (!item.module && !item.ntype) {
@@ -1024,8 +1026,9 @@ class Text extends Base {
 
                 value[index] = Neo[item.className ? 'create' : 'ntype']({
                     ...item,
-                    appName: me.appName,
-                    field  : me
+                    appName,
+                    field: me,
+                    windowId
                 })
             }
         });
