@@ -288,8 +288,8 @@ class Picker extends Text {
             // We processed this event, and it should not proceed to ancestor components
             data.cancelBubble = true;
 
-            // And no further listeers should be notified
-            return false;
+            // And no further listeners should be notified
+            return false
         }
     }
 

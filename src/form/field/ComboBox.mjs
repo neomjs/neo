@@ -306,7 +306,7 @@ class ComboBox extends Picker {
             record;
 
         // getting a record, nothing to do
-        if (Neo.isObject(value)) {
+        if (Neo.isRecord(value)) {
             return value
         }
 
@@ -392,7 +392,7 @@ class ComboBox extends Picker {
 
         // Filter resulting in something to show
         if (store.getCount()) {
-            me.getPicker().hidden = false;
+            me.showPicker();
 
             // List might not exist until the picker is created
             const
@@ -621,19 +621,6 @@ class ComboBox extends Picker {
     }
 
     /**
-     *
-     */
-    onPickerTriggerClick() {
-        let me = this;
-
-        if (me.picker?.isVisible) {
-            me.picker.hidden = true
-        } else if (!me.disabled && !me.readOnly) {
-            me.doFilter(null)
-        }
-    }
-
-    /**
      * Selecting a record, if required
      * @param {Object[]} items
      */
@@ -680,6 +667,20 @@ class ComboBox extends Picker {
     }
 
     /**
+     * @override
+     */
+    togglePicker() {
+        let me       = this,
+            {picker} = me;
+
+        if (picker?.hidden === false) {
+            picker.hidden = true
+        } else if (!me.disabled && !me.readOnly) {
+            me.doFilter(null)
+        }
+    }
+
+    /**
      * Override this method as needed inside class extensions.
      * @param {*} value
      * @protected
@@ -687,7 +688,7 @@ class ComboBox extends Picker {
     updateInputValueFromValue(value) {
         let inputValue = null;
 
-        if (Neo.isObject(value)) {
+        if (Neo.isRecord(value)) {
             inputValue = value[this.displayField]
         }
 

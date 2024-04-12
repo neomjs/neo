@@ -179,6 +179,15 @@ class Util extends Base {
     }
 
     /**
+     * Returns true if the passed value is a neo data record
+     * @param {Object} value The value to test
+     * @returns {Boolean}
+     */
+    static isRecord(value) {
+        return value?.constructor?.name === 'Record' || false
+    }
+
+    /**
      * Returns true if the passed value is a string
      * @param {String} value The value to test
      * @returns {Boolean}
@@ -224,6 +233,7 @@ Neo.applyFromNs(Neo, Util, {
     isFunction       : 'isFunction',
     isNumber         : 'isNumber',
     isObject         : 'isObject',
+    isRecord         : 'isRecord',
     isString         : 'isString',
     toArray          : 'toArray'
 }, true);
