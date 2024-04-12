@@ -85,7 +85,7 @@ class DateField extends Picker {
      */
     invalidInput = false
     /**
-     * Setting the value to true will return a Date object when calling getValue()
+     * Setting the value to true will return a Date object when calling getSubmitValue()
      * @member {Boolean} submitDateObject=false
      */
     submitDateObject = false
@@ -183,7 +183,7 @@ class DateField extends Picker {
     /**
      * @returns {Date|String|null}
      */
-    getValue() {
+    getSubmitValue() {
         let value = this.value;
 
         if(this.submitDateObject && value) {

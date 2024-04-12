@@ -208,33 +208,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * @param {String} reference
-     * @param {Object[]} items=this.items
-     * @returns {Object|Neo.component.Base|null}
-     */
-    getItem(reference, items=this.items) {
-        let i   = 0,
-            len = items.length,
-            item,
-            childItem;
-
-        for (; i < len; i++) {
-            item = items[i];
-            if (item.reference === reference) {
-                return item
-            } else if (item.items) {
-                childItem = this.getItem(reference, item.items);
-
-                if (childItem) {
-                    return childItem
-                }
-            }
-        }
-
-        return null
-    }
-
-    /**
      * @returns {Neo.component.Base|null}
      */
     getPreviewContainer() {

@@ -41,7 +41,7 @@ class MainContainerController extends ComponentController {
             me.getReference('closable').value = data.value;
         }
 
-        values = await form.getValues();
+        values = await form.getSubmitValues();
 
         values.appName = me.component.appName;
         button.disabled = !isValid;
@@ -62,7 +62,7 @@ class MainContainerController extends ComponentController {
     async createToast() {
         let me     = this,
             form   = me.getReference('form'),
-            values = await form.getValues(),
+            values = await form.getSubmitValues(),
             clear  = ['position', 'slideDirection', 'ui', 'minHeight', 'maxWidth', 'closable', 'timeout'];
 
         // use the defaults from toast if not set

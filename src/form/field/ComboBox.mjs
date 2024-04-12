@@ -254,12 +254,12 @@ class ComboBox extends Picker {
         // Promote an array of items to be a Store
         if (Array.isArray(value)) {
             value = {
-                data : value.map((v, i) => {
+                data: value.map((v, i) => {
                     // Simplest case is just picking string values.
                     if (typeof v === 'string') {
                         v = {
-                            [valueField]  : v,
-                            [displayField]: v
+                            [displayField]: v,
+                            [valueField]  : v
                         }
                     }
 
@@ -273,8 +273,8 @@ class ComboBox extends Picker {
         if (Neo.typeOf(value) === 'Object' && !value.model && !value.module && !value.ntype) {
             value.model = {
                 fields: [
-                    {name: valueField,   type: 'String'},
-                    {name: displayField, type: 'String'}
+                    {name: displayField, type: 'String'},
+                    {name: valueField,   type: 'String'}
                 ]
             }
         }
@@ -483,7 +483,7 @@ class ComboBox extends Picker {
     /**
      * @returns {Number|String}
      */
-    getValue() {
+    getSubmitValue() {
         let me = this;
 
         return me.value?.[me.valueField] || me.emptyValue
@@ -510,6 +510,11 @@ class ComboBox extends Picker {
     onFocusLeave(data) {
         let me = this;
 
+        /*
+         * If we are leaving the field, using forceSelection=true and the field does not have a selected record,
+         * we do want to pick the closest match => the focussed record (honoring filters).
+         * If no record is found, we will clear the field instead.
+         */
         if (me.forceSelection && !me.value) {
             me.programmaticValueChange = true;
             me.value                   = me.store.get(me.activeRecordId);
@@ -533,13 +538,13 @@ class ComboBox extends Picker {
         }
     }
 
-    // TODO:
-    // When we are using a `Collection` as our `valueCollection`, and that `Collection` is the
-    // `items` of the List's `selectionModel`, then this will be `onValueCollectionChange`,
-    // a `mutate` listener on our own `valueCollection` which backs our `value` field which
-    // will be implemented by a getter which accesses `valueCollection`.
-    // This will become important for implementing multiSelect
     /**
+     * todo:
+     * When we are using a `Collection` as our `valueCollection`, and that `Collection` is the
+     * `items` of the List's `selectionModel`, then this will be `onValueCollectionChange`,
+     * a `mutate` listener on our own `valueCollection` which backs our `value` field which
+     * will be implemented by a getter which accesses `valueCollection`.
+     * This will become important for implementing multiSelect
      * @param {Object} selectionChangeEvent
      * @param {Object[]} selectionChangeEvent.selection
      * @protected
@@ -584,12 +589,12 @@ class ComboBox extends Picker {
      * @protected
      */
     onListItemNavigate(record) {
-        let {activeItem, activeIndex} = record;
+        let {activeIndex} = record;
 
         if (activeIndex >= 0) {
             const
-                me        = this,
-                { store } = me;
+                me      = this,
+                {store} = me;
 
             me.activeRecord   = store.getAt(activeIndex);
             me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty];

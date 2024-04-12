@@ -241,12 +241,35 @@ class Observable extends Base {
     }
 
     /**
+     * There are different syntax's how you can use this method.
+     * Using the eventId:
+     * ```
+     * this.removeListener('change', 'neo-event-7');
+     * ```
+     * Passing the handler method:
+     * ```
+     * this.removeListener('change', this.onChange, this);
+     * ```
+     * Passing an object:
+     * ```
+     * me.field.un({
+     *     change                    : me.onFieldChange,
+     *     changeClearToOriginalValue: me.onFieldChange,
+     *     scope                     : me
+     * });
+     * ```
      * @param {Object|String} name
-     * @param {String} [eventId]
+     * @param {Function|String} [eventId]
+     * @param {Neo.core.Base} [scope]
      */
-    removeListener(name, eventId) {
+    removeListener(name, eventId, scope) {
         let me = this,
-            i, len, listener, listeners, match, scope;
+            i, len, listener, listeners, match;
+
+        if (Neo.isFunction(eventId)) {
+            me.removeListener({[name]: eventId, scope});
+            return
+        }
 
         if (Neo.isObject(name)) {
             if (name.scope) {
@@ -316,9 +339,11 @@ class Observable extends Base {
                 fn = fn.slice(3);
                 while (!scope[fn] && (scope = scope.parent));
             }
-            fn = scope[fn];
+
+            fn = scope[fn]
         }
-        return { scope,  fn };
+
+        return {fn, scope}
     }
 
     /**

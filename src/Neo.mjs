@@ -635,23 +635,23 @@ function autoGenerateGetSet(proto, key) {
 
                 if (Array.isArray(value)) {
                     if (key !== 'items') {
-                        value = [...value];
+                        value = [...value]
                     }
                 } else if (value instanceof Date) {
-                    value = new Date(value.valueOf());
+                    value = new Date(value.valueOf())
                 }
 
                 if (hasNewKey) {
                     me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
                     value = me['_' + key]; // return the value parsed by the setter
-                    delete me[configSymbol][key];
+                    delete me[configSymbol][key]
                 }
 
                 if (typeof me[beforeGet] === 'function') {
-                    value = me[beforeGet](value);
+                    value = me[beforeGet](value)
                 }
 
-                return value;
+                return value
             },
 
             set(value) {

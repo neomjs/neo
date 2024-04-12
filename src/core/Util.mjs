@@ -175,7 +175,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isObject(value) {
-        return value !== null && typeof value === 'object' && !Array.isArray(value)
+        return value?.constructor?.name === 'Object' || false
     }
 
     /**

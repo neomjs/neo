@@ -71,7 +71,8 @@ class Component extends Base {
 
     /**
      * @param {String} handlerName
-     * @returns {Neo.controller.Component|null}
+     * @param {Neo.component.Base} component
+     * @returns {Neo.controller.Component|Boolean|null}
      */
     getHandlerScope(handlerName, component) {
         let me     = this,
@@ -83,15 +84,15 @@ class Component extends Base {
             const handlerCb = component.resolveCallback(handlerName, component);
 
             // Handler fn is resolved in the Component or its own parent chain.
-            // Return a status indicating that we do not need an erly binding
+            // Return a status indicating that we do not need an early binding
             if (handlerCb.fn) {
-                return true;
+                return true
             }
         }
 
         return Neo.isFunction(me[handlerName]) ?
             me : parent ?
-            parent.getHandlerScope(handlerName) : null;
+            parent.getHandlerScope(handlerName) : null
     }
 
     /**

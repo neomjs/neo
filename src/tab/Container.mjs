@@ -110,7 +110,7 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     add(item) {
-        return this.insert(this.getTabBar().items.length, item);
+        return this.insert(this.getTabBar().items.length, item)
     }
 
     /**
@@ -125,8 +125,8 @@ class Container extends BaseContainer {
 
         if (Neo.isNumber(value) && value > -1 && !cardContainer) {
             me.on('constructed', () => {
-                me.afterSetActiveIndex(value, oldValue);
-            });
+                me.afterSetActiveIndex(value, oldValue)
+            })
         } else {
             if (Neo.isNumber(value) && value > -1) {
                 // we need to ensure the afterSet method triggers when lazy loading the module
@@ -140,7 +140,7 @@ class Container extends BaseContainer {
                         item: me.getActiveCard(),
                         oldValue,
                         value
-                    });
+                    })
                 }
             }
         }
@@ -157,7 +157,7 @@ class Container extends BaseContainer {
             cls = me.cls;
 
         NeoArray[value ? 'unshift' : 'remove'](cls, me.tabContainerCls + '-plain');
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -168,7 +168,7 @@ class Container extends BaseContainer {
      */
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
-            this.getTabBar().sortable = value;
+            this.getTabBar().sortable = value
         }
     }
 
@@ -195,7 +195,7 @@ class Container extends BaseContainer {
                 component: me,
                 oldValue,
                 value
-            });
+            })
         }
     }
 
@@ -208,7 +208,7 @@ class Container extends BaseContainer {
     afterSetUseActiveTabIndicator(value, oldValue) {
         if (oldValue !== undefined) {
             this.getTabBar()  .useActiveTabIndicator = value;
-            this.getTabStrip().useActiveTabIndicator = value;
+            this.getTabStrip().useActiveTabIndicator = value
         }
     }
 
@@ -220,7 +220,7 @@ class Container extends BaseContainer {
      * @returns {String} value
      */
     beforeSetTabBarPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'tabBarPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'tabBarPosition')
     }
 
     /**
@@ -242,10 +242,10 @@ class Container extends BaseContainer {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
 
             if (!(item instanceof Neo.component.Base)) {
-                item = {flex: 1, ...me.itemDefaults, isTab: true, ...item};
+                item = {flex: 1, ...me.itemDefaults, isTab: true, ...item}
             }
 
-            tabComponents.push(item);
+            tabComponents.push(item)
         });
 
         me.items = [{
@@ -278,7 +278,7 @@ class Container extends BaseContainer {
 
         me.itemDefaults = null;
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
@@ -286,7 +286,7 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base|null}
      */
     getActiveCard() {
-        return this.getCardContainer().items[this.activeIndex] || null;
+        return this.getCardContainer().items[this.activeIndex] || null
     }
 
     /**
@@ -295,14 +295,14 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base|null}
      */
     getCard(index) {
-        return this.getCardContainer().items[index] || null;
+        return this.getCardContainer().items[index] || null
     }
 
     /**
      * @returns {Neo.container.Base}
      */
     getCardContainer() {
-        return Neo.getComponent(this.cardContainerId);
+        return Neo.getComponent(this.cardContainerId)
     }
 
     /**
@@ -310,7 +310,7 @@ class Container extends BaseContainer {
      * @returns {Number}
      */
     getCount() {
-        return this.getTabBar().items.length;
+        return this.getTabBar().items.length
     }
 
     /**
@@ -354,7 +354,7 @@ class Container extends BaseContainer {
                 break;
         }
 
-        return layoutConfig;
+        return layoutConfig
     }
 
     /**
@@ -362,14 +362,14 @@ class Container extends BaseContainer {
      * @returns {Neo.tab.header.Button|null}
      */
     getTabAtIndex(index) {
-        return this.getTabBar().items[index] || null;
+        return this.getTabBar().items[index] || null
     }
 
     /**
      * @returns {Neo.toolbar.Base}
      */
     getTabBar() {
-        return Neo.getComponent(this.tabBarId);
+        return Neo.getComponent(this.tabBarId)
     }
 
     /**
@@ -380,28 +380,29 @@ class Container extends BaseContainer {
      */
     getTabButtonConfig(config, index) {
         let me = this,
-            defaultConfig = {
-                module : HeaderButton,
-                flex   : 'none',
-                index  : index,
-                pressed: me.activeIndex === index,
 
-                domListeners: [{
-                    click: function(data) {
-                        me.activeIndex = data.component.index;
-                    },
-                    scope: me
-                }]
-            };
+        defaultConfig = {
+            module : HeaderButton,
+            flex   : 'none',
+            index  : index,
+            pressed: me.activeIndex === index,
 
-        return {...defaultConfig, ...config};
+            domListeners: [{
+                click: function(data) {
+                    me.activeIndex = data.component.index
+                },
+                scope: me
+            }]
+        };
+
+        return {...defaultConfig, ...config}
     }
 
     /**
      * @returns {Neo.tab.Strip}
      */
     getTabStrip() {
-        return Neo.getComponent(this.tabStripId);
+        return Neo.getComponent(this.tabStripId)
     }
 
     /**
@@ -425,7 +426,7 @@ class Container extends BaseContainer {
 
             for (; i < len; i++) {
                 // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true))
             }
 
             superItem = returnArray;
@@ -439,7 +440,7 @@ class Container extends BaseContainer {
                     superItem = cardContainer.items[i];
 
                     if (me.activateInsertedTabs) {
-                        me.activeIndex = i;
+                        me.activeIndex = i
                     }
 
                     break;
@@ -456,7 +457,7 @@ class Container extends BaseContainer {
                 len = tabBar.items.length;
 
                 for (; i < len; i++) {
-                    tabBar.items[i].index = i;
+                    tabBar.items[i].index = i
                 }
 
                 item.flex = 1;
@@ -464,9 +465,9 @@ class Container extends BaseContainer {
 
                 if (me.activateInsertedTabs) {
                     if (!me.vnode) {
-                        me.activeIndex = index;
+                        me.activeIndex = index
                     } else {
-                        tab.on('mounted', me.onTabButtonMounted, me);
+                        tab.on('mounted', me.onTabButtonMounted, me)
                     }
                 }
             }
@@ -496,17 +497,17 @@ class Container extends BaseContainer {
         if (index !== me.activeIndex) {
             // silent updates
             me._activeIndex = index;
-            cardContainer.layout._activeIndex = index;
+            cardContainer.layout._activeIndex = index
         }
 
         returnValue = cardContainer.moveTo(fromIndex, toIndex);
 
         me.fire('moveTo', {
-            fromIndex: fromIndex,
-            toIndex  : toIndex
+            fromIndex,
+            toIndex
         });
 
-        return returnValue;
+        return returnValue
     }
 
     /**
@@ -514,7 +515,7 @@ class Container extends BaseContainer {
      */
     onConstructed() {
         this._layout = this.getLayoutConfig(); // silent update
-        super.onConstructed();
+        super.onConstructed()
     }
 
     /**
@@ -535,7 +536,7 @@ class Container extends BaseContainer {
         for (; i < len; i++) {
             if (tabBar.items[i].id === buttonId) {
                 index = i;
-                break;
+                break
             }
         }
 
@@ -545,10 +546,10 @@ class Container extends BaseContainer {
             if (me.vnode && !card.mounted) {
                 listenerId = card.on('mounted', () => {
                     card.un('mounted', listenerId);
-                    me.activeIndex = index;
-                });
+                    me.activeIndex = index
+                })
             } else {
-                me.activeIndex = index;
+                me.activeIndex = index
             }
         }
     }
@@ -566,7 +567,7 @@ class Container extends BaseContainer {
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent);
+                this.removeAt(i, destroyItem, silent)
             }
         }
     }
@@ -589,9 +590,9 @@ class Container extends BaseContainer {
         if (index < activeIndex) {
             // silent updates
             me._activeIndex = activeIndex - 1;
-            cardContainer.layout._activeIndex = activeIndex - 1;
+            cardContainer.layout._activeIndex = activeIndex - 1
         } else if (index === activeIndex) {
-            me.activeIndex = activeIndex - 1;
+            me.activeIndex = activeIndex - 1
         }
 
         // todo: non index based matching of tab buttons and cards
@@ -599,7 +600,7 @@ class Container extends BaseContainer {
         len = tabBar.items.length;
 
         for (; i < len; i++) {
-            tabBar.items[i].index = i;
+            tabBar.items[i].index = i
         }
     }
 
@@ -612,8 +613,8 @@ class Container extends BaseContainer {
             tabButtons  = me.getTabBar().items || [];
 
         tabButtons.forEach((item, index) => {
-            item.pressed = index === activeIndex;
-        });
+            item.pressed = index === activeIndex
+        })
     }
 }
 

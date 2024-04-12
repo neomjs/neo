@@ -1003,14 +1003,16 @@ class Text extends Base {
             value = [value]
         }
 
-        let me = this;
+        let me                  = this,
+            {appName, windowId} = me;
 
         value.forEach((item, index) => {
             if (item.isClass) {
                 value[index] = Neo.create(item, {
-                    appName: me.appName,
-                    id     : me.getTriggerId(item.prototype.type),
-                    field  : me
+                    appName,
+                    id   : me.getTriggerId(item.prototype.type),
+                    field: me,
+                    windowId
                 })
             } else if (!(item instanceof BaseTrigger)) {
                 if (!item.module && !item.ntype) {
@@ -1024,8 +1026,9 @@ class Text extends Base {
 
                 value[index] = Neo[item.className ? 'create' : 'ntype']({
                     ...item,
-                    appName: me.appName,
-                    field  : me
+                    appName,
+                    field: me,
+                    windowId
                 })
             }
         });
@@ -1146,6 +1149,15 @@ class Text extends Base {
     }
 
     /**
+     * @returns {*}
+     */
+    getSubmitValue() {
+        let superSubmitValue = super.getSubmitValue();
+
+        return this.xssProtected ? StringUtil.escapeHtml(superSubmitValue) : superSubmitValue
+    }
+
+    /**
      * @param {String} type
      * @returns {Neo.form.field.trigger.Base|null}
      */
@@ -1190,17 +1202,6 @@ class Text extends Base {
      */
     getTriggerId(type) {
         return this.id + '-trigger-' + type
-    }
-
-    /**
-     * @returns {*}
-    */
-    getValue() {
-        if (this.xssProtected) {
-            return StringUtil.escapeHtml(super.getValue())
-        } else {
-            return super.getValue()
-        }
     }
 
     /**

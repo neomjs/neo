@@ -70,8 +70,8 @@ class Viewport extends Container {
                 route : '#/learn/WhyNeo-Speed',
 
                 content: [
-                    'Item 1',
-                    'Item 2',
+                    'Multi-threaded',
+                    'Over 40,000 delta updates per second',
                     'Item 3'
                 ]
             }, {

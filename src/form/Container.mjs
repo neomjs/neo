@@ -198,14 +198,14 @@ class Container extends BaseContainer {
     /**
      * @returns {Promise<Object>}
      */
-    async getValues() {
+    async getSubmitValues() {
         let fields = await this.getFields(),
             Radio  = Neo.form.field.Radio,
             values = {},
             fieldName, key, ns, nsArray, value;
 
         fields.forEach(field => {
-            value = field.getValue();
+            value = field.getSubmitValue();
 
             if (field.name) {
                 fieldName = field.name;
@@ -252,6 +252,14 @@ class Container extends BaseContainer {
         });
 
         return values
+    }
+
+    /**
+     * @deprecated in v7.x
+     * @returns {Promise<Object>}
+     */
+    async getValues() {
+        return this.getSubmitValues()
     }
 
     /**
