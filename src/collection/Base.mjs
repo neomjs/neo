@@ -1,9 +1,8 @@
 import CoreBase   from '../core/Base.mjs';
 import Filter     from './Filter.mjs';
 import Logger     from '../util/Logger.mjs';
-import Sorter     from './Sorter.mjs';
 import Observable from '../core/Observable.mjs';
-import Util       from '../core/Util.mjs';
+import Sorter     from './Sorter.mjs';
 
 const countMutations   = Symbol('countMutations'),
       isFiltered       = Symbol('isFiltered'),
@@ -125,7 +124,7 @@ class Base extends CoreBase {
         });
 
         if (me.autoSort && me._sorters.length > 0) {
-            me.doSort();
+            me.doSort()
         }
     }
 
@@ -135,7 +134,7 @@ class Base extends CoreBase {
      * @returns {Object[]} an array containing all added items
      */
     add(item) {
-        return this.splice(0, null, item).addedItems;
+        return this.splice(0, null, item).addedItems
     }
 
     /**
@@ -149,11 +148,11 @@ class Base extends CoreBase {
         value.forEach(filter => {
             if (filter.listenerApplied === false) {
                 filter.on('change', me.onFilterChange, me);
-                filter.listenerApplied = true;
+                filter.listenerApplied = true
             }
         });
 
-        oldValue && me.filter();
+        oldValue && me.filter()
     }
 
     /**
@@ -171,7 +170,7 @@ class Base extends CoreBase {
 
             for (; i < len; i++) {
                 item = value[i];
-                me.map.set(item[keyProperty], item);
+                me.map.set(item[keyProperty], item)
             }
         }
     }
@@ -189,11 +188,11 @@ class Base extends CoreBase {
         value.forEach(sorter => {
             if (sorter.listenerApplied === false) {
                 sorter.on('change', me.onSorterChange, me);
-                sorter.listenerApplied = true;
+                sorter.listenerApplied = true
             }
         });
 
-        oldValue && me.autoSort && me.doSort();
+        oldValue && me.autoSort && me.doSort()
     }
 
     /**
@@ -216,11 +215,9 @@ class Base extends CoreBase {
 
             source.on(listenersConfig);
 
-            // console.log('afterSetSourceId', source);
-
             if (oldValue) {
                 source = Neo.get(oldValue);
-                source.un(listenersConfig);
+                source.un(listenersConfig)
             }
         }
     }
@@ -237,8 +234,8 @@ class Base extends CoreBase {
 
         me.sorters.forEach(sorter => {//console.log('forEach', sorter);
             me.sortDirections.push(sorter.directionMultiplier);
-            me.sortProperties.push(sorter.property);
-        });
+            me.sortProperties.push(sorter.property)
+        })
     }
 
     /**
@@ -248,7 +245,7 @@ class Base extends CoreBase {
      */
     beforeSetFilters(value, oldValue) {
         if (!Array.isArray(value)) {
-            value = value ? [value] : [];
+            value = value ? [value] : []
         }
 
         let len = oldValue && oldValue.length || 0,
@@ -268,34 +265,34 @@ class Base extends CoreBase {
                         });
 
                         hasMatch = true;
-                        break;
+                        break
                     } else if (
                         oldValue[i].operator === (key.operator || '===') &&
                         oldValue[i].property === key.property &&
                         oldValue[i].value    === key.value
                     ) {
                         hasMatch = true;
-                        break;
+                        break
                     }
                 }
             }
 
             if (!hasMatch) {
-                value[index] = Neo.create(Filter, key);
+                value[index] = Neo.create(Filter, key)
             } else {
                 value[index] = oldValue[i];
                 oldValue.splice(i, 1);
-                len--;
+                len--
             }
         });
 
         if (Array.isArray(oldValue)) {
             oldValue.forEach(key => {
                 key.destroy();
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -304,7 +301,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetMap(value, oldValue) {
-        return !value ? new Map() : value;
+        return !value ? new Map() : value
     }
 
     /**
@@ -314,7 +311,7 @@ class Base extends CoreBase {
      */
     beforeSetSorters(value, oldValue) {
         if (!Array.isArray(value)) {
-            value = value ? [value] : [];
+            value = value ? [value] : []
         }
 
         let len = oldValue?.length || 0,
@@ -333,28 +330,28 @@ class Base extends CoreBase {
                         });
 
                         hasMatch = true;
-                        break;
+                        break
                     } else if (oldValue[i].property === key.property && oldValue[i].direction === key.direction) {
                         hasMatch = true;
-                        break;
+                        break
                     }
                 }
             }
 
             if (!hasMatch) {
-                value[index] = Neo.create(Sorter, key);
+                value[index] = Neo.create(Sorter, key)
             } else {
                 value[index] = oldValue[i];
                 oldValue.splice(i, 1);
-                len--;
+                len--
             }
         });
 
         oldValue?.forEach(key => {
-            key.destroy();
+            key.destroy()
         });
 
-        return value;
+        return value
     }
 
     /**
@@ -375,19 +372,19 @@ class Base extends CoreBase {
 
             opts.addedItems.forEach(item => {
                 if (index = toRemoveMap.indexOf(item[keyProperty]) > - 1) {
-                    me[toRemoveArray].splice(index, 1);
+                    me[toRemoveArray].splice(index, 1)
                 } else if (toAddMap.indexOf(item[keyProperty]) < 0) {
-                    me[toAddArray].push(item);
+                    me[toAddArray].push(item)
                 }
             });
 
             opts.removedItems.forEach(item => {
                 if (index = toAddMap.indexOf(item[keyProperty]) > - 1) {
-                    me[toAddArray].splice(index, 1);
+                    me[toAddArray].splice(index, 1)
                 } else if (toRemoveMap.indexOf(item[keyProperty]) < 0) {
-                    me[toRemoveArray].push(item);
+                    me[toRemoveArray].push(item)
                 }
-            });
+            })
         }
     }
 
@@ -395,7 +392,7 @@ class Base extends CoreBase {
      * Removes all items and clears the map
      */
     clear() {
-        this.splice(0, this.getCount());
+        this.splice(0, this.getCount())
     }
 
     /**
@@ -403,7 +400,7 @@ class Base extends CoreBase {
      * @param {boolean} [restoreOriginalFilters=false]
      */
     clearFilters(restoreOriginalFilters) {
-        this.filters = restoreOriginalFilters ? Neo.clone(this.originalConfig.filters, true, true) : null;
+        this.filters = restoreOriginalFilters ? Neo.clone(this.originalConfig.filters, true, true) : null
     }
 
     /**
@@ -413,7 +410,7 @@ class Base extends CoreBase {
         let me = this;
 
         me._items.splice(0, me.getCount());
-        me.map.clear();
+        me.map.clear()
     }
 
     /**
@@ -422,7 +419,7 @@ class Base extends CoreBase {
      * @param {boolean} [restoreOriginalSorters=false]
      */
     clearSorters(restoreOriginalSorters) {
-        this.sorters = restoreOriginalSorters ? Neo.clone(this.originalConfig.sorters, true, true) : null;
+        this.sorters = restoreOriginalSorters ? Neo.clone(this.originalConfig.sorters, true, true) : null
     }
 
     /**
@@ -440,7 +437,7 @@ class Base extends CoreBase {
         delete config.sorters;
 
         if (me._items.length > 0) {
-            config.items = [...me._items];
+            config.items = [...me._items]
         }
 
         config.filters = [];
@@ -449,14 +446,14 @@ class Base extends CoreBase {
         // todo: filters & sorters should push their current state and not the original one
 
         filters.forEach(function(filter) {
-            config.filters.push(filter.originalConfig);
+            config.filters.push(filter.originalConfig)
         });
 
         sorters.forEach(function(sorter) {
-            config.sorters.push(sorter.originalConfig);
+            config.sorters.push(sorter.originalConfig)
         });
 
-        return Neo.create(Base, config);
+        return Neo.create(Base, config)
     }
 
     /**
@@ -468,7 +465,7 @@ class Base extends CoreBase {
         me._items.splice(0, me._items.length);
         me.map.clear();
 
-        super.destroy();
+        super.destroy()
     }
 
     /**
@@ -491,11 +488,11 @@ class Base extends CoreBase {
         if (countSorters > 0) {
             sorters.forEach(key => {
                 if (key.sortBy) {
-                    hasSortByMethod = true;
+                    hasSortByMethod = true
                 }
 
                 if (key.useTransformValue) {
-                    hasTransformValue = true;
+                    hasTransformValue = true
                 }
             });
 
@@ -508,11 +505,11 @@ class Base extends CoreBase {
                         sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
 
                         if (sortValue !== 0) {
-                            return sortValue;
+                            return sortValue
                         }
                     }
 
-                    return 0;
+                    return 0
                 });
             } else {
                 if (hasTransformValue) {
@@ -523,16 +520,16 @@ class Base extends CoreBase {
 
                         for (; i < countSorters; i++) {
                             if (sorters[i].useTransformValue) {
-                                obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]]);
+                                obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
                             } else {
-                                obj[sortProperties[i]] = item[sortProperties[i]];
+                                obj[sortProperties[i]] = item[sortProperties[i]]
                             }
                         }
 
-                        return obj;
+                        return obj
                     });
                 } else {
-                    mappedItems = items;
+                    mappedItems = items
                 }
 
                 mappedItems.sort((a, b) => {
@@ -542,21 +539,21 @@ class Base extends CoreBase {
                         sortProperty = sortProperties[i];
 
                         if (a[sortProperty] > b[sortProperty]) {
-                            return 1 * sortDirections[i];
+                            return 1 * sortDirections[i]
                         }
 
                         if (a[sortProperty] < b[sortProperty]) {
-                            return -1 * sortDirections[i];
+                            return -1 * sortDirections[i]
                         }
                     }
 
-                    return 0;
+                    return 0
                 });
 
                 if (hasTransformValue) {
                     me._items = mappedItems.map(el => {
-                        return items[el.index];
-                    });
+                        return items[el.index]
+                    })
                 }
             }
         }
@@ -568,7 +565,7 @@ class Base extends CoreBase {
                 items: me._items,
                 previousItems,
                 scope: me
-            });
+            })
         }
     }
 
@@ -584,11 +581,11 @@ class Base extends CoreBase {
         const me = this;
 
         if (me[updatingIndex] > 0) {
-            me[updatingIndex]--;
+            me[updatingIndex]--
         }
 
         if (endSilentUpdateMode) {
-            me[silentUpdateMode] = false;
+            me[silentUpdateMode] = false
         } else {
             me.fire('mutate', {
                 addedItems  : me[toAddArray],
@@ -596,7 +593,7 @@ class Base extends CoreBase {
             });
 
             me[toAddArray]   .splice(0, me[toAddArray]   .length);
-            me[toRemoveArray].splice(0, me[toRemoveArray].length);
+            me[toRemoveArray].splice(0, me[toRemoveArray].length)
         }
     }
 
@@ -612,10 +609,10 @@ class Base extends CoreBase {
         me.filters?.forEach(key => {
             filter = key.export();
 
-            filter && filters.push(filter);
+            filter && filters.push(filter)
         });
 
-        return filters;
+        return filters
     }
 
     /**
@@ -630,10 +627,10 @@ class Base extends CoreBase {
         me.sorters?.forEach(key => {
             sorter = key.export();
 
-            sorter && sorters.push(sorter);
+            sorter && sorters.push(sorter)
         });
 
-        return sorters;
+        return sorters
     }
 
     /**
@@ -654,18 +651,18 @@ class Base extends CoreBase {
 
         for (; i < countAllFilters; i++) {
             if (!filters[i].disabled) {
-                countFilters++;
+                countFilters++
             }
         }
 
         if (countFilters === 0 && me.allItems) {
             if (me.sorters.length > 0) {
-                needsSorting = true;
+                needsSorting = true
             }
 
             me.clearSilent();
 
-            me.items = [...me.allItems._items];
+            me.items = [...me.allItems._items]
         } else {
             if (!me.allItems) {
                 config = {...me.originalConfig};
@@ -678,9 +675,7 @@ class Base extends CoreBase {
                     ...Neo.clone(config, true, true),
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
-                });
-
-                // console.log('child collection', me.allItems);
+                })
             }
 
             me.map.clear();
@@ -695,17 +690,17 @@ class Base extends CoreBase {
                     for (; j < countAllFilters; j++) {
                         if (filters[j].isFiltered(item, items, items)) {
                             isIncluded = false;
-                            break;
+                            break
                         }
                     }
 
                     if (isIncluded) {
                         filteredItems.push(item);
-                        me.map.set(item[me.keyProperty], item);
+                        me.map.set(item[me.keyProperty], item)
                     }
                 }
 
-                me._items = filteredItems; // silent update, the map is already in place
+                me._items = filteredItems // silent update, the map is already in place
             } else {
                 filteredItems = [...items];
 
@@ -714,22 +709,22 @@ class Base extends CoreBase {
 
                     for (i = 0; i < countItems; i++) {
                         if (!filters[j].isFiltered(filteredItems[i], filteredItems, items)) {
-                            tmpItems.push(filteredItems[i]);
+                            tmpItems.push(filteredItems[i])
                         }
                     }
 
                     filteredItems = [...tmpItems];
-                    countItems    = filteredItems.length;
+                    countItems    = filteredItems.length
                 }
 
-                me.items = filteredItems; // update the map
+                me.items = filteredItems // update the map
             }
         }
 
         me[isFiltered] = countFilters !== 0;
 
         if (needsSorting) {
-            me.doSort(me.items, true);
+            me.doSort(me.items, true)
         }
 
         me.fire('filter', {
@@ -737,7 +732,7 @@ class Base extends CoreBase {
             items     : me.items,
             oldItems,
             scope     : me
-        });
+        })
     }
 
     /**
@@ -752,7 +747,7 @@ class Base extends CoreBase {
     find(property, value, returnFirstMatch=false) {
         let me               = this,
             items            = [],
-            isObjectProperty = Neo.isObject(property),
+            isObjectProperty = me.isItem(property),
             item, matchArray, propertiesArray, propertiesLength;
 
         if (isObjectProperty) {
@@ -766,27 +761,27 @@ class Base extends CoreBase {
 
                 propertiesArray.forEach(([key, value]) => {
                     if (item[key] === value) {
-                        matchArray.push(true);
+                        matchArray.push(true)
                     }
                 });
 
                 if (matchArray.length === propertiesLength) {
                     if (returnFirstMatch) {
-                        return item;
+                        return item
                     }
 
-                    items.push(item);
+                    items.push(item)
                 }
             } else if (item[property] === value) {
                 if (returnFirstMatch) {
-                    return item;
+                    return item
                 }
 
-                items.push(item);
+                items.push(item)
             }
         }
 
-        return returnFirstMatch ? null : items;
+        return returnFirstMatch ? null : items
     }
 
     /**
@@ -805,11 +800,11 @@ class Base extends CoreBase {
 
         for (; i < end; i++) {
             if (fn.call(scope, me.items[i])) {
-                items.push(me.items[i]);
+                items.push(me.items[i])
             }
         }
 
-        return items;
+        return items
     }
 
     /**
@@ -819,7 +814,7 @@ class Base extends CoreBase {
      * @returns {Object} Returns the first found item or null
      */
     findFirst(property, value) {
-        return this.find(property, value, true);
+        return this.find(property, value, true)
     }
 
     /**
@@ -827,7 +822,7 @@ class Base extends CoreBase {
      * @returns {Object}
      */
     first() {
-        return this._items[0];
+        return this._items[0]
     }
 
     /**
@@ -845,7 +840,7 @@ class Base extends CoreBase {
      * @returns {Object|undefined}
      */
     getAt(index) {
-        return this._items[index];
+        return this._items[index]
     }
 
     /**
@@ -853,14 +848,14 @@ class Base extends CoreBase {
      * @returns {Number}
      */
     getCount() {
-        return this._items.length;
+        return this._items.length
     }
 
     /**
      * @returns {Number}
      */
     getCountMutations() {
-        return this[countMutations];
+        return this[countMutations]
     }
 
     /**
@@ -875,11 +870,11 @@ class Base extends CoreBase {
 
         for (; i < len; i++) {
             if (filters[i].property === property) {
-                return filters[i];
+                return filters[i]
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -889,7 +884,7 @@ class Base extends CoreBase {
      */
     getKeyAt(index) {
         let item = this._items[index];
-        return item?.[this.keyProperty];
+        return item?.[this.keyProperty]
     }
 
     /**
@@ -900,7 +895,7 @@ class Base extends CoreBase {
      * @link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
      */
     getRange(start, end) {
-        return this._items.slice(start, end);
+        return this._items.slice(start, end)
     }
 
     /**
@@ -908,7 +903,7 @@ class Base extends CoreBase {
      * @returns {Neo.collection.Base|undefined}
      */
     getSource() {
-        return this.sourceId && Neo.get(this.sourceId);
+        return this.sourceId && Neo.get(this.sourceId)
     }
 
     /**
@@ -917,7 +912,7 @@ class Base extends CoreBase {
      * @returns {Boolean}
      */
     has(key) {
-        return this.map.has(key);
+        return this.map.has(key)
     }
 
     /**
@@ -926,7 +921,7 @@ class Base extends CoreBase {
      * @returns {Boolean}
      */
     hasItem(item) {
-        return this.map.has(item[this.keyProperty]);
+        return this.map.has(item[this.keyProperty])
     }
 
     /**
@@ -935,7 +930,8 @@ class Base extends CoreBase {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOf(key) {
-        return this._items.indexOf(Util.isObject(key) ? key : this.map.get(key));
+        let me = this;
+        return me._items.indexOf(me.isItem(key) ? key : me.map.get(key))
     }
 
     /**
@@ -944,7 +940,7 @@ class Base extends CoreBase {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfItem(item) {
-        return this._items.indexOf(item);
+        return this._items.indexOf(item)
     }
 
     /**
@@ -953,7 +949,7 @@ class Base extends CoreBase {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfKey(key) {
-        return this._items.indexOf(this.map.get(key));
+        return this._items.indexOf(this.map.get(key))
     }
 
     /**
@@ -963,14 +959,14 @@ class Base extends CoreBase {
      * @returns {Object[]} an array containing all added items
      */
     insert(index, item) {
-        return this.splice(index, 0, item).addedItems;
+        return this.splice(index, 0, item).addedItems
     }
 
     /**
      * @returns {Boolean} true in case the collection is filtered
      */
     isFiltered() {
-        return this[isFiltered];
+        return this[isFiltered]
     }
 
     /**
@@ -988,18 +984,27 @@ class Base extends CoreBase {
         for (; i < len; i++) {
             if (filters[i].isFiltered(item)) {
                 isFiltered = true;
-                break;
+                break
             }
         }
 
-        return isFiltered;
+        return isFiltered
+    }
+
+    /**
+     * Helper method to check if a given value is either an object or a neo data record
+     * @param {*} value
+     * @returns {Boolean}
+     */
+    isItem(value) {
+        return Neo.isObject(value) || Neo.isRecord(value)
     }
 
     /**
      * @returns {Boolean} true in case the collection is sorted
      */
     isSorted() {
-        return this[isSorted];
+        return this[isSorted]
     }
 
     /**
@@ -1007,7 +1012,7 @@ class Base extends CoreBase {
      * @returns {Object}
      */
     last() {
-        return this._items[this.getCount() -1];
+        return this._items[this.getCount() -1]
     }
 
     /**
@@ -1015,7 +1020,7 @@ class Base extends CoreBase {
      * @protected
      */
     onFilterChange(opts) {
-        this.filter();
+        this.filter()
     }
 
     /**
@@ -1026,10 +1031,10 @@ class Base extends CoreBase {
         let me = this;
 
         if (opts.preventBubbleUp) {
-            me.preventBubbleUp = true;
+            me.preventBubbleUp = true
         }
 
-        me.splice(null, opts.removedItems, opts.addedItems);
+        me.splice(null, opts.removedItems, opts.addedItems)
     }
 
     /**
@@ -1038,7 +1043,7 @@ class Base extends CoreBase {
      */
     onSorterChange(opts) {
         this.applySorterConfigs();
-        this.doSort();
+        this.doSort()
     }
 
     /**
@@ -1047,7 +1052,7 @@ class Base extends CoreBase {
      */
     pop() {
         let mutation = this.splice(this.getCount() -1, 1);
-        return mutation.removedItems[0];
+        return mutation.removedItems[0]
     }
 
     /**
@@ -1056,7 +1061,7 @@ class Base extends CoreBase {
      * @returns {Number} the collection count
      */
     push(item) {
-        return this.add(item);
+        return this.add(item)
     }
 
     /**
@@ -1066,7 +1071,7 @@ class Base extends CoreBase {
      */
     remove(key) {
         this.splice(0, Array.isArray(key) ? key : [key]);
-        return this.getCount();
+        return this.getCount()
     }
 
     /**
@@ -1076,7 +1081,7 @@ class Base extends CoreBase {
      */
     removeAt(index) {
         this.splice(index, 1);
-        return this.getCount();
+        return this.getCount()
     }
 
     /**
@@ -1085,7 +1090,7 @@ class Base extends CoreBase {
      * @returns {Array} items
      */
     reverse() {
-        return this._items.reverse();
+        return this._items.reverse()
     }
 
     /**
@@ -1094,7 +1099,7 @@ class Base extends CoreBase {
      */
     shift() {
         let mutation = this.splice(0, 1);
-        return mutation.addedItems[0];
+        return mutation.addedItems[0]
     }
 
     /**
@@ -1107,7 +1112,7 @@ class Base extends CoreBase {
      * @returns {boolean} true if the callback function returns a truthy value for any collection item, otherwise false
      */
     some(...args) {
-        return this._items.some(...args);
+        return this._items.some(...args)
     }
 
     /**
@@ -1127,37 +1132,37 @@ class Base extends CoreBase {
             keyProperty        = me.keyProperty,
             map                = me.map,
             removedItems       = [],
-            removeCountAtIndex = Util.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
+            removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             i, item, key, len, toAddMap;
 
-        if (!Util.isNumber(index) && removeCountAtIndex) {
-            Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used');
+        if (!Neo.isNumber(index) && removeCountAtIndex) {
+            Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used')
         }
 
         toAddArray = toAddArray && !Array.isArray(toAddArray) ? [toAddArray] : toAddArray;
 
         if (toRemoveArray && (len = toRemoveArray.length) > 0) {
             if (toAddArray && toAddArray.length > 0) {
-                toAddMap = toAddArray.map(e => e[keyProperty]);
+                toAddMap = toAddArray.map(e => e[keyProperty])
             }
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = Util.isObject(item) ? item[keyProperty] : item;
+                key  = me.isItem(item) ? item[keyProperty] : item;
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
                         removedItems.push(items.splice(me.indexOfKey(key), 1)[0]);
-                        map.delete(key);
+                        map.delete(key)
                     }
                 }
             }
         } else if (removeCountAtIndex && removeCountAtIndex > 0) {
             removedItems.push(...items.splice(index, removeCountAtIndex));
             removedItems.forEach(e => {
-                map.delete(e[keyProperty]);
-            });
+                map.delete(e[keyProperty])
+            })
         }
 
         if (toAddArray && (len = toAddArray.length) > 0) {
@@ -1167,20 +1172,20 @@ class Base extends CoreBase {
 
                 if (!key) {
                     item[keyProperty] = key = me.keyPropertyIndex;
-                    me.keyPropertyIndex--;
+                    me.keyPropertyIndex--
                 }
 
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
-                    map.set(key, item);
+                    map.set(key, item)
                 }
             }
 
             if (addedItems.length > 0) {
-                items.splice(Util.isNumber(index) ? index : items.length, 0, ...addedItems);
+                items.splice(Neo.isNumber(index) ? index : items.length, 0, ...addedItems);
 
                 if (me.autoSort && me._sorters.length > 0) {
-                    me.doSort();
+                    me.doSort()
                 }
             }
         }
@@ -1194,14 +1199,14 @@ class Base extends CoreBase {
                 // console.log('source splice', source.id, 'added:', ...toAddArray, 'removed:', ...removedItems);
                 me.startUpdate(true);
                 source.splice(null, toRemoveArray || removedItems, toAddArray);
-                me.endUpdate(true);
+                me.endUpdate(true)
             }
 
-            delete source.preventBubbleUp;
+            delete source.preventBubbleUp
         }
 
         if (addedItems.length > 0 || removedItems.length > 0) {
-            me[countMutations]++;
+            me[countMutations]++
         }
 
         if (me[updatingIndex] === 0) {
@@ -1209,23 +1214,22 @@ class Base extends CoreBase {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
                 removedItems   : toRemoveArray || removedItems
-            });
-
+            })
         } else if (!me[silentUpdateMode]) {
             me.cacheUpdate({
                 addedItems,
                 removedItems
-            });
+            })
         }
 
         if (me[updatingIndex] === 0) {
-            delete me.preventBubbleUp;
+            delete me.preventBubbleUp
         }
 
         return {
             addedItems,
             removedItems
-        };
+        }
     }
 
     /**
@@ -1239,10 +1243,10 @@ class Base extends CoreBase {
      */
     startUpdate(startSilentUpdateMode) {
         if (startSilentUpdateMode) {
-            this[silentUpdateMode] = true;
+            this[silentUpdateMode] = true
         }
 
-        this[updatingIndex]++;
+        this[updatingIndex]++
     }
 
     /**
@@ -1252,7 +1256,7 @@ class Base extends CoreBase {
      */
     unshift(item) {
         this.splice(0, 0, item);
-        return this.getCount();
+        return this.getCount()
     }
 }
 
