@@ -312,12 +312,17 @@ class Base {
 
         Object.keys(me).forEach(key => {
             if (Object.getOwnPropertyDescriptor(me, key).writable) {
-                // We must not delete some custom destroy() interceptor
+                // We must not delete the custom destroy() interceptor
                 if (key !== 'destroy' && key !== '_id') {
                     delete me[key]
                 }
             }
         });
+
+        // We do want to prevent delayed event calls after an observable instance got destroyed.
+        if (Neo.isFunction(me.fire)) {
+            me.fire = Neo.emptyFn
+        }
 
         me.isDestroyed = true
     }

@@ -1335,7 +1335,11 @@ class Base extends CoreBase {
 
         ComponentManager.unregister(me);
 
-        super.destroy()
+        super.destroy();
+
+        // We do want to prevent delayed calls after a component instance got destroyed.
+        me.onFocusLeave = Neo.emptyFn;
+        me.unmount      = Neo.emptyFn
     }
 
     /**
