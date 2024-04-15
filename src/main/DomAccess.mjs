@@ -651,16 +651,19 @@ class DomAccess extends Base {
      * @param {HTMLElement} [data.target]
      */
     monitorAutoGrowHandler(data) {
-        const
-            target                 = data.target || this.getElement(data.id),
-            { style }              = target,
-            { style : inputStyle } = target.closest('.neo-textarea');
+        const target = data.target || this.getElement(data.id);
 
-        // Measure the scrollHeight when forced to overflow, then set height to encompass the scrollHeight
-        style.height = style.minHeight = 0;
-        inputStyle.setProperty('--textfield-input-height', `${target.scrollHeight + 5}px`);
-        inputStyle.setProperty('height', '');
-        style.height = style.minHeight = ''
+        if (target) {
+            const
+                { style }              = target,
+                { style : inputStyle } = target.closest('.neo-textarea');
+
+            // Measure the scrollHeight when forced to overflow, then set height to encompass the scrollHeight
+            style.height = style.minHeight = 0;
+            inputStyle.setProperty('--textfield-input-height', `${target.scrollHeight + 5}px`);
+            inputStyle.setProperty('height', '');
+            style.height = style.minHeight = ''
+        }
     }
 
     /**
