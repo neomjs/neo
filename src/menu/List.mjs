@@ -413,7 +413,7 @@ class List extends BaseList {
      *
      */
     unmount() {
-        this.selectionModel.deselectAll(true); // silent update
+        this.selectionModel?.deselectAll(true); // silent update
         this.hideSubMenu();
 
         super.unmount()
