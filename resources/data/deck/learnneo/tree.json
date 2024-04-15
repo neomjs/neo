@@ -41,7 +41,7 @@
         {"name": "Other JavaScript Class Features",         "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-08T20-20-37-336Z"},
         {"name": "Super",                                   "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-08T21-58-25-809Z"},
         {"name": "New Node",                                "parentId": "JavaScriptClasses", "isLeaf": true,  "id": "2023-10-31T13-59-37-550Z"},
-    {"name": "Appendix",                                    "parentId": null,                                 "id": "appendix",  "collapsed":  true},
+    {"name": "Appendix",                                    "parentId": null,                                 "id": "appendix",  "hidden":  true, "collapsed":  true},
         {"name": "Stylesheet",                              "parentId": "appendix",          "isLeaf": true,  "id": "stylesheet"},
         {"name": "Test",                                    "parentId": "appendix",          "isLeaf": true,  "id": "TestLivePreview"}
 ]}
