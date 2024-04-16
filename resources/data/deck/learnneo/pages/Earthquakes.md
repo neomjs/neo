@@ -41,7 +41,7 @@ In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
 <details>
 <summary>Wait!</summary>
-You may already have a workspace! If so, you can skip this lab. For example, if you followed the _Getting Started > Setup_ topic, above, you should already have a workspace.
+You may already have a workspace! If so, you can skip this lab. For example, if you followed the <a href="#/learn/Setup">Getting Started > Setup</a> topic, above, you should already have a workspace.
 
 If you don't have a workspace, then continue on to the next step.
 </details>
@@ -125,7 +125,7 @@ Parallel processing &mdash; along wih the efficient way the vdom worker applies 
 If you look in the `package.json` script block you'll see several scripts used for generating applications 
 and classes, doing builds, and starting a server. We'll use several of them throughout the tutorials.
 
-- create-app &mdash; creates a simple demo app
+- &mdash; creates a simple demo app
 - create-app-minimal &mdash; creates a application shell with no content
 - server-start &mdash; starts a server with webroot set to the workspace
 - build-all &mdash; builds minimized versions of your apps
@@ -146,7 +146,7 @@ In this lab you'll create a starter app and add a single component.
 Use a terminal window to navigate to the workspace and run the following script. Use "Earthquakes"
 as the app name, and defaults for everything else.
 
-    npm run generate-app-minimal
+    npm run create-app-minimal
 
 After the script runs yous should see these files in the `app/earthquakes` directory.
 

@@ -56,11 +56,11 @@ class Viewport extends Container {
 
             items: [{
                 module: ContentBox,
-                header: 'Quick Application Development',
+                header: 'Next-Generation Runtime',
                 route : '#/learn/WhyNeo-Quick',
 
                 content: [
-                    'Property lifecycle hooks',
+                    'Multi-threaded',
                     'Elegant state management',
                     'Simple and powerful debugging'
                 ]
@@ -72,16 +72,6 @@ class Viewport extends Container {
                 content: [
                     'Multi-threaded',
                     'Over 40,000 delta updates per second',
-                    'Item 3'
-                ]
-            }, {
-                module: ContentBox,
-                header: 'Multi Window Apps',
-                route : '#/learn/WhyNeo-Multi-Window',
-
-                content: [
-                    'Item 1',
-                    'Item 2',
                     'Item 3'
                 ]
             }]

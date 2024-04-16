@@ -22,4 +22,4 @@ Then run the following command, choosing the defaults for each prompt.
 
 When you're finished you should have a Neo.mjs workspace, as described in the _Workspaces and Applications_ topic, which follows.
 
-
+It's probably a good idea to do an `npm install` in the workspace as soon as you've created it.

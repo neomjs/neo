@@ -63,6 +63,9 @@ class RecordFactory extends Base {
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true);
                 cls     = ns[key] = class Record {
+                    // We do not want to minify the ctor class name in dist/production
+                    static name = 'Record'
+
                     constructor(config) {
                         let me = this,
                             properties;
