@@ -45,8 +45,9 @@ StartTest(t => {
 
     t.it('Editable', async t => {
         await setup({
-            editable : false
+            editable: false
         });
+
         const blurEl = document.createElement('input');
         document.body.appendChild(blurEl);
 
@@ -72,7 +73,7 @@ StartTest(t => {
         // Nothing selected
         t.hasAttributeValue(inputField, 'aria-activedescendant', '');
 
-        // Should activate the first list item. editable : false means we can still be focused
+        // Should activate the first list item. editable: false means we can still be focused
         // and select values, just that the filter input is read-only.
         await t.type(null, '[DOWN]');
 
@@ -89,7 +90,7 @@ StartTest(t => {
 
         t.is(inputField.value, 'Alabama');
 
-        // Focus nebver leaves the input field
+        // Focus never leaves the input field
         t.is(blurCount, 0);
 
         await t.type(null, '[TAB]');
