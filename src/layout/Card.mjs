@@ -106,7 +106,7 @@ class Card extends Base {
                     item = await me.loadModule(item, i);
                 }
 
-                if (item instanceof Neo.core.Base) {
+                if (item instanceof Neo.component.Base) {
                     wrapperCls = item.wrapperCls;
 
                     NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
