@@ -249,7 +249,7 @@ class Base {
         let values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
-            console.error(`Supported values for ${name} are: ${values.join(', ')}`, this);
+            console.error(`Supported values for ${name} are:`, ...values, this);
             return oldValue
         }
 
