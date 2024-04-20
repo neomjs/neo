@@ -22,7 +22,7 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module        : Radio,
-            checked       : layout.slideDirection === 'bottom-left',
+            checked       : layout.slideDirection === 'horizontal',
             hideValueLabel: false,
             labelText     : 'slideDirection',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', 'horizontal')},
@@ -126,7 +126,7 @@ class MainContainer extends ConfigurationViewport {
      */
     onRadioLayoutChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.exampleComponent.layout[config] = value;
+            this.getItem('card-container').layout[config] = value;
         }
     }
 

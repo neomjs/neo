@@ -24,6 +24,13 @@ class Card extends Base {
      * @static
      */
     static itemCls = 'neo-layout-card-item'
+    /**
+     * Valid values for slideDirection
+     * @member {String[]} iconPositions=['horizontal','vertical',null]
+     * @protected
+     * @static
+     */
+    static slideDirections = ['horizontal', 'vertical', null]
 
     static config = {
         /**
@@ -47,7 +54,12 @@ class Card extends Base {
          * This will keep the instances & vdom trees
          * @member {Boolean} removeInactiveCards=true
          */
-        removeInactiveCards: true
+        removeInactiveCards: true,
+        /*
+         * Valid values: 'horizontal', 'vertical', null
+         * @member {String|null} slideDirection_=null
+         */
+        slideDirection_: null
     }
 
     /**
@@ -162,6 +174,17 @@ class Card extends Base {
         NeoArray.add(wrapperCls, 'neo-layout-card');
 
         container.wrapperCls = wrapperCls;
+    }
+
+    /**
+     * Triggered before the slideDirection config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetSlideDirection(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'slideDirection')
     }
 
     /**
