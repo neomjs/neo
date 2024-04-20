@@ -22,7 +22,7 @@ class MainContainer extends ConfigurationViewport {
 
     createConfigurationComponents() {
         let me       = this,
-            {layout} = me.exampleComponent;
+            {layout} = me.exampleComponent.getItem('card-container');
 
         return [{
             module        : Radio,
@@ -81,22 +81,31 @@ class MainContainer extends ConfigurationViewport {
             width    : 400,
 
             items: [{
-                module: Container,
-                layout: {ntype: 'card', slideDirection: 'horizontal'},
-                items : [{
+                module   : Container,
+                layout   : {ntype: 'card', slideDirection: 'horizontal'},
+                reference: 'card-container',
+
+                items: [{
                     style: {backgroundColor: 'red'}
                 }, {
                     style: {backgroundColor: 'blue'}
+                }, {
+                    style: {backgroundColor: 'green'}
                 }]
             }, {
                 module: Toolbar,
                 flex  : 'none',
-                items : [{
-                    handler: 'onNextButtonClick',
-                    text   : 'Prev'
+                style : {marginTop: '1em'},
+
+                items: [{
+                    disabled: true,
+                    handler  : 'up.onPrevButtonClick',
+                    reference: 'prev-button',
+                    text     : 'Prev'
                 }, '->', {
-                    handler: 'onPrevButtonClick',
-                    text   : 'Next'
+                    handler  : 'up.onNextButtonClick',
+                    reference: 'next-button',
+                    text     : 'Next'
                 }]
             }]
         })
@@ -106,7 +115,12 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} data
      */
     onNextButtonClick(data) {
-        this.exampleComponent.layout.activeIndex++;
+        let cardContainer = this.getItem('card-container'),
+            {layout}      = cardContainer;
+
+        layout.activeIndex++;
+        data.component.disabled = layout.activeIndex === cardContainer.items.length - 1;
+        this.getItem('prev-button').disabled = false;
     }
 
     /**
@@ -124,7 +138,12 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} data
      */
     onPrevButtonClick(data) {
-        this.exampleComponent.layout.activeIndex--;
+        let cardContainer = this.getItem('card-container'),
+            {layout}      = cardContainer;
+
+        layout.activeIndex--;
+        data.component.disabled = layout.activeIndex === 0;
+        this.getItem('next-button').disabled = false;
     }
 }
 
