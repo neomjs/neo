@@ -1,0 +1,133 @@
+import Button                from '../../../src/button/Base.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ComboBox              from '../../../src/form/field/ComboBox.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import Container             from '../../../src/container/Base.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
+import Toolbar               from '../../../src/toolbar/Base.mjs';
+
+/**
+ * @class Neo.examples.layout.card.MainContainer
+ * @extends Neo.examples.ConfigurationViewport
+ */
+class MainContainer extends ConfigurationViewport {
+    static config = {
+        className           : 'Neo.examples.layout.card.MainContainer',
+        configItemLabelWidth: 160,
+        configItemWidth     : 280,
+        layout              : {ntype: 'hbox', align: 'stretch'}
+    }
+
+    createConfigurationComponents() {
+        let me       = this,
+            {layout} = me.exampleComponent;
+
+        return [{
+            module        : Radio,
+            checked       : layout.slideDirection === 'bottom-left',
+            hideValueLabel: false,
+            labelText     : 'slideDirection',
+            listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', 'horizontal')},
+            name          : 'slideDirection',
+            valueLabelText: 'horizontal'
+        }, {
+            module        : Radio,
+            checked       : layout.slideDirection === 'vertical',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', 'vertical')},
+            name          : 'slideDirection',
+            valueLabelText: 'vertical'
+        }, {
+            module        : Radio,
+            checked       : layout.slideDirection === null,
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', null)},
+            name          : 'slideDirection',
+            valueLabelText: 'null'
+        }, {
+            module    :  NumberField,
+            clearable : true,
+            labelText : 'height',
+            listeners : {change: me.onConfigChange.bind(me, 'height')},
+            maxValue  : 300,
+            minValue  : 30,
+            stepSize  : 5,
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.height
+        }, {
+            module    :  NumberField,
+            clearable : true,
+            labelText : 'width',
+            listeners : {change: me.onConfigChange.bind(me, 'width')},
+            maxValue  : 300,
+            minValue  : 100,
+            stepSize  : 5,
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.width
+        }];
+    }
+
+    /**
+     * @returns {Neo.component.Base}
+     */
+    createExampleComponent() {
+        return Neo.create({
+            module   : Container,
+            height   : 300,
+            width    : 400,
+
+            items: [{
+                module: Container,
+                layout: {ntype: 'card', slideDirection: 'horizontal'},
+                items : [{
+                    style: {backgroundColor: 'red'}
+                }, {
+                    style: {backgroundColor: 'blue'}
+                }]
+            }, {
+                module: Toolbar,
+                flex  : 'none',
+                items : [{
+                    handler: 'onNextButtonClick',
+                    text   : 'Prev'
+                }, '->', {
+                    handler: 'onPrevButtonClick',
+                    text   : 'Next'
+                }]
+            }]
+        })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onNextButtonClick(data) {
+        this.exampleComponent.layout.activeIndex++;
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onRadioLayoutChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.exampleComponent.layout[config] = value;
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPrevButtonClick(data) {
+        this.exampleComponent.layout.activeIndex--;
+    }
+}
+
+Neo.setupClass(MainContainer);
+
+export default MainContainer;
