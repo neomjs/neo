@@ -103,33 +103,39 @@ class Card extends Base {
                 module        = item.module;
 
                 if (isActiveIndex && Neo.typeOf(module) === 'Function') {
-                    item = await me.loadModule(item, i);
+                    item = await me.loadModule(item, i)
                 }
 
-                if (item instanceof Neo.component.Base) {
-                    wrapperCls = item.wrapperCls;
+                if (!me.slideDirection) {
+                    if (item instanceof Neo.component.Base) {
+                        wrapperCls = item.wrapperCls;
 
-                    NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                    NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                        NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                        NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                    if (removeInactiveCards || needsUpdate) {
-                        item.wrapperCls = wrapperCls;
+                        if (removeInactiveCards || needsUpdate) {
+                            item.wrapperCls = wrapperCls;
 
-                        if (isActiveIndex) {
-                            delete item.vdom.removeDom;
-                            item.activate?.();
-                        } else if (removeInactiveCards) {
-                            item.mounted = false;
-                            item.vdom.removeDom = true;
+                            if (isActiveIndex) {
+                                delete item.vdom.removeDom;
+                                item.activate?.()
+                            } else if (removeInactiveCards) {
+                                item.mounted = false;
+                                item.vdom.removeDom = true
+                            }
+                        } else {
+                            item.wrapperCls = wrapperCls
                         }
-                    } else {
-                        item.wrapperCls = wrapperCls;
                     }
                 }
             }
 
-            if (removeInactiveCards || needsUpdate) {
+            if (!me.slideDirection && (removeInactiveCards || needsUpdate)) {
                 container.update();
+            }
+
+            if (me.slideDirection) {
+                console.log('animate update')
             }
         }
     }

@@ -116,7 +116,7 @@ class MainContainer extends ConfigurationViewport {
 
         layout.activeIndex++;
         data.component.disabled = layout.activeIndex === cardContainer.items.length - 1;
-        this.getItem('prev-button').disabled = false;
+        this.getItem('prev-button').disabled = false
     }
 
     /**
@@ -126,7 +126,7 @@ class MainContainer extends ConfigurationViewport {
      */
     onRadioLayoutChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.getItem('card-container').layout[config] = value;
+            this.getItem('card-container').layout[config] = value
         }
     }
 
@@ -139,7 +139,7 @@ class MainContainer extends ConfigurationViewport {
 
         layout.activeIndex--;
         data.component.disabled = layout.activeIndex === 0;
-        this.getItem('next-button').disabled = false;
+        this.getItem('next-button').disabled = false
     }
 }
 
