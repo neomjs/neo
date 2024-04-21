@@ -84,7 +84,7 @@ class Card extends Base {
             len   = items.length;
 
             if (!items[value]) {
-                Neo.error('Trying to activate a non existing card', value, items);
+                Neo.error('Trying to activate a non existing card', value, items)
             }
 
             // we need to run the loop twice, since lazy loading a module at a higher index does affect lower indexes
@@ -93,7 +93,7 @@ class Card extends Base {
 
                 if (i === value && Neo.typeOf(module) === 'Function') {
                     needsUpdate = true;
-                    break;
+                    break
                 }
             }
 
@@ -157,11 +157,11 @@ class Card extends Base {
         NeoArray.add(childCls, isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls);
 
         if (!keepInDom && me.removeInactiveCards) {
-            item.wrapperCls = childCls;
             vdom.removeDom  = !isActiveIndex;
-            item.update();
-        } else {
             item.wrapperCls = childCls;
+            item.update()
+        } else {
+            item.wrapperCls = childCls
         }
     }
 
@@ -174,12 +174,12 @@ class Card extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-card');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -210,7 +210,7 @@ class Card extends Base {
             proto, wrapperCls;
 
         if (!Neo.isNumber(index)) {
-            index = items.indexOf(item);
+            index = items.indexOf(item)
         }
 
         item.isLoading = true; // prevent the item from getting queued multiple times inside form.Container
@@ -230,14 +230,14 @@ class Card extends Base {
         items[index] = item = Neo.create(item);
 
         if (me.removeInactiveCards) {
-            item.vdom.removeDom = true;
+            item.vdom.removeDom = true
         }
 
         container.fire('cardLoaded', {item});
 
         vdom.cn[index] = item.vdom;
 
-        return item;
+        return item
     }
 
     /**
@@ -250,12 +250,12 @@ class Card extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.remove(wrapperCls, 'neo-layout-card');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 }
 
