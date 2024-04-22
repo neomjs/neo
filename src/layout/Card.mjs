@@ -75,6 +75,7 @@ class Card extends Base {
             containerId         = me.containerId,
             container           = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
             sCfg                = me.constructor,
+            needsTransition     = me.slideDirection && oldValue !== undefined,
             needsUpdate         = false,
             removeInactiveCards = me.removeInactiveCards,
             i, isActiveIndex, item, items, len, module, wrapperCls;
@@ -106,36 +107,32 @@ class Card extends Base {
                     item = await me.loadModule(item, i)
                 }
 
-                if (!me.slideDirection) {
-                    if (item instanceof Neo.component.Base) {
-                        wrapperCls = item.wrapperCls;
+                if (item instanceof Neo.component.Base) {
+                    wrapperCls = item.wrapperCls;
 
-                        NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                        NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                    NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                    NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                        if (removeInactiveCards || needsUpdate) {
-                            item.wrapperCls = wrapperCls;
+                    item.wrapperCls = wrapperCls;
 
-                            if (isActiveIndex) {
-                                delete item.vdom.removeDom;
-                                item.activate?.()
-                            } else if (removeInactiveCards) {
-                                item.mounted = false;
-                                item.vdom.removeDom = true
-                            }
-                        } else {
-                            item.wrapperCls = wrapperCls
+                    if (!needsTransition && (removeInactiveCards || needsUpdate)) {
+                        if (isActiveIndex) {
+                            delete item.vdom.removeDom;
+                            item.activate?.()
+                        } else if (removeInactiveCards) {
+                            item.mounted        = false;
+                            item.vdom.removeDom = true
                         }
                     }
                 }
             }
 
-            if (!me.slideDirection && (removeInactiveCards || needsUpdate)) {
-                container.update();
-            }
-
-            if (me.slideDirection) {
-                console.log('animate update')
+            if (needsTransition) {
+                await me.slideCards(value, oldValue)
+            } else {
+                if (removeInactiveCards || needsUpdate) {
+                    container.update()
+                }
             }
         }
     }
@@ -256,6 +253,53 @@ class Card extends Base {
         NeoArray.remove(wrapperCls, 'neo-layout-card');
 
         container.wrapperCls = wrapperCls
+    }
+
+    /**
+     * @param {Number} index
+     * @param {Number} oldIndex
+     */
+    async slideCards(index, oldIndex) {
+        console.log('slideCards', index, oldIndex);
+
+        let me                          = this,
+            {container, slideDirection} = me,
+            {items}                     = container,
+            card                        = items[index],
+            oldCard                     = items[oldIndex],
+            height, rect, transform, vdom, x, width;
+
+        rect      = await container.getDomRect(container.id);
+        height    = `${rect.height}px`;
+        x         = index > oldIndex ? 0 : -rect.width;
+        transform = `translateX(${x}px)`;
+        vdom      = container.vdom;
+        width     = `${2 * rect.width}px`;
+
+        delete card.vdom.removeDom;
+
+        vdom.cn = [
+            {cls: ['neo-relative'], cn: [
+                {cls: ['neo-animation-wrapper'], style: {height, transform, width}, cn: [
+                    oldCard.vdom,
+                    card.vdom
+                ]}
+            ]}
+        ];
+
+        await container.promiseUpdate();
+
+        x = index > oldIndex ? -rect.width : 0;
+
+        vdom.cn[0].cn[0].style.transform = `translateX(${x}px)`;
+
+        await container.promiseUpdate();
+
+        await me.timeout(300);
+
+        vdom.cn[0] = vdom.cn[0].cn[0].cn[1];
+
+        await container.promiseUpdate()
     }
 }
 

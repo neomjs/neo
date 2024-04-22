@@ -9,4 +9,21 @@
             display: none !important;
         }
     }
+
+    .neo-animation-wrapper {
+        display    : flex;
+        transition : transform 300ms cubic-bezier(0.47, 0, 0.745, 0.715);
+        will-change: transform;
+
+        > * {
+            flex: 1 0 auto;
+        }
+    }
+
+    .neo-relative {
+        height  : 100%;
+        overflow: hidden;
+        position: relative;
+        width   : 100%;
+    }
 }
