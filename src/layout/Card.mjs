@@ -267,11 +267,12 @@ class Card extends Base {
             {items}                     = container,
             card                        = items[index],
             oldCard                     = items[oldIndex],
-            height, rect, transform, vdom, x, width;
+            slideIn                     = index > oldIndex,
+            animationWrapper, height, rect, transform, vdom, x, width;
 
         rect      = await container.getDomRect(container.id);
         height    = `${rect.height}px`;
-        x         = index > oldIndex ? 0 : -rect.width;
+        x         = slideIn ? 0 : -rect.width;
         transform = `translateX(${x}px)`;
         vdom      = container.vdom;
         width     = `${2 * rect.width}px`;
@@ -281,23 +282,26 @@ class Card extends Base {
         vdom.cn = [
             {cls: ['neo-relative'], cn: [
                 {cls: ['neo-animation-wrapper'], style: {height, transform, width}, cn: [
-                    oldCard.vdom,
                     card.vdom
                 ]}
             ]}
         ];
 
+        animationWrapper = vdom.cn[0].cn[0];
+
+        animationWrapper.cn[slideIn ? 'unshift' : 'push'](oldCard.vdom);
+
         await container.promiseUpdate();
 
-        x = index > oldIndex ? -rect.width : 0;
+        x = slideIn ? -rect.width : 0;
 
-        vdom.cn[0].cn[0].style.transform = `translateX(${x}px)`;
+        animationWrapper.style.transform = `translateX(${x}px)`;
 
         await container.promiseUpdate();
 
         await me.timeout(300);
 
-        vdom.cn[0] = vdom.cn[0].cn[0].cn[1];
+        vdom.cn[0] = vdom.cn[0].cn[0].cn[slideIn ? 1 : 0];
 
         await container.promiseUpdate()
     }
