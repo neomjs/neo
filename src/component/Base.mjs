@@ -861,7 +861,7 @@ class Base extends CoreBase {
             if (value && typeof value !== 'boolean') overflowKey = overflowKey + Neo.capitalize(value);
 
             if (value) {
-                this.addStyle([overflowKey + ':auto']);
+                this.addStyle(overflowKey + ':auto');
                 this.addCls('neo-scrollable');
             } else {
                 this.removeCls('neo-scrollable');
