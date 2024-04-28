@@ -301,6 +301,13 @@ class Base extends CoreBase {
          */
         role_: null,
         /**
+         * Set this to true for style 'overflow:auto'.
+         * Set this to 'x' or 'y' to add style 'overflow-x' or 'overflow-y' to 'auto'
+         * Other than false this will add cls 'neo-scrollable'.
+         * @member {Boolean|"y"|"x"} scrollable_=false
+         */
+        scrollable_: false,
+        /**
          * Set this to true for bulk updates. Ensure to set it back to false afterwards.
          * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
          * @member {Boolean} silentVdomUpdate_=false
@@ -830,6 +837,36 @@ class Base extends CoreBase {
      */
     afterSetRole(value, oldValue) {
         this.changeVdomRootKey('role', value)
+    }
+
+    /**
+     * Triggered after the scrollable config got changed
+     * @param {String|Boolean} value
+     * @param {String|Boolean|null} oldValue
+     * @protected
+     */
+    afterSetScrollable(value, oldValue) {
+        if (oldValue === undefined && !value) return;
+
+        if (oldValue) {
+            let oldOverflowKey = 'overflow';
+
+            if (typeof oldValue !== 'boolean') oldOverflowKey = oldOverflowKey + Neo.capitalize(oldValue);
+            this.removeStyle([oldOverflowKey]);
+        }
+
+        if (!Neo.isEmpty(value)) {
+            let overflowKey = 'overflow';
+
+            if (value && typeof value !== 'boolean') overflowKey = overflowKey + Neo.capitalize(value);
+
+            if (value) {
+                this.addStyle([overflowKey + ':auto']);
+                this.addCls('neo-scrollable');
+            } else {
+                this.removeCls('neo-scrollable');
+            }
+        }
     }
 
     /**
@@ -2025,7 +2062,7 @@ class Base extends CoreBase {
         let style    = this.style,
             doUpdate = false;
 
-        Object.entries(style).forEach(key => {
+        Object.keys(style).forEach(key => {
             if (value.indexOf(key) > -1) {
                 delete style[key];
                 doUpdate = true
