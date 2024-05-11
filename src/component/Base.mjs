@@ -52,8 +52,8 @@ class Base extends CoreBase {
          * @member {Object|String} align_={edgeAlign:'t-b',constrainTo:'document.body'}
          */
         align_: {
-            edgeAlign   : 't-b',
-            constrainTo : 'document.body'
+            edgeAlign  : 't-b',
+            constrainTo: 'document.body'
         },
         /**
          * The name of the App this component belongs to
@@ -289,6 +289,13 @@ class Base extends CoreBase {
          */
         reference_: null,
         /**
+         * Make the view Responsive, by adding alternative configs.
+         * The definition happens via responsiveCfg
+         * @member {Object|null} responsive=null
+         * @protected
+         */
+        responsive_: null,
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
@@ -404,6 +411,7 @@ class Base extends CoreBase {
     get listeners() {
         return this._listeners || {}
     }
+
     set listeners(value) {
         this._listeners = value
     }
@@ -426,6 +434,7 @@ class Base extends CoreBase {
     get rendered() {
         return this._rendered || false
     }
+
     set rendered(value) {
         let me = this;
 
@@ -443,6 +452,7 @@ class Base extends CoreBase {
     get vdom() {
         return this._vdom
     }
+
     set vdom(value) {
         this.afterSetVdom(value, value)
     }
@@ -701,8 +711,8 @@ class Base extends CoreBase {
      */
     afterSetIsLoading(value, oldValue) {
         if (!(value === false && oldValue === undefined)) {
-            let me            = this,
-                { cls, vdom } = me,
+            let me          = this,
+                {cls, vdom} = me,
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
@@ -806,14 +816,13 @@ class Base extends CoreBase {
 
                     // Focus will be pushed into the first input field or other focusable item
                     Neo.main.DomAccess.focus({
-                        id       : this.id,
-                        children : true
+                        id      : this.id,
+                        children: true
                     });
                 }
 
                 me.fire('mounted', me.id)
-            }
-            else {
+            } else {
                 me.revertFocus();
             }
         }
@@ -991,7 +1000,7 @@ class Base extends CoreBase {
      */
     afterSetWrapperCls(value, oldValue) {
         oldValue = oldValue || [];
-        value    = value    || [];
+        value = value || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -1047,20 +1056,20 @@ class Base extends CoreBase {
      * @param {Object} spec={}
      * @returns {Promise<void>}
      */
-    async alignTo(spec={}) {
+    async alignTo(spec = {}) {
         const
             me    = this,
             align = {
                 ...me.align,
                 ...spec,
-                id                  : me.id,
-                configuredFlex      : me.configuredFlex,
-                configuredWidth     : me.configuredWidth,
-                configuredHeight    : me.configuredHeight,
-                configuredMinWidth  : me.configuredMinWidth,
-                configuredMinHeight : me.configuredMinHeight,
-                configuredMaxWidth  : me.configuredMaxWidth,
-                configuredMaxHeight : me.configuredMaxHeight
+                id                 : me.id,
+                configuredFlex     : me.configuredFlex,
+                configuredWidth    : me.configuredWidth,
+                configuredHeight   : me.configuredHeight,
+                configuredMinWidth : me.configuredMinWidth,
+                configuredMinHeight: me.configuredMinHeight,
+                configuredMaxWidth : me.configuredMaxWidth,
+                configuredMaxHeight: me.configuredMaxHeight
             };
 
         if (align.target) {
@@ -1112,7 +1121,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetWrapperCls(value) {
-        return value ? [...value]: []
+        return value ? [...value] : []
     }
 
     /**
@@ -1199,7 +1208,7 @@ class Base extends CoreBase {
      * @returns {String}
      * @protected
      */
-     beforeSetHideMode(value, oldValue) {
+    beforeSetHideMode(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'hideMode')
     }
 
@@ -1216,8 +1225,8 @@ class Base extends CoreBase {
 
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
-                keyDownEventBubble : true,
-                keys: value
+                keyDownEventBubble: true,
+                keys              : value
             })
         }
 
@@ -1266,6 +1275,31 @@ class Base extends CoreBase {
         }
 
         return value
+    }
+
+    /**
+     * Triggered when accessing the style config
+     * @param {Object} value
+     * @protected
+     */
+    async afterSetResponsive(value) {
+        if (!value) return;
+
+        let me      = this,
+            plugins = me.plugins || [];
+
+        const module = await import(`../../src/plugin/Responsive.mjs`);
+
+        plugins.push({
+            module : module.default,
+            appName: me.appName,
+            id     : 'responsive',
+            value
+        });
+
+        me.plugins = plugins;
+
+        return {...value}
     }
 
     /**
@@ -1336,7 +1370,7 @@ class Base extends CoreBase {
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
      * todo: unregister events
      */
-    destroy(updateParentVdom=false, silent=false) {
+    destroy(updateParentVdom = false, silent = false) {
         let me          = this,
             parentId    = me.parentId,
             parent      = Neo.getComponent(parentId),
@@ -1376,7 +1410,7 @@ class Base extends CoreBase {
 
         // We do want to prevent delayed calls after a component instance got destroyed.
         me.onFocusLeave = Neo.emptyFn;
-        me.unmount      = Neo.emptyFn
+        me.unmount = Neo.emptyFn
     }
 
     /**
@@ -1397,7 +1431,7 @@ class Base extends CoreBase {
      * @param {Boolean} returnFirstMatch=true
      * @returns {Neo.component.Base|null} The matching instance or null
      */
-    down(config, returnFirstMatch=true) {
+    down(config, returnFirstMatch = true) {
         return ComponentManager.down(this, config, returnFirstMatch)
     }
 
@@ -1415,7 +1449,7 @@ class Base extends CoreBase {
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
-            opts.appName  = me.appName;
+            opts.appName = me.appName;
             opts.windowId = me.windowId
         }
 
@@ -1455,7 +1489,7 @@ class Base extends CoreBase {
      * Calls focus() on the top level DOM node of this component or on a given node via id
      * @param {String} id=this.id
      */
-    focus(id=this.id) {
+    focus(id = this.id) {
         Neo.main.DomAccess.focus({
             id
         }).catch(err => {
@@ -1520,7 +1554,7 @@ class Base extends CoreBase {
      * @param {String} appName=this.appName
      * @returns {Promise<Neo.util.Rectangle>}
      */
-    async getDomRect(id=this.id, appName=this.appName) {
+    async getDomRect(id = this.id, appName = this.appName) {
         const result = await Neo.main.DomAccess.getBoundingClientRect({appName, id});
 
         if (Array.isArray(result)) {
@@ -1663,7 +1697,7 @@ class Base extends CoreBase {
      * @param {Object} vdom=this.vdom
      * @returns {Object}
      */
-    getVdomChild(id, vdom=this.vdom) {
+    getVdomChild(id, vdom = this.vdom) {
         let node = VDomUtil.findVdomChild(vdom, id);
         return node?.vdom
     }
@@ -1697,8 +1731,8 @@ class Base extends CoreBase {
         let me = this;
 
         if (me.hideMode !== 'visibility') {
-            let removeFn = function() {
-                if(me.parentId !== 'document.body') {
+            let removeFn = function () {
+                if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
                     me.parent.update()
                 } else {
@@ -1738,7 +1772,7 @@ class Base extends CoreBase {
         let me = this;
 
         me.getController()?.parseConfig(me);
-        me.getModel()     ?.parseConfig(me)
+        me.getModel()?.parseConfig(me)
     }
 
     /**
@@ -1748,7 +1782,7 @@ class Base extends CoreBase {
      * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId, resolve) {
+    isParentVdomUpdating(parentId = this.parentId, resolve) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1782,11 +1816,9 @@ class Base extends CoreBase {
         if (value != null) {
             if (value.endsWith('px')) {
                 value = parseFloat(value);
-            }
-            else if (lengthRE.test(value)) {
-                value = await Neo.main.DomAccess.measure({ value, id : this.id });
-            }
-            else if (!isNaN(value)) {
+            } else if (lengthRE.test(value)) {
+                value = await Neo.main.DomAccess.measure({value, id: this.id});
+            } else if (!isNaN(value)) {
                 value = parseFloat(value);
             }
         }
@@ -1806,7 +1838,7 @@ class Base extends CoreBase {
 
             // it should be possible to set custom configs for the vdom on instance level,
             // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
-            vdom = {...me._vdom || {}, ...config.vdom || {}};
+            vdom   = {...me._vdom || {}, ...config.vdom || {}};
 
         // avoid any interference on prototype level
         // does not clone existing Neo instances
@@ -1814,7 +1846,7 @@ class Base extends CoreBase {
 
         if (config.style) {
             // If we are passed an object, merge it with the class's own style
-            me.style = Neo.typeOf(config.style) === 'Object' ? { ...config.style, ...me.constructor.config.style } : config.style;
+            me.style = Neo.typeOf(config.style) === 'Object' ? {...config.style, ...me.constructor.config.style} : config.style;
         }
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
@@ -1881,7 +1913,7 @@ class Base extends CoreBase {
      * @param {Function} [resolve] gets passed by updateVdom()
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId, resolve) {
+    needsParentUpdate(parentId = this.parentId, resolve) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1964,15 +1996,15 @@ class Base extends CoreBase {
         if (app) {
             if (!app.rendered) {
                 app.rendering = false;
-                app.rendered  = true;
+                app.rendered = true;
                 app.fire('render')
             }
 
             me.vnode = data;
 
-            let childIds  = ComponentManager.getChildIds(data),
-                i         = 0,
-                len       = childIds.length,
+            let childIds = ComponentManager.getChildIds(data),
+                i        = 0,
+                len      = childIds.length,
                 child;
 
             for (; i < len; i++) {
@@ -2005,7 +2037,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
-    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
+    promiseUpdate(vdom = this.vdom, vnode = this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -2105,7 +2137,7 @@ class Base extends CoreBase {
             const data = await Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
-                parentId   : autoMount ? me.getMountedParentId()    : undefined,
+                parentId   : autoMount ? me.getMountedParentId() : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 windowId   : me.windowId,
                 ...me.vdom
@@ -2162,7 +2194,7 @@ class Base extends CoreBase {
      * @param {Boolean} [silent=false]
      * @returns {Promise<*>}
      */
-    set(values={}, silent=false) {
+    set(values = {}, silent = false) {
         let me             = this,
             needsRendering = values.hidden === false && values.hidden !== me.hidden;
 
@@ -2188,7 +2220,7 @@ class Base extends CoreBase {
      * Convenience shortcut calling set() with the silent flag
      * @param {Object} values={}
      */
-    setSilent(values={}) {
+    setSilent(values = {}) {
         return this.set(values, true)
     }
 
@@ -2205,7 +2237,7 @@ class Base extends CoreBase {
 
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
-            } else if(me.parentId !== 'document.body') {
+            } else if (me.parentId !== 'document.body') {
                 me.parent.update()
             } else {
                 !me.mounted && me.render(true)
@@ -2225,7 +2257,7 @@ class Base extends CoreBase {
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
+    syncVdomIds(vnode = this.vnode, vdom = this.vdom, force = false) {
         VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
@@ -2236,7 +2268,7 @@ class Base extends CoreBase {
      * - updating the parent component to ensure that the vnode tree stays persistent
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
-    syncVnodeTree(vnode=this.vnode) {
+    syncVnodeTree(vnode = this.vnode) {
         let me    = this,
             debug = false,
             childVnode, start;
@@ -2281,9 +2313,7 @@ class Base extends CoreBase {
                 else if (index === 0 && me.vnode.outerHTML) {
                     // console.log('dyn item', me.vnode, me.parentIndex);
                     component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode)
-                }
-
-                else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
+                } else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
                     // todo: can happen for dynamically inserted container items
                     // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
                 }
@@ -2345,7 +2375,7 @@ class Base extends CoreBase {
      * @param {String} id=this.id
      * @protected
      */
-    updateCls(cls, oldCls, id=this.id) {
+    updateCls(cls, oldCls, id = this.id) {
         let me          = this,
             vnode       = me.vnode,
             vnodeTarget = vnode && VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
@@ -2373,13 +2403,13 @@ class Base extends CoreBase {
      * @param {String} [id=this.id]
      * @protected
      */
-    updateStyle(value, oldValue, id=this.id) {
+    updateStyle(value, oldValue, id = this.id) {
         let me    = this,
             delta = Style.compareStyles(value, oldValue),
             opts, vdom, vnode, vnodeStyle;
 
         if (delta) {
-            vdom  = VDomUtil.findVdomChild(me.vdom, id);
+            vdom = VDomUtil.findVdomChild(me.vdom, id);
             vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
 
             if (!me.hasUnmountedVdomChanges) {
@@ -2426,7 +2456,7 @@ class Base extends CoreBase {
      * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
-    updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
+    updateVdom(vdom = this.vdom, vnode = this.vnode, resolve, reject) {
         let me      = this,
             app     = me.app,
             mounted = me.mounted,
