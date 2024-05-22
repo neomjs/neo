@@ -113,26 +113,24 @@ class Card extends Base {
                     NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
                     NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                    item.wrapperCls = wrapperCls;
-
-                    if (!needsTransition && (removeInactiveCards || needsUpdate)) {
+                    if (removeInactiveCards || needsUpdate) {
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
-                            item.activate?.()
+                            !needsTransition && item.activate?.()
                         } else if (removeInactiveCards) {
                             item.mounted        = false;
                             item.vdom.removeDom = true
                         }
                     }
+
+                    item.wrapperCls = wrapperCls;
                 }
             }
 
             if (needsTransition) {
                 await me.slideCards(value, oldValue)
-            } else {
-                if (removeInactiveCards || needsUpdate) {
-                    container.update()
-                }
+            } else if (removeInactiveCards || needsUpdate) {
+                container.update()
             }
         }
     }
@@ -260,32 +258,29 @@ class Card extends Base {
      * @param {Number} oldIndex
      */
     async slideCards(index, oldIndex) {
-        console.log('slideCards', index, oldIndex);
-
         let me                          = this,
             {container, slideDirection} = me,
-            {items}                     = container,
+            {items, vdom}               = container,
             card                        = items[index],
             oldCard                     = items[oldIndex],
             slideIn                     = index > oldIndex,
-            animationWrapper, height, rect, transform, vdom, x, width;
+            rect                        = await container.getDomRect(container.id),
+            height                      = `${rect.height}px`,
+            x                           = slideIn ? 0 : -rect.width,
+            transform                   = `translateX(${x}px)`,
+            width                       = `${2 * rect.width}px`,
+            style                       = {height, transform, width},
+            animationWrapper;
 
-        rect      = await container.getDomRect(container.id);
-        height    = `${rect.height}px`;
-        x         = slideIn ? 0 : -rect.width;
-        transform = `translateX(${x}px)`;
-        vdom      = container.vdom;
-        width     = `${2 * rect.width}px`;
-
-        delete card.vdom.removeDom;
+        delete oldCard.vdom.removeDom;
 
         vdom.cn = [
             {cls: ['neo-relative'], cn: [
-                {cls: ['neo-animation-wrapper'], style: {height, transform, width}, cn: [
-                    card.vdom
-                ]}
+                {cls: ['neo-animation-wrapper'], style, cn: [card.vdom]}
             ]}
         ];
+
+        await container.promiseUpdate();
 
         animationWrapper = vdom.cn[0].cn[0];
 
@@ -299,9 +294,15 @@ class Card extends Base {
 
         await container.promiseUpdate();
 
-        await me.timeout(300);
+        await me.timeout(300); // transition duration defined via CSS for now
 
-        vdom.cn[0] = vdom.cn[0].cn[0].cn[slideIn ? 1 : 0];
+        vdom.cn = [];
+
+        container.items.forEach(item => {
+            vdom.cn.push(item.vdom)
+        });
+
+        oldCard.vdom.removeDom = true;
 
         await container.promiseUpdate()
     }
