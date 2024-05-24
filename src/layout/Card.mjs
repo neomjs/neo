@@ -258,21 +258,36 @@ class Card extends Base {
      * @param {Number} oldIndex
      */
     async slideCards(index, oldIndex) {
-        let me                          = this,
-            {container, slideDirection} = me,
-            {items, vdom}               = container,
-            card                        = items[index],
-            oldCard                     = items[oldIndex],
-            slideIn                     = index > oldIndex,
-            rect                        = await container.getDomRect(container.id),
-            height                      = `${rect.height}px`,
-            x                           = slideIn ? 0 : -rect.width,
-            transform                   = `translateX(${x}px)`,
-            width                       = `${2 * rect.width}px`,
-            style                       = {height, transform, width},
-            animationWrapper;
+        let me            = this,
+            {container}   = me,
+            slideVertical = me.slideDirection === 'vertical',
+            {items, vdom} = container,
+            card          = items[index],
+            oldCard       = items[oldIndex],
+            slideIn       = index > oldIndex,
+            rect          = await container.getDomRect(container.id),
+            animationWrapper, style, x, y;
 
         delete oldCard.vdom.removeDom;
+
+        if (slideVertical) {
+            y = slideIn ? 0 : -rect.height;
+
+            style = {
+                flexDirection: 'column',
+                height       : `${2 * rect.height}px`,
+                transform    : `translateY(${y}px)`,
+                width        : `${rect.width}px`
+            }
+        } else {
+            x = slideIn ? 0 : -rect.width;
+
+            style = {
+                height   : `${rect.height}px`,
+                transform: `translateX(${x}px)`,
+                width    : `${2 * rect.width}px`
+            }
+        }
 
         vdom.cn = [
             {cls: ['neo-relative'], cn: [
@@ -280,17 +295,15 @@ class Card extends Base {
             ]}
         ];
 
-        await container.promiseUpdate();
-
         animationWrapper = vdom.cn[0].cn[0];
 
         animationWrapper.cn[slideIn ? 'unshift' : 'push'](oldCard.vdom);
 
         await container.promiseUpdate();
 
-        x = slideIn ? -rect.width : 0;
-
-        animationWrapper.style.transform = `translateX(${x}px)`;
+        animationWrapper.style.transform = slideVertical ?
+            `translateY(${slideIn ? -rect.height : 0}px)` :
+            `translateX(${slideIn ? -rect.width  : 0}px)`;
 
         await container.promiseUpdate();
 
