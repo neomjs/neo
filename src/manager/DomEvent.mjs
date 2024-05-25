@@ -116,7 +116,12 @@ class DomEvent extends Base {
                         let result;
 
                         if (listener && listener.fn) {
-                            delegationTargetId = me.verifyDelegationPath(listener, data.path);
+                            if (eventName === 'resize') {
+                                // we do not want delegation for custom main.addon.ResizeObserver events
+                                delegationTargetId = data.id === component.id ? data.id : false
+                            } else {
+                                delegationTargetId = me.verifyDelegationPath(listener, data.path)
+                            }
 
                             if (delegationTargetId !== false) {
                                 preventFire = false;
@@ -134,6 +139,7 @@ class DomEvent extends Base {
 
                                     // Handler needs to know which actual target matched the delegate
                                     data.currentTarget = delegationTargetId;
+
                                     result = listener.fn.apply(listener.scope || globalThis, [data]);
 
                                     if (!listener.bubble) {
@@ -158,7 +164,7 @@ class DomEvent extends Base {
                 break;
             }
 
-            // Honour the Event cancelBubble property
+            // Honor the Event cancelBubble property
             if (!bubble || data.cancelBubble) {
                 break;
             }
