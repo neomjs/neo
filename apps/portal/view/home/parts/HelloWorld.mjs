@@ -1,5 +1,5 @@
 import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from "../../learn/LivePreview.mjs";
+import LivePreview from '../../learn/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.parts.HelloWorld
@@ -12,9 +12,12 @@ class HelloWorld extends Container {
          * @protected
          */
         className: 'Portal.view.home.parts.HelloWorld',
-        ntype    : 'hello-world',
 
         cls: ['page', 'hello-world'],
+        /**
+         * @member {Object} layout=null
+         */
+        layout: null,
 
         responsiveConfig: {
             oldPhone: {maxWidth: 321},
