@@ -1,15 +1,14 @@
-import Container from '../../../../src/container/Base.mjs';
-
-import MainNeo   from "./parts/MainNeo.mjs";
-import HelloWorld from "./parts/HelloWorld.mjs";
-import CoolStuff from "./parts/CoolStuff.mjs";
-import AfterMath from "./parts/AfterMath.mjs";
+import AfterMath  from './parts/AfterMath.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import CoolStuff  from './parts/CoolStuff.mjs';
+import HelloWorld from './parts/HelloWorld.mjs';
+import MainNeo    from './parts/MainNeo.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
  * @extends Neo.container.Base
  */
-class Viewport extends Container {
+class MainContainer extends Container {
     static config = {
         /**
          * @member {String} className='Portal.view.home.MainContainer'
@@ -17,24 +16,25 @@ class Viewport extends Container {
          */
         className: 'Portal.view.home.MainContainer',
         /**
-         * @member {String[]} cls=['newwebsite-viewport']
+         * @member {String[]} cls=['portal-home-maincontainer']
          */
-        cls: ['newwebsite-viewport'],
-        scrollable: true,
-
-        layout: {ntype: 'vbox', align: 'stretch'},
+        cls: ['portal-home-maincontainer'],
         /**
          * @member {Object[]} items
          */
         items: [
-            { module: MainNeo },
-            { module: HelloWorld },
-            { module: CoolStuff },
-            { module: AfterMath }
-        ]
+            MainNeo,
+            HelloWorld,
+            CoolStuff,
+            AfterMath
+        ],
+        /**
+         * @member {Boolean} scrollable=true
+         */
+        scrollable: true
     }
 }
 
-Neo.setupClass(Viewport);
+Neo.setupClass(MainContainer);
 
-export default Viewport;
+export default MainContainer;
