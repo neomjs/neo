@@ -104,13 +104,11 @@ class Responsive extends BasePlugin {
             {responsive} = owner;
 
         for (const [key, value] of Object.entries(responsive)) {
-            const configKeyFn = configTester.get(key),
-                  hasKey      = configKeyFn?.(data.rect);
+            const hasKey = configTester.get(key)?.(data.rect);
 
             if (hasKey) {
-                for (const [configKey, configValue] of Object.entries(value)) {
-                    config[configKey] = configValue
-                }
+                Object.assign(config, value);
+                break
             }
         }
 
