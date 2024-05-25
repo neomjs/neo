@@ -147,17 +147,13 @@ class Responsive extends BasePlugin {
               addCls      = isLandscape ? 'neo-landscape' : 'neo-portrait',
               removeCls   = isLandscape ? 'neo-portrait' : 'neo-landscape';
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [addCls],
-                    remove: [removeCls]
-                }
+        Neo.applyDeltas(me.appName, {
+            id : 'document.body',
+            cls: {
+                add   : [addCls],
+                remove: [removeCls]
             }
-        });
+        })
     }
 }
 
