@@ -28,11 +28,10 @@ class Viewport extends BaseViewport {
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
-
-        height: '100%',
-        width: '100%',
-
-        layout   : {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Object[]} items
          */
@@ -41,9 +40,9 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : Container,
+            layout   : {ntype: 'card', activeIndex: null},
             reference: 'main-content',
 
-            layout   : 'card',
             items: [
                 {module: () => import('./home/MainContainer.mjs')},
                 {module: () => import('./learn/MainContainer.mjs')},
