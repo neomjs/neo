@@ -120,14 +120,14 @@ class Responsive extends BasePlugin {
               apps    = Neo.Responsive.apps;
 
         if (!apps[appName]?.activeBodyUpdate) {
-            const viewport = Neo.first('viewport');
+            const viewport = Neo.first('viewport'); // todo
 
             apps[appName] = {
                 appId           : viewport.id,
                 activeBodyUpdate: true,
             };
 
-            Neo.first('viewport').addDomListeners([
+            viewport.addDomListeners([
                 {resize: me.onResizeBody, scope: me}
             ]);
         }
