@@ -76,10 +76,9 @@ class DomEvent extends Base {
             console.error('For using resize domListeners, you must include main.addon.ResizeObserver.', event)
         }
 
-        Neo.main.addon.ResizeObserver.register({
-            appName: component.appName,
-            id     : component.id
-        })
+        let {id, windowId} = component;
+
+        Neo.main.addon.ResizeObserver.register({id, windowId})
     }
 
     /**

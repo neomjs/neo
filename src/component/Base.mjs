@@ -806,7 +806,7 @@ class Base extends CoreBase {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
                         DomEventManager.mountDomListeners(me)
-                    }, 100)
+                    }, 150)
                 }
 
                 me.doResolveUpdateCache();
