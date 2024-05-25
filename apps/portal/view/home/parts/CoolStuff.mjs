@@ -1,4 +1,3 @@
-import Button      from '../../../../../src/button/Base.mjs';
 import Container   from '../../../../../src/container/Base.mjs';
 import LivePreview from "../../learn/LivePreview.mjs";
 
@@ -57,22 +56,22 @@ class CoolStuff extends Container {
                 module: LivePreview,
                 cls   : ['page-live-preview'],
                 style : {background: 'white'},
-                value :
-                    'import Button    from "../../../../src/button/Base.mjs";\n' +
-                    'import Container from "../../../../src/container/Base.mjs";\n' +
-                    '\n' +
-                    'class MainView extends Container {\n' +
-                    '    static config = {\n' +
-                    '        className: "Portal.view.MainView",\n' +
-                    '        layout   : {ntype:"vbox", align:"stretch"},\n' +
-                    '        items    : [{\n' +
-                    '            module : Container,\n' +
-                    '            html  : "Hello World"\n' +
-                    '        }]\n' +
-                    '    }\n' +
-                    '}\n' +
-                    '\n' +
+                value : [
+                    'import Container from "../../../../src/container/Base.mjs";',
+                    '',
+                    'class MainView extends Container {',
+                    '    static config = {',
+                    '        className: "Portal.view.MainView",',
+                    '        layout   : {ntype:"vbox", align:"stretch"},',
+                    '        items    : [{',
+                    '            module: Container,',
+                    '            html  : "Hello World"',
+                    '        }]',
+                    '    }',
+                    '}',
+                    '',
                     'Neo.setupClass(MainView);'
+                ].join('\n')
             }]
         }]
     }
