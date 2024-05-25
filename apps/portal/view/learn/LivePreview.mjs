@@ -183,7 +183,6 @@ class LivePreview extends Container {
         container.removeAll();
 
         try {
-            console.log(codeString);
             new Function('container', codeString)(container);
         } catch (error) {
             container.add({
