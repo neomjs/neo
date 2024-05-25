@@ -143,7 +143,7 @@ class Responsive extends BasePlugin {
 
         const me          = this,
               newRect     = data.contentRect,
-              isLandscape = newRect.width < newRect.height ? false : true,
+              isLandscape = newRect.width >= newRect.height,
               addCls      = isLandscape ? 'neo-landscape' : 'neo-portrait',
               removeCls   = isLandscape ? 'neo-portrait' : 'neo-landscape';
 
