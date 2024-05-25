@@ -1,12 +1,10 @@
-import Base     from './Base.mjs';
-import DragZone from '../draggable/DragZone.mjs';
-import NeoArray from '../util/Array.mjs';
+import BasePlugin from './Base.mjs';
 
 /**
  * @class Neo.plugin.Responsive
  * @extends Neo.plugin.Base
  */
-class Responsive extends Base {
+class Responsive extends BasePlugin {
     static config = {
         /**
          * @member {String} className='Neo.plugin.Responsive'
@@ -14,27 +12,25 @@ class Responsive extends Base {
          */
         className: 'Neo.plugin.Responsive',
         /**
-         * @member {String} ntype='plugin-resizable'
+         * @member {String} ntype='plugin-responsive'
          * @protected
          */
         ntype: 'plugin-responsive',
         /**
          * todo def
-         * Directions into which you want to drag => resize
          * @member {Map} responsiveConfig: new Map()
          */
         responsiveConfig: new Map(),
         /**
          * todo def
-         * Directions into which you want to drag => resize
-         * @member {Object} defaultResponsiveConfig: {}
+         * @member {Object} defaultResponsiveConfig
          */
         defaultResponsiveConfig: {
-            portrait : function (data) {
-                return data.width < data.height;
-            },
-            landscape: function (data) {
+            landscape(data) {
                 return data.width > data.height;
+            },
+            portrait(data) {
+                return data.width < data.height;
             }
         }
     }
