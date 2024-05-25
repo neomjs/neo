@@ -111,10 +111,10 @@ class Responsive extends BasePlugin {
                 for (const [configKey, configValue] of Object.entries(value)) {
                     config[configKey] = configValue
                 }
-
-                Object.keys(config).length > 0 && owner.set(config)
             }
         }
+
+        Object.keys(config).length > 0 && owner.set(config)
     }
 
     handleBodyCls() {
