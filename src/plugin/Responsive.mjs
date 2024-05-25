@@ -96,20 +96,23 @@ class Responsive extends BasePlugin {
      * @param {Object} data
      */
     onResize(data) {
-        const me           = this,
-              configTester = Neo.Responsive.responsiveConfig,
-              owner        = me.owner,
-              responsive   = owner.responsive;
+        const
+            me           = this,
+            config       = {},
+            configTester = Neo.Responsive.responsiveConfig,
+            {owner}      = me,
+            {responsive} = owner;
 
         for (const [key, value] of Object.entries(responsive)) {
             const configKeyFn = configTester.get(key),
-                  hasKey      = configKeyFn && configKeyFn(data.rect);
+                  hasKey      = configKeyFn?.(data.rect);
 
             if (hasKey) {
                 for (const [configKey, configValue] of Object.entries(value)) {
-                    owner[configKey] = configValue;
+                    config[configKey] = configValue
                 }
-                owner.update();
+
+                Object.keys(config).length > 0 && owner.set(config)
             }
         }
     }
