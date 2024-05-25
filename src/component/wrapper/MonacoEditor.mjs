@@ -171,7 +171,7 @@ class MonacoEditor extends Base {
                 // use this custom method as needed inside your class extensions
                 me.onEditorMounted?.()
             })
-        }, 50)
+        }, 100)
     }
 
     /**
