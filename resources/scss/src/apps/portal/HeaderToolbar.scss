@@ -1,6 +1,13 @@
+.learnneo-header-toolbar:where(.neo-viewport) {
+  background-color: red;
+}
+.learnneo-header-toolbar:is(.neo-viewport) {
+  background-color: red;
+}
+
 .learnneo-header-toolbar {
 
-    border-bottom: 1px solid #f2f2f2;
+  border-bottom: 1px solid #f2f2f2;
 
   .logo {
     margin-left: 1em;
