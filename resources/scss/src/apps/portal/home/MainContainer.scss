@@ -7,15 +7,16 @@
         scroll-snap-align: center;
 
         .neo-h1 {
-            font-size: 8vW;
+            font-size: min(max(5.5vw, 30px), 64px);
         }
 
+
         .neo-h2 {
-            font-size: 6vW;
+            font-size: min(max(3.5vw, 24px), 44px);
         }
 
         .neo-content {
-            font-size: 3.75vW;
+            font-size: min(max(2.3vw, 16px), 30px);
         }
 
         .page-live-preview {
