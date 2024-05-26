@@ -17,7 +17,7 @@ class HelloWorld extends Container {
         /**
          * @member {Object} layout=null
          */
-        layout: null,
+//        layout: null,
 
         responsiveConfig: {
             oldPhone: {maxWidth: 321},

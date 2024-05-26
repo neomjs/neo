@@ -49,6 +49,7 @@ class MainNeo extends Container {
                 }
             }, {
                 module: Button,
+                cls   : 'neo-github',
                 flex  : 'none',
                 text  : 'View on GitHub',
                 ui    : 'secondary',

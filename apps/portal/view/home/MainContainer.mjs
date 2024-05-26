@@ -23,6 +23,10 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [
+            {
+                ntype: 'component',
+                id   : 'progress',
+            },
             MainNeo,
             HelloWorld,
             CoolStuff,
@@ -31,7 +35,14 @@ class MainContainer extends Container {
         /**
          * @member {Boolean} scrollable=true
          */
-        scrollable: true
+        scrollable: true,
+
+        domListeners: [{
+            scroll: function (event) {
+                if (event.scrollTop > 80) this.addCls('hide-sidebar');
+                else this.removeCls('hide-sidebar');
+            }
+        }]
     }
 }
 
