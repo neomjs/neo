@@ -5,5 +5,5 @@
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "HighlightJS", "IntersectionObserver", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"],
     "themes"          : ["neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
-    "useSharedWorkers": true
+    "useSharedWorkers": false
 }
