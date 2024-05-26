@@ -1,41 +1,40 @@
-.learnneo-header-toolbar:where(.neo-viewport) {
-  background-color: red;
-}
-.learnneo-header-toolbar:is(.neo-viewport) {
-  background-color: red;
-}
-
 .learnneo-header-toolbar {
 
-  border-bottom: 1px solid #f2f2f2;
+    border-bottom: 1px solid #f2f2f2;
 
-  .logo {
-    margin-left: 1em;
-  }
-
-  .neo-button {
-    margin-left: 10px;
-
-    &.no-text {
-      margin-left: 0;
-      width: 1.2em;
-
-      &.github-button {
-        margin-left: 5em;
-      }
-
-      .neo-button-glyph {
-        font-size: 24px;
-      }
+    .logo {
+        margin-left: 1em;
     }
 
-    .neo-button-glyph {
-      &.neo-logo-blue {
-        background-image: url("../../../../../../../resources/images/Neo-Logo-Blue.svg");
+    .neo-button {
+        margin-left: 10px;
 
-        height: 24px;
-        width: 24px;
-      }
+        &.no-text {
+            margin-left: 0;
+            width      : 1.2em;
+
+            &.github-button {
+                margin-left: 5em;
+            }
+
+            .neo-button-glyph {
+                font-size: 24px;
+            }
+        }
+
+        .neo-button-glyph {
+            &.neo-logo-blue {
+                background-image: url("../../../../../../../resources/images/Neo-Logo-Blue.svg");
+                height          : 24px;
+                width           : 24px;
+            }
+        }
     }
-  }
+
+    .separate-bar {
+        position: absolute;
+        right   : 0;
+        top     : 60px;
+        width   : 60px;
+    }
 }
