@@ -62,23 +62,75 @@
 /* Style and position the progress bar */
 #progress {
   position: fixed;
-  z-index: 10;
-  left: 0;
+  z-index: 1000;
   top: 0;
-  width: 100%;
   height: 2px;
-  transform-origin: 0 50%;
+  width: 100%;
   background: var(--button-background-color);
   background: var(--sem-color-surface-primary-background);
-}
 
-/* Attach the animation using an anonymous Scroll Progress Timeline */
-#progress {
-  animation: grow-progress auto linear;
+  scale: 0 1;
+  transform-origin: left;
+
+  /* Attach the animation using an anonymous Scroll Progress Timeline */
+  animation: grow-progress linear;
   animation-timeline: --page-scroll;
 }
 
+@keyframes grow-progress {
+  to { scale: 1 1; }
+}
 
+.hello-world {
+  animation-timeline: view(block 100% -500%);
+
+  animation-name: appear-animation;
+  animation-fill-mode: both;
+  animation-duration: 1ms; /* Firefox requires this to apply the animation */
+  animation-timing-function: linear;
+}
+
+@keyframes appear-animation {
+  0% {
+    transform: translateX(-400%);
+    opacity: 0;
+  }
+  90% {
+    opacity: .3;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.cool-stuff {
+  animation-timeline: view(block 100% -500%);
+
+  animation-name: appear-cool-stuff;
+  animation-fill-mode: both;
+  animation-duration: 1ms; /* Firefox requires this to apply the animation */
+  animation-timing-function: linear;
+}
+
+@keyframes appear-cool-stuff {
+  0% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+  90% {
+    opacity: .3;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+
+//.page {
+//  scroll-timeline: --page block;
+//}
 
 .portal-home-maincontainer {
   scroll-timeline: --page-scroll block;
@@ -101,20 +153,13 @@
 }
 
 @keyframes fade-in-animation {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; right: -10px}
+  to   { opacity: 1; right: 20px;}
 }
 @keyframes fade-animation {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from { opacity: 1; right: 20px;}
+  to   { opacity: 0; right: -10px}
 }
-
-/* The keyframes */
-@keyframes grow-progress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
 
 .button-group {
   overflow: visible;
@@ -122,12 +167,12 @@
 
 .get-started-button {
   opacity: 0;
-  animation: show-get-started-button 200ms 800ms linear forwards;
+  animation: show-get-started-button 400ms 1300ms linear forwards;
 }
 
 .neo-github {
   opacity: 0;
-  animation: show-github-button 400ms 450ms linear forwards;
+  animation: show-github-button 600ms 1150ms linear forwards;
 }
 
 @keyframes show-get-started-button {

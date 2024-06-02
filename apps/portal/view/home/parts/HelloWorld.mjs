@@ -1,5 +1,5 @@
-import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from '../../learn/LivePreview.mjs';
+import Container            from '../../../../../src/container/Base.mjs';
+import LivePreviewContainer from '../preview/PageCodeContainer.mjs';
 
 /**
  * @class Portal.view.home.parts.HelloWorld
@@ -20,11 +20,11 @@ class HelloWorld extends Container {
 //        layout: null,
 
         responsiveConfig: {
-            oldPhone: {maxWidth: 321},
-            phone   : {maxWidth: 481},
-            tablet  : {maxWidth: 769},
-            medium  : {maxWidth: 841},
-            large   : {minWidth: 840}
+            oldPhone: {maxWidth: 320},
+            phone   : {maxWidth: 480},
+            tablet  : {maxWidth: 770},
+            medium  : {maxWidth: 840},
+            large   : {minWidth: 841}
         },
 
         responsive: {
@@ -55,35 +55,24 @@ class HelloWorld extends Container {
                 html: 'If you understand these lines, you are ready to start with Neo.mjs'
             }]
         }, {
-            module: Container,
-            flex  : '0.8',
-            // responsive: {
-            //     medium: {flex: '1.2'},
-            //     large: {flex: '0.6'}
-            // },
-            style : {background: 'grey', padding: '20px'},
-            layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
-            items : [{
-                module: LivePreview,
-                cls   : ['page-live-preview'],
-                style : {background: 'white'},
-                value : [
-                    'import Container from "../../../../src/container/Base.mjs";',
-                    '',
-                    'class MainView extends Container {',
-                    '    static config = {',
-                    '        className: "Portal.view.MainView",',
-                    '        layout   : {ntype:"vbox", align:"stretch"},',
-                    '        items    : [{',
-                    '            module: Container,',
-                    '            html  : "Hello World"',
-                    '        }]',
-                    '    }',
-                    '}',
-                    '',
-                    'Neo.setupClass(MainView);'
-                ].join('\n')
-            }]
+            module: LivePreviewContainer,
+            flex: 0.8,
+            value : [
+                'import Container from "../../../../src/container/Base.mjs";',
+                '',
+                'class MainView extends Container {',
+                '    static config = {',
+                '        className: "Portal.view.MainView",',
+                '        layout   : {ntype:"vbox", align:"stretch"},',
+                '        items    : [{',
+                '            module: Container,',
+                '            html  : "Hello World"',
+                '        }]',
+                '    }',
+                '}',
+                '',
+                'Neo.setupClass(MainView);'
+            ].join('\n')
         }]
     }
 }

@@ -1,6 +1,7 @@
 .portal-home-maincontainer {
+    overflow-x: hidden!important;
     scroll-behavior : smooth;
-    scroll-snap-type: y proximity;
+    scroll-snap-type: y mandatory;
 
     .page {
         min-height       : 100%;

@@ -72,9 +72,9 @@ class Responsive extends BasePlugin {
                               testConfig = subKey.substring(3).toLowerCase();
 
                         if (isMin) {
-                            returnBool = rect[testConfig] > subValue;
+                            returnBool = rect[testConfig] >= subValue;
                         } else {
-                            returnBool = rect[testConfig] < subValue;
+                            returnBool = rect[testConfig] <= subValue;
                         }
 
                         if (!returnBool) break;
