@@ -107,8 +107,14 @@ class Responsive extends BasePlugin {
             const hasKey = configTester.get(key)?.(data.rect);
 
             if (hasKey) {
-                Object.assign(config, value);
-                break
+                for (const [configKey, configValue] of Object.entries(value)) {
+                    if (false && Neo.typeOf(owner[configKey]) === 'NeoInstance') {
+                        // todo: ntype, module or className must match
+                        owner[configKey].set(value)
+                    } else {
+                        config[configKey] = configValue
+                    }
+                }
             }
         }
 
@@ -138,15 +144,12 @@ class Responsive extends BasePlugin {
      * Add either neo-landscape or neo-portrait to the parent viewport component
      */
     onResizeBody(data) {
-        const viewportName = Neo.Responsive.apps[this.owner.appName].appId;
-        console.log('resize')
-        if (data.id !== viewportName) return;
-
-        const me          = this,
-              newRect     = data.contentRect,
-              isLandscape = newRect.width >= newRect.height,
-              addCls      = isLandscape ? 'neo-landscape' : 'neo-portrait',
-              removeCls   = isLandscape ? 'neo-portrait' : 'neo-landscape';
+        const
+            me          = this,
+            newRect     = data.contentRect,
+            isLandscape = newRect.width >= newRect.height,
+            addCls      = isLandscape ? 'neo-landscape' : 'neo-portrait',
+            removeCls   = isLandscape ? 'neo-portrait' : 'neo-landscape';
 
         Neo.applyDeltas(me.appName, {
             id : 'document.body',
