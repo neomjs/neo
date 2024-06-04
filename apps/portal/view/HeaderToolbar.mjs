@@ -26,12 +26,12 @@ class HeaderToolbar extends Base {
          * @member {Object[]} items
          */
         items: [{
-            cls  : ['logo'],
-            id: 'neo-logo-button',
+            cls     : ['logo'],
+            id      : 'neo-logo-button',
             minWidth: 60,
-            iconCls: 'neo-logo-blue',
-            route: '/home',
-            text: 'neo.mjs'
+            iconCls : 'neo-logo-blue',
+            route   : '/home',
+            text    : 'neo.mjs'
         }, '->', {
             text : 'Learn',
             route: '/learn'
@@ -43,16 +43,19 @@ class HeaderToolbar extends Base {
             text : 'Docs',
             route: '/docs'
         }, {
+            ntype : 'container',
+            layout: 'hbox',
+
             responsive: {
                 medium: { cls: ['separate-bar'], layout: 'vbox' },
-                large: { cls: ['inline'], layout: 'hbox' }
+                large : { cls: ['inline'],       layout: 'hbox' }
             },
-            ntype: 'container',
-            layout: 'hbox',
+
             itemDefaults: {
                 ntype: 'button',
                 ui   : 'ghost'
             },
+
             items: [{
                 iconCls: 'fa-brands fa-github',
                 url    : 'https://github.com/neomjs/neo',

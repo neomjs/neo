@@ -12,25 +12,41 @@ class PageCodeContainer extends Container {
          * @protected
          */
         className: 'Portal.view.home.preview.PageCodeContainer',
-
+        /**
+         * @member {String} ntype='page-code-container'
+         * @protected
+         */
         ntype: 'page-code-container',
+        /**
+         * @member {String[]} cls=['page-code-container']
+         * @protected
+         */
         cls: ['page-code-container'],
-
-        value_    : null,
-
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch',pack:'center'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
         /**
          * @member {Object[]} items
          */
-
-        layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
         items : [{
             module: LivePreview,
             cls   : ['live-preview']
-        }]
+        }],
+        /**
+         * @member {String|null} value_=null
+         */
+        value_: null,
     }
 
-    afterSetValue(newValue) {
-        this.items[0].value = newValue;
+    /**
+     * Triggered after the size config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        this.items[0].value = value
     }
 }
 

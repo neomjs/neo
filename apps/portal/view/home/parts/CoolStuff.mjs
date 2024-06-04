@@ -1,5 +1,5 @@
 import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from "../../learn/LivePreview.mjs";
+import LivePreview from '../../learn/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.parts.CoolStuff
@@ -57,20 +57,20 @@ class CoolStuff extends Container {
                 cls   : ['page-live-preview'],
                 style : {background: 'white'},
                 value : [
-                    'import Container from "../../../../src/container/Base.mjs";',
-                    '',
-                    'class MainView extends Container {',
-                    '    static config = {',
-                    '        className: "Portal.view.MainView",',
-                    '        layout   : {ntype:"vbox", align:"stretch"},',
-                    '        items    : [{',
-                    '            module: Container,',
-                    '            html  : "Hello World"',
-                    '        }]',
-                    '    }',
-                    '}',
-                    '',
-                    'Neo.setupClass(MainView);'
+                    "import Container from '../../../../src/container/Base.mjs';",
+                    "",
+                    "class MainView extends Container {",
+                    "    static config = {",
+                    "        className: 'Portal.view.MainView',",
+                    "        layout   : {ntype:'vbox', align:'stretch'},",
+                    "        items    : [{",
+                    "            module: Container,",
+                    "            html  : 'Hello World'",
+                    "        }]",
+                    "    }",
+                    "}",
+                    "",
+                    "Neo.setupClass(MainView);"
                 ].join('\n')
             }]
         }]

@@ -25,7 +25,7 @@ class MainContainer extends Container {
         items: [
             {
                 ntype: 'component',
-                id   : 'progress',
+                id   : 'progress'
             },
             MainNeo,
             HelloWorld,
@@ -38,9 +38,12 @@ class MainContainer extends Container {
         scrollable: true,
 
         domListeners: [{
-            scroll: function (event) {
-                if (event.scrollTop > 80) this.addCls('hide-sidebar');
-                else this.removeCls('hide-sidebar');
+            scroll(event) {
+                if (event.scrollTop > 80) {
+                    this.addCls('hide-sidebar')
+                } else {
+                    this.removeCls('hide-sidebar')
+                }
             }
         }]
     }

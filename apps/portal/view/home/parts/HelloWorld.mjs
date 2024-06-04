@@ -58,20 +58,20 @@ class HelloWorld extends Container {
             module: LivePreviewContainer,
             flex: 0.8,
             value : [
-                'import Container from "../../../../src/container/Base.mjs";',
-                '',
-                'class MainView extends Container {',
-                '    static config = {',
-                '        className: "Portal.view.MainView",',
-                '        layout   : {ntype:"vbox", align:"stretch"},',
-                '        items    : [{',
-                '            module: Container,',
-                '            html  : "Hello World"',
-                '        }]',
-                '    }',
-                '}',
-                '',
-                'Neo.setupClass(MainView);'
+                "import Container from '../../../../src/container/Base.mjs';",
+                "",
+                "class MainView extends Container {",
+                "    static config = {",
+                "        className: 'Portal.view.MainView',",
+                "        layout   : {ntype:'vbox', align:'stretch'},",
+                "        items    : [{",
+                "            module: Container,",
+                "            html  : 'Hello World'",
+                "        }]",
+                "    }",
+                "}",
+                "",
+                "Neo.setupClass(MainView);"
             ].join('\n')
         }]
     }

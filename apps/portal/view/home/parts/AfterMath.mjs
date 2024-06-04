@@ -42,12 +42,11 @@ class AfterMath extends Container {
             module: Container,
             cls   : 'home-footer',
             height: '40%',
-            style : {
+            style : { // todo: css
                 background: 'black',
                 color     : 'white',
-                padding   : '15px',
                 height    : '40%',
-                margin    : '0 -20px -20px -20px'
+                padding   : '15px'
             },
             html  : 'This is the footer'
         }]
