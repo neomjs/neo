@@ -37,13 +37,11 @@ class Viewport extends BaseViewport {
                 text   : 'Stop'
             }]
         }, {
-            module: Table,
-            height: 300,
-            style : {marginTop: '2em'},
-
-            bind: {
-                store: 'stores.colors'
-            }
+            module   : Table,
+            bind     : {store: 'stores.colors'},
+            height   : 300,
+            reference: 'table',
+            style    : {marginTop: '2em'}
         }],
         /**
          * @member {Neo.model.Component} model=ViewportModel

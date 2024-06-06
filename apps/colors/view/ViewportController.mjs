@@ -26,7 +26,7 @@ class ViewportController extends Component {
 
         for (; i < len; i++) {
             data.push({
-                id     : `row_${i + 1}`,
+                id     : `row${i + 1}`,
                 columnA: me.getRandomInteger(),
                 columnB: me.getRandomInteger(),
                 columnC: me.getRandomInteger(),
@@ -69,11 +69,24 @@ class ViewportController extends Component {
      * @param {Object} data
      */
     onStartButtonClick(data) {
-        this.intervalId = setInterval(() => {
-            this.getStore('colors').data = this.generateData()
-        }, 20);
+        let me        = this,
+            store     = me.getStore('colors'),
+            table     = me.getReference('table'),
+            tableView = table.view;
 
-        console.log(this.intervalId)
+        me.intervalId = setInterval(() => {
+            let data = me.generateData();
+
+            tableView.silentVdomUpdate = true;
+
+            store.items.forEach((record, index) => {
+                record.set(data[index])
+            });
+
+            tableView.silentVdomUpdate = false;
+
+            tableView.update();
+        }, 20);
     }
 }
 

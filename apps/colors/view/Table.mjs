@@ -21,7 +21,7 @@ class Table extends Container {
         columnDefaults: {
             minWidth: 80,
             renderer(data) {
-                return {cls: 'color-' + data.value}
+                return {cls: ['color-' + data.value], html: ' '}
             }
         },
         /**
