@@ -4,6 +4,9 @@
 /apps/**/*.mjs
 /apps/**/neo-config.json
 
+!/apps/colors/index.html
+!/apps/colors/**/*.mjs
+!/apps/colors/neo-config.json
 !/apps/covid/index.html
 !/apps/covid/**/*.mjs
 !/apps/covid/neo-config.json

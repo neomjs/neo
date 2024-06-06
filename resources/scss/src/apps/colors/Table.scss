@@ -1,0 +1,35 @@
+.colors-table.neo-table-container {
+    $base-color: #1c60a0;
+
+    .color-1 {
+        background-color: lighten($base-color, 10%);
+    }
+
+    .color-2 {
+        background-color: lighten($base-color, 20%);
+    }
+
+    .color-3 {
+        background-color: lighten($base-color, 30%);
+    }
+
+    .color-4 {
+        background-color: lighten($base-color, 40%);
+    }
+
+    .color-5 {
+        background-color: lighten($base-color, 50%);
+    }
+
+    .neo-table-cell {
+        padding: 0;
+
+        div {
+            height: inherit;
+        }
+    }
+
+    td, th {
+        min-width: 10%;
+    }
+}
