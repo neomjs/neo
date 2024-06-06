@@ -26,6 +26,7 @@ class ViewportController extends Component {
 
         for (; i < len; i++) {
             data.push({
+                id     : `column_${i + 1}`,
                 columnA: me.getRandomInteger(),
                 columnB: me.getRandomInteger(),
                 columnC: me.getRandomInteger(),
