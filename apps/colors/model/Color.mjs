@@ -18,6 +18,9 @@ class Color extends Model {
             name: 'id',
             type: 'String'
         }, {
+            name: 'index',
+            type: 'Integer'
+        }, {
             name: 'columnA',
             type: 'String'
         }, {

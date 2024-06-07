@@ -1,5 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
-import Table              from './Table.mjs';
+import TableContainer     from './TableContainer.mjs';
 import Toolbar            from '../../../src/toolbar/Base.mjs';
 import ViewportController from './ViewportController.mjs';
 import ViewportModel      from './ViewportModel.mjs';
@@ -37,7 +37,7 @@ class Viewport extends BaseViewport {
                 text   : 'Stop'
             }]
         }, {
-            module   : Table,
+            module   : TableContainer,
             bind     : {store: 'stores.colors'},
             height   : 300,
             reference: 'table',

@@ -1,20 +1,20 @@
-import Container   from '../../../src/table/Container.mjs';
+import Container from '../../../src/table/Container.mjs';
 
 /**
- * @class Colors.view.Table
+ * @class Colors.view.TableContainer
  * @extends Neo.table.Container
  */
-class Table extends Container {
+class TableContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Colors.view.Table'
+         * @member {String} className='Colors.view.TableContainer'
          * @protected
          */
-        className: 'Colors.view.Table',
+        className: 'Colors.view.TableContainer',
         /**
-         * @member {String[]} cls=['colors-table']
+         * @member {String[]} cls=['colors-table-container']
          */
-        cls: ['colors-table'],
+        cls: ['colors-table-container'],
         /**
          * @member {Object} columnDefaults
          */
@@ -28,6 +28,13 @@ class Table extends Container {
          * @member {Object[]} columns
          */
         columns: [{
+            cls      : ['neo-index-column', 'neo-table-header-button'],
+            dataField: 'index',
+            minWidth : 40,
+            text     : '#',
+            renderer : data => ({cls : ['neo-index-column', 'neo-table-cell'], html: data.index + 1}),
+            width    : 40
+        }, {
             dataField: 'columnA',
             text     : 'A'
         }, {
@@ -61,6 +68,6 @@ class Table extends Container {
     }
 }
 
-Neo.setupClass(Table);
+Neo.setupClass(TableContainer);
 
-export default Table;
+export default TableContainer;

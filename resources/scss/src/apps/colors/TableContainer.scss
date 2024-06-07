@@ -1,4 +1,4 @@
-.colors-table.neo-table-container {
+.colors-table-container.neo-table-container {
     $base-color: #1c60a0;
 
     .color-1 {
@@ -21,12 +21,10 @@
         background-color: lighten($base-color, 50%);
     }
 
-    .neo-table-cell {
-        padding: 0;
-
-        div {
-            height: inherit;
-        }
+    .neo-index-column {
+        max-width: 40px;
+        min-width: 40px;
+        width    : 40px;
     }
 
     td, th {
