@@ -55,14 +55,24 @@ class ViewportController extends Component {
      */
     onComponentConstructed() {
         super.onComponentConstructed();
-        this.getStore('colors').data = this.generateData()
+
+        let me   = this,
+            data = me.generateData();
+
+        me.getStore('colors').data = data;
+        me.updatePieChart(data)
     }
 
     /**
      * @param {Object} data
      */
     onStopButtonClick(data) {
-        this.intervalId && clearInterval(this.intervalId)
+        let me = this;
+
+        if (me.intervalId) {
+            clearInterval(me.intervalId);
+            me.intervalId = null
+        }
     }
 
     /**
@@ -75,19 +85,53 @@ class ViewportController extends Component {
             table        = me.getReference('table'),
             tableView    = table.view;
 
-        me.intervalId = setInterval(() => {
-            let data = me.generateData();
+        if (!me.intervalId) {
+            me.intervalId = setInterval(() => {
+                let data = me.generateData();
 
-            tableView.silentVdomUpdate = true;
+                tableView.silentVdomUpdate = true;
 
-            store.items.forEach((record, index) => {
-                record.set(data[index])
-            });
+                store.items.forEach((record, index) => {
+                    record.set(data[index])
+                });
 
-            tableView.silentVdomUpdate = false;
+                tableView.silentVdomUpdate = false;
 
-            tableView.update();
-        }, 20);
+                tableView.update();
+
+                me.updatePieChart(data)
+            }, intervalTime);
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    updatePieChart(data) {
+        let startCharCode = 'A'.charCodeAt(0),
+            colorSummary  = {
+            colorA: 0,
+            colorB: 0,
+            colorC: 0,
+            colorD: 0,
+            colorE: 0
+        };
+
+        data.forEach(item => {
+            Object.entries(item).forEach(([key, value]) => {
+                if (key !== 'id') {
+                    colorSummary['color' + String.fromCharCode(startCharCode + value - 1)]++
+                }
+            })
+        });
+
+        this.getReference('pie-chart').chartData = [
+            {color: 'A', count: colorSummary['colorA']},
+            {color: 'B', count: colorSummary['colorB']},
+            {color: 'C', count: colorSummary['colorC']},
+            {color: 'D', count: colorSummary['colorD']},
+            {color: 'E', count: colorSummary['colorE']}
+        ]
     }
 }
 

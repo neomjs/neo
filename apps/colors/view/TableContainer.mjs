@@ -19,7 +19,6 @@ class TableContainer extends Container {
          * @member {Object} columnDefaults
          */
         columnDefaults: {
-            minWidth: 80,
             renderer(data) {
                 return {cls: ['color-' + data.value], html: ' '}
             }

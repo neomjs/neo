@@ -42,9 +42,10 @@ class Viewport extends BaseViewport {
             bind     : {store: 'stores.colors'},
             height   : 300,
             reference: 'table',
-            style    : {marginTop: '2em'}
+            wrapperStyle    : {marginBottom: '2em', marginTop: '2em'}
         }, {
-            module: PieChartComponent
+            module   : PieChartComponent,
+            reference: 'pie-chart'
         }],
         /**
          * @member {Neo.model.Component} model=ViewportModel
