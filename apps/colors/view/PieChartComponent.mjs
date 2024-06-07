@@ -28,21 +28,21 @@ class PieChartComponent extends AmChartComponent {
         chartConfig: {
             series: [{
                 type: 'PieSeries',
-                dataFields: {
-                    value: 'litres',
-                    category: 'country'
-                }
-            }],
 
-            data: [{
-                country: 'Lithuania',
-                litres: 501.9
-            }, {
-                country: 'Czechia',
-                litres: 301.9
-            }, {
-                country: 'Ireland',
-                litres: 201.1
+                colors: {
+                    list: [
+                        '#247acb',
+                        '#4493de',
+                        '#6face6',
+                        '#9bc5ed',
+                        '#c6def5'
+                    ]
+                },
+
+                dataFields: {
+                    category: 'color',
+                    value   : 'count'
+                }
             }]
         }
     }

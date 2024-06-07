@@ -1,5 +1,7 @@
+$base-color: #1c60a0;
+
 .colors-table-container.neo-table-container {
-    $base-color: #1c60a0;
+    width: 100%;
 
     .color-1 {
         background-color: lighten($base-color, 10%);
