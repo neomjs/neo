@@ -1,4 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import PieChartComponent  from './PieChartComponent.mjs';
 import TableContainer     from './TableContainer.mjs';
 import Toolbar            from '../../../src/toolbar/Base.mjs';
 import ViewportController from './ViewportController.mjs';
@@ -42,6 +43,8 @@ class Viewport extends BaseViewport {
             height   : 300,
             reference: 'table',
             style    : {marginTop: '2em'}
+        }, {
+            module: PieChartComponent
         }],
         /**
          * @member {Neo.model.Component} model=ViewportModel
@@ -50,7 +53,7 @@ class Viewport extends BaseViewport {
         /**
          * @member {Object} style
          */
-        style : {padding: '2em'}
+        style: {padding: '2em'}
     }
 }
 

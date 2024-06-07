@@ -69,10 +69,11 @@ class ViewportController extends Component {
      * @param {Object} data
      */
     onStartButtonClick(data) {
-        let me        = this,
-            store     = me.getStore('colors'),
-            table     = me.getReference('table'),
-            tableView = table.view;
+        let me           = this,
+            intervalTime = 1000 / 60, // assuming 60 FPS
+            store        = me.getStore('colors'),
+            table        = me.getReference('table'),
+            tableView    = table.view;
 
         me.intervalId = setInterval(() => {
             let data = me.generateData();
