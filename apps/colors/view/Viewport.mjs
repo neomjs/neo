@@ -41,9 +41,10 @@ class Viewport extends BaseViewport {
                 style  : {marginLeft: '.5em'},
                 text   : 'Stop'
             }, '->', {
-                handler: 'onDetachTableButtonClick',
-                iconCls: 'far fa-window-maximize',
-                text   : 'Detach Table'
+                handler  : 'onDetachTableButtonClick',
+                iconCls  : 'far fa-window-maximize',
+                reference: 'detach-table-button',
+                text     : 'Detach Table'
             }]
         }, {
             module   : TableContainer,

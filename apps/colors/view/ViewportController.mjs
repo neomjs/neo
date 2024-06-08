@@ -114,6 +114,8 @@ class ViewportController extends Component {
         let me                  = this,
             {appName, windowId} = data,
             app                 = Neo.apps[appName],
+            url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+            widgetName          = new URL(url).searchParams.get('name'),
             mainView            = app.mainView,
             widget;
 
@@ -122,6 +124,8 @@ class ViewportController extends Component {
             widget = mainView.removeAt(0, false);
             console.log(widget);
             me.component.insert(1, widget); // todo: dynamic index
+
+            me.getReference(`detach-${widgetName}-button`).disabled = false
         }
         // Close popup windows when closing or reloading the main window
         else {
@@ -161,6 +165,7 @@ class ViewportController extends Component {
      * @param {Object} data
      */
     async onDetachTableButtonClick(data) {
+        data.component.disabled = true;
         await this.createPopupWindow(this.getReference('table'), 'table')
     }
 
