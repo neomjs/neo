@@ -1,0 +1,8 @@
+{
+    "appPath"         : "apps/colors/childapps/widget/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
+    "useSharedWorkers": true
+}
