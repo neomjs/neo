@@ -1,0 +1,9 @@
+.colors-viewport {
+    padding: 2em;
+
+    > * {
+        &:not(:first-child) {
+            margin-top: 2em;
+        }
+    }
+}
