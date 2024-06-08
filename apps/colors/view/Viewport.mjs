@@ -17,6 +17,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Colors.view.Viewport',
         /**
+         * @member {String[]} cls=['colors-viewport']
+         */
+        cls: ['colors-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
@@ -45,8 +49,7 @@ class Viewport extends BaseViewport {
             module   : TableContainer,
             bind     : {store: 'stores.colors'},
             height   : 300,
-            reference: 'table',
-            wrapperStyle    : {marginBottom: '2em', marginTop: '2em'}
+            reference: 'table'
         }, {
             module   : PieChartComponent,
             reference: 'pie-chart'
@@ -54,11 +57,7 @@ class Viewport extends BaseViewport {
         /**
          * @member {Neo.model.Component} model=ViewportModel
          */
-        model: ViewportModel,
-        /**
-         * @member {Object} style
-         */
-        style: {padding: '2em'}
+        model: ViewportModel
     }
 }
 
