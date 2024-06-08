@@ -14,10 +14,38 @@ class ViewportController extends Component {
     }
 
     /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
+    /**
      * @member {Number|null} intervalId
      */
     intervalId = null
 
+    /**
+     @param {Neo.component.Base} widget
+     @param {String} name
+     */
+    async createPopupWindow(widget, name) {
+        let me                         = this,
+            winData                    = await Neo.Main.getWindowData(),
+            rect                       = await me.component.getDomRect(widget.id),
+            {height, left, top, width} = rect;
+
+        height -= 50; // popup header in Chrome
+        left   += winData.screenLeft;
+        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        Neo.Main.windowOpen({
+            url           : `./childapps/widget/index.html?name=${name}`,
+            windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowName    : name
+        })
+    }
+
+    /**
+     * @returns {Object[]}
+     */
     generateData() {
         let me   = this,
             data = [],
@@ -51,6 +79,72 @@ class ViewportController extends Component {
     }
 
     /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppConnect(data) {
+        if (data.appName !== 'Colors') {
+            console.log('onAppConnect', data);
+
+            let me           = this,
+                app          = Neo.apps[data.appName],
+                mainView     = app.mainView,
+                {windowId}   = data,
+                url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName   = new URL(url).searchParams.get('name'),
+                widget       = me.getReference(widgetName),
+                widgetParent = widget.up();
+
+            me.connectedApps.push(widgetName);
+
+            widgetParent.remove(widget, false);
+            mainView.add(widget);
+
+            console.log(widgetName, widgetParent);
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppDisconnect(data) {
+        let me                  = this,
+            {appName, windowId} = data,
+            app                 = Neo.apps[appName],
+            mainView            = app.mainView,
+            widget;
+
+        // Closing a code preview window needs to drop the preview back into the related main app
+        if (appName !== 'Colors') {
+            widget = mainView.removeAt(0, false);
+            console.log(widget);
+            me.component.insert(1, widget); // todo: dynamic index
+        }
+        // Close popup windows when closing or reloading the main window
+        else {
+            Neo.Main.windowClose({names: me.connectedApps, windowId})
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        })
+    }
+
+    /**
      *
      */
     onComponentConstructed() {
@@ -61,6 +155,13 @@ class ViewportController extends Component {
 
         me.getStore('colors').data = data;
         me.updatePieChart(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDetachTableButtonClick(data) {
+        await this.createPopupWindow(this.getReference('table'), 'table')
     }
 
     /**
