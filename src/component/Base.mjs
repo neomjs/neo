@@ -1019,6 +1019,12 @@ class Base extends CoreBase {
         if (controller && value) {
             controller.windowId = value
         }
+
+        // If a component gets moved into a different window, an update cycle might still be running.
+        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
+        if (oldValue) {
+            this.isVdomUpdating = false
+        }
     }
 
     /**
