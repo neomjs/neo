@@ -85,8 +85,6 @@ class ViewportController extends Component {
      */
     async onAppConnect(data) {
         if (data.appName !== 'Colors') {
-            console.log('onAppConnect', data);
-
             let me           = this,
                 app          = Neo.apps[data.appName],
                 mainView     = app.mainView,
@@ -99,9 +97,7 @@ class ViewportController extends Component {
             me.connectedApps.push(widgetName);
 
             widgetParent.remove(widget, false);
-            mainView.add(widget);
-
-            console.log(widgetName, widgetParent);
+            mainView.add(widget)
         }
     }
 
@@ -122,7 +118,7 @@ class ViewportController extends Component {
         // Closing a code preview window needs to drop the preview back into the related main app
         if (appName !== 'Colors') {
             widget = mainView.removeAt(0, false);
-            console.log(widget);
+
             me.component.insert(1, widget); // todo: dynamic index
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
