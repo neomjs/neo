@@ -7,6 +7,8 @@
 !/apps/colors/index.html
 !/apps/colors/**/*.mjs
 !/apps/colors/neo-config.json
+!/apps/colors/childapps/widget/index.html
+!/apps/colors/childapps/widget/neo-config.json
 !/apps/covid/index.html
 !/apps/covid/**/*.mjs
 !/apps/covid/neo-config.json
