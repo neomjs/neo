@@ -25,6 +25,7 @@ class ViewportController extends Component {
      * @member {Object} widgetIndexMap
      */
     widgetIndexMap = {
+        'bar-chart': 3,
         'pie-chart': 2,
         table      : 1
     }
@@ -36,7 +37,7 @@ class ViewportController extends Component {
     async createPopupWindow(widget, name) {
         let me                         = this,
             winData                    = await Neo.Main.getWindowData(),
-            rect                       = await me.component.getDomRect(widget.id),
+            rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
             {height, left, top, width} = rect;
 
         height -= 50; // popup header in Chrome
@@ -159,7 +160,15 @@ class ViewportController extends Component {
             data = me.generateData();
 
         me.getStore('colors').data = data;
-        me.updatePieChart(data)
+        me.updateCharts(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDetachBarChartButtonClick(data) {
+        data.component.disabled = true;
+        await this.createPopupWindow(this.getReference('bar-chart'), 'bar-chart')
     }
 
     /**
@@ -214,7 +223,7 @@ class ViewportController extends Component {
 
                 tableView.update();
 
-                me.updatePieChart(data)
+                me.updateCharts(data)
             }, intervalTime);
         }
     }
@@ -222,15 +231,16 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
-    updatePieChart(data) {
+    updateCharts(data) {
         let startCharCode = 'A'.charCodeAt(0),
             colorSummary  = {
-            colorA: 0,
-            colorB: 0,
-            colorC: 0,
-            colorD: 0,
-            colorE: 0
-        };
+                colorA: 0,
+                colorB: 0,
+                colorC: 0,
+                colorD: 0,
+                colorE: 0
+            },
+            chartData;
 
         data.forEach(item => {
             Object.entries(item).forEach(([key, value]) => {
@@ -240,13 +250,16 @@ class ViewportController extends Component {
             })
         });
 
-        this.getReference('pie-chart').chartData = [
-            {color: 'A', count: colorSummary['colorA']},
-            {color: 'B', count: colorSummary['colorB']},
-            {color: 'C', count: colorSummary['colorC']},
-            {color: 'D', count: colorSummary['colorD']},
-            {color: 'E', count: colorSummary['colorE']}
-        ]
+        chartData = [
+            {color: '#247acb', count: colorSummary['colorA']},
+            {color: '#4493de', count: colorSummary['colorB']},
+            {color: '#6face6', count: colorSummary['colorC']},
+            {color: '#9bc5ed', count: colorSummary['colorD']},
+            {color: '#c6def5', count: colorSummary['colorE']}
+        ];
+
+        this.getReference('bar-chart').chartData = chartData;
+        this.getReference('pie-chart').chartData = chartData
     }
 }
 
