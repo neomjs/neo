@@ -233,7 +233,7 @@ class Base {
             }
 
             // Apply configs to prototype
-            overwrites && Object.assign(cfg, overwrites)
+            Object.assign(cfg, overwrites)
         }
     }
 
