@@ -47,17 +47,17 @@ class Viewport extends BaseViewport {
                 handler  : 'onDetachBarChartButtonClick',
                 iconCls  : 'far fa-window-maximize',
                 reference: 'detach-bar-chart-button',
-                text     : 'Detach Bar Chart'
+                text     : 'Bar Chart'
             }, {
                 handler  : 'onDetachPieChartButtonClick',
                 iconCls  : 'far fa-window-maximize',
                 reference: 'detach-pie-chart-button',
-                text     : 'Detach Pie Chart'
+                text     : 'Pie Chart'
             }, {
                 handler  : 'onDetachTableButtonClick',
                 iconCls  : 'far fa-window-maximize',
                 reference: 'detach-table-button',
-                text     : 'Detach Table'
+                text     : 'Table'
             }]
         }, {
             module   : TableContainer,

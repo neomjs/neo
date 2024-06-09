@@ -29,6 +29,7 @@ class TableContainer extends Container {
         columns: [{
             cls      : ['neo-index-column', 'neo-table-header-button'],
             dataField: 'index',
+            dock     : 'left',
             minWidth : 40,
             text     : '#',
             renderer : data => ({cls : ['neo-index-column', 'neo-table-cell'], html: data.index + 1}),
