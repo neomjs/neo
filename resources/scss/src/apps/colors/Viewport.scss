@@ -6,4 +6,12 @@
             margin-top: 2em;
         }
     }
+
+    .portal-header-toolbar {
+        .neo-button {
+            &:not(:first-child) {
+                margin-left: .5em;
+            }
+        }
+    }
 }
