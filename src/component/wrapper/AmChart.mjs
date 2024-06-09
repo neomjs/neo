@@ -1,5 +1,4 @@
 import Component from '../Base.mjs';
-import Logger    from '../../util/Logger.mjs';
 
 /**
  * Convenience class to render an amChart
@@ -69,15 +68,17 @@ class AmChart extends Component {
      * @protected
      */
     afterSetChartData(value, oldValue) {
-        let me = this;
+        let me = this,
+            {appName, dataPath, id, windowId} = me;
 
         if (value) {
             Neo.main.addon.AmCharts.updateData({
-                appName : me.appName,
-                data    : value,
-                dataPath: me.dataPath,
-                id      : me.id
-            });
+                appName,
+                data: value,
+                dataPath,
+                id,
+                windowId
+            })
         }
     }
 
@@ -88,25 +89,24 @@ class AmChart extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        let me = this,
+            {appName, id, windowId} = me;
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.AmCharts.destroy({
-                appName: me.appName,
-                id     : me.id
-            });
+            Neo.main.addon.AmCharts.destroy({appName, id, windowId})
         }
 
         super.afterSetMounted(value, oldValue);
 
         if (value) {
             let opts = {
-                appName             : me.appName,
+                appName,
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
-                id                  : me.id,
+                id,
                 package             : me.package,
-                type                : me.chartType
+                type                : me.chartType,
+                windowId
             };
 
             if (me.chartData) {
@@ -115,7 +115,7 @@ class AmChart extends Component {
             }
 
             setTimeout(() => {
-                Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted);
+                Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
             }, 50);
         }
     }
