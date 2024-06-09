@@ -29,6 +29,15 @@ $base-color: #1c60a0;
         width    : 40px;
     }
 
+    .neo-table-view {
+        .neo-table-row {
+            &:hover .neo-table-cell {
+                background-color: #d0aa72;
+                color           : #2b2b2b;
+            }
+        }
+    }
+
     td, th {
         min-width: 10%;
     }
