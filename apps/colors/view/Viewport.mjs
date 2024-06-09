@@ -34,12 +34,13 @@ class Viewport extends BaseViewport {
          */
         items: [{
             module: Toolbar,
-            items : [{
+            cls   : ['portal-header-toolbar'],
+
+            items: [{
                 handler: 'onStartButtonClick',
                 text   : 'Start'
             }, {
                 handler: 'onStopButtonClick',
-                style  : {marginLeft: '.5em'},
                 text   : 'Stop'
             }, '->', {
                 handler  : 'onDetachBarChartButtonClick',
