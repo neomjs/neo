@@ -35,6 +35,7 @@ class Viewport extends BaseViewport {
         items: [{
             module: Toolbar,
             cls   : ['portal-header-toolbar'],
+            flex  : 'none',
 
             items: [{
                 handler: 'onStartButtonClick',
