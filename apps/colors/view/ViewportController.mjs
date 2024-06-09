@@ -116,16 +116,14 @@ class ViewportController extends Component {
     async onAppDisconnect(data) {
         let me                  = this,
             {appName, windowId} = data,
-            app                 = Neo.apps[appName],
             url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             widgetName          = new URL(url).searchParams.get('name'),
-            mainView            = app.mainView,
-            widget;
+            widget              = me.getReference(widgetName),
+            widgetParent        = widget.up();
 
         // Closing a code preview window needs to drop the preview back into the related main app
         if (appName !== 'Colors') {
-            widget = mainView.removeAt(0, false);
-
+            widgetParent.remove(widget, false);
             me.component.insert(me.widgetIndexMap[widgetName], widget);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
@@ -162,6 +160,14 @@ class ViewportController extends Component {
 
         me.getStore('colors').data = data;
         me.updatePieChart(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDetachPieChartButtonClick(data) {
+        data.component.disabled = true;
+        await this.createPopupWindow(this.getReference('pie-chart'), 'pie-chart')
     }
 
     /**

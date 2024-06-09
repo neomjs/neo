@@ -41,6 +41,11 @@ class Viewport extends BaseViewport {
                 style  : {marginLeft: '.5em'},
                 text   : 'Stop'
             }, '->', {
+                handler  : 'onDetachPieChartButtonClick',
+                iconCls  : 'far fa-window-maximize',
+                reference: 'detach-pie-chart-button',
+                text     : 'Detach Pie Chart'
+            }, {
                 handler  : 'onDetachTableButtonClick',
                 iconCls  : 'far fa-window-maximize',
                 reference: 'detach-table-button',
