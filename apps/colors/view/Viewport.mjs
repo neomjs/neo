@@ -1,4 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import BarChartComponent  from './BarChartComponent.mjs';
 import PieChartComponent  from './PieChartComponent.mjs';
 import TableContainer     from './TableContainer.mjs';
 import Toolbar            from '../../../src/toolbar/Base.mjs';
@@ -41,6 +42,11 @@ class Viewport extends BaseViewport {
                 style  : {marginLeft: '.5em'},
                 text   : 'Stop'
             }, '->', {
+                handler  : 'onDetachBarChartButtonClick',
+                iconCls  : 'far fa-window-maximize',
+                reference: 'detach-bar-chart-button',
+                text     : 'Detach Bar Chart'
+            }, {
                 handler  : 'onDetachPieChartButtonClick',
                 iconCls  : 'far fa-window-maximize',
                 reference: 'detach-pie-chart-button',
@@ -59,6 +65,9 @@ class Viewport extends BaseViewport {
         }, {
             module   : PieChartComponent,
             reference: 'pie-chart'
+        }, {
+            module   : BarChartComponent,
+            reference: 'bar-chart'
         }],
         /**
          * @member {Neo.model.Component} model=ViewportModel
