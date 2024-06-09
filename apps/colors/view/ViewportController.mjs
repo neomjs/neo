@@ -21,6 +21,13 @@ class ViewportController extends Component {
      * @member {Number|null} intervalId
      */
     intervalId = null
+    /**
+     * @member {Object} widgetIndexMap
+     */
+    widgetIndexMap = {
+        'pie-chart': 2,
+        table      : 1
+    }
 
     /**
      @param {Neo.component.Base} widget
@@ -119,7 +126,7 @@ class ViewportController extends Component {
         if (appName !== 'Colors') {
             widget = mainView.removeAt(0, false);
 
-            me.component.insert(1, widget); // todo: dynamic index
+            me.component.insert(me.widgetIndexMap[widgetName], widget);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
         }
