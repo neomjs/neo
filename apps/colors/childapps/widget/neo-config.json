@@ -1,9 +1,10 @@
 {
-    "appPath"         : "apps/colors/childapps/widget/app.mjs",
-    "basePath"        : "../../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
-    "themes"          : ["neo-theme-dark"],
-    "useSharedWorkers": true
+    "appPath"             : "apps/colors/childapps/widget/app.mjs",
+    "basePath"            : "../../../../",
+    "environment"         : "development",
+    "loadApplicationDelay": 100,
+    "mainPath"            : "./Main.mjs",
+    "mainThreadAddons"    : ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
+    "themes"              : ["neo-theme-dark"],
+    "useSharedWorkers"    : true
 }
