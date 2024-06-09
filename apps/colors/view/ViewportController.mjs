@@ -31,11 +31,11 @@ class ViewportController extends Component {
     }
 
     /**
-     @param {Neo.component.Base} widget
-     @param {String} name
+     * @param {String} name The name of the reference
      */
-    async createPopupWindow(widget, name) {
+    async createPopupWindow(name) {
         let me                         = this,
+            widget                     = me.getReference(name),
             winData                    = await Neo.Main.getWindowData(),
             rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
             {height, left, top, width} = rect;
@@ -168,7 +168,7 @@ class ViewportController extends Component {
      */
     async onDetachBarChartButtonClick(data) {
         data.component.disabled = true;
-        await this.createPopupWindow(this.getReference('bar-chart'), 'bar-chart')
+        await this.createPopupWindow('bar-chart')
     }
 
     /**
@@ -176,7 +176,7 @@ class ViewportController extends Component {
      */
     async onDetachPieChartButtonClick(data) {
         data.component.disabled = true;
-        await this.createPopupWindow(this.getReference('pie-chart'), 'pie-chart')
+        await this.createPopupWindow('pie-chart')
     }
 
     /**
@@ -184,7 +184,7 @@ class ViewportController extends Component {
      */
     async onDetachTableButtonClick(data) {
         data.component.disabled = true;
-        await this.createPopupWindow(this.getReference('table'), 'table')
+        await this.createPopupWindow('table')
     }
 
     /**
