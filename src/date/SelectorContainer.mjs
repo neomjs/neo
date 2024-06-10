@@ -92,6 +92,9 @@ class SelectorContainer extends Container {
             items : [{
                 module   : DayViewComponent,
                 reference: 'day-view'
+            }, {
+                module   : DayViewComponent,
+                reference: 'day-view-next'
             }]
         }],
         /**

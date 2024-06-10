@@ -682,7 +682,11 @@ class Component extends Base {
      * @param {String} storeName
      */
     resolveStore(component, configName, storeName) {
-        component[configName] = this.getStore(storeName)
+        let store = this.getStore(storeName);
+
+        if (component[configName] !== store) {
+            component[configName] = store
+        }
     }
 
     /**

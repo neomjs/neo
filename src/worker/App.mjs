@@ -323,7 +323,8 @@ class App extends Base {
                     Neo.main.addon.Stylesheet.addThemeFiles({
                         appName,
                         className: mapClassName || className,
-                        folders  : themeFolders
+                        folders  : themeFolders,
+                        windowId
                     })
                 }
             }

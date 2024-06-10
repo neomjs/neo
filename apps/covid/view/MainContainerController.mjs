@@ -232,7 +232,7 @@ class MainContainerController extends ComponentController {
             record;
 
         if (store.getCount() > 0) {
-            if (Neo.isObject(value)) {
+            if (Neo.isRecord(value)) {
                 record = value;
                 value  = value[component.displayField];
             } else {

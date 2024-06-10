@@ -154,6 +154,8 @@ class AmCharts extends Base {
         } else {
             // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
 
+            am4core.useTheme(am4themes_dark);
+
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
 
             if (data.combineSeriesTooltip) {
@@ -204,6 +206,7 @@ class AmCharts extends Base {
             Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
+                DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
                 me.scriptsLoaded = true;
