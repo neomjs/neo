@@ -564,7 +564,7 @@ class Component extends Base {
             Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
                 config    = {};
-                model     = component.getModel();
+                model     = component.getModel() || me;
 
                 if (!hierarchyData[model.id]) {
                     hierarchyData[model.id] = model.getHierarchyData()
