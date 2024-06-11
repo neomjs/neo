@@ -826,7 +826,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns the object associated to the key, or undefined if there is none.
+     * Returns the object associated to the key, or null if there is none.
      * @param key
      * @returns {Object|null}
      */
