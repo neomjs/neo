@@ -162,6 +162,26 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the columns config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetColumns(value, oldValue) {
+        if (Array.isArray(oldValue) && oldValue.length > 0) {
+            let me            = this,
+                headerToolbar = me.headerToolbar;
+
+            if (headerToolbar) {
+                headerToolbar.items = value;
+                headerToolbar.createItems()
+            }
+
+            me.view?.createViewData(me.store.items)
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -310,6 +330,28 @@ class Container extends BaseContainer {
      */
     beforeSetViewId(value, oldValue) {
         return value || oldValue
+    }
+
+    /**
+     * In case you want to update multiple existing records in parallel,
+     * using this method is faster than updating each record one by one.
+     * At least until we introduce row based vdom updates.
+     * @param {Object[]} records
+     */
+    bulkUpdateRecords(records) {
+        let {view} = this;
+
+        if (view) {
+            view.silentVdomUpdate = true;
+
+            this.store.items.forEach((record, index) => {
+                record.set(records[index])
+            });
+
+            view.silentVdomUpdate = false;
+
+            view.update()
+        }
     }
 
     /**
