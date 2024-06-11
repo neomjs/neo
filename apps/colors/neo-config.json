@@ -1,9 +1,0 @@
-{
-    "appPath"         : "apps/colors/app.mjs",
-    "basePath"        : "../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
-    "themes"          : ["neo-theme-dark"],
-    "useSharedWorkers": true
-}
