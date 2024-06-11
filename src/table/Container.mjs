@@ -169,12 +169,15 @@ class Container extends BaseContainer {
      */
     afterSetColumns(value, oldValue) {
         if (Array.isArray(oldValue) && oldValue.length > 0) {
-            let headerToolbar = this.headerToolbar;
+            let me            = this,
+                headerToolbar = me.headerToolbar;
 
             if (headerToolbar) {
                 headerToolbar.items = value;
                 headerToolbar.createItems()
             }
+
+            me.view?.createViewData(me.store.items)
         }
     }
 
