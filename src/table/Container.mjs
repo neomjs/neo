@@ -333,6 +333,28 @@ class Container extends BaseContainer {
     }
 
     /**
+     * In case you want to update multiple existing records in parallel,
+     * using this method is faster than updating each record one by one.
+     * At least until we introduce row based vdom updates.
+     * @param {Object[]} records
+     */
+    bulkUpdateRecords(records) {
+        let {view} = this;
+
+        if (view) {
+            view.silentVdomUpdate = true;
+
+            this.store.items.forEach((record, index) => {
+                record.set(data[index])
+            });
+
+            view.silentVdomUpdate = false;
+
+            view.update()
+        }
+    }
+
+    /**
      * @param {Object[]} columns
      * @returns {*}
      */
