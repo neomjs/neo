@@ -345,7 +345,7 @@ class Container extends BaseContainer {
             view.silentVdomUpdate = true;
 
             this.store.items.forEach((record, index) => {
-                record.set(data[index])
+                record.set(records[index])
             });
 
             view.silentVdomUpdate = false;
