@@ -113,10 +113,10 @@ class Main extends core.Base {
             scope              : me
         });
 
+        DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+
         if (document.readyState !== 'loading') {
             DomEvents.onDomContentLoaded()
-        } else {
-            DomEvents.on('domContentLoaded', me.onDomContentLoaded, me)
         }
     }
 
