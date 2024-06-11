@@ -162,6 +162,23 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the columns config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetColumns(value, oldValue) {
+        if (Array.isArray(oldValue) && oldValue.length > 0) {
+            let headerToolbar = this.headerToolbar;
+
+            if (headerToolbar) {
+                headerToolbar.items = value;
+                headerToolbar.createItems()
+            }
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
