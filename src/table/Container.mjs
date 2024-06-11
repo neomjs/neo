@@ -339,13 +339,14 @@ class Container extends BaseContainer {
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {view} = this;
+        let {store, view} = this,
+            {keyProperty} = store;
 
         if (view) {
             view.silentVdomUpdate = true;
 
-            this.store.items.forEach((record, index) => {
-                record.set(records[index])
+            records.forEach(item => {
+                store.get(item[keyProperty])?.set(item)
             });
 
             view.silentVdomUpdate = false;
