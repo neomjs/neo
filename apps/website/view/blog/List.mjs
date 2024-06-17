@@ -73,10 +73,10 @@ class List extends BaseList {
 
         const vdomCn = [
             {cls: ['content'], cn: [
-                {cls: ['neo-full-size', 'preview-image'], style: {
-                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
-                },
                 {cls: ['neo-relative'], cn: [
+                    {cls: ['neo-full-size', 'preview-image'], style: {
+                        backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
+                    },
                     {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                         {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
                             {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
@@ -103,7 +103,7 @@ class List extends BaseList {
         }
 
         if (record.selectedInto.length > 0) {
-            vdomCn[0].cn[1].cn.unshift(
+            vdomCn[0].cn[0].cn.splice(1, 0,
                 {cls: ['neo-absolute', 'neo-item-top-position'], cn: [
                     {html: `Officially selected by ${record.provider} into`},
                     {cls: ['neo-bold'], html: record.selectedInto.join('</br>')}
