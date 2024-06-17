@@ -1,5 +1,18 @@
 [
     {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jun 17, 2024",
+        "id"          : 58,
+        "image"       : "Sharing_real_time_data.png",
+        "name"        : "Sharing real-time WebSocket data across multiple browser windows",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/sharing-real-time-websocket-data-across-multiple-browser-windows-4e0538dd7563?source=friends_link&sk=9efb3e4f38c82fb3e04899c61bb5fcb8"
+    },
+    {
         "author"      : "Torsten Dinkheller",
         "authorImage" : "author_TorstenDinkheller.jpg",
         "date"        : "Feb 03, 2023",
