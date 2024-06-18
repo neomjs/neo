@@ -14,6 +14,29 @@ class ViewportController extends Component {
     }
 
     /**
+     *
+     */
+    async createPopupWindow() {
+        let me  = this,
+            url = './childapp/index.html';
+
+            let widget                     = me.getReference('controls-panel'),
+                winData                    = await Neo.Main.getWindowData(),
+                rect                       = await me.component.getDomRect(widget.id),
+                {height, left, top, width} = rect;
+
+            height -= 62; // popup header in Chrome
+            left   += (width + winData.screenLeft);
+            top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+            await Neo.Main.windowOpen({
+                url,
+                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowName    : 'HelixControls'
+            })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      * @param {Number} data.windowId
@@ -43,6 +66,14 @@ class ViewportController extends Component {
             disconnect: me.onAppDisconnect,
             scope     : me
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onMaximiseButtonClick(data) {
+        console.log(data.component.appName);
+        await this.createPopupWindow()
     }
 }
 
