@@ -14,26 +14,29 @@ class ViewportController extends Component {
     }
 
     /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
+
+    /**
      *
      */
     async createPopupWindow() {
-        let me  = this,
-            url = './childapp/index.html';
+        let me                         = this,
+            widget                     = me.getReference('controls-panel'),
+            winData                    = await Neo.Main.getWindowData(),
+            rect                       = await me.component.getDomRect(widget.id),
+            {height, left, top, width} = rect;
 
-            let widget                     = me.getReference('controls-panel'),
-                winData                    = await Neo.Main.getWindowData(),
-                rect                       = await me.component.getDomRect(widget.id),
-                {height, left, top, width} = rect;
+        height -= 62; // popup header in Chrome
+        left   += (width + winData.screenLeft);
+        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
-            height -= 62; // popup header in Chrome
-            left   += (width + winData.screenLeft);
-            top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
-
-            await Neo.Main.windowOpen({
-                url,
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : 'HelixControls'
-            })
+        await Neo.Main.windowOpen({
+            url           : './childapp/index.html',
+            windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowName    : 'HelixControls'
+        })
     }
 
     /**
@@ -42,7 +45,21 @@ class ViewportController extends Component {
      * @param {Number} data.windowId
      */
     async onAppConnect(data) {
-        console.log('onAppConnect', data);
+        let me        = this,
+            {appName} = data;
+
+        if (appName === 'HelixControls') {
+            let controlsPanel = me.getReference('controls-panel'),
+                {mainView}    = Neo.apps[appName];
+
+            me.connectedApps.push(appName);
+
+            controlsPanel.parent.remove(controlsPanel, false);
+
+            this.getReference('header-toolbar').hidden = true;
+
+            mainView.add(controlsPanel)
+        }
     }
 
     /**
@@ -51,7 +68,22 @@ class ViewportController extends Component {
      * @param {Number} data.windowId
      */
     async onAppDisconnect(data) {
-        console.log('onAppDisconnect', data);
+        let me                  = this,
+            {appName, windowId} = data;
+
+        if (appName === 'HelixControls') {
+            let controlsPanel = me.getReference('controls-panel');
+
+            controlsPanel.parent.remove(controlsPanel, false);
+
+            me.getReference('header-toolbar').hidden = false;
+
+            me.component.add(controlsPanel)
+        }
+        // Close popup windows when closing or reloading the main window
+        else {
+            Neo.Main.windowClose({names: me.connectedApps, windowId})
+        }
     }
     /**
      *
@@ -72,7 +104,6 @@ class ViewportController extends Component {
      * @param {Object} data
      */
     async onMaximiseButtonClick(data) {
-        console.log(data.component.appName);
         await this.createPopupWindow()
     }
 }
