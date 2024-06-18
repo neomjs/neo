@@ -12,6 +12,38 @@ class ViewportController extends Component {
          */
         className: 'Neo.examples.component.multiWindowHelix.ViewportController'
     }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppConnect(data) {
+        console.log('onAppConnect', data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppDisconnect(data) {
+        console.log('onAppDisconnect', data);
+    }
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        })
+    }
 }
 
 Neo.setupClass(ViewportController);
