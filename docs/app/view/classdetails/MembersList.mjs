@@ -246,6 +246,10 @@ class MembersList extends Base {
 
             // methods
             if (item.params && item.kind !== 'event') {
+                if (item.$kind === 'property') {console.log(item);
+                    headerText = 'get ' + headerText
+                }
+
                 headerText += ('(' + item.params.reduce((result, param) => {
                     if (param.name.indexOf('.') < 0) {
                         if (param.optional) {
