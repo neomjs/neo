@@ -59,15 +59,21 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            ntype : 'panel',
-            layout: {ntype: 'vbox',align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
-            width : 250,
+            ntype    : 'panel',
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'controls-panel',
+            style    : {backgroundColor: '#2b2b2b'},
+            width    : 250,
 
             containerConfig: {
                 flex : null,
                 style: {overflowY: 'scroll'}
             },
+
+            headers: [{
+                dock: 'top',
+                text: 'Helix Controls'
+            }],
 
             itemDefaults: {
                 ntype        : 'rangefield',
@@ -85,11 +91,6 @@ class MainContainer extends Viewport {
                     }
                 }
             },
-
-            headers: [{
-                dock: 'top',
-                text: 'Helix Controls'
-            }],
 
             items: [{
                 labelText: 'Translate X',

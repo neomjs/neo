@@ -13,6 +13,25 @@ class Viewport extends MainContainer {
          */
         controller: ViewportController
     }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        this.getItem('controls-panel').headers = [{
+            dock : 'top',
+            items: [{
+                ntype: 'label',
+                cls  : ['neo-panel-header-text', 'neo-label'],
+                text : 'Helix Controls'
+            }, '->', {
+                handler: 'onMaximiseButtonClick',
+                iconCls: 'far fa-window-maximize'
+            }]
+        }];
+    }
 }
 
 Neo.setupClass(Viewport);
