@@ -1,6 +1,6 @@
 [
     {
-        "browsers"    : ["Chrome (including more examples)"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari</br>(including more examples)"],
         "environments": ["Desktop"],
         "id"          : 1,
         "image"       : "devmode/docs.png",
