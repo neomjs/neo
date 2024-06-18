@@ -1,4 +1,5 @@
-import MainContainer from '../helix/MainContainer.mjs';
+import MainContainer      from '../helix/MainContainer.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowHelix.Viewport
@@ -6,7 +7,43 @@ import MainContainer from '../helix/MainContainer.mjs';
  */
 class Viewport extends MainContainer {
     static config = {
-        className: 'Neo.examples.component.multiWindowHelix.Viewport'
+        className: 'Neo.examples.component.multiWindowHelix.Viewport',
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppConnect(data) {
+        console.log('onAppConnect', data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppDisconnect(data) {
+        console.log('onAppDisconnect', data);
+    }
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        })
     }
 }
 

@@ -1,5 +1,5 @@
 {
-    "appPath"          : "examples/component/helix/app.mjs",
+    "appPath"          : "examples/component/multiWindowHelix/app.mjs",
     "basePath"         : "../../../",
     "environment"      : "development",
     "mainPath"         : "./Main.mjs",
