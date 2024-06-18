@@ -52,7 +52,7 @@ class List extends BaseList {
         value.on({
             load : 'onBlogPostStoreLoad',
             scope: this.getController()
-        });
+        })
     }
 
     /**
@@ -65,30 +65,28 @@ class List extends BaseList {
             basePath = '../../../../resources/website';
 
             if (Neo.config.environment !== 'development') {
-                basePath = '../../' + basePath;
+                basePath = '../../' + basePath
             }
         } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website';
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website'
         }
 
         const vdomCn = [
-            {cls: ['content'], cn: [
-                {cls: ['neo-relative'], cn: [
-                    {cls: ['neo-full-size', 'preview-image'], style: {
-                        backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
-                    },
-                    {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                        {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
-                            {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
-                        ]},
-                        {cls: ['neo-top-20'], cn: [
-                            {tag: 'img', cls: ['neo-user-image'], src: `${basePath}/blogAuthor/${record.authorImage}`},
-                            {cls: ['neo-inner-content'], cn: [
-                                {cls: ['neo-inner-details'], flag: 'author', cn: [
-                                    {tag: 'span', cls: ['neo-bold'], html: record.author}
-                                ]},
-                                {cls: ['neo-inner-details'], html: record.date}
-                            ]}
+            {cls: ['content', 'neo-relative'], cn: [
+                {cls: ['neo-full-size', 'preview-image'], style: {
+                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
+                },
+                {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
+                    {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
+                        {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
+                    ]},
+                    {cls: ['neo-top-20'], cn: [
+                        {tag: 'img', cls: ['neo-user-image'], src: `${basePath}/blogAuthor/${record.authorImage}`},
+                        {cls: ['neo-inner-content'], cn: [
+                            {cls: ['neo-inner-details'], flag: 'author', cn: [
+                                {tag: 'span', cls: ['neo-bold'], html: record.author}
+                            ]},
+                            {cls: ['neo-inner-details'], html: record.date}
                         ]}
                     ]}
                 ]}
@@ -99,19 +97,19 @@ class List extends BaseList {
             VDomUtil.getByFlag(vdomCn[0], 'author').cn.push(
                 {vtype: 'text', html : ' in '},
                 {tag: 'span', cls: ['neo-bold'], html: record.publisher}
-            );
+            )
         }
 
         if (record.selectedInto.length > 0) {
-            vdomCn[0].cn[0].cn.splice(1, 0,
+            vdomCn[0].cn.splice(1, 0,
                 {cls: ['neo-absolute', 'neo-item-top-position'], cn: [
                     {html: `Officially selected by ${record.provider} into`},
                     {cls: ['neo-bold'], html: record.selectedInto.join('</br>')}
                 ]}
-            );
+            )
         }
 
-        return vdomCn;
+        return vdomCn
     }
 
     /**
@@ -135,7 +133,7 @@ class List extends BaseList {
 
             if (emptyValue) {
                 itemName.html = name;
-                delete item.style.display;
+                delete item.style.display
             } else {
                 itemName.html = name.replace(valueRegEx, match => {
                     hasMatch = true;
@@ -143,28 +141,28 @@ class List extends BaseList {
                 });
 
                 if (hasMatch) {
-                    delete item.style.display;
+                    delete item.style.display
                 } else {
-                    item.style.display = 'none';
+                    item.style.display = 'none'
                 }
             }
         });
 
-        me.update();
+        me.update()
     }
 
     /**
      * @returns {Object}
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
      * @returns {Object}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 }
 
