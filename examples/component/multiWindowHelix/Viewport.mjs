@@ -21,7 +21,9 @@ class Viewport extends MainContainer {
         super.construct(config);
 
         this.getItem('controls-panel').headers = [{
-            dock : 'top',
+            dock     : 'top',
+            reference: 'header-toolbar',
+
             items: [{
                 ntype: 'label',
                 cls  : ['neo-panel-header-text', 'neo-label'],

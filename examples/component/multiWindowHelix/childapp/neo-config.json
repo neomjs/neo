@@ -1,0 +1,9 @@
+{
+    "appPath"         : "examples/component/multiWindowHelix/childapp/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["Stylesheet"],
+    "themes"          : ["neo-theme-dark"],
+    "useSharedWorkers": true
+}
