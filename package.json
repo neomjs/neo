@@ -58,7 +58,7 @@
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
         "postcss": "^8.4.38",
-        "sass": "^1.77.5",
+        "sass": "^1.77.6",
         "siesta-lite": "5.5.2",
         "url": "^0.11.3",
         "webpack": "^5.92.0",
