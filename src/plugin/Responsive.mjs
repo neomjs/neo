@@ -17,20 +17,18 @@ class Responsive extends BasePlugin {
          */
         ntype: 'plugin-responsive',
         /**
-         * todo def
          * @member {Map} responsiveConfig: new Map()
          */
         responsiveConfig: new Map(),
         /**
-         * todo def
          * @member {Object} defaultResponsiveConfig
          */
         defaultResponsiveConfig: {
             landscape(data) {
-                return data.width > data.height;
+                return data.width > data.height
             },
             portrait(data) {
-                return data.width < data.height;
+                return data.width < data.height
             }
         }
     }
@@ -40,10 +38,10 @@ class Responsive extends BasePlugin {
      */
     construct(config) {
         super.construct(config);
-        console.log('config', config)
+
         let me = this;
 
-        me.owner.addCls('neo-responsive')
+        me.owner.addCls('neo-responsive');
 
         Neo.first('viewport').addDomListeners([
             {resize: me.onResize, scope: me}
@@ -56,11 +54,15 @@ class Responsive extends BasePlugin {
 
         me.addToResponsiveMap(me.defaultResponsiveConfig, me);
         me.addToResponsiveMap(me.owner.responsiveConfig || {}, me.owner);
-        me.handleBodyCls();
+        me.handleBodyCls()
     }
 
+    /**
+     * @param responsiveObj
+     * @param scope
+     */
     addToResponsiveMap(responsiveObj, scope) {
-        for (let [key, value] of Object.entries(responsiveObj)) {
+        for (const [key, value] of Object.entries(responsiveObj)) {
             let fn;
 
             if (Neo.isObject(value)) {
@@ -72,15 +74,17 @@ class Responsive extends BasePlugin {
                               testConfig = subKey.substring(3).toLowerCase();
 
                         if (isMin) {
-                            returnBool = rect[testConfig] >= subValue;
+                            returnBool = rect[testConfig] >= subValue
                         } else {
-                            returnBool = rect[testConfig] <= subValue;
+                            returnBool = rect[testConfig] <= subValue
                         }
 
-                        if (!returnBool) break;
+                        if (!returnBool) {
+                            break
+                        }
                     }
 
-                    return returnBool;
+                    return returnBool
                 }
             } else {
                 fn = value
@@ -88,7 +92,30 @@ class Responsive extends BasePlugin {
 
             fn = fn.bind(scope);
 
-            Neo.Responsive.responsiveConfig.set(key, fn);
+            Neo.Responsive.responsiveConfig.set(key, fn)
+        }
+    }
+
+    /**
+     *
+     */
+    handleBodyCls() {
+        const
+            me        = this,
+            {appName} = me.owner,
+            apps      = Neo.Responsive.apps;
+
+        if (!apps[appName]?.activeBodyUpdate) {
+            const viewport = Neo.first('viewport'); // todo
+
+            apps[appName] = {
+                appId           : viewport.id,
+                activeBodyUpdate: true
+            };
+
+            viewport.addDomListeners([
+                {resize: me.onResizeBody, scope: me}
+            ])
         }
     }
 
@@ -119,25 +146,6 @@ class Responsive extends BasePlugin {
         }
 
         Object.keys(config).length > 0 && owner.set(config)
-    }
-
-    handleBodyCls() {
-        const me      = this,
-              appName = me.owner.appName,
-              apps    = Neo.Responsive.apps;
-
-        if (!apps[appName]?.activeBodyUpdate) {
-            const viewport = Neo.first('viewport'); // todo
-
-            apps[appName] = {
-                appId           : viewport.id,
-                activeBodyUpdate: true,
-            };
-
-            viewport.addDomListeners([
-                {resize: me.onResizeBody, scope: me}
-            ]);
-        }
     }
 
     /**
