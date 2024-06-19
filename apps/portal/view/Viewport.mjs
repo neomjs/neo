@@ -29,6 +29,10 @@ class Viewport extends BaseViewport {
          */
         controller: ViewportController,
         /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -51,6 +55,10 @@ class Viewport extends BaseViewport {
          */
         model: ViewportModel,
         /**
+         * @member {Boolean} monitorSize=true
+         */
+        monitorSize: true,
+        /**
          * Values are: large, medium, small, xSmall
          * @member {String|null} size_=null
          */
@@ -62,7 +70,10 @@ class Viewport extends BaseViewport {
      */
     construct(config) {
         super.construct(config);
-        this.addDomListeners([{resize: this.onResize, scope: this}])
+
+        let me = this;
+
+        me.on('resize', me.onResize, me)
     }
 
     /**

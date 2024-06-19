@@ -163,15 +163,10 @@ class MonacoEditor extends Base {
             let me = this;
 
             Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
-                Neo.main.addon.ResizeObserver.register({
-                    id      : me.id,
-                    windowId: me.windowId
-                });
-
                 // use this custom method as needed inside your class extensions
                 me.onEditorMounted?.()
             })
-        }, 50)
+        }, 150)
     }
 
     /**

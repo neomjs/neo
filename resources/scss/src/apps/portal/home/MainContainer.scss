@@ -1,24 +1,50 @@
-.newwebsite-viewport {
-    gap       : 48px;
-    overflow-y: scroll;
-    padding   : 5%;
-}
+.portal-home-maincontainer {
+    overflow-x      : hidden!important;
+    scroll-behavior : smooth;
+    scroll-snap-type: y mandatory;
 
-.button-group {
-    gap: 8px !important;
-}
+    .page {
+        min-height       : 100%;
+        scroll-snap-align: center;
 
-.neo-h1 {
-    font-size  : 48px;
-    font-weight: 600;
-    text-align : center;
-}
+        .neo-h1 {
+            font-size: min(max(5.5vw, 30px), 64px);
+        }
 
-.vector {
-    background-image   : url("../../../../../../../resources/images/Neo_Vector.svg");
-    background-position: center center;
-    background-repeat  : no-repeat;
-    background-size    : contain;
-    height             : 150px;
-    width              : 100%;
+        .neo-h2 {
+            font-size: min(max(3.5vw, 24px), 44px);
+        }
+
+        .neo-content {
+            font-size: min(max(2.3vw, 16px), 30px);
+        }
+
+        .page-live-preview {
+            margin: 0;
+        }
+    }
+
+    .button-group {
+        display       : flex !important;
+        flex-direction: row-reverse !important;
+        gap           : 8px !important;
+    }
+
+    .neo-h1 {
+        font-size    : 32px;
+        font-weight  : 600;
+        text-align   : center;
+        margin-bottom: 1.25em;
+    }
+
+    .vector {
+        background-image   : url("../../../../../../../resources/images/Neo_Logo_Text.svg");
+        background-position: center center;
+        background-repeat  : no-repeat;
+        background-size    : contain;
+        height             : 10vW;
+        margin             : 0 0 3rem 0;
+        max-height         : 130px;
+        width              : 100%;
+    }
 }

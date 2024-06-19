@@ -136,18 +136,18 @@ class Base extends Component {
 
     /**
      * @param {Neo.layout.Base} value
-     * @param {Neo.layout.Base} oldValue
+     * @param {Neo.layout.Base|null} oldValue
      * @protected
      */
     afterSetLayout(value, oldValue) {
         let me = this;
 
         if (me.rendered) {
-            oldValue.removeRenderAttributes();
+            oldValue?.removeRenderAttributes();
             value.applyRenderAttributes();
 
             me.items.forEach((item, index) => {
-                oldValue.removeChildAttributes(item, index);
+                oldValue?.removeChildAttributes(item, index);
                 value.applyChildAttributes(item, index)
             })
         }
@@ -377,7 +377,7 @@ class Base extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                layout.applyChildAttributes(item, index)
+                layout?.applyChildAttributes(item, index)
             }
 
             itemsRoot.cn.push(item.vdom)
@@ -581,7 +581,7 @@ class Base extends Component {
 
         // in case the Container does not have a layout config, the setter won't trigger
         me._layout = me.createLayout(me.layout);
-        me._layout.applyRenderAttributes();
+        me._layout?.applyRenderAttributes();
 
         super.onConstructed();
 

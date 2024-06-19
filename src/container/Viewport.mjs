@@ -30,7 +30,29 @@ class Viewport extends Container {
         /**
          * @member {String[]} baseCls=['neo-viewport']
          */
-        baseCls: ['neo-viewport']
+        baseCls: ['neo-viewport'],
+        /**
+         * true applies a main.addon.ResizeObserver and fires a custom resize event
+         * which other instances can subscribe to.
+         * @member {Boolean} monitorSize_=false
+         */
+        monitorSize_: false
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (value && me.monitorSize) {
+            me.addDomListeners([{resize: me.onDomResize, scope: me}])
+        }
     }
 
     /**
@@ -46,6 +68,13 @@ class Viewport extends Container {
             cls: ['neo-body-viewport'],
             windowId
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDomResize(data) {
+        this.fire('resize', data)
     }
 }
 
