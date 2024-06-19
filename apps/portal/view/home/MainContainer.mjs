@@ -39,11 +39,7 @@ class MainContainer extends Container {
 
         domListeners: [{
             scroll(event) {
-                if (event.scrollTop > 80) {
-                    this.addCls('hide-sidebar')
-                } else {
-                    this.removeCls('hide-sidebar')
-                }
+                this.toggleCls('hide-sidebar', event.scrollTop > 80)
             }
         }]
     }
