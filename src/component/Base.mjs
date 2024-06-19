@@ -839,6 +839,31 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the responsive config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    async afterSetResponsive(value, oldValue) {
+        if (!value) {
+            return
+        }
+
+        let me      = this,
+            module  = await import(`../../src/plugin/Responsive.mjs`),
+            plugins = me.plugins || [];
+
+        plugins.push({
+            module : module.default,
+            appName: me.appName,
+            id     : 'responsive',
+            value
+        });
+
+        me.plugins = plugins
+    }
+
+    /**
      * Triggered after the role config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -1009,7 +1034,7 @@ class Base extends CoreBase {
      */
     afterSetWrapperCls(value, oldValue) {
         oldValue = oldValue || [];
-        value = value || [];
+        value    = value    || [];
 
         let me       = this,
             vdom     = me.vdom,
@@ -1065,7 +1090,7 @@ class Base extends CoreBase {
      * @param {Object} spec={}
      * @returns {Promise<void>}
      */
-    async alignTo(spec = {}) {
+    async alignTo(spec={}) {
         const
             me    = this,
             align = {
@@ -1082,7 +1107,7 @@ class Base extends CoreBase {
             };
 
         if (align.target) {
-            await Neo.main.DomAccess.align(align);
+            await Neo.main.DomAccess.align(align)
         }
     }
 
@@ -1284,31 +1309,6 @@ class Base extends CoreBase {
         }
 
         return value
-    }
-
-    /**
-     * Triggered when accessing the style config
-     * @param {Object} value
-     * @protected
-     */
-    async afterSetResponsive(value) {
-        if (!value) return;
-
-        let me      = this,
-            plugins = me.plugins || [];
-
-        const module = await import(`../../src/plugin/Responsive.mjs`);
-
-        plugins.push({
-            module : module.default,
-            appName: me.appName,
-            id     : 'responsive',
-            value
-        });
-
-        me.plugins = plugins;
-
-        return {...value}
     }
 
     /**
