@@ -39,9 +39,10 @@ class Responsive extends BasePlugin {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me      = this,
+            {owner} = me;
 
-        me.owner.addCls('neo-responsive');
+        owner.addCls('neo-responsive');
 
         Neo.first('viewport').addDomListeners([
             {resize: me.onResize, scope: me}
@@ -53,7 +54,7 @@ class Responsive extends BasePlugin {
         };
 
         me.addToResponsiveMap(me.defaultResponsiveConfig, me);
-        me.addToResponsiveMap(me.owner.responsiveConfig || {}, me.owner);
+        me.addToResponsiveMap(owner.responsiveConfig || {}, owner);
         me.handleBodyCls()
     }
 
