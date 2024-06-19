@@ -1,6 +1,7 @@
 import AfterMath  from './parts/AfterMath.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import CoolStuff  from './parts/CoolStuff.mjs';
+import Features   from './parts/Features.mjs';
 import HelloWorld from './parts/HelloWorld.mjs';
 import MainNeo    from './parts/MainNeo.mjs';
 
@@ -28,6 +29,7 @@ class MainContainer extends Container {
                 id   : 'progress'
             },
             MainNeo,
+            Features,
             HelloWorld,
             CoolStuff,
             AfterMath
