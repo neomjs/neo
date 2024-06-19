@@ -855,25 +855,34 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetScrollable(value, oldValue) {
-        if (oldValue === undefined && !value) return;
+        if (oldValue === undefined && !value) {
+            return
+        }
+
+        let me = this;
 
         if (oldValue) {
             let oldOverflowKey = 'overflow';
 
-            if (typeof oldValue !== 'boolean') oldOverflowKey = oldOverflowKey + Neo.capitalize(oldValue);
-            this.removeStyle([oldOverflowKey]);
+            if (!Neo.isBoolean(oldValue)) {
+                oldOverflowKey += Neo.capitalize(oldValue)
+            }
+
+            me.removeStyle([oldOverflowKey])
         }
 
         if (!Neo.isEmpty(value)) {
             let overflowKey = 'overflow';
 
-            if (value && typeof value !== 'boolean') overflowKey = overflowKey + Neo.capitalize(value);
+            if (value && !Neo.isBoolean(value)) {
+                overflowKey += Neo.capitalize(value)
+            }
 
             if (value) {
-                this.addStyle(overflowKey + ':auto');
-                this.addCls('neo-scrollable');
+                me.addStyle(overflowKey + ':auto');
+                me.addCls('neo-scrollable')
             } else {
-                this.removeCls('neo-scrollable');
+                me.removeCls('neo-scrollable')
             }
         }
     }
