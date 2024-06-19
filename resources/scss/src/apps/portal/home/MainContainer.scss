@@ -1,5 +1,5 @@
 .portal-home-maincontainer {
-    overflow-x: hidden!important;
+    overflow-x      : hidden!important;
     scroll-behavior : smooth;
     scroll-snap-type: y mandatory;
 
@@ -47,9 +47,5 @@
         margin             : 0 0 3rem 0;
         max-height         : 130px;
         width              : 100%;
-    }
-
-    .get-started-button {
-        cursor: not-allowed !important;
     }
 }

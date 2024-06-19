@@ -27,11 +27,6 @@ class MainNeo extends Container {
             cls : 'neo-h1',
             flex: 'none',
             html: 'The High-Performance Web Framework for Next Generation Interfaces'
-            // }, {
-            //     cls : 'neo-h2',
-            //     flex: 'none',
-            //     html: 'This is a perfect subline',
-            //     // height: 200
         }, {
             module: Container,
             cls   : ['button-group'],
@@ -39,17 +34,13 @@ class MainNeo extends Container {
 
             items: [{
                 module : Button,
-                cls    : 'get-started-button',
+                cls    : ['get-started-button'],
                 text   : 'Get started',
                 flex   : 'none',
-                tooltip: {
-                    text     : 'Coming soon',
-                    showDelay: 0,
-                    hideDelay: 0
-                }
+                route : '/learn'
             }, {
                 module: Button,
-                cls   : 'neo-github',
+                cls   : ['neo-github'],
                 flex  : 'none',
                 text  : 'View on GitHub',
                 ui    : 'secondary',
