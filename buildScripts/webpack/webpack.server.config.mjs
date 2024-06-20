@@ -2,6 +2,9 @@ export default {
     mode: 'production',
 
     devServer: {
-        static: process.cwd()
+        static: {
+            directory: process.cwd(),
+            watch    : false
+        }
     }
 };

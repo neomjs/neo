@@ -208,9 +208,9 @@ class Logger extends Base {
             } else if (Neo.isObject(identifier)) {
                 argsObject = identifier
             }
-        } else if (args.length === 2) {
+        } else if (args.length > 2) {
             argsObject.msg  = args[0];
-            argsObject.data = args[1]
+            argsObject.data = args.slice(1);
         }
 
         return argsObject
@@ -236,7 +236,7 @@ class Logger extends Base {
         if (me.beforeSetLevel(level) < me.level) {
             return
         }
-
+console.log('#', args.msg, level)
         let logColor = me.logColors[level],
             logChar  = me.logChars[level],
             bg       = `background-color:${logColor}; color: white; font-weight: 900;`,

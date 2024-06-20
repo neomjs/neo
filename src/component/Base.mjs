@@ -52,8 +52,8 @@ class Base extends CoreBase {
          * @member {Object|String} align_={edgeAlign:'t-b',constrainTo:'document.body'}
          */
         align_: {
-            edgeAlign   : 't-b',
-            constrainTo : 'document.body'
+            edgeAlign  : 't-b',
+            constrainTo: 'document.body'
         },
         /**
          * The name of the App this component belongs to
@@ -289,6 +289,13 @@ class Base extends CoreBase {
          */
         reference_: null,
         /**
+         * Make the view Responsive by adding alternative configs.
+         * The definition happens via responsiveCfg
+         * @member {Object} responsive=null
+         * @protected
+         */
+        responsive_: null,
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
@@ -300,6 +307,13 @@ class Base extends CoreBase {
          * @member {String|null} role_=null
          */
         role_: null,
+        /**
+         * Set this to true for style 'overflow:auto'.
+         * Set this to 'x' or 'y' to add style 'overflow-x' or 'overflow-y' to 'auto'
+         * Other than false this will add cls 'neo-scrollable'.
+         * @member {Boolean|"x"|"y"} scrollable_=false
+         */
+        scrollable_: false,
         /**
          * Set this to true for bulk updates. Ensure to set it back to false afterwards.
          * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
@@ -694,8 +708,8 @@ class Base extends CoreBase {
      */
     afterSetIsLoading(value, oldValue) {
         if (!(value === false && oldValue === undefined)) {
-            let me            = this,
-                { cls, vdom } = me,
+            let me          = this,
+                {cls, vdom} = me,
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
@@ -780,7 +794,8 @@ class Base extends CoreBase {
      */
     afterSetMounted(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
+            let me             = this,
+                {id, windowId} = me;
 
             if (value) {
                 me.hasBeenMounted = true;
@@ -789,7 +804,7 @@ class Base extends CoreBase {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
                         DomEventManager.mountDomListeners(me)
-                    }, 100)
+                    }, 150)
                 }
 
                 me.doResolveUpdateCache();
@@ -798,16 +813,12 @@ class Base extends CoreBase {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    Neo.main.DomAccess.focus({
-                        id       : this.id,
-                        children : true
-                    });
+                    Neo.main.DomAccess.focus({id, children: true, windowId})
                 }
 
                 me.fire('mounted', me.id)
-            }
-            else {
-                me.revertFocus();
+            } else {
+                me.revertFocus()
             }
         }
     }
@@ -823,6 +834,31 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the responsive config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    async afterSetResponsive(value, oldValue) {
+        if (!value) {
+            return
+        }
+
+        let me      = this,
+            module  = await import(`../../src/plugin/Responsive.mjs`),
+            plugins = me.plugins || [];
+
+        plugins.push({
+            module : module.default,
+            appName: me.appName,
+            id     : 'responsive',
+            value
+        });
+
+        me.plugins = plugins
+    }
+
+    /**
      * Triggered after the role config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -830,6 +866,45 @@ class Base extends CoreBase {
      */
     afterSetRole(value, oldValue) {
         this.changeVdomRootKey('role', value)
+    }
+
+    /**
+     * Triggered after the scrollable config got changed
+     * @param {String|Boolean} value
+     * @param {String|Boolean|null} oldValue
+     * @protected
+     */
+    afterSetScrollable(value, oldValue) {
+        if (oldValue === undefined && !value) {
+            return
+        }
+
+        let me = this;
+
+        if (oldValue) {
+            let oldOverflowKey = 'overflow';
+
+            if (!Neo.isBoolean(oldValue)) {
+                oldOverflowKey += Neo.capitalize(oldValue)
+            }
+
+            me.removeStyle([oldOverflowKey])
+        }
+
+        if (!Neo.isEmpty(value)) {
+            let overflowKey = 'overflow';
+
+            if (value && !Neo.isBoolean(value)) {
+                overflowKey += Neo.capitalize(value)
+            }
+
+            if (value) {
+                me.addStyle(overflowKey + ':auto');
+                me.addCls('neo-scrollable')
+            } else {
+                me.removeCls('neo-scrollable')
+            }
+        }
     }
 
     /**
@@ -1022,18 +1097,18 @@ class Base extends CoreBase {
             align = {
                 ...me.align,
                 ...spec,
-                id                  : me.id,
-                configuredFlex      : me.configuredFlex,
-                configuredWidth     : me.configuredWidth,
-                configuredHeight    : me.configuredHeight,
-                configuredMinWidth  : me.configuredMinWidth,
-                configuredMinHeight : me.configuredMinHeight,
-                configuredMaxWidth  : me.configuredMaxWidth,
-                configuredMaxHeight : me.configuredMaxHeight
+                id                 : me.id,
+                configuredFlex     : me.configuredFlex,
+                configuredWidth    : me.configuredWidth,
+                configuredHeight   : me.configuredHeight,
+                configuredMinWidth : me.configuredMinWidth,
+                configuredMinHeight: me.configuredMinHeight,
+                configuredMaxWidth : me.configuredMaxWidth,
+                configuredMaxHeight: me.configuredMaxHeight
             };
 
         if (align.target) {
-            await Neo.main.DomAccess.align(align);
+            await Neo.main.DomAccess.align(align)
         }
     }
 
@@ -1081,7 +1156,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetWrapperCls(value) {
-        return value ? [...value]: []
+        return value ? [...value] : []
     }
 
     /**
@@ -1168,7 +1243,7 @@ class Base extends CoreBase {
      * @returns {String}
      * @protected
      */
-     beforeSetHideMode(value, oldValue) {
+    beforeSetHideMode(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'hideMode')
     }
 
@@ -1185,8 +1260,8 @@ class Base extends CoreBase {
 
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
-                keyDownEventBubble : true,
-                keys: value
+                keyDownEventBubble: true,
+                keys              : value
             })
         }
 
@@ -1306,10 +1381,9 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me          = this,
-            parentId    = me.parentId,
-            parent      = Neo.getComponent(parentId),
-            parentModel = parent?.getModel(),
+        let me                 = this,
+            {parent, parentId} = me,
+            parentModel        = parent?.getModel(),
             parentVdom;
 
         me.revertFocus();
@@ -1426,7 +1500,8 @@ class Base extends CoreBase {
      */
     focus(id=this.id) {
         Neo.main.DomAccess.focus({
-            id
+            id,
+            windowId: this.id
         }).catch(err => {
             console.log('Error attempting to receive focus for component', err, this)
         })
@@ -1490,7 +1565,7 @@ class Base extends CoreBase {
      * @returns {Promise<Neo.util.Rectangle>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
-        const result = await Neo.main.DomAccess.getBoundingClientRect({appName, id});
+        const result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))
@@ -1666,8 +1741,8 @@ class Base extends CoreBase {
         let me = this;
 
         if (me.hideMode !== 'visibility') {
-            let removeFn = function() {
-                if(me.parentId !== 'document.body') {
+            let removeFn = function () {
+                if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
                     me.parent.update()
                 } else {
@@ -1750,13 +1825,12 @@ class Base extends CoreBase {
     async measure(value) {
         if (value != null) {
             if (value.endsWith('px')) {
-                value = parseFloat(value);
-            }
-            else if (lengthRE.test(value)) {
-                value = await Neo.main.DomAccess.measure({ value, id : this.id });
-            }
-            else if (!isNaN(value)) {
-                value = parseFloat(value);
+                value = parseFloat(value)
+            } else if (lengthRE.test(value)) {
+                let {id, windowId} = this;
+                value = await Neo.main.DomAccess.measure({id, value, windowId})
+            } else if (!isNaN(value)) {
+                value = parseFloat(value)
             }
         }
 
@@ -1783,7 +1857,7 @@ class Base extends CoreBase {
 
         if (config.style) {
             // If we are passed an object, merge it with the class's own style
-            me.style = Neo.typeOf(config.style) === 'Object' ? { ...config.style, ...me.constructor.config.style } : config.style;
+            me.style = Neo.typeOf(config.style) === 'Object' ? {...config.style, ...me.constructor.config.style} : config.style
         }
 
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
@@ -1924,8 +1998,8 @@ class Base extends CoreBase {
      * @protected
      */
     onRender(data, autoMount) {
-        let me  = this,
-            app = me.app;
+        let me    = this,
+            {app} = me;
 
         me.rendering = false;
 
@@ -1933,15 +2007,15 @@ class Base extends CoreBase {
         if (app) {
             if (!app.rendered) {
                 app.rendering = false;
-                app.rendered  = true;
+                app.rendered = true;
                 app.fire('render')
             }
 
             me.vnode = data;
 
-            let childIds  = ComponentManager.getChildIds(data),
-                i         = 0,
-                len       = childIds.length,
+            let childIds = ComponentManager.getChildIds(data),
+                i        = 0,
+                len      = childIds.length,
                 child;
 
             for (; i < len; i++) {
@@ -1974,7 +2048,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
-    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
+    promiseUpdate(vdom = this.vdom, vnode = this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -1999,8 +2073,8 @@ class Base extends CoreBase {
             value = [value];
         }
 
-        let me           = this,
-            domListeners = me.domListeners,
+        let me             = this,
+            {domListeners} = me,
             i, len;
 
         value.forEach(item => {
@@ -2024,14 +2098,14 @@ class Base extends CoreBase {
      * @returns {Object} all styles of this.el
      */
     removeStyle(value) {
-        if (typeof value === 'string') {
-            value = [value];
+        if (!Array.isArray(value)) {
+            value = [value]
         }
 
-        let style    = this.style,
+        let {style}  = this,
             doUpdate = false;
 
-        Object.entries(style).forEach(key => {
+        Object.keys(style).forEach(key => {
             if (value.indexOf(key) > -1) {
                 delete style[key];
                 doUpdate = true
@@ -2157,7 +2231,7 @@ class Base extends CoreBase {
      * Convenience shortcut calling set() with the silent flag
      * @param {Object} values={}
      */
-    setSilent(values={}) {
+    setSilent(values = {}) {
         return this.set(values, true)
     }
 
@@ -2174,7 +2248,7 @@ class Base extends CoreBase {
 
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
-            } else if(me.parentId !== 'document.body') {
+            } else if (me.parentId !== 'document.body') {
                 me.parent.update()
             } else {
                 !me.mounted && me.render(true)
@@ -2194,7 +2268,7 @@ class Base extends CoreBase {
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
+    syncVdomIds(vnode = this.vnode, vdom = this.vdom, force = false) {
         VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
@@ -2250,19 +2324,14 @@ class Base extends CoreBase {
                 else if (index === 0 && me.vnode.outerHTML) {
                     // console.log('dyn item', me.vnode, me.parentIndex);
                     component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode)
-                }
-
-                else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
+                } else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
                     // todo: can happen for dynamically inserted container items
                     // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
                 }
             }
         });
 
-        if (debug) {
-            let end = performance.now();
-            console.log('syncVnodeTree', me.id, end - start)
-        }
+        debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
 
     /**
@@ -2316,7 +2385,7 @@ class Base extends CoreBase {
      */
     updateCls(cls, oldCls, id=this.id) {
         let me          = this,
-            vnode       = me.vnode,
+            {vnode}     = me,
             vnodeTarget = vnode && VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
 
         if (vnode && !Neo.isEqual(cls, oldCls)) {
@@ -2396,9 +2465,8 @@ class Base extends CoreBase {
      * @protected
      */
     updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
-        let me      = this,
-            app     = me.app,
-            mounted = me.mounted,
+        let me                       = this,
+            {app, mounted, parentId} = me,
             listenerId;
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
@@ -2437,8 +2505,8 @@ class Base extends CoreBase {
                 }
 
                 if (
-                    !me.needsParentUpdate(me.parentId, resolve)
-                    && !me.isParentVdomUpdating(me.parentId, resolve)
+                    !me.needsParentUpdate(parentId, resolve)
+                    && !me.isParentVdomUpdating(parentId, resolve)
                     && mounted
                     && vnode
                 ) {

@@ -137,7 +137,7 @@ class LivePreview extends Container {
             } else if (line.match(exportRegex)) {
                 // Skip export statements
             } else {
-                cleanLines.push(line);
+                cleanLines.push(`    ${line}`);
             }
         });
 
@@ -161,21 +161,23 @@ class LivePreview extends Container {
 
         let promises = moduleNameAndPath.map(item => {
             params.push(`${item.moduleName}Module`);
-            vars.push(`const ${item.moduleName} = ${item.moduleName}Module.default`);
-            return `import("${item.path}")`
+            vars.push(`    const ${item.moduleName} = ${item.moduleName}Module.default;`);
+            return `import('${item.path}')`
         });
 
-        const codeString = `
-            Promise.all([
-                ${promises.join(',\n')}
-            ])
-            .then(([${params.join(', ')}]) => {
-                    ${vars.join('\n')}
-                    ${cleanLines.join('\n')}
-                    if (${className} && Neo.component.Base.isPrototypeOf(${className})) container.add({module:${className}});
-                })
-            .catch(error=>container.add({ntype:'component',html:error.message}));
-        `;
+        const codeString = [
+            'Promise.all([',
+            `    ${promises.join(',\n')}`,
+            `]).then(([${params.join(', ')}]) => {`,
+            `${vars.join('\n')}`,
+            `    ${cleanLines.join('\n')}`,
+            '',
+            `    if (${className} && Neo.component.Base.isPrototypeOf(${className})) {`,
+            `        container.add({module:${className}})`,
+            '    }',
+            '})',
+            '.catch(error => container.add({ntype:\'component\', html:error.message}));'
+        ].join('\n')
 
         const container = me.getPreviewContainer();
         container.removeAll();

@@ -1,12 +1,15 @@
-import Button     from '../../../../src/button/Base.mjs';
+import AfterMath  from './parts/AfterMath.mjs';
 import Container  from '../../../../src/container/Base.mjs';
-import ContentBox from './ContentBox.mjs';
+import CoolStuff  from './parts/CoolStuff.mjs';
+import Features   from './parts/Features.mjs';
+import HelloWorld from './parts/HelloWorld.mjs';
+import MainNeo    from './parts/MainNeo.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
  * @extends Neo.container.Base
  */
-class Viewport extends Container {
+class MainContainer extends Container {
     static config = {
         /**
          * @member {String} className='Portal.view.home.MainContainer'
@@ -14,71 +17,36 @@ class Viewport extends Container {
          */
         className: 'Portal.view.home.MainContainer',
         /**
-         * @member {String[]} cls=['newwebsite-viewport']
+         * @member {String[]} cls=['portal-home-maincontainer']
          */
-        cls: ['newwebsite-viewport'],
-        /**
-         * @member {Object} layout={ntype:'vbox',align:'center',pack:'center'}
-         */
-        layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+        cls: ['portal-home-maincontainer'],
         /**
          * @member {Object[]} items
          */
-        items: [{
-            cls  : ['vector'],
-            flex : 'none'
-        }, {
-            cls : 'neo-h1',
-            flex: 'none',
-            html: 'The High-Performance Web Framework for Next Generation Interfaces'
-        }, {
-            module: Container,
-            cls   : ['button-group'],
-            flex  : 'none',
-            layout: {ntype: 'hbox'},
+        items: [
+            {
+                ntype: 'component',
+                id   : 'progress'
+            },
+            MainNeo,
+            Features,
+            HelloWorld,
+            CoolStuff,
+            AfterMath
+        ],
+        /**
+         * @member {Boolean} scrollable=true
+         */
+        scrollable: true,
 
-            items: [{
-                module: Button,
-                flex  : 'none',
-                text  : 'View on GitHub',
-                ui    : 'secondary',
-                url   : 'https://github.com/neomjs/neo'
-            }, {
-                module: Button,
-                flex  : 'none',
-                text  : 'Get started',
-                route : '/learn'
-            }]
-        }, {
-            module: Container,
-            flex  : '1 0 auto',
-            layout: {ntype: 'hbox', align: 'stretch'},
-
-            items: [{
-                module: ContentBox,
-                header: 'Next-Generation Runtime',
-                route : '#/learn/WhyNeo-Quick',
-
-                content: [
-                    'Multi-threaded',
-                    'Elegant state management',
-                    'Simple and powerful debugging'
-                ]
-            }, {
-                module: ContentBox,
-                header: 'Extreme Speed',
-                route : '#/learn/WhyNeo-Speed',
-
-                content: [
-                    'Multi-threaded',
-                    'Over 40,000 delta updates per second',
-                    'Item 3'
-                ]
-            }]
+        domListeners: [{
+            scroll(event) {
+                this.toggleCls('hide-sidebar', event.scrollTop > 80)
+            }
         }]
     }
 }
 
-Neo.setupClass(Viewport);
+Neo.setupClass(MainContainer);
 
-export default Viewport;
+export default MainContainer;

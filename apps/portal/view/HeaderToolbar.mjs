@@ -26,9 +26,12 @@ class HeaderToolbar extends Base {
          * @member {Object[]} items
          */
         items: [{
-            cls  : ['logo'],
-            route: '/home',
-            text : 'neo.mjs'
+            cls     : ['logo'],
+            id      : 'neo-logo-button',
+            minWidth: 60,
+            iconCls : 'neo-logo-blue',
+            route   : '/home',
+            text    : 'neo.mjs'
         }, '->', {
             text : 'Learn',
             route: '/learn'
@@ -40,30 +43,44 @@ class HeaderToolbar extends Base {
             text : 'Docs',
             route: '/docs'
         }, {
-            cls    : ['github-button'],
-            iconCls: 'fa-brands fa-github',
-            url    : 'https://github.com/neomjs/neo',
-            tooltip: {
-                html     : 'GitHub',
-                showDelay: '0',
-                hideDelay: '0'
-            }
-        }, {
-            iconCls: 'fa-brands fa-slack',
-            url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
-            tooltip: {
-                html     : 'Join Slack',
-                showDelay: '0',
-                hideDelay: '0'
-            }
-        }, {
-            iconCls: 'fa-brands fa-discord',
-            url    : 'https://discord.gg/6p8paPq',
-            tooltip: {
-                html     : 'Join Discord',
-                showDelay: '0',
-                hideDelay: '0'
-            }
+            ntype : 'container',
+            layout: 'hbox',
+
+            responsive: {
+                medium: { cls: ['separate-bar'], layout: 'vbox' },
+                large : { cls: ['inline'],       layout: 'hbox' }
+            },
+
+            itemDefaults: {
+                ntype: 'button',
+                ui   : 'ghost'
+            },
+
+            items: [{
+                iconCls: 'fa-brands fa-github',
+                url    : 'https://github.com/neomjs/neo',
+                tooltip: {
+                    html     : 'GitHub',
+                    showDelay: '0',
+                    hideDelay: '0'
+                }
+            }, {
+                iconCls: 'fa-brands fa-slack',
+                url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+                tooltip: {
+                    html     : 'Join Slack',
+                    showDelay: '0',
+                    hideDelay: '0'
+                }
+            }, {
+                iconCls: 'fa-brands fa-discord',
+                url    : 'https://discord.gg/6p8paPq',
+                tooltip: {
+                    html     : 'Join Discord',
+                    showDelay: '0',
+                    hideDelay: '0'
+                }
+            }]
         }]
     }
 }
