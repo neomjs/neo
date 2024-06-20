@@ -840,22 +840,19 @@ class Base extends CoreBase {
      * @protected
      */
     async afterSetResponsive(value, oldValue) {
-        if (!value) {
-            return
+        if (value && !this.getPlugin('responsive')) {
+            let me      = this,
+                module  = await import(`../../src/plugin/Responsive.mjs`),
+                plugins = me.plugins || [];
+
+            plugins.push({
+                module : module.default,
+                appName: me.appName,
+                value
+            });
+
+            me.plugins = plugins
         }
-
-        let me      = this,
-            module  = await import(`../../src/plugin/Responsive.mjs`),
-            plugins = me.plugins || [];
-
-        plugins.push({
-            module : module.default,
-            appName: me.appName,
-            id     : 'responsive',
-            value
-        });
-
-        me.plugins = plugins
     }
 
     /**
