@@ -1637,7 +1637,13 @@ class Base extends CoreBase {
      * @returns {Neo.plugin.Base|null}
      */
     getPlugin(opts) {
-        opts = typeof opts !== 'string' ? opts : {id: opts};
+        if (Neo.isString(opts)) {
+            if (!opts.startsWith('plugin-')) {
+                opts = 'plugin-' + opts
+            }
+
+            opts = {ntype: opts}
+        }
 
         let me = this,
             hasMatch;

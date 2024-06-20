@@ -17,6 +17,11 @@ class DragDrop extends Base {
          */
         className: 'Neo.calendar.view.week.plugin.DragDrop',
         /**
+         * @member {String} ntype='plugin-calendar-week-dragdrop'
+         * @protected
+         */
+        ntype: 'plugin-calendar-week-dragdrop',
+        /**
          * @member {Boolean} isDragging=false
          * @protected
          */
@@ -148,7 +153,7 @@ class DragDrop extends Base {
                 style: {opacity: 1}
             }).then(() => {
                 owner.eventDragZone.dragEnd();
-                owner.getPlugin({flag:'resizable'}).onDragEnd(data);
+                owner.getPlugin('calendar-week-eventresizable').onDragEnd(data);
             });
         }
     }
@@ -217,7 +222,7 @@ class DragDrop extends Base {
                     proxyParentId                   : data.path[0].id
                 });
 
-                owner.getPlugin({flag:'resizable'}).onDragStart(data);
+                owner.getPlugin('calendar-week-eventresizable').onDragStart(data);
                 eventDragZone.dragStart(data);
 
                 setTimeout(() => {
@@ -242,7 +247,7 @@ class DragDrop extends Base {
 
             if (!me.isTopLevelEvent(data)) {
                 data = me.adjustResizeEvent(data);
-                owner.getPlugin({flag:'resizable'}).onDragEnd(data);
+                owner.getPlugin('calendar-week-eventresizable').onDragEnd(data);
             } else {
                 owner.eventDragZone.removeBodyCursorCls();
             }
@@ -297,7 +302,7 @@ class DragDrop extends Base {
             if (isTopLevelEvent) {
                 eventDragZone.addBodyCursorCls();
             } else {
-                owner.getPlugin({flag:'resizable'}).onDragStart(data);
+                owner.getPlugin('calendar-week-eventresizable').onDragStart(data);
             }
 
             eventDragZone.dragStart(data);

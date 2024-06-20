@@ -355,27 +355,24 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEnableDrag(value, oldValue) {
-        let me = this;
-
-        if (value && !me.getPlugin({flag: 'dragdrop'})) {
+        if (value && !this.getPlugin('calendar-week-dragdrop')) {
             Promise.all([
                 import('./plugin/DragDrop.mjs'),
                 import('./plugin/EventResizable.mjs')
             ]).then(modules => {
-                let me      = this,
-                    plugins = me.plugins || [];
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
 
                 plugins.push({
                     module : modules[0].default,
-                    appName: me.appName,
-                    flag   : 'dragdrop',
+                    appName,
                     ...me.pluginDragDropConfig
                 }, {
                     module       : modules[1].default,
-                    appName      : me.appName,
+                    appName,
                     delegationCls: 'neo-event',
                     directions   : ['b', 't'],
-                    flag         : 'resizable',
                     ...me.pluginEventResizableConfig
                 });
 

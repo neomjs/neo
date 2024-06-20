@@ -65,7 +65,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     changeTransitionDuration(data) {
-        this.getReference('list').getPlugin('animate').transitionDuration = data.value;
+        this.getReference('list').getPlugin('list-animate').transitionDuration = data.value;
     }
 }
 

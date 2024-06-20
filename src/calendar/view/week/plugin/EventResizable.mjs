@@ -10,7 +10,12 @@ class EventResizable extends Resizable {
          * @member {String} className='Neo.calendar.view.week.plugin.EventResizable'
          * @protected
          */
-        className: 'Neo.calendar.view.week.plugin.EventResizable'
+        className: 'Neo.calendar.view.week.plugin.EventResizable',
+        /**
+         * @member {String} ntype='plugin-calendar-week-eventresizable'
+         * @protected
+         */
+        ntype: 'plugin-calendar-week-eventresizable'
     }
 
     /**

@@ -195,19 +195,20 @@ class Base extends Component {
      * @protected
      */
     afterSetAnimate(value, oldValue) {
-        value && import('./plugin/Animate.mjs').then(module => {
-            let me      = this,
-                plugins = me.plugins || [];
+        if (value && !this.getPlugin('list-animate')) {
+            import('./plugin/Animate.mjs').then(module => {
+                let me      = this,
+                    plugins = me.plugins || [];
 
-            plugins.push({
-                module : module.default,
-                appName: me.appName,
-                id     : 'animate',
-                ...me.pluginAnimateConfig
-            });
+                plugins.push({
+                    module : module.default,
+                    appName: me.appName,
+                    ...me.pluginAnimateConfig
+                });
 
-            me.plugins = plugins
-        })
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
@@ -564,7 +565,7 @@ class Base extends Component {
             me.afterSetHeaderlessSelectedIndex(headerlessSelectedIndex, null)
         }
 
-        if (!(me.animate && !me.getPlugin('animate'))) {
+        if (!(me.animate && !me.getPlugin('list-animate'))) {
             vdom.cn = [];
 
             me.store.items.forEach((item, index) => {

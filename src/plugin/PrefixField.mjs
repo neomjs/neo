@@ -11,7 +11,6 @@ import Base from './Base.mjs';
  *         labelText: 'Credit Card',
  *         plugins  : [{
  *             module : PrefixPlugin, // import PrefixPlugin from '../../src/plugin/PrefixField.mjs';
- *             flag   : 'prefix',     // textField.getPlugins({flag: 'prefix'})
  *             pattern: 'dd/mm/yyyy',
  *             slots  : 'dmy',        // characters allowed to replace
  *             accept : /\d/          // either '[A-Z]' or regex or undefined
@@ -30,7 +29,6 @@ class PrefixField extends Base {
          * @protected
          */
         ntype: 'plugin-prefixfield',
-
         /**
          * Custom cls added to the inputEl
          * @member {String} inputCls='neo-prefixfield-input'

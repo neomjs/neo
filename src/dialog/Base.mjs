@@ -188,7 +188,7 @@ class Base extends Panel {
      */
     afterSetAppName(value, oldValue) {
         let me        = this,
-            resizable = me.getPlugin({flag: 'resizable'});
+            resizable = me.getPlugin('resizable');
 
         if (me.dragZone) {
             me.dragZone.appName = value
@@ -298,22 +298,22 @@ class Base extends Panel {
      * @protected
      */
     afterSetResizable(value, oldValue) {
-        value && import('../plugin/Resizable.mjs').then(module => {
-            let me      = this,
-                plugins = me.plugins || [];
+        if (value && !this.getPlugin('resizable')) {
+            import('../plugin/Resizable.mjs').then(module => {
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
 
-            if (!me.getPlugin({flag: 'resizable'})) {
                 plugins.push({
                     module       : module.default,
-                    appName      : me.appName,
+                    appName,
                     delegationCls: 'neo-dialog',
-                    flag         : 'resizable',
                     ...me.resizablePluginConfig
                 });
 
                 me.plugins = plugins
-            }
-        })
+            })
+        }
     }
 
     /**
@@ -666,7 +666,7 @@ class Base extends Panel {
         if (!me.maximized) {
             me.isDragging = true;
 
-            me.getPlugin({flag: 'resizable'})?.removeAllNodes();
+            me.getPlugin('resizable')?.removeAllNodes();
 
             if (!me.dragZone) {
                 me.dragZone = Neo.create({

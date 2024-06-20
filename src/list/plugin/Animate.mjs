@@ -21,6 +21,11 @@ class Animate extends Base {
          */
         className: 'Neo.list.plugin.Animate',
         /**
+         * @member {String} ntype='plugin-list-animate'
+         * @protected
+         */
+        ntype: 'plugin-list-animate',
+        /**
          * Read only
          * @member {Number|null} columns=null
          */
