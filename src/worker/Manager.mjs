@@ -157,13 +157,13 @@ class Manager extends Base {
      * @returns {SharedWorker|Worker}
      */
     createWorker(opts) {
-        let me       = this,
-            fileName = opts.fileName,
-            filePath = (opts.basePath || me.basePath) + fileName,
-            name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
-            isShared = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
-            cls      = isShared ? SharedWorker : Worker,
-            worker   = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+        let me         = this,
+            {fileName} = opts,
+            filePath   = (opts.basePath || me.basePath) + fileName,
+            name       = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
+            isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
+            cls        = isShared ? SharedWorker : Worker,
+            worker     = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                 ? new cls(filePath, {name: name, type: 'module'})
                 : new cls(filePath, {name: name});
 
@@ -179,10 +179,10 @@ class Manager extends Base {
      * Calls createWorker for each worker inside the this.workers config.
      */
     createWorkers() {
-        let me       = this,
-            config   = Neo.clone(NeoConfig, true),
-            hash     = location.hash,
-            windowId = me.windowId,
+        let me                   = this,
+            config               = Neo.clone(NeoConfig, true),
+            {hash, href, search} = location,
+            {windowId}           = me,
             key, value;
 
         // remove configs which are not relevant for the workers scope
@@ -193,14 +193,11 @@ class Manager extends Base {
             config.hash = {
                 hash      : DomEvents.parseHash(hash.substring(1)),
                 hashString: hash.substring(1),
-                windowId  : me.windowId
+                windowId
             }
         }
 
-        config.url = {
-            href  : location.href,
-            search: location.search
-        };
+        config.url = {href, search};
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||
@@ -298,7 +295,7 @@ class Manager extends Base {
      */
     onWorkerMessage(e) {
         let me       = this,
-            data     = e.data,
+            {data}   = e,
             transfer = null,
             promise;
 
@@ -351,12 +348,11 @@ class Manager extends Base {
 
         // only needed for SharedWorkers
         else if (dest === 'main' && action === 'registerAppName') {
-            me.appNames.push(data.appName);
+            let {appName} = data;
 
-            me.broadcast({
-                action : 'registerApp',
-                appName: data.appName
-            })
+            me.appNames.push(appName);
+
+            me.broadcast({action: 'registerApp', appName})
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {
@@ -371,7 +367,7 @@ class Manager extends Base {
      */
     promiseForwardMessage(data) {
         return new Promise((resolve, reject) => {
-            this.promises[data.replyId] = { data, reject, resolve }
+            this.promises[data.replyId] = {data, reject, resolve}
         })
     }
 
@@ -390,7 +386,7 @@ class Manager extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = { reject, resolve }
+            me.promises[msgId] = {reject, resolve}
         })
     }
 
@@ -399,11 +395,12 @@ class Manager extends Base {
      */
     resolveDomOperationPromise(replyId) {
         if (replyId) {
-            let promise = this.promises[replyId];
+            let {promises} = this,
+                promise    = promises[replyId];
 
             if (promise) {
                 promise.resolve(promise.data);
-                delete this.promises[replyId]
+                delete promises[replyId]
             }
         }
     }

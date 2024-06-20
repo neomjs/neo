@@ -168,12 +168,12 @@ class Component extends BaseComponent {
         ]);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            me.needsEventUpdate = true;
+            me.needsEventUpdate = true
         }
 
         me.needsEventUpdate && me.createContent(true);
 
-        me.updateHeader(true);
+        me.updateHeader(true)
     }
 
     /**
@@ -192,7 +192,7 @@ class Component extends BaseComponent {
         };
 
         oldValue?.un(listeners);
-        value   ?.on(listeners);
+        value   ?.on(listeners)
     }
 
     /**
@@ -207,7 +207,7 @@ class Component extends BaseComponent {
         if (me.isConstructed) {
             me.createContent(true);
             me.updateHeader();
-            me.afterSetMounted(true, false); // todo: extract the logic into a new method
+            me.afterSetMounted(true, false) // todo: extract the logic into a new method
         }
     }
 
@@ -223,7 +223,7 @@ class Component extends BaseComponent {
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
         if (oldValue !== undefined) {
-            me.updateHeader();
+            me.updateHeader()
         }
     }
 
@@ -240,7 +240,7 @@ class Component extends BaseComponent {
         oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
         value    && NeoArray.add(   cls, `neo-event-border-${value}`);
 
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -259,7 +259,7 @@ class Component extends BaseComponent {
         };
 
         oldValue?.un(listeners);
-        value   ?.on(listeners);
+        value   ?.on(listeners)
     }
 
     /**
@@ -277,7 +277,7 @@ class Component extends BaseComponent {
             me.intlFormat_time  = new Intl.DateTimeFormat(value, me.timeFormat);
 
             me.updateMonthNames(true);
-            me.updateHeader();
+            me.updateHeader()
         }
     }
 
@@ -293,7 +293,7 @@ class Component extends BaseComponent {
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
         if (oldValue !== undefined) {
-            me.updateMonthNames();
+            me.updateMonthNames()
         }
     }
 
@@ -321,8 +321,8 @@ class Component extends BaseComponent {
                         id       : me.vdom.cn[1].id,
                         value    : data[0].height - data[1].height
                     });
-                });
-            }, 100);
+                })
+            }, 100)
         }
     }
 
@@ -334,8 +334,8 @@ class Component extends BaseComponent {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            let me   = this,
-                vdom = me.vdom,
+            let me     = this,
+                {vdom} = me,
                 i, item;
 
             vdom.cn[1].cn.forEach(row => {
@@ -345,9 +345,9 @@ class Component extends BaseComponent {
 
                         if (item.cls.includes('neo-weekend')) {
                             if (value) {
-                                delete item.removeDom;
+                                delete item.removeDom
                             } else {
-                                item.removeDom = true;
+                                item.removeDom = true
                             }
                         }
                     }
@@ -355,7 +355,7 @@ class Component extends BaseComponent {
             });
 
             // triggers the vdom update
-            me.updateHeader();
+            me.updateHeader()
         }
     }
 
@@ -366,7 +366,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetTimeFormat(value, oldValue) {
-        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value)
     }
 
     /**
@@ -377,7 +377,7 @@ class Component extends BaseComponent {
      */
     afterSetUseScrollBoxShadows(value, oldValue) {
         NeoArray[value ? 'add' : 'remove'](this.vdom.cn[1].cls, 'neo-scroll-shadows');
-        this.update();
+        this.update()
     }
 
     /**
@@ -389,7 +389,7 @@ class Component extends BaseComponent {
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
             this.createContent(true);
-            this.updateHeader();
+            this.updateHeader()
         }
     }
 
@@ -400,7 +400,7 @@ class Component extends BaseComponent {
      * @protected
      */
     beforeSetDayNameFormat(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats)
     }
 
     /**
@@ -410,7 +410,7 @@ class Component extends BaseComponent {
      * @protected
      */
     beforeSetMonthNameFormat(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
+        return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats)
     }
 
     /**
@@ -422,9 +422,9 @@ class Component extends BaseComponent {
         if (!me.mounted) {
             me.needsEventUpdate = true;
         } else {
-            let date = me.currentDate, // cloned
-                vdom = me.vdom,
-                i    = 0,
+            let date   = me.currentDate, // cloned
+                {vdom} = me,
+                i      = 0,
                 firstDayOffset, row;
 
             vdom.cn[1].cn = [];
@@ -439,15 +439,15 @@ class Component extends BaseComponent {
                 row = me.createWeek(DateUtil.clone(date));
 
                 if (row.header) {
-                    vdom.cn[1].cn.push(row.header);
+                    vdom.cn[1].cn.push(row.header)
                 }
 
                 vdom.cn[1].cn.push(row.row);
 
-                date.setDate(date.getDate() + 7);
+                date.setDate(date.getDate() + 7)
             }
 
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me.update()
         }
     }
 
@@ -456,12 +456,11 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me            = this,
-            i             = 0,
-            calendarStore = me.calendarStore,
-            eventsStore   = me.eventStore,
-            header        = null,
-            ymdDate       = DateUtil.convertToyyyymmdd(date),
+        let me                          = this,
+            i                           = 0,
+            {calendarStore, eventStore} = me,
+            header                      = null,
+            ymdDate                     = DateUtil.convertToyyyymmdd(date),
             calendarRecord, day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
@@ -516,10 +515,10 @@ class Component extends BaseComponent {
             }
 
             if (!dayConfig.removeDom) {
-                dayRecords = eventsStore.getDayRecords(date);
+                dayRecords = eventStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
-                    recordKey      = record[eventsStore.keyProperty];
+                    recordKey      = record[eventStore.keyProperty];
                     calendarRecord = calendarStore.get(record.calendarId);
 
                     if (calendarRecord.active) {
@@ -545,7 +544,7 @@ class Component extends BaseComponent {
 
             row.cn.push(dayConfig);
 
-            date.setDate(date.getDate() + 1);
+            date.setDate(date.getDate() + 1)
         }
 
         return {header, row}
@@ -555,14 +554,14 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
-        this.eventStore.getCount() > 0 && this.createContent();
+        this.eventStore.getCount() > 0 && this.createContent()
     }
 
     /**
      * @param {Object} data
      */
     onCalendarStoreRecordChange(data) {
-        this.createContent();
+        this.createContent()
     }
 
     /**
@@ -570,11 +569,12 @@ class Component extends BaseComponent {
      */
     onEventDoubleClick(data) {
         if (this.data.events.enableEdit) {
-            let me                  = this,
-                editEventContainer  = me.owner.editEventContainer,
-                eventNode           = data.path[0],
-                weekNode            = data.path[2],
-                scrollContainerNode = data.path[3],
+            let me                   = this,
+                {editEventContainer} = me.owner,
+                {path}               = data,
+                eventNode           = path[0],
+                weekNode            = path[2],
+                scrollContainerNode = path[3],
                 eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
                 record              = me.eventStore.get(eventVdom.flag),
                 style               = editEventContainer.style;
@@ -585,12 +585,12 @@ class Component extends BaseComponent {
             });
 
             editEventContainer.setSilent({
-                parentId: data.path[1].id,
+                parentId: path[1].id,
                 record,
                 style
             });
 
-            editEventContainer.render(true);
+            editEventContainer.render(true)
         }
     }
 
@@ -598,14 +598,14 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
-        this.calendarStore.getCount() > 0 && this.createContent();
+        this.calendarStore.getCount() > 0 && this.createContent()
     }
 
     /**
      * @param {Object[]} data
      */
     onEventStoreRecordChange(data) {
-        this.createContent();
+        this.createContent()
     }
 
     /**
@@ -614,15 +614,15 @@ class Component extends BaseComponent {
      * @param {Object[]} data.path
      */
     onFocusChange(data) {
-        let oldPath = data.oldPath,
-            path    = data.path;
+        let {appName}       = this,
+            {oldPath, path} = data;
 
         if (oldPath?.[0]?.cls.includes('neo-event')) {
-            Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+            Neo.applyDeltas(appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}})
         }
 
         if (path?.[0]?.cls.includes('neo-event')) {
-            Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
+            Neo.applyDeltas(appName, {id: path[0].id, cls: {add: ['neo-focus']}})
         }
     }
 
@@ -645,7 +645,7 @@ class Component extends BaseComponent {
 
                 for (; i < 6; i++) {
                     if (container.cn[1].cls.includes('neo-month-header')) {
-                        container.cn.splice(1, 1);
+                        container.cn.splice(1, 1)
                     }
 
                     container.cn.shift();
@@ -656,17 +656,17 @@ class Component extends BaseComponent {
 
                     week.header && container.cn.push(week.header);
 
-                    container.cn.push(week.row);
+                    container.cn.push(week.row)
                 }
 
-                me.update();
+                me.update()
             }
 
             else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
                 if (container.cn[0].flag) {
-                    date = new Date(container.cn[0].flag);
+                    date = new Date(container.cn[0].flag)
                 } else {
-                    date = new Date(container.cn[1].flag);
+                    date = new Date(container.cn[1].flag)
                 }
 
                 date.setDate(date.getDate() - (date.getDay() - me.weekStartDay));
@@ -675,7 +675,7 @@ class Component extends BaseComponent {
                     len = container.cn.length;
 
                     if (container.cn[len - 2].cls.includes('neo-month-header')) {
-                        container.cn.splice(len - 2, 1);
+                        container.cn.splice(len - 2, 1)
                     }
 
                     container.cn.pop();
@@ -686,7 +686,7 @@ class Component extends BaseComponent {
 
                     container.cn.unshift(week.row);
 
-                    week.header && container.cn.unshift(week.header);
+                    week.header && container.cn.unshift(week.header)
                 }
 
                 me.promiseUpdate(me.vdom).then(() => {
@@ -694,20 +694,20 @@ class Component extends BaseComponent {
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
                         value    : data.clientHeight - me.headerHeight
-                    });
-                });
+                    })
+                })
             }
 
             if (!me.isScrolling) {
                 me.isScrolling = true;
                 NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');
                 me.vdom.cn[0].cn[0].style.opacity = 0;
-                me.update();
+                me.update()
             }
 
             me.scrollTaskId && clearTimeout(me.scrollTaskId);
 
-            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300);
+            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300)
         }
     }
 
@@ -716,7 +716,7 @@ class Component extends BaseComponent {
      */
     onWheelEnd() {
         let me     = this,
-            vdom   = me.vdom,
+            {vdom} = me,
             header = vdom.cn[0].cn[0],
             i      = 6,
             date, flag;
@@ -731,13 +731,13 @@ class Component extends BaseComponent {
                 date.setMonth(date.getMonth() + 1);
                 header.cn[0].html = me.intlFormat_month.format(date);
                 header.cn[1].html = ` ${date.getFullYear()}`;
-                break;
+                break
             }
         }
 
         NeoArray.remove(vdom.cn[1].cls, 'neo-is-scrolling');
         header.style.opacity = 1;
-        me.update();
+        me.update()
 
         // todo: #990 => scroll the view to the closest row
     }
@@ -748,7 +748,7 @@ class Component extends BaseComponent {
     updateHeader(create=false) {
         let me     = this,
             date   = me.currentDate, // cloned
-            vdom   = me.vdom,
+            {vdom} = me,
             header = vdom.cn[0].cn[0],
             i      = 1,
             day, node;
@@ -771,7 +771,7 @@ class Component extends BaseComponent {
                     node.removeDom = true;
                 }
 
-                vdom.cn[0].cn.push(node);
+                vdom.cn[0].cn.push(node)
             } else {
                 node = vdom.cn[0].cn[i];
 
@@ -780,14 +780,14 @@ class Component extends BaseComponent {
                     node.html = me.intlFormat_day.format(date);
 
                     if (!me.showWeekends && (day === 0 || day === 6)) {
-                        node.removeDom = true;
+                        node.removeDom = true
                     } else {
-                        delete node.removeDom;
+                        delete node.removeDom
                     }
                 }
             }
 
-            date.setDate(date.getDate() + 1);
+            date.setDate(date.getDate() + 1)
         }
 
         me.update();
@@ -799,15 +799,14 @@ class Component extends BaseComponent {
     updateMonthNames(silent=false) {
         let me     = this,
             date   = me.currentDate, // cloned
-            vdom   = me.vdom,
-            months = VDomUtil.getFlags(vdom, 'month-name');
+            months = VDomUtil.getFlags(me.vdom, 'month-name');
 
         months.forEach(month => {
             month.html = me.intlFormat_month.format(date);
             date.setMonth(date.getMonth() + 1);
         });
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        me.update()
     }
 }
 

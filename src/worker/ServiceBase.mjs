@@ -216,10 +216,9 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent|MessageEvent} event
      */
     onMessage(event) {
-        let me      = this,
-            data    = event.data,
-            action  = data.action,
-            replyId = data.replyId,
+        let me                = this,
+            {data}            = event,
+            {action, replyId} = data,
             promise;
 
         if (event.source) { // ExtendableMessageEvent
@@ -285,12 +284,12 @@ class ServiceBase extends Base {
     async preloadAssets(data) {
         let cacheName = data.cacheName || this.cacheName,
             cache     = await caches.open(cacheName),
-            files     = data.files,
+            {files}   = data,
             items     = [],
             asset, hasMatch, item;
 
         if (!Array.isArray(files)) {
-            files = [files];
+            files = [files]
         }
 
         for (item of files) {
@@ -298,17 +297,17 @@ class ServiceBase extends Base {
 
             if (!data.forceReload) {
                 asset    = await cache.match(item);
-                hasMatch = !!asset;
+                hasMatch = !!asset
             }
 
-            !hasMatch && items.push(item);
+            !hasMatch && items.push(item)
         }
 
         if (items.length > 0) {
-            await cache.addAll(items);
+            await cache.addAll(items)
         }
 
-        return {success: true};
+        return {success: true}
     }
 
     /**
@@ -326,8 +325,8 @@ class ServiceBase extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = {reject, resolve};
-        });
+            me.promises[msgId] = {reject, resolve}
+        })
     }
 
     /**
@@ -344,9 +343,7 @@ class ServiceBase extends Base {
      */
     async removeAssets(data) {
         if (!Neo.isObject(data)) {
-            data = {
-                assets: data
-            };
+            data = {assets: data}
         }
 
         let assets    = data.assets,
@@ -356,16 +353,16 @@ class ServiceBase extends Base {
             promises  = [];
 
         if (!Array.isArray(assets)) {
-            assets = [assets];
+            assets = [assets]
         }
 
         assets.forEach(asset => {
-            promises.push(cache.delete(asset, options));
+            promises.push(cache.delete(asset, options))
         });
 
         await Promise.all(promises);
 
-        return {success: true};
+        return {success: true}
     }
 
     /**
@@ -384,7 +381,7 @@ class ServiceBase extends Base {
             port    = this.getPort(dest) || this.lastClient;
 
         port.postMessage(message, transfer);
-        return message;
+        return message
     }
 }
 

@@ -89,8 +89,10 @@ class Split extends Button {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (this.triggerButton) {
-            this.triggerButton.appName = value;
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.appName = value;
         }
 
         super.afterSetAppName(value, oldValue);
@@ -103,7 +105,7 @@ class Split extends Button {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let triggerButton = this.triggerButton;
+        let {triggerButton} = this;
 
         if (triggerButton) {
             triggerButton.disabled = value;
@@ -132,7 +134,7 @@ class Split extends Button {
      * @protected
      */
     afterSetHideTriggerButton(value, oldValue) {
-        let triggerButton = this.triggerButton;
+        let {triggerButton} = this;
 
         if (triggerButton) {
             triggerButton.hidden = value;
@@ -146,7 +148,7 @@ class Split extends Button {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let triggerButton = this.triggerButton;
+        let {triggerButton} = this;
 
         if (triggerButton) {
             triggerButton.pressed = value;
@@ -162,7 +164,7 @@ class Split extends Button {
      * @protected
      */
     afterSetTriggerButtonIconCls(value, oldValue) {
-        let triggerButton = this.triggerButton;
+        let {triggerButton} = this;
 
         if (triggerButton) {
             triggerButton.iconCls = value;
@@ -174,9 +176,8 @@ class Split extends Button {
      * @param {String|null} oldValue
      */
     afterSetUi(value, oldValue) {
-        let me            = this,
-            ntype         = me.ntype,
-            triggerButton = me.triggerButton;
+        let me                     = this,
+            {ntype, triggerButton} = me;
 
         if (triggerButton) {
             triggerButton.ui = value;

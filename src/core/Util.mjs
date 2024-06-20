@@ -33,7 +33,7 @@ class Util extends Base {
     static bindMethods(scope, values) {
         values.forEach(value => {
             scope[value] = scope[value].bind(scope);
-        });
+        })
     }
 
     /**
@@ -54,7 +54,7 @@ class Util extends Base {
             parts = el.split((/:(.+)/)).map(function (x) {
                 let num = parseFloat(x);
 
-                return x == num ? num : x.trim();
+                return x == num ? num : x.trim()
             });
 
             if (parts[0] !== '') {
@@ -64,7 +64,7 @@ class Util extends Base {
 
                 obj[parts[0]] = parts[1]
             }
-            return obj;
+            return obj
         }, {})
     }
 

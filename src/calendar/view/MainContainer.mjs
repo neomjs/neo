@@ -175,7 +175,7 @@ class MainContainer extends Container {
         let me = this;
 
         me.createItemsContent();
-        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true);
+        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true)
     }
 
     /**
@@ -192,7 +192,7 @@ class MainContainer extends Container {
 
             me.items[0].items[1].items.forEach(item => {
                 if (item.toggleGroup === 'mainViews') {
-                    item.pressed = item.value === value;
+                    item.pressed = item.value === value
                 }
             });
         }
@@ -209,12 +209,12 @@ class MainContainer extends Container {
             let style = this.style || {};
 
             if (!value) {
-                delete style.fontSize;
+                delete style.fontSize
             } else {
-                style.fontSize = `${value}px`;
+                style.fontSize = `${value}px`
             }
 
-            this.style = style;
+            this.style = style
         }
     }
 
@@ -231,17 +231,17 @@ class MainContainer extends Container {
 
             if (value) {
                 if (settingsContainer) {
-                    settingsContainer.expand();
+                    settingsContainer.expand()
                 } else {
                     me.createSettingsContainer(true).then(() => {
                         // short delay to ensure the vnode already exists
                         setTimeout(() => {
-                            me.items[1].items[2].expand();
-                        }, 50);
-                    });
+                            me.items[1].items[2].expand()
+                        }, 50)
+                    })
                 }
             } else {
-                settingsContainer.collapse(me.settingsContainerWidth);
+                settingsContainer.collapse(me.settingsContainerWidth)
             }
         }
     }
@@ -267,8 +267,8 @@ class MainContainer extends Container {
                     setTimeout(() => {
                         style.marginLeft = '0px';
                         sideBar.style = style;
-                    }, 50);
-                });
+                    }, 50)
+                })
             } else {
                 style.marginLeft    = `-${me.sideBarWidth}px`;
                 sideBar._style      = style; // silent update
@@ -279,8 +279,8 @@ class MainContainer extends Container {
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
 
-                        sideBar.mounted = false;
-                    }, 400);
+                        sideBar.mounted = false
+                    }, 400)
                 });
             }
         }
@@ -304,12 +304,12 @@ class MainContainer extends Container {
                     handler: me.toggleSettings.bind(me),
                     iconCls: 'fa fa-cog',
                     style  : {marginLeft: '10px'}
-                });
-            }, 10);
+                })
+            }, 10)
         } else if (!value && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
             me.items[1]         .removeLast();
-            me.items[0].items[1].removeLast();
+            me.items[0].items[1].removeLast()
         }
     }
 
@@ -329,10 +329,10 @@ class MainContainer extends Container {
                 owner  : me,
                 width  : 250,
                 ...me.editCalendarContainerConfig
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -351,10 +351,10 @@ class MainContainer extends Container {
                 owner  : me,
                 width  : 250,
                 ...me.editEventContainerConfig
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -364,7 +364,7 @@ class MainContainer extends Container {
      * @protected
      */
     beforeSetActiveView(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'activeView', 'validViews');
+        return this.beforeSetEnumValue(value, oldValue, 'activeView', 'validViews')
     }
 
     /**
@@ -379,11 +379,11 @@ class MainContainer extends Container {
         value.forEach(view => {
             if (!validViews.includes(view)) {
                 console.error(view, 'is not a valid entry for views. Stick to:', validViews);
-                return oldValue;
+                return oldValue
             }
         });
 
-        return value;
+        return value
     }
 
     /**
@@ -391,7 +391,7 @@ class MainContainer extends Container {
      * @protected
      */
     changeActiveView(view) {
-        this.activeView = view;
+        this.activeView = view
     }
 
     /**
@@ -422,7 +422,7 @@ class MainContainer extends Container {
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
             items : ['->', ...me.createViewHeaderButtons()]
-        }];
+        }]
     }
 
     /**
@@ -484,7 +484,7 @@ class MainContainer extends Container {
                     removeInactiveCards: me.removeInactiveCards
                 }
             }]
-        }];
+        }]
     }
 
     /**
@@ -502,8 +502,8 @@ class MainContainer extends Container {
                 style              : {marginRight: !collapsed ? '0' : `-${me.settingsContainerWidth}px`},
                 width              : me.settingsContainerWidth,
                 ...me.settingsContainerConfig
-            });
-        });
+            })
+        })
     }
 
     /**
@@ -522,10 +522,10 @@ class MainContainer extends Container {
                 text       : Neo.capitalize(view),
                 toggleGroup: 'mainViews',
                 value      : view
-            });
+            })
         });
 
-        return buttons;
+        return buttons
     }
 
     /**
@@ -574,7 +574,7 @@ class MainContainer extends Container {
             cards.push(cmp);
         });
 
-        return cards;
+        return cards
     }
 
     /**
@@ -584,7 +584,7 @@ class MainContainer extends Container {
         this[`${data.item.flag}Component`] = data.item;
 
         // fire the event on this instance as well => setting views can subscribe to it more easily
-        this.fire('cardLoaded', {item: data.item});
+        this.fire('cardLoaded', {item: data.item})
     }
 
     /**
@@ -593,21 +593,21 @@ class MainContainer extends Container {
      * @param {String} data.value
      */
     onDateSelectorChange(data) {
-        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`));
+        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`))
     }
 
     /**
      * @param data
      */
     onNextIntervalButtonClick(data) {
-        this.switchInterval(1);
+        this.switchInterval(1)
     }
 
     /**
      * @param data
      */
     onPreviousIntervalButtonClick(data) {
-        this.switchInterval(-1);
+        this.switchInterval(-1)
     }
 
     /**
@@ -616,21 +616,21 @@ class MainContainer extends Container {
     onTodayButtonClick(data) {
         this.model.setData({
             currentDate: todayDate
-        });
+        })
     }
 
     /**
      * @protected
      */
     toggleSettings() {
-        this.settingsExpanded = !this.settingsExpanded;
+        this.settingsExpanded = !this.settingsExpanded
     }
 
     /**
      * @protected
      */
     toggleSidebar() {
-        this.sideBarExpanded = !this.sideBarExpanded;
+        this.sideBarExpanded = !this.sideBarExpanded
     }
 
     /**
@@ -649,7 +649,7 @@ class MainContainer extends Container {
 
         map[me.activeView]();
 
-        me.model.setData({currentDate});
+        me.model.setData({currentDate})
     }
 }
 

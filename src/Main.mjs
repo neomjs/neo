@@ -170,8 +170,8 @@ class Main extends core.Base {
      * @returns {Object}
      */
     getWindowData() {
-        let win    = window,
-            screen = win.screen;
+        let win      = window,
+            {screen} = win;
 
         return {
             innerHeight: win.innerHeight,
@@ -201,7 +201,7 @@ class Main extends core.Base {
      * @returns {Boolean}
      */
     async importAddon(data) {
-        let name = data.name,
+        let {name} = data,
             module;
 
         if (name.startsWith('WS/')) {
@@ -234,10 +234,10 @@ class Main extends core.Base {
      *
      */
     async onDomContentLoaded() {
-        let me               = this,
-            config           = Neo.config,
-            mainThreadAddons = config.mainThreadAddons,
-            imports          = [],
+        let me                 = this,
+            config             = Neo.config,
+            {mainThreadAddons} = config,
+            imports            = [],
             modules;
 
         DomAccess.onDomContentLoaded();

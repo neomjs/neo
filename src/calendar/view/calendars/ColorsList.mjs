@@ -87,8 +87,8 @@ class ColorsList extends List {
     onConstructed() {
         super.onConstructed();
 
-        let me    = this,
-            value = me.value;
+        let me      = this,
+            {value} = me;
 
         value && me.afterSetValue(value, null);
     }

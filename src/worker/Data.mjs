@@ -91,8 +91,6 @@ class Data extends Base {
      * @param {Object} msg
      */
     async onRpc(msg) {
-        console.log('onRpc', msg);
-
         let me = this,
             response;
 

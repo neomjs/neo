@@ -110,8 +110,8 @@ class MainContainerModel extends Component {
     construct(config) {
         super.construct(config);
 
-        let me        = this,
-            component = me.component;
+        let me          = this,
+            {component} = me;
 
         /**
          * @member {Object} stores
@@ -152,17 +152,17 @@ class MainContainerModel extends Component {
     onDataPropertyChange(key, value, oldValue) {
         super.onDataPropertyChange(key, value, oldValue);
 
-        let data = this.data;
+        let {data} = this;
 
         switch(key) {
             case 'locale': {
                 data.intlFormat_time = new Intl.DateTimeFormat(value, data.timeFormat);
-                break;
+                break
             }
 
             case 'timeFormat': {
                 data.intlFormat_time = new Intl.DateTimeFormat(data.locale, value);
-                break;
+                break
             }
         }
     }

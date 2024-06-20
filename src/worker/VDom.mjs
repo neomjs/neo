@@ -39,7 +39,7 @@ class VDom extends Base {
 
         channel.port1.onmessage = me.onMessage.bind(me);
 
-        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
+        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2])
     }
 }
 

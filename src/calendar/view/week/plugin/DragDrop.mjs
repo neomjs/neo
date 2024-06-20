@@ -118,7 +118,7 @@ class DragDrop extends Base {
             {calendarStore} = owner,
             calendarId      = owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty];
 
-        return calendarStore.get(calendarId).active;
+        return calendarStore.get(calendarId).active
     }
 
     /**
@@ -126,7 +126,7 @@ class DragDrop extends Base {
      * @returns {Boolean}
      */
     isTopLevelColumn(path) {
-        return path[0].cls.includes('neo-c-w-column');
+        return path[0].cls.includes('neo-c-w-column')
     }
 
     /**
@@ -134,7 +134,7 @@ class DragDrop extends Base {
      * @returns {Boolean}
      */
     isTopLevelEvent(eventData) {
-        return eventData.path[0].cls.includes('neo-event');
+        return eventData.path[0].cls.includes('neo-event')
     }
 
     /**

@@ -96,21 +96,21 @@ class MonthContainer extends Container {
             name          : 'useScrollBoxShadows',
             style         : {marginTop: '10px'},
             valueLabelText: 'useScrollBoxShadows'
-        }]);
+        }])
     }
 
     /**
      * @returns {Neo.calendar.view.month.Component}
      */
     getMonthComponent() {
-        return this.up('calendar-maincontainer').monthComponent;
+        return this.up('calendar-maincontainer').monthComponent
     }
 
     /**
      * @param {Object} data
      */
     onConfigChange(data) {
-        this.getMonthComponent()[data.component.name] = data.value;
+        this.getMonthComponent()[data.component.name] = data.value
     }
 
     /**
@@ -121,10 +121,10 @@ class MonthContainer extends Container {
             let name = data.component.name;
 
             if (name.startsWith('cm_')) {
-                name = name.substring(3);
+                name = name.substring(3)
             }
 
-            this.getMonthComponent()[name] = data.component.fieldValue;
+            this.getMonthComponent()[name] = data.component.fieldValue
         }
     }
 }

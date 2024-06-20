@@ -68,7 +68,7 @@ class TimeAxisComponent extends Component {
         let me = this;
 
         me.createItems();
-        me.afterSetRowHeight(me.rowHeight, 0);
+        me.afterSetRowHeight(me.rowHeight, 0)
     }
 
     /**
@@ -83,10 +83,10 @@ class TimeAxisComponent extends Component {
 
             // todo: handle 24:00 as 23:59
             if (!value) {
-                me._endTime = '24:00';
+                me._endTime = '24:00'
             }
 
-            me.afterSetRowHeight(me.rowHeight, 0);
+            me.afterSetRowHeight(me.rowHeight, 0)
         }
     }
 
@@ -98,7 +98,7 @@ class TimeAxisComponent extends Component {
      */
     afterSetInterval(value, oldValue) {
         if (oldValue !== undefined) {
-            this.afterSetRowHeight(this.rowHeight, 0);
+            this.afterSetRowHeight(this.rowHeight, 0)
         }
     }
 
@@ -110,14 +110,13 @@ class TimeAxisComponent extends Component {
      */
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined && this.vdom.cn) {
-            let me          = this,
-                endTime     = me.getTime(me.endTime),
-                startTime   = me.getTime(me.startTime),
-                vdom        = me.vdom,
-                rowHeight   = me.rowHeight,
-                rowsPerItem = me.getRowsPerItem(),
-                itemHeight  = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
-                totalHeight = rowHeight + ((endTime - startTime) * itemHeight),
+            let me                = this,
+                endTime           = me.getTime(me.endTime),
+                startTime         = me.getTime(me.startTime),
+                {rowHeight, vdom} = me,
+                rowsPerItem       = me.getRowsPerItem(),
+                itemHeight        = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
+                totalHeight       = rowHeight + ((endTime - startTime) * itemHeight),
                 i, itemStyle;
 
             Object.assign(vdom.style, {
@@ -134,9 +133,9 @@ class TimeAxisComponent extends Component {
                 };
 
                 if (i === startTime) {
-                    itemStyle.marginTop = `${-2 - rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
+                    itemStyle.marginTop = `${-2 - rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`
                 } else {
-                    delete itemStyle.marginTop;
+                    delete itemStyle.marginTop
                 }
 
                 vdom.cn[i].style = itemStyle;
@@ -149,7 +148,7 @@ class TimeAxisComponent extends Component {
                 rowHeight,
                 rowsPerItem,
                 totalHeight
-            });
+            })
         }
     }
 
@@ -161,7 +160,7 @@ class TimeAxisComponent extends Component {
      */
     afterSetStartTime(value, oldValue) {
         if (oldValue !== undefined) {
-            this.afterSetRowHeight(this.rowHeight, 0);
+            this.afterSetRowHeight(this.rowHeight, 0)
         }
     }
 
@@ -172,14 +171,14 @@ class TimeAxisComponent extends Component {
      * @protected
      */
     beforeSetInterval(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'interval');
+        return this.beforeSetEnumValue(value, oldValue, 'interval')
     }
 
     /**
      *
      */
     createItems() {
-        let vdom = this.vdom,
+        let {vdom} = this,
             html, i;
 
         vdom.cn = [];
@@ -190,7 +189,7 @@ class TimeAxisComponent extends Component {
             vdom.cn.push({
                 cls  : ['neo-c-w-timeaxis-item'],
                 cn   : [{html: html}]
-            });
+            })
         }
     }
 
@@ -199,7 +198,8 @@ class TimeAxisComponent extends Component {
      * @returns {Number}
      */
     getRowsPerItem() {
-        return this.interval === 60 ? 1 : this.interval === 30 ? 2 : 4;
+        let {interval} = this;
+        return interval === 60 ? 1 : interval === 30 ? 2 : 4
     }
 
     /**
@@ -208,7 +208,7 @@ class TimeAxisComponent extends Component {
      * @returns {Number}
      */
     getTime(value) {
-        return value.split(':').map(Number)[0];
+        return value.split(':').map(Number)[0]
     }
 }
 

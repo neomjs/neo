@@ -382,10 +382,9 @@ class Base {
      * @protected
      */
     initRemote() {
-        let me            = this,
-            remote        = me.remote,
-            className     = me.className,
-            currentWorker = Neo.currentWorker,
+        let me                  = this,
+            {className, remote} = me,
+            currentWorker       = Neo.currentWorker,
             listenerId;
 
         if (!me.singleton && !me.isMainThreadAddon) {

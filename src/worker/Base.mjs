@@ -171,14 +171,13 @@ class Base extends CoreBase {
      * @param {Object} e
      */
     onMessage(e) {
-        let me      = this,
-            data    = e.data,
-            action  = data.action,
-            replyId = data.replyId,
+        let me                = this,
+            {data}            = e,
+            {action, replyId} = data,
             promise;
 
         if (!action) {
-            throw new Error('Message action is missing: ' + data.id);
+            throw new Error('Message action is missing: ' + data.id)
         }
 
         if (action !== 'reply') {
@@ -207,8 +206,8 @@ class Base extends CoreBase {
      * @param {String} msg.appName
      */
     onRegisterApp(msg) {
-        let me      = this,
-            appName = msg.appName,
+        let me        = this,
+            {appName} = msg,
             port;
 
         for (port of me.ports) {

@@ -44,7 +44,7 @@ class EventResizable extends Resizable {
 
         me.isDragging = true;
         me.addBodyCursorCls();
-        me.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepEndDate' : 'keepStartDate'] = true;
+        me.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepEndDate' : 'keepStartDate'] = true
     }
 
     /**
@@ -53,7 +53,7 @@ class EventResizable extends Resizable {
      */
     onMouseMove(data) {
         if (this.owner.data.events.enableDrag) {
-            super.onMouseMove(data);
+            super.onMouseMove(data)
         }
     }
 }

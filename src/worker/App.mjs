@@ -238,7 +238,7 @@ class App extends Base {
      */
     getConfigs(data) {
         let instance    = Neo.get(data.id),
-            keys        = data.keys,
+            {keys}      = data,
             returnArray = [];
 
         if (instance) {

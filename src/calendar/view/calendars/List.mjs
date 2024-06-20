@@ -60,7 +60,7 @@ class List extends ComponentList {
         };
 
         if (checkBox) {
-            checkBox.setSilent(config);
+            checkBox.setSilent(config)
         } else {
             items[index] = checkBox = Neo.create({
                 appName  : me.appName,
@@ -68,12 +68,12 @@ class List extends ComponentList {
                 parentId : me.id,
                 ...me.itemDefaults,
                 ...config
-            });
+            })
         }
 
         me.items = items;
 
-        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}]
     }
 
     /**
@@ -81,14 +81,14 @@ class List extends ComponentList {
      * @returns {String}
      */
     getEditIconId(index) {
-        return `${this.id}__${index}__edit-icon`;
+        return `${this.id}__${index}__edit-icon`
     }
 
     /**
      * @param {Object} data
      */
     onCheckboxChange(data) {
-        this.store.get(data.component.fieldValue).active = data.value;
+        this.store.get(data.component.fieldValue).active = data.value
     }
 
     /**
@@ -98,7 +98,7 @@ class List extends ComponentList {
         // The click even arrives before the CheckBox onInputValueChange() gets triggered.
         // We need a short delay to ensure the vdom of the list item contains the new checked state
         setTimeout(() => {
-            super.onClick(data);
+            super.onClick(data)
         }, 20);
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
@@ -106,9 +106,8 @@ class List extends ComponentList {
                 listItemRect          = data.path[1].rect,
                 mainContainer         = me.owner,
                 editCalendarContainer = mainContainer.editCalendarContainer,
-                mounted               = editCalendarContainer.mounted,
-                record                = me.store.get(me.getItemRecordId(data.path[1].id)),
-                style                 = editCalendarContainer.style;
+                {mounted, style}      = editCalendarContainer,
+                record                = me.store.get(me.getItemRecordId(data.path[1].id));
 
             Object.assign(style, {
                 left: `${listItemRect.right + 13}px`,
@@ -122,9 +121,9 @@ class List extends ComponentList {
             });
 
             if (!mounted) {
-                editCalendarContainer.render(true);
+                editCalendarContainer.render(true)
             } else {
-                editCalendarContainer.afterSetMounted(true, false);
+                editCalendarContainer.afterSetMounted(true, false)
             }
         }
     }
@@ -137,14 +136,14 @@ class List extends ComponentList {
             recordId = me.getItemRecordId(itemId),
             checkBox = me.items[me.store.indexOf(recordId)];
 
-        checkBox.checked = !checkBox.checked;
+        checkBox.checked = !checkBox.checked
     }
 
     /**
      * @param {String[]} items
      */
     onSelect(items) {
-        this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]));
+        this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]))
     }
 }
 

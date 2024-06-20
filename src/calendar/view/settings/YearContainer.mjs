@@ -117,14 +117,14 @@ class YearContainer extends Container {
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'sixWeeksPerMonth',
             style     : {marginTop: '10px'}
-        }]);
+        }])
     }
 
     /**
      * @returns {Neo.calendar.view.YearComponent}
      */
     getYearComponent() {
-        return this.up('calendar-maincontainer').yearComponent;
+        return this.up('calendar-maincontainer').yearComponent
     }
 
     /**
@@ -132,7 +132,7 @@ class YearContainer extends Container {
      */
     onRadioChange(data) {
         if (data.value) {
-            this.getYearComponent()[data.component.name] = data.component.fieldValue;
+            this.getYearComponent()[data.component.name] = data.component.fieldValue
         }
     }
 
@@ -140,7 +140,7 @@ class YearContainer extends Container {
      * @param {Object} data
      */
     onConfigChange(data) {
-        this.getYearComponent()[data.component.name] = data.value;
+        this.getYearComponent()[data.component.name] = data.value
     }
 }
 
