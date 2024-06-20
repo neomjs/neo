@@ -25,7 +25,11 @@ class DragDrop extends Base {
          * @member {Boolean} isDragging=false
          * @protected
          */
-        isDragging: false
+        isDragging: false,
+        /**
+         * @member {String} resizablePluginType='plugin-calendar-week-dragdrop'
+         */
+        resizablePluginType: 'calendar-week-eventresizable'
     }
 
     /**
@@ -36,10 +40,9 @@ class DragDrop extends Base {
 
         let me         = this,
             columnOpts = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts  = {scope: me, delegate: '.neo-event'},
-            owner      = me.owner;
+            eventOpts  = {scope: me, delegate: '.neo-event'};
 
-        owner.addDomListeners([
+        me.owner.addDomListeners([
             {'drag:end'  : me.onColumnDragEnd,   ...columnOpts},
             {'drag:end'  : me.onEventDragEnd,    ...eventOpts},
             {'drag:move' : me.onColumnDragMove,  ...columnOpts},
@@ -71,10 +74,9 @@ class DragDrop extends Base {
      * @returns {Neo.calendar.view.week.EventDragZone}
      */
     getEventDragZone(opts) {
-        let me            = this,
-            owner         = me.owner,
-            eventDragZone = owner.eventDragZone,
-            timeAxis      = owner.timeAxis,
+        let me                        = this,
+            {appName, owner}          = me,
+            {eventDragZone, timeAxis} = owner,
 
             config = {
                 axisEndTime                     : timeAxis.getTime(owner.endTime),
@@ -88,7 +90,7 @@ class DragDrop extends Base {
         if (!eventDragZone) {
             owner.eventDragZone = eventDragZone = Neo.create({
                 module           : EventDragZone,
-                appName          : me.appName,
+                appName,
                 owner,
                 scrollContainerId: owner.getScrollContainer().id,
                 ...config,
@@ -99,12 +101,12 @@ class DragDrop extends Base {
                         willChange: 'height'
                     }
                 }
-            });
+            })
         } else {
-            eventDragZone.set(config);
+            eventDragZone.set(config)
         }
 
-        return eventDragZone;
+        return eventDragZone
     }
 
     /**
@@ -112,9 +114,9 @@ class DragDrop extends Base {
      * @returns {Boolean}
      */
     isActiveCalendar() {
-        let owner         = this.owner,
-            calendarStore = owner.calendarStore,
-            calendarId    = owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty];
+        let {owner}         = this,
+            {calendarStore} = owner,
+            calendarId      = owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty];
 
         return calendarStore.get(calendarId).active;
     }
@@ -139,9 +141,9 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        let me     = this,
-            owner  = me.owner,
-            record = me[newRecordSymbol];
+        let me      = this,
+            {owner} = me,
+            record  = me[newRecordSymbol];
 
         if (record && me.isTopLevelColumn(data.path)) {
             me.isDragging = false;
@@ -153,8 +155,8 @@ class DragDrop extends Base {
                 style: {opacity: 1}
             }).then(() => {
                 owner.eventDragZone.dragEnd();
-                owner.getPlugin('calendar-week-eventresizable').onDragEnd(data);
-            });
+                owner.getPlugin(me.resizablePluginType).onDragEnd(data)
+            })
         }
     }
 
@@ -165,7 +167,7 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.isActiveCalendar() && me.isTopLevelColumn(data.path)) {
-            me.owner.eventDragZone?.dragMove(data);
+            me.owner.eventDragZone?.dragMove(data)
         }
     }
 
@@ -176,9 +178,9 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.isActiveCalendar() && me.isTopLevelColumn(data.targetPath)) {
-            let owner           = me.owner,
+            let {owner}         = me,
                 axisStartTime   = owner.timeAxis.getTime(owner.startTime),
-                calendarStore   = owner.calendarStore,
+                {calendarStore} = owner,
                 columnRect      = data.path[0].rect,
                 intervalSize    = 15,
                 intervals       = (owner.timeAxis.getTime(owner.endTime) - axisStartTime) * 60 / intervalSize,
@@ -222,16 +224,16 @@ class DragDrop extends Base {
                     proxyParentId                   : data.path[0].id
                 });
 
-                owner.getPlugin('calendar-week-eventresizable').onDragStart(data);
+                owner.getPlugin(me.resizablePluginType).onDragStart(data);
                 eventDragZone.dragStart(data);
 
                 setTimeout(() => {
                     me.isDragging && Neo.applyDeltas(me.appName, {
                         id   : eventId,
                         style: {opacity: 0}
-                    });
-                }, 50);
-            }, 50);
+                    })
+                }, 50)
+            }, 50)
         }
     }
 
@@ -239,20 +241,21 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        let me    = this,
-            owner = me.owner;
+        let me              = this,
+            {owner}         = me,
+            {eventDragZone} = owner;
 
         if (owner.enableDrag) {
-            owner.eventDragZone.dragEnd();
+            eventDragZone.dragEnd();
 
             if (!me.isTopLevelEvent(data)) {
                 data = me.adjustResizeEvent(data);
-                owner.getPlugin('calendar-week-eventresizable').onDragEnd(data);
+                owner.getPlugin(me.resizablePluginType).onDragEnd(data)
             } else {
-                owner.eventDragZone.removeBodyCursorCls();
+                eventDragZone.removeBodyCursorCls()
             }
 
-            me.isDragging = false;
+            me.isDragging = false
         }
     }
 
@@ -260,15 +263,15 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        let me    = this,
-            owner = me.owner;
+        let me      = this,
+            {owner} = me;
 
         if (owner.enableDrag) {
             if (!me.isTopLevelEvent(data)) {
-                data = me.adjustResizeEvent(data);
+                data = me.adjustResizeEvent(data)
             }
 
-            owner.eventDragZone.dragMove(data);
+            owner.eventDragZone.dragMove(data)
         }
     }
 
@@ -277,7 +280,7 @@ class DragDrop extends Base {
      */
     onEventDragStart(data) {
         let me        = this,
-            owner     = me.owner,
+            {owner}   = me,
             modelData = owner.data;
 
         if (owner.enableDrag) {
@@ -285,7 +288,7 @@ class DragDrop extends Base {
                 dragElement, eventDragZone;
 
             if (!isTopLevelEvent) {
-                data = me.adjustResizeEvent(data);
+                data = me.adjustResizeEvent(data)
             }
 
             me.isDragging = true;
@@ -300,12 +303,12 @@ class DragDrop extends Base {
             });
 
             if (isTopLevelEvent) {
-                eventDragZone.addBodyCursorCls();
+                eventDragZone.addBodyCursorCls()
             } else {
-                owner.getPlugin('calendar-week-eventresizable').onDragStart(data);
+                owner.getPlugin(me.resizablePluginType).onDragStart(data)
             }
 
-            eventDragZone.dragStart(data);
+            eventDragZone.dragStart(data)
         }
     }
 }
