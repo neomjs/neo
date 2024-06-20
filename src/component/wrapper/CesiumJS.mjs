@@ -38,29 +38,23 @@ class CesiumJS extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        let me = this,
+            {appName, createOsmBuildings, id, windowId} = me;
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.CesiumJS.destroy({
-                appName: me.appName,
-                id     : me.id
-            });
+            Neo.main.addon.CesiumJS.destroy({appName, id, windowId})
         }
 
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            let opts = {
-                appName           : me.appName,
-                createOsmBuildings: me.createOsmBuildings,
-                id                : me.id
-            };
+            let opts = {appName, createOsmBuildings, id, windowId};
 
             setTimeout(() => {
                 Neo.main.addon.CesiumJS.create(opts).then(() => {
-                    me.onComponentMounted();
-                });
-            }, 50);
+                    me.onComponentMounted()
+                })
+            }, 50)
         }
     }
 
@@ -74,28 +68,28 @@ class CesiumJS extends Component {
         Neo.main.addon.CesiumJS.flyTo({
             ...data,
             id: this.id
-        });
+        })
     }
 
     /**
      *
      */
     getVdomRoot() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 
     /**
      *
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        return this.vnode.childNodes[0]
     }
 
     /**
      *
      */
     onComponentMounted() {
-        console.log('onComponentMounted', this.id);
+        console.log('onComponentMounted', this.id)
     }
 }
 
