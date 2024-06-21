@@ -50,7 +50,7 @@ class SpinUpDown extends Base {
 
         me.update();
 
-        super.onConstructed();
+        super.onConstructed()
     }
 
     /**
@@ -62,9 +62,9 @@ class SpinUpDown extends Base {
             cls    = target.cls.join(' ');
 
         if (cls.includes('neo-down')) {
-            me.field.onSpinButtonDownClick();
+            me.field.onSpinButtonDownClick()
         } else if (cls.includes('neo-up')) {
-            me.field.onSpinButtonUpClick();
+            me.field.onSpinButtonUpClick()
         }
     }
 }

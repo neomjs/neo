@@ -200,7 +200,7 @@ class DateField extends Picker {
      */
     hasContent() {
         if (this.labelPosition === 'inline') {
-            return true;
+            return true
         }
 
         return super.hasContent()
@@ -221,13 +221,12 @@ class DateField extends Picker {
      * @param {Object} opts
      */
     onDatePickerChange(opts) {
-        let me   = this,
-            vdom = me.vdom;
+        let me = this;
 
         me.clean = false;
 
         if (me.hidePickerOnSelect) {
-            VDomUtil.removeVdomChild(vdom, me.getPickerId());
+            VDomUtil.removeVdomChild(me.vdom, me.getPickerId());
 
             me.promiseUpdate().then(data => {
                 me.value = opts.value

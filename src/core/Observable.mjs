@@ -68,13 +68,13 @@ class Observable extends Base {
             listener = opts.fn;
             once     = once    || opts.once;
             order    = order   || opts.order;
-            scope    = scope   || opts.scope;
+            scope    = scope   || opts.scope
         } else if (typeof opts === 'function') {
-            listener = opts;
+            listener = opts
         } else if (typeof opts === 'string') {
-            listener = opts; // VC hook, can get parsed after onConstructed in case the view uses the parent VC
+            listener = opts // VC hook, can get parsed after onConstructed in case the view uses the parent VC
         } else {
-            throw new Error('Invalid addListener call: ' + name);
+            throw new Error('Invalid addListener call: ' + name)
         }
 
         if (!nameObject) {
@@ -90,19 +90,19 @@ class Observable extends Base {
             if (existing = me.listeners?.[name]) {
                 existing.forEach(cfg => {
                     if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
-                        console.error('Duplicate event handler attached:', name, me);
+                        console.error('Duplicate event handler attached:', name, me)
                     }
                 });
 
                 if (typeof order === 'number') {
-                    existing.splice(order, 0, eventConfig);
+                    existing.splice(order, 0, eventConfig)
                 } else if (order === 'before') {
-                    existing.unshift(eventConfig);
+                    existing.unshift(eventConfig)
                 } else {
-                    existing.push(eventConfig);
+                    existing.push(eventConfig)
                 }
             } else {
-                me.listeners[name] = [eventConfig];
+                me.listeners[name] = [eventConfig]
             }
 
             return eventConfig.id
@@ -193,7 +193,7 @@ class Observable extends Base {
 
         if (config.listeners) {
             me.listeners = config.listeners;
-            delete config.listeners;
+            delete config.listeners
         }
 
         listeners = me.listeners;
@@ -202,7 +202,7 @@ class Observable extends Base {
 
         if (listeners) {
             if (Neo.isObject(listeners)) {
-                listeners = {...listeners};
+                listeners = {...listeners}
             }
 
             me.addListener(listeners);
@@ -219,10 +219,10 @@ class Observable extends Base {
                     on            : me.on,
                     removeListener: me.removeListener,
                     un            : me.un
-                });
+                })
             }
 
-            proto = proto.__proto__;
+            proto = proto.__proto__
         }
     }
 
@@ -237,7 +237,7 @@ class Observable extends Base {
      * @returns {String} eventId
      */
     on(...args) {
-        return this.addListener(...args);
+        return this.addListener(...args)
     }
 
     /**
@@ -290,7 +290,7 @@ class Observable extends Base {
                         listener.scope   === scope
                     ) {
                         listeners.splice(i, 1);
-                        break;
+                        break
                     }
                 }
             });
@@ -300,12 +300,12 @@ class Observable extends Base {
 
             listeners.forEach((eventConfig, idx) => {
                 if (eventConfig.id === eventId) {
-                    return match = idx;
+                    return match = idx
                 }
             });
 
             if (match !== false) {
-                listeners.splice(match, 1);
+                listeners.splice(match, 1)
             }
         }
     }

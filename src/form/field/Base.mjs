@@ -104,7 +104,7 @@ class Base extends Component {
      * @param {String|null} oldValue
      */
     afterSetIsTouched(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray.toggle(cls, 'neo-is-touched', value);
         this.cls = cls

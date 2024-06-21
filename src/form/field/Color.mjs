@@ -74,8 +74,7 @@ class Color extends ComboBox {
     afterSetValue(value, oldValue, preventFilter=false) {
         let me             = this,
             colorIndicator = VDomUtil.findVdomChild(me.vdom, {id: me.getColorIndicatorId()})?.vdom,
-            list           = me.list,
-            record         = me.record,
+            {list, record} = me,
             selectionModel = me.list?.selectionModel;
 
         if (colorIndicator) {
@@ -83,54 +82,53 @@ class Color extends ComboBox {
         }
 
         if (record) {
-            selectionModel?.select(list.getItemId(record[me.store.keyProperty]));
+            selectionModel?.select(list.getItemId(record[me.store.keyProperty]))
         } else {
-            selectionModel?.deselectAll(true);
+            selectionModel?.deselectAll(true)
         }
 
         // the super call will trigger the vdom update
-        super.afterSetValue(value, oldValue, preventFilter);
+        super.afterSetValue(value, oldValue, preventFilter)
     }
 
     /**
      * @returns {String}
      */
     getColor() {
-        let me     = this,
-            record = me.record,
-            value  = me.value;
+        let me              = this,
+            {record, value} = me;
 
-        return record ? me.colorFormatter(me, record) : me.forceSelection ? null : value;
+        return record ? me.colorFormatter(me, record) : me.forceSelection ? null : value
     }
 
     /**
      * @returns {String}
      */
     getColorIndicatorId() {
-        return `${this.id}__color-indicator`;
+        return `${this.id}__color-indicator`
     }
 
     /**
      * @protected
      */
     onSelectPostLastItem() {
-        let list  = this.list,
-            index = list.store.getCount() - 1;
+        let {list} = this,
+            index  = list.store.getCount() - 1;
 
         list.vdom.cn[index] = list.createItem(list.store.getAt(index), index);
 
-        super.onSelectPostLastItem();
+        super.onSelectPostLastItem()
     }
 
     /**
      * @protected
      */
     onSelectPreFirstItem() {
-        let list = this.list;
+        let {list} = this;
 
         list.vdom.cn[0] = list.createItem(list.store.getAt(0), 0);
 
-        super.onSelectPreFirstItem();
+        super.onSelectPreFirstItem()
     }
 }
 

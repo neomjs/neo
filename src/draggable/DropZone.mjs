@@ -34,7 +34,7 @@ class DropZone extends Base {
             {'drop'      : me.onDrop,      scope: me},
             {'drop:enter': me.onDropEnter, scope: me},
             {'drop:leave': me.onDropLeave, scope: me}
-        ]);
+        ])
     }
 
     /**
@@ -42,7 +42,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     fireOwnerEvent(name, data) {
-        this.owner.fire(name, this.getDragData(data.dragZoneId));
+        this.owner.fire(name, this.getDragData(data.dragZoneId))
     }
 
     /**
@@ -53,31 +53,31 @@ class DropZone extends Base {
         let dragZone = Neo.get(dragZoneId);
 
         if (dragZone) {
-            return dragZone.data;
+            return dragZone.data
         }
 
-        return null;
+        return null
     }
 
     /**
      * @param {Object} data
      */
     onDrop(data) {
-        this.fireOwnerEvent('drop', data);
+        this.fireOwnerEvent('drop', data)
     }
 
     /**
      * @param {Object} data
      */
     onDropEnter(data) {
-        this.fireOwnerEvent('drop:enter', data);
+        this.fireOwnerEvent('drop:enter', data)
     }
 
     /**
      * @param {Object} data
      */
     onDropLeave(data) {
-        this.fireOwnerEvent('drop:leave', data);
+        this.fireOwnerEvent('drop:leave', data)
     }
 }
 

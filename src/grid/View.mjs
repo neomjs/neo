@@ -34,16 +34,14 @@ class View extends Component {
             colCount   = columns.length,
             data       = [],
             i          = 0,
-            vdom       = me.vdom,
+            {vdom}     = me,
             cellCls, cellStyle, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
             record, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
 
-        // console.log('createViewData', me.id, inputData);
-
         if (container.selectionModel?.ntype === 'selection-grid-rowmodel') {
-            selectedRows = container.selectionModel.items || [];
+            selectedRows = container.selectionModel.items || []
         }
 
         for (; i < amountRows; i++) {
@@ -59,7 +57,7 @@ class View extends Component {
 
                 Neo.getComponent(me.containerId).fire('select', {
                     record
-                });
+                })
             }
 
             data.push({
@@ -79,7 +77,7 @@ class View extends Component {
                 rendererValue  = record[column.field];
 
                 if (rendererValue === undefined) {
-                    rendererValue = '';
+                    rendererValue = ''
                 }
 
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
@@ -93,20 +91,20 @@ class View extends Component {
                 cellCls = rendererOutput?.cls || ['neo-grid-cell'];
 
                 if (column.align !== 'left') {
-                    cellCls.push('neo-' + column.align);
+                    cellCls.push('neo-' + column.align)
                 }
 
                 if (!Neo.isObject(rendererOutput)) {
                     rendererOutput = {
                         cls : cellCls,
                         html: rendererOutput?.toString()
-                    };
+                    }
                 }
 
                 cellStyle = rendererOutput.style || {};
 
                 if (column.width) {
-                    cellStyle.minWidth = `${column.width}px`;
+                    cellStyle.minWidth = `${column.width}px`
                 }
 
                 config = {
@@ -122,15 +120,15 @@ class View extends Component {
 
                     if (column.dock === 'left') {
                         config.style.left = dockLeftMargin + 'px';
-                        dockLeftMargin += column.width;
+                        dockLeftMargin += column.width
                     }
                 }
 
                 if (column.flex) {
-                    config.style.width = '100%';
+                    config.style.width = '100%'
                 }
 
-                data[i].cn.push(config);
+                data[i].cn.push(config)
             }
 
             j = 0;
@@ -141,7 +139,7 @@ class View extends Component {
 
                 if (column.dock === 'right') {
                     data[i].cn[index].style.right = dockRightMargin + 'px';
-                    dockRightMargin += (column.width + 1); // todo: borders fix
+                    dockRightMargin += (column.width + 1) // todo: borders fix
                 }
             }
         }
@@ -168,7 +166,7 @@ class View extends Component {
      */
     destroy(updateParentVdom, silent) {
         this.store = null;
-        super.destroy(updateParentVdom, silent);
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
@@ -177,7 +175,7 @@ class View extends Component {
      * @returns {String}
      */
     getCellId(record, field) {
-        return this.id + '__' + record[this.store.keyProperty] + '__' + field;
+        return this.id + '__' + record[this.store.keyProperty] + '__' + field
     }
 
     /**
@@ -191,7 +189,7 @@ class View extends Component {
             node, parentNodes;
 
         if (record) {
-            return record;
+            return record
         }
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
@@ -200,11 +198,11 @@ class View extends Component {
             record = me.getRecordByRowId(node.id);
 
             if (record) {
-                return record;
+                return record
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -212,7 +210,7 @@ class View extends Component {
      * @returns {Object}
      */
     getRecordByRowId(rowId) {
-        return this.store.getAt(this.recordVnodeMap[rowId]);
+        return this.store.getAt(this.recordVnodeMap[rowId])
     }
 
     /**
@@ -221,7 +219,7 @@ class View extends Component {
      * @returns {String}
      */
     getRowId(record, index) {
-        return `${this.id}__tr__${record[this.store.keyProperty]}`;
+        return `${this.id}__tr__${record[this.store.keyProperty]}`
     }
 
     /**
@@ -231,7 +229,7 @@ class View extends Component {
      * @returns {String[]}
      */
     getTrClass(record, rowIndex) {
-        return ['neo-grid-row'];
+        return ['neo-grid-row']
     }
 
     /**
@@ -259,7 +257,7 @@ class View extends Component {
             })
         });
 
-        deltas.length > 0 && Neo.applyDeltas(me.appName, deltas);
+        deltas.length > 0 && Neo.applyDeltas(me.appName, deltas)
     }
 }
 

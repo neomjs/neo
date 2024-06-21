@@ -71,7 +71,7 @@ class Button extends BaseButton {
         me.addDomListeners({
             click: me.onButtonClick,
             scope: me
-        });
+        })
     }
 
     /**
@@ -81,8 +81,8 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetIsSorted(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         switch(value) {
             case null:
@@ -105,7 +105,7 @@ class Button extends BaseButton {
         me.mounted && me.fire('sort', {
             direction: value,
             property : me.field
-        });
+        })
     }
 
     /**
@@ -115,7 +115,7 @@ class Button extends BaseButton {
      * @protected
      */
     beforeSetCellAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues');
+        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues')
     }
 
     /**
@@ -130,29 +130,29 @@ class Button extends BaseButton {
                 ASC : null,
                 DESC: 'ASC',
                 null: 'DESC'
-            };
+            }
         } else {
             map = {
                 ASC : 'DESC',
                 DESC: null,
                 null: 'ASC'
-            };
+            }
         }
 
-        me.isSorted = map[me.isSorted + ''];
+        me.isSorted = map[me.isSorted + '']
     }
 
     /**
      * @protected
      */
     removeSortingCss() {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.add(cls, 'neo-sort-hidden');
 
         me.cls       = cls;
-        me._isSorted = null;
+        me._isSorted = null
     }
 
     /**
@@ -164,7 +164,7 @@ class Button extends BaseButton {
      * @returns {*}
      */
     renderer(data) {
-        return data.value;
+        return data.value
     }
 }
 

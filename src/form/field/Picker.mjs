@@ -133,7 +133,7 @@ class Picker extends Text {
     createPicker() {
         const
             me              = this,
-            { pickerWidth } = me,
+            {pickerWidth}   = me,
             pickerComponent = me.createPickerComponent();
 
         me.picker =  Neo.create(Container, {
@@ -192,7 +192,7 @@ class Picker extends Text {
      * @param args
      */
     destroy(...args) {
-        let picker = this.picker;
+        let {picker} = this;
 
         if (picker?.hidden === false) {
             picker.unmount()

@@ -87,8 +87,8 @@ class Base extends Component {
                 me.field.addDomListeners([
                     {mouseenter: me.onMouseEnter, scope: me},
                     {mouseleave: me.onMouseLeave, scope: me}
-                ]);
-            }, me);
+                ])
+            }, me)
         }
     }
 
@@ -102,11 +102,17 @@ class Base extends Component {
         let cls = this.cls;
 
         NeoArray[value === 'start' ? 'add' : 'remove'](cls, 'neo-align-start');
-        this.cls = cls;
+        this.cls = cls
     }
 
-    afterSetField(field) {
-        (this.vdom.data || (this.vdom.data = {})).focus = field && field.getInputElId();
+    /**
+     * Triggered after the field config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetField(value, oldValue) {
+        (this.vdom.data || (this.vdom.data = {})).focus = value?.getInputElId()
     }
 
     /**
@@ -116,10 +122,10 @@ class Base extends Component {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let style = this.style;
+        let {style} = this;
 
         style.display = value ? 'none' : 'inherit';
-        this.style = style;
+        this.style = style
     }
 
     /**
@@ -129,15 +135,15 @@ class Base extends Component {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray.remove(cls, oldValue);
 
         if (value && value !== '') {
-            NeoArray.add(cls, value);
+            NeoArray.add(cls, value)
         }
 
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -147,7 +153,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
+        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues')
     }
 
     /**
@@ -163,7 +169,7 @@ class Base extends Component {
 
         delete me.field;
 
-        super.destroy(updateParentVdom, silent);
+        super.destroy(updateParentVdom, silent)
     }
 
     /**
@@ -192,7 +198,7 @@ class Base extends Component {
             scope = me.scope || me;
 
         if (me.handler) {
-            scope[me.handler].call(scope);
+            scope[me.handler].call(scope)
         }
     }
 }

@@ -40,7 +40,7 @@ class Display extends Text {
         inputEl.readonly = 'readonly';
         inputEl.tabindex = '-1';
 
-        me.update();
+        me.update()
     }
 }
 

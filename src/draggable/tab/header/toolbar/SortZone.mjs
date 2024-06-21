@@ -41,12 +41,12 @@ class SortZone extends BaseSortZone {
         super.onDragEnd(data);
 
         setTimeout(() => {
-            let me    = this,
-                owner = me.owner,
-                cls   = owner.cls || [];
+            let me      = this,
+                {owner} = me,
+                cls     = owner.cls || [];
 
             NeoArray.remove(cls, 'neo-no-animation');
-            owner.cls = cls;
+            owner.cls = cls
         }, 300)
     }
 
@@ -54,9 +54,9 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me    = this,
-            owner = me.owner,
-            cls   = owner.cls || [];
+        let me      = this,
+            {owner} = me,
+            cls     = owner.cls || [];
 
         NeoArray.add(cls, 'neo-no-animation');
         owner.cls = cls;

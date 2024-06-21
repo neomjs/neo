@@ -43,7 +43,7 @@ class Model extends Base {
      * @property {Boolean} isRecord=true
      * @readonly
      */
-    isRecord = true;
+    isRecord = true
 
     /**
      * Finds a field config by a given field name
@@ -57,11 +57,11 @@ class Model extends Base {
 
         for (; i < len; i++) {
             if (me.fields[i].name === name) {
-                return me.fields[i];
+                return me.fields[i]
             }
         }
 
-        return null;
+        return null
     }
 }
 

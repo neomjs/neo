@@ -105,12 +105,12 @@ class Number extends Text {
             style   = inputEl.style || {};
 
         if (value) {
-            delete style.pointerEvents;
+            delete style.pointerEvents
         } else {
-            style.pointerEvents = 'none';
+            style.pointerEvents = 'none'
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -121,7 +121,7 @@ class Number extends Text {
      */
     afterSetMaxValue(value, oldValue) {
         this.validate(); // silent
-        this.changeInputElKey('max', value);
+        this.changeInputElKey('max', value)
     }
 
     /**
@@ -132,7 +132,7 @@ class Number extends Text {
      */
     afterSetMinValue(value, oldValue) {
         this.validate(); // silent
-        this.changeInputElKey('min', value);
+        this.changeInputElKey('min', value)
     }
 
     /**
@@ -158,15 +158,15 @@ class Number extends Text {
             if (modulo !== 0) { // find the closest valid value
                 if (modulo / value > 0.5) {
                     if (val + value - modulo < me.maxValue) {
-                        me.value = val + value - modulo;
+                        me.value = val + value - modulo
                     } else if (val - modulo > me.minValue) {
-                        me.value = val - modulo;
+                        me.value = val - modulo
                     }
                 } else {
                     if (val - modulo > me.minValue) {
-                        me.value = val - modulo;
+                        me.value = val - modulo
                     } else if (val + value - modulo < me.maxValue) {
-                        me.value = val + value - modulo;
+                        me.value = val + value - modulo
                     }
                 }
             }
@@ -180,7 +180,7 @@ class Number extends Text {
      * @protected
      */
     afterSetTriggerPosition(value, oldValue) {
-        oldValue && this.updateTriggers();
+        oldValue && this.updateTriggers()
     }
 
     /**
@@ -190,8 +190,8 @@ class Number extends Text {
      * @protected
      */
     afterSetUseSpinButtons(value, oldValue) {
-        if (typeof oldValue === 'boolean') {
-            this.updateTriggers();
+        if (Neo.isBoolean(oldValue)) {
+            this.updateTriggers()
         }
     }
 
@@ -206,7 +206,7 @@ class Number extends Text {
             console.warn('input type number does not support maxLength. use maxValue instead.', this)
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -220,7 +220,7 @@ class Number extends Text {
             console.warn('input type number does not support minLength. use minValue instead.', this)
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -230,7 +230,7 @@ class Number extends Text {
      * @protected
      */
     beforeSetTriggerPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'triggerPosition');
+        return this.beforeSetEnumValue(value, oldValue, 'triggerPosition')
     }
 
     /**
@@ -241,18 +241,18 @@ class Number extends Text {
      */
     beforeSetValue(value, oldValue) {
         if (value === null || value === '') {
-            return null;
+            return null
         }
 
         if (!Neo.isNumber(value)) {
-            value = +value;
+            value = +value
         }
 
         if (this.stepSizeDigits > 0) {
-            value = +value.toFixed(this.stepSizeDigits);
+            value = +value.toFixed(this.stepSizeDigits)
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -271,25 +271,23 @@ class Number extends Text {
      * @returns {Boolean}
      */
     isValid() {
-        let me       = this,
-            maxValue = me.maxValue,
-            minValue = me.minValue,
-            value    = me.value,
-            isNumber = Neo.isNumber(value);
+        let me                          = this,
+            {maxValue, minValue, value} = me,
+            isNumber                    = Neo.isNumber(value);
 
         if (Neo.isNumber(maxValue) && isNumber && value > maxValue) {
-            return false;
+            return false
         }
 
         if (Neo.isNumber(minValue) && isNumber && value < minValue) {
-            return false;
+            return false
         }
 
         if (!me.fitsStepSize(value)) {
-            return false;
+            return false
         }
 
-        return super.isValid();
+        return super.isValid()
     }
 
     /**
@@ -297,7 +295,7 @@ class Number extends Text {
      */
     onConstructed() {
         this.updateTriggers();
-        super.onConstructed();
+        super.onConstructed()
     }
 
     /**
@@ -306,8 +304,8 @@ class Number extends Text {
      * @protected
      */
     onFocusLeave(data) {
-        let me    = this,
-            value = me.value;
+        let me      = this,
+            {value} = me;
 
         if (value !== null) {
             value = me.stepSizeDigits > 0 ? parseFloat(value) : parseInt(value);
@@ -315,9 +313,9 @@ class Number extends Text {
             value = Math.min(me.maxValue, value);
 
             if (me.value !== value) {
-                me.value = value;
+                me.value = value
             } else {
-                me.getInputEl().value = me.inputValueRenderer(value);
+                me.getInputEl().value = me.inputValueRenderer(value)
             }
         }
 
@@ -328,19 +326,19 @@ class Number extends Text {
      * @protected
      */
     onSpinButtonDownClick() {
-        let me       = this,
-            stepSize = me.stepSize,
-            oldValue = Neo.isNumber(me.value) ? me.value : me.minValue,
-            value    = (oldValue - stepSize) < me.minValue ? me.maxValue : (oldValue - stepSize);
+        let me         = this,
+            {stepSize} = me,
+            oldValue   = Neo.isNumber(me.value) ? me.value : me.minValue,
+            value      = (oldValue - stepSize) < me.minValue ? me.maxValue : (oldValue - stepSize);
 
         if (me.excludedValues) {
             while (me.excludedValues.includes(value)) {
-                value = Math.max(me.minValue, value - stepSize);
+                value = Math.max(me.minValue, value - stepSize)
             }
         }
 
         if (oldValue !== value) {
-            me.value = value;
+            me.value = value
         }
     }
 
@@ -348,19 +346,19 @@ class Number extends Text {
      * @protected
      */
     onSpinButtonUpClick() {
-        let me       = this,
-            stepSize = me.stepSize,
-            oldValue = Neo.isNumber(me.value) ? me.value : me.maxValue,
-            value    = (oldValue + stepSize) > me.maxValue ? me.minValue : (oldValue + stepSize);
+        let me         = this,
+            {stepSize} = me,
+            oldValue   = Neo.isNumber(me.value) ? me.value : me.maxValue,
+            value      = (oldValue + stepSize) > me.maxValue ? me.minValue : (oldValue + stepSize);
 
         if (me.excludedValues) {
             while (me.excludedValues.includes(value)) {
-                value = Math.min(me.maxValue, value + stepSize);
+                value = Math.min(me.maxValue, value + stepSize)
             }
         }
 
         if (oldValue !== value) {
-            me.value = value;
+            me.value = value
         }
     }
 
@@ -374,29 +372,29 @@ class Number extends Text {
         if (me.useSpinButtons) {
             if (me.triggerPosition === 'right') {
                 if (!me.hasTrigger('spinupdown')) {
-                    triggers.push(SpinUpDownTrigger);
+                    triggers.push(SpinUpDownTrigger)
                 }
 
                 me.removeTrigger('spindown', true, triggers);
-                me.removeTrigger('spinup', true, triggers);
+                me.removeTrigger('spinup', true, triggers)
             } else {
                 if (!me.hasTrigger('spindown')) {
-                    triggers.push(SpinDownTrigger);
+                    triggers.push(SpinDownTrigger)
                 }
 
                 if (!me.hasTrigger('spinup')) {
-                    triggers.push(SpinUpTrigger);
+                    triggers.push(SpinUpTrigger)
                 }
 
-                me.removeTrigger('spinupdown', true, triggers);
+                me.removeTrigger('spinupdown', true, triggers)
             }
         } else {
             me.removeTrigger('spindown', true, triggers);
             me.removeTrigger('spinup', true, triggers);
-            me.removeTrigger('spinupdown', true, triggers);
+            me.removeTrigger('spinupdown', true, triggers)
         }
 
-        me.triggers = triggers;
+        me.triggers = triggers
     }
 
     /**
@@ -406,11 +404,8 @@ class Number extends Text {
      */
     validate(silent=true) {
         let me          = this,
-            value       = me.value,
+            {maxValue, minValue, stepSize, value} = me,
             isNumber    = Neo.isNumber(value),
-            maxValue    = me.maxValue,
-            minValue    = me.minValue,
-            stepSize    = me.stepSize,
             returnValue = super.validate(silent),
             errorParam  = {maxValue, minValue, stepSize, value};
 

@@ -26,9 +26,9 @@ class DragZone extends BaseDragZone {
     construct(config) {
         super.construct(config);
 
-        let me    = this,
-            owner = me.owner,
-            opts  = {delegate: '.neo-draggable', scope: me};
+        let me      = this,
+            {owner} = me,
+            opts    = {delegate: '.neo-draggable', scope: me};
 
         owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,   ...opts},
@@ -38,23 +38,23 @@ class DragZone extends BaseDragZone {
 
         owner.on('insert', me.onItemInsert, me);
 
-        me.adjustToolbarItemCls(true);
+        me.adjustToolbarItemCls(true)
     }
 
     /**
      * @param {Boolean} draggable
      */
     adjustToolbarItemCls(draggable) {
-        let me    = this,
-            owner = me.owner,
+        let me      = this,
+            {owner} = me,
             wrapperCls;
 
         owner.items.forEach(item => {
             wrapperCls = item.wrapperCls || [];
 
             NeoArray[draggable ? 'add' : 'remove'](wrapperCls, 'neo-draggable');
-            item.wrapperCls = wrapperCls;
-        });
+            item.wrapperCls = wrapperCls
+        })
     }
 
     /**
@@ -79,9 +79,9 @@ class DragZone extends BaseDragZone {
                 proxy.wrapperStyle = wrapperStyle;
 
                 setTimeout(() => {
-                    me.dragEnd();
-                }, 100);
-            }, 30);
+                    me.dragEnd()
+                }, 100)
+            }, 30)
         }
     }
 
@@ -93,7 +93,7 @@ class DragZone extends BaseDragZone {
 
         if (me.owner.draggable) {
             me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
-            me.dragStart(data);
+            me.dragStart(data)
         }
     }
 
@@ -103,11 +103,11 @@ class DragZone extends BaseDragZone {
      * @param {Neo.component.Base} data.item
      */
     onItemInsert(data) {
-        let item = data.item,
-            cls  = item.cls || [];
+        let {item} = data,
+            cls    = item.cls || [];
 
         NeoArray.add(cls, 'neo-draggable');
-        item.cls = cls;
+        item.cls = cls
     }
 }
 

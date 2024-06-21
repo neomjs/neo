@@ -98,7 +98,7 @@ class RecordFactory extends Base {
                                         configurable: true,
                                         enumerable  : true,
                                         get() {
-                                            return this[symbol];
+                                            return this[symbol]
                                         },
                                         set(value) {
                                             let me       = this,
@@ -203,7 +203,7 @@ class RecordFactory extends Base {
             return !Neo.isEqual(record[fieldName], record[modifiedField])
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -245,10 +245,7 @@ class RecordFactory extends Base {
         }
 
         let fieldName = field.name,
-            mapping   = field.mapping,
-            maxLength = field.maxLength,
-            minLength = field.minLength,
-            nullable  = field.nullable,
+            {mapping, maxLength, minLength, nullable} = field,
             oldValue  = recordConfig?.[fieldName] || record[fieldName],
             type      = field.type?.toLowerCase();
 

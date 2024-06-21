@@ -42,12 +42,12 @@ class Email extends Text {
     validate(silent=true) {
         let me          = this,
             returnValue = super.validate(silent),
-            value       = me.value;
+            {value}     = me;
 
         if (returnValue) {
             if (value && !Email.emailRegex.test(value)) {
                 me._error = me.errorTextValidEmail;
-                returnValue = false;
+                returnValue = false
             }
         }
 

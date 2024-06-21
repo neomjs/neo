@@ -37,7 +37,7 @@ class ToggleOperatorsButton extends Button {
 
         me.handler = me.onButtonClick;
 
-        me.text = me.value || me.operators[0];
+        me.text = me.value || me.operators[0]
     }
 
     /**
@@ -55,7 +55,7 @@ class ToggleOperatorsButton extends Button {
                 component: me,
                 oldValue,
                 value
-            });
+            })
         }
     }
 
@@ -72,12 +72,12 @@ class ToggleOperatorsButton extends Button {
 
             for (; i < len; i++) {
                 if (this.beforeSetEnumValue(value[i], oldValue, 'operators', Filter.operators) !== value[i]) {
-                    return oldValue;
+                    return oldValue
                 }
             }
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -87,7 +87,7 @@ class ToggleOperatorsButton extends Button {
         let me    = this,
             index = (me.operators.indexOf(data.component.text) + 1) % me.operators.length;
 
-        me.value = me.operators[index];
+        me.value = me.operators[index]
     }
 }
 

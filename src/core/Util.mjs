@@ -32,7 +32,7 @@ class Util extends Base {
      */
     static bindMethods(scope, values) {
         values.forEach(value => {
-            scope[value] = scope[value].bind(scope);
+            scope[value] = scope[value].bind(scope)
         })
     }
 
@@ -59,7 +59,7 @@ class Util extends Base {
 
             if (parts[0] !== '') {
                 parts[0] = parts[0].replace(/-([a-z])/g, (str, letter) => {
-                    return letter.toUpperCase();
+                    return letter.toUpperCase()
                 });
 
                 obj[parts[0]] = parts[1]

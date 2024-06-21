@@ -49,16 +49,16 @@ class CopyToClipboard extends Base {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
         NeoArray[value? 'add' : 'remove'](cls, 'neo-is-hidden');
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
      * @returns {Boolean} true in case the trigger should be hidden
      */
     getHiddenState() {
-        return !this.field.value || this.field.value.length === 0;
+        return !this.field.value || this.field.value.length === 0
     }
 
     /**
@@ -75,14 +75,14 @@ class CopyToClipboard extends Base {
             scope      : me
         });
 
-        me.hidden = me.getHiddenState();
+        me.hidden = me.getHiddenState()
     }
 
     /**
      * @param {Object} opts
      */
     onFieldChange(opts) {
-        this.hidden = this.getHiddenState();
+        this.hidden = this.getHiddenState()
     }
 
     /**
@@ -98,8 +98,8 @@ class CopyToClipboard extends Base {
             Neo.main.DomAccess.execCommand({
                 appName: me.appName,
                 command: 'copy'
-            });
-        });
+            })
+        })
     }
 }
 

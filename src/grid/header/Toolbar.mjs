@@ -57,10 +57,10 @@ class Toolbar extends BaseToolbar {
                 item.vdom.cls.push('neo-locked');
 
                 if (item.dock === 'left') {
-                    style.left = dockLeftWidth + 'px';
+                    style.left = dockLeftWidth + 'px'
                 }
 
-                dockLeftWidth += (item.width + 1); // todo: borders fix
+                dockLeftWidth += (item.width + 1) // todo: borders fix
             }
 
             item.wrapperStyle = style;
@@ -74,11 +74,11 @@ class Toolbar extends BaseToolbar {
 
                 item.wrapperStyle = style;
 
-                dockRightWidth += (item.width + 1); // todo: borders fix
+                dockRightWidth += (item.width + 1) // todo: borders fix
             }
         });
 
-        me.update();
+        me.update()
     }
 }
 

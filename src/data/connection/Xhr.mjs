@@ -43,15 +43,16 @@ class Xhr extends Base {
      * @param {Object} event
      */
     getResponse(event) {
-        let target = event.target;
+        let {target} = event,
+            {readyState, response, status, statusText} = target;
 
         return {
-            readyState: target.readyState,
-            response  : target.response,
-            status    : target.status,
-            statusText: target.statusText,
-            headers   : target.getAllResponseHeaders()
-        };
+            readyState,
+            response,
+            status,
+            statusText,
+            headers: target.getAllResponseHeaders()
+        }
     }
 
     /**
@@ -69,7 +70,7 @@ class Xhr extends Base {
             request[key] = null;
         });
 
-        delete me.requests[id];
+        delete me.requests[id]
     }
 
     /**
@@ -84,10 +85,10 @@ class Xhr extends Base {
         cb?.apply(request.scope || me, [me.getResponse(e), true]);
 
         Object.entries(request).forEach(([key, value]) => {
-            request[key] = null;
+            request[key] = null
         });
 
-        delete me.requests[id];
+        delete me.requests[id]
     }
 
     /**
@@ -111,19 +112,20 @@ class Xhr extends Base {
                     try {
                         json = JSON.parse(data.response);
 
-                        resolve(Object.assign(data, { json }));
+                        resolve(Object.assign(data, { json }))
                     } catch(err) {
                         reject({
-                            reject : true,
-                            error  : err.message
-                        });
+                            reject: true,
+                            error : err.message
+                        })
                     }
                 } else {
-                    reject(data);
+                    reject(data)
                 }
             };
-            me.request(opts);
-        });
+
+            me.request(opts)
+        })
     }
 
     /**
@@ -136,13 +138,14 @@ class Xhr extends Base {
         return new Promise((resolve, reject) => {
             opts.callback = function(data, success) {
                 if (success) {
-                    resolve(data);
+                    resolve(data)
                 } else {
-                    reject(data);
+                    reject(data)
                 }
             };
-            me.request(opts);
-        });
+
+            me.request(opts)
+        })
     }
 
     /**
@@ -167,16 +170,16 @@ class Xhr extends Base {
             xhr     = new XMLHttpRequest();
 
         if (!opts.url) {
-            console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts));
+            console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts))
         } else {
             if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/') && !location.href.startsWith('https://neomjs.com/')) {
                 if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
-                    opts.url = '../../' + opts.url;
+                    opts.url = '../../' + opts.url
                 }
             }
 
             if (opts.params) {
-                opts.url += ('?' + new URLSearchParams(opts.params).toString());
+                opts.url += ('?' + new URLSearchParams(opts.params).toString())
             }
 
             xhr.neoId = id;
@@ -198,12 +201,12 @@ class Xhr extends Base {
             xhr.open(method, opts.url, true);
 
             Object.entries(headers).forEach(([key, value]) => {
-                xhr.setRequestHeader(key, value);
+                xhr.setRequestHeader(key, value)
             });
 
             xhr.send(opts.data);
 
-            return xhr;
+            return xhr
         }
     }
 
@@ -215,7 +218,7 @@ class Xhr extends Base {
     sendForm(form, opts) {
         opts.data = new FormData(form);
 
-        return this.request(opts);
+        return this.request(opts)
     }
 
     /**
@@ -224,7 +227,7 @@ class Xhr extends Base {
      * @param {Object} value
      */
     setDefaultHeaders(value) {
-        this.defaultHeaders = value;
+        this.defaultHeaders = value
     }
 }
 

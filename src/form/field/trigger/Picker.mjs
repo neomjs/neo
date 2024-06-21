@@ -33,8 +33,8 @@ class Picker extends Base {
      * @param {Object} data
      */
     onTriggerClick(data) {
-        this.field.onPickerTriggerClick();
-    } 
+        this.field.onPickerTriggerClick()
+    }
 }
 
 Neo.setupClass(Picker);

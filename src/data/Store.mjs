@@ -132,7 +132,7 @@ class Store extends Base {
      * @returns {Number} the collection count
      */
     add(item) {
-        return super.add(this.beforeSetData(item));
+        return super.add(this.beforeSetData(item))
     }
 
     /**
@@ -142,7 +142,7 @@ class Store extends Base {
      * @protected
      */
     afterSetCurrentPage(value, oldValue) {
-        oldValue && this.load();
+        oldValue && this.load()
     }
 
     /**
@@ -156,12 +156,12 @@ class Store extends Base {
         if (me.configsApplied) {
             if (value) {
                 if (oldValue) {
-                    me.clear();
+                    me.clear()
                 } else {
-                    me.initialData = [...value];
+                    me.initialData = [...value]
                 }
 
-                me.add(value);
+                me.add(value)
             }
         }
     }
@@ -178,7 +178,7 @@ class Store extends Base {
 
         me._currentPage = 1; // silent update
 
-        oldValue && me.remoteFilter && me.load();
+        oldValue && me.remoteFilter && me.load()
     }
 
     /**
@@ -198,7 +198,7 @@ class Store extends Base {
     afterSetModel(value, oldValue) {
         if (value) {
             value.storeId = this.id;
-            RecordFactory.createRecordClass(value);
+            RecordFactory.createRecordClass(value)
         }
     }
 
@@ -211,7 +211,7 @@ class Store extends Base {
     afterSetPageSize(value, oldValue) {
         if (oldValue) {
             this._currentPage = 1; // silent update
-            this.load();
+            this.load()
         }
     }
 
@@ -227,7 +227,7 @@ class Store extends Base {
 
         me._currentPage = 1; // silent update
 
-        oldValue && me.remoteSort && me.load();
+        oldValue && me.remoteSort && me.load()
     }
 
     /**
@@ -243,10 +243,10 @@ class Store extends Base {
                 destroy: value + '.destroy',
                 read   : value + '.read',
                 update : value + '.update'
-            };
+            }
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -260,7 +260,7 @@ class Store extends Base {
 
         if (value) {
             if (!Array.isArray(value)) {
-                value = [value];
+                value = [value]
             }
 
             // todo: add a config to make the cloning optional
@@ -268,12 +268,12 @@ class Store extends Base {
 
             value.forEach((key, index) => {
                 if (!RecordFactory.isRecord(key)) {
-                    value[index] = RecordFactory.createRecord(me.model, key);
+                    value[index] = RecordFactory.createRecord(me.model, key)
                 }
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -284,10 +284,10 @@ class Store extends Base {
      */
     beforeSetInitialData(value, oldValue) {
         if (!value && oldValue) {
-            return oldValue;
+            return oldValue
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -299,14 +299,14 @@ class Store extends Base {
     beforeSetModel(value, oldValue) {
         oldValue?.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, Model);
+        return ClassSystemUtil.beforeSetInstance(value, Model)
     }
 
     /**
      * @param {Object} config
      */
     createRecord(config) {
-        RecordFactory.createRecord(config);
+        RecordFactory.createRecord(config)
     }
 
     /**
@@ -325,11 +325,11 @@ class Store extends Base {
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
         if (me.remoteFilter) {
-            params.filters = me.exportFilters();
+            params.filters = me.exportFilters()
         }
 
         if (me.remoteSort) {
-            params.sorters = me.exportSorters();
+            params.sorters = me.exportSorters()
         }
 
         if (me.api) {
@@ -338,7 +338,7 @@ class Store extends Base {
                 service  = Neo.ns(apiArray.join('.'));
 
             if (!service) {
-                console.log('Api is not defined', this);
+                console.log('Api is not defined', this)
             } else {
                 service[fn](params).then(response => {
                     response = Neo.ns(me.responseRoot, false, response);
@@ -347,15 +347,15 @@ class Store extends Base {
                         me.totalCount = response.totalCount;
                         me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
                     }
-                });
+                })
             }
         } else {
             opts.url ??= me.url;
 
             Neo.Xhr.promiseJson(opts).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id);
+                console.log('Error for Neo.Xhr.request', err, me.id)
             }).then(data => {
-                me.data = Neo.ns(me.responseRoot, false, data.json) || data.json;
+                me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
                 // we do not need to fire a load event => onCollectionMutate()
             })
         }
@@ -369,7 +369,7 @@ class Store extends Base {
 
         if (me.configsApplied) {
             // console.log('onCollectionMutate', opts);
-            me.fire('load', me.items);
+            me.fire('load', me.items)
         }
     }
 
@@ -399,8 +399,8 @@ class Store extends Base {
 
         if (me.autoLoad) {
             setTimeout(() => { // todo
-                me.load();
-            }, 100);
+                me.load()
+            }, 100)
         }
     }
 
@@ -413,9 +413,9 @@ class Store extends Base {
 
         if (me.remoteFilter) {
             me._currentPage = 1; // silent update
-            me.load();
+            me.load()
         } else {
-            super.onFilterChange(opts);
+            super.onFilterChange(opts)
         }
     }
 
@@ -431,7 +431,7 @@ class Store extends Base {
         this.fire('recordChange', {
             ...data,
             index: this.indexOf(data.record)
-        });
+        })
     }
 
     /**
@@ -449,11 +449,11 @@ class Store extends Base {
                 me.sorters = [{
                     direction: opts.direction,
                     property : opts.property
-                }];
+                }]
             } else {
                 if (!me.remoteSort) {
                     me.startUpdate();
-                    me.clear();
+                    me.clear()
                 }
 
                 me.sorters = [];
@@ -461,7 +461,7 @@ class Store extends Base {
                 if (!me.remoteSort) {
                     me.add([...me.initialData]);
                     me.endUpdate();
-                    me.fire('sort');
+                    me.fire('sort')
                 }
             }
         }

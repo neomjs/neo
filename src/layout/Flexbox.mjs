@@ -85,7 +85,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetAlign(value, oldValue) {
-        oldValue && this.updateInputValue(value, oldValue, 'align');
+        oldValue && this.updateInputValue(value, oldValue, 'align')
     }
 
     /**
@@ -95,7 +95,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetDirection(value, oldValue) {
-        oldValue && this.updateInputValue(value, oldValue, 'direction');
+        oldValue && this.updateInputValue(value, oldValue, 'direction')
     }
 
     /**
@@ -111,7 +111,7 @@ class Flexbox extends Base {
             style = item.wrapperStyle;
 
         style.gap = value;
-        item.wrapperStyle = style;
+        item.wrapperStyle = style
     }
 
     /**
@@ -121,7 +121,7 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetPack(value, oldValue) {
-        oldValue && this.updateInputValue(value, oldValue, 'pack');
+        oldValue && this.updateInputValue(value, oldValue, 'pack')
     }
 
     /**
@@ -131,23 +131,24 @@ class Flexbox extends Base {
      * @protected
      */
     afterSetWrap(value, oldValue) {
-        oldValue && this.updateInputValue(value, oldValue, 'wrap');
+        oldValue && this.updateInputValue(value, oldValue, 'wrap')
     }
 
     /**
      * Applies the flex value to an item of the container this layout is bound to
      * @param {Neo.component.Base} item
+     * @param {Number} index
      */
-    applyChildAttributes(item) {
+    applyChildAttributes(item, index) {
         let style = item.wrapperStyle,
             flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
         if (flex === 1) {
-            flex = '1 1 auto';
+            flex = '1 1 auto'
         }
 
         style.flex = flex;
-        item.wrapperStyle = style;
+        item.wrapperStyle = style
     }
 
     /**
@@ -156,11 +157,11 @@ class Flexbox extends Base {
     applyRenderAttributes() {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.add(wrapperCls, prefix + 'container');
@@ -170,7 +171,7 @@ class Flexbox extends Base {
         me.pack      && NeoArray.add(wrapperCls, prefix + 'pack-'      + me.pack);
         me.wrap      && NeoArray.add(wrapperCls, prefix + 'wrap-'      + me.wrap);
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -181,7 +182,7 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     beforeSetAlign(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'alignValues', 'align');
+        return this.testInputValue(value, oldValue, 'alignValues', 'align')
     }
 
     /**
@@ -192,7 +193,7 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     beforeSetDirection(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'directionValues', 'direction');
+        return this.testInputValue(value, oldValue, 'directionValues', 'direction')
     }
 
     /**
@@ -203,7 +204,7 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     beforeSetPack(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'packValues', 'pack');
+        return this.testInputValue(value, oldValue, 'packValues', 'pack')
     }
 
     /**
@@ -214,7 +215,7 @@ class Flexbox extends Base {
      * @returns {String} value
      */
     beforeSetWrap(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'wrapValues', 'wrap');
+        return this.testInputValue(value, oldValue, 'wrapValues', 'wrap')
     }
 
     /**
@@ -227,7 +228,7 @@ class Flexbox extends Base {
         let style = item.wrapperStyle || {};
 
         style.flex = item.flex || null;
-        item.wrapperStyle = style;
+        item.wrapperStyle = style
     }
 
     /**
@@ -238,29 +239,29 @@ class Flexbox extends Base {
     removeRenderAttributes() {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.remove(wrapperCls, prefix + 'container');
 
         if (me.align) {
-            NeoArray.remove(wrapperCls, prefix + 'align-' + me.align);
+            NeoArray.remove(wrapperCls, prefix + 'align-' + me.align)
         }
         if (me.direction) {
-            NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
+            NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction)
         }
         if (me.pack) {
-            NeoArray.remove(wrapperCls, prefix + 'pack-' + me.pack);
+            NeoArray.remove(wrapperCls, prefix + 'pack-' + me.pack)
         }
         if (me.wrap) {
-            NeoArray.remove(wrapperCls, prefix + 'wrap-' + me.wrap);
+            NeoArray.remove(wrapperCls, prefix + 'wrap-' + me.wrap)
         }
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -273,11 +274,11 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     testInputValue(value, oldValue, validValuesName, propertyName) {
-        const validValues = this.getStaticConfig(validValuesName);
+        let validValues = this.getStaticConfig(validValuesName);
 
         if (!NeoArray.hasItem(validValues, value)) {
             Neo.logError(this.containerId, '-> layout: supported values for "' + propertyName + '" are' , validValues);
-            return oldValue;
+            return oldValue
         }
 
         return value;
@@ -293,17 +294,17 @@ class Flexbox extends Base {
     updateInputValue(value, oldValue, propertyName) {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls;
 
         if (container?.rendered) {
             NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
 
             if (value !== null) {
-                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value);
+                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value)
             }
 
-            container.wrapperCls = wrapperCls;
+            container.wrapperCls = wrapperCls
         }
     }
 }

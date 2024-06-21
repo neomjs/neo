@@ -55,15 +55,16 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.container.windowId, this.__proto__);
+        value && Neo.currentWorker.insertThemeFiles(value, this.container.windowId, this.__proto__)
     }
 
     /**
      * Placeholder method
      * @param {Neo.component.Base} item
+     * @param {Number} index
      * @protected
      */
-    applyChildAttributes(item) {}
+    applyChildAttributes(item, index) {}
 
     /**
      * Placeholder method
@@ -88,7 +89,7 @@ class Base extends CoreBase {
      * @returns {Neo.model.Component|null}
      */
     getModel(ntype) {
-        return this.container.getModel();
+        return this.container.getModel()
     }
 
     /**
@@ -101,7 +102,7 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.bind && me.container.getModel()?.parseConfig(me);
+        me.bind && me.container.getModel()?.parseConfig(me)
     }
 
     /**

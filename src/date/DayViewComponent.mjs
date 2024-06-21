@@ -127,7 +127,7 @@ class DayViewComponent extends Base {
      */
     createContent(silent=false, containerEl) {
         let me              = this,
-            currentDate     = me.currentDate,
+            {currentDate}   = me,
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),

@@ -37,7 +37,7 @@ class SpinDown extends Base {
      * @param {Object} data
      */
     onTriggerClick(data) {
-        this.field.onSpinButtonDownClick();
+        this.field.onSpinButtonDownClick()
     }
 }
 

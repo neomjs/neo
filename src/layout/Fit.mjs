@@ -21,12 +21,12 @@ class Fit extends Base {
 
     /**
      * Initially sets the CSS classes of the container items this layout is bound to.
-     * @param {Neo.component.Base} child
+     * @param {Neo.component.Base} item
      * @param {Number} index
      */
-    applyChildAttributes(child, index) {
-        if (!child.ignoreLayout) {
-            child.wrapperCls = NeoArray.union(child.wrapperCls, 'neo-layout-fit-item');
+    applyChildAttributes(item, index) {
+        if (!item.ignoreLayout) {
+            item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-fit-item')
         }
     }
 
@@ -39,12 +39,12 @@ class Fit extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-fit');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -57,12 +57,12 @@ class Fit extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.remove(wrapperCls, 'neo-layout-fit');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 }
 
