@@ -199,9 +199,9 @@ class Base extends Component {
      */
     afterSetRendering(value, oldValue) {
         if (oldValue !== undefined) {
-            let items = this.items,
-                i     = 0,
-                len   = items.length;
+            let {items} = this,
+                i       = 0,
+                len     = items.length;
 
             for (; i < len; i++) {
                 if (!items[i].vdom.removeDom) {
@@ -240,12 +240,11 @@ class Base extends Component {
      */
      beforeSetItems(value, oldValue) {
         if (Neo.typeOf(value) === 'Object') {
-            const result = [];
-
-            let hasWeight;
+            let result = [],
+                hasWeight, item;
 
             for (const ref in value) {
-                const item = value[ref]
+                item = value[ref]
 
                 item.reference = ref;
                 result.push(item);
@@ -255,10 +254,11 @@ class Base extends Component {
             if (hasWeight) {
                 result.sort(byWeight);
             }
-            value = result;
+
+            value = result
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -299,7 +299,7 @@ class Base extends Component {
                     module: item,
                     ...config
                 });
-                break;
+                break
             }
 
             case 'NeoInstance': {
@@ -309,7 +309,7 @@ class Base extends Component {
                 // based listeners which still need to get resolved.
                 item.getController()?.parseConfig(item);
                 item.getModel()     ?.parseConfig(item);
-                break;
+                break
             }
 
             case 'Object': {
@@ -345,7 +345,7 @@ class Base extends Component {
                     item.vdom = Object.assign(item.vdom || {}, {removeDom: true})
                 }
 
-                break;
+                break
             }
 
             case 'String': {
@@ -355,7 +355,7 @@ class Base extends Component {
                     ...config
                 });
 
-                break;
+                break
             }
         }
 
@@ -369,7 +369,7 @@ class Base extends Component {
         let me        = this,
             items     = me._items,
             itemsRoot = me.getVdomItemsRoot(),
-            layout    = me.layout;
+            {layout}  = me;
 
         itemsRoot.cn = [];
 
@@ -434,8 +434,7 @@ class Base extends Component {
     getItem(reference, items=this.items) {
         let i   = 0,
             len = items.length,
-            item,
-            childItem;
+            childItem, item;
 
         for (; i < len; i++) {
             item = items[i];
@@ -492,8 +491,8 @@ class Base extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false) {
-        let me    = this,
-            items = me.items,
+        let me      = this,
+            {items} = me,
             i, len, returnArray;
 
         if (Array.isArray(item)) {
@@ -506,7 +505,7 @@ class Base extends Component {
                 returnArray.unshift(me.insert(index, item[len - 1 - i], true))
             }
 
-            item = returnArray;
+            item = returnArray
         } else {
             item = me.createItem(item, index);
 
@@ -660,9 +659,8 @@ class Base extends Component {
      * @returns {Neo.component.Base|null}
      */
     removeAt(index, destroyItem=true, silent=false) {
-        let me    = this,
-            items = me.items,
-            vdom  = me.vdom,
+        let me      = this,
+            {items} = me,
             item;
 
         if (index >= items.length) {
@@ -674,7 +672,7 @@ class Base extends Component {
 
             me.getVdomItemsRoot().cn.splice(index, 1);
 
-            me[silent || destroyItem ? '_vdom' : 'vdom'] = vdom;
+            !silent && me.update();
 
             if (destroyItem) {
                 item.destroy(true, silent);

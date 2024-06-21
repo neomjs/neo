@@ -99,14 +99,14 @@ class Video extends BaseComponent {
      * @param {Boolean} oldValue
      */
     afterSetPlaying(value, oldValue) {
-        let vdom  = this.vdom,
-            media = VDomUtil.getFlags(vdom, 'media')[0],
-            ghost = VDomUtil.getFlags(vdom, 'ghost')[0];
+        let {vdom} = this,
+            media  = VDomUtil.getFlags(vdom, 'media')[0],
+            ghost  = VDomUtil.getFlags(vdom, 'ghost')[0];
 
         ghost.removeDom = value;
         media.removeDom = !value;
 
-        this.vdom = vdom
+        this.update()
     }
 
     /**
@@ -121,9 +121,8 @@ class Video extends BaseComponent {
             return
         }
 
-        const me = this;
-        let vdom  = me.vdom,
-            media = vdom.cn[1];
+        let me    = this,
+            media = me.vdom.cn[1];
 
         media.cn = [{
             tag : 'source',
@@ -131,7 +130,7 @@ class Video extends BaseComponent {
             type: me.type
         }];
 
-        me.vdom = vdom
+        me.update()
     }
 
     /**

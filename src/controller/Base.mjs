@@ -96,9 +96,9 @@ class Base extends CoreBase {
      *
      */
     async onConstructed() {
-        let me          = this,
-            currentHash = HashHistory.first(),
-            defaultHash = me.defaultHash;
+        let me            = this,
+            currentHash   = HashHistory.first(),
+            {defaultHash} = me;
 
         // get outside the construction chain => a related cmp & vm has to be constructed too
         await me.timeout(1);
@@ -128,14 +128,13 @@ class Base extends CoreBase {
             return
         }
 
-        let me                = this,
-            counter           = 0,
-            hasRouteBeenFound = false,
-            handleRoutes      = me.handleRoutes,
-            routeKeys         = Object.keys(handleRoutes),
-            routeKeysLength   = routeKeys.length,
-            routes            = me.routes,
-            handler, key, paramObject, preHandler, responsePreHandler, result, route;
+        let me                     = this,
+            counter                = 0,
+            hasRouteBeenFound      = false,
+            {handleRoutes, routes} = me,
+            routeKeys              = Object.keys(handleRoutes),
+            routeKeysLength        = routeKeys.length,
+            arrayParamIds, arrayParamValues, handler, key, paramObject, preHandler, responsePreHandler, result, route;
 
         while (routeKeysLength > 0 && counter < routeKeysLength && !hasRouteBeenFound) {
             key                = routeKeys[counter];
@@ -146,9 +145,8 @@ class Base extends CoreBase {
             result             = value.hashString.match(handleRoutes[key]);
 
             if (result) {
-                const
-                    arrayParamIds    = key.match(routeParamRegex),
-                    arrayParamValues = result.splice(1, result.length - 1);
+                arrayParamIds    = key.match(routeParamRegex);
+                arrayParamValues = result.splice(1, result.length - 1);
 
                 if (arrayParamIds && arrayParamIds.length !== arrayParamValues.length) {
                     throw 'Number of IDs and number of Values do not match'

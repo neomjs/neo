@@ -100,7 +100,7 @@ class Panel extends Container {
             });
         }
 
-        return {...config, ...header};
+        return {...config, ...header}
     }
 
     /**
@@ -122,18 +122,18 @@ class Panel extends Container {
                 topHeaders           = headers.filter(header => {return header.dock === (hf ?'top'   : 'left')}),
                 hasHorizontalHeaders = bottomHeaders.length > 0 || topHeaders  .length > 0,
                 hasVerticalHeaders   = leftHeaders  .length > 0 || rightHeaders.length > 0,
-                items                = me.items,
+                {items}              = me,
                 horizontalItems      = [],
                 verticalItems        = [],
                 config;
 
             topHeaders.forEach(header => {
-                verticalItems.push(Panel.createHeaderConfig(header));
+                verticalItems.push(Panel.createHeaderConfig(header))
             });
 
             if (hasVerticalHeaders && (hf && hasHorizontalHeaders || !hf && hasHorizontalHeaders)) {
                 leftHeaders.forEach(header => {
-                    horizontalItems.push(Panel.createHeaderConfig(header));
+                    horizontalItems.push(Panel.createHeaderConfig(header))
                 });
 
                 config = {
@@ -147,7 +147,7 @@ class Panel extends Container {
                 horizontalItems.push({...me.headerDefaults, ...config});
 
                 rightHeaders.forEach(header => {
-                    horizontalItems.push(Panel.createHeaderConfig(header));
+                    horizontalItems.push(Panel.createHeaderConfig(header))
                 });
 
                 verticalItems.push({
@@ -167,18 +167,18 @@ class Panel extends Container {
                     ...containerConfig
                 };
 
-                verticalItems.push({...me.headerDefaults, ...config});
+                verticalItems.push({...me.headerDefaults, ...config})
             }
 
             bottomHeaders.forEach(header => {
-                verticalItems.push(Panel.createHeaderConfig(header));
+                verticalItems.push(Panel.createHeaderConfig(header))
             });
 
             me.items = verticalItems;
 
             me.itemDefaults = null;
 
-            super.createItems();
+            super.createItems()
         }
     }
 
@@ -186,7 +186,7 @@ class Panel extends Container {
      * @returns {Boolean}
      */
     hasHeaders() {
-        return Array.isArray(this.headers) && this.headers.length > 0;
+        return Array.isArray(this.headers) && this.headers.length > 0
     }
 }
 

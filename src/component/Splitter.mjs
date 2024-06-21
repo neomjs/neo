@@ -87,10 +87,10 @@ class Splitter extends Component {
      * @protected
      */
     afterSetDirection(value, oldValue) {
-        let me     = this,
-            cls    = me.cls,
-            height = value === 'vertical' ? null : me.size,
-            width  = value !== 'vertical' ? null : me.size;
+        let me          = this,
+            {cls, size} = me,
+            height      = value === 'vertical' ? null : size,
+            width       = value !== 'vertical' ? null : size;
 
         NeoArray.add(cls, `neo-${value}`);
 
@@ -143,12 +143,10 @@ class Splitter extends Component {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me         = this,
-            style      = me.style || {},
-            parent     = me.parent,
-            parentId   = me.parentId,
-            resizeNext = me.resizeTarget === 'next',
-            size       = me.size,
+        let me                       = this,
+            style                    = me.style || {},
+            {parent, parentId, size} = me,
+            resizeNext               = me.resizeTarget === 'next',
             index, newSize, sibling;
 
         parent.disabled = false;
@@ -189,7 +187,7 @@ class Splitter extends Component {
 
                 newSize = Math.min(Math.max(newSize, 0), parentRect.height - size);
 
-                style.height = `${newSize}px`;
+                style.height = `${newSize}px`
             }
 
             sibling.style = style

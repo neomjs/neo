@@ -33,7 +33,7 @@ class Iframe extends Base {
      * @protected
      */
     afterSetSrc(value, oldValue) {
-        this.changeVdomRootKey('src', value);
+        this.changeVdomRootKey('src', value)
     }
 }
 

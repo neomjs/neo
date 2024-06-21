@@ -59,10 +59,10 @@ class Clock extends Component {
      * @protected
      */
     afterSetFontSize(value, oldValue) {
-        let style = this.style;
+        let {style} = this;
 
         style.fontSize = `${value}px`;
-        this.style = style;
+        this.style = style
     }
 
     /**
@@ -72,10 +72,10 @@ class Clock extends Component {
      * @protected
      */
     afterSetShowDisc(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-disc')
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -85,17 +85,17 @@ class Clock extends Component {
      * @protected
      */
     afterSetSize(value, oldValue) {
-        let style = this.style;
+        let {style} = this;
 
         if (Neo.isNumber(value)) {
             style.height = `${value}px`;
             style.width  = `${value}px`;
         } else {
             delete style.height;
-            delete style.width;
+            delete style.width
         }
 
-        this.style = style;
+        this.style = style
     }
 
     /**
@@ -113,7 +113,7 @@ class Clock extends Component {
         vdom.cn[0].style.transform = `rotate(${minutesAngle}deg)`;
         vdom.cn[1].style.transform = `rotate(${hoursAngle}deg)`;
 
-        this.update();
+        this.update()
     }
 }
 

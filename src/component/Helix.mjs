@@ -258,14 +258,14 @@ class Helix extends Component {
         me[lockWheel]    = false;
 
         if (me.imageSource === null) {
-            me.imageSource = Neo.config.resourcesPath + 'examples/';
+            me.imageSource = Neo.config.resourcesPath + 'examples/'
         }
 
         me.addDomListeners({
             click: me.onClick,
             wheel: me.onMouseWheel,
             scope: me
-        });
+        })
     }
 
     /**
@@ -275,10 +275,10 @@ class Helix extends Component {
      * @protected
      */
     afterSetFollowSelection(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-follow-selection');
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -288,7 +288,7 @@ class Helix extends Component {
      * @protected
      */
     afterSetFlipped(value, oldValue) {
-        this.applyItemTransitions(this.refresh, 1000);
+        this.applyItemTransitions(this.refresh, 1000)
     }
 
     /**
@@ -302,9 +302,9 @@ class Helix extends Component {
 
         if (value && me.rendered) {
             if (oldValue > value) {
-                me.destroyItems(value, oldValue - value);
+                me.destroyItems(value, oldValue - value)
             } else {
-                me.createItems(oldValue);
+                me.createItems(oldValue)
             }
         }
     }
@@ -317,7 +317,7 @@ class Helix extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.getOffsetValues();
+        value && this.getOffsetValues()
     }
 
     /**
@@ -337,7 +337,7 @@ class Helix extends Component {
                 }
             });
 
-            me.updateCloneTranslate();
+            me.updateCloneTranslate()
         }
     }
 
@@ -348,7 +348,7 @@ class Helix extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this);
+        this.rendered && value.register(this)
     }
 
     /**
@@ -362,7 +362,7 @@ class Helix extends Component {
 
         if (me.rendered) {
             me.destroyItems();
-            me.loadData();
+            me.loadData()
         }
     }
 
@@ -373,19 +373,20 @@ class Helix extends Component {
      * @protected
      */
     applyItemTransitions(callback, animationTime, callbackParam) {
-        let me  = this,
-            cls = 'neo-transition-' + animationTime,
+        let me   = this,
+            {id} = me,
+            cls  = 'neo-transition-' + animationTime,
             timeoutId;
 
         me.transitionTimeouts.forEach(item => {
-            clearTimeout(item);
+            clearTimeout(item)
         });
 
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
         if (me.mounted) {
             Neo.applyDeltas(me.appName, {
-                id : me.id,
+                id,
                 cls: {
                     add   : [cls],
                     remove: []
@@ -397,16 +398,16 @@ class Helix extends Component {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
                     Neo.applyDeltas(me.appName, {
-                        id : me.id,
+                        id,
                         cls: {
                             add   : [],
                             remove: [cls]
                         }
-                    });
+                    })
                 }, animationTime + 200);
 
-                me.transitionTimeouts.push(timeoutId);
-            });
+                me.transitionTimeouts.push(timeoutId)
+            })
         }
     }
 
@@ -414,7 +415,7 @@ class Helix extends Component {
      * @returns {Object}
      */
     beforeGetItemTpl() {
-        return Neo.clone(this._itemTpl, true);
+        return Neo.clone(this._itemTpl, true)
     }
 
     /**
@@ -431,7 +432,7 @@ class Helix extends Component {
                 selectionChange: this.onSelectionChange,
                 scope          : this
             }
-        });
+        })
     }
 
     /**
@@ -451,7 +452,7 @@ class Helix extends Component {
                 sort : me.onSort,
                 scope: me
             }
-        });
+        })
     }
 
     /**
@@ -460,10 +461,9 @@ class Helix extends Component {
      * @returns {Number}
      */
     calculateOpacity(item) {
-        let me           = this,
-            maxOpacity   = me.maxOpacity,
-            minOpacity   = me.minOpacity,
-            deltaOpacity = maxOpacity - minOpacity,
+        let me                       = this,
+            {maxOpacity, minOpacity} = me,
+            deltaOpacity             = maxOpacity - minOpacity,
             angle, opacity, opacityFactor;
 
         if (deltaOpacity === 0) {
@@ -472,20 +472,20 @@ class Helix extends Component {
             angle = item.rotationAngle % 360;
 
             while (angle < 0) {
-                angle += 360;
+                angle += 360
             }
 
             while (angle > 180) {
-                angle = 360 - angle;
+                angle = 360 - angle
             }
 
-            // non linear distribution, since the angle does not match delta translateZ
+            // non-linear distribution, since the angle does not match delta translateZ
             opacityFactor = 1 - Math.sin(angle * Math.PI / 360);
 
-            opacity = minOpacity + deltaOpacity * opacityFactor;
+            opacity = minOpacity + deltaOpacity * opacityFactor
         }
 
-        return opacity;
+        return opacity
     }
 
     /**
@@ -503,7 +503,7 @@ class Helix extends Component {
         vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
         vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
 
-        return vdomItem;
+        return vdomItem
     }
 
     /**
@@ -512,19 +512,11 @@ class Helix extends Component {
      * @protected
      */
     createItems(startIndex) {
-        let me            = this,
-            deltaY        = me.deltaY,
-            group         = me.getItemsRoot(),
-            itemAngle     = me.itemAngle,
-            matrix        = me.matrix,
-            radius        = me.radius,
-            rotationAngle = me.rotationAngle,
-            translateX    = me.translateX,
-            translateY    = me.translateY,
-            translateZ    = me.translateZ,
-            vdom          = me.vdom,
-            i             = startIndex || 0,
-            len           = Math.min(me.maxItems, me.store.items.length),
+        let me    = this,
+            {deltaY, itemAngle, matrix, radius, rotationAngle, translateX, translateY, translateZ, vdom} = me,
+            group = me.getItemsRoot(),
+            i     = startIndex || 0,
+            len   = Math.min(me.maxItems, me.store.items.length),
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
         if (!me.mounted) {
@@ -532,11 +524,9 @@ class Helix extends Component {
                 me.un('mounted', listenerId);
                 setTimeout(() => {
                     me.createItems(startIndex);
-                }, 100);
-            });
+                }, 100)
+            })
         } else {
-            // console.log('createItems', me.id, me.store);
-
             for (; i < len; i++) {
                 item = me.store.items[i];
 
@@ -559,9 +549,9 @@ class Helix extends Component {
                 if (!matrix) {
                     me.matrix = matrix = Neo.create(Matrix, {
                         items: matrixItems
-                    });
+                    })
                 } else {
-                    matrix.items = matrixItems;
+                    matrix.items = matrixItems
                 }
 
                 transformStyle = matrix.getTransformStyle();
@@ -576,7 +566,7 @@ class Helix extends Component {
                 vdomItem.style.opacity   = me.calculateOpacity(item);
                 vdomItem.style.transform = transformStyle;
 
-                group.cn.push(vdomItem);
+                group.cn.push(vdomItem)
             }
 
             me[lockWheel] = false;
@@ -586,9 +576,9 @@ class Helix extends Component {
                 me.fire('itemsMounted');
 
                 setTimeout(() => {
-                    me[lockWheel] = true;
-                }, 500);
-            });
+                    me[lockWheel] = true
+                }, 500)
+            })
         }
     }
 
@@ -597,7 +587,7 @@ class Helix extends Component {
      */
     destroyClones() {
         let me           = this,
-            store        = me.store,
+            {store}      = me,
             deltas       = [],
             removeDeltas = [],
             id, record;
@@ -627,9 +617,9 @@ class Helix extends Component {
 
             Neo.applyDeltas(me.appName, deltas).then(data => {
                 setTimeout(() => {
-                    Neo.applyDeltas(me.appName, removeDeltas);
-                }, 650);
-            });
+                    Neo.applyDeltas(me.appName, removeDeltas)
+                }, 650)
+            })
         }
     }
 
@@ -641,7 +631,7 @@ class Helix extends Component {
         let me = this;
 
         me.getItemsRoot().cn.splice(startIndex || 0, amountItems || me.store.getCount());
-        me.update();
+        me.update()
     }
 
     /**
@@ -649,13 +639,13 @@ class Helix extends Component {
      * @param {String} itemId
      */
     expandItem(itemId) {
-        let me         = this,
-            store      = me.store,
-            record     = store.get(itemId),
-            index      = store.indexOf(itemId),
-            isExpanded = !!record.expanded,
-            group      = me.getItemsRoot(),
-            itemVdom   = Neo.clone(group.cn[index], true);
+        let me               = this,
+            {appName, store} = me,
+            record           = store.get(itemId),
+            index            = store.indexOf(itemId),
+            isExpanded       = !!record.expanded,
+            group            = me.getItemsRoot(),
+            itemVdom         = Neo.clone(group.cn[index], true);
 
         me.destroyClones();
 
@@ -673,11 +663,11 @@ class Helix extends Component {
                 itemVdom.cn.push({
                     cls      : ['contact-name'],
                     innerHTML: record.firstname + ' ' + record.lastname
-                });
+                })
             }
 
             Neo.vdom.Helper.create({
-                appName    : me.appName,
+                appName,
                 autoMount  : true,
                 parentId   : group.id,
                 parentIndex: store.getCount(),
@@ -686,15 +676,15 @@ class Helix extends Component {
                 me.clonedItems.push(itemVdom);
 
                 setTimeout(() => {
-                    Neo.applyDeltas(me.appName, {
+                    Neo.applyDeltas(appName, {
                         id   : itemVdom.id,
                         style: {
                             opacity  : 1,
                             transform: me.getCloneTransform()
                         }
-                    });
-                }, 50);
-            });
+                    })
+                }, 50)
+            })
         }
     }
 
@@ -707,7 +697,7 @@ class Helix extends Component {
             translateY = (me.offsetHeight - 1320) / 3,
             translateZ = 100700 + me.perspective / 1.5;
 
-        return `matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,${translateX},${translateY},${translateZ},1`;
+        return `matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,${translateX},${translateY},${translateZ},1`
     }
 
     /**
@@ -715,7 +705,7 @@ class Helix extends Component {
      * @returns {Number}
      */
     getItemId(vnodeId) {
-        return parseInt(vnodeId.split('__')[1]);
+        return parseInt(vnodeId.split('__')[1])
     }
 
     /**
@@ -723,7 +713,7 @@ class Helix extends Component {
      * @returns {Object} vdom
      */
     getItemsRoot() {
-        return this.vdom.cn[0].cn[0];
+        return this.vdom.cn[0].cn[0]
     }
 
     /**
@@ -731,7 +721,7 @@ class Helix extends Component {
      * @returns {String}
      */
     getItemVnodeId(id) {
-        return this.id + '__' + id;
+        return this.id + '__' + id
     }
 
     /**
@@ -749,8 +739,8 @@ class Helix extends Component {
             }).then(data => {
                 me.offsetHeight = data.attributes.offsetHeight;
                 me.offsetWidth  = data.attributes.offsetWidth;
-            });
-        }, delay);
+            })
+        }, delay)
     }
 
     /**
@@ -766,8 +756,8 @@ class Helix extends Component {
             console.log('Error for Neo.Xhr.request', err, me.id);
         }).then(data => {
             me.store.items = data.json.data;
-            me.createItems();
-        });
+            me.createItems()
+        })
     }
 
     /**
@@ -775,14 +765,14 @@ class Helix extends Component {
      */
     moveToSelectedItem(itemId) {
         let me = this;
-        me.rotationAngle = me.store.get(itemId).rotationAngle + me.rotationAngle;
+        me.rotationAngle = me.store.get(itemId).rotationAngle + me.rotationAngle
     }
 
     /**
      * @param {Object} data
      */
     onClick(data) {
-        this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
+        this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data)
     }
 
     /**
@@ -790,7 +780,7 @@ class Helix extends Component {
      */
     onConstructed() {
         super.onConstructed();
-        this.selectionModel?.register(this);
+        this.selectionModel?.register(this)
     }
 
     /**
@@ -798,14 +788,14 @@ class Helix extends Component {
      */
     onKeyDownEnter(data) {
         let item = this.selectionModel.items[0];
-        item && this.expandItem(item);
+        item && this.expandItem(item)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownSpace(data) {
-        this.applyItemTransitions(this.moveToSelectedItem, 1000, this.selectionModel.items[0] || 0);
+        this.applyItemTransitions(this.moveToSelectedItem, 1000, this.selectionModel.items[0] || 0)
     }
 
     /**
@@ -821,7 +811,7 @@ class Helix extends Component {
             me.refresh();
 
             me.fire('changeRotation',   me._rotationAngle);
-            me.fire('changeTranslateZ', me._translateZ);
+            me.fire('changeTranslateZ', me._translateZ)
         }
     }
 
@@ -833,7 +823,7 @@ class Helix extends Component {
         let me = this;
 
         if (me.followSelection && value?.[0]) {
-            me.applyItemTransitions(me.moveToSelectedItem, 100, value[0]);
+            me.applyItemTransitions(me.moveToSelectedItem, 100, value[0])
         }
     }
 
@@ -844,7 +834,7 @@ class Helix extends Component {
         let me = this;
 
         if (me[itemsMounted] === true) {
-            me.applyItemTransitions(me.sortItems, 1000);
+            me.applyItemTransitions(me.sortItems, 1000)
         }
     }
 
@@ -853,28 +843,18 @@ class Helix extends Component {
      */
     onStoreLoad(items) {
         this.getItemsRoot().cn = []; // silent update
-        this.createItems();
+        this.createItems()
     }
 
     /**
      * @protected
      */
     refresh() {
-        let me             = this,
-            deltas         = [],
-            deltaY         = me.deltaY,
-            flipped        = me.flipped,
-            index          = 0,
-            itemAngle      = me.itemAngle,
-            len            = Math.min(me.maxItems, me.store.getCount()),
-            matrix         = me.matrix,
-            radius         = me.radius,
-            rotationAngle  = me.rotationAngle,
-            rotationMatrix = me.rotationMatrix,
-            translateX     = me.translateX,
-            translateY     = me.translateY,
-            translateZ     = me.translateZ,
-            vdom           = me.vdom,
+        let me     = this,
+            deltas = [],
+            {deltaY, flipped, itemAngle, matrix, radius, rotationAngle, rotationMatrix, translateX, translateY, translateZ, vdom} = me,
+            index  = 0,
+            len    = Math.min(me.maxItems, me.store.getCount()),
             angle, item, opacity, rotateY, transformStyle, vdomItem, c, s, x, y, z;
 
         if (flipped) {
@@ -883,9 +863,9 @@ class Helix extends Component {
             if (!rotationMatrix) {
                 me.rotationMatrix = rotationMatrix = Neo.create(Matrix, {
                     items: rotateY
-                });
+                })
             } else {
-                rotationMatrix.items = rotateY;
+                rotationMatrix.items = rotateY
             }
         }
 
@@ -910,7 +890,7 @@ class Helix extends Component {
             ];
 
             if (flipped) {
-                matrix = rotationMatrix.x(matrix);
+                matrix = rotationMatrix.x(matrix)
             }
 
             transformStyle = matrix.getTransformStyle();
@@ -936,17 +916,17 @@ class Helix extends Component {
                     opacity,
                     transform: transformStyle
                 }
-            });
+            })
         }
 
-        Neo.applyDeltas(me.appName, deltas);
+        Neo.applyDeltas(me.appName, deltas)
     }
 
     /**
      * @protected
      */
     refreshIfMounted() {
-        this.mounted && this.refresh();
+        this.mounted && this.refresh()
     }
 
     /**
@@ -965,11 +945,11 @@ class Helix extends Component {
                 id    : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
                 index : i,
                 parentId
-            });
+            })
         }
 
         Neo.applyDeltas(me.appName, deltas).then(() => {
-            me.refresh();
+            me.refresh()
         });
     }
 
@@ -986,7 +966,7 @@ class Helix extends Component {
             transform = me.getCloneTransform(true);
 
             me.transitionTimeouts.forEach(item => {
-                clearTimeout(item);
+                clearTimeout(item)
             });
 
             me.clonedItems.forEach(item => {
@@ -1013,11 +993,11 @@ class Helix extends Component {
             Neo.applyDeltas(me.appName, deltas).then(() => {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
-                    Neo.applyDeltas(me.appName, afterDeltas);
+                    Neo.applyDeltas(me.appName, afterDeltas)
                 }, 200);
 
-                me.transitionTimeouts.push(timeoutId);
-            });
+                me.transitionTimeouts.push(timeoutId)
+            })
         }
     }
 }

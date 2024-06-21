@@ -184,7 +184,7 @@ class Gallery extends Component {
             click: me.onClick,
             wheel: me.onMouseWheel,
             scope: me
-        });
+        })
     }
 
     /**
@@ -197,7 +197,7 @@ class Gallery extends Component {
         if (Neo.isNumber(oldValue)) {
             let me = this;
 
-            me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
+            me.afterSetOrderByRow(me.orderByRow, !me.orderByRow)
         }
     }
 
@@ -222,7 +222,7 @@ class Gallery extends Component {
         origin.id = prefix + 'origin';
         view  .id = prefix + 'view';
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -236,9 +236,9 @@ class Gallery extends Component {
 
         if (value && me.rendered) {
             if (oldValue > value) {
-                me.destroyItems(value, oldValue - value);
+                me.destroyItems(value, oldValue - value)
             } else {
-                me.createItems(oldValue);
+                me.createItems(oldValue)
             }
         }
     }
@@ -250,8 +250,8 @@ class Gallery extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
+        let me               = this,
+            {selectionModel} = me;
 
         if (value) {
             me.focusOnMount && me.focus(me.id);
@@ -261,7 +261,8 @@ class Gallery extends Component {
                     action    : 'readDom',
                     appName   : me.appName,
                     attributes: ['offsetHeight', 'offsetWidth'],
-                    vnodeId   : me.id
+                    vnodeId   : me.id,
+                    windowId  : me.windowId
                 }).then(data => {
                     me.offsetHeight = data.attributes.offsetHeight;
                     me.offsetWidth  = data.attributes.offsetWidth;
@@ -273,15 +274,15 @@ class Gallery extends Component {
                         if (!key) {
                             let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
-                            key = me.store.getKeyAt(index);
+                            key = me.store.getKeyAt(index)
                         }
 
-                        selectionModel.select(key);
+                        selectionModel.select(key)
                     }
-                });
-            }, 300);
+                })
+            }, 300)
         } else {
-            selectionModel.items = [];
+            selectionModel.items = []
         }
     }
 
@@ -303,7 +304,7 @@ class Gallery extends Component {
 
                 setTimeout(() => {
                     for (; i < len; i++) {
-                        view.cn[i].style.transform = me.getItemTransform(i);
+                        view.cn[i].style.transform = me.getItemTransform(i)
                     }
 
                     me.update();
@@ -311,9 +312,9 @@ class Gallery extends Component {
                     setTimeout(() => {
                         let sm = me.selectionModel;
 
-                        sm.hasSelection() && me.onSelectionChange(sm.items);
-                    }, 500);
-                }, 50);
+                        sm.hasSelection() && me.onSelectionChange(sm.items)
+                    }, 500)
+                }, 50)
             }
         }
     }
@@ -326,7 +327,7 @@ class Gallery extends Component {
      */
     afterSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        this.rendered && value.register(this);
+        this.rendered && value.register(this)
     }
 
     afterSetTranslateX() {this.moveOrigin()}
@@ -351,14 +352,14 @@ class Gallery extends Component {
                 sort : me.onSort,
                 scope: me
             }
-        });
+        })
     }
 
     /**
      * @returns {Object}
      */
     beforeGetItemTpl() {
-        return Neo.clone(this._itemTpl, true);
+        return Neo.clone(this._itemTpl, true)
     }
 
     /**
@@ -375,7 +376,7 @@ class Gallery extends Component {
                 selectionChange: this.onSelectionChange,
                 scope          : this
             }
-        });
+        })
     }
 
     /**
@@ -396,7 +397,7 @@ class Gallery extends Component {
         imageVdom.style.height = me.itemHeight + 'px';
         imageVdom.style.width  = me.itemWidth  + 'px';
 
-        return vdomItem;
+        return vdomItem
     }
 
     /**
@@ -416,7 +417,7 @@ class Gallery extends Component {
             amountColumns, item, vdomItem;
 
         if (orderByRow) {
-            amountColumns = Math.ceil(me.store.getCount() / amountRows);
+            amountColumns = Math.ceil(me.store.getCount() / amountRows)
         }
 
         for (; i < len; i++) {
@@ -429,20 +430,20 @@ class Gallery extends Component {
 
             if (orderByRow) {
                 if (i >= secondLastColumn * amountColumns) {
-                    NeoArray.add(vdomItem.cls, 'neo-reflection');
+                    NeoArray.add(vdomItem.cls, 'neo-reflection')
                 }
             } else {
                 if (i % amountRows === secondLastColumn) {
-                    NeoArray.add(vdomItem.cls, 'neo-reflection');
+                    NeoArray.add(vdomItem.cls, 'neo-reflection')
                 }
             }
 
-            itemsRoot.cn.push(vdomItem);
+            itemsRoot.cn.push(vdomItem)
         }
 
         me.promiseUpdate(vdom).then(() => {
-            me[itemsMounted] = true;
-        });
+            me[itemsMounted] = true
+        })
     }
 
     /**
@@ -458,7 +459,7 @@ class Gallery extends Component {
         me.update();
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
-            me.afterSetMounted(true, false);
+            me.afterSetMounted(true, false)
         }
     }
 
@@ -467,26 +468,25 @@ class Gallery extends Component {
      * @returns {Number[]}
      */
     getCameraTransformForCell(index) {
-        let me          = this,
-            amountRows  = me.amountRows,
-            itemWidth   = me.itemWidth,
-            gap         = 10,
-            height      = me.offsetHeight / (amountRows + 2),
-            spacing     = height + gap,
-            x           = Math.floor(index / amountRows),
-            y           = index - x * amountRows;
+        let me                      = this,
+            {amountRows, itemWidth} = me,
+            gap                     = 10,
+            height                  = me.offsetHeight / (amountRows + 2),
+            spacing                 = height + gap,
+            x                       = Math.floor(index / amountRows),
+            y                       = index - x * amountRows;
 
         if (me.orderByRow) {
             let amountColumns = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
 
             x = index % amountColumns;
-            y = Math.floor(index / amountColumns);
+            y = Math.floor(index / amountColumns)
         }
 
         let cx = x * (itemWidth + 10),
             cy = (y + 0.5) * spacing * 1.1 + 50;
 
-        return [-cx, -cy, 0];
+        return [-cx, -cy, 0]
     }
 
     /**
@@ -494,7 +494,7 @@ class Gallery extends Component {
      * @returns {Number} itemId
      */
     getItemId(vnodeId) {
-        return parseInt(vnodeId.split('__')[1]);
+        return parseInt(vnodeId.split('__')[1])
     }
 
     /**
@@ -502,7 +502,7 @@ class Gallery extends Component {
      * @returns {Object} vdom
      */
     getItemsRoot() {
-        return this.vdom.cn[0].cn[0].cn[0].cn[0];
+        return this.vdom.cn[0].cn[0].cn[0].cn[0]
     }
 
     /**
@@ -510,25 +510,25 @@ class Gallery extends Component {
      * @returns {String}
      */
     getItemTransform(index) {
-        let me         = this,
-            amountRows = me.amountRows,
+        let me           = this,
+            {amountRows} = me,
             x, y;
 
         if (me.orderByRow) {
             amountRows = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
 
             x = index % amountRows;
-            y = Math.floor(index / amountRows);
+            y = Math.floor(index / amountRows)
         } else {
             x = Math.floor(index / amountRows);
-            y = index % amountRows;
+            y = index % amountRows
         }
 
         return this.translate3d(
             x * (me.itemWidth  + 10),
             y * (me.itemHeight + 10) + 100,
             0
-        );
+        )
     }
 
     /**
@@ -536,7 +536,7 @@ class Gallery extends Component {
      * @returns {String}
      */
     getItemVnodeId(id) {
-        return this.id + '__' + id;
+        return this.id + '__' + id
     }
 
     /**
@@ -546,14 +546,14 @@ class Gallery extends Component {
         let me = this;
 
         me.vdom.cn[0].style.transform = me.translate3d(me.translateX, me.translateY, me.translateZ);
-        me.update();
+        me.update()
     }
 
     /**
      * @param {Object} data
      */
     onClick(data) {
-        this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
+        this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data)
     }
 
     /**
@@ -577,7 +577,7 @@ class Gallery extends Component {
             me.moveOrigin();
 
             me.fire('changeTranslateX', me._translateX);
-            me.fire('changeTranslateZ', me._translateZ);
+            me.fire('changeTranslateZ', me._translateZ)
         }
     }
 
@@ -587,8 +587,7 @@ class Gallery extends Component {
     onSelectionChange(value) {
         let me             = this,
             index          = me.store.indexOf(value?.[0] || 0),
-            itemHeight     = me.itemHeight,
-            itemWidth      = me.itemWidth,
+            {appName, id, itemHeight, itemWidth, windowId} = me,
             camera         = me.vdom.cn[0].cn[0],
             cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
@@ -598,28 +597,32 @@ class Gallery extends Component {
             timeoutId;
 
         me.transitionTimeouts.forEach(item => {
-            clearTimeout(item);
+            clearTimeout(item)
         });
 
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
         Neo.currentWorker.promiseMessage('main', {
             action : 'updateDom',
-            appName: me.appName,
-            deltas : {
-                id   : me.id + '__dolly',
+            appName,
+            windowId,
+
+            deltas: {
+                id   : id + '__dolly',
                 style: {
                     transform: me.translate3d(...dollyTransform)
                 }
             }
         }).then(() => {
             Neo.currentWorker.promiseMessage('main', {
-                action   : 'readDom',
-                appName  : me.appName,
-                vnodeId  : me.id,
+                action : 'readDom',
+                appName,
+                vnodeId: id,
+                windowId,
+
                 functions: [{
                     fn            : 'getComputedStyle',
-                    params        : [me.id + '__dolly', null],
+                    params        : [id + '__dolly', null],
                     paramIsDomNode: [true, false],
                     scope         : 'defaultView',
                     returnFnName  : 'transform',
@@ -632,11 +635,11 @@ class Gallery extends Component {
                 if (transform.indexOf('matrix3d') === 0) {
                     transform  = transform.substring(9, transform.length - 1); // remove matrix3d( ... )
                     transform  = transform.split(',').map(e => parseFloat(e));
-                    translateX = transform[12]; // bottom left element of the 4x4 matrix
+                    translateX = transform[12] // bottom left element of the 4x4 matrix
                 } else {
                     transform  = transform.substring(7, transform.length - 1); // remove matrix( ... )
                     transform  = transform.split(',').map(e => parseFloat(e));
-                    translateX = transform[4]; // bottom left element of the 2x3 matrix
+                    translateX = transform[4] // bottom left element of the 2x3 matrix
                 }
 
                 translateX = translateX - dollyTransform[0];
@@ -653,12 +656,12 @@ class Gallery extends Component {
                     cameraStyle.transform          = 'rotateY(0deg)';
                     cameraStyle.transitionDuration = '5000ms';
 
-                    me.update();
+                    me.update()
                 }, 330);
 
-                me.transitionTimeouts.push(timeoutId);
-            });
-        });
+                me.transitionTimeouts.push(timeoutId)
+            })
+        })
     }
 
     /**
@@ -684,7 +687,7 @@ class Gallery extends Component {
                     newCn.push(view.cn[fromIndex]);
 
                     if (index !== fromIndex) {
-                        hasChange = true;
+                        hasChange = true
                     }
                 });
 
@@ -693,8 +696,8 @@ class Gallery extends Component {
                     me.update();
 
                     setTimeout(() => {
-                        me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
-                    }, 50);
+                        me.afterSetOrderByRow(me.orderByRow, !me.orderByRow)
+                    }, 50)
                 }
             }
         }
@@ -705,33 +708,32 @@ class Gallery extends Component {
      */
     onStoreLoad(items) {
         this.getItemsRoot().cn = []; // silent update
-        this.createItems();
+        this.createItems()
     }
 
     /**
      *
      */
     refreshImageReflection() {
-        let me               = this,
-            amountRows       = me.amountRows,
-            orderByRow       = me.orderByRow,
-            secondLastColumn = amountRows - 1,
-            view             = me.getItemsRoot(),
+        let me                       = this,
+            {amountRows, orderByRow} = me,
+            secondLastColumn         = amountRows - 1,
+            view                     = me.getItemsRoot(),
             amountColumns;
 
         if (orderByRow) {
-            amountColumns = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
+            amountColumns = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows)
         }
 
         view.cn.forEach((item, index) => {
             if (orderByRow) {
-                NeoArray[index >= secondLastColumn * amountColumns ? 'add' : 'remove'](item.cls, 'neo-reflection');
+                NeoArray[index >= secondLastColumn * amountColumns ? 'add' : 'remove'](item.cls, 'neo-reflection')
             } else {
-                NeoArray[index % amountRows === secondLastColumn   ? 'add' : 'remove'](item.cls, 'neo-reflection');
+                NeoArray[index % amountRows === secondLastColumn   ? 'add' : 'remove'](item.cls, 'neo-reflection')
             }
         });
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -741,7 +743,7 @@ class Gallery extends Component {
      * @returns {String}
      */
     translate3d(x, y, z) {
-        return `translate3d(${x}px, ${y}px, ${z}px)`;
+        return `translate3d(${x}px, ${y}px, ${z}px)`
     }
 }
 
