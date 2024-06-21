@@ -53,7 +53,7 @@ class Base extends CoreBase {
      */
     onConstructed() {
         this.attach();
-        super.onConstructed();
+        super.onConstructed()
     }
 
     /**
@@ -69,7 +69,7 @@ class Base extends CoreBase {
         element.dispatchEvent(event);
         this.lastEvent = sensorEvent;
 
-        return sensorEvent;
+        return sensorEvent
     }
 }
 

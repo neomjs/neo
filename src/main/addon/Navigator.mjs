@@ -42,7 +42,7 @@ class Navigator extends Base {
     clickItem(el) {
         // The element knows how to click itself.
         if (typeof el.click === 'function') {
-            el.click();
+            el.click()
         }
         // It operates through a listener, so needs an event firing into it.
         else {
@@ -78,7 +78,7 @@ class Navigator extends Base {
         // focus, so we have nothing to do here. The navigable items wil be inert and not
         // focusable. Navigation will be "virtual". Select field navigates its dropdowns like this.
         if (!data.subject.contains(data.eventSource)) {
-            return;
+            return
         }
 
         const
@@ -88,7 +88,7 @@ class Navigator extends Base {
                 if (f){
                     value.push(f);
                 }
-                return value;
+                return value
             }, []),
             defaultActiveItem = focusables[0] || data.subject.querySelector(data.selector);
 
@@ -98,7 +98,7 @@ class Navigator extends Base {
 
         // Make at least one thing tabbable so focus can move into the subject element
         if (defaultActiveItem) {
-            defaultActiveItem.tabIndex = 0;
+            defaultActiveItem.tabIndex = 0
         }
     }
 
@@ -107,7 +107,7 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateClickHandler(e, data) {
-        const target = e.target.closest(data.selector);
+        let target = e.target.closest(data.selector);
 
         // If there was a focusable under the mouse, mousedown will have focused it and and we
         // will have respond to that in navigateFocusInHandler.
@@ -122,10 +122,9 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateFocusInHandler(e, data) {
-        const
-            target            = e.target.closest(data.selector),
-            { relatedTarget } = e,
-            { subject }       = data;
+        let target          = e.target.closest(data.selector),
+            {relatedTarget} = e,
+            {subject}       = data;
 
         // If our targets are focusable and recieve focus, that is a navigation.
         if (target) {
@@ -135,7 +134,7 @@ class Navigator extends Base {
             // The items must be focusable, but *not* tabbable.
             // So remove tabbability on the last active item
             if (subject.contains(relatedTarget)) {
-                relatedTarget.tabIndex = -1;
+                relatedTarget.tabIndex = -1
             }
         }
     }
@@ -145,14 +144,14 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateFocusOutHandler(e, data) {
-        const { target } = e;
+        let {target} = e;
 
         // Clear active class from the item we are leaving from.
         target.closest(data.selector)?.classList.remove(data.activeCls);
 
         // On focusout, leave the last active item as tabbable so user can TAB back in here
         if (!DomUtils.isTabbable(target)) {
-            target.tabIndex = 0;
+            target.tabIndex = 0
         }
     }
 
@@ -161,7 +160,7 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateGetAdjacent(direction=1, data) {
-        const { treeWalker } = data;
+        let {treeWalker} = data;
 
         // Walk forwards or backwards to the next or previous node which matches our selector
         treeWalker.currentNode = this.navigatorGetActiveItem(data) || data.subject;
@@ -170,14 +169,14 @@ class Navigator extends Base {
         // Found a target in the requested direction
         if (treeWalker.currentNode) {
             if (treeWalker.currentNode !== data.activeItem) {
-                return treeWalker.currentNode;
+                return treeWalker.currentNode
             }
         }
         // Could not find target in requested direction, then wrap if configured to do so
         else if (data.wrap !== false) {
             const allItems = data.subject.querySelector(data.selector);
 
-            return allItems[direction === 1 ? 0 : allItems.length - 1];
+            return allItems[direction === 1 ? 0 : allItems.length - 1]
         }
     }
 
@@ -187,12 +186,9 @@ class Navigator extends Base {
      */
     navigateKeyDownHandler(keyEvent, data) {
         const
-            me        = this,
-            {
-                subject,
-                wrap
-            }         = data,
-            firstItem = subject.querySelector(data.selector);
+            me              = this,
+            {subject, wrap} = data,
+            firstItem       = subject.querySelector(data.selector);
 
         if (!data.nextKey && firstItem) {
             const
@@ -204,16 +200,16 @@ class Navigator extends Base {
             if (containerStyle.display === 'flex' && containerStyle.flexDirection === 'row'
                 || itemStyle.display === 'inline' || itemStyle.display === 'inline-block') {
                 data.previousKey = 'ArrowLeft';
-                data.nextKey     = 'ArrowRight';
+                data.nextKey     = 'ArrowRight'
             }
             // Child elements layed out vertically.
             else {
                 data.previousKey = 'ArrowUp';
-                data.nextKey     = 'ArrowDown';
+                data.nextKey     = 'ArrowDown'
             }
         }
 
-        let { key, target } = keyEvent,
+        let {key, target} = keyEvent,
             newActiveElement;
 
         switch(key) {
@@ -221,14 +217,14 @@ class Navigator extends Base {
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);
                 if (!newActiveElement && wrap) {
-                    newActiveElement = subject.querySelector(`${data.selector}:last-of-type`);
+                    newActiveElement = subject.querySelector(`${data.selector}:last-of-type`)
                 }
                 break;
             // Move to the next navigable item
             case data.nextKey:
                 newActiveElement = me.navigateGetAdjacent(1, data);
                 if (!newActiveElement && wrap) {
-                    newActiveElement = subject.querySelector(data.selector);
+                    newActiveElement = subject.querySelector(data.selector)
                 }
                 break;
             // Move to the first navigable item
@@ -242,13 +238,13 @@ class Navigator extends Base {
             // Click the currently active item if necessary
             case 'Enter':
                 if (data.activeItem && !enterActivatedTags[target.tagName]) {
-                    this.clickItem(data.activeItem);
+                    this.clickItem(data.activeItem)
                 }
         }
 
         if (newActiveElement) {
             keyEvent.preventDefault();
-            me.navigateTo(newActiveElement, data);
+            me.navigateTo(newActiveElement, data)
         }
     }
 
@@ -263,7 +259,7 @@ class Navigator extends Base {
         // If not, we have to programmatically activate on click, but we must not draw focus away from
         // where it is, so preventDefault
         if (target && !data.findFocusable(target)) {
-            e.preventDefault();
+            e.preventDefault()
         }
     }
 
@@ -272,7 +268,7 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateNodeFilter(node, data) {
-        return node.offsetParent && node.matches?.(data.selector) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        return node.offsetParent && node.matches?.(data.selector) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
     }
 
     /**
@@ -290,7 +286,7 @@ class Navigator extends Base {
             if (data.activeItem && !data.subject.contains(data.activeItem)) {
                 const allItems = data.subject.querySelectorAll(data.selector);
 
-                allItems.length && this.navigateTo(allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)], data);
+                allItems.length && this.navigateTo(allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)], data)
             }
         }
     }
@@ -312,10 +308,10 @@ class Navigator extends Base {
         // Can navigate by index. This is useful if the active item is deleted.
         // We can navigate to the same index and preserve UI stability.
         if (typeof newActiveElement === 'number') {
-            newActiveElement = data.subject.querySelectorAll(data.selector)?.[newActiveElement];
+            newActiveElement = data.subject.querySelectorAll(data.selector)?.[newActiveElement]
         }
         else if (typeof newActiveElement === 'string') {
-            newActiveElement = DomAccess.getElement(newActiveElement);
+            newActiveElement = DomAccess.getElement(newActiveElement)
         }
 
         // Could not do what was asked because we could not find the requested item
@@ -335,11 +331,11 @@ class Navigator extends Base {
 
         // If the item contains a focusable, we focus it and then react in navigateFocusInHandler
         if (focusTarget) {
-            focusTarget.focus({ preventScroll : true });
+            focusTarget.focus({ preventScroll : true })
         }
         // If not, we programmatically navigate there
         else {
-            this.setActiveItem(newActiveElement, data);
+            this.setActiveItem(newActiveElement, data)
         }
     }
 
@@ -353,9 +349,9 @@ class Navigator extends Base {
         if (!activeItem && ('activeIndex' in data)) {
             const allItems = data.subject.querySelectorAll(data.selector);
 
-            activeItem = allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)];
+            activeItem = allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)]
         }
-        return activeItem;
+        return activeItem
     }
 
     /**
@@ -368,7 +364,7 @@ class Navigator extends Base {
         // Can navigate by index. This is useful if the active item is deleted.
         // We can navigate to the same index and preserve UI stability.
         if (typeof newActiveElement === 'number') {
-            newActiveElement = allItems[Math.max(Math.min(newActiveElement, allItems.length - 1), 0)];
+            newActiveElement = allItems[Math.max(Math.min(newActiveElement, allItems.length - 1), 0)]
         }
 
         data.previousActiveIndex = data.activeIndex;
@@ -495,7 +491,7 @@ class Navigator extends Base {
             target.removeEventListener('mousedown',    data.l2);
             target.removeEventListener('click',        data.l3);
             target.removeEventListener('focusin',      data.l4);
-            target.removeEventListener('focusout',     data.l5);
+            target.removeEventListener('focusout',     data.l5)
         }
     }
 }

@@ -6,12 +6,12 @@ let preventScrolling = false;
 // WebKit requires cancelable touchmove events to be added as early as possible
 window.addEventListener('touchmove', event => {
     if (!preventScrolling) {
-        return;
+        return
     }
 
     // Prevent scrolling
     if (event.cancelable) {
-        event.preventDefault();
+        event.preventDefault()
     }
 }, {cancelable: true, passive: false});
 
@@ -59,21 +59,21 @@ class Touch extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.bindMethods(this, ['onDistanceChange', 'onTouchEnd', 'onTouchMove', 'onTouchStart', 'startDrag']);
+        Neo.bindMethods(this, ['onDistanceChange', 'onTouchEnd', 'onTouchMove', 'onTouchStart', 'startDrag'])
     }
 
     /**
      * Attaches sensors event listeners to the DOM
      */
     attach() {
-        document.addEventListener('touchstart', this.onTouchStart);
+        document.addEventListener('touchstart', this.onTouchStart)
     }
 
     /**
      * Detaches sensors event listeners from the DOM
      */
     detach() {
-        document.removeEventListener('touchstart', this.onTouchStart);
+        document.removeEventListener('touchstart', this.onTouchStart)
     }
 
     /**
@@ -84,17 +84,18 @@ class Touch extends Base {
         let me = this;
 
         if (me.currentElement) {
-            const {pageX, pageY}    = DomEvents.getTouchCoords(event),
-                  start             = DomEvents.getTouchCoords(me.startEvent),
-                  timeElapsed       = Date.now() - me.touchStartTime,
-                  distanceTravelled = DomEvents.getDistance(start.pageX, start.pageY, pageX, pageY) || 0;
+            const
+                {pageX, pageY}    = DomEvents.getTouchCoords(event),
+                start             = DomEvents.getTouchCoords(me.startEvent),
+                timeElapsed       = Date.now() - me.touchStartTime,
+                distanceTravelled = DomEvents.getDistance(start.pageX, start.pageY, pageX, pageY) || 0;
 
             Object.assign(me, {pageX, pageY});
 
             if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
                 clearTimeout(me.tapTimeout);
                 document.removeEventListener('touchmove', me.onDistanceChange);
-                me.startDrag();
+                me.startDrag()
             }
         }
     }
@@ -140,10 +141,10 @@ class Touch extends Base {
                 currentElement: null,
                 dragging      : false,
                 startEvent    : null
-            });
+            })
         }
 
-        me.dragging = false;
+        me.dragging = false
     }
 
     /**
@@ -167,7 +168,7 @@ class Touch extends Base {
                 path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
                 type         : 'drag:move'
-            });
+            })
         }
     }
 
@@ -183,7 +184,7 @@ class Touch extends Base {
 
             // see: https://github.com/neomjs/neo/issues/2669
             if (!event.path) {
-                event.path = event.composedPath();
+                event.path = event.composedPath()
             }
 
             Object.assign(me, {
@@ -200,8 +201,8 @@ class Touch extends Base {
             document.addEventListener('touchmove',   me.onDistanceChange, {cancelable: true});
 
             me.tapTimeout = setTimeout(() => {
-                me.onDistanceChange({touches: [{pageX: me.pageX, pageY: me.pageY}]});
-            }, me.delay);
+                me.onDistanceChange({touches: [{pageX: me.pageX, pageY: me.pageY}]})
+            }, me.delay)
         }
     }
 
@@ -209,10 +210,10 @@ class Touch extends Base {
      *
      */
     startDrag() {
-        let me         = this,
-            element    = me.currentElement,
-            startEvent = me.startEvent,
-            touch      = DomEvents.getTouchCoords(me.startEvent);
+        let me           = this,
+            element      = me.currentElement,
+            {startEvent} = me,
+            touch        = DomEvents.getTouchCoords(me.startEvent);
 
         me.trigger(element, {
             clientX      : touch.pageX,
@@ -228,16 +229,16 @@ class Touch extends Base {
 
         if (me.dragging) {
             document.addEventListener('contextmenu', preventDefault, true);
-            document.addEventListener('touchmove',   me.onTouchMove);
+            document.addEventListener('touchmove',   me.onTouchMove)
         }
 
-        preventScrolling = me.dragging;
+        preventScrolling = me.dragging
     }
 }
 
 function preventDefault(event) {
     event.preventDefault();
-    event.stopPropagation();
+    event.stopPropagation()
 }
 
 Neo.setupClass(Touch);

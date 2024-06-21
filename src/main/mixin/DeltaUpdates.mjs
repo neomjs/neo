@@ -20,10 +20,10 @@ class DeltaUpdates extends Base {
      * @param {String} nodeName
      */
     du_changeNodeName(node, nodeName) {
-        let attributes = node.attributes,
-            clone      = document.createElement(nodeName),
-            i          = 0,
-            len        = attributes.length,
+        let {attributes} = node,
+            clone        = document.createElement(nodeName),
+            i            = 0,
+            len          = attributes.length,
             attribute;
 
         for (; i < len; i++) {
@@ -59,7 +59,7 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      */
     du_insertNode(delta) {
-        let index         = delta.index,
+        let {index}       = delta,
             parentNode    = this.getElementOrBody(delta.parentId),
             countChildren = parentNode?.childNodes.length,
             i             = 0,
@@ -67,9 +67,7 @@ class DeltaUpdates extends Base {
             hasComments   = false,
             node;
 
-        if (!parentNode) {
-            // console.log('parentNode not found', delta.parentId);
-        } else {
+        if (parentNode) {
             // console.log('insertNode', index, countChildren, delta.parentId);
 
             if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
@@ -118,7 +116,7 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      */
     du_moveNode(delta) {
-        let index      = delta.index,
+        let {index}    = delta,
             node       = this.getElement(delta.id),
             parentNode = this.getElement(delta.parentId);
 
@@ -291,9 +289,9 @@ class DeltaUpdates extends Base {
      * @param {String} [data.origin='app']
      */
     update(data) {
-        let me     = this,
-            deltas = data.deltas,
-            i      = 0,
+        let me       = this,
+            {deltas} = data,
+            i        = 0,
             len, map;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];

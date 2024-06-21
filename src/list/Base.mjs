@@ -152,7 +152,7 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {tag: 'ul', cn: []}
+        {tag: 'ul', cn: []}
     }
 
     /**
@@ -179,7 +179,7 @@ class Base extends Component {
         let me = this;
 
         if (me.useHeaders) {
-            me.scrollIntoViewOnFocus = false;
+            me.scrollIntoViewOnFocus = false
         }
 
         me.addDomListeners({
@@ -281,7 +281,7 @@ class Base extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        const me = this;
+        let me = this;
 
         // Tear down navigation before we lose the element
         if (!value && me.hasNavigator) {
@@ -319,8 +319,8 @@ class Base extends Component {
      * @protected
      */
     afterSetSelectedIndex(value, oldValue) {
-        let me             = this,
-            selectionModel = me.selectionModel;
+        let me               = this,
+            {selectionModel} = me;
 
         if (Neo.isNumber(value)) {
             selectionModel?.selectAt(value);
@@ -368,8 +368,8 @@ class Base extends Component {
      * @protected
      */
     afterSetUseCheckBoxes(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.toggle(cls, 'neo-use-checkicons', !!value);
         me.cls = cls
@@ -397,9 +397,8 @@ class Base extends Component {
      * @protected
      */
     afterSetUseWrapperNode(value, oldValue) {
-        let me         = this,
-            cls        = me.cls,
-            wrapperCls = me.wrapperCls;
+        let me                = this,
+            {cls, wrapperCls} = me;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
         NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
@@ -439,15 +438,15 @@ class Base extends Component {
      * @returns {Object} The list item vdom object
      */
     createItem(record, index) {
-        let me             = this,
-            cls            = [me.itemCls],
-            hasItemHeight  = me.itemHeight !== null,
-            hasItemWidth   = me.itemWidth  !== null,
-            isHeader       = me.useHeaders && record.isHeader,
-            itemContent    = me.createItemContent(record, index),
-            itemId         = me.getItemId(record[me.getKeyProperty()]),
-            selectionModel = me.selectionModel,
-            isSelected     = !me.disableSelection && selectionModel?.isSelected(itemId),
+        let me               = this,
+            cls              = [me.itemCls],
+            hasItemHeight    = me.itemHeight !== null,
+            hasItemWidth     = me.itemWidth !== null,
+            isHeader         = me.useHeaders && record.isHeader,
+            itemContent      = me.createItemContent(record, index),
+            itemId           = me.getItemId(record[me.getKeyProperty()]),
+            {selectionModel} = me,
+            isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
             item;
 
         isHeader && cls.push('neo-list-header');
@@ -485,12 +484,12 @@ class Base extends Component {
 
         switch (Neo.typeOf(itemContent)) {
             case null: {
-                return null;
+                return null
             }
 
             case 'Array': {
                 item.cn = itemContent;
-                break;
+                break
             }
 
             case 'Object': {
@@ -501,13 +500,13 @@ class Base extends Component {
                 }
 
                 Object.assign(item, itemContent);
-                break;
+                break
             }
 
             case 'Number':
             case 'String': {
                 item.html = itemContent;
-                break;
+                break
             }
         }
 
@@ -554,9 +553,9 @@ class Base extends Component {
      * @param {Boolean} silent=false
      */
     createItems(silent=false) {
-        let me                      = this,
-            headerlessSelectedIndex = me.headerlessSelectedIndex,
-            vdom                    = me.getVdomRoot(),
+        let me                        = this,
+            {headerlessSelectedIndex} = me,
+            vdom                      = me.getVdomRoot(),
             listItem;
 
         // in case we set headerlessSelectedIndex before the store was loaded, selectedIndex can be null
@@ -658,7 +657,7 @@ class Base extends Component {
      */
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
-            model    = this.store.model,
+            {model}  = this.store,
             keyField = model?.getField(model.keyProperty),
             keyType  = keyField?.type?.toLowerCase();
 
@@ -753,14 +752,12 @@ class Base extends Component {
      *
      */
     onStoreLoad() {
-        let me = this,
-            listenerId;
+        let me = this;
 
         if (!me.mounted && me.rendering) {
-            listenerId = me.on('mounted', () => {
-                me.un('mounted', listenerId);
+            me.on('mounted', () => {
                 me.createItems()
-            });
+            }, {once: true});
         } else {
             me.createItems()
         }
@@ -775,8 +772,8 @@ class Base extends Component {
      *
      */
     onStoreRecordChange(data) {
-        let me    = this,
-            index = data.index;
+        let me      = this,
+            {index} = data;
 
         // ignore changes for records which have not been added to the list yet
         if (index > -1) {

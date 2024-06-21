@@ -20,14 +20,14 @@ class ServiceWorker extends Base {
      */
     construct(config) {
         if ('serviceWorker' in navigator) {
-            let me            = this,
-                config        = Neo.config,
-                devMode       = config.environment === 'development',
-                fileName      = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
-                folder        = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
-                opts          = devMode ? {type: 'module'} : {},
-                path          = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
-                serviceWorker = navigator.serviceWorker;
+            let me              = this,
+                {config}        = Neo,
+                devMode         = config.environment === 'development',
+                fileName        = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
+                folder          = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
+                opts            = devMode ? {type: 'module'} : {},
+                path            = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
+                {serviceWorker} = navigator;
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 
@@ -49,7 +49,7 @@ class ServiceWorker extends Base {
                             action: 'registerNeoConfig',
                             data  : config
                         })
-                    });
+                    })
                 })
         }
     }

@@ -144,19 +144,19 @@ class DragDrop extends Base {
         me.addGlobalEventListeners();
 
         if (Neo.config.hasMouseEvents) {
-            imports.push(import('../draggable/sensor/Mouse.mjs'));
+            imports.push(import('../draggable/sensor/Mouse.mjs'))
         }
 
         if (Neo.config.hasTouchEvents) {
-            imports.push(import('../draggable/sensor/Touch.mjs'));
+            imports.push(import('../draggable/sensor/Touch.mjs'))
         }
 
         Promise.all(imports).then(modules => {
             // create the Mouse- and / or TouchSensor
             Neo.create({
                 module: modules[0].default
-            });
-        });
+            })
+        })
     }
 
     /**
@@ -167,7 +167,7 @@ class DragDrop extends Base {
 
         document.addEventListener('drag:end',   me.onDragEnd  .bind(me), true);
         document.addEventListener('drag:move',  me.onDragMove .bind(me), true);
-        document.addEventListener('drag:start', me.onDragStart.bind(me), true);
+        document.addEventListener('drag:start', me.onDragStart.bind(me), true)
     }
 
     /**
@@ -185,14 +185,14 @@ class DragDrop extends Base {
         };
 
         if (detail.eventPath) {
-            e.targetPath = detail.eventPath.map(e => DomEvents.getTargetData(e));
+            e.targetPath = detail.eventPath.map(e => DomEvents.getTargetData(e))
         } else {
-            e.targetPath = e.path;
+            e.targetPath = e.path
         }
 
         e.path = path.map(e => DomEvents.getTargetData(e));
 
-        return e;
+        return e
     }
 
     /**
@@ -229,7 +229,7 @@ class DragDrop extends Base {
                 ...DomEvents.getMouseEventData(event.detail.originalEvent),
                 dragZoneId: me.dragZoneId,
                 type      : 'drop'
-            });
+            })
         }
 
         Object.assign(me, {
@@ -250,7 +250,7 @@ class DragDrop extends Base {
             scrollContainerRect   : null,
             setScrollFactorLeft   : 1,
             scrollFactorTop       : 1
-        });
+        })
     }
 
     /**
@@ -278,33 +278,34 @@ class DragDrop extends Base {
 
             if (rect) {
                 if (left < rect.left) {
-                    left = rect.left;
+                    left = rect.left
                 } else if (left > rect.right - proxyRect.width) {
-                    left = rect.right - proxyRect.width;
+                    left = rect.right - proxyRect.width
                 }
 
                 if (top < rect.top) {
-                    top = rect.top;
+                    top = rect.top
                 } else if (top > rect.bottom - proxyRect.height) {
                     top = rect.bottom - proxyRect.height
                 }
             }
 
             if (!me.moveHorizontal) {
-                left = me.dragProxyRect.x;
+                left = me.dragProxyRect.x
             }
 
             me.dragProxyElement.style.left = `${left}px`;
 
             if (!me.moveVertical) {
-                top = me.dragProxyRect.y;
+                top = me.dragProxyRect.y
             }
 
-            me.dragProxyElement.style.top = `${top}px`;
+            me.dragProxyElement.style.top = `${top}px`
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
-            const originalEvent = event.detail.originalEvent;
+            let originalEvent = event.detail.originalEvent;
+
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
                 offsetX: me.offsetX,
@@ -312,7 +313,7 @@ class DragDrop extends Base {
                 screenX: originalEvent.screenX,
                 screenY: originalEvent.screenY,
                 type   : 'drag:move'
-            });
+            })
         }
     }
 
@@ -336,7 +337,7 @@ class DragDrop extends Base {
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             type: 'drag:start'
-        });
+        })
     }
 
     /**
@@ -350,7 +351,7 @@ class DragDrop extends Base {
                 ...event,
                 dragZoneId: me.dragZoneId,
                 type      : 'drop:enter'
-            });
+            })
         }
     }
 
@@ -365,7 +366,7 @@ class DragDrop extends Base {
                 ...event,
                 dragZoneId: me.dragZoneId,
                 type      : 'drop:leave'
-            });
+            })
         }
     }
 
@@ -390,22 +391,22 @@ class DragDrop extends Base {
                     for (const targetCls of item.cls) {
                         if (cls.includes(targetCls)) {
                             hasMatch = true;
-                            break;
+                            break
                         }
                     }
                 }
 
                 if (hasMatch && ids && !ids.includes(item.id)) {
-                    hasMatch = false;
+                    hasMatch = false
                 }
 
                 if (hasMatch) {
-                    return true;
+                    return true
                 }
             }
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -429,20 +430,20 @@ class DragDrop extends Base {
             (deltaX < 0 && data.clientX < rect.left  + gap) ||
             (deltaX > 0 && data.clientX > rect.right - gap)
         ) {
-            el.scrollLeft += (deltaX * me.scrollFactorLeft);
+            el.scrollLeft += (deltaX * me.scrollFactorLeft)
         }
 
         if (
             (deltaY < 0 && data.clientY < rect.top    + gap) ||
             (deltaY > 0 && data.clientY > rect.bottom - gap)
         ) {
-            el.scrollTop += (deltaY * me.scrollFactorTop);
+            el.scrollTop += (deltaY * me.scrollFactorTop)
         }
 
         return {
             clientX: me.clientX + el.scrollLeft - me.initialScrollLeft,
             clientY: me.clientY + el.scrollTop  - me.initialScrollTop
-        };
+        }
     }
 
     /**
@@ -463,7 +464,7 @@ class DragDrop extends Base {
 
         if (data.boundaryContainerId) {
             node = DomAccess.getElementOrBody(data.boundaryContainerId);
-            me.boundaryContainerRect = node.getBoundingClientRect();
+            me.boundaryContainerRect = node.getBoundingClientRect()
         }
 
         delete data.boundaryContainerId;
@@ -476,16 +477,16 @@ class DragDrop extends Base {
                 scrollContainerRect   : node.getBoundingClientRect(),
                 initialScrollLeft     : node.scrollLeft,
                 initialScrollTop      : node.scrollTop
-            });
+            })
         }
 
         delete data.scrollContainerId;
 
         Object.entries(data).forEach(([key, value]) => {
             if (me.hasOwnProperty(key)) {
-                me[key] = value;
+                me[key] = value
             } else {
-                console.error('unknown key passed inside setConfigs()', key);
+                console.error('unknown key passed inside setConfigs()', key)
             }
         });
 
@@ -496,7 +497,7 @@ class DragDrop extends Base {
                 style: {
                     cursor: me.bodyCursorStyle
                 }
-            });
+            })
         }
     }
 
@@ -505,7 +506,7 @@ class DragDrop extends Base {
      * @param {String} data.id
      */
     setDragProxyElement(data) {
-        this.dragProxyElement = document.getElementById(data.id);
+        this.dragProxyElement = document.getElementById(data.id)
     }
 }
 

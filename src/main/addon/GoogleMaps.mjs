@@ -57,7 +57,7 @@ class GoogleMaps extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.loadApi();
+        this.loadApi()
     }
 
     /**
@@ -71,15 +71,15 @@ class GoogleMaps extends Base {
      * @param {String} [data.title]
      */
     addMarker(data) {
-        let me    = this,
-            mapId = data.mapId,
+        let me      = this,
+            {mapId} = data,
             listenerId, marker;
 
         if (!me.maps[mapId]) {
             listenerId = me.on('mapCreated', id => {
                 if (mapId === id) {
                     me.un(listenerId);
-                    me.addMarker(data);
+                    me.addMarker(data)
                 }
             })
         } else {
@@ -95,7 +95,7 @@ class GoogleMaps extends Base {
                 title   : data.title,
             });
 
-            marker.addListener('click', me.onMarkerClick.bind(me, marker));
+            marker.addListener('click', me.onMarkerClick.bind(me, marker))
         }
     }
 
@@ -111,8 +111,8 @@ class GoogleMaps extends Base {
      * @param {Boolean} data.zoomControl
      */
     create(data) {
-        let me = this,
-            id = data.id,
+        let me   = this,
+            {id} = data,
             map;
 
         me.maps[id] = map = new google.maps.Map(DomAccess.getElement(id), {
@@ -127,7 +127,7 @@ class GoogleMaps extends Base {
 
         map.addListener('zoom_changed', me.onMapZoomChange.bind(me, map, id));
 
-        me.fire('mapCreated', id);
+        me.fire('mapCreated', id)
     }
 
     /**
@@ -140,7 +140,7 @@ class GoogleMaps extends Base {
             markers = me.markers[data.mapId] || {};
 
         Object.values(markers).forEach(marker => marker.setMap(null));
-        delete me.markers[data.mapId];
+        delete me.markers[data.mapId]
     }
 
     /**
@@ -156,12 +156,12 @@ class GoogleMaps extends Base {
             response;
 
         if (!me.geoCoder) {
-            me.geoCoder = new google.maps.Geocoder();
+            me.geoCoder = new google.maps.Geocoder()
         }
 
         response = await me.geoCoder.geocode(data);
 
-        return JSON.parse(JSON.stringify(response));
+        return JSON.parse(JSON.stringify(response))
     }
 
     /**
@@ -170,7 +170,7 @@ class GoogleMaps extends Base {
      * @param {String} data.mapId
      */
     hideMarker(data) {
-        this.markers[data.mapId][data.id].setMap(null);
+        this.markers[data.mapId][data.id].setMap(null)
     }
 
     /**
@@ -181,7 +181,7 @@ class GoogleMaps extends Base {
             url = ' https://maps.googleapis.com/maps/api/js';
 
         DomAccess.loadScript(`${url}?key=${key}&v=weekly&callback=Neo.emptyFn`).then(() => {
-            console.log('GoogleMaps API loaded');
+            console.log('GoogleMaps API loaded')
         })
     }
 
@@ -220,7 +220,7 @@ class GoogleMaps extends Base {
      * @param {Object} data.position
      */
     panTo(data) {
-        this.maps[data.mapId].panTo(data.position);
+        this.maps[data.mapId].panTo(data.position)
     }
 
     /**
@@ -229,7 +229,7 @@ class GoogleMaps extends Base {
      */
     removeMap(data) {
         delete this.maps[data.mapId];
-        delete this.markers[data.mapId];
+        delete this.markers[data.mapId]
     }
 
     /**
@@ -241,7 +241,7 @@ class GoogleMaps extends Base {
         let markers = this.markers[data.mapId];
 
         markers[data.id].setMap(null);
-        delete markers[data.id];
+        delete markers[data.id]
     }
 
     /**
@@ -250,7 +250,7 @@ class GoogleMaps extends Base {
      * @param {Object} data.value
      */
     setCenter(data) {
-        this.maps[data.id].setCenter(data.value);
+        this.maps[data.id].setCenter(data.value)
     }
 
     /**
@@ -259,7 +259,7 @@ class GoogleMaps extends Base {
      * @param {Number} data.value
      */
     setZoom(data) {
-        this.maps[data.id].setZoom(data.value);
+        this.maps[data.id].setZoom(data.value)
     }
 
     /**
@@ -268,7 +268,7 @@ class GoogleMaps extends Base {
      * @param {String} data.mapId
      */
     showMarker(data) {
-        this.markers[data.mapId][data.id].setMap(this.maps[data.mapId]);
+        this.markers[data.mapId][data.id].setMap(this.maps[data.mapId])
     }
 }
 

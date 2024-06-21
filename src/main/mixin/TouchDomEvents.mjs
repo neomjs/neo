@@ -19,42 +19,42 @@ class TouchDomEvents extends Base {
      * @param {Object} event
      */
     onTouchCancel(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onTouchEnd(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onTouchEnter(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onTouchLeave(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onTouchMove(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 
     /**
      * @param {Object} event
      */
     onTouchStart(event) {
-        this.sendMessageToApp(this.getEventData(event));
+        this.sendMessageToApp(this.getEventData(event))
     }
 }
 

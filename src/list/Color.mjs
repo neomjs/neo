@@ -62,7 +62,7 @@ class Color extends Base {
             vtype: 'text',
             html : record[me.displayField],
             id   : me.getListItemVtextId(id)
-        }];
+        }]
     }
 
     /**
@@ -70,7 +70,7 @@ class Color extends Base {
      * @returns {String}
      */
     getListItemIconId(recordId) {
-        return `${this.id}__icon__${recordId}`;
+        return `${this.id}__icon__${recordId}`
     }
 
     /**
@@ -78,7 +78,7 @@ class Color extends Base {
      * @returns {String}
      */
     getListItemVtextId(recordId) {
-        return `${this.id}__vtext__${recordId}`;
+        return `${this.id}__vtext__${recordId}`
     }
 
     /**
@@ -89,7 +89,7 @@ class Color extends Base {
 
         me.createItems(me.silentSelectUpdate);
 
-        !me.silentSelect && me.focus(items[0]);
+        !me.silentSelect && me.focus(items[0])
     }
 }
 

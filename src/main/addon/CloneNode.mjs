@@ -62,10 +62,10 @@ class CloneNode extends Base {
                         targetNode = clone;
 
                         for (; j < pathLen; j++) {
-                            targetNode = targetNode.childNodes[path[j]];
+                            targetNode = targetNode.childNodes[path[j]]
                         }
 
-                        targetNode.textContent = value;
+                        targetNode.textContent = value
                     }
                 });
 
@@ -74,8 +74,8 @@ class CloneNode extends Base {
 
             let end = performance.now();
 
-            console.log('time', end - start);
-        });
+            console.log('time', end - start)
+        })
     }
 
     /**
@@ -93,7 +93,7 @@ class CloneNode extends Base {
         this.map[data.id] = {
             paths: data.paths,
             template
-        };
+        }
     }
 }
 

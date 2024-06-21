@@ -47,16 +47,16 @@ class Stylesheet extends Base {
 
         if (neoConfig.useFontAwesome) {
             if (neoConfig.environment === 'development') {
-                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
+                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
             } else {
-                faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css';
+                faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css'
             }
 
-            this.createStyleSheet(null, null, faPath);
+            this.createStyleSheet(null, null, faPath)
         }
 
         if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
-            this.addGlobalCss();
+            this.addGlobalCss()
         }
     }
 
@@ -64,26 +64,26 @@ class Stylesheet extends Base {
      *
      */
     addGlobalCss() {
-        let config   = Neo.config,
-            themes   = config.themes,
+        let {config} = Neo,
+            {themes} = config,
             folders  = ['src', ...themes],
             env      = config.environment,
             path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
-            rootPath = config.basePath.substr(6);
+            rootPath = config.basePath.substring(6);
 
         document.body.classList.add(themes[0]);
 
         folders.forEach(folder => {
             if (folder.startsWith('neo-')) {
-                folder = folder.substring(4);
+                folder = folder.substring(4)
             }
 
             this.createStyleSheet(
                 null,
                 null,
                 `${rootPath}${path}css/${folder}/Global.css`
-            );
-        });
+            )
+        })
     }
 
     /**
@@ -93,14 +93,14 @@ class Stylesheet extends Base {
      * @param {String[]} data.folders
      */
     addThemeFiles(data) {
-        let className = data.className,
-            config    = Neo.config,
-            env       = config.environment,
-            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
-            rootPath  = config.basePath.substr(6);
+        let {className} = data,
+            {config}    = Neo,
+            env         = config.environment,
+            path        = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            rootPath    = config.basePath.substring(6);
 
         if (className.startsWith('Neo.')) {
-            className = className.substring(4);
+            className = className.substring(4)
         }
 
         className = className.split('.').join('/');
@@ -124,13 +124,13 @@ class Stylesheet extends Base {
      */
     createStyleSheet(name, id, href) {
         if (!name && !href) {
-            throw new Error('createStyleSheet: you need to either pass a name or a href');
+            throw new Error('createStyleSheet: you need to either pass a name or a href')
         }
 
-        const link = document.createElement('link'),
-              env  = Neo.config.environment,
-              path = env.startsWith('dist/') ? env : ('dist/' + env),
-              url  = href ? href : Neo.config.basePath + path + '/' + name;
+        let link = document.createElement('link'),
+            env  = Neo.config.environment,
+            path = env.startsWith('dist/') ? env : ('dist/' + env),
+            url  = href ? href : Neo.config.basePath + path + '/' + name;
 
         Object.assign(link, {
             href: url,
@@ -139,10 +139,10 @@ class Stylesheet extends Base {
         });
 
         if (id) {
-            link.id = id;
+            link.id = id
         }
 
-        document.head.appendChild(link);
+        document.head.appendChild(link)
     }
 
     /**
@@ -153,7 +153,7 @@ class Stylesheet extends Base {
     deleteCssRules(data) {
         let styleEl    = document.getElementById(this.dynamicStyleSheetId),
             styleSheet = styleEl.sheet,
-            cssRules   = styleSheet.cssRules,
+            {cssRules} = styleSheet,
             i          = 0,
             len        = data.rules.length,
             j, rulesLen;
@@ -165,7 +165,7 @@ class Stylesheet extends Base {
             for (; j < rulesLen; j++) {
                 if (cssRules[j].selectorText === data.rules[i]) {
                     styleSheet.deleteRule(j);
-                    break;
+                    break
                 }
             }
         }
@@ -183,11 +183,11 @@ class Stylesheet extends Base {
         for (; i < len; i++) {
             sheet = document.styleSheets[i];
             if (sheet.href?.includes(token)) {
-                return true;
+                return true
             }
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -205,13 +205,13 @@ class Stylesheet extends Base {
             styleEl = document.createElement('style');
 
             styleEl.id = this.dynamicStyleSheetId;
-            document.head.appendChild(styleEl);
+            document.head.appendChild(styleEl)
         }
 
         styleSheet = styleEl.sheet;
 
         for (; i < len; i++) {
-            styleSheet.insertRule(data.rules[i], styleSheet.cssRules.length);
+            styleSheet.insertRule(data.rules[i], styleSheet.cssRules.length)
         }
     }
 
@@ -235,19 +235,19 @@ class Stylesheet extends Base {
             if (sheet.href) {
                 excluded.forEach(name => {
                     if (sheet.href.includes(name)) {
-                        removeSheet = false;
+                        removeSheet = false
                     }
                 });
 
                 if (removeSheet) {
                     included.forEach(name => {
                         if (!sheet.href.includes(name)) {
-                            removeSheet = false;
+                            removeSheet = false
                         }
                     });
 
                     if (removeSheet) {
-                        sheet.ownerNode.parentNode.removeChild(sheet.ownerNode);
+                        sheet.ownerNode.parentNode.removeChild(sheet.ownerNode)
                     }
                 }
             }
@@ -262,11 +262,11 @@ class Stylesheet extends Base {
      * @param {String} data.value
      */
     setCssVariable(data) {
-        let key = data.key,
+        let {key} = data,
             rule, sheet;
 
         if (!key.startsWith('--')) {
-            key = '--' + key;
+            key = '--' + key
         }
 
         for (sheet of document.styleSheets) {
@@ -275,14 +275,14 @@ class Stylesheet extends Base {
                     if (Neo.typeOf(rule) === 'CSSStyleRule') {
                         if (rule.style.getPropertyValue(key) !== '') {
                             rule.style.setProperty(key, data.value, data.priority);
-                            return true;
+                            return true
                         }
                     }
                 }
             }
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -291,7 +291,7 @@ class Stylesheet extends Base {
      * @param {String} data.id
      */
     swapStyleSheet(data) {
-        document.getElementById(data.id).setAttribute('href', data.href);
+        document.getElementById(data.id).setAttribute('href', data.href)
     }
 }
 

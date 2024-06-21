@@ -39,7 +39,7 @@ class CesiumJS extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.loadFiles();
+        this.loadFiles()
     }
 
     /**
@@ -54,7 +54,7 @@ class CesiumJS extends Base {
 
         data.createOsmBuildings && this.createOsmBuildings({
             id: data.id
-        });
+        })
     }
 
     /**
@@ -62,7 +62,7 @@ class CesiumJS extends Base {
      * @param {String} data.id
      */
     createOsmBuildings(data) {
-        this.viewers[data.id].scene.primitives.add(Cesium.createOsmBuildings());
+        this.viewers[data.id].scene.primitives.add(Cesium.createOsmBuildings())
     }
 
     /**
@@ -71,7 +71,7 @@ class CesiumJS extends Base {
      */
     destroy(data) {
         // todo
-        console.log('main.addon.CesiumJS: destroy()', data);
+        console.log('main.addon.CesiumJS: destroy()', data)
     }
 
     /**
@@ -88,7 +88,7 @@ class CesiumJS extends Base {
                 heading: Cesium.Math.toRadians(data.heading),
                 pitch  : Cesium.Math.toRadians(data.pitch),
             }
-        });
+        })
     }
 
     /**
@@ -99,15 +99,15 @@ class CesiumJS extends Base {
             DomAccess.loadScript(    'https://cesium.com/downloads/cesiumjs/releases/1.92/Build/Cesium/Cesium.js'),
             DomAccess.loadStylesheet('https://cesium.com/downloads/cesiumjs/releases/1.92/Build/Cesium/Widgets/widgets.css')
         ]).then(() => {
-            this.onFilesLoaded();
-        });
+            this.onFilesLoaded()
+        })
     }
 
     /**
      *
      */
     onFilesLoaded() {
-        Cesium.Ion.defaultAccessToken = Neo.config.cesiumJsToken;
+        Cesium.Ion.defaultAccessToken = Neo.config.cesiumJsToken
     }
 }
 
