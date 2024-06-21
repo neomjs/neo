@@ -522,7 +522,7 @@ class Container extends BaseContainer {
                 setTimeout(() => {
                     me.createViewData(data)
                 }, 50)
-            }, me, {once: true});
+            }, me, {once: true})
         }
     }
 
