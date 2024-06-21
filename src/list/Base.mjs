@@ -757,7 +757,7 @@ class Base extends Component {
         if (!me.mounted && me.rendering) {
             me.on('mounted', () => {
                 me.createItems()
-            }, {once: true});
+            }, me, {once: true});
         } else {
             me.createItems()
         }

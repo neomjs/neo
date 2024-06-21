@@ -394,7 +394,7 @@ class Base {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)
-                }, {once: true})
+                }, me, {once: true})
             } else {
                 Base.sendRemotes(className, remote)
             }

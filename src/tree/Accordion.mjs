@@ -393,7 +393,7 @@ class AccordionTree extends TreeList {
             me.on('mounted', () => {
                 me.createItems(null, me.getListItemsRoot(), 0);
                 me.update()
-            }, {once: true})
+            }, me, {once: true})
         } else {
             me.createItems(null, me.getListItemsRoot(), 0);
             me.update()

@@ -237,7 +237,7 @@ class Socket extends Base {
                 break;
             case WebSocket.CONNECTING:
                 me.on('open', function() {
-                    me.sendMessage(d);
+                    me.sendMessage(d)
                 }, me, {once: true});
                 break;
             case WebSocket.OPEN:
