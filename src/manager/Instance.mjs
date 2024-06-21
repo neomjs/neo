@@ -44,7 +44,7 @@ class Instance extends Base {
     consumeNeoIdMap() {
         if (Neo.idMap) {
             this.add(Object.values(Neo.idMap));
-            delete Neo.idMap;
+            delete Neo.idMap
         }
     }
 }

@@ -93,7 +93,7 @@ class Base extends Container {
         id += 'DelayTaskId';
 
         this.clearTimeout(this[id]);
-        this[id] = setTimeout(callback, delay);
+        this[id] = setTimeout(callback, delay)
     }
 
     /**
@@ -153,12 +153,12 @@ class Base extends Container {
                 item  = items[0];
 
             if (item?.ntype === 'label') {
-                item.text = value;
+                item.text = value
             } else {
                 me.add({
                     module: Label,
                     text  : value
-                });
+                })
             }
         }
     }
@@ -169,7 +169,7 @@ class Base extends Container {
      */
     clearTimeout(timers) {
         if (!Array.isArray(timers)) {
-            timers = [timers];
+            timers = [timers]
         }
 
         let me = this,
@@ -180,9 +180,9 @@ class Base extends Container {
 
             if (me[id]) {
                 clearTimeout(me[id]);
-                me[id] = null;
+                me[id] = null
             }
-        });
+        })
     }
 
     /**
@@ -218,13 +218,13 @@ class Base extends Container {
                         }
 
                         // Set ourself up as the target wants
-                        me.set(config);
+                        me.set(config)
                     }
                 }
             });
         }
 
-        return singletons[app.name];
+        return singletons[app.name]
     }
 
     /**
@@ -245,7 +245,7 @@ class Base extends Container {
         let me = this;
 
         if (me.hideDelay) {
-            me.addTimeout('hide', me.hide.bind(me), me.hideDelay);
+            me.addTimeout('hide', me.hide.bind(me), me.hideDelay)
         } else {
             me.hide(data)
         }
@@ -255,11 +255,8 @@ class Base extends Container {
      * @param {Object} data
      */
     onDelegateMouseEnter(data) {
-        const
-            me = this,
-            {
-                currentTarget
-            }  = data;
+        let me              = this,
+            {currentTarget} = data;
 
         // If it's an internal move within the delegate, do nothing
         if (currentTarget !== me.activeTarget?.id) {
@@ -279,10 +276,10 @@ class Base extends Container {
             // Still visible, just realign
             if (me.mounted) {
                 me.show();
-                me.alignTo();
+                me.alignTo()
             }
             else {
-                me.showDelayed(data);
+                me.showDelayed(data)
             }
         }
     }
@@ -291,7 +288,7 @@ class Base extends Container {
     static delegateFilter(path) {
         for (let i = 0, { length } = path; i < length; i++) {
             if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
-                return i;
+                return i
             }
         }
     }
@@ -300,7 +297,7 @@ class Base extends Container {
      * @param {Object} data
      */
     onDelegateMouseLeave(data) {
-        const me = this;
+        let me = this;
 
         // If it's an internal move within the delegate, do nothing
         if (data.currentTarget === me.activeTarget?.id) {
@@ -308,8 +305,9 @@ class Base extends Container {
                 target : me.activeTarget,
                 data
             });
+
             me.activeTarget = null;
-            me.hideDelayed(data);
+            me.hideDelayed(data)
         }
     }
 
@@ -322,7 +320,7 @@ class Base extends Container {
             targetId = data.path[0].id;
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        me.id === targetId && me.clearTimeout(['dismiss', 'hide']);
+        me.id === targetId && me.clearTimeout(['dismiss', 'hide'])
     }
 
     /**
@@ -334,7 +332,7 @@ class Base extends Container {
             targetId = data.path[0].id;
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        me.id === targetId && me.hideDelayed(null);
+        me.id === targetId && me.hideDelayed(null)
     }
 
     /**
@@ -349,7 +347,7 @@ class Base extends Container {
         me.clearTimeout(['hide', 'dismiss']);
 
         if (me.dismissDelay) {
-            me.addTimeout('dismiss', me.hide.bind(me), me.dismissDelay, data);
+            me.addTimeout('dismiss', me.hide.bind(me), me.dismissDelay, data)
         }
 
         !me.mounted && me.render(true)

@@ -61,13 +61,13 @@ class View extends Component {
      */
     applyRendererOutput(data) {
         let {cellId, column, record, index, tableContainer} = data,
-            me         = this,
-            cellCls    = ['neo-table-cell'],
-            colspan    = record[me.colspanField],
-            dataField  = column.dataField,
-            fieldValue = record[dataField],
-            hasStore   = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
-            vdom       = me.vdom,
+            me          = this,
+            cellCls     = ['neo-table-cell'],
+            colspan     = record[me.colspanField],
+            {dataField} = column,
+            fieldValue  = record[dataField],
+            hasStore    = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
+            {vdom}      = me,
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -90,7 +90,7 @@ class View extends Component {
                 } else {
                     rendererOutput = [rendererOutput];
                 }
-                break;
+                break
             }
             case 'Number':
             case 'String': {
@@ -98,7 +98,7 @@ class View extends Component {
                     cls : cellCls,
                     html: rendererOutput?.toString()
                 };
-                break;
+                break
             }
         }
 
@@ -151,7 +151,7 @@ class View extends Component {
             colCount       = columns.length,
             data           = [],
             i              = 0,
-            vdom           = me.vdom,
+            {vdom}         = me,
             config, colspan, colspanKeys, column, dockLeftMargin, dockRightMargin, id, index, j, record, selectedRows, trCls;
 
         if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
@@ -173,7 +173,7 @@ class View extends Component {
 
                 Neo.getComponent(me.containerId).fire('select', {
                     record
-                });
+                })
             }
 
             data.push({
@@ -187,9 +187,7 @@ class View extends Component {
             dockLeftMargin  = 0;
             dockRightMargin = 0;
 
-            j = 0;
-
-            for (; j < colCount; j++) {
+            for (j=0; j < colCount; j++) {
                 column = columns[j];
                 config = me.applyRendererOutput({column, record, index: i, tableContainer});
 
@@ -198,12 +196,12 @@ class View extends Component {
 
                     if (column.dock === 'left') {
                         config.style.left = dockLeftMargin + 'px';
-                        dockLeftMargin += (column.width + 1); // todo: borders fix
+                        dockLeftMargin += (column.width + 1) // todo: borders fix
                     }
                 }
 
                 if (column.flex) {
-                    config.style.width = '100%';
+                    config.style.width = '100%'
                 }
 
                 data[i].cn.push(config);
@@ -213,15 +211,13 @@ class View extends Component {
                 }
             }
 
-            j = 0;
-
-            for (; j < colCount; j++) {
+            for (j=0; j < colCount; j++) {
                 index  = colCount - j -1;
                 column = columns[index];
 
                 if (column.dock === 'right') {
                     data[i].cn[index].style.right = dockRightMargin + 'px';
-                    dockRightMargin += (column.width + 1); // todo: borders fix
+                    dockRightMargin += (column.width + 1) // todo: borders fix
                 }
 
                 if (colspanKeys?.includes(column.dataField)) {
@@ -243,12 +239,11 @@ class View extends Component {
     }
 
     /**
-     * @param {Boolean} updateParentVdom
-     * @param {Boolean} silent
+     * @param args
      */
-    destroy(updateParentVdom, silent) {
+    destroy(...args) {
         this.store = null;
-        super.destroy(updateParentVdom, silent);
+        super.destroy(...args)
     }
 
     /**
@@ -257,7 +252,7 @@ class View extends Component {
      * @returns {String}
      */
     getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField
     }
 
     /**
@@ -304,11 +299,11 @@ class View extends Component {
             record = me.getRecordByRowId(node.id);
 
             if (record) {
-                return record;
+                return record
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -316,7 +311,7 @@ class View extends Component {
      * @returns {Object}
      */
     getRecordByRowId(rowId) {
-        return this.store.getAt(this.recordVnodeMap[rowId]);
+        return this.store.getAt(this.recordVnodeMap[rowId])
     }
 
     /**
@@ -325,14 +320,14 @@ class View extends Component {
      * @returns {String}
      */
     getRowId(record, index) {
-        let me    = this,
-            store = me.store;
+        let me      = this,
+            {store} = me;
 
         if (me.useRowRecordIds) {
-            return `${me.id}__tr__${record[store.keyProperty]}`;
+            return `${me.id}__tr__${record[store.keyProperty]}`
         } else {
             index = Neo.isNumber(index) ? index : store.indexOf(record);
-            return me.vdom.cn[index]?.id || Neo.getId('tr');
+            return me.vdom.cn[index]?.id || Neo.getId('tr')
         }
     }
 
@@ -343,7 +338,7 @@ class View extends Component {
      * @returns {String[]}
      */
     getTrClass(record, rowIndex) {
-        return ['neo-table-row'];
+        return ['neo-table-row']
     }
 
     /**
@@ -359,7 +354,7 @@ class View extends Component {
             fieldNames     = opts.fields.map(field => field.name),
             needsUpdate    = false,
             tableContainer = me.parent,
-            vdom           = me.vdom,
+            {vdom}         = me,
             cellId, cellNode, column, index, scope;
 
         if (fieldNames.includes(me.colspanField)) {

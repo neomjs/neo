@@ -41,7 +41,7 @@ class CellColumnModel extends CellModel {
     construct(config) {
         super.construct(config);
 
-        this.selectedColumnCellIds = [];
+        this.selectedColumnCellIds = []
     }
 
     /**
@@ -50,21 +50,21 @@ class CellColumnModel extends CellModel {
     deselectAllCells(silent) {
         let me      = this,
             cellIds = [...me.selectedColumnCellIds],
-            view    = me.view;
+            {view}  = me;
 
         cellIds.forEach(cellId => {
-            me.deselect(cellId, true, me.selectedColumnCellIds, me.selectedColumnCellCls);
+            me.deselect(cellId, true, me.selectedColumnCellIds, me.selectedColumnCellCls)
         });
 
-        !silent && view.update();
+        !silent && view.update()
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            id   = ColumnModel.getCellId(data.path),
+        let me = this,
+            id = ColumnModel.getCellId(data.path),
             columnNodeIds, index, tbodyNode;
 
         if (id) {
@@ -73,10 +73,10 @@ class CellColumnModel extends CellModel {
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.deselectAllCells(true);
-            me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls);
+            me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls)
         }
 
-        super.onCellClick(data);
+        super.onCellClick(data)
     }
 
     /**
@@ -87,13 +87,13 @@ class CellColumnModel extends CellModel {
         let me            = this,
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
-            view          = me.view,
+            {view}        = me,
             dataFields    = view.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             columnNodeIds, tbodyNode;
 
         while (newIndex < 0) {
-            newIndex += dataFields.length;
+            newIndex += dataFields.length
         }
 
         tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
@@ -102,7 +102,7 @@ class CellColumnModel extends CellModel {
         me.deselectAllCells(true);
         me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls);
 
-        super.onNavKeyColumn(data, step);
+        super.onNavKeyColumn(data, step)
     }
 
     /**
@@ -110,7 +110,7 @@ class CellColumnModel extends CellModel {
      */
     unregister() {
         this.deselectAllCells();
-        super.unregister();
+        super.unregister()
     }
 }
 

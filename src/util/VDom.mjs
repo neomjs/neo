@@ -19,7 +19,7 @@ class VDom extends Base {
      * @returns {Object} cloned vdom
      */
     static clone(vdom, removeIds=true) {
-        const clone = Neo.clone(vdom, true);
+        let clone = Neo.clone(vdom, true);
 
         if (removeIds) {
             delete clone.id
@@ -47,7 +47,7 @@ class VDom extends Base {
      */
     static findVdomChild(vdom, opts, index, parentNode) {
         index = index || 0;
-        opts  = typeof opts !== 'string' ? opts : {id: opts};
+        opts  = !Neo.isString(opts) ? opts : {id: opts};
 
         let child      = null,
             matchArray = [],
@@ -74,7 +74,7 @@ class VDom extends Base {
                             // todo: either search the vdom array for all keys or compare if the arrays are equal.
                             throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays')
                         }
-                        break;
+                        break
                     case 'style':
                         if (typeof value === 'string' && typeof vdom[key] === 'string') {
                             if (vdom[key] === value) {
@@ -93,18 +93,18 @@ class VDom extends Base {
                         } else {
                             throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)')
                         }
-                        break;
+                        break
                     default:
                         if (vdom[key] === value) {
                             matchArray.push(true)
                         }
-                        break;
+                        break
                 }
             }
         });
 
         if (matchArray.length === optsLength) {
-            return {index, parentNode, vdom};
+            return {index, parentNode, vdom}
         }
 
         if (vdom.cn) {
@@ -134,7 +134,7 @@ class VDom extends Base {
      * @returns {Object} vdom
      */
     static getByFlag(vdom, flag) {
-        let node = VDom.findVdomChild(vdom, {flag: flag});
+        let node = VDom.findVdomChild(vdom, {flag});
         return node?.vdom
     }
 

@@ -116,7 +116,7 @@ class List extends BaseList {
      * @protected
      */
     afterSetItems(value, oldValue) {
-        let store = this.store;
+        let {store} = this;
 
         oldValue && store.clear(); // we can not use remove() here, since items are no records => often no id
         value    && store.add(value)
@@ -135,15 +135,15 @@ class List extends BaseList {
             if (me.isRoot) {
                 if (!value) {
                     me.focusTimeoutId = setTimeout(() => {
-                        me[me.floating ? 'unmount' : 'hideSubMenu']();
-                    }, 20);
+                        me[me.floating ? 'unmount' : 'hideSubMenu']()
+                    }, 20)
                 } else {
                     clearTimeout(me.focusTimeoutId);
-                    me.focusTimeoutId = null;
+                    me.focusTimeoutId = null
                 }
             } else {
                 // bubble the focus change upwards
-                me.parentMenu.menuFocus = value;
+                me.parentMenu.menuFocus = value
             }
         }
     }
@@ -179,17 +179,17 @@ class List extends BaseList {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me      = this,
-            iconCls = record.iconCls,
-            id      = record[me.store.keyProperty],
-            vdomCn  = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
+        let me        = this,
+            {iconCls} = record,
+            id        = record[me.store.keyProperty],
+            vdomCn    = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
 
         if (iconCls && iconCls !== '') {
-            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', iconCls], id: me.getIconId(id)});
+            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', iconCls], id: me.getIconId(id)})
         }
 
         if (me.hasChildren(record)) {
-            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'neo-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
+            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'neo-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)})
         }
 
         return vdomCn
@@ -199,9 +199,9 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me            = this,
-            activeSubMenu = me.activeSubMenu,
-            subMenuMap    = me.subMenuMap || {};
+        let me              = this,
+            {activeSubMenu} = me,
+            subMenuMap      = me.subMenuMap || {};
 
         activeSubMenu?.unmount();
 
@@ -284,7 +284,7 @@ class List extends BaseList {
             for (item of data.oldPath) {
                 if (item.id === parentId) {
                     insideParent = true;
-                    break;
+                    break
                 }
             }
         }
@@ -362,7 +362,7 @@ class List extends BaseList {
     showSubMenu(nodeId, record) {
         const
             me           = this,
-            store        = me.store,
+            {store}      = me,
             recordId     = record[store.keyProperty],
             subMenuMap   = me.subMenuMap || (me.subMenuMap = {}),
             subMenuMapId = me.getMenuMapId(recordId),

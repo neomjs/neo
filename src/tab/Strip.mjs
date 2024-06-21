@@ -150,7 +150,7 @@ class Strip extends Component {
         me.getTabContainer().on({
             activeIndexChange: me.getActiveTabRectThenMove,
             scope            : me
-        });
+        })
     }
 }
 

@@ -28,14 +28,14 @@ class RowModel extends Model {
      *
      */
     addDomListener() {
-        let me   = this,
-            view = me.view;
+        let me     = this,
+            {view} = me;
 
         view.addDomListeners({
             click   : me.onRowClick,
             delegate: '.neo-table-row',
             scope   : me
-        });
+        })
     }
 
     /**
@@ -45,10 +45,10 @@ class RowModel extends Model {
      */
     getRowId(index) {
         if (index < 0 || this.view.store.getCount() < index) {
-            return null;
+            return null
         }
 
-        return this.view.vdom.cn[0].cn[1].cn[index].id;
+        return this.view.vdom.cn[0].cn[1].cn[index].id
     }
 
     /**
@@ -64,25 +64,25 @@ class RowModel extends Model {
 
         for (; i < len; i++) {
             if (path[i].cls.includes('neo-table-row')) {
-                node = path[i];
+                node = path[i]
             }
         }
 
-        return node;
+        return node
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(data, 1);
+        this.onNavKeyRow(data, 1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(data, -1);
+        this.onNavKeyRow(data, -1)
     }
 
     /**
@@ -90,17 +90,17 @@ class RowModel extends Model {
      * @param {Number} step
      */
     onNavKeyRow(data, step) {
-        let me         = this,
-            node       = RowModel.getRowNode(data.path),
-            view       = me.view,
-            store      = view.store,
-            vdomNode   = VDomUtil.findVdomChild(view.vdom, node.id),
-            newIndex   = (vdomNode.index + step) % store.getCount(),
-            parentNode = vdomNode.parentNode,
+        let me           = this,
+            node         = RowModel.getRowNode(data.path),
+            {view}       = me,
+            {store}      = view,
+            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            newIndex     = (vdomNode.index + step) % store.getCount(),
+            {parentNode} = vdomNode,
             id;
 
         while (newIndex < 0) {
-            newIndex += store.getCount();
+            newIndex += store.getCount()
         }
 
         id = parentNode.cn[newIndex].id;
@@ -111,7 +111,7 @@ class RowModel extends Model {
 
             view.fire('select', {
                 record: store.getAt(newIndex)
-            });
+            })
         }
     }
 
@@ -119,10 +119,10 @@ class RowModel extends Model {
      * @param {Object} data
      */
     onRowClick(data) {
-        let me   = this,
-            node = RowModel.getRowNode(data.path),
-            id   = node?.id,
-            view = me.view,
+        let me     = this,
+            node   = RowModel.getRowNode(data.path),
+            id     = node?.id,
+            {view} = me,
             isSelected, record;
 
         if (id) {
@@ -135,7 +135,7 @@ class RowModel extends Model {
 
             view.fire(isSelected ? 'select' : 'deselect', {
                 record
-            });
+            })
         }
     }
 
@@ -145,28 +145,26 @@ class RowModel extends Model {
     register(component) {
         super.register(component);
 
-        let id   = this.id,
-            view = this.view;
+        let {id, view} = this;
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown', key: 'Down', scope: id},
             {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
-        );
+        )
     }
 
     /**
      *
      */
     unregister() {
-        let id   = this.id,
-            view = this.view;
+        let {id, view} = this;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown', key: 'Down', scope: id},
             {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

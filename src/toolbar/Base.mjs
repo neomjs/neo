@@ -73,7 +73,7 @@ class Base extends Container {
         super.afterSetAppName(value, oldValue);
 
         if (this.sortZone) {
-            this.sortZone.appName = value;
+            this.sortZone.appName = value
         }
     }
 
@@ -85,15 +85,15 @@ class Base extends Container {
      */
     afterSetDock(value, oldValue) {
         let me            = this,
-            cls           = me.cls,
+            {cls}         = me,
             dockPositions = me.getStaticConfig('dockPositions');
 
         dockPositions.forEach(key => {
-            key !== null && NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key);
+            key !== null && NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key)
         });
 
         me.cls    = cls;
-        me.layout = me.getLayoutConfig();
+        me.layout = me.getLayoutConfig()
     }
 
     /**
@@ -113,8 +113,8 @@ class Base extends Container {
                     boundaryContainerId: me.id,
                     owner              : me,
                     ...me.sortZoneConfig
-                });
-            });
+                })
+            })
         }
     }
 
@@ -126,7 +126,7 @@ class Base extends Container {
      * @protected
      */
     beforeSetDock(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'dock', 'dockPositions');
+        return this.beforeSetEnumValue(value, oldValue, 'dock', 'dockPositions')
     }
 
     /**
@@ -141,12 +141,12 @@ class Base extends Container {
                     items[index] = Neo.create({
                         module: Component,
                         flex  : 1
-                    });
+                    })
                 }
-            });
+            })
         }
 
-        return super.createItems();
+        return super.createItems()
     }
 
     /**
@@ -166,7 +166,7 @@ class Base extends Container {
                         align: 'center',
                         pack : 'start'
                     };
-                    break;
+                    break
                 case 'left':
                     layoutConfig = {
                         ntype    : 'vbox',
@@ -174,7 +174,7 @@ class Base extends Container {
                         direction: 'column-reverse',
                         pack     : 'start'
                     };
-                    break;
+                    break
                 case 'right':
                     layoutConfig = {
                         ntype    : 'vbox',
@@ -182,11 +182,11 @@ class Base extends Container {
                         direction: 'column',
                         pack     : 'start'
                     };
-                    break;
+                    break
             }
         }
 
-        return layoutConfig || me.layout;
+        return layoutConfig || me.layout
     }
 }
 

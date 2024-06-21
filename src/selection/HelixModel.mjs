@@ -36,7 +36,7 @@ class HelixModel extends Model {
      */
     onContainerClick() {
         let me       = this,
-            view     = me.view,
+            {view}   = me,
             oldItems = [...me.items],
             deltas   = [];
 
@@ -52,22 +52,18 @@ class HelixModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: view.appName,
-            deltas : deltas
-        }).then(() => {
-            me.fire('selectionChange', me.items, oldItems);
-        });
+        Neo.applyDeltas(view.appName, deltas).then(() => {
+            me.fire('selectionChange', me.items, oldItems)
+        })
     }
 
     /**
      * @param {Object} data
      */
     onItemClick(data) {
-        let i    = 0,
-            len  = data.path.length,
-            view = this.view,
+        let i      = 0,
+            len    = data.path.length,
+            {view} = this,
             key;
 
         for (; i < len; i++) {
@@ -79,7 +75,7 @@ class HelixModel extends Model {
                     record: view.store.get(key)
                 });
 
-                break;
+                break
             }
         }
     }
@@ -88,64 +84,63 @@ class HelixModel extends Model {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyColumn(1);
+        this.onNavKeyColumn(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyRow(-1);
+        this.onNavKeyRow(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyRow(1);
+        this.onNavKeyRow(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyColumn(-1);
+        this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Number} step=1
      */
     onNavKeyColumn(step=1) {
-        let me           = this,
-            view         = me.view,
-            store        = view.store,
-            selected     = me.items[0],
-            countRecords = store.getCount(),
-            itemsPerRow  = parseInt(360 / view.itemAngle),
-            stayInColumn = me.stayInColumn,
+        let me                   = this,
+            {stayInColumn, view} = me,
+            {store}              = view,
+            selected             = me.items[0],
+            countRecords         = store.getCount(),
+            itemsPerRow          = parseInt(360 / view.itemAngle),
             index, record;
 
         step *= itemsPerRow;
 
         if (selected) {
-            index = store.indexOf(selected) + step;
+            index = store.indexOf(selected) + step
         } else {
-            index = 0;
+            index = 0
         }
 
         if (index < 0) {
             if (!stayInColumn) {
-                index++;
+                index++
             }
             while (index < (countRecords - itemsPerRow)) {
-                index += itemsPerRow;
+                index += itemsPerRow
             }
         } else if (index >= countRecords) {
             if (!stayInColumn) {
-                index--;
+                index--
             }
             while (index >= itemsPerRow) {
-                index -= itemsPerRow;
+                index -= itemsPerRow
             }
         }
 
@@ -155,7 +150,7 @@ class HelixModel extends Model {
 
         view.fire('select', {
             record
-        });
+        })
     }
 
     /**
@@ -163,22 +158,22 @@ class HelixModel extends Model {
      */
     onNavKeyRow(step=1) {
         let me           = this,
-            view         = me.view,
-            store        = view.store,
+            {view}       = me,
+            {store}      = view,
             selected     = me.items[0],
             countRecords = store.getCount(),
             index, record;
 
         if (selected) {
-            index = store.indexOf(selected) + step;
+            index = store.indexOf(selected) + step
         } else {
-            index = 0;
+            index = 0
         }
 
         if (index < 0) {
-            index = countRecords - 1;
+            index = countRecords - 1
         } else if (index >= countRecords) {
-            index = 0;
+            index = 0
         }
 
         record = store.getAt(index);
@@ -187,7 +182,7 @@ class HelixModel extends Model {
 
         view.fire('select', {
             record
-        });
+        })
     }
 
     /**
@@ -196,9 +191,8 @@ class HelixModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.on({
             containerClick: me.onContainerClick,
@@ -211,7 +205,7 @@ class HelixModel extends Model {
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
             {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-        );
+        )
     }
 
     /**

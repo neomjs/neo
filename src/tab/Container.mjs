@@ -153,8 +153,8 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetPlain(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray[value ? 'unshift' : 'remove'](cls, me.tabContainerCls + '-plain');
         me.cls = cls
@@ -179,8 +179,8 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetTabBarPosition(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.remove(cls, 'neo-' + oldValue);
         NeoArray.add(cls, 'neo-' + value);
@@ -329,7 +329,7 @@ class Container extends BaseContainer {
                     direction: 'column-reverse',
                     pack     : 'start'
                 };
-                break;
+                break
             case 'left':
                 layoutConfig = {
                     ntype    : 'hbox',
@@ -337,7 +337,7 @@ class Container extends BaseContainer {
                     direction: 'row',
                     pack     : 'start'
                 };
-                break;
+                break
             case 'right':
                 layoutConfig = {
                     ntype    : 'hbox',
@@ -345,13 +345,13 @@ class Container extends BaseContainer {
                     direction: 'row-reverse',
                     pack     : 'start'
                 };
-                break;
+                break
             case 'top':
                 layoutConfig = {
                     ntype: 'vbox',
                     align: 'stretch'
                 };
-                break;
+                break
         }
 
         return layoutConfig
@@ -388,7 +388,7 @@ class Container extends BaseContainer {
             pressed: me.activeIndex === index,
 
             domListeners: [{
-                click: function(data) {
+                click(data) {
                     me.activeIndex = data.component.index
                 },
                 scope: me
@@ -443,7 +443,7 @@ class Container extends BaseContainer {
                         me.activeIndex = i
                     }
 
-                    break;
+                    break
                 }
             }
 
@@ -473,7 +473,7 @@ class Container extends BaseContainer {
             }
         }
 
-        !silent && me.updateTabButtons()
+        !silent && me.updateTabButtons();
 
         return superItem
     }
@@ -579,7 +579,7 @@ class Container extends BaseContainer {
      */
     removeAt(index, destroyItem=true, silent=false) {
         let me            = this,
-            activeIndex   = me.activeIndex,
+            {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             i, len;
@@ -608,9 +608,9 @@ class Container extends BaseContainer {
      * @protected
      */
     updateTabButtons() {
-        let me          = this,
-            activeIndex = me.activeIndex,
-            tabButtons  = me.getTabBar().items || [];
+        let me            = this,
+            {activeIndex} = me,
+            tabButtons    = me.getTabBar().items || [];
 
         tabButtons.forEach((item, index) => {
             item.pressed = index === activeIndex

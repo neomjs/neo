@@ -59,10 +59,10 @@ class Model extends Base {
      */
     beforeGetItems(value) {
         if (!value) {
-            this._items = value = [];
+            this._items = value = []
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -71,7 +71,7 @@ class Model extends Base {
      * @returns {Neo.component.Base}
      */
     beforeGetView(value) {
-        return Neo.getComponent(this._view);
+        return Neo.getComponent(this._view)
     }
 
     /**
@@ -79,7 +79,7 @@ class Model extends Base {
      * @returns {String} the view id
      */
     beforeSetView(value) {
-        return value && value.id;
+        return value && value.id
     }
 
     /**
@@ -98,13 +98,13 @@ class Model extends Base {
         item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
 
         if (itemCollection.includes(item)) {
-            let me   = this,
-                view = me.view,
-                node = view.getVdomChild(item);
+            let me     = this,
+                {view} = me,
+                node   = view.getVdomChild(item);
 
             if (node) {
                 node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
-                node['aria-selected'] = false;
+                node['aria-selected'] = false
             }
 
             NeoArray.remove(itemCollection, item);
@@ -113,12 +113,12 @@ class Model extends Base {
                 view.update();
 
                 me.fire('selectionChange', {
-                    selection : itemCollection
-                });
+                    selection: itemCollection
+                })
             }
         }
         else if (!silent) {
-            this.fire('noChange');
+            this.fire('noChange')
         }
     }
 
@@ -126,48 +126,48 @@ class Model extends Base {
      * @param {Boolean} [silent] true to prevent a vdom update
      */
     deselectAll(silent) {
-        let me    = this,
-            items = [...me.items],
-            view  = me.view;
+        let me     = this,
+            items  = [...me.items],
+            {view} = me;
 
         if (items.length) {
             items.forEach(item => {
-                me.deselect(item, true);
+                me.deselect(item, true)
             });
 
             if (!silent && items.length > 0) {
-                view.update();
+                view.update()
             }
 
             me.fire('selectionChange', {
-                selection : this.items
-            });
+                selection: this.items
+            })
         }
         else if (!silent) {
-            me.fire('noChange');
+            me.fire('noChange')
         }
     }
 
     /**
      *
      */
-    destroy() {
+    destroy(...args) {
         this.unregister();
-        super.destroy();
+        super.destroy(...args)
     }
 
     /**
      * @returns {Array} this.items
      */
     getSelection() {
-        return this.items;
+        return this.items
     }
 
     /**
      * @returns {Boolean} true in case there is a selection
      */
     hasSelection() {
-        return this.items.length > 0;
+        return this.items.length > 0
     }
 
     /**
@@ -175,7 +175,7 @@ class Model extends Base {
      * @returns {Boolean} true in case the item is selected
      */
     isSelected(id) {
-        return this.items.includes(id);
+        return this.items.includes(id)
     }
 
     /**
@@ -187,11 +187,11 @@ class Model extends Base {
 
         if (me.cls && !cls.includes(me.cls)) {
             cls.push(me.cls);
-            component.cls = cls;
+            component.cls = cls
         }
 
         me.view = component;
-        me.addDomListener();
+        me.addDomListener()
     }
 
     /**
@@ -204,11 +204,11 @@ class Model extends Base {
 
         component.domListeners.forEach(listener => {
             if (listener.scope === me) {
-                NeoArray.remove(domListeners, listener);
+                NeoArray.remove(domListeners, listener)
             }
         });
 
-        component.domListeners = domListeners;
+        component.domListeners = domListeners
     }
 
     /**
@@ -222,7 +222,7 @@ class Model extends Base {
 
         // We hold vdom ids for now, so all incoming selections must be converted.
         items = (items = Array.isArray(items) ?
-            items : [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
+            items: [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect) {
@@ -275,12 +275,12 @@ class Model extends Base {
 
         if (me.cls && cls.includes(me.cls)) {
             NeoArray.remove(cls, me.cls);
-            me.view.cls = cls;
+            me.view.cls = cls
         }
 
         me.deselectAll();
 
-        me.removeDomListeners();
+        me.removeDomListeners()
     }
 }
 

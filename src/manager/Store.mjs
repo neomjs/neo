@@ -45,15 +45,13 @@ class Store extends Base {
         for (; i < amountRows; i++) {
             data.push({});
 
-            j = 0;
-
-            for (; j < amountColumns; j++) {
+            for (j=0; j < amountColumns; j++) {
                 data[i]['column' + j] = 'Column' + (j + 1) + ' - ' + Math.round(Math.random() / 1.5);
-                data[i]['column' + j + 'style'] = Math.round(Math.random() / 1.7) > 0 ? 'brown' : i%2 ? '#3c3f41' : '#323232';
+                data[i]['column' + j + 'style'] = Math.round(Math.random() / 1.7) > 0 ? 'brown' : i%2 ? '#3c3f41' : '#323232'
             }
         }
 
-        return data;
+        return data
     }
 
     /**

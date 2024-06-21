@@ -20,7 +20,7 @@ class Css extends Base {
      */
     static deleteRules(appName, rules) {
         if (!Array.isArray(rules)) {
-            rules = [rules];
+            rules = [rules]
         }
 
         Neo.main.addon.Stylesheet.deleteCssRules({appName, rules})
@@ -32,7 +32,7 @@ class Css extends Base {
      */
     static insertRules(appName, rules) {
         if (!Array.isArray(rules)) {
-            rules = [rules];
+            rules = [rules]
         }
 
         Neo.main.addon.Stylesheet.insertCssRules({appName, rules})

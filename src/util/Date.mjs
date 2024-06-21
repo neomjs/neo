@@ -40,7 +40,7 @@ class DateUtil extends Base {
      * @returns {Date|null} the cloned date object
      */
     static clone(date) {
-        return date && new Date(date.valueOf()) || null;
+        return date && new Date(date.valueOf()) || null
     }
 
     /**
@@ -49,7 +49,7 @@ class DateUtil extends Base {
      * @returns {String} the yyyy-mm-dd formatted date
      */
     static convertToyyyymmdd(date) {
-        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
     }
 
     /**
@@ -58,7 +58,7 @@ class DateUtil extends Base {
      * @returns {Number} days inside the month
      */
     static getDaysInMonth(date) {
-        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
     }
 
     /**
@@ -70,7 +70,7 @@ class DateUtil extends Base {
         let firstDayInMonth = DateUtil.getFirstDayOfMonth(date),
             firstDayOffset  = firstDayInMonth - weekStartDay;
 
-        return firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+        return firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset
     }
 
     /**
@@ -79,7 +79,7 @@ class DateUtil extends Base {
      * @returns {Number} 0-6 (Sun-Sat)
      */
     static getFirstDayOfMonth(date) {
-        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
     }
 
     /**
@@ -98,10 +98,10 @@ class DateUtil extends Base {
         date.setUTCMonth(0, 1);
 
         if (date.getUTCDay() !== 4) {
-            date.setUTCMonth(0, 1 + ((4 - date.getUTCDay()) + 7) % 7);
+            date.setUTCMonth(0, 1 + ((4 - date.getUTCDay()) + 7) % 7)
         }
 
-        return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1;
+        return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1
     }
 
     /**
@@ -113,7 +113,7 @@ class DateUtil extends Base {
         let daysInMonth    = DateUtil.getDaysInMonth(date),
             firstDayOffset = DateUtil.getFirstDayOffset(date, weekStartDay);
 
-        return (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+        return (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5
     }
 
     /**
@@ -125,7 +125,7 @@ class DateUtil extends Base {
     static matchDate(date1, date2) {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth()    === date2.getMonth()    &&
-               date1.getDate()     === date2.getDate();
+               date1.getDate()     === date2.getDate()
     }
 }
 

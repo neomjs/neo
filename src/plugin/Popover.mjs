@@ -101,7 +101,7 @@ class Popover extends Base {
      */
     addPopover() {
         const me      = this,
-              owner   = me.owner,
+              {owner} = me,
               parent  = Neo.get(me.owner.parentId),
               popover = {
                   module: Container,

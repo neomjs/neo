@@ -56,7 +56,7 @@ class Task extends Base {
         let me = this;
 
         if (!task.id) {
-            task.id = Neo.core.IdGenerator.getId('task');
+            task.id = Neo.core.IdGenerator.getId('task')
         }
 
         task.scope          && task.run.bind(task.scope);
@@ -74,7 +74,7 @@ class Task extends Base {
 
         me.register(task);
 
-        return task;
+        return task
     }
 
     /**
@@ -82,7 +82,7 @@ class Task extends Base {
      * @param {String} taskId
      */
     removeTask(taskId) {
-        this.unregister(taskId);
+        this.unregister(taskId)
     }
 
     /**
@@ -95,7 +95,7 @@ class Task extends Base {
 
         if (task.isRunning) {
             Neo.logError('[Neo.util.TaskManager] Task is already running');
-            return task;
+            return task
         }
 
         try {
@@ -103,22 +103,22 @@ class Task extends Base {
                 task.runCount++;
 
                 if (task.addCountToArgs) {
-                    task.args[task.args.length - 1] = task.runCount;
+                    task.args[task.args.length - 1] = task.runCount
                 }
 
                 if (task.repeat && task.runCount === task.repeat) {
-                    me.stop(task.id);
+                    me.stop(task.id)
                 }
 
-                task.run(...task.args);
+                task.run(...task.args)
             };
 
             task.isRunning = true;
-            task.runner    = setInterval(fn, task.interval, task);
+            task.runner    = setInterval(fn, task.interval, task)
         } catch (taskError) {
             Neo.logError('[Neo.util.TaskManager] Error while running task ' + task.id);
             task.onError(taskError);
-            task.isRunning = false;
+            task.isRunning = false
         }
     }
 
@@ -132,24 +132,24 @@ class Task extends Base {
 
         if (Neo.isString(task)) {
             task = me.get(task);
-            !task && Neo.logError('[Neo.util.TaskManager] You passed a taskId which does not exits');
-        } else if (!task.id || !me.get(task.id)){
-            task = me.createTask(task);
+            !task && Neo.logError('[Neo.util.TaskManager] You passed a taskId which does not exits')
+        } else if (!task.id || !me.get(task.id)) {
+            task = me.createTask(task)
         }
 
         if (task.isRunning) {
             Neo.logError('[Neo.util.TaskManager] Task is already running');
-            return task;
+            return task
         }
 
         if (task.runOnStart) {
             task.runCount++;
-            task.run(...task.args);
+            task.run(...task.args)
         }
 
         me.run(task.id);
 
-        return task;
+        return task
     }
 
     /**
@@ -164,14 +164,14 @@ class Task extends Base {
         task.isRunning && clearInterval(task.runner);
 
         if (remove) {
-            this.removeTask(task);
+            this.removeTask(task)
         } else {
             task.isRunning = false;
             task.runCount  = 0;
             task.runner    = null;
 
             if (task.addCountToArgs) {
-                task.args[task.args.length - 1] = 0;
+                task.args[task.args.length - 1] = 0
             }
         }
     }
@@ -183,8 +183,8 @@ class Task extends Base {
      */
     stopAll(remove) {
         Object.keys(this.map).forEach(key => {
-            this.stop(key, remove);
-        });
+            this.stop(key, remove)
+        })
     }
 }
 

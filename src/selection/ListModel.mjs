@@ -58,14 +58,13 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onListClick({ currentTarget }) {
-        const {view} = this;
+        let {view} = this,
+            record;
 
         if (!view.disableSelection) {
-            const record = view.store.get(view.getItemRecordId(currentTarget));
+            record = view.store.get(view.getItemRecordId(currentTarget));
 
-            if (record) {
-                this.select(record)
-            }
+            record && this.select(record)
         }
     }
 
@@ -73,8 +72,7 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onListNavigate(data) {
-        const
-            {view}  = this,
+        let {view}  = this,
             {store} = view;
 
         data.record      = store.getAt(Math.min(data.activeIndex, store.getCount()));
@@ -126,22 +124,19 @@ class ListModel extends Model {
      * @param {Number} index
      */
     selectAt(index) {
-        let view      = this.view,
+        let {view}    = this,
             recordKey = view?.store.getKeyAt(index),
             itemId    = recordKey && view.getItemId(recordKey);
 
-        if (itemId) {
-            this.select(itemId)
-        }
+        itemId && this.select(itemId)
     }
 
     /**
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown'   ,key: 'Down'   ,scope: id},

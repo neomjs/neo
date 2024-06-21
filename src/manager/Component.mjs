@@ -29,7 +29,7 @@ class Component extends Base {
         let me = this;
 
         Neo.first        = me.getFirst.bind(me); // alias
-        Neo.getComponent = me.getById.bind(me);  // alias
+        Neo.getComponent = me.getById.bind(me)   // alias
     }
 
     /**
@@ -56,9 +56,9 @@ class Component extends Base {
         if (Neo.isString(config)) {
             config = {
                 ntype: config
-            };
+            }
         } else if (!config) {
-            config = {};
+            config = {}
         }
 
         configArray  = Object.entries(config);
@@ -68,16 +68,16 @@ class Component extends Base {
             if ((component[key] === value)
                 || (key === 'ntype' && me.hasPrototypePropertyValue(component, key, value)))
             {
-                matchArray.push(true);
+                matchArray.push(true)
             }
         });
 
         if (matchArray.length === configLength) {
             if (returnFirstMatch) {
-                return component;
+                return component
             }
 
-            returnArray.push(component);
+            returnArray.push(component)
         }
 
         childItems = me.find({parentId: component.id});
@@ -88,14 +88,14 @@ class Component extends Base {
 
             if (returnFirstMatch) {
                 if (returnValue !== null) {
-                    return returnValue;
+                    return returnValue
                 }
             } else if (returnValue.length > 0) {
-                returnArray.push(...returnValue);
+                returnArray.push(...returnValue)
             }
         }
 
-        return returnFirstMatch ? null: returnArray;
+        return returnFirstMatch ? null: returnArray
     }
 
     /**
@@ -112,11 +112,11 @@ class Component extends Base {
             id = path[i];
 
             if (id && me.has(id)) {
-                return id;
+                return id
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -135,10 +135,10 @@ class Component extends Base {
 
             childComponents = me.getChildComponents(item);
 
-            childComponents && components.push(...childComponents);
+            childComponents && components.push(...childComponents)
         });
 
-        return components;
+        return components
     }
 
     /**
@@ -149,7 +149,7 @@ class Component extends Base {
      * @returns {Array} childIds
      */
     getChildIds(vnode, childIds) {
-        return VNodeUtil.getChildIds(vnode, childIds);
+        return VNodeUtil.getChildIds(vnode, childIds)
     }
 
     /**
@@ -166,11 +166,11 @@ class Component extends Base {
             childComponent = this.get(node);
 
             if (childComponent) {
-                childComponents.push(childComponent);
+                childComponents.push(childComponent)
             }
         });
 
-        return childComponents;
+        return childComponents
     }
 
     /**
@@ -227,18 +227,18 @@ class Component extends Base {
                         const pairs = pairsMatch[1].split(',');
                         pairs.forEach((pair) => {
                             const [key, value] = pair.split('=');
-                            obj[key] = value.replace(/"/g, '');
+                            obj[key] = value.replace(/"/g, '')
                         });
                     }
                 }
                 objects.push(obj);
 
-                regex.lastIndex++;
+                regex.lastIndex++
             }
         } else if (Neo.isObject(componentDescription)){
-            objects.push(componentDescription);
+            objects.push(componentDescription)
         } else if (Neo.isArray(componentDescription)) {
-            objects = componentDescription;
+            objects = componentDescription
         }
 
         /* find the correct child using down() */
@@ -247,10 +247,11 @@ class Component extends Base {
                 let child = acc.down(key, returnFirstMatch);
 
                 if (!!child) {
-                    return child;
+                    return child
                 }
             }
-            return null;
+
+            return null
         }, root);
 
         return result
@@ -268,11 +269,11 @@ class Component extends Base {
             component = this.getById(component.parentId);
 
             if (component) {
-                parentIds.push(component.id);
+                parentIds.push(component.id)
             }
         }
 
-        return parentIds;
+        return parentIds
     }
 
     /**
@@ -287,11 +288,11 @@ class Component extends Base {
 
         for (; i < len; i++) {
             if (me.has(path[i])) {
-                componentPath.push(path[i]);
+                componentPath.push(path[i])
             }
         }
 
-        return componentPath;
+        return componentPath
     }
 
     /**
@@ -301,7 +302,7 @@ class Component extends Base {
      */
     getParents(component) {
         if (Neo.isString(component)) {
-            component = this.getById(component);
+            component = this.getById(component)
         }
 
         let parents = [];
@@ -310,11 +311,11 @@ class Component extends Base {
             component = this.getById(component.parentId);
 
             if (component) {
-                parents.push(component);
+                parents.push(component)
             }
         }
 
-        return parents;
+        return parents
     }
 
     /**
@@ -328,12 +329,13 @@ class Component extends Base {
     hasPrototypePropertyValue(component, property, value) {
         while (component !== null) {
             if (component.hasOwnProperty(property) && component[property] === value) {
-                return true;
+                return true
             }
-            component = component.__proto__;
+
+            component = component.__proto__
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -353,9 +355,9 @@ class Component extends Base {
         if (Neo.isString(config)) {
             config = {
                 ntype: config
-            };
+            }
         } else if (!config) {
-            config = {};
+            config = {}
         }
 
         configArray  = Object.entries(config);
@@ -365,23 +367,23 @@ class Component extends Base {
             component = this.getById(component.parentId);
 
             if (!component) {
-                return returnFirstMatch ? null : returnArray;
+                return returnFirstMatch ? null : returnArray
             }
 
             matchArray = [];
 
             configArray.forEach(([key, value]) => {
                 if (component[key] === value) {
-                    matchArray.push(true);
+                    matchArray.push(true)
                 }
             });
 
             if (matchArray.length === configLength) {
                 if (returnFirstMatch) {
-                    return component;
+                    return component
                 }
 
-                returnArray.push(component);
+                returnArray.push(component)
             }
         }
     }

@@ -75,7 +75,7 @@ class Breadcrumb extends Toolbar {
 
         let me = this;
 
-        me.updateOnHashChange && HashHistory.on('change', me.onHashChange, me);
+        me.updateOnHashChange && HashHistory.on('change', me.onHashChange, me)
     }
 
     /**
@@ -119,7 +119,7 @@ class Breadcrumb extends Toolbar {
      */
     beforeSetStore(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, null, this.defaultStoreConfig);
+        return ClassSystemUtil.beforeSetInstance(value, null, this.defaultStoreConfig)
     }
 
     /**
@@ -130,7 +130,7 @@ class Breadcrumb extends Toolbar {
 
         me.updateOnHashChange && HashHistory.un('change', me.onHashChange, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -139,7 +139,7 @@ class Breadcrumb extends Toolbar {
     getPathItems() {
         let items    = [],
             parentId = this.activeKey,
-            store    = this.store,
+            {store}  = this,
             item;
 
         while (parentId !== null) {
@@ -147,10 +147,10 @@ class Breadcrumb extends Toolbar {
 
             items.unshift(item);
 
-            parentId = item.parentId;
+            parentId = item.parentId
         }
 
-        return items;
+        return items
     }
 
     /**
@@ -159,17 +159,17 @@ class Breadcrumb extends Toolbar {
      */
     onHashChange(value, oldValue) {
         let hashString = value?.hashString,
-            store      = this.store,
+            {store}    = this,
             activeKey;
 
         if (hashString && !hashString.endsWith('/')) {
-            hashString += '/';
+            hashString += '/'
         }
 
         activeKey = hashString && store.findFirst({route: hashString})?.[store.keyProperty] || null;
 
         if (activeKey !== null) {
-            this.activeKey = activeKey;
+            this.activeKey = activeKey
         }
     }
 
@@ -177,7 +177,7 @@ class Breadcrumb extends Toolbar {
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-       this.afterSetActiveKey(this.activeKey, null);
+       this.afterSetActiveKey(this.activeKey, null)
     }
 
     /**
@@ -185,7 +185,7 @@ class Breadcrumb extends Toolbar {
      */
     updateItems() {
         let me        = this,
-            items     = me.items,
+            {items}   = me,
             pathItems = me.getPathItems(),
             i         = 0,
             len       = pathItems.length,

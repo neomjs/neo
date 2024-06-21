@@ -27,62 +27,62 @@ class CellModel extends Model {
      *
      */
     addDomListener() {
-        let me   = this,
-            view = me.view;
+        let me     = this,
+            {view} = me;
 
         view.addDomListeners({
             click   : me.onCellClick,
             delegate: '.neo-grid-cell',
             scope   : me
-        });
+        })
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            path = data.path,
-            i    = 0,
-            len  = path.length,
+        let me     = this,
+            {path} = data,
+            i      = 0,
+            len    = path.length,
             id;
 
         for (; i < len; i++) {
             if (path[i].cls.includes('neo-grid-cell')) {
                 id = path[i].id;
-                break;
+                break
             }
         }
 
-        id && me.toggleSelection(id);
+        id && me.toggleSelection(id)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(data, 1);
+        this.onNavKeyRow(data, 1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1);
+        this.onNavKeyColumn(data, -1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1);
+        this.onNavKeyColumn(data, 1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(data, -1);
+        this.onNavKeyRow(data, -1)
     }
 
     /**
@@ -91,7 +91,7 @@ class CellModel extends Model {
      */
     onNavKeyColumn(data, step) {
         let me            = this,
-            view          = me.view,
+            {view}        = me,
             idArray       = data.path[0].id.split('__'),
             currentColumn = idArray[2],
             dataFields    = view.columns.map(c => c.field),
@@ -99,14 +99,14 @@ class CellModel extends Model {
             id;
 
         while (newIndex < 0) {
-            newIndex += dataFields.length;
+            newIndex += dataFields.length
         }
 
         idArray[2] = dataFields[newIndex];
         id = idArray.join('__');
 
         me.select(id);
-        view.focus(id);
+        view.focus(id)
     }
 
     /**
@@ -115,22 +115,22 @@ class CellModel extends Model {
      */
     onNavKeyRow(data, step) {
         let me       = this,
-            view     = me.view,
-            store    = view.store,
+            {view}   = me,
+            {store}  = view,
             idArray  = data.path[0].id.split('__'),
             recordId = idArray[1],
             newIndex = (store.indexOf(recordId) + step) % store.getCount(),
             id;
 
         while (newIndex < 0) {
-            newIndex += store.getCount();
+            newIndex += store.getCount()
         }
 
         idArray[1] = store.getKeyAt(newIndex);
         id = idArray.join('__');
 
         me.select(id);
-        view.focus(id);
+        view.focus(id)
     }
 
     /**
@@ -139,25 +139,23 @@ class CellModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
             {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-        );
+        )
     }
 
     /**
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
@@ -166,7 +164,7 @@ class CellModel extends Model {
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

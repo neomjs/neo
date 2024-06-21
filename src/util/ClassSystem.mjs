@@ -24,24 +24,24 @@ class ClassSystem extends Base {
         let isInstance = config instanceof Neo.core.Base;
 
         if (Neo.isString(DefaultClass)) {
-            DefaultClass = Neo.ns(DefaultClass);
+            DefaultClass = Neo.ns(DefaultClass)
         }
 
         if (!config && DefaultClass) {
-            config = Neo.create(DefaultClass, defaultValues);
+            config = Neo.create(DefaultClass, defaultValues)
         } else if (config?.isClass) {
-            config = Neo.create(config, defaultValues);
+            config = Neo.create(config, defaultValues)
         } else if (Neo.isObject(config) && !isInstance) {
             if (config.ntype) {
                 config = Neo.ntype({
                     ...defaultValues,
                     ...config
-                });
+                })
             } else {
-                const newConfig = {};
+                let newConfig = {};
 
                 if (DefaultClass) {
-                    newConfig.module = DefaultClass;
+                    newConfig.module = DefaultClass
                 }
 
                 Object.assign(newConfig, {
@@ -49,15 +49,15 @@ class ClassSystem extends Base {
                     ...config
                 });
 
-                config = Neo.create(newConfig);
+                config = Neo.create(newConfig)
             }
         } else if (isInstance) {
             if (defaultValues?.listeners) {
-                config.on(defaultValues.listeners);
+                config.on(defaultValues.listeners)
             }
         }
 
-        return config;
+        return config
     }
 }
 

@@ -64,13 +64,13 @@ class Toast extends Base {
 
         if (toast.position && !me.running[toast.position]) {
             Neo.logError('[Neo.manager.Toast] Supported values for slideDirection are: tl, tc, tr, bl, bc, br');
-            return null;
+            return null
         }
 
         if (!toast.msg || !toast.appName) {
             !toast.msg     && Neo.logError('[Neo.manager.Toast] Toast has to define a msg');
             !toast.appName && Neo.logError('[Neo.manager.Toast] Toast has to define an appName. Typically me.appName.');
-            return null;
+            return null
         }
 
         toast = Neo.create({
@@ -83,7 +83,7 @@ class Toast extends Base {
             scope  : me
         })
 
-        return toast.id;
+        return toast.id
     }
 
     /**
@@ -101,13 +101,13 @@ class Toast extends Base {
             if (me.running[item.position].length < me.maxToasts) {
                 firstToast = item;
                 firstToast.running = true;
-                break;
+                break
             }
         }
 
         me.clearFilters();
 
-        return firstToast;
+        return firstToast
     }
 
     /**
@@ -115,7 +115,7 @@ class Toast extends Base {
      */
     register(item) {
         super.register(item);
-        this.runQueue();
+        this.runQueue()
     }
 
     /**
@@ -128,7 +128,7 @@ class Toast extends Base {
             position;
 
         if (!toast) {
-            return;
+            return
         }
 
         position = toast.position;
@@ -136,7 +136,7 @@ class Toast extends Base {
         // decrease total of displayed toasts for a position
         NeoArray.remove(me.running[position], toastId);
 
-        me.updateItemsInPosition(toastId);
+        me.updateItemsInPosition(toastId)
     }
 
     /**
@@ -164,8 +164,8 @@ class Toast extends Base {
 
         // todo: we could use a mounted listener
         setTimeout(() => {
-            this.updateItemsInPosition(toast.id);
-        }, 50);
+            this.updateItemsInPosition(toast.id)
+        }, 50)
     }
 
     /**
@@ -174,7 +174,7 @@ class Toast extends Base {
      */
     unregister(item) {
         super.unregister(item);
-        this.runQueue();
+        this.runQueue()
     }
 
     /**
@@ -186,7 +186,7 @@ class Toast extends Base {
     async updateItemsInPosition(id) {
         let me            = this,
             toast         = me.get(id),
-            position      = toast.position,
+            {position}    = toast,
             positionArray = me.running[position],
             acc           = 0,
             margin        = me.defaultMargin,
@@ -207,7 +207,7 @@ class Toast extends Base {
             // Sometimes the index is already reduced
             // so the last index might not be available
             if(rects[index]) {
-                acc = acc + rects[index].height;
+                acc = acc + rects[index].height
             }
         }
     }

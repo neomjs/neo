@@ -44,7 +44,6 @@ class PrefixField extends Base {
          * @member {String} ownerCls='neo-prefixfield'
          */
         ownerCls: 'neo-prefixfield',
-
         /**
          * regex to calculate if entered value is acceptable
          * Preset to numbers only
@@ -68,32 +67,32 @@ class PrefixField extends Base {
      * @member {Number} first
      * @protected
      */
-    first = null;
+    first = null
     /**
      * Array of numbers, which shows the previous entry point
      * @member {Array[]} prev
      * @protected
      */
-    prev = null;
+    prev = null
     /**
      * Position of the cursor inside input element
      * @member {Object} selection
      * @protected
      */
-    selection = null;
+    selection = null
 
     /**
      * State if selection should be updated
      * @member {Boolean} ignoreSelection
      * @protected
      */
-    ignoreSelection = false;
+    ignoreSelection = false
     /**
      * State if last entry was the back button
      * @member {Boolean} back
      * @protected
      */
-    back = false;
+    back = false
 
     /**
      * @param {Object} config
@@ -112,13 +111,13 @@ class PrefixField extends Base {
      */
     addCss() {
         const me      = this,
-              owner   = me.owner,
+              {owner} = me,
               inputEl = owner.getInputEl(),
               labelEl = owner.getLabelEl();
 
         owner    .addCls(me.ownerCls);
         inputEl.cls.push(me.inputCls);
-        labelEl.cls.push(me.labelCls);
+        labelEl.cls.push(me.labelCls)
     }
 
     /**
@@ -126,9 +125,8 @@ class PrefixField extends Base {
      * @protected
      */
     addListeners() {
-        let me    = this,
-            owner = me.owner,
-            listenerId;
+        let me      = this,
+            {owner} = me;
 
         owner.addDomListeners([
             {keydown        : me.onFieldKeyDown        , scope: me},
@@ -137,12 +135,9 @@ class PrefixField extends Base {
             {selectionchange: me.onFieldSelectionChange, scope: me}
         ]);
 
-        listenerId = me.owner.on('mounted', () => {
-            Neo.currentWorker.insertThemeFiles(owner.appName, owner.windowId, me.__proto__);
-
-            owner.un('mounted', listenerId);
-            listenerId = null;
-        })
+        me.owner.on('mounted', () => {
+            Neo.currentWorker.insertThemeFiles(owner.appName, owner.windowId, me.__proto__)
+        }, {once: true})
     }
 
 
@@ -153,7 +148,7 @@ class PrefixField extends Base {
      * @protected
      */
     afterSetAccept(value, oldValue) {
-        if (this.owner.value) this.format();
+        this.owner.value && this.format()
     }
 
     /**
@@ -164,7 +159,7 @@ class PrefixField extends Base {
      */
     afterSetPattern(value, oldValue) {
         this.owner.placeholderText = value;
-        this.recalcFirstAndPref();
+        this.recalcFirstAndPref()
     }
 
     /**
@@ -174,7 +169,7 @@ class PrefixField extends Base {
      * @protected
      */
     afterSetSlots(value, oldValue) {
-        this.recalcFirstAndPref();
+        this.recalcFirstAndPref()
     }
 
     /**
@@ -184,7 +179,7 @@ class PrefixField extends Base {
      * @protected
      */
     beforeSetSlots(value) {
-        return new Set(value || "_");
+        return new Set(value || "_")
     }
 
     /**
@@ -202,7 +197,7 @@ class PrefixField extends Base {
             input[0] === c || me.slots.has(c) ? input.shift() || c : c
         );
 
-        return input.slice(0, me.pattern.length);
+        return input.slice(0, me.pattern.length)
     }
 
     /**
@@ -210,25 +205,24 @@ class PrefixField extends Base {
      * @protected
      */
     format() {
-        const me        = this,
-              el        = me.owner,
-              selection = me.selection,
-              prev      = me.prev,
-              clean     = me.clean.bind(me);
-        let value = el.value || '';
+        let me                = this,
+            el                = me.owner,
+            {prev, selection} = me,
+            clean             = me.clean.bind(me),
+            value             = el.value || '';
 
         const [i, j] = [selection.start, selection.end].map(i => {
             i = me.clean(value.slice(0, i)).findIndex(c => me.slots.has(c));
-            return i < 0 ? prev[prev.length - 1] : me.back ? prev[i - 1] || me.first : i;
+            return i < 0 ? prev[prev.length - 1] : me.back ? prev[i - 1] || me.first : i
         });
 
         el.value = clean(value).join``;
-        this.ignoreSelection = true;
+        me.ignoreSelection = true;
 
         Neo.main.DomAccess.selectNode({id: el.getInputElId(), start: i, end: j});
-        this.ignoreSelection = false;
+        me.ignoreSelection = false;
 
-        this.back = false;
+        me.back = false
     }
 
     /**
@@ -238,10 +232,9 @@ class PrefixField extends Base {
      * @protected
      */
     onFieldBlur(data) {
-        const pattern = this.pattern,
-              el      = this.owner;
+        let {owner, pattern} = this;
 
-        return el.value === pattern && (el.value = "");
+        return owner.value === pattern && (owner.value = '')
     }
 
     /**
@@ -250,7 +243,7 @@ class PrefixField extends Base {
      * @protected
      */
     onFieldFocus(data) {
-        this.format();
+        this.format()
     }
 
     /**
@@ -259,7 +252,7 @@ class PrefixField extends Base {
      * @protected
      */
     onFieldKeyDown(data) {
-        this.back = (data.key === "Backspace");
+        this.back = data.key === "Backspace"
     }
 
     /**
@@ -273,11 +266,11 @@ class PrefixField extends Base {
 
         // Do not run, if ignore state or same start and end data
         if (this.ignoreSelection || (dSel.start === sel.start && dSel.end === sel.end)) {
-            return;
+            return
         }
 
         this.selection = dSel;
-        this.format();
+        this.format()
     }
 
     /**
@@ -285,16 +278,15 @@ class PrefixField extends Base {
      * @protected
      */
     recalcFirstAndPref() {
-        const me      = this,
-              pattern = me.pattern,
-              slots   = me.slots;
+        let me               = this,
+            {pattern, slots} = me;
 
         me.prev = (j => Array.from(pattern, (c, i) => slots.has(c) ? j = i + 1 : j))(0);
         me.first = [...pattern].findIndex(c => slots.has(c));
 
         me.selection = {start: me.first, end: me.first};
 
-        if (me.owner.value) me.format();
+        me.owner.value && me.format()
     }
 }
 

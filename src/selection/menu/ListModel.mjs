@@ -29,8 +29,8 @@ class ListModel extends BaseListModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        let view       = this.view,
-            parentMenu = view.parentMenu;
+        let {view}       = this,
+            {parentMenu} = view;
 
         if (parentMenu) {
             view.hideSubMenu();

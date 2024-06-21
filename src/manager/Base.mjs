@@ -19,7 +19,7 @@ class Base extends CollectionBase{
      * @returns {Object}
      */
     getById(id) {
-        return id && this.get(id) || null;
+        return id && this.get(id) || null
     }
 
     /**
@@ -29,9 +29,9 @@ class Base extends CollectionBase{
         let me = this;
 
         if (me.get(item.id)) {
-            Neo.logError('Trying to create an item with an already existing id', item, me.get(item.id));
+            Neo.logError('Trying to create an item with an already existing id', item, me.get(item.id))
         } else {
-            me.push(item);
+            me.push(item)
         }
     }
 
@@ -40,7 +40,7 @@ class Base extends CollectionBase{
      * @param {Object|String} item
      */
     unregister(item) {
-        this.remove(item);
+        this.remove(item)
     }
 }
 
