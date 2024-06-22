@@ -68,7 +68,7 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onRangefieldChange(data) {
-        const name = data.component.name;
+        let name = data.component.name;
 
         if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
             data.value /= 100
@@ -81,7 +81,7 @@ class ViewportController extends Controller {
      * @param {String} id
      */
     onRangefieldMounted(id) {
-        const field = Neo.getComponent(id);
+        let field = Neo.getComponent(id);
 
         this.helix.on(field.eventName, function(value) {
             value = Math.min(Math.max(value, field.minValue), field.maxValue);

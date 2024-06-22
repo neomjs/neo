@@ -102,6 +102,7 @@ class Viewport extends BaseViewport {
                 name     : 'translateY',
                 value    : -350
             }, {
+                eventName: 'changeTranslateZ',
                 labelText: 'Translate Z',
                 listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
                 maxValue : 4500,
@@ -116,6 +117,7 @@ class Viewport extends BaseViewport {
                 name      : 'deltaY',
                 value     : 70
             }, {
+                eventName: 'changeRotation',
                 labelText: 'Rotate',
                 listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
                 minValue : -720,
