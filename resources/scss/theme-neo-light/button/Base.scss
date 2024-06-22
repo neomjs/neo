@@ -1,6 +1,4 @@
-
 :root .neo-theme-neo-light {
-
     // .neo-button – Styles that will be inherited by ALL button styles
     --button-height                             : var(--cmp-button-height);
     --button-margin                             : var(--cmp-button-gap);
@@ -152,10 +150,11 @@
     // custom overrides
     .neo-button {
         min-width: var(--cmp-button-height);
+
         &.neo-button-tertiary {
-            text-decoration: underline;
-            text-underline-offset: 3px;
+            text-decoration      : underline;
             text-decoration-color: var(--sem-color-text-primary-default);
+            text-underline-offset: 3px;
         }
     }
 }

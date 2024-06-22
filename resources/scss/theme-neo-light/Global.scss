@@ -1,67 +1,67 @@
+@import "../../../resources/scss/theme-neo-light/design-tokens/_all.scss";
+
 :root .neo-theme-neo-light {
     --neo-background-color: #fafafa;
     --neo-color           : #000;
     --neo-disabled-opacity: 0.5;
     --neo-font-family     : 'Source Sans 3', sans-serif;
     --neo-font-smoothing  : antialiased;
-}
 
-@import "../../../resources/scss/theme-neo-light/design-tokens/_all.scss";
+    h1 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h1);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
 
-h1 {
-    color           : var(--sem-color-fg-neutral-contrast);
-    font-family     : var(--core-fontfamily-sans);
-    font-size       : var(--core-fontsize-h1);
-    font-weight     : var(--core-fontweight-semibold);
-    letter-spacing  : -0.02em;
-    line-height     : var(--core-lineheight-headline);
-}
+    h2 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h2);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
 
-h2 {
-    color           : var(--sem-color-fg-neutral-contrast);
-    font-family     : var(--core-fontfamily-sans);
-    font-size       : var(--core-fontsize-h2);
-    font-weight     : var(--core-fontweight-semibold);
-    letter-spacing  : -0.02em;
-    line-height     : var(--core-lineheight-headline);
-}
+    h3 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h3);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
 
-h3 {
-    color           : var(--sem-color-fg-neutral-contrast);
-    font-family     : var(--core-fontfamily-sans);
-    font-size       : var(--core-fontsize-h3);
-    font-weight     : var(--core-fontweight-semibold);
-    letter-spacing  : -0.02em;
-    line-height     : var(--core-lineheight-headline);
-}
+    p {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-body);
+        font-weight     : var(--core-fontweight-regular);
+        line-height     : var(--core-lineheight-paragraph);
+    }
 
-p {
-    color           : var(--sem-color-fg-neutral-contrast);
-    font-family     : var(--core-fontfamily-sans);
-    font-size       : var(--core-fontsize-body);
-    font-weight     : var(--core-fontweight-regular);
-    line-height     : var(--core-lineheight-paragraph);
-}
+    i, em {
+        font-style: italic;
+    }
 
-i, em {
-    font-style: italic;
-}
+    code {
+        background-color: #F0F2F0;
+        border          : 1px solid var(--sem-color-border-subtle);
+        border-radius   : 4px;
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-mono);
+        font-size       : var(--core-fontsize-body);
+        font-weight     : var(--core-fontweight-regular);
+        line-height     : var(--core-lineheight-headline);
+        padding         : 2px 0.3em;
+        font-size       : 16px;
+    }
 
-code {
-    background-color: #F0F2F0;
-    border          : 1px solid var(--sem-color-border-subtle);
-    border-radius   : 4px;
-    color           : var(--sem-color-fg-neutral-contrast);
-    font-family     : var(--core-fontfamily-mono);
-    font-size       : var(--core-fontsize-body);
-    font-weight     : var(--core-fontweight-regular);
-    line-height     : var(--core-lineheight-headline);
-    padding         : 2px 0.3em;
-    font-size       : 16px;
-}
-
-mark {
-    background-color: var(--green-50);
-    color           : black;
-    padding         : 0.1em 0.2em;
+    mark {
+        background-color: var(--green-50);
+        color           : black;
+        padding         : 0.1em 0.2em;
+    }
 }

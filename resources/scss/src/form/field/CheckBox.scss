@@ -5,6 +5,7 @@
         display    : inline-block;
         font-family: var(--checkboxfield-icon-font-family);
         font-size  : var(--checkboxfield-icon-font-size);
+        font-style: normal !important;
         margin     : var(--checkboxfield-icon-margin);
         width      : 20px;
     }
