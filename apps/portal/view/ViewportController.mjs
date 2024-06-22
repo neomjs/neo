@@ -1,4 +1,5 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller        from '../../../src/controller/Component.mjs';
+import {getSearchParams} from '../Util.mjs';
 
 /**
  * @class Portal.view.ViewportController
@@ -38,28 +39,18 @@ class ViewportController extends Controller {
     connectedApps = []
 
     /**
-     * todo: move to a different place
-     * @param {String} searchString
-     * @returns {Object}
-     */
-    decodeUri(searchString) {
-        return searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {}
-    }
-
-    /**
      * @param {Object} data
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
     async onAppConnect(data) {
-        let me                  = this,
-            {appName, windowId} = data,
+        let {appName, windowId} = data,
             app                 = Neo.apps[appName],
             mainView            = app.mainView;
 
         if (appName !== 'Portal') {
             let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
-                livePreviewId   = me.decodeUri(searchString.substring(1)).id,
+                livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
                 tabContainer    = livePreview.tabContainer,
@@ -80,15 +71,14 @@ class ViewportController extends Controller {
      * @param {Number} data.windowId
      */
     async onAppDisconnect(data) {
-        let me                  = this,
-            {appName, windowId} = data,
+        let {appName, windowId} = data,
             app                 = Neo.apps[appName],
             mainView            = app.mainView;
 
         // Closing a code preview window needs to drop the preview back into the related main app
         if (appName !== 'Portal') {
             let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
-                livePreviewId   = me.decodeUri(searchString.substring(1)).id,
+                livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
                 tabContainer    = livePreview.tabContainer,
@@ -104,7 +94,7 @@ class ViewportController extends Controller {
         }
         // Close popup windows when closing or reloading the main window
         else {
-            Neo.Main.windowClose({names: me.connectedApps, windowId})
+            Neo.Main.windowClose({names: this.connectedApps, windowId})
         }
     }
 

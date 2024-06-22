@@ -1,4 +1,5 @@
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller        from '../../../../src/controller/Component.mjs';
+import {getSearchParams} from '../../Util.mjs';
 
 /**
  * @class Portal.view.learn.MainContainerController
@@ -25,28 +26,16 @@ class MainContainerController extends Controller {
     construct(config) {
         super.construct(config);
 
-        let me = this,
-            search, searchString;
+        let {windowId} = this;
 
         Neo.Main.getByPath({
-            path    : 'location.search',
-            windowId: me.windowId
+            path: 'location.search',
+            windowId
         }).then(data => {
-            searchString = data?.substr(1) || '';
-            search       = searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {};
-
-            me.getModel().setData({
-                deck: search.deck || 'learnneo'
+            this.getModel().setData({
+                deck: getSearchParams(data).deck || 'learnneo'
             })
         })
-    }
-
-    /**
-     * @param {String} searchString
-     * @returns {Object}
-     */
-    decodeUri(searchString) {
-        return searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {}
     }
 
     /**
@@ -69,8 +58,9 @@ class MainContainerController extends Controller {
 
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
-                const search = me.decodeUri(data?.substring(1) || '');
-                me.getModel().setData('deck', search.deck || 'learnneo');
+                me.getModel().setData({
+                    deck: getSearchParams(data).deck || 'learnneo'
+                });
             });
 
         // todo: target file does not exist inside the repo
