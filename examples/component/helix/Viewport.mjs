@@ -84,17 +84,9 @@ class Viewport extends BaseViewport {
                 ntype        : 'rangefield',
                 flex         : '0 1 auto',
                 labelWidth   : '100px',
+                listeners    : {change: 'onRangefieldChange'},
                 style        : {padding: '10px'},
-                useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    }
-                }
+                useInputEvent: true
             },
 
             items: [{
@@ -111,23 +103,11 @@ class Viewport extends BaseViewport {
                 value    : -350
             }, {
                 labelText: 'Translate Z',
+                listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
                 maxValue : 4500,
                 minValue : -4500,
                 name     : 'translateZ',
-                value    : -1500,
-                listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeTranslateZ', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
-                }
+                value    : -1500
             }, {
                 labelText : 'Delta Y',
                 labelAlign: 'top',
@@ -137,23 +117,11 @@ class Viewport extends BaseViewport {
                 value     : 70
             }, {
                 labelText: 'Rotate',
+                listeners: {change: 'onRangefieldChange', mounted: 'onRangefieldMounted'},
                 minValue : -720,
                 maxValue : 720,
                 name     : 'rotationAngle',
-                value    : 0,
-                listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeRotation', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
-                }
+                value    : 0
             }, {
                 labelText: 'Radius',
                 maxValue : 3500,
@@ -194,95 +162,38 @@ class Viewport extends BaseViewport {
                 stepSize : 100,
                 value    : 300
             }, {
-                ntype     : 'button',
-                text      : 'Flip Items',
+                ntype    : 'button',
+                handler  : 'onFlipItemsButtonClick',
                 listeners: {},
                 style    : {margin: '20px'},
-                domListeners: {
-                    click: data => {
-                        const helix = Neo.get('neo-helix-1');
-                        helix.flipped = !helix.flipped;
-                    }
-                }
-            }, {
-                ntype     : 'button',
-                disabled  : true, // component.Helix: buffered sorting #105
-                text      : 'Sort by Lastname',
-                listeners: {},
-                domListeners: {
-                    click: data => {
-                        Neo.get('neo-helix-1').store.sorters = [{
-                            property : 'lastname',
-                            direction: 'ASC'
-                        }, {
-                            property : 'firstname',
-                            direction: 'ASC'
-                        }];
-                    }
-                },
-                style: {
-                    margin      : '20px',
-                    marginBottom: '10px'
-                }
-            }, {
-                ntype     : 'button',
-                disabled  : true, // component.Helix: buffered sorting #105
-                text      : 'Sort by Firstname',
-                listeners: {},
-                domListeners: {
-                    click: data => {
-                        Neo.get('neo-helix-1').store.sorters = [{
-                            property : 'firstname',
-                            direction: 'ASC'
-                        }, {
-                            property : 'lastname',
-                            direction: 'ASC'
-                        }];
-                    }
-                },
-                style: {
-                    margin   : '20px',
-                    marginTop: 0
-                }
+                text     : 'Flip Items'
             }, {
                 ntype    : 'button',
-                iconCls  : 'fa fa-square',
-                text     : 'Follow Selection',
+                disabled : true, // component.Helix: buffered sorting #105
                 listeners: {},
-                domListeners: {
-                    click: function(data) {
-                        let me   = this,
-                            helix = Neo.get('neo-helix-1');
-
-                        if (me.iconCls === 'fa fa-square') {
-                            helix.followSelection = true;
-                            me.iconCls = 'fa fa-check-square';
-                        } else {
-                            helix.followSelection = false;
-                            me.iconCls = 'fa fa-square';
-                        }
-                    }
-                },
-                style: {
-                    margin      : '20px',
-                    marginBottom: '10px'
-                }
+                style    : {margin: '20px', marginBottom: '10px'},
+                text     : 'Sort by Lastname'
+            }, {
+                ntype    : 'button',
+                disabled : true, // component.Helix: buffered sorting #105
+                listeners: {},
+                style    : {margin: '20px', marginTop: 0},
+                text     : 'Sort by Firstname'
+            }, {
+                ntype    : 'button',
+                handler  : 'onFollowSelectionButtonClick',
+                iconCls  : 'fa fa-square',
+                listeners: {},
+                style    : {margin: '20px', marginBottom: '10px'},
+                text     : 'Follow Selection'
             }, {
                 module        : CheckBox,
                 checked       : Neo.config.logDeltaUpdates,
                 hideLabel     : true,
                 hideValueLabel: false,
+                listeners     : {change: 'onLogDeltasCheckboxChange'},
                 style         : {marginLeft: '10px', marginTop: '10px'},
-                valueLabelText: 'logDeltaUpdates',
-
-                listeners: {
-                    change: function (data) {
-                        Neo.Main.setNeoConfig({
-                            key: 'logDeltaUpdates',
-                            value: data.value
-                        });
-                    }
-                }
+                valueLabelText: 'logDeltaUpdates'
             }, {
                 ntype: 'label',
                 text : [
@@ -313,9 +224,11 @@ class Viewport extends BaseViewport {
         let me = this;
 
         me.helix = Neo.create({
-            module: Helix,
-            id    : 'neo-helix-1',
-            store : ImageStore,
+            module   : Helix,
+            appName  : me.appName,
+            reference: 'helix',
+            store    : ImageStore,
+            windowId : me.windowId,
             ...me.helixConfig
         });
 
@@ -327,16 +240,9 @@ class Viewport extends BaseViewport {
                     async: true,
                     defer: true,
                     src  : 'https://buttons.github.io/buttons.js'
-                });
-            });
+                })
+            })
         }
-    }
-
-    /**
-     * @returns {Neo.data.Store}
-     */
-    getStore() {
-        return this.items[0].items[0].store;
     }
 }
 
