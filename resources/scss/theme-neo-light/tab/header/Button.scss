@@ -29,14 +29,15 @@
     --tab-button-text-transform                 : uppercase;
 
     // custom overrides
-    .neo-button-text {
-        font-size: var(--sem-typo-label-regular-fontSize) !important;
-    }
+    .neo-tab-header-button.neo-button {
+        .neo-button-text {
+            font-size: var(--sem-typo-label-regular-fontSize);
+        }
 
-    .pressed {
-        .neo-button-glyph, .neo-button-text {
-            color: var(--sem-color-fg-neutral-contrast) !important;
+        .pressed {
+            .neo-button-glyph, .neo-button-text {
+                color: var(--sem-color-fg-neutral-contrast);
+            }
         }
     }
 }
-
