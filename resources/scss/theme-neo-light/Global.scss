@@ -46,7 +46,7 @@
         font-style: italic;
     }
 
-    code {
+    code &:not(.hljs) {
         background-color: #F0F2F0;
         border          : 1px solid var(--sem-color-border-subtle);
         border-radius   : 4px;
