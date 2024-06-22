@@ -87,10 +87,10 @@ class Helix extends Component {
         imageField: 'image',
         /**
          * The path to the images folder
-         * Will get set inside the ctor to avoid issues inside the webpack builds
-         * @member {String|null} imageSource=Neo.config.resourcesPath + 'examples/'
+         * Will get set inside afterSetWindowId() to avoid issues inside the webpack builds
+         * @member {String|null} imageSource_=Neo.config.resourcesPath + 'examples/'
          */
-        imageSource: null,
+        imageSource_: null,
         /**
          * Amount of items per row (circle) -> 360° / 10 = 36
          * @member {Number} itemAngle_=8
@@ -257,10 +257,6 @@ class Helix extends Component {
         me[itemsMounted] = false;
         me[lockWheel]    = false;
 
-        if (me.imageSource === null) {
-            me.imageSource = Neo.config.resourcesPath + 'examples/'
-        }
-
         me.addDomListeners({
             click: me.onClick,
             wheel: me.onMouseWheel,
@@ -289,6 +285,21 @@ class Helix extends Component {
      */
     afterSetFlipped(value, oldValue) {
         this.applyItemTransitions(this.refresh, 1000)
+    }
+
+    /**
+     * Triggered after the imageSource config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetImageSource(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            me.getItemsRoot().cn = [];
+            me.createItems()
+        }
     }
 
     /**
@@ -363,6 +374,20 @@ class Helix extends Component {
         if (me.rendered) {
             me.destroyItems();
             me.loadData()
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            this.imageSource = Neo.config.resourcesPath + 'examples/'
         }
     }
 
