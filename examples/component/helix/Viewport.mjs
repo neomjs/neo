@@ -1,10 +1,11 @@
-import BaseViewport from '../../../src/container/Viewport.mjs';
-import CheckBox     from '../../../src/form/field/CheckBox.mjs';
-import Helix        from '../../../src/component/Helix.mjs';
-import ImageStore   from './ImageStore.mjs';
-import NumberField  from '../../../src/form/field/Number.mjs';
-import Panel        from '../../../src/container/Panel.mjs';
-import RangeField   from '../../../src/form/field/Range.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import CheckBox           from '../../../src/form/field/CheckBox.mjs';
+import Helix              from '../../../src/component/Helix.mjs';
+import ImageStore         from './ImageStore.mjs';
+import NumberField        from '../../../src/form/field/Number.mjs';
+import Panel              from '../../../src/container/Panel.mjs';
+import RangeField         from '../../../src/form/field/Range.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.helix.Viewport
@@ -13,6 +14,10 @@ import RangeField   from '../../../src/form/field/Range.mjs';
 class Viewport extends BaseViewport {
     static config = {
         className: 'Neo.examples.component.helix.Viewport',
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController,
         /**
          * @member {Neo.component.Helix|null} helix=null
          */

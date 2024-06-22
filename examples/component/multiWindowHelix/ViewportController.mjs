@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../helix/ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowHelix.ViewportController
- * @extends Neo.controller.Component
+ * @extends Neo.examples.component.helix.ViewportController
  */
-class ViewportController extends Component {
+class ViewportController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.component.multiWindowHelix.ViewportController'
