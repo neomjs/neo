@@ -23,8 +23,9 @@ class ViewportController extends Controller {
      */
     async createPopupWindow() {
         let me                         = this,
+            {windowId}                 = me,
             widget                     = me.getReference('controls-panel'),
-            winData                    = await Neo.Main.getWindowData(),
+            winData                    = await Neo.Main.getWindowData({windowId}),
             rect                       = await me.component.getDomRect(widget.id),
             {height, left, top, width} = rect;
 
