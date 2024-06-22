@@ -37,12 +37,13 @@ class LivePreview extends Container {
          */
         activeView_: 'source',
 
-        baseCls   : ['learn-live-preview'],
-        value_    : null,
-        autoMount : true,
-        autoRender: true,
-        height    : 400,
-        layout    : 'fit',
+        baseCls         : ['learn-live-preview'],
+        value_          : null,
+        autoMount       : true,
+        autoRender      : true,
+        disableRunSource: false,
+        height          : 400,
+        layout          : 'fit',
         /**
          * @member {Object[]} items
          */
@@ -149,10 +150,12 @@ class LivePreview extends Container {
      *
      */
     doRunSource() {
-        let me     = this,
-            source = me.editorValue || me.value;
+        if (this.disableRunSource) {
+            return
+        }
 
-        const
+        let me                = this,
+            source            = me.editorValue || me.value,
             cleanLines        = [],
             importModuleNames = [],
             moduleNameAndPath = [],
@@ -269,6 +272,7 @@ class LivePreview extends Container {
         }
 
         this.getReference('popout-window-button').hidden = data.value !== 1
+        this.disableRunSource = false;
     }
 
     /**

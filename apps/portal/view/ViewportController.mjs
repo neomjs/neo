@@ -88,7 +88,8 @@ class ViewportController extends Controller {
             livePreview.previewContainer = null;
             sourceContainer.add(sourceView);
 
-            tabContainer.activeIndex = 1; // switch to the source view
+            livePreview.disableRunSource = true; // will get reset after the next activeIndex change (async)
+            tabContainer.activeIndex = 1;        // switch to the source view
 
             livePreview.getReference('popout-window-button').disabled = false;
             tabContainer.getTabAtIndex(1).disabled = false
