@@ -4,6 +4,6 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["Stylesheet"],
-    "themes"          : ["neo-theme-neo-light"],
+    "themes"          : ["neo-theme-neo-light", "neo-theme-dark"],
     "useSharedWorkers": true
 }
