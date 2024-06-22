@@ -48,6 +48,19 @@ class Fit extends Base {
     }
 
     /**
+     * Initially sets the CSS classes of the container items this layout is bound to.
+     * @param {Neo.component.Base} item
+     */
+    removeChildAttributes(item) {
+        if (!item.ignoreLayout) {
+            let wrapperCls = item.wrapperCls;
+
+            NeoArray.remove(wrapperCls, 'neo-layout-fit-item');
+            item.wrapperCls = wrapperCls
+        }
+    }
+
+    /**
      * Removes all CSS rules from the container this layout is bound to.
      * Gets called when switching to a different layout.
      */
