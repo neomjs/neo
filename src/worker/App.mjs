@@ -399,7 +399,12 @@ class App extends Base {
         super.onRegisterNeoConfig(msg);
 
         let config = Neo.config,
+            {data} = msg,
             url    = 'resources/theme-map.json';
+
+        Neo.windowConfigs = Neo.windowConfigs || {};
+
+        Neo.windowConfigs[data.windowId] = data;
 
         if (config.environment === 'development') {
             url = `../../${url}`
