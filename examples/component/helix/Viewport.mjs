@@ -1,18 +1,18 @@
-import CheckBox    from '../../../src/form/field/CheckBox.mjs';
-import Helix       from '../../../src/component/Helix.mjs';
-import ImageStore  from './ImageStore.mjs';
-import NumberField from '../../../src/form/field/Number.mjs';
-import Panel       from '../../../src/container/Panel.mjs';
-import RangeField  from '../../../src/form/field/Range.mjs';
-import Viewport    from '../../../src/container/Viewport.mjs';
+import BaseViewport from '../../../src/container/Viewport.mjs';
+import CheckBox     from '../../../src/form/field/CheckBox.mjs';
+import Helix        from '../../../src/component/Helix.mjs';
+import ImageStore   from './ImageStore.mjs';
+import NumberField  from '../../../src/form/field/Number.mjs';
+import Panel        from '../../../src/container/Panel.mjs';
+import RangeField   from '../../../src/form/field/Range.mjs';
 
 /**
- * @class Neo.examples.component.helix.MainContainer
+ * @class Neo.examples.component.helix.Viewport
  * @extends Neo.container.Viewport
  */
-class MainContainer extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
-        className: 'Neo.examples.component.helix.MainContainer',
+        className: 'Neo.examples.component.helix.Viewport',
         /**
          * @member {Neo.component.Helix|null} helix=null
          */
@@ -335,6 +335,6 @@ class MainContainer extends Viewport {
     }
 }
 
-Neo.setupClass(MainContainer);
+Neo.setupClass(Viewport);
 
-export default MainContainer;
+export default Viewport;
