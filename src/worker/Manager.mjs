@@ -275,7 +275,7 @@ class Manager extends Base {
 
         if (me.constructedThreads === me.activeWorkers) {
             NeoConfig.appPath && setTimeout(() => { // better safe than sorry => all remotes need to be registered
-                me.loadApplication(NeoConfig.appPath);
+                me.loadApplication(NeoConfig.appPath)
             }, NeoConfig.loadApplicationDelay)
         }
     }
@@ -325,7 +325,7 @@ class Manager extends Base {
                 }
 
                 promise[data.reject ? 'reject' : 'resolve'](data);
-                delete me.promises[replyId];
+                delete me.promises[replyId]
             }
         }
 
@@ -335,7 +335,7 @@ class Manager extends Base {
             }
 
             me.promiseMessage(dest, data, transfer).then(response => {
-                me.sendMessage(response.destination, response);
+                me.sendMessage(response.destination, response)
             }).catch(err => {
                 me.sendMessage(data.origin, {
                     action : 'reply',

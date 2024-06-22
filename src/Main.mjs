@@ -235,7 +235,7 @@ class Main extends core.Base {
      */
     async onDomContentLoaded() {
         let me                 = this,
-            config             = Neo.config,
+            {config}           = Neo,
             {mainThreadAddons} = config,
             imports            = [],
             modules;

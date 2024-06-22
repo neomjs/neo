@@ -352,8 +352,8 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me     = this,
-            config = Neo.config,
+        let me       = this,
+            {config} = Neo,
             app, path;
 
         if (data) {
@@ -506,7 +506,7 @@ class App extends Base {
             return Promise.reject('Neo.main.addon.Stylesheet not imported')
         } else {
             if (theme.startsWith('neo-')) {
-                theme = theme.substring(4);
+                theme = theme.substring(4)
             }
 
             return addon.setCssVariable({theme, ...data})

@@ -166,13 +166,11 @@ class VDom extends Base {
     static getColumnNodes(vdom, index) {
         let columnNodes = [];
 
-        if (vdom.cn) {
-            vdom.cn.forEach(row => {
-                if (row.cn?.[index]) {
-                    columnNodes.push(row.cn[index])
-                }
-            })
-        }
+        vdom.cn?.forEach(row => {
+            if (row.cn?.[index]) {
+                columnNodes.push(row.cn[index])
+            }
+        })
 
         return columnNodes
     }

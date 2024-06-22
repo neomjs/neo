@@ -48,7 +48,7 @@ class VNode {
             nodeName  : config.nodeName,
             style     : config.style,
             vtype     : config.vtype      || 'vnode'
-        });
+        })
     }
 }
 

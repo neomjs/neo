@@ -66,13 +66,13 @@ class Base extends CoreBase {
         });
 
         if (me.isSharedWorker) {
-            gt.onconnect = me.onConnected.bind(me);
+            gt.onconnect = me.onConnected.bind(me)
         } else {
-            gt.onmessage = me.onMessage.bind(me);
+            gt.onmessage = me.onMessage.bind(me)
         }
 
         Neo.currentWorker = me;
-        Neo.workerId      = me.workerId;
+        Neo.workerId      = me.workerId
     }
 
     /**
@@ -93,16 +93,16 @@ class Base extends CoreBase {
 
             Object.entries(opts).forEach(([key, value]) => {
                 if (value !== port[key]) {
-                    hasMatch = false;
+                    hasMatch = false
                 }
             });
 
             if (hasMatch) {
-                returnPort = port;
+                returnPort = port
             }
         });
 
-        return returnPort;
+        return returnPort
     }
 
     /**
@@ -254,7 +254,7 @@ class Base extends CoreBase {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = { reject, resolve }
+            me.promises[msgId] = {reject, resolve}
         })
     }
 
@@ -274,7 +274,7 @@ class Base extends CoreBase {
             message, port, portObject;
 
         if (me.channelPorts[dest]) {
-            port = me.channelPorts[dest];
+            port = me.channelPorts[dest]
         } else if (!me.isSharedWorker) {
             port = globalThis
         } else {

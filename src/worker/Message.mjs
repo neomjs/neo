@@ -30,7 +30,7 @@ class Message {
         config.id          = config.id          || IdGenerator.getId(Neo.workerId);
         config.origin      = config.origin      || Neo.workerId;
 
-        Object.assign(this, config);
+        Object.assign(this, config)
     }
 }
 
