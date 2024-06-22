@@ -12,7 +12,19 @@ import ViewportController from './ViewportController.mjs';
  * @extends Neo.container.Viewport
  */
 class Viewport extends BaseViewport {
+    /**
+     * Internally storing the windowIds, into which this container got mounted
+     * @member {Number[]} windowIds=[]
+     * @protected
+     * @static
+     */
+    static windowIds = []
+
     static config = {
+        /**
+         * @member {String} className='Neo.examples.component.helix.ViewportController'
+         * @protected
+         */
         className: 'Neo.examples.component.helix.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
@@ -64,7 +76,7 @@ class Viewport extends BaseViewport {
                 }
             }]
         }, {
-            ntype    : 'panel',
+            module   : Panel,
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
@@ -238,16 +250,34 @@ class Viewport extends BaseViewport {
             ...me.helixConfig
         });
 
-        me.items[0].items.unshift(me.helix);
+        me.items[0].items.unshift(me.helix)
+    }
 
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async: true,
-                    defer: true,
-                    src  : 'https://buttons.github.io/buttons.js'
-                })
-            })
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value && this.showGitHubStarButton) {
+            setTimeout(() => {
+                let {windowId}  = this,
+                    {windowIds} = Viewport;
+
+                if (!windowIds.includes(windowId)) {
+                    windowIds.push(windowId);
+
+                    Neo.main.DomAccess.addScript({
+                        async: true,
+                        defer: true,
+                        src  : 'https://buttons.github.io/buttons.js',
+                        windowId
+                    })
+                }
+            }, 200)
         }
     }
 }
