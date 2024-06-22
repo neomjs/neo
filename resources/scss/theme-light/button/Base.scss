@@ -26,7 +26,7 @@ $text-color      : #1c60a0;
     --button-glyph-color-active                 : #{$text-color};
     --button-glyph-color-disabled               : #{$text-color};
     --button-glyph-color-hover                  : #{$text-color};
-    --button-height                             : inherit;
+    --button-height                             : initial;
     --button-margin                             : 2px;
     --button-opacity-disabled                   : var(--neo-disabled-opacity);
     --button-outline-active                     : none;
