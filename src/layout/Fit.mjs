@@ -48,7 +48,8 @@ class Fit extends Base {
     }
 
     /**
-     * Initially sets the CSS classes of the container items this layout is bound to.
+     * Removes all CSS rules from a container item this layout is bound to.
+     * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
      */
     removeChildAttributes(item) {
