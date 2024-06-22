@@ -678,6 +678,7 @@ class Base extends Component {
                 item.destroy(true, silent);
                 return null
             } else {
+                me.layout?.removeChildAttributes(item);
                 item.mounted = false;
                 return item
             }
