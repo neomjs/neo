@@ -43,6 +43,11 @@ class MainContainer extends Viewport {
          */
         store_: null,
         /**
+         * Important for the Portal App, until the new theme fully supports it
+         * @member {String} theme='neo-theme-light'
+         */
+        theme: 'neo-theme-light',
+        /**
          * @member {Array} items=[//...]
          */
         items: [HeaderContainer, {
