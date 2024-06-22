@@ -49,11 +49,13 @@ class CoolStuff extends Container {
             style : {background: 'grey', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
-                module: LivePreview,
-                cls   : ['page-live-preview'],
-                height: '100%',
-                style : {background: 'white'},
-                value : [
+                module    : LivePreview,
+                activeView: 'preview',
+                cls       : ['page-live-preview'],
+                height    : '100%',
+                style     : {background: 'white'},
+
+                value: [
                     "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
                     "",
                     "class MainView extends Viewport {",
