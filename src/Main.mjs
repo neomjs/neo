@@ -526,6 +526,4 @@ class Main extends core.Base {
     }
 }
 
-let instance = Neo.setupClass(Main);
-
-export default instance;
+export default Neo.setupClass(Main);

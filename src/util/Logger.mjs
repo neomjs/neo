@@ -255,6 +255,4 @@ class Logger extends Base {
     }
 }
 
-let instance = Neo.setupClass(Logger);
-
-export default instance;
+export default Neo.setupClass(Logger);

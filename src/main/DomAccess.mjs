@@ -1129,6 +1129,4 @@ class DomAccess extends Base {
     }
 }
 
-let instance = Neo.setupClass(DomAccess);
-
-export default instance;
+export default Neo.setupClass(DomAccess);

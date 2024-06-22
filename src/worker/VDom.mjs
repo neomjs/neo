@@ -43,6 +43,4 @@ class VDom extends Base {
     }
 }
 
-let instance = Neo.setupClass(VDom);
-
-export default instance;
+export default Neo.setupClass(VDom);

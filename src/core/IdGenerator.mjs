@@ -72,6 +72,4 @@ class IdGenerator {
     onConstructed() {}
 }
 
-let instance = Neo.setupClass(IdGenerator);
-
-export default instance;
+export default Neo.setupClass(IdGenerator);

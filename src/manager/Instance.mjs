@@ -49,6 +49,4 @@ class Instance extends Base {
     }
 }
 
-let instance = Neo.setupClass(Instance);
-
-export default instance;
+export default Neo.setupClass(Instance);

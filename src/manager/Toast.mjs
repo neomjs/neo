@@ -213,6 +213,4 @@ class Toast extends Base {
     }
 }
 
-let instance = Neo.setupClass(Toast);
-
-export default instance;
+export default Neo.setupClass(Toast);

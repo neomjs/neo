@@ -18,6 +18,4 @@ class Tag extends Base {
     }
 }
 
-let instance = Neo.setupClass(Tag);
-
-export default instance;
+export default Neo.setupClass(Tag);

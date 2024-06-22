@@ -48,6 +48,4 @@ class Article extends Base {
     }
 }
 
-let instance = Neo.setupClass(Article);
-
-export default instance;
+export default Neo.setupClass(Article);

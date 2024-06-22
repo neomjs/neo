@@ -32,6 +32,4 @@ class ServiceWorker extends ServiceBase {
     workerId = 'service'
 }
 
-let instance = Neo.setupClass(ServiceWorker);
-
-export default instance;
+export default Neo.setupClass(ServiceWorker);

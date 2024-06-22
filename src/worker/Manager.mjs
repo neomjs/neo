@@ -440,6 +440,4 @@ class Manager extends Base {
     }
 }
 
-let instance = Neo.setupClass(Manager);
-
-export default instance;
+export default Neo.setupClass(Manager);

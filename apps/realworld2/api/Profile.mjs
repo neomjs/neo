@@ -36,6 +36,4 @@ class Profile extends Base {
     }
 }
 
-let instance = Neo.setupClass(Profile);
-
-export default instance;
+export default Neo.setupClass(Profile);
