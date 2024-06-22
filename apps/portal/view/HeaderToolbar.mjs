@@ -31,7 +31,7 @@ class HeaderToolbar extends Base {
             minWidth: 60,
             iconCls : 'neo-logo-blue',
             route   : '/home',
-            text    : 'neo.mjs'
+            text    : 'Neo.mjs'
         }, '->', {
             text : 'Learn',
             route: '/learn'
