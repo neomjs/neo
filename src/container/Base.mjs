@@ -218,6 +218,8 @@ class Base extends Component {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
         let me = this;
 
         value && me.items?.forEach(item => {
