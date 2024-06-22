@@ -7,7 +7,15 @@ import ViewportController from './ViewportController.mjs';
  */
 class Viewport extends MainContainer {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.component.multiWindowHelix.Viewport'
+         * @protected
+         */
         className: 'Neo.examples.component.multiWindowHelix.Viewport',
+        /**
+         * @member {String[]} cls=['multi-window-helix-viewport']
+         */
+        cls: ['multi-window-helix-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          */

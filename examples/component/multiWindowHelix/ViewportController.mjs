@@ -32,8 +32,6 @@ class ViewportController extends Component {
         left   += (width + winData.screenLeft);
         top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
-        console.log(Neo.config);
-
         /*
          * For this demo, the url './childapp/' would be sufficient.
          * However, we also want to open it from within apps/portal.
