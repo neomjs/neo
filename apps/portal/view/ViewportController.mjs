@@ -48,7 +48,7 @@ class ViewportController extends Controller {
             app                 = Neo.apps[appName],
             mainView            = app.mainView;
 
-        if (appName !== 'Portal') {
+        if (appName === 'PortalPreview') {
             let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
@@ -76,12 +76,8 @@ class ViewportController extends Controller {
             app                 = Neo.apps[appName],
             mainView            = app.mainView;
 
-        if (!me.connectedApps.includes(appName)) {
-            return
-        }
-
         // Closing a code preview window needs to drop the preview back into the related main app
-        if (appName !== 'Portal') {
+        if (appName === 'PortalPreview') {
             let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
@@ -98,7 +94,7 @@ class ViewportController extends Controller {
             tabContainer.getTabAtIndex(1).disabled = false
         }
         // Close popup windows when closing or reloading the main window
-        else {
+        else if (appName === 'Portal') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
