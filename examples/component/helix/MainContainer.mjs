@@ -62,7 +62,7 @@ class MainContainer extends Viewport {
             ntype    : 'panel',
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
-            style    : {backgroundColor: '#2b2b2b'},
+            style    : {backgroundColor: '#2b2b2b', flex: 'none'},
             width    : 250,
 
             containerConfig: {
