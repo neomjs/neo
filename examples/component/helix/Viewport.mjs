@@ -171,14 +171,18 @@ class Viewport extends BaseViewport {
                 text     : 'Flip Items'
             }, {
                 ntype    : 'button',
-                disabled : true, // component.Helix: buffered sorting #105
+                disabled : true,
+                handler  : 'onSortLastnameButtonClick',
                 listeners: {},
+                reference: 'sort-lastname-button',
                 style    : {margin: '20px', marginBottom: '10px'},
                 text     : 'Sort by Lastname'
             }, {
                 ntype    : 'button',
-                disabled : true, // component.Helix: buffered sorting #105
+                disabled : true,
+                handler  : 'onSortFirstnameButtonClick',
                 listeners: {},
+                reference: 'sort-firstname-button',
                 style    : {margin: '20px', marginTop: 0},
                 text     : 'Sort by Firstname'
             }, {

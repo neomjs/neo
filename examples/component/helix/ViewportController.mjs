@@ -68,13 +68,20 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onRangefieldChange(data) {
-        let name = data.component.name;
+        let me      = this,
+            {name}  = data.component,
+            {value} = data;
 
         if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
-            data.value /= 100
+            value /= 100
         }
 
-        this.helix[name] = data.value
+        if (name === 'maxItems') {
+            me.getReference('sort-firstname-button').disabled = value !== 600;
+            me.getReference('sort-lastname-button') .disabled = value !== 600
+        }
+
+        me.helix[name] = value
     }
 
     /**
@@ -87,6 +94,26 @@ class ViewportController extends Controller {
             value = Math.min(Math.max(value, field.minValue), field.maxValue);
             field.value = value
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSortFirstnameButtonClick(data) {
+        this.helix.store.sorters = [
+            {property : 'lastname',  direction: 'ASC'},
+            {property : 'firstname', direction: 'ASC'}
+        ]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSortLastnameButtonClick(data) {
+        this.helix.store.sorters = [
+            {property : 'firstname', direction: 'ASC'},
+            {property : 'lastname',  direction: 'ASC'}
+        ]
     }
 }
 
