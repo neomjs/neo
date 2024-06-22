@@ -45,12 +45,13 @@ class CoolStuff extends Container {
             }]
         }, {
             module: Container,
-            flex  : '0.8',
+            flex  : '2',
             style : {background: 'grey', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
                 module: LivePreview,
                 cls   : ['page-live-preview'],
+                height: '100%',
                 style : {background: 'white'},
                 value : [
                     "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
