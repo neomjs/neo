@@ -269,7 +269,7 @@ class LivePreview extends Container {
         await me.createPopupWindow();
 
         // this component requires a view controller to manage connected apps
-        me.getController()?.connectedApps.push(me.id)
+        me.getController('viewport-controller')?.connectedApps.push(me.id)
     }
 }
 

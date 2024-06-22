@@ -46,10 +46,6 @@ class CoolStuff extends Container {
         }, {
             module: Container,
             flex  : '0.8',
-            // responsive: {
-            //     medium: {flex: '1.2'},
-            //     large: {flex: '0.6'}
-            // },
             style : {background: 'grey', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
@@ -57,16 +53,12 @@ class CoolStuff extends Container {
                 cls   : ['page-live-preview'],
                 style : {background: 'white'},
                 value : [
-                    "import Container from '../../../../src/container/Base.mjs';",
+                    "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
                     "",
-                    "class MainView extends Container {",
+                    "class MainView extends Viewport {",
                     "    static config = {",
-                    "        className: 'Portal.view.MainView',",
-                    "        layout   : {ntype:'vbox', align:'stretch'},",
-                    "        items    : [{",
-                    "            module: Container,",
-                    "            html  : 'Hello World'",
-                    "        }]",
+                    "        className: 'Portal.view.MultiWindowHelix',",
+                    "        theme    : 'neo-theme-dark'",
                     "    }",
                     "}",
                     "",
