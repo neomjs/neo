@@ -255,7 +255,7 @@ class Helix extends Component {
         let me = this;
 
         me[itemsMounted] = false;
-        me[lockWheel]    = false;
+        me[lockWheel]    = true;
 
         me.addDomListeners({
             click: me.onClick,
@@ -594,15 +594,15 @@ class Helix extends Component {
                 group.cn.push(vdomItem)
             }
 
-            me[lockWheel] = false;
+            me[lockWheel] = true;
 
             me.promiseUpdate(vdom).then(() => {
                 me[itemsMounted] = true;
                 me.fire('itemsMounted');
 
                 setTimeout(() => {
-                    me[lockWheel] = true
-                }, 500)
+                    me[lockWheel] = false
+                }, 200)
             })
         }
     }
@@ -829,7 +829,7 @@ class Helix extends Component {
     onMouseWheel(data) {
         let me = this;
 
-        if (me.mouseWheelEnabled && me[lockWheel]) {
+        if (me.mouseWheelEnabled && !me[lockWheel]) {
             me._rotationAngle = me.rotationAngle + (data.deltaX * me.mouseWheelDeltaX); // silent update
             me._translateZ    = me.translateZ    + (data.deltaY * me.mouseWheelDeltaY); // silent update
 

@@ -1813,7 +1813,7 @@ class Base extends CoreBase {
                     resolve && me.resolveUpdateCache.push(resolve)
                     return true
                 } else {
-                    return me.isParentVdomUpdating(parent.parentId)
+                    return me.isParentVdomUpdating(parent.parentId, resolve)
                 }
             }
         }
