@@ -34,12 +34,16 @@ class ViewportController extends Component {
      * @param {String} name The name of the reference
      */
     async createBrowserWindow(name) {
-        let me  = this,
-            url = `./childapps/widget/index.html?name=${name}`;
+        let me              = this,
+            {windowId}      = me,
+            {windowConfigs} = Neo,
+            firstWindowId   = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}      = windowConfigs[firstWindowId],
+            url             = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
 
         if (me.getModel().getData('openWidgetsAsPopups')) {
             let widget                     = me.getReference(name),
-                winData                    = await Neo.Main.getWindowData(),
+                winData                    = await Neo.Main.getWindowData({windowId} ),
                 rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
                 {height, left, top, width} = rect;
 

@@ -93,7 +93,7 @@ class ViewportController extends Controller {
             me.component.add(controlsPanel)
         }
         // Close popup windows when closing or reloading the main window
-        else {
+        else if (appName === 'Neo.examples.component.multiWindowHelix') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
