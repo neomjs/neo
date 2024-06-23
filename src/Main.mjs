@@ -452,7 +452,11 @@ class Main extends core.Base {
      * @param {*} data.value
      */
     setNeoConfig(data) {
-        Neo.config[data.key] = data.value
+        let {key, value} = data;
+
+        Neo.config[key] = data.value;
+
+        key === 'renderCountDeltas' && DomAccess.set({[key]: value})
     }
 
     /**

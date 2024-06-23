@@ -264,22 +264,32 @@ class Viewport extends BaseViewport {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value && this.showGitHubStarButton) {
-            setTimeout(() => {
-                let {windowId}  = this,
-                    {windowIds} = Viewport;
+        if (value) {
+            let me = this;
 
-                if (!windowIds.includes(windowId)) {
-                    windowIds.push(windowId);
+            Neo.Main.setNeoConfig({
+                key     : 'renderCountDeltas',
+                value   : true,
+                windowId: me.windowId
+            });
 
-                    Neo.main.DomAccess.addScript({
-                        async: true,
-                        defer: true,
-                        src  : 'https://buttons.github.io/buttons.js',
-                        windowId
-                    })
-                }
-            }, 200)
+            if (me.showGitHubStarButton) {
+                setTimeout(() => {
+                    let {windowId}  = me,
+                        {windowIds} = Viewport;
+
+                    if (!windowIds.includes(windowId)) {
+                        windowIds.push(windowId);
+
+                        Neo.main.DomAccess.addScript({
+                            async: true,
+                            defer: true,
+                            src  : 'https://buttons.github.io/buttons.js',
+                            windowId
+                        })
+                    }
+                }, 200)
+            }
         }
     }
 
