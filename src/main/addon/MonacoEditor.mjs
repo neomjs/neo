@@ -19,7 +19,7 @@ class MonacoEditor extends Base {
         /**
          * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
          */
-        libraryBasePath: '../../node_modules/monaco-editor/min/vs',
+        libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
         /**
          * Remote method access for other workers
          * @member {Object} remote
