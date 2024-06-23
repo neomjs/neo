@@ -1,0 +1,64 @@
+$base-color: #1c60a0;
+
+.colors-table-container.neo-table-container {
+    width: 100%;
+
+    .color-1 {
+        background-color: $base-color;
+    }
+
+    .color-2 {
+        background-color: lighten($base-color, 5%);
+    }
+
+    .color-3 {
+        background-color: lighten($base-color, 10%);
+    }
+
+    .color-4 {
+        background-color: lighten($base-color, 15%);
+    }
+
+    .color-5 {
+        background-color: lighten($base-color, 20%);
+    }
+
+    .color-6 {
+        background-color: lighten($base-color, 25%);
+    }
+
+    .color-7 {
+        background-color: lighten($base-color, 30%);
+    }
+
+    .color-8 {
+        background-color: lighten($base-color, 35%);
+    }
+
+    .color-9 {
+        background-color: lighten($base-color, 40%);
+    }
+
+    .color-10 {
+        background-color: lighten($base-color, 45%);
+    }
+
+    .neo-index-column {
+        max-width: 40px;
+        min-width: 40px;
+        width    : 40px;
+    }
+
+    .neo-table-view {
+        .neo-table-row {
+            &:hover .neo-table-cell {
+                background-color: #d0aa72;
+                color           : #2b2b2b;
+            }
+        }
+    }
+
+    td, th {
+        min-width: 10%;
+    }
+}

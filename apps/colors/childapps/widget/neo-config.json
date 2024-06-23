@@ -1,0 +1,11 @@
+{
+    "appPath"             : "../../apps/colors/childapps/widget/app.mjs",
+    "basePath"            : "../../../../",
+    "environment"         : "development",
+    "loadApplicationDelay": 100,
+    "mainPath"            : "../../../src/Main.mjs",
+    "mainThreadAddons"    : ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
+    "themes"              : ["neo-theme-dark"],
+    "useSharedWorkers"    : true,
+    "workerBasePath"      : "../../../../src/worker/"
+}
