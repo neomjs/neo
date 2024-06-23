@@ -249,12 +249,12 @@ class GoogleMaps extends Base {
      * @param {String} id
      */
     hideMarker(id) {
-        let {appName, id, windowId} = this;
+        let {appName, windowId} = this;
 
         Neo.main.addon.GoogleMaps.hideMarker({
             appName,
             id,
-            mapId: id,
+            mapId: this.id,
             windowId
         })
     }
