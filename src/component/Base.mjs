@@ -422,7 +422,7 @@ class Base extends CoreBase {
     get parent() {
         let me = this;
 
-        return me.parentComponent || me.parentId !== 'document.body' ? Neo.getComponent(me.parentId) : null
+        return me.parentComponent || me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId)
     }
 
     /**
@@ -1130,15 +1130,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered when accessing the parentComponent config
-     * @param {Object} value
-     * @protected
-     */
-    beforeParentComponent(value) {
-        return value || this.parent
-    }
-
-    /**
      * Triggered when accessing the style config
      * @param {Object} value
      * @protected
@@ -1519,7 +1510,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Find an instance stored inside a config via optionally passing an ntype.
+     * Find an instance stored inside a config via optionally passing a ntype.
      * Returns this[configName] or the closest parent component with a match.
      * Used by getController() & getModel()
      * @param {String} configName
@@ -1527,9 +1518,9 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base|null}
      */
     getConfigInstanceByNtype(configName, ntype) {
-        let me              = this,
-            config          = me[configName],
-            parentComponent = me.parentComponent;
+        let me                = this,
+            config            = me[configName],
+            {parentComponent} = me;
 
         if (config && (!ntype || ntype === config.ntype)) {
             return config
