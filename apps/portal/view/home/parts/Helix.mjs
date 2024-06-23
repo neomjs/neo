@@ -2,16 +2,16 @@ import Container   from '../../../../../src/container/Base.mjs';
 import LivePreview from '../../learn/LivePreview.mjs';
 
 /**
- * @class Portal.view.home.parts.CoolStuff
+ * @class Portal.view.home.parts.Helix
  * @extends Neo.container.Base
  */
-class CoolStuff extends Container {
+class Helix extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.parts.CoolStuff'
+         * @member {String} className='Portal.view.home.parts.Helix'
          * @protected
          */
-        className: 'Portal.view.home.parts.CoolStuff',
+        className: 'Portal.view.home.parts.Helix',
 
         cls: ['page', 'cool-stuff'],
 
@@ -31,17 +31,15 @@ class CoolStuff extends Container {
             items : [{
                 cls : 'neo-h1',
                 flex: 'none',
-                html: 'Cool Stuff'
+                html: 'Interactive Views'
             }, {
                 cls : 'neo-h2',
                 flex: 'none',
-                html: 'WOW - See the power of Neo',
-                // height: 200
+                html: 'Expand the widget into multiple Windows'
             }, {
                 cls : 'neo-content',
                 flex: 'none',
-                html: 'Neo uses several cores to run the application. See the spinner on the page?',
-                // height: 200
+                html: 'The State Management will continue to work.'
             }]
         }, {
             module: Container,
@@ -73,6 +71,6 @@ class CoolStuff extends Container {
     }
 }
 
-Neo.setupClass(CoolStuff);
+Neo.setupClass(Helix);
 
-export default CoolStuff;
+export default Helix;

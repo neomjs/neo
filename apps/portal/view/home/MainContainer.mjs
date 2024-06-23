@@ -1,7 +1,7 @@
 import AfterMath  from './parts/AfterMath.mjs';
 import Container  from '../../../../src/container/Base.mjs';
-import CoolStuff  from './parts/CoolStuff.mjs';
 import Features   from './parts/Features.mjs';
+import Helix      from './parts/Helix.mjs';
 import HelloWorld from './parts/HelloWorld.mjs';
 import MainNeo    from './parts/MainNeo.mjs';
 
@@ -24,14 +24,11 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [
-            {
-                ntype: 'component',
-                id   : 'progress'
-            },
+            {ntype: 'component', id: 'progress'},
             MainNeo,
             Features,
             HelloWorld,
-            CoolStuff,
+            Helix,
             AfterMath
         ],
         /**
