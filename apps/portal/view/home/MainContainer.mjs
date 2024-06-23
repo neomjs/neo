@@ -1,4 +1,5 @@
 import AfterMath  from './parts/AfterMath.mjs';
+import Colors     from './parts/Colors.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Features   from './parts/Features.mjs';
 import Helix      from './parts/Helix.mjs';
@@ -28,6 +29,7 @@ class MainContainer extends Container {
             MainNeo,
             Features,
             HelloWorld,
+            Colors,
             Helix,
             AfterMath
         ],
