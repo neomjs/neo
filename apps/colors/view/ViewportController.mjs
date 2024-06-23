@@ -63,7 +63,7 @@ class ViewportController extends Component {
      * @param {Number} data.windowId
      */
     async onAppConnect(data) {
-        if (data.appName !== 'Colors') {
+        if (data.appName === 'ColorsWidget') {
             let me           = this,
                 app          = Neo.apps[data.appName],
                 mainView     = app.mainView,
@@ -96,14 +96,14 @@ class ViewportController extends Component {
             widgetParent        = widget.up();
 
         // Closing a non-main app needs to move the widget back into its original position & re-enable the show button
-        if (appName !== 'Colors') {
+        if (appName === 'ColorsWidget') {
             widgetParent.remove(widget, false);
             me.component.insert(me.widgetIndexMap[widgetName], widget);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
         }
         // Close popup windows when closing or reloading the main window
-        else {
+        else if (appName === 'Colors') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
