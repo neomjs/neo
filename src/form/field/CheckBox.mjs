@@ -189,7 +189,7 @@ class CheckBox extends Base {
             oldCls  = value ? me.iconCls : me.iconClsChecked;
 
         if (oldValue) {
-            me.clean = false;
+            me.clean = false
         }
 
         me.validate(); // silent
@@ -259,8 +259,7 @@ class CheckBox extends Base {
      */
     afterSetId(value, oldValue) {
         let me      = this,
-            vdom    = me.vdom,
-            labelEl = vdom.cn[0];
+            labelEl = me.vdom.cn[0];
 
         labelEl.cn[0].id = me.getLabelId();
         labelEl.cn[1].id = me.getInputElId();
@@ -304,8 +303,8 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.remove(cls, 'neo-label-' + oldValue);
         NeoArray.add(   cls, 'neo-label-' + value);
@@ -371,7 +370,7 @@ class CheckBox extends Base {
      * @protected
      */
     afterSetUseAlertState(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
         NeoArray.toggle(cls, 'neo-use-alert-state', value);
         this.cls = cls
     }
@@ -398,7 +397,7 @@ class CheckBox extends Base {
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
-            valueLabel.innerHTML = value;
+            valueLabel.innerHTML = value
         }
 
         valueLabel.removeDom = !showLabel;
@@ -571,7 +570,7 @@ class CheckBox extends Base {
      */
     updateError(value, silent=false) {
         let me        = this,
-            cls       = me.cls,
+            {cls}     = me,
             showError = value && me.showErrorTexts,
             errorNode, errorWrapper;
 
@@ -585,9 +584,9 @@ class CheckBox extends Base {
             errorNode    = errorWrapper.cn[0];
 
             if (showError) {
-                errorNode.html = value;
+                errorNode.html = value
             } else {
-                delete errorNode.html;
+                delete errorNode.html
             }
 
             errorWrapper.removeDom = !showError;
@@ -603,7 +602,7 @@ class CheckBox extends Base {
      */
     validate(silent=true) {
         let me          = this,
-            name        = me.name,
+            {name}      = me,
             returnValue = true,
             checkBox, checkBoxes;
 
@@ -618,14 +617,14 @@ class CheckBox extends Base {
             // discuss: we could limit this to checkBoxes / radios inside the same form, IF a top level form is used
             checkBoxes = ComponentManager.find({
                 ntype: me.ntype,
-                name : me.name
+                name
             });
 
             // get the group validity state first
             for (checkBox of checkBoxes) {
                 if (checkBox.checked) {
                     returnValue = true;
-                    break;
+                    break
                 }
             }
 
@@ -641,15 +640,15 @@ class CheckBox extends Base {
             }
 
             if (!returnValue) {
-                me._error = me.errorTextGroupRequired({name});
+                me._error = me.errorTextGroupRequired({name})
             }
         } else if (me.required && !me.checked) {
             me._error = me.errorTextRequired;
-            returnValue = false;
+            returnValue = false
         }
 
         if (returnValue) {
-            me._error = null;
+            me._error = null
         }
 
         !me.clean && me.updateError(me._error, silent);

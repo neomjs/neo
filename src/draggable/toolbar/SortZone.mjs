@@ -82,10 +82,9 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async onDragEnd(data) {
-        let me         = this,
-            owner      = me.owner,
-            itemStyles = me.itemStyles,
-            ownerStyle = owner.style || {},
+        let me                  = this,
+            {itemStyles, owner} = me,
+            ownerStyle          = owner.style || {},
             itemStyle;
 
         await me.timeout(10);
@@ -108,14 +107,14 @@ class SortZone extends DragZone {
                 });
 
                 if (index === me.startIndex) {
-                    itemStyle.visibility = null;
+                    itemStyle.visibility = null
                 }
 
-                item.style = itemStyle;
+                item.style = itemStyle
             });
 
             if (me.startIndex !== me.currentIndex) {
-                me.moveTo(me.startIndex, me.currentIndex);
+                me.moveTo(me.startIndex, me.currentIndex)
             }
 
             Object.assign(me, {
@@ -129,7 +128,7 @@ class SortZone extends DragZone {
 
             await me.timeout(30);
 
-            me.dragEnd(data); // we do not want to trigger the super class call here
+            me.dragEnd(data) // we do not want to trigger the super class call here
         }
     }
 
@@ -138,33 +137,33 @@ class SortZone extends DragZone {
      */
     onDragMove(data) {
         if (this.itemRects) { // the method can trigger before we got the client rects from the main thread
-            let me         = this,
-                moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
-                index      = me.currentIndex,
-                itemRects  = me.itemRects,
-                maxItems   = itemRects.length - 1,
-                reversed   = me.reversedLayoutDirection,
+            let me          = this,
+                moveFactor  = 0.55, // we can not use 0.5, since items would jump back & forth
+                index       = me.currentIndex,
+                {itemRects} = me,
+                maxItems    = itemRects.length - 1,
+                reversed    = me.reversedLayoutDirection,
                 delta, itemWidth;
 
             if (me.sortDirection === 'horizontal') {
                 delta     = data.clientX - me.offsetX - itemRects[index].left;
-                itemWidth = 'width';
+                itemWidth = 'width'
             } else {
                 delta     = data.clientY - me.offsetY - itemRects[index].top;
-                itemWidth = 'height';
+                itemWidth = 'height'
             }
 
             if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
                 if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                     me.currentIndex--;
-                    me.switchItems(index, me.currentIndex);
+                    me.switchItems(index, me.currentIndex)
                 }
             }
 
             else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
                 if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
                     me.currentIndex++;
-                    me.switchItems(index, me.currentIndex);
+                    me.switchItems(index, me.currentIndex)
                 }
             }
         }
@@ -176,9 +175,9 @@ class SortZone extends DragZone {
     onDragStart(data) {
         let me         = this,
             button     = Neo.getComponent(data.path[0].id),
-            owner      = me.owner,
+            {owner}    = me,
             itemStyles = me.itemStyles = [],
-            layout     = owner.layout,
+            {layout}   = owner,
             ownerStyle = owner.style || {},
             index, indexMap, itemStyle, rect;
 
@@ -205,7 +204,7 @@ class SortZone extends DragZone {
                 itemStyles.push({
                     height: item.style?.height,
                     width : item.style?.width
-                });
+                })
             });
 
             owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
@@ -231,7 +230,7 @@ class SortZone extends DragZone {
                         position: 'absolute',
                         top     : `${rect.top}px`,
                         width   : `${rect.width}px`
-                    });
+                    })
                 });
 
                 // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
@@ -239,8 +238,8 @@ class SortZone extends DragZone {
                     itemStyle = button.style || {};
                     itemStyle.visibility = 'hidden';
                     button.style = itemStyle;
-                }, 5);
-            });
+                }, 5)
+            })
         }
     }
 
@@ -269,11 +268,11 @@ class SortZone extends DragZone {
         if (me.sortDirection === 'horizontal') {
             rect1.width = rect2Copy.width;
             rect2.x     = rect1Copy.x + rect2Copy.width;
-            rect2.width = rect1Copy.width;
+            rect2.width = rect1Copy.width
         } else {
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.y      = rect1Copy.y + rect2Copy.height;
+            rect2.y      = rect1Copy.y + rect2Copy.height
         }
 
         tmp         = map[index1];
@@ -281,7 +280,7 @@ class SortZone extends DragZone {
         map[index2] = tmp;
 
         me.updateItem(index1, rect1);
-        me.updateItem(index2, rect2);
+        me.updateItem(index2, rect2)
     }
 
     /**
@@ -289,14 +288,14 @@ class SortZone extends DragZone {
      * @param {Object} rect
      */
     updateItem(index, rect) {
-        let me    = this,
-            item  = me.owner.items[me.indexMap[index]],
-            style = item.style;
+        let me      = this,
+            item    = me.owner.items[me.indexMap[index]],
+            {style} = item;
 
         style.left = `${rect.left}px`;
         style.top  = `${rect.top}px`;
 
-        item.style = style;
+        item.style = style
     }
 }
 

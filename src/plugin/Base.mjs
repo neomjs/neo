@@ -1,6 +1,7 @@
 import CoreBase from '../core/Base.mjs';
 
 /**
+ * Abstract base class for plugin implementations.
  * Plugins are intended to get put into the plugins config of component.Base
  * to enhance them or add additional features
  * @class Neo.plugin.Base
@@ -14,6 +15,7 @@ class Base extends CoreBase {
          */
         className: 'Neo.plugin.Base',
         /**
+         * All plugin ntypes need to start with 'plugin-' to ensure that component.Base: getPlugin() can find them
          * @member {String} ntype='plugin'
          * @protected
          */

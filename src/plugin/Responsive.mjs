@@ -104,7 +104,7 @@ class Responsive extends BasePlugin {
         const
             me        = this,
             {appName} = me.owner,
-            apps      = Neo.Responsive.apps;
+            apps      = Neo.Responsive;
 
         if (!apps[appName]?.activeBodyUpdate) {
             const viewport = Neo.first('viewport'); // todo

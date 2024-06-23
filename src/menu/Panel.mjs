@@ -52,7 +52,7 @@ class Panel extends BasePanel {
      * @protected
      */
     afterSetList(value, oldValue) {
-        this.add(value);
+        this.add(value)
     }
 
     /**
@@ -62,7 +62,7 @@ class Panel extends BasePanel {
      * @protected
      */
     afterSetListItems(value, oldValue) {
-        this.list.items = value;
+        this.list.items = value
     }
 
     /**
@@ -72,7 +72,7 @@ class Panel extends BasePanel {
      * @protected
      */
     afterSetSubMenuGap(value, oldValue) {
-        this.list.subMenuGap = value;
+        this.list.subMenuGap = value
     }
 
     /**
@@ -83,7 +83,7 @@ class Panel extends BasePanel {
      */
     beforeSetList(value, oldValue) {
         oldValue && oldValue.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, List, this.listConfig);
+        return ClassSystemUtil.beforeSetInstance(value, List, this.listConfig)
     }
 }
 

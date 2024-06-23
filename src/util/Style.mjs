@@ -25,39 +25,39 @@ class Style extends Base {
         let styles = {};
 
         if (Neo.isString(newStyle)) {
-            newStyle = Neo.core.Util.createStyleObject(newStyle);
+            newStyle = Neo.createStyleObject(newStyle)
         }
 
         if (Neo.isString(oldStyle)) {
-            oldStyle = Neo.core.Util.createStyleObject(oldStyle);
+            oldStyle = Neo.createStyleObject(oldStyle)
         }
 
         if (!newStyle && !oldStyle) {
-            return null;
+            return null
         } else if (!oldStyle) {
-            return Neo.clone(newStyle);
+            return Neo.clone(newStyle)
         } else if (!newStyle) {
             Object.keys(oldStyle).forEach(function(style) {
-                styles[style] = null;
+                styles[style] = null
             });
         } else {
-            Object.keys(newStyle).forEach(function(style) {
+            Object.keys(newStyle).forEach(style => {
                 if (!oldStyle.hasOwnProperty(style) || oldStyle[style] !== newStyle[style]) {
-                    styles[style] = newStyle[style];
+                    styles[style] = newStyle[style]
                 }
             });
 
-            Object.keys(oldStyle).forEach(function(style) {
+            Object.keys(oldStyle).forEach(style => {
                 if (!newStyle.hasOwnProperty(style)) {
-                    styles[style] = null;
+                    styles[style] = null
                 }
             });
 
             if (Object.keys(styles).length > 0) {
-                return styles;
+                return styles
             }
 
-            return null;
+            return null
         }
     }
 }

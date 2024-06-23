@@ -35,7 +35,7 @@ class LocalStorage extends Base {
      * @param {String} opts.value
      */
     createLocalStorageItem(opts) {
-        this.updateLocalStorageItem(opts);
+        this.updateLocalStorageItem(opts)
     }
 
     /**
@@ -44,7 +44,7 @@ class LocalStorage extends Base {
      * @param {String} opts.key
      */
     destroyLocalStorageItem(opts) {
-        window.localStorage.removeItem(opts.key);
+        window.localStorage.removeItem(opts.key)
     }
 
     /**
@@ -66,7 +66,7 @@ class LocalStorage extends Base {
      * @param {String} opts.value
      */
     updateLocalStorageItem(opts) {
-        window.localStorage.setItem(opts.key, opts.value);
+        window.localStorage.setItem(opts.key, opts.value)
     }
 }
 

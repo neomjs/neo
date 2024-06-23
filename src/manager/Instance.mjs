@@ -44,11 +44,9 @@ class Instance extends Base {
     consumeNeoIdMap() {
         if (Neo.idMap) {
             this.add(Object.values(Neo.idMap));
-            delete Neo.idMap;
+            delete Neo.idMap
         }
     }
 }
 
-let instance = Neo.setupClass(Instance);
-
-export default instance;
+export default Neo.setupClass(Instance);

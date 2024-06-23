@@ -55,9 +55,8 @@ class AccordionContainer extends Base {
     createItems() {
         let me       = this,
             arrowCls = me.arrowCls || 'fa-caret-down',
-            iconCls  = me.iconCls || ['no-icon'],
-            items    = me.items,
-            title    = me.title,
+            iconCls  = me.iconCls  || ['no-icon'],
+            {items, title} = me,
             header, content;
 
         if (!Neo.isArray(iconCls)) {
@@ -108,9 +107,9 @@ class AccordionContainer extends Base {
      * @param {Boolean} isExpanded
      */
     afterSetExpanded(isExpanded) {
-        let me  = this,
-            cls = me.cls,
-            fn  = isExpanded ? 'add' : 'remove';
+        let me    = this,
+            {cls} = me,
+            fn    = isExpanded ? 'add' : 'remove';
 
         NeoArray[fn](cls, 'neo-expanded');
         me.cls = cls;
@@ -118,7 +117,7 @@ class AccordionContainer extends Base {
         // Ensure scrollbars are not flipping in and out
         me.timeout(450).then(() => {
             NeoArray[fn](cls, 'neo-scrollable');
-            me.cls = cls;
+            me.cls = cls
         })
     }
 
@@ -141,7 +140,7 @@ class AccordionContainer extends Base {
 
             NeoArray.remove(cls, oldValue);
             NeoArray.add(cls, newValue);
-            iconEl.cls = cls;
+            iconEl.cls = cls
         }
     }
 
@@ -154,7 +153,9 @@ class AccordionContainer extends Base {
     afterSetTitle(newValue) {
         let titleEl = this.down({flag: 'titleEl'});
 
-        if (titleEl) titleEl.html = newValue;
+        if (titleEl) {
+            titleEl.html = newValue
+        }
     }
 
     /**
@@ -170,9 +171,9 @@ class AccordionContainer extends Base {
             parent.childExpandChange({
                 expanded: !currentState,
                 target  : me
-            });
+            })
         } else {
-            me.expanded = !currentState;
+            me.expanded = !currentState
         }
     }
 }

@@ -59,8 +59,8 @@ class HashHistory extends Base {
      * @param {Number} data.windowId
      */
     push(data) {
-        let me    = this,
-            stack = me.stack;
+        let me      = this,
+            {stack} = me;
 
         if (stack[0]?.hashString !== data.hashString) {
             stack.unshift(data);
@@ -81,6 +81,4 @@ class HashHistory extends Base {
     }
 }
 
-let instance = Neo.setupClass(HashHistory);
-
-export default instance;
+export default Neo.setupClass(HashHistory);

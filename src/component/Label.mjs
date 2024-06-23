@@ -40,7 +40,7 @@ class Label extends Component {
      */
     afterSetText(value, oldValue) {
         this.vdom.html = value;
-        this.update();
+        this.update()
     }
 }
 

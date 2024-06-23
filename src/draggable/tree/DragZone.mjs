@@ -40,19 +40,19 @@ class DragZone extends BaseDragZone {
      */
     afterSetLeafNodesOnly(value, oldValue) {
         if (oldValue !== undefined) { // we only need to react to dynamic changes
-            let owner = this.owner,
-                store = owner.store,
+            let {owner} = this,
+                {store} = owner,
                 node;
 
             store.items.forEach(record => {
                 if (!record.isLeaf) {
                     node = owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
                     node.cls = node.cls || [];
-                    NeoArray[value ? 'remove' : 'add'](node.cls, 'neo-draggable');
+                    NeoArray[value ? 'remove' : 'add'](node.cls, 'neo-draggable')
                 }
             });
 
-            owner.update();
+            owner.update()
         }
     }
 
@@ -60,7 +60,7 @@ class DragZone extends BaseDragZone {
      * @returns {Object}
      */
     getDragElementRoot() {
-        return this.dragElement.cn[0];
+        return this.dragElement.cn[0]
     }
 
     /**
@@ -69,13 +69,13 @@ class DragZone extends BaseDragZone {
      * @returns {Object|null} vdom
      */
     getItemVdom(record, index) {
-        let owner = this.owner;
+        let {owner} = this;
 
         if (!(this.leafNodesOnly && !record.isLeaf)) {
-            return owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
+            return owner.getVdomChild(owner.getItemId(record.id), owner.vdom)
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -91,7 +91,7 @@ class DragZone extends BaseDragZone {
                 cn : [VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom]
             };
 
-            me.dragStart(data);
+            me.dragStart(data)
         }
     }
 }

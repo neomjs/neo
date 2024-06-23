@@ -319,7 +319,7 @@ class Component extends Base {
     getData(key, originModel=this) {
         let me      = this,
             data    = me.getDataScope(key),
-            scope   = data.scope,
+            {scope} = data,
             keyLeaf = data.key,
             parentModel;
 
@@ -347,7 +347,7 @@ class Component extends Base {
     getDataScope(key) {
         let me      = this,
             keyLeaf = key,
-            data    = me.data;
+            {data}  = me;
 
         if (key.includes('.')) {
             key     = key.split('.');
@@ -461,8 +461,8 @@ class Component extends Base {
      * @returns {Neo.data.Store}
      */
     getStore(key, originModel=this) {
-        let me     = this,
-            stores = me.stores,
+        let me       = this,
+            {stores} = me,
             parentModel;
 
         if (stores?.hasOwnProperty(key)) {
@@ -636,7 +636,7 @@ class Component extends Base {
      */
     resolveFormulas(data) {
         let me         = this,
-            formulas   = me.formulas,
+            {formulas} = me,
             initialRun = !data,
             affectFormula, bindObject, fn, key, result, value;
 

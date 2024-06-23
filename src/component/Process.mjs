@@ -21,27 +21,6 @@ import NeoArray from '../util/Array.mjs';
  *     }
  */
 class Process extends Base {
-    /**
-     * Each item gets an arrow and the content, which gets filled with an item.
-     * The slit allows to fade out the sidebar.
-     *
-     * @member {Object} itemLayout={cls: 'process-step', cn: [{cls: ['arrow', 'white']},{cls: ['slit']},{cls: ['arrow', 'yellow']},{cls: 'process-content', cn: [{cls: ['process-step-icon']},{tag: 'h2', cls: ['process-step-header']},{cls: ['process-step-text']}]}]}
-     */
-    itemLayout = {
-        cls: 'process-step', cn: [
-            {cls: ['arrow', 'white']},
-            {cls: ['slit']},
-            {cls: ['arrow', 'yellow']},
-            {
-                cls: 'process-content', cn: [
-                    {cls: ['process-step-icon']},
-                    {tag: 'h2', cls: ['process-step-header']},
-                    {cls: ['process-step-text']}
-                ]
-            }
-        ]
-    }
-
     static config = {
         /**
          * @member {String} className='Neo.component.Process'
@@ -109,17 +88,38 @@ class Process extends Base {
     }
 
     /**
+     * Each item gets an arrow and the content, which gets filled with an item.
+     * The slit allows to fade out the sidebar.
+     *
+     * @member {Object} itemLayout={cls: 'process-step', cn: [{cls: ['arrow', 'white']},{cls: ['slit']},{cls: ['arrow', 'yellow']},{cls: 'process-content', cn: [{cls: ['process-step-icon']},{tag: 'h2', cls: ['process-step-header']},{cls: ['process-step-text']}]}]}
+     */
+    itemLayout = {
+        cls: 'process-step', cn: [
+            {cls: ['arrow', 'white']},
+            {cls: ['slit']},
+            {cls: ['arrow', 'yellow']},
+            {
+                cls: 'process-content', cn: [
+                    {cls: ['process-step-icon']},
+                    {tag: 'h2', cls: ['process-step-header']},
+                    {cls: ['process-step-text']}
+                ]
+            }
+        ]
+    }
+
+    /**
      * Triggered after arrowColor config got changed
      * @param {String} newValue
      * @protected
      */
     afterSetArrowColor(newValue) {
-        if (newValue === null) return;
+        if (newValue !== null) {
+            let style = this.style;
 
-        let style = this.style;
-
-        style['--process-arrow-color'] = newValue + '!important';
-        this.style = style;
+            style['--process-arrow-color'] = newValue + '!important';
+            this.style = style
+        }
     }
 
     /**
@@ -128,14 +128,14 @@ class Process extends Base {
      * @protected
      */
     afterSetHorizontal(isHorizontal) {
-        let cls         = this.cls,
+        let {cls}       = this,
             positionCls = isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical',
             removeCls   = !isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical';
 
         NeoArray.add(cls, positionCls);
         NeoArray.remove(cls, removeCls);
 
-        this.cls = cls;
+        this.cls = cls
     }
 
     /**
@@ -144,12 +144,13 @@ class Process extends Base {
      * @protected
      */
     afterSetIconColor(newValue) {
-        if (newValue === null) return;
-        let style = this.style;
+        if (newValue !== null) {
+            let {style} = this;
 
-        style['--process-icon-color'] = newValue + '!important';
+            style['--process-icon-color'] = newValue + '!important';
 
-        this.style = style;
+            this.style = style
+        }
     }
 
     /**
@@ -164,18 +165,19 @@ class Process extends Base {
         }
 
         let vdomRoot   = this.vdom,
-            itemLayout = this.itemLayout;
+            itemLayout = this.itemLayout,
+            curItem, content;
 
         items.forEach((newItem) => {
-            let curItem = Neo.clone(itemLayout, true),
-                content = curItem.cn[3];
+            curItem = Neo.clone(itemLayout, true),
+            content = curItem.cn[3];
 
             content.cn[0].cls.push(newItem.iconCls);
             content.cn[1].innerHTML = newItem.title;
             content.cn[2].innerHTML = newItem.text;
 
-            NeoArray.add(vdomRoot.cn, curItem);
-        });
+            NeoArray.add(vdomRoot.cn, curItem)
+        })
     }
 }
 

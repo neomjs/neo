@@ -66,7 +66,7 @@ class Time extends Picker {
         });
 
         me.vdom.cn = [me.clock.vdom];
-        me.update();
+        me.update()
     }
 
     /**
@@ -79,7 +79,7 @@ class Time extends Picker {
         super.afterSetAppName(value, oldValue);
 
         if (value) {
-            this.clock.appName = value;
+            this.clock.appName = value
         }
     }
 
@@ -91,7 +91,7 @@ class Time extends Picker {
      */
     afterSetValue(value, oldValue) {
         if (value) {
-            this.clock.time = value;
+            this.clock.time = value
         }
     }
 }

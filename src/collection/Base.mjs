@@ -162,10 +162,10 @@ class Base extends CoreBase {
      */
     afterSetItems(value, oldValue) {
         if (value) {
-            let me          = this,
-                keyProperty = me.keyProperty,
-                i           = 0,
-                len         = value.length,
+            let me            = this,
+                {keyProperty} = me,
+                i             = 0,
+                len           = value.length,
                 item;
 
             for (; i < len; i++) {
@@ -322,16 +322,15 @@ class Base extends CoreBase {
                 hasMatch = false;
                 i        = 0;
 
+                let {direction, property} = key;
+
                 for (; i < len; i++) {
                     if (oldValue[i] === key) {
-                        oldValue[i].set({
-                            direction: key.direction,
-                            property : key.property
-                        });
+                        oldValue[i].set({direction, property});
 
                         hasMatch = true;
                         break
-                    } else if (oldValue[i].property === key.property && oldValue[i].direction === key.direction) {
+                    } else if (oldValue[i].property === property && oldValue[i].direction === direction) {
                         hasMatch = true;
                         break
                     }
@@ -362,8 +361,8 @@ class Base extends CoreBase {
         console.log('cacheUpdate', opts, this[toAddArray]);
         return;
 
-        let me          = this,
-            keyProperty = me.keyProperty,
+        let me            = this,
+            {keyProperty} = me,
             index, toAddMap, toRemoveMap;
 
         if (!me[silentUpdateMode]) {
@@ -477,9 +476,7 @@ class Base extends CoreBase {
     doSort(items=this._items, silent=false) {
         let me                = this,
             previousItems     = [...items],
-            sorters           = me.sorters,
-            sortDirections    = me.sortDirections,
-            sortProperties    = me.sortProperties,
+            {sorters, sortDirections, sortProperties} = me,
             countSorters      = sortProperties.length || 0,
             hasSortByMethod   = false,
             hasTransformValue = false,
@@ -510,7 +507,7 @@ class Base extends CoreBase {
                     }
 
                     return 0
-                });
+                })
             } else {
                 if (hasTransformValue) {
                     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
@@ -1126,11 +1123,10 @@ class Base extends CoreBase {
      */
     splice(index, removeCountOrToRemoveArray, toAddArray) {
         let me                 = this,
+            {keyProperty, map} = me,
             source             = me.getSource(),
             addedItems         = [],
             items              = me._items,
-            keyProperty        = me.keyProperty,
-            map                = me.map,
             removedItems       = [],
             removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
@@ -1192,7 +1188,7 @@ class Base extends CoreBase {
 
         if (source) {
             if (!source.getSource()) {
-                source.preventBubbleUp = true;
+                source.preventBubbleUp = true
             }
 
             if (!me.preventBubbleUp) {
@@ -1226,10 +1222,7 @@ class Base extends CoreBase {
             delete me.preventBubbleUp
         }
 
-        return {
-            addedItems,
-            removedItems
-        }
+        return {addedItems, removedItems}
     }
 
     /**

@@ -47,21 +47,21 @@ class Mouse extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.bindMethods(this, ['onDistanceChange', 'onMouseDown', 'onMouseMove', 'onMouseUp']);
+        Neo.bindMethods(this, ['onDistanceChange', 'onMouseDown', 'onMouseMove', 'onMouseUp'])
     }
 
     /**
      * Attaches sensors event listeners to the DOM
      */
     attach() {
-        document.addEventListener('mousedown', this.onMouseDown, true);
+        document.addEventListener('mousedown', this.onMouseDown, true)
     }
 
     /**
      * Detaches sensors event listeners from the DOM
      */
     detach() {
-        document.removeEventListener('mousedown', this.onMouseDown, true);
+        document.removeEventListener('mousedown', this.onMouseDown, true)
     }
 
     /**
@@ -81,7 +81,7 @@ class Mouse extends Base {
             if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
                 clearTimeout(me.mouseDownTimeout);
                 document.removeEventListener('mousemove', me.onDistanceChange);
-                me.startDrag();
+                me.startDrag()
             }
         }
     }
@@ -96,7 +96,7 @@ class Mouse extends Base {
 
             // see: https://github.com/neomjs/neo/issues/2669
             if (!event.path) {
-                event.path = event.composedPath();
+                event.path = event.composedPath()
             }
 
             if (target) {
@@ -113,8 +113,8 @@ class Mouse extends Base {
                 document.addEventListener('mouseup',   me.onMouseUp);
 
                 me.mouseDownTimeout = setTimeout(() => {
-                    me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
-                }, me.delay);
+                    me.onDistanceChange({pageX: me.pageX, pageY: me.pageY})
+                }, me.delay)
             }
         }
     }
@@ -137,7 +137,7 @@ class Mouse extends Base {
                 path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
                 type         : 'drag:move'
-            });
+            })
         }
     }
 
@@ -175,10 +175,10 @@ class Mouse extends Base {
                     currentElement: null,
                     dragging      : false,
                     startEvent    : null
-                });
+                })
             }
 
-            me.dragging = false;
+            me.dragging = false
         }
     }
 
@@ -186,9 +186,9 @@ class Mouse extends Base {
      *
      */
     startDrag() {
-        let me         = this,
-            element    = me.currentElement,
-            startEvent = me.startEvent;
+        let me           = this,
+            element      = me.currentElement,
+            {startEvent} = me;
 
         me.trigger(element, {
             clientX      : startEvent.clientX,
@@ -204,13 +204,13 @@ class Mouse extends Base {
 
         if (me.dragging) {
             document.addEventListener('contextmenu', preventDefault, true);
-            document.addEventListener('mousemove',   me.onMouseMove);
+            document.addEventListener('mousemove',   me.onMouseMove)
         }
     }
 }
 
 function preventDefault(event) {
-    event.preventDefault();
+    event.preventDefault()
 }
 
 Neo.setupClass(Mouse);

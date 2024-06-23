@@ -382,11 +382,9 @@ class Base {
      * @protected
      */
     initRemote() {
-        let me            = this,
-            remote        = me.remote,
-            className     = me.className,
-            currentWorker = Neo.currentWorker,
-            listenerId;
+        let me                  = this,
+            {className, remote} = me,
+            {currentWorker}     = Neo;
 
         if (!me.singleton && !me.isMainThreadAddon) {
             throw new Error('Remote method access is only functional for Singleton classes ' + className)
@@ -394,10 +392,9 @@ class Base {
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
-                listenerId = currentWorker.on('connected', () => {
-                    currentWorker.un('connected', listenerId);
+                currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)
-                });
+                }, me, {once: true})
             } else {
                 Base.sendRemotes(className, remote)
             }

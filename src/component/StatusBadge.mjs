@@ -283,9 +283,8 @@ class StatusBadge extends Base {
      * @protected
      */
     afterSetState(value, oldValue) {
-
         let me        = this,
-            cls       = me.cls,
+            {cls}     = me,
             isEmpty   = !value || value === '',
             vdomRoot  = me.getVdomRoot(),
             labelNode = vdomRoot.cn[1];
@@ -333,7 +332,7 @@ class StatusBadge extends Base {
             labelNode.innerHTML = showLabel;
 
             me.updateStateIconNode(showStateIcon);
-            me.updateSideIconNode(showSideIcon);
+            me.updateSideIconNode(showSideIcon)
         }
 
         me.update()

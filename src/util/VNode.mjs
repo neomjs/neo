@@ -45,64 +45,64 @@ class VNode extends Base {
                         if (Neo.isObject(value) && Neo.isObject(vnode[key])) {
                             Object.entries(value).forEach(([attrKey, attrValue]) => {
                                 if (!(vnode[key].hasOwnProperty(attrKey) && vnode[key][attrKey] === attrValue)) {
-                                    attrMatch = false;
+                                    attrMatch = false
                                 }
                             });
 
                             if (attrMatch) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         }
-                        break;
+                        break
                     case 'className':
                         if (typeof value === 'string' && Neo.isArray(vnode[key])) {
                             if (vnode[key].includes(value)) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else if (typeof value === 'string' && typeof vnode[key] === 'string') {
                             if (vnode[key] === value) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         } else if (Neo.isArray(value) && Neo.isArray(vnode[key])) {
                             // todo: either search the vnode array for all keys or compare if the arrays are equal.
-                            throw new Error('findChildVnode: cls matching not supported for target & source types of Arrays');
+                            throw new Error('findChildVnode: cls matching not supported for target & source types of Arrays')
                         }
-                        break;
+                        break
                     case 'style':
                         if (Neo.isObject(value) && Neo.isObject(vnode[key])) {
                             Object.entries(value).forEach(([styleKey, styleValue]) => {
                                 if (!(vnode[key].hasOwnProperty(styleKey) && vnode[key][styleKey] === styleValue)) {
-                                    styleMatch = false;
+                                    styleMatch = false
                                 }
                             });
 
                             if (styleMatch) {
-                                matchArray.push(true);
+                                matchArray.push(true)
                             }
                         }
-                        break;
+                        break
                     default:
                         if (vnode[key] === value) {
-                            matchArray.push(true);
+                            matchArray.push(true)
                         }
-                        break;
+                        break
                 }
             }
         });
 
         if (matchArray.length === optsLength) {
-            return {index, parentNode, vnode};
+            return {index, parentNode, vnode}
         }
 
         for (; i < len; i++) {
             subChild = VNode.findChildVnode(vnode.childNodes[i], opts, i, vnode);
 
             if (subChild) {
-                return subChild;
+                return subChild
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -118,7 +118,7 @@ class VNode extends Base {
             childNode;
 
         if (vnode.id === id) {
-            return vnode;
+            return vnode
         }
 
         for (; i < len; i++) {
@@ -131,11 +131,11 @@ class VNode extends Base {
             childNode = VNode.findChildVnodeById(childNode, id);
 
             if (childNode) {
-                return childNode;
+                return childNode
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -149,13 +149,13 @@ class VNode extends Base {
 
         childNodes.forEach(childNode => {
             if (childNode.id) {
-                childIds.push(childNode.id);
+                childIds.push(childNode.id)
             }
 
-            childIds = VNode.getChildIds(childNode, childIds);
+            childIds = VNode.getChildIds(childNode, childIds)
         });
 
-        return childIds;
+        return childIds
     }
 
     /**
@@ -171,7 +171,7 @@ class VNode extends Base {
             childNode;
 
         if (vnode.id === id) {
-            throw new Error('removeChildVnode: target id matches the root vnode id: ' + id);
+            throw new Error('removeChildVnode: target id matches the root vnode id: ' + id)
         }
 
         for (; i < len; i++) {
@@ -179,15 +179,15 @@ class VNode extends Base {
 
             if (childNode.id === id) {
                 childNodes.splice(i, 1);
-                return true;
+                return true
             }
 
             if (VNode.removeChildVnode(childNode, id)) {
-                return true;
+                return true
             }
         }
 
-        return false;
+        return false
     }
 
     /**
@@ -204,7 +204,7 @@ class VNode extends Base {
             childNode;
 
         if (vnode.id === id) {
-            throw new Error('replaceChildVnode: target id matches the root vnode id: ' + id);
+            throw new Error('replaceChildVnode: target id matches the root vnode id: ' + id)
         }
 
         for (; i < len; i++) {
@@ -212,15 +212,15 @@ class VNode extends Base {
 
             if (childNode.id === id) {
                 childNodes[i] = newChildVnode;
-                return true;
+                return true
             }
 
             if (VNode.replaceChildVnode(childNode, id, newChildVnode)) {
-                return true;
+                return true
             }
         }
 
-        return false;
+        return false
     }
 }
 

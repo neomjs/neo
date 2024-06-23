@@ -28,12 +28,12 @@ class Grid extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Grid: applyRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Grid: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-grid');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 }
 

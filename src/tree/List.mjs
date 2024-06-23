@@ -76,7 +76,7 @@ class Tree extends Base {
 
         if (value) {
             if (me.sortable) {
-                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+                console.error('tree.List can be either draggable or sortable, not both.', me.id)
             } else if (!me.dragZone) {
                 import('../draggable/tree/DragZone.mjs').then(module => {
                     me.dragZone = Neo.create({
@@ -84,8 +84,8 @@ class Tree extends Base {
                         appName: me.appName,
                         owner  : me,
                         ...me.dragZoneConfig
-                    });
-                });
+                    })
+                })
             }
         }
     }
@@ -101,7 +101,7 @@ class Tree extends Base {
 
         if (value) {
             if (me.draggable) {
-                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+                console.error('tree.List can be either draggable or sortable, not both.', me.id)
             } else if (!me.sortZone) {
                 import('../draggable/tree/SortZone.mjs').then(module => {
                     me.sortZone = Neo.create({
@@ -110,8 +110,8 @@ class Tree extends Base {
                         boundaryContainerId: me.id,
                         owner              : me,
                         ...me.sortZoneConfig
-                    });
-                });
+                    })
+                })
             }
         }
     }
@@ -151,25 +151,24 @@ class Tree extends Base {
      * Collapses all folders
      * @param {Boolean} [silent]=false Set silent to true to prevent a vnode update
      */
-    collapseAll(silent = false) {
+    collapseAll(silent=false) {
         let me       = this,
-            vdom     = me.vdom,
             hasMatch = false,
             node;
 
         me.store.items.forEach(item => {
             if (!item.isLeaf) {
-                node = me.getVdomChild(me.getItemId(item.id), vdom);
+                node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 if (node.cls.includes('neo-folder-open')) {
                     NeoArray.remove(node.cls, 'neo-folder-open');
-                    hasMatch = true;
+                    hasMatch = true
                 }
             }
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom
+            !silent && me.update()
         }
     }
 
@@ -182,15 +181,14 @@ class Tree extends Base {
      * @protected
      */
     createItems(parentId, vdomRoot, level, hidden=false) {
-        let me        = this,
-            items     = me.store.find('parentId', parentId),
-            itemCls   = me.itemCls,
-            folderCls = me.folderCls,
+        let me                   = this,
+            items                = me.store.find('parentId', parentId),
+            {folderCls, itemCls} = me,
             cls, itemVdom, tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
-                vdomRoot.cn = [];
+                vdomRoot.cn = []
             }
 
             if (parentId !== null) {
@@ -258,15 +256,14 @@ class Tree extends Base {
      * Expands all folders
      * @param {Boolean} silent=false Set silent to true to prevent a vnode update
      */
-    expandAll(silent = false) {
+    expandAll(silent=false) {
         let me       = this,
-            vdom     = me.vdom,
             hasMatch = false,
             node;
 
         me.store.items.forEach(item => {
             if (!item.isLeaf) {
-                node = me.getVdomChild(me.getItemId(item.id), vdom);
+                node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
                 if (!node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
@@ -276,7 +273,7 @@ class Tree extends Base {
         });
 
         if (hasMatch) {
-            me[silent ? '_vdom' : 'vdom'] = vdom
+            !silent && me.update()
         }
     }
 
@@ -380,11 +377,11 @@ class Tree extends Base {
      * @param {Object} data
      */
     onItemClick(node, data) {
-        let me    = this,
-            items = me.store.items,
-            i     = 0,
-            len   = items.length,
-            path  = data.path.map(e => e.id),
+        let me      = this,
+            {items} = me.store,
+            i       = 0,
+            len     = items.length,
+            path    = data.path.map(e => e.id),
             item, record, tmpItem, vnodeId;
 
         for (; i < len; i++) {

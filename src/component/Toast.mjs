@@ -139,7 +139,7 @@ class Toast extends Base {
             {click: {fn: me.destroy, delegate: '.neo-toast-close', scope: me}}
         ]);
 
-        ToastManager.register(me);
+        ToastManager.register(me)
     }
 
     /**
@@ -149,7 +149,7 @@ class Toast extends Base {
     afterSetClosable(value, oldValue) {
         let vdom = this.getVdomInner().cn[2];
 
-        vdom.removeDom = !value;
+        vdom.removeDom = !value
     }
 
     /**
@@ -158,10 +158,10 @@ class Toast extends Base {
      */
     afterSetIconCls(value, oldValue) {
         let vdom  = this.getVdomInner().cn[0],
-            cls   = vdom.cls;
+            {cls} = vdom;
 
         vdom.removeDom = Neo.isEmpty(value);
-        NeoArray[value ? 'add' : 'remove'](cls, value);
+        NeoArray[value ? 'add' : 'remove'](cls, value)
     }
 
     /**
@@ -174,7 +174,7 @@ class Toast extends Base {
     afterSetMsg(value, oldValue) {
         let vdom = this.getTextRootVdom().cn[1];
 
-        vdom.innerHTML = value;
+        vdom.innerHTML = value
     }
 
     /**
@@ -207,7 +207,7 @@ class Toast extends Base {
 
         if (!me.closable && value) {
             setTimeout(() => {
-                this.destroy(true);
+                this.destroy(true)
             }, me.timeout)
         }
     }
@@ -221,7 +221,7 @@ class Toast extends Base {
 
         vdom.removeDom = Neo.isEmpty(value);
         vdom.innerHTML = value;
-        NeoArray[value ? 'add' : 'remove'](vdom.cls, 'neo-toast-has-title');
+        NeoArray[value ? 'add' : 'remove'](vdom.cls, 'neo-toast-has-title')
     }
 
     /**
@@ -231,7 +231,7 @@ class Toast extends Base {
      * @protected
      */
     beforeSetPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'position');
+        return this.beforeSetEnumValue(value, oldValue, 'position')
     }
 
     /**
@@ -241,7 +241,7 @@ class Toast extends Base {
      * @protected
      */
     beforeSetSlideDirection(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'slideDirection');
+        return this.beforeSetEnumValue(value, oldValue, 'slideDirection')
     }
 
     /**
@@ -267,7 +267,7 @@ class Toast extends Base {
      * @returns {Object} vdom
      */
     getTextRootVdom() {
-        return this.getVdomInner().cn[1];
+        return this.getVdomInner().cn[1]
     }
 
     /**
@@ -275,7 +275,7 @@ class Toast extends Base {
      * @returns {Object} vdom
      */
     getVdomInner() {
-        return this.vdom.cn[0];
+        return this.vdom.cn[0]
     }
 }
 

@@ -21,7 +21,7 @@ class AnalyticsByGoogle extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.insertGoogleAnalyticsScript();
+        this.insertGoogleAnalyticsScript()
     }
 
     /**
@@ -31,20 +31,20 @@ class AnalyticsByGoogle extends Base {
         window.dataLayer = window.dataLayer || [];
 
         function gtag() {
-            dataLayer.push(arguments);
+            dataLayer.push(arguments)
         }
 
         gtag('js', new Date());
         gtag('config', Neo.config.gtagId);
 
-        const script = document.createElement('script');
+        let script = document.createElement('script');
 
         Object.assign(script, {
             async: true,
             src  : `https://www.googletagmanager.com/gtag/js?id=${Neo.config.gtagId}`
         });
 
-        document.head.appendChild(script);
+        document.head.appendChild(script)
     }
 }
 

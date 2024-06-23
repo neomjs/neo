@@ -26,7 +26,8 @@
     }
 
     .neo-button-text {
-        color: var(--tab-button-text-color);
+        color    : var(--tab-button-text-color);
+        font-size: var(--tab-button-text-font-size);
     }
 
     .neo-tab-button-indicator {

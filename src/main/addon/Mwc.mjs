@@ -42,7 +42,7 @@ class Mwc extends Base {
      * @returns {Boolean}
      */
     checkValidity(id) {
-        return document.getElementById(id).checkValidity();
+        return document.getElementById(id).checkValidity()
     }
 
     /**
@@ -53,10 +53,10 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module'
-                );
+            )
         } else {
             // dist/development & dist/production
-            // import('@material/mwc-button'); // <= comment me in
+            // import('@material/mwc-button') // <= comment me in
         }
     }
 
@@ -68,10 +68,10 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module'
-                );
+            )
         } else {
             // dist/development & dist/production
-            // import('@material/mwc-textfield'); // <= comment me in
+            // import('@material/mwc-textfield') // <= comment me in
         }
     }
 
@@ -80,7 +80,7 @@ class Mwc extends Base {
      * @returns {Boolean}
      */
     reportValidity(id) {
-        return document.getElementById(id).reportValidity();
+        return document.getElementById(id).reportValidity()
     }
 }
 

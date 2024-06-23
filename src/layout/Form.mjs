@@ -42,7 +42,7 @@ class Form extends Base {
             style = item.wrapperStyle;
 
         style.gap = value;
-        item.wrapperStyle = style;
+        item.wrapperStyle = style
     }
 
     /**
@@ -50,14 +50,14 @@ class Form extends Base {
      * @param {Neo.component.Base} item
      * @param {Number} index
      */
-    applyChildAttributes(child, index) {
-        if (!child.ignoreLayout) {
-            if (child.ntype === 'fieldset') {
-                child.wrapperCls = NeoArray.union(child.wrapperCls, 'neo-layout-form-subfieldset');
+    applyChildAttributes(item, index) {
+        if (!item.ignoreLayout) {
+            if (item.ntype === 'fieldset') {
+                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-subfieldset')
             } else if (child.ntype === 'legend') {
-                child.wrapperCls = NeoArray.union(child.wrapperCls, 'neo-layout-form-legend');
+                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-legend')
             } else {
-                child.wrapperCls = NeoArray.union(child.wrapperCls, 'neo-layout-form-item');
+                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-item')
             }
         }
     }
@@ -71,12 +71,12 @@ class Form extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Form: applyRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Form: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-form');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -89,7 +89,7 @@ class Form extends Base {
         let style = item.wrapperStyle || {};
 
         style.flex = item.flex || null;
-        item.wrapperStyle = style;
+        item.wrapperStyle = style
     }
 
     /**
@@ -102,12 +102,12 @@ class Form extends Base {
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Form: removeRenderAttributes -> container not yet created', me.containerId);
+            Neo.logError('layout.Form: removeRenderAttributes -> container not yet created', me.containerId)
         }
 
         NeoArray.remove(wrapperCls, 'neo-layout-form');
 
-        container.wrapperCls = wrapperCls;
+        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -120,17 +120,17 @@ class Form extends Base {
     updateInputValue(value, oldValue, propertyName) {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls;
 
         if (container?.rendered) {
             NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
 
             if (value !== null) {
-                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value);
+                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value)
             }
 
-            container.wrapperCls = wrapperCls;
+            container.wrapperCls = wrapperCls
         }
     }
 }

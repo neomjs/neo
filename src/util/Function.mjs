@@ -32,7 +32,7 @@ export function buffer(callback, scope, delay=300) {
             timeoutId = 0;
             wrapper.isPending = false;
             callback.apply(scope, args)
-        }, delay);
+        }, delay)
     };
 
     wrapper.cancel = () => {
@@ -71,7 +71,7 @@ export function createSequence(target, methodName, fn, scope) {
 
     return (target[methodName] = function() {
         method.apply(this, arguments);
-        return fn.apply(scope || this, arguments);
+        return fn.apply(scope || this, arguments)
     })
 }
 

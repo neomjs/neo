@@ -33,8 +33,8 @@ class Component extends Base {
         super.afterSetAppName(value, oldValue);
 
         value && this.items?.forEach(item => {
-            item.appName = value;
-        });
+            item.appName = value
+        })
     }
 
     /**
@@ -44,10 +44,10 @@ class Component extends Base {
         let items = this.items || [];
 
         items.forEach(item => {
-            item.destroy();
+            item.destroy()
         });
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -55,7 +55,7 @@ class Component extends Base {
      * @returns {String}
      */
     getComponentId(index) {
-        return `${this.id}__${index}__component`;
+        return `${this.id}__${index}__component`
     }
 
     /**
@@ -63,7 +63,7 @@ class Component extends Base {
      * @returns {String}
      */
     getItemId(recordId) {
-        return `${this.id}__${this.store.indexOf(recordId)}`;
+        return `${this.id}__${this.store.indexOf(recordId)}`
     }
 
     /**
@@ -72,7 +72,7 @@ class Component extends Base {
      */
     getItemRecordId(vnodeId) {
         let itemId = vnodeId.split('__')[1];
-        return this.store.getAt(parseInt(itemId))[this.getKeyProperty()];
+        return this.store.getAt(parseInt(itemId))[this.getKeyProperty()]
     }
 
     /**
@@ -83,7 +83,7 @@ class Component extends Base {
      */
     onStoreSort(data) {
         this.sortItems(data);
-        super.onStoreSort(data);
+        super.onStoreSort(data)
     }
 
     /**
@@ -103,10 +103,10 @@ class Component extends Base {
 
             data.items.forEach(item => {
                 fromIndex = previousKeys.indexOf(item[key]);
-                newItems.push(me.items[fromIndex]);
+                newItems.push(me.items[fromIndex])
             });
 
-            me.items = newItems;
+            me.items = newItems
         }
     }
 }

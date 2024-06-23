@@ -154,7 +154,7 @@ class DragZone extends Base {
         super.construct(config);
 
         if (!Neo.main.addon.DragDrop) {
-            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id);
+            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id)
         }
     }
 
@@ -166,7 +166,7 @@ class DragZone extends Base {
      */
     afterSetAppName(value, oldValue) {
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.owner.windowId, this.__proto__);
+            Neo.currentWorker.insertThemeFiles(value, this.owner.windowId, this.__proto__)
         }
     }
 
@@ -178,7 +178,7 @@ class DragZone extends Base {
      * @protected
      */
     beforeGetDragProxyConfig(value) {
-        return Neo.clone(value, true, true);
+        return Neo.clone(value, true, true)
     }
 
     /**
@@ -205,15 +205,15 @@ class DragZone extends Base {
         config.cls = config.cls || [];
 
         if (component) {
-            config.cls.push(component.getTheme());
+            config.cls.push(component.getTheme())
         }
 
         if (clone.cls && !me.useProxyWrapper) {
-            config.cls.push(...clone.cls);
+            config.cls.push(...clone.cls)
         }
 
         if (me.addDragProxyCls && config.cls) {
-            NeoArray.add(config.cls, me.dragProxyCls);
+            NeoArray.add(config.cls, me.dragProxyCls)
         }
 
         config.style = config.style || {};
@@ -225,7 +225,7 @@ class DragZone extends Base {
             width : `${data.width}px`
         });
 
-        me.dragProxy = Neo.create(config);
+        me.dragProxy = Neo.create(config)
     }
 
     /**
@@ -243,23 +243,23 @@ class DragZone extends Base {
             });
         }, me.moveInMainThread ? 0 : 30);
 
-        me.dragProxy.destroy();
+        me.dragProxy.destroy()
     }
 
     /**
      * @param {Object} data
      */
     dragEnd(data) {
-        let me    = this,
-            owner = me.owner,
-            cls   = owner.cls;
+        let me      = this,
+            {owner} = me,
+            {cls}   = owner;
 
         NeoArray.remove(cls, 'neo-is-dragging');
         owner.cls = cls;
 
         if (me.dragProxy) {
             me.destroyDragProxy();
-            me.dragProxy = null;
+            me.dragProxy = null
         }
 
         Object.assign(me, {
@@ -271,7 +271,7 @@ class DragZone extends Base {
 
         me.fire('dragEnd', data);
 
-        me.resetData();
+        me.resetData()
     }
 
     /**
@@ -295,17 +295,17 @@ class DragZone extends Base {
             me.dragProxy.style = style;
         }
 
-        me.fire('dragMove', data);
+        me.fire('dragMove', data)
     }
 
     /**
      * @param {Object} data
      */
     dragStart(data) {
-        let me    = this,
-            owner = me.owner,
-            cls   = owner.cls,
-            rect  = me.getDragElementRect(data),
+        let me      = this,
+            {owner} = me,
+            {cls}   = owner,
+            rect    = me.getDragElementRect(data),
             offsetX, offsetY;
 
         me.setData();
@@ -337,7 +337,7 @@ class DragZone extends Base {
             id             : me.id,
             offsetX,
             offsetY
-        });
+        })
     }
 
     /**
@@ -350,17 +350,17 @@ class DragZone extends Base {
 
         for (let item of data.path) {
             if (item.id === id) {
-                return item.rect;
+                return item.rect
             }
         }
 
         for (let item of data.targetPath) {
             if (item.id === id) {
-                return item.rect;
+                return item.rect
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -369,7 +369,7 @@ class DragZone extends Base {
      * @returns {Object}
      */
     getDragElementRoot() {
-        return this.dragElement;
+        return this.dragElement
     }
 
     /**
@@ -394,7 +394,7 @@ class DragZone extends Base {
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
             scrollFactorTop    : me.scrollFactorTop
-        };
+        }
     }
 
     /**
@@ -402,7 +402,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        this.fire('drop', data);
+        this.fire('drop', data)
     }
 
     /**
@@ -410,7 +410,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        this.fire('drop:enter', data);
+        this.fire('drop:enter', data)
     }
 
     /**
@@ -418,7 +418,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        this.fire('drop:leave', data);
+        this.fire('drop:leave', data)
     }
 
     /**
@@ -426,8 +426,8 @@ class DragZone extends Base {
      */
     resetData() {
         setTimeout(() => {
-            this.data = null;
-        }, 30);
+            this.data = null
+        }, 30)
     }
 
     /**
@@ -441,7 +441,7 @@ class DragZone extends Base {
             dragElement: me.getDragElementRoot(),
             dragZoneId : me.id,
             ...data
-        };
+        }
     }
 }
 

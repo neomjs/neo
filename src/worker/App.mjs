@@ -238,7 +238,7 @@ class App extends Base {
      */
     getConfigs(data) {
         let instance    = Neo.get(data.id),
-            keys        = data.keys,
+            {keys}      = data,
             returnArray = [];
 
         if (instance) {
@@ -284,24 +284,24 @@ class App extends Base {
         if (Neo.config.themes.length > 0) {
             className = className || proto.className;
             //console.log(windowId, className);
-            let me       = this,
-                lAppName = appName.toLowerCase(),
-                cssMap   = Neo.cssMap,
-                parent   = proto?.__proto__,
-                classPath, classRoot, fileName, mapClassName, ns, themeFolders;
+            let me     = this,
+                cssMap = Neo.cssMap,
+                parent = proto?.__proto__,
+                classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
                 me.themeFilesCache.push([appName, windowId, proto])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
-                    className = className.split('.');
-                    classRoot = className.shift().toLowerCase();
+                    className  = className.split('.');
+                    classRoot  = className.shift();
+                    lClassRoot = classRoot.toLowerCase();
 
                     className[0] === 'view' && className.shift();
 
-                    mapClassName = `apps.${Neo.apps[appName].appThemeFolder || classRoot}.${className.join('.')}`;
-                    className    = `apps.${lAppName}.${className.join('.')}`
+                    mapClassName = `apps.${Neo.apps[classRoot]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
+                    className    = `apps.${lClassRoot}.${className.join('.')}`;
                 }
 
                 if (parent && parent !== Neo.core.Base.prototype) {
@@ -352,8 +352,8 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me     = this,
-            config = Neo.config,
+        let me       = this,
+            {config} = Neo,
             app, path;
 
         if (data) {
@@ -399,7 +399,12 @@ class App extends Base {
         super.onRegisterNeoConfig(msg);
 
         let config = Neo.config,
+            {data} = msg,
             url    = 'resources/theme-map.json';
+
+        Neo.windowConfigs = Neo.windowConfigs || {};
+
+        Neo.windowConfigs[data.windowId] = data;
 
         if (config.environment === 'development') {
             url = `../../${url}`
@@ -506,7 +511,7 @@ class App extends Base {
             return Promise.reject('Neo.main.addon.Stylesheet not imported')
         } else {
             if (theme.startsWith('neo-')) {
-                theme = theme.substring(4);
+                theme = theme.substring(4)
             }
 
             return addon.setCssVariable({theme, ...data})
@@ -514,6 +519,4 @@ class App extends Base {
     }
 }
 
-let instance = Neo.setupClass(App);
-
-export default instance;
+export default Neo.setupClass(App);

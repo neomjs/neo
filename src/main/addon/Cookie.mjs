@@ -31,25 +31,25 @@ class Cookie extends Base {
      * @returns {String}
      */
     getCookie(name) {
-        let cookie = document.cookie
+        let {cookie} = document
             .split('; ')
             .find(row => row.startsWith(name));
 
-        return cookie ? cookie.split('=')[1] : null;
+        return cookie ? cookie.split('=')[1] : null
     }
 
     /**
      * @returns {String}
      */
     getCookies() {
-        return document.cookie;
+        return document.cookie
     }
 
     /**
      * @param {String} value
      */
     setCookie(value) {
-        document.cookie = value;
+        document.cookie = value
     }
 }
 

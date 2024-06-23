@@ -3,7 +3,6 @@
     "basePath"         : "../../../",
     "environment"      : "development",
     "mainPath"         : "./Main.mjs",
-    "renderCountDeltas": true,
     "themes"           : ["neo-theme-dark"],
     "useServiceWorker" : true
 }

@@ -60,7 +60,7 @@ class Focus extends CoreBase {
         let history = this.history;
 
         history.unshift(opts);
-        history.length >= this.maxHistoryLength && history.pop();
+        history.length >= this.maxHistoryLength && history.pop()
     }
 
     /**
@@ -71,7 +71,7 @@ class Focus extends CoreBase {
      */
     focusEnter(opts) {
         this.setComponentFocus(opts, true);
-        this.addToHistory(opts);
+        this.addToHistory(opts)
     }
 
     /**
@@ -81,7 +81,7 @@ class Focus extends CoreBase {
      * @protected
      */
     focusLeave(opts) {
-        this.setComponentFocus(opts, false);
+        this.setComponentFocus(opts, false)
     }
 
     /**
@@ -92,7 +92,7 @@ class Focus extends CoreBase {
      */
     focusMove(opts) {
         let me               = this,
-            history          = me.history,
+            {history}        = me,
             newComponentPath = opts.componentPath,
             oldComponentPath = history[0].componentPath,
             focusEnter       = NeoArray.difference(newComponentPath, oldComponentPath),
@@ -117,11 +117,11 @@ class Focus extends CoreBase {
                 component.fire('focusMove', data);
 
                 component.onFocusChange?.(data);
-                component.fire('focusChange', data);
+                component.fire('focusChange', data)
             }
         });
 
-        me.addToHistory(opts);
+        me.addToHistory(opts)
     }
 
     /**
@@ -136,9 +136,9 @@ class Focus extends CoreBase {
         me.lastFocusInDate = new Date();
 
         if (me.lastFocusOutDate && me.lastFocusInDate - me.lastFocusOutDate < me.maxFocusInOutGap) {
-            me.focusMove(opts);
+            me.focusMove(opts)
         } else {
-            me.focusEnter(opts);
+            me.focusEnter(opts)
         }
     }
 
@@ -155,7 +155,7 @@ class Focus extends CoreBase {
 
         setTimeout(() => {
             if (me.lastFocusOutDate > me.lastFocusInDate) {
-                me.focusLeave(opts);
+                me.focusLeave(opts)
             }
         }, me.maxFocusInOutGap);
     }
@@ -169,14 +169,14 @@ class Focus extends CoreBase {
      */
     setComponentFocus(opts, containsFocus) {
         let data = {
-                relatedTarget : opts.data.relatedTarget
+                relatedTarget: opts.data.relatedTarget
             },
             components = opts.componentPath.map(id => Neo.getComponent(id)),
             handler;
 
         components.forEach(component => {
             if (component) {
-                component.containsFocus = containsFocus;
+                component.containsFocus = containsFocus
             }
         });
 
@@ -192,12 +192,10 @@ class Focus extends CoreBase {
                 component.fire(containsFocus ? 'focusEnter' : 'focusLeave', data);
 
                 component.onFocusChange?.(data);
-                component.fire('focusChange', data);
+                component.fire('focusChange', data)
             }
-        });
+        })
     }
 }
 
-let instance = Neo.setupClass(Focus);
-
-export default instance;
+export default Neo.setupClass(Focus);

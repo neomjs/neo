@@ -94,9 +94,9 @@ class Fetch extends Base {
     request(url, config={}, method, data) {
         if (!Neo.isString(url)) {
             config = url;
-            url    = config.url;
+            url    = config.url
         } else {
-            config.url = config;
+            config.url = config
         }
 
         return fetch(url, {
@@ -117,7 +117,7 @@ class Fetch extends Base {
                 .then(data => {
                     response.data = data;
                 })
-                .then(() => (resp.ok ? response : Promise.reject(response)));
+                .then(() => (resp.ok ? response : Promise.reject(response)))
         })
     }
 }

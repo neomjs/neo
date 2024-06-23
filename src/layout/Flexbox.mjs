@@ -137,8 +137,9 @@ class Flexbox extends Base {
     /**
      * Applies the flex value to an item of the container this layout is bound to
      * @param {Neo.component.Base} item
+     * @param {Number} index
      */
-    applyChildAttributes(item) {
+    applyChildAttributes(item, index) {
         let style = item.wrapperStyle,
             flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
@@ -156,7 +157,7 @@ class Flexbox extends Base {
     applyRenderAttributes() {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
@@ -192,7 +193,7 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     beforeSetDirection(value, oldValue) {
-        return this.testInputValue(value, oldValue, 'directionValues', 'direction');
+        return this.testInputValue(value, oldValue, 'directionValues', 'direction')
     }
 
     /**
@@ -218,7 +219,7 @@ class Flexbox extends Base {
     }
 
     /**
-     * Removes all CSS rules from an container item this layout is bound to.
+     * Removes all CSS rules from a container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
      * @protected
@@ -238,7 +239,7 @@ class Flexbox extends Base {
     removeRenderAttributes() {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls || [];
 
         if (!container) {
@@ -247,10 +248,18 @@ class Flexbox extends Base {
 
         NeoArray.remove(wrapperCls, prefix + 'container');
 
-        me.align     && NeoArray.remove(wrapperCls, prefix + 'align-'     + me.align);
-        me.direction && NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
-        me.pack      && NeoArray.remove(wrapperCls, prefix + 'pack-'      + me.pack);
-        me.wrap      && NeoArray.remove(wrapperCls, prefix + 'wrap-'      + me.wrap);
+        if (me.align) {
+            NeoArray.remove(wrapperCls, prefix + 'align-' + me.align)
+        }
+        if (me.direction) {
+            NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction)
+        }
+        if (me.pack) {
+            NeoArray.remove(wrapperCls, prefix + 'pack-' + me.pack)
+        }
+        if (me.wrap) {
+            NeoArray.remove(wrapperCls, prefix + 'wrap-' + me.wrap)
+        }
 
         container.wrapperCls = wrapperCls
     }
@@ -265,14 +274,14 @@ class Flexbox extends Base {
      * @returns {String|null} value
      */
     testInputValue(value, oldValue, validValuesName, propertyName) {
-        const validValues = this.getStaticConfig(validValuesName);
+        let validValues = this.getStaticConfig(validValuesName);
 
         if (!NeoArray.hasItem(validValues, value)) {
             Neo.logError(this.containerId, '-> layout: supported values for "' + propertyName + '" are' , validValues);
             return oldValue
         }
 
-        return value
+        return value;
     }
 
     /**
@@ -285,7 +294,7 @@ class Flexbox extends Base {
     updateInputValue(value, oldValue, propertyName) {
         let me         = this,
             container  = Neo.getComponent(me.containerId),
-            prefix     = me.prefix,
+            {prefix}   = me,
             wrapperCls = container?.wrapperCls;
 
         if (container?.rendered) {

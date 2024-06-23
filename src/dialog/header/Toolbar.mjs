@@ -58,14 +58,15 @@ class Toolbar extends Base {
     createItems() {
         let me      = this,
             handler = me.fireAction.bind(me),
-            items   = me.items || [];
+            items   = me.items || [],
+            {title} = me;
 
         items.push({
             ntype : 'label',
             cls   : ['neo-panel-header-text', 'neo-label'],
             flag  : 'title-label',
-            hidden: !me.title,
-            text  : me.title
+            hidden: !title,
+            text  : title
         });
 
         if (me.actions) {
@@ -89,7 +90,7 @@ class Toolbar extends Base {
      * @param {Object} data
      */
     fireAction(data) {
-        let component = data.component;
+        let {component} = data;
 
         this.fire('headerAction', {
             action: component.action,

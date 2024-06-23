@@ -113,11 +113,10 @@ class WindowPosition extends Base {
      *
      */
     checkMovement() {
-        let me         = this,
-            Manager    = Neo.worker.Manager,
-            win        = window,
-            screenLeft = win.screenLeft,
-            screenTop  = win.screenTop,
+        let me                      = this,
+            {Manager}               = Neo.worker,
+            win                     = window,
+            {screenLeft, screenTop} = win,
             winData;
 
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
@@ -154,25 +153,27 @@ class WindowPosition extends Base {
      * @param {Object} data
      */
     getPosition(data) {
-        let win = window,
+        let {size}                  = data,
+            win                     = window,
+            {screenLeft, screenTop} = win,
             left, top;
 
         switch(data.dock) {
             case 'bottom':
-                left = win.screenLeft;
-                top  = win.outerHeight + win.screenTop - 50;
+                left = screenLeft;
+                top  = win.outerHeight + screenTop - 50;
                 break
             case 'left':
-                left = win.screenLeft - data.size;
-                top  = win.screenTop  + 28;
+                left = screenLeft - size;
+                top  = screenTop  + 28;
                 break
             case 'right':
-                left = win.outerWidth + win.screenLeft;
-                top  = win.screenTop  + 28;
+                left = win.outerWidth + screenLeft;
+                top  = screenTop  + 28;
                 break
             case 'top':
-                left = win.screenLeft;
-                top  = win.screenTop - data.size + 78;
+                left = screenLeft;
+                top  = screenTop - size + 78;
                 break
         }
 
@@ -254,10 +255,9 @@ class WindowPosition extends Base {
      * @param {String} data.name
      */
     setDock(data) {
-        let me   = this,
-            dock = data.dock,
-            name = data.name,
-            win  = me.windows[name],
+        let me           = this,
+            {dock, name} = data,
+            win          = me.windows[name],
             dockDirectionChange, position;
 
         if (win) {

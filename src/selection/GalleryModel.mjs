@@ -36,7 +36,7 @@ class GalleryModel extends Model {
      */
     onContainerClick() {
         let me       = this,
-            view     = me.view,
+            {view}   = me,
             oldItems = [...me.items],
             deltas   = [];
 
@@ -52,22 +52,18 @@ class GalleryModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: view.appName,
-            deltas : deltas
-        }).then(() => {
-            me.fire('selectionChange', me.items, oldItems);
-        });
+        Neo.applyDeltas(view.appName, deltas).then(() => {
+            me.fire('selectionChange', me.items, oldItems)
+        })
     }
 
     /**
      * @param {Object} data
      */
     onItemClick(data) {
-        let i    = 0,
-            len  = data.path.length,
-            view = this.view,
+        let i      = 0,
+            len    = data.path.length,
+            {view} = this,
             key;
 
         for (; i < len; i++) {
@@ -79,7 +75,7 @@ class GalleryModel extends Model {
                     record: view.store.get(key)
                 });
 
-                break;
+                break
             }
         }
     }
@@ -88,28 +84,28 @@ class GalleryModel extends Model {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this[this.view.orderByRow ? 'onNavKeyRow' : 'onNavKeyColumn'](1);
+        this[this.view.orderByRow ? 'onNavKeyRow' : 'onNavKeyColumn'](1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](-1);
+        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](1);
+        this[this.view.orderByRow ? 'onNavKeyColumn' : 'onNavKeyRow'](1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this[this.view.orderByRow ? 'onNavKeyRow' : 'onNavKeyColumn'](-1);
+        this[this.view.orderByRow ? 'onNavKeyRow' : 'onNavKeyColumn'](-1)
     }
 
     /**
@@ -117,22 +113,22 @@ class GalleryModel extends Model {
      */
     onNavKeyColumn(step=1) {
         let me           = this,
-            view         = me.view,
-            store        = view.store,
+            {view}       = me,
+            {store}      = view,
             selected     = me.items[0],
             countRecords = store.getCount(),
             index, record;
 
         if (selected) {
-            index = store.indexOf(selected) + step;
+            index = store.indexOf(selected) + step
         } else {
-            index = 0;
+            index = 0
         }
 
         if (index < 0) {
-            index = countRecords - 1;
+            index = countRecords - 1
         } else if (index >= countRecords) {
-            index = 0;
+            index = 0
         }
 
         record = store.getAt(index);
@@ -141,47 +137,45 @@ class GalleryModel extends Model {
 
         view.fire('select', {
             record
-        });
+        })
     }
 
     /**
      * @param {Number} step=1
      */
     onNavKeyRow(step=1) {
-        let me           = this,
-            view         = me.view,
-            store        = view.store,
-            selected     = me.items[0],
-            countRecords = store.getCount(),
-            amountRows   = view.amountRows,
-            stayInRow    = me.stayInRow,
+        let me                  = this,
+            {stayInRow, view}   = me,
+            {amountRows, store} = view,
+            selected            = me.items[0],
+            countRecords        = store.getCount(),
             index, record;
 
         if (view.orderByRow) {
-            amountRows = Math.ceil(view.store.getCount() / amountRows);
+            amountRows = Math.ceil(view.store.getCount() / amountRows)
         }
 
         step *= amountRows;
 
         if (selected) {
-            index = store.indexOf(selected) + step;
+            index = store.indexOf(selected) + step
         } else {
-            index = 0;
+            index = 0
         }
 
         if (index < 0) {
             if (!stayInRow) {
-                index++;
+                index++
             }
             while (index < (countRecords - amountRows)) {
-                index += amountRows;
+                index += amountRows
             }
         } else if (index >= countRecords) {
             if (!stayInRow) {
-                index--;
+                index--
             }
             while (index >= amountRows) {
-                index -= amountRows;
+                index -= amountRows
             }
         }
 
@@ -191,7 +185,7 @@ class GalleryModel extends Model {
 
         view.fire('select', {
             record
-        });
+        })
     }
 
     /**
@@ -200,9 +194,8 @@ class GalleryModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let me         = this,
+            {id, view} = me;
 
         view.on({
             containerClick: me.onContainerClick,
@@ -215,25 +208,24 @@ class GalleryModel extends Model {
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
             {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-        );
+        )
     }
 
     /**
      * @param {String} itemId
      */
     select(itemId) {
-        let me       = this,
-            view     = me.view,
-            items    = me.items,
-            oldItems = [...items],
-            deltas   = [],
-            vnodeId  = view?.getItemVnodeId(itemId);
+        let me            = this,
+            {items, view} = me,
+            oldItems      = [...items],
+            deltas        = [],
+            vnodeId       = view?.getItemVnodeId(itemId);
 
         // a select() call can happen before the view is registered
         if (!view) {
             // will get picked up by view.afterSetMounted()
             NeoArray['add'](items, itemId);
-            return;
+            return
         }
 
         if (me.singleSelect) {
@@ -245,11 +237,11 @@ class GalleryModel extends Model {
                             add   : [],
                             remove: ['neo-selected']
                         }
-                    });
+                    })
                 }
             });
 
-            items.splice(0, items.length);
+            items.splice(0, items.length)
         }
 
         deltas.push({
@@ -262,17 +254,13 @@ class GalleryModel extends Model {
         NeoArray['add'](items, itemId);
 
         if (deltas.length > 0 && view.mounted) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: view.appName,
-                deltas : deltas
-            }).then(() => {
+            Neo.applyDeltas(view.appName, deltas).then(() => {
                 view.onSelect?.(items);
-                me.fire('selectionChange', items, oldItems);
-            });
+                me.fire('selectionChange', items, oldItems)
+            })
         } else if (view.mounted) {
             view.onSelect?.(items);
-            me.fire('selectionChange', items, oldItems);
+            me.fire('selectionChange', items, oldItems)
         }
     }
 
@@ -280,9 +268,7 @@ class GalleryModel extends Model {
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let {id, view} = this;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
@@ -291,7 +277,7 @@ class GalleryModel extends Model {
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

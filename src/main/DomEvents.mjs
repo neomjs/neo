@@ -62,9 +62,10 @@ const lastWheelEvent = {
     target: null
 };
 
-const disabledInputKeys         = {},
-      preventClickTargets       = [],
-      preventContextmenuTargets = [];
+const
+    disabledInputKeys         = {},
+    preventClickTargets       = [],
+    preventContextmenuTargets = [];
 
 /**
  * @class Neo.main.DomEvents
@@ -181,8 +182,9 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     domEventListener(event) {
-        let me     = this,
-            target = event.target,
+        let me       = this,
+            {target} = event,
+
             config = {
                 action   : 'domEvent',
                 eventName: event.type,
@@ -199,41 +201,41 @@ class DomEvents extends Base {
         switch (event.type) {
             case 'dragend':
                 me.dragElementId = null;
-                break;
+                break
             case 'dragenter':
                 if (me.dragElementId === target.id) {
-                    return; // ignore target and source to be the same
+                    return // ignore target and source to be the same
                 }
-                break;
+                break
             case 'dragleave':
                 if (me.dragElementId === target.id) {
-                    return; // ignore target and source to be the same
+                    return // ignore target and source to be the same
                 }
-                break;
+                break
             case 'dragover':
                 me.onDragOver(event);
                 event.preventDefault();
-                break;
+                break
             case 'dragstart':
                 me.dragElementId = target.id;
-                break;
+                break
             case 'drop':
                 if (!me.dragElementId || me.dragElementId === target.id) {
-                    return; // drop fires twice by default & drop should not trigger on the drag element
+                    return // drop fires twice by default & drop should not trigger on the drag element
                 }
                 if (event.stopPropagation) {
-                    event.stopPropagation(); // stops the browser from redirecting.
+                    event.stopPropagation() // stops the browser from redirecting.
                 }
                 event.preventDefault();
                 config.data.srcId = me.dragElementId;
                 me.dragElementId = null;
-                break;
+                break
             case 'mousemove':
                 Object.assign(config.data, me.getMouseEventData(event));
-                break;
+                break
             default:
                 event.preventDefault();
-                break;
+                break
         }
 
         Neo.worker.Manager.sendMessage('app', config)
@@ -248,7 +250,7 @@ class DomEvents extends Base {
      * @returns {Number}
      */
     getDistance(x1, y1, x2, y2) {
-        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     }
 
     /**
@@ -420,10 +422,10 @@ class DomEvents extends Base {
      * @param {InputEvent} event
      */
     onChange(event) {
-        let me      = this,
-            target  = event.target,
+        let me       = this,
+            {target} = event,
 
-            data    = {
+            data = {
                 ...me.getEventData(event),
                 valid: target.checkValidity(),
                 value: target.value
@@ -505,16 +507,16 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        let manager    = Neo.worker.Manager,
+        let {Manager}  = Neo.worker,
             hashString = location.hash.substring(1);
 
-        manager.sendMessage('app', {
+        Manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
-                appNames: manager.appNames,
+                appNames: Manager.appNames,
                 hash    : this.parseHash(hashString),
                 hashString,
-                windowId: manager.windowId
+                windowId: Manager.windowId
             }
         })
     }
@@ -523,8 +525,8 @@ class DomEvents extends Base {
      * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
-        let target  = event.target,
-            tagName = target.tagName,
+        let {target}  = event,
+            {tagName} = target,
             isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
@@ -588,13 +590,12 @@ class DomEvents extends Base {
      */
     onOrientationChange(event) {
         const
-            orientation = screen.orientation,
-            angle       = orientation.angle,
-            layout      = angle === 0 || angle === 180 ? 'portrait' : 'landscape',
-            type        = orientation.type,
-            manager     = Neo.worker.Manager;
+            {orientation} = screen,
+            {angle, type} = orientation,
+            layout        = angle === 0 || angle === 180 ? 'portrait' : 'landscape',
+            {Manager}     = Neo.worker;
 
-        manager.sendMessage('app', {
+        Manager.sendMessage('app', {
             action: 'orientationChange',
             data  : {angle, layout, type}
         })
@@ -619,9 +620,9 @@ class DomEvents extends Base {
      * @param {Event} event
      */
     onSelectionChange(event) {
-        let me      = this,
-            target  = event.target,
-            element = target.type ? target : target.activeElement,
+        let me       = this,
+            {target} = event,
+            element  = target.type ? target : target.activeElement,
             path, targetData;
 
         if (target.tagName === 'BODY') {
@@ -847,6 +848,4 @@ class DomEvents extends Base {
     }
 }
 
-let instance = Neo.setupClass(DomEvents);
-
-export default instance;
+export default Neo.setupClass(DomEvents);

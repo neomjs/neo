@@ -118,7 +118,7 @@ class Time extends Picker {
             itemClick   : me.onListItemClick,
             itemNavigate: me.onListItemNavigate,
             scope       : me
-        });
+        })
     }
 
     /**
@@ -131,7 +131,7 @@ class Time extends Picker {
         this.changeInputElKey('max', value);
 
         if (oldValue !== undefined) {
-            this.recreateListItems();
+            this.recreateListItems()
         }
     }
 
@@ -145,7 +145,7 @@ class Time extends Picker {
         this.changeInputElKey('min', value);
 
         if (oldValue !== undefined) {
-            this.recreateListItems();
+            this.recreateListItems()
         }
     }
 
@@ -157,7 +157,7 @@ class Time extends Picker {
      */
     afterSetPickerIsMounted(value, oldValue) {
         if (value) {
-            this.selectCurrentListItem();
+            this.selectCurrentListItem()
         }
     }
 
@@ -168,7 +168,7 @@ class Time extends Picker {
      * @protected
      */
     afterSetStepSize(value, oldValue) {
-        this.changeInputElKey('step', value);
+        this.changeInputElKey('step', value)
 
         // todo: adjust min & max value => see: form.field.Number
     }
@@ -188,7 +188,7 @@ class Time extends Picker {
         me.getTrigger('time').value = value;
 
         if (me.pickerIsMounted && !preventListSelect) {
-            me.selectCurrentListItem(true);
+            me.selectCurrentListItem(true)
         }
     }
 
@@ -206,10 +206,10 @@ class Time extends Picker {
                 minute: '2-digit',
                 second: this.stepSize < 60 ? '2-digit' : undefined,
                 hour12: false
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -222,11 +222,11 @@ class Time extends Picker {
     beforeSetMaxValue(value, oldValue) {
         if (value) {
             if (value.includes('24') || (value.startsWith('12') && value.includes('AM'))) {
-                return '23:59:00';
+                return '23:59:00'
             }
         }
 
-        return this.formatTime(value);
+        return this.formatTime(value)
     }
 
     /**
@@ -237,7 +237,7 @@ class Time extends Picker {
      * @returns {String}
      */
     beforeSetMinValue(value, oldValue) {
-        return this.formatTime(value);
+        return this.formatTime(value)
     }
 
     /**
@@ -248,7 +248,7 @@ class Time extends Picker {
      * @returns {String}
      */
     beforeSetValue(value, oldValue) {
-        return this.formatTime(value);
+        return this.formatTime(value)
     }
 
     /**
@@ -276,17 +276,17 @@ class Time extends Picker {
                 value: dt.format(currentDate)
             });
 
-            currentDate.setSeconds(currentDate.getSeconds() + me.stepSize);
+            currentDate.setSeconds(currentDate.getSeconds() + me.stepSize)
         }
 
-        return listItems;
+        return listItems
     }
 
     /**
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
-        return this.list;
+        return this.list
     }
 
     /**
@@ -312,10 +312,10 @@ class Time extends Picker {
      */
     formatTime(value) {
         if (value) {
-            return this.valueFormat.format(new Date(`November 23, 2019  ${value}`));
+            return this.valueFormat.format(new Date(`November 23, 2019  ${value}`))
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -323,7 +323,7 @@ class Time extends Picker {
      * @protected
      */
     onContainerKeyDownEnter(data) {
-        this.hidePicker();
+        this.hidePicker()
     }
 
     /**
@@ -331,7 +331,7 @@ class Time extends Picker {
      * @protected
      */
     onContainerKeyDownEscape(data) {
-        this.focusInputEl(this.hidePicker);
+        this.focusInputEl(this.hidePicker)
     }
 
     /**
@@ -343,9 +343,9 @@ class Time extends Picker {
 
         if (me.pickerIsMounted) {
             super.onKeyDownEnter(data);
-            me.selectCurrentListItem();
+            me.selectCurrentListItem()
         } else {
-            super.onKeyDownEnter(data, me.selectCurrentListItem);
+            super.onKeyDownEnter(data, me.selectCurrentListItem)
         }
     }
 
@@ -355,13 +355,13 @@ class Time extends Picker {
     onListItemClick(record) {
         let me       = this,
             oldValue = me.value,
-            value    = record.value;
+            {value}  = record;
 
         if (me.value !== value) {
             value = me.formatTime(value);
 
             me._value = value;
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting selected / focused
+            me.afterSetValue(value, oldValue, true) // prevent the list from getting selected / focused
         }
     }
 
@@ -369,7 +369,7 @@ class Time extends Picker {
      * @param {Object} record
      */
     onListItemNavigate(record) {
-        this.onListItemClick(record);
+        this.onListItemClick(record)
     }
 
     /**
@@ -380,7 +380,7 @@ class Time extends Picker {
 
         me.collection.clear();
         me.collection.add(me.createCollectionItems());
-        me.list.createItems();
+        me.list.createItems()
     }
 
     /**
@@ -392,19 +392,19 @@ class Time extends Picker {
         let me = this;
 
         if (value && me.clearToOriginalValue) {
-            me.originalConfig.value = me.formatTime(value);
+            me.originalConfig.value = me.formatTime(value)
         }
 
-        me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
+        me.value = me.clearToOriginalValue ? me.originalConfig.value : null
     }
 
     /**
      * @param {Boolean} [preventFocus=false]
      */
     selectCurrentListItem(preventFocus=false) {
-        let me   = this,
-            list = me.list,
-            id   = list.getItemId(me.value);
+        let me     = this,
+            {list} = me,
+            id     = list.getItemId(me.value);
 
         list.selectionModel.select(id);
 

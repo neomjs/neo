@@ -19,7 +19,7 @@ class MainContainer extends ConfigurationViewport {
 
     onPluginConfigChange(config, opts) {
         const textfield = this.exampleComponent.items[0],
-              plugin    = textfield.getPlugin({flag: 'prefix'});
+              plugin    = textfield.getPlugin('prefixfield');
 
         if (config === 'accept') {
             plugin.accept = opts.record.value;
@@ -88,7 +88,6 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        flag   : 'prefix',
                         pattern: '+1 (___) ___-___-____',
                         slots  : '_'
                     }
@@ -99,7 +98,6 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        flag   : 'prefix',
                         pattern: 'dd/mm/yyyy hh:mm',
                         slots  : 'dmyh'
                     }
@@ -110,7 +108,6 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        flag   : 'prefix',
                         pattern: 'XX:XX:XX:XX:XX:XX',
                         slots  : 'X',
                         accept : '[A-H]'
@@ -122,7 +119,6 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        flag   : 'prefix',
                         pattern: '__-__-__-____',
                         slots  : '_',
                         accept : /\w/
@@ -134,7 +130,6 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        flag   : 'prefix',
                         pattern: '.... .... .... ....',
                         slots  : '.',
                         accept : /\d/

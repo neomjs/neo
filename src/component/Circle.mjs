@@ -138,14 +138,15 @@ class Circle extends Component {
             cls : ['neo-circle', 'neo-circle-back']
         });
 
-        let me = this;
+        let me              = this,
+            {resourcesPath} = Neo.config;
 
         if (!me.backsideIconPath) {
-            me.backsideIconPath = Neo.config.resourcesPath + 'images/circle/';
+            me.backsideIconPath = resourcesPath + 'images/circle/'
         }
 
         if (!me.itemImagePath) {
-            me.itemImagePath = Neo.config.resourcesPath + 'examples/';
+            me.itemImagePath = resourcesPath + 'examples/'
         }
 
         me.addDomListeners([{
@@ -182,7 +183,7 @@ class Circle extends Component {
         me.updateOuterCircle(true);
         me.updateTitle(true);
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -205,9 +206,9 @@ class Circle extends Component {
                 );
 
                 me.addDomListeners(domListeners);
-                me.dragListenersAdded = true;
+                me.dragListenersAdded = true
             }
-        });
+        })
     }
 
     /**
@@ -222,7 +223,7 @@ class Circle extends Component {
 
             me.updateItemPositions(true);
             me.updateInnerCircle(true);
-            me.updateOuterCircle(false);
+            me.updateOuterCircle(false)
         }
     }
 
@@ -245,12 +246,12 @@ class Circle extends Component {
 
                     setTimeout(() => {
                         frontEl.cn.splice(value + 2);
-                        me.update();
+                        me.update()
                     }, 300);
                 }
 
                 me.updateItemPositions(true);
-                me.update();
+                me.update()
             } else {
                 me.createItems(oldValue, true);
                 me.updateItemPositions(true);
@@ -258,9 +259,9 @@ class Circle extends Component {
                 me.promiseUpdate().then(() => {
                     if (!me.collapsed) {
                         me.updateItemOpacity(1, true, oldValue);
-                        me.update();
+                        me.update()
                     }
-                });
+                })
             }
         }
     }
@@ -276,7 +277,7 @@ class Circle extends Component {
 
         if (oldValue && me.rendered) {
             !me.collapsed && me.updateOuterCircle(true);
-            me.updateItemPositions();
+            me.updateItemPositions()
         }
     }
 
@@ -287,7 +288,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateX(value, oldValue) {
-        oldValue && this.rendered && this.rotate();
+        oldValue && this.rendered && this.rotate()
     }
 
     /**
@@ -297,7 +298,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateY(value, oldValue) {
-        oldValue && this.rendered && this.rotate();
+        oldValue && this.rendered && this.rotate()
     }
 
     /**
@@ -307,7 +308,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateZ(value, oldValue) {
-        oldValue && this.rendered && this.rotate();
+        oldValue && this.rendered && this.rotate()
     }
 
     /**
@@ -318,7 +319,7 @@ class Circle extends Component {
      */
     afterSetRotationIndex(value, oldValue) {
         if (Neo.isNumber(oldValue)) {
-            console.log('afterSetRotationIndex', value);
+            console.log('afterSetRotationIndex', value)
         }
     }
 
@@ -339,7 +340,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        oldValue && this.updateTitle();
+        oldValue && this.updateTitle()
     }
 
     /**
@@ -351,20 +352,20 @@ class Circle extends Component {
     beforeSetSelectionModel(value, oldValue) {
         oldValue && oldValue.destroy();
 
-        return ClassSystemUtil.beforeSetInstance(value, CircleModel);
+        return ClassSystemUtil.beforeSetInstance(value, CircleModel)
     }
 
     /**
      * @returns {Object[]}
      */
     calculateItemPositions() {
-        let me        = this,
-            angle     = 360 / me.maxItems,
-            circlePos = [],
-            itemSize  = me.itemSize,
-            radius    = me.innerRadius + itemSize / 2 + 4,
-            i         = 0,
-            len       = me.maxItems,
+        let me         = this,
+            angle      = 360 / me.maxItems,
+            circlePos  = [],
+            {itemSize} = me,
+            radius     = me.innerRadius + itemSize / 2 + 4,
+            i          = 0,
+            len        = me.maxItems,
             nr;
 
         for (; i < len; i++) {
@@ -373,10 +374,10 @@ class Circle extends Component {
             circlePos.push({
                 left: -Math.round(radius * Math.sin(nr)) - itemSize / 2,
                 top :  Math.round(radius * Math.cos(nr)) - itemSize / 2
-            });
+            })
         }
 
-        return circlePos;
+        return circlePos
     }
 
     /**
@@ -407,7 +408,7 @@ class Circle extends Component {
         style.height = me.itemSize + 'px';
         style.width  = me.itemSize + 'px';
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -419,8 +420,7 @@ class Circle extends Component {
             itemCls    = ['neo-flip', 'neo-pencil', 'neo-trash'],
             itemFile   = ['flip.png', 'pencil.png', 'trash.png'],
             countItems = 3,
-            i          = 0,
-            vdom       = me.vdom;
+            i          = 0;
 
         backEl.cn.push(
             {cls: ['neo-count-items']},
@@ -432,10 +432,10 @@ class Circle extends Component {
                 tag: 'img',
                 cls: ['neo-backside-icon', itemCls[i]],
                 src: me.backsideIconPath + itemFile[i]
-            });
+            })
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -447,10 +447,9 @@ class Circle extends Component {
             frontEl       = me.getFrontEl(),
             itemCls       = ['neo-circle-item'],
             itemPositions = me.calculateItemPositions(),
-            itemSize      = me.itemSize,
+            {itemSize}    = me,
             countItems    = Math.min(me.store.getCount(), me.maxItems),
-            i             = startIndex,
-            vdom          = me.vdom;
+            i             = startIndex;
 
         me.draggable && itemCls.push('neo-draggable');
 
@@ -474,10 +473,10 @@ class Circle extends Component {
                         width : itemSize + 'px'
                     }
                 }]
-            });
+            })
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -489,7 +488,7 @@ class Circle extends Component {
         if (me.collapsed) {
             me.collapsed = false;
             me.updateOuterCircle(true);
-            me.updateItemOpacity(1, false);
+            me.updateItemOpacity(1, false)
         }
     }
 
@@ -508,7 +507,7 @@ class Circle extends Component {
             zIndex    : 40
         };
 
-        me.update();
+        me.update()
     }
 
     flipCircle() {
@@ -517,28 +516,28 @@ class Circle extends Component {
         NeoArray[me.isFlipped ? 'remove': 'add'](me.vdom.cn[0].cls, 'neo-flipped');
 
         me.isFlipped = !me.isFlipped;
-        me.update();
+        me.update()
     }
 
     /**
      *
      */
     getBackEl() {
-        return this.vdom.cn[0].cn[1];
+        return this.vdom.cn[0].cn[1]
     }
 
     /**
      *
      */
     getFrontEl() {
-        return this.vdom.cn[0].cn[0];
+        return this.vdom.cn[0].cn[0]
     }
 
     /**
      *
      */
     getInnerCircle() {
-        return this.vdom.cn[0].cn[0].cn[0];
+        return this.vdom.cn[0].cn[0].cn[0]
     }
 
     /**
@@ -548,7 +547,7 @@ class Circle extends Component {
     getItemEl(itemId) {
         let item = VDomUtil.findVdomChild(this.getFrontEl(), itemId);
 
-        return item?.vdom;
+        return item?.vdom
     }
 
     /**
@@ -556,9 +555,9 @@ class Circle extends Component {
      * @returns {String}
      */
     getItemId(index) {
-        let store = this.store;
+        let {store} = this;
 
-        return this.id + '__' + store.getAt(index)[store.keyProperty];
+        return this.id + '__' + store.getAt(index)[store.keyProperty]
     }
 
     /**
@@ -571,17 +570,17 @@ class Circle extends Component {
             keyField = model?.getField(model.keyProperty);
 
         if (keyField?.type.toLowerCase() === 'number') {
-            itemId = parseInt(itemId);
+            itemId = parseInt(itemId)
         }
 
-        return itemId;
+        return itemId
     }
 
     /**
      *
      */
     getOuterCircle() {
-        return this.vdom.cn[0].cn[0].cn[1];
+        return this.vdom.cn[0].cn[0].cn[1]
     }
 
     /**
@@ -599,10 +598,10 @@ class Circle extends Component {
 
             setTimeout(() => {
                 me.updateTitle();
-                me.createItems();
-            }, 100);
+                me.createItems()
+            }, 100)
         }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
+            console.log('Error for Neo.Xhr.request', err, me.id)
         });
     }
 
@@ -613,9 +612,9 @@ class Circle extends Component {
         let me  = this,
             cls = data.path[0].cls;
 
-             if (cls.includes('neo-flip'))   {me.flipCircle();}
-        else if (cls.includes('neo-pencil')) {console.log('edit circle');}
-        else if (cls.includes('neo-trash'))  {console.log('delete circle');}
+             if (cls.includes('neo-flip'))   {me.flipCircle()}
+        else if (cls.includes('neo-pencil')) {console.log('edit circle')}
+        else if (cls.includes('neo-trash'))  {console.log('delete circle')}
     }
 
     /**
@@ -627,28 +626,28 @@ class Circle extends Component {
         let me = this;
 
         me.selectionModel?.register(me);
-        me.loadData();
+        me.loadData()
     }
 
     /**
      * @param {Object} data
      */
     onContextMenu(data) {
-        this.flipCircle();
+        this.flipCircle()
     }
 
     /**
      * @param data
      */
     onDragEnd(data) {
-        console.log('onDragEnd', data);
+        console.log('onDragEnd', data)
     }
 
     /**
      * @param data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
+        console.log('onDragStart', data)
 
         let me           = this,
             wrapperStyle = me.wrapperStyle || {};
@@ -665,14 +664,14 @@ class Circle extends Component {
                 owner          : me,
                 useProxyWrapper: false,
                 ...me.dragZoneConfig
-            });
+            })
         }
 
         me.dragZone.dragStart(data);
 
         wrapperStyle.opacity = 0.7;
 
-        me.wrapperStyle = wrapperStyle;
+        me.wrapperStyle = wrapperStyle
     }
 
     /**
@@ -686,20 +685,20 @@ class Circle extends Component {
             rotateZ   = me.rotateZ;
 
         if (deltaY >  1 || deltaY < -1) {
-            rotateZ += deltaY;
+            rotateZ += deltaY
         }
 
         if (rotateZ < 0) {
             rotateZ = 0;
         } else if (rotateZ > maxAngle) {
-            rotateZ = maxAngle;
+            rotateZ = maxAngle
         }
 
         if (!(me.rotateZ === 0 && rotateZ === 0) && !(me.rotateZ === maxAngle && rotateZ === maxAngle)) {
             me.rotateZ       = rotateZ;
             me.rotationIndex = Math.floor(rotateZ / itemAngle);
 
-            me.rotate();
+            me.rotate()
         }
     }
 
@@ -723,12 +722,12 @@ class Circle extends Component {
             me.promiseUpdate().then(() => {
                 me.updateItemAngle(true);
                 circleCenterEl.style.transform = transform;
-                me.update();
-            });
+                me.update()
+            })
         } else {
             me.updateItemAngle(true);
             circleCenterEl.style.transform = transform;
-            me.update();
+            me.update()
         }
     }
 
@@ -736,11 +735,10 @@ class Circle extends Component {
      * @param {Boolean} silent=false
      */
     updateInnerCircle(silent=false) {
-        let me           = this,
-            innerCircle  = me.getInnerCircle(),
-            innerRadius  = me.innerRadius,
-            innerSize    = innerRadius * 2,
-            vdom         = me.vdom;
+        let me            = this,
+            innerCircle   = me.getInnerCircle(),
+            {innerRadius} = me,
+            innerSize     = innerRadius * 2;
 
         Object.assign(innerCircle.style, {
             height: innerSize + 'px',
@@ -749,7 +747,7 @@ class Circle extends Component {
             width : innerSize + 'px'
         });
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -758,15 +756,14 @@ class Circle extends Component {
     updateItemAngle(silent=false) {
         let me      = this,
             frontEl = me.getFrontEl(),
-            vdom    = me.vdom,
             i       = 2,
             len     = frontEl.cn.length;
 
         for (; i < len; i++) {
-            frontEl.cn[i].style.transform = 'rotateZ(' + (-me.rotateZ) + 'deg)';
+            frontEl.cn[i].style.transform = 'rotateZ(' + (-me.rotateZ) + 'deg)'
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -778,14 +775,13 @@ class Circle extends Component {
         let me      = this,
             i       = startIndex + 2,
             frontEl = me.getFrontEl(),
-            len     = frontEl.cn.length,
-            vdom    = me.vdom;
+            len     = frontEl.cn.length;
 
         for (; i < len; i++) {
             frontEl.cn[i].style.opacity = value;
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -795,8 +791,7 @@ class Circle extends Component {
         let me            = this,
             frontEl       = me.getFrontEl(),
             itemPositions = me.calculateItemPositions(),
-            itemSize      = me.itemSize,
-            vdom          = me.vdom,
+            {itemSize}    = me,
             i             = 2,
             len           = Math.min(frontEl.cn.length, itemPositions.length + 2);
 
@@ -811,10 +806,10 @@ class Circle extends Component {
             Object.assign(frontEl.cn[i].cn[0].style, {
                 height: itemSize + 'px',
                 width : itemSize + 'px'
-            });
+            })
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -822,11 +817,10 @@ class Circle extends Component {
      */
     updateOuterCircle(silent=false) {
         let me           = this,
-            itemSize = me.itemSize,
+            {itemSize}   = me,
             outerCircle  = me.getOuterCircle(),
             outerRadius  = me.innerRadius + me.outerRadiusDelta,
             outerSize    = me.collapsed ? outerRadius * 2 : (outerRadius + itemSize) * 2,
-            vdom         = me.vdom,
             opts;
 
         if (me.collapsed) {
@@ -835,19 +829,19 @@ class Circle extends Component {
                 left  : '-' + outerRadius + 'px',
                 top   : '-' + outerRadius + 'px',
                 width : outerSize + 'px'
-            };
+            }
         } else {
             opts = {
                 height: outerSize + 'px',
                 left  : '-' + (outerRadius + itemSize) + 'px',
                 top   : '-' + (outerRadius + itemSize) + 'px',
                 width : outerSize + 'px'
-            };
+            }
         }
 
         Object.assign(outerCircle.style, opts);
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 
     /**
@@ -855,13 +849,12 @@ class Circle extends Component {
      */
     updateTitle(silent=false) {
         let me          = this,
-            innerCircle = me.getInnerCircle(),
-            vdom        = me.vdom;
+            innerCircle = me.getInnerCircle();
 
         innerCircle.cn[0].html = me.store?.getCount() || 0;
         innerCircle.cn[1].html = me.title;
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        !silent && me.update()
     }
 }
 

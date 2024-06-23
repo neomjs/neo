@@ -91,7 +91,7 @@ class ServiceBase extends Base {
         });
 
         Neo.currentWorker = me;
-        Neo.workerId      = me.workerId;
+        Neo.workerId      = me.workerId
     }
 
     /**
@@ -128,7 +128,7 @@ class ServiceBase extends Base {
             clientId   : client.id,
             destination: 'app',
             port       : port1
-        });
+        })
     }
 
     /**
@@ -140,11 +140,11 @@ class ServiceBase extends Base {
     getPort(destination, clientId=this.lastClient?.id) {
         for (let port of this.channelPorts) {
             if (clientId === port.clientId && destination === port.destination) {
-                return port.port;
+                return port.port
             }
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -156,7 +156,7 @@ class ServiceBase extends Base {
 
         if (lastClientId && !me.remotes.includes(lastClientId)) {
             me.remotes.push(lastClientId);
-            super.initRemote();
+            super.initRemote()
         }
     }
 
@@ -164,7 +164,7 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onActivate(event) {
-        console.log('onActivate', event);
+        console.log('onActivate', event)
     }
 
     /**
@@ -174,21 +174,21 @@ class ServiceBase extends Base {
         console.log('onConnect', source);
 
         this.createMessageChannel(source);
-        this.initRemote();
+        this.initRemote()
     }
 
     /**
      * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
-        let hasMatch = false,
-            request  = event.request,
+        let hasMatch   = false,
+            {request}  = event,
             key;
 
         for (key of this.cachePaths) {
             if (request.url.includes(key)) {
                 hasMatch = true;
-                break;
+                break
             }
         }
 
@@ -199,7 +199,7 @@ class ServiceBase extends Base {
                 .then(response       => cache.put(request, response.clone())
                 .then(()             => response)
             )))
-        );
+        )
     }
 
     /**
@@ -207,7 +207,7 @@ class ServiceBase extends Base {
      */
     onInstall(event) {
         console.log('onInstall', event);
-        globalThis.skipWaiting();
+        globalThis.skipWaiting()
     }
 
     /**
@@ -216,25 +216,24 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent|MessageEvent} event
      */
     onMessage(event) {
-        let me      = this,
-            data    = event.data,
-            action  = data.action,
-            replyId = data.replyId,
+        let me                = this,
+            {data}            = event,
+            {action, replyId} = data,
             promise;
 
         if (event.source) { // ExtendableMessageEvent
-            me.lastClient = event.source;
+            me.lastClient = event.source
         }
 
         if (!action) {
-            throw new Error('Message action is missing: ' + data.id);
+            throw new Error('Message action is missing: ' + data.id)
         }
 
         if (action !== 'reply') {
             me['on' + Neo.capitalize(action)](data, event);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             promise[data.reject ? 'reject' : 'resolve'](data.data);
-            delete me.promises[replyId];
+            delete me.promises[replyId]
         }
     }
 
@@ -243,7 +242,7 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onPing(msg, event) {
-        this.resolve(msg, {originMsg: msg});
+        this.resolve(msg, {originMsg: msg})
     }
 
     /**
@@ -260,7 +259,7 @@ class ServiceBase extends Base {
             await me.clearCaches()
         }
 
-        me.onConnect(event.source);
+        me.onConnect(event.source)
     }
 
     /**
@@ -271,7 +270,7 @@ class ServiceBase extends Base {
         for (let [index, value] of this.channelPorts.entries()) {
             if (value.clientId === event.source.id) {
                 this.channelPorts.splice(index, 1);
-                break;
+                break
             }
         }
     }
@@ -285,12 +284,12 @@ class ServiceBase extends Base {
     async preloadAssets(data) {
         let cacheName = data.cacheName || this.cacheName,
             cache     = await caches.open(cacheName),
-            files     = data.files,
+            {files}   = data,
             items     = [],
             asset, hasMatch, item;
 
         if (!Array.isArray(files)) {
-            files = [files];
+            files = [files]
         }
 
         for (item of files) {
@@ -298,17 +297,17 @@ class ServiceBase extends Base {
 
             if (!data.forceReload) {
                 asset    = await cache.match(item);
-                hasMatch = !!asset;
+                hasMatch = !!asset
             }
 
-            !hasMatch && items.push(item);
+            !hasMatch && items.push(item)
         }
 
         if (items.length > 0) {
-            await cache.addAll(items);
+            await cache.addAll(items)
         }
 
-        return {success: true};
+        return {success: true}
     }
 
     /**
@@ -326,8 +325,8 @@ class ServiceBase extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = {reject, resolve};
-        });
+            me.promises[msgId] = {reject, resolve}
+        })
     }
 
     /**
@@ -344,28 +343,25 @@ class ServiceBase extends Base {
      */
     async removeAssets(data) {
         if (!Neo.isObject(data)) {
-            data = {
-                assets: data
-            };
+            data = {assets: data}
         }
 
-        let assets    = data.assets,
-            cacheName = data.cacheName || this.cacheName,
-            options   = data.options || {},
-            cache     = await caches.open(cacheName),
-            promises  = [];
+        let {assets, options={}} = data,
+            cacheName              = data.cacheName || this.cacheName,
+            cache                  = await caches.open(cacheName),
+            promises               = [];
 
         if (!Array.isArray(assets)) {
-            assets = [assets];
+            assets = [assets]
         }
 
         assets.forEach(asset => {
-            promises.push(cache.delete(asset, options));
+            promises.push(cache.delete(asset, options))
         });
 
         await Promise.all(promises);
 
-        return {success: true};
+        return {success: true}
     }
 
     /**
@@ -384,7 +380,7 @@ class ServiceBase extends Base {
             port    = this.getPort(dest) || this.lastClient;
 
         port.postMessage(message, transfer);
-        return message;
+        return message
     }
 }
 

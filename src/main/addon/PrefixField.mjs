@@ -1,8 +1,7 @@
 import Base from './Base.mjs';
 
 /**
- * Helper class to include Google's Material Web Components into your neo.mjs app
- * https://www.amcharts.com/docs/v4/
+ * Experimental
  * @class Neo.main.addon.PrefixField
  * @extends Neo.main.addon.Base
  */

@@ -88,35 +88,35 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             valueLabelText: 'end'
-        }]);
+        }])
     }
 
     /**
      * @returns {Neo.calendar.view.TimeAxisComponent}
      */
     getTimeAxis() {
-        return this.getWeekComponent().timeAxis;
+        return this.getWeekComponent().timeAxis
     }
 
     /**
      * @returns {Neo.calendar.view.Component}
      */
     getWeekComponent() {
-        return this.up('calendar-maincontainer').weekComponent;
+        return this.up('calendar-maincontainer').weekComponent
     }
 
     /**
      * @param {Object} data
      */
     onConfigChange(data) {
-        this.getWeekComponent()[data.component.name] = data.value;
+        this.getWeekComponent()[data.component.name] = data.value
     }
 
     /**
      * @param {Object} data
      */
     onTimeAxisConfigChange(data) {
-        this.getTimeAxis()[data.component.name] = data.value;
+        this.getTimeAxis()[data.component.name] = data.value
     }
 
     /**
@@ -124,7 +124,7 @@ class WeekContainer extends Container {
      */
     onTimeAxisPositionChange(data) {
         if (data.value) {
-            this.getWeekComponent().timeAxisPosition = data.component.fieldValue;
+            this.getWeekComponent().timeAxisPosition = data.component.fieldValue
         }
     }
 }

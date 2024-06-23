@@ -43,8 +43,8 @@ class Component extends Base {
     construct(config) {
         super.construct(config);
 
-        let me        = this,
-            component = me.component,
+        let me          = this,
+            {component} = me,
             listenerId;
 
         me.references = {};
@@ -55,7 +55,7 @@ class Component extends Base {
             listenerId = component.on('constructed', () => {
                 component.un('constructed', listenerId);
                 me.onComponentConstructed()
-            });
+            })
         }
     }
 
@@ -75,8 +75,8 @@ class Component extends Base {
      * @returns {Neo.controller.Component|Boolean|null}
      */
     getHandlerScope(handlerName, component) {
-        let me     = this,
-            parent = me.parent;
+        let me       = this,
+            {parent} = me;
 
         if (component) {
             // Look for ths function *name* first in the Component itself.
@@ -101,7 +101,7 @@ class Component extends Base {
      * @param {Boolean} [sameLevelOnly=false]
      */
     getModel(sameLevelOnly=false) {
-        let component = this.component;
+        let {component} = this;
         return sameLevelOnly ? component.model : component.getModel()
     }
 
@@ -110,10 +110,11 @@ class Component extends Base {
      * @returns {Neo.controller.Component|null}
      */
     getParent() {
-        let me = this;
+        let me       = this,
+            {parent} = me;
 
-        if (me.parent) {
-            return me.parent;
+        if (parent) {
+            return parent;
         }
 
         return me.component.parent?.getController() || null
@@ -158,11 +159,8 @@ class Component extends Base {
      * @param {Neo.component.Base} component=this.component
      */
     parseConfig(component=this.component) {
-        let me        = this,
-            handler   = component.handler,
-            listeners = component.listeners,
-            reference = component.reference,
-            validator = component.validator,
+        let me = this,
+            {handler, listeners, reference, validator} = component,
             eventHandler, handlerScope;
 
         if (handler && typeof handler === 'string') {
@@ -174,36 +172,34 @@ class Component extends Base {
             }
         }
 
-        if (listeners) {
-            Object.entries(listeners).forEach(([key, value]) => {
-                if (key !== 'scope' && key !== 'delegate') {
-                    if (Neo.isString(value)) {
-                        eventHandler = value;
-                        handlerScope = me.getHandlerScope(eventHandler, component);
+        listeners && Object.entries(listeners).forEach(([key, value]) => {
+            if (key !== 'scope' && key !== 'delegate') {
+                if (Neo.isString(value)) {
+                    eventHandler = value;
+                    handlerScope = me.getHandlerScope(eventHandler, component);
 
-                        if (!handlerScope) {
-                            Logger.logError('Unknown event handler for', eventHandler, component)
-                        } else if (handlerScope !== true) {
-                            listeners[key] = {};
-                            listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
-                        }
-                    } else {
-                        value.forEach(listener => {
-                            if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
-                                eventHandler = listener.fn;
-                                handlerScope = me.getHandlerScope(eventHandler, component);
-
-                                if (!handlerScope) {
-                                    console.error('Unknown event handler for', eventHandler, component)
-                                } else if (handlerScope !== true) {
-                                    listener.fn = handlerScope[eventHandler].bind(handlerScope)
-                                }
-                            }
-                        });
+                    if (!handlerScope) {
+                        Logger.logError('Unknown event handler for', eventHandler, component)
+                    } else if (handlerScope !== true) {
+                        listeners[key] = {};
+                        listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
                     }
+                } else {
+                    value.forEach(listener => {
+                        if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
+                            eventHandler = listener.fn;
+                            handlerScope = me.getHandlerScope(eventHandler, component);
+
+                            if (!handlerScope) {
+                                console.error('Unknown event handler for', eventHandler, component)
+                            } else if (handlerScope !== true) {
+                                listener.fn = handlerScope[eventHandler].bind(handlerScope)
+                            }
+                        }
+                    })
                 }
-            });
-        }
+            }
+        });
 
         if (Neo.isString(validator)) {
             handlerScope = me.getHandlerScope(validator);
@@ -224,35 +220,33 @@ class Component extends Base {
      * @param {Neo.component.Base} component=this.component
      */
     parseDomListeners(component=this.component) {
-        let me           = this,
-            domListeners = component.domListeners,
+        let me             = this,
+            {domListeners} = component,
             eventHandler, scope;
 
-        if (domListeners) {
-            domListeners.forEach(domListener => {
-                Object.entries(domListener).forEach(([key, value]) => {
-                    eventHandler = null;
+        domListeners?.forEach(domListener => {
+            Object.entries(domListener).forEach(([key, value]) => {
+                eventHandler = null;
 
-                    if (key !== 'scope' && key !== 'delegate') {
-                        if (Neo.isString(value)) {
-                            eventHandler = value;
-                        } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
-                            eventHandler = value.fn;
-                        }
+                if (key !== 'scope' && key !== 'delegate') {
+                    if (Neo.isString(value)) {
+                        eventHandler = value;
+                    } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
+                        eventHandler = value.fn;
+                    }
 
-                        if (eventHandler) {
-                            scope = me.getHandlerScope(eventHandler);
+                    if (eventHandler) {
+                        scope = me.getHandlerScope(eventHandler);
 
-                            if (!scope) {
-                                Logger.logError('Unknown domEvent handler for', eventHandler, component)
-                            } else {
-                                domListener[key] = scope[eventHandler].bind(scope)
-                            }
+                        if (!scope) {
+                            Logger.logError('Unknown domEvent handler for', eventHandler, component)
+                        } else {
+                            domListener[key] = scope[eventHandler].bind(scope)
                         }
                     }
-                })
+                }
             })
-        }
+        })
     }
 
     /**
@@ -260,14 +254,14 @@ class Component extends Base {
      * @param {Neo.component.Base} component
      */
     removeReference(component) {
-        let me = this,
-            references = me.references,
+        let me           = this,
+            {references} = me,
             key;
 
         for (key in references) {
             if (component === references[key]) {
                 delete references[key];
-                break;
+                break
             }
         }
 

@@ -34,7 +34,7 @@ class KeyNavigation extends Base {
     }
 
     add(value) {
-        this._keys.push(...this.parseKeys(value));
+        this._keys.push(...this.parseKeys(value))
     }
 
     /**
@@ -42,7 +42,7 @@ class KeyNavigation extends Base {
      * @returns {Neo.component.Base}
      */
     beforeGetComponent() {
-        return Neo.getComponent(this._component);
+        return Neo.getComponent(this._component)
     }
 
     /**
@@ -51,7 +51,7 @@ class KeyNavigation extends Base {
      * @returns {String} the component id
      */
     beforeSetComponent(value) {
-        return value?.id;
+        return value?.id
     }
 
     /**
@@ -59,7 +59,7 @@ class KeyNavigation extends Base {
      */
     destroy() {
         this.unregister();
-        super.destroy();
+        super.destroy()
     }
 
     /**
@@ -78,9 +78,9 @@ class KeyNavigation extends Base {
                 scope = Neo.get(key.scope);
 
                 if (key.key.toUpperCase() === upperCaseKey) {
-                    scope[key.fn]?.apply(scope, [data]);
+                    scope[key.fn]?.apply(scope, [data])
                 }
-            });
+            })
         }
     }
 
@@ -102,11 +102,11 @@ class KeyNavigation extends Base {
                     })
                 });
 
-                value = keyArray;
+                value = keyArray
             }
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -119,22 +119,22 @@ class KeyNavigation extends Base {
         switch (key) {
             case ' ':
                 key = 'SPACE';
-                break;
+                break
             case 'ARROWDOWN':
                 key = 'DOWN';
-                break;
+                break
             case 'ARROWLEFT':
                 key = 'LEFT';
-                break;
+                break
             case 'ARROWRIGHT':
                 key = 'RIGHT';
-                break;
+                break
             case 'ARROWUP':
                 key = 'UP';
-                break;
+                break
         }
 
-        return key;
+        return key
     }
 
     /**
@@ -152,7 +152,7 @@ class KeyNavigation extends Base {
                 fn    : me.onKeyDown,
                 scope : me
             }
-        });
+        })
     }
 
     /**
@@ -171,7 +171,7 @@ class KeyNavigation extends Base {
 
             if (Neo.isEqual(key, config)) {
                 NeoArray.remove(keys, key);
-                break;
+                break
             }
         }
     }
@@ -181,7 +181,7 @@ class KeyNavigation extends Base {
      * @param {Array} items
      */
     removeKeys(items) {
-        Array.isArray(items) && items.forEach(item => this.removeKey(item));
+        Array.isArray(items) && items.forEach(item => this.removeKey(item))
     }
 
     /**

@@ -25,18 +25,18 @@ class TreeAccordionModel extends TreeModel {
      * @returns {Object|null}
      */
     checkForChild(record) {
-        const view     = this.view,
-              recordId = record[view.getKeyProperty()];
-        let childRecord = null;
+        let {view}      = this,
+            recordId    = record[view.getKeyProperty()],
+            childRecord = null;
 
         for (const item of view.store.items) {
             if (item.parentId === recordId) {
                 childRecord = item;
-                break;
+                break
             }
         }
 
-        return childRecord;
+        return childRecord
     }
 
     /**
@@ -44,14 +44,8 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} record
      * @returns {Object|null}
      */
-    checkForParent(record) {
-        if (record.parentId) {
-            const view = this.view;
-
-            return view.store.get(record.parentId);
-        } else {
-            return null;
-        }
+    checkForParent({parentId}) {
+        return parentId ? this.view.store.get(parentId) : null
     }
 
     /**
@@ -64,31 +58,31 @@ class TreeAccordionModel extends TreeModel {
      * @returns {Object|null}
      */
     checkForSibling(record, step) {
-        const view           = this.view,
-              store          = view.store,
-              parentRecordId = record.parentId,
-              recordId       = record[view.getKeyProperty()];
-        let hasFoundNext   = false,
+        let {view}         = this,
+            {store}        = view,
+            parentRecordId = record.parentId,
+            recordId       = record[view.getKeyProperty()],
+            hasFoundNext   = false,
             nextItemRecord = null,
             previousItemRecord;
 
         for (let item of store.items) {
             if (hasFoundNext && item.parentId === parentRecordId) {
                 nextItemRecord = item;
-                break;
+                break
             }
 
             if (!hasFoundNext && item.parentId === parentRecordId) {
                 if (!hasFoundNext && item[view.getKeyProperty()] === recordId) {
                     if (step === -1) break;
-                    hasFoundNext = true;
+                    hasFoundNext = true
                 } else {
-                    previousItemRecord = item;
+                    previousItemRecord = item
                 }
             }
         }
 
-        return step === 1 ? nextItemRecord : (previousItemRecord || store.get(parentRecordId));
+        return step === 1 ? nextItemRecord : (previousItemRecord || store.get(parentRecordId))
     }
 
     /**
@@ -97,12 +91,15 @@ class TreeAccordionModel extends TreeModel {
      * @returns {Object|null}
      */
     checkNextParentSibling(record) {
-        const parent = this.view.store.get(record.parentId);
-        let parentSibling = this.checkForSibling(parent, 1);
+        let me            = this,
+            parent        = me.view.store.get(record.parentId),
+            parentSibling = me.checkForSibling(parent, 1);
 
-        if (!parentSibling && parent.parentId) this.checkNextParentSibling(parent);
+        if (!parentSibling && parent.parentId) {
+            me.checkNextParentSibling(parent)
+        }
 
-        return parentSibling;
+        return parentSibling
     }
 
     /**
@@ -112,14 +109,14 @@ class TreeAccordionModel extends TreeModel {
      */
     onKeyDownEnter(data) {
         let me     = this,
-            view   = me.view,
+            {view} = me,
             itemId = me.getSelection()[0],
             record = view.store.get(view.getItemRecordId(itemId));
 
         if (record.isLeaf || record.collapsed) {
-            me.onKeyDownRight(data);
+            me.onKeyDownRight(data)
         } else {
-            me.onKeyDownLeft(data);
+            me.onKeyDownLeft(data)
         }
     }
 
@@ -129,9 +126,7 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} data
      */
     onKeyDownEscape(data) {
-        let me = this;
-
-        me.deselectAll();
+        this.deselectAll()
     }
 
     /**
@@ -139,21 +134,22 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        const me     = this,
-              view   = me.view,
-              itemId = me.getSelection()[0];
+        let me     = this,
+            {view} = me,
+            itemId = me.getSelection()[0],
+            record;
 
         if (!itemId) {
             me.selectRoot();
-            return;
+            return
         }
 
-        const record = view.store.get(view.getItemRecordId(itemId));
+        record = view.store.get(view.getItemRecordId(itemId));
 
         if (record.isLeaf || record.collapsed || !view.rootParentsAreCollapsible) {
-            me.onNavKey(data, -1);
+            me.onNavKey(data, -1)
         } else {
-            me.toggleCollapsed(record, itemId, true);
+            me.toggleCollapsed(record, itemId, true)
         }
     }
 
@@ -162,21 +158,22 @@ class TreeAccordionModel extends TreeModel {
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        const me     = this,
-              view   = me.view,
-              itemId = me.getSelection()[0];
+        let me     = this,
+            {view} = me,
+            itemId = me.getSelection()[0],
+            record;
 
         if (!itemId) {
             me.selectRoot();
-            return;
+            return
         }
 
-        const record = view.store.get(view.getItemRecordId(itemId));
+        record = view.store.get(view.getItemRecordId(itemId));
 
         if (record.isLeaf || !record.collapsed) {
-            me.onNavKey(data, 1);
+            me.onNavKey(data, 1)
         } else {
-            me.toggleCollapsed(record, itemId, false);
+            me.toggleCollapsed(record, itemId, false)
         }
     }
 
@@ -186,53 +183,53 @@ class TreeAccordionModel extends TreeModel {
      * @param {Number} step
      */
     onNavKey(data, step) {
-        const me   = this,
-              view = me.view,
-              item = me.getSelection()[0];
-        let newRecord;
+        let me     = this,
+            {view} = me,
+            item   = me.getSelection()[0],
+            newRecord, record, recordId;
 
         if (item) {
-            const recordId = view.getItemRecordId(item);
-            let record = view.store.get(recordId);
+            recordId = view.getItemRecordId(item);
+            record   = view.store.get(recordId);
 
             if (step === 1) {
                 if (!record.isLeaf && !record.collapsed) {
                     // find first child
-                    newRecord = this.checkForChild(record);
+                    newRecord = me.checkForChild(record)
                 } else {
                     // find next sibling
-                    newRecord = this.checkForSibling(record, step);
+                    newRecord = me.checkForSibling(record, step);
                     // no ==> loop through parent next siblings until no parent
                     if (!newRecord) {
-                        newRecord = this.checkNextParentSibling(record);
+                        newRecord = me.checkNextParentSibling(record)
                     }
                 }
                 // current item was the last item
                 if (!newRecord) {
                     me.deselectAll();
-                    view.fire('selectPostLastItem');
+                    view.fire('selectPostLastItem')
                 }
             } else if (step === -1) {
                 // check previous sibling
-                newRecord = this.checkForSibling(record, step);
+                newRecord = me.checkForSibling(record, step);
                 // no ==> get parent
                 if (!newRecord) {
-                    newRecord = this.checkForParent(record);
+                    newRecord = me.checkForParent(record)
                 }
                 // current item was the first item
                 if (!newRecord) {
                     me.deselectAll();
-                    view.fire('selectPreFirstItem');
+                    view.fire('selectPreFirstItem')
                 }
             }
         } else {
-            me.selectRoot();
+            me.selectRoot()
         }
 
         if (newRecord) {
             const itemId = view.getItemId(newRecord[me.view.getKeyProperty()]);
 
-            me.selectAndScrollIntoView(itemId);
+            me.selectAndScrollIntoView(itemId)
         }
     }
 
@@ -241,33 +238,31 @@ class TreeAccordionModel extends TreeModel {
      * @param {String} itemId
      */
     selectAndScrollIntoView(itemId) {
-        const me = this;
-
-        me.select(itemId);
+        this.select(itemId);
 
         Neo.main.DomAccess.scrollIntoView({
-            id   : itemId,
-            block: 'center'
-        });
+            id      : itemId,
+            block   : 'center',
+            windowId: this.view.windowId
+        })
     }
 
     /**
      * Select the root item of the tree
      */
     selectRoot() {
-        const me    = this,
-              view  = me.view,
-              store = view.store;
-        let rootItemId;
+        let {view}  = this,
+            {store} = view,
+            record, rootItemId;
 
-        for (let record of store.items) {
+        for (record of store.items) {
             if (!record.parentId) {
-                rootItemId = view.getItemId(record[me.view.getKeyProperty()]);
-                break;
+                rootItemId = view.getItemId(record[view.getKeyProperty()]);
+                break
             }
         }
 
-        me.selectAndScrollIntoView(rootItemId);
+        this.selectAndScrollIntoView(rootItemId)
     }
 
     /**
@@ -277,14 +272,13 @@ class TreeAccordionModel extends TreeModel {
      * @param {Boolean} collapse
      */
     toggleCollapsed(record, itemId, collapse) {
-        const me    = this,
-              item  = me.view.getVdomChild(itemId),
-              clsFn = collapse ? 'remove' : 'add';
+        let item  = this.view.getVdomChild(itemId),
+            clsFn = collapse ? 'remove' : 'add';
 
         NeoArray[clsFn](item.cls, 'neo-folder-open');
-        me.view.update();
+        this.view.update();
 
-        record.collapsed = collapse;
+        record.collapsed = collapse
     }
 }
 

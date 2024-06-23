@@ -19,7 +19,7 @@ class MonacoEditor extends Base {
         /**
          * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
          */
-        libraryBasePath: '../../node_modules/monaco-editor/min/vs',
+        libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -64,8 +64,8 @@ class MonacoEditor extends Base {
      * @param {Object} data
      */
     createInstance(data) {
-        let me = this,
-            id = data.id,
+        let me   = this,
+            {id} = data,
             editor;
 
         delete data.appName;
@@ -107,9 +107,9 @@ class MonacoEditor extends Base {
      *
      */
     async loadFiles() {
-        const path = this.libraryBasePath;
+        let path = this.libraryBasePath;
 
-        window.require = { paths: { vs: path } };
+        window.require = {paths: {vs: path}};
 
         await DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'});
         await DomAccess.loadScript(path + '/loader.js');

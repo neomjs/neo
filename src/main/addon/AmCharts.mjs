@@ -71,7 +71,7 @@ class AmCharts extends Base {
     construct(config) {
         super.construct(config);
 
-        this.insertAmChartsScripts();
+        this.insertAmChartsScripts()
     }
 
     /**
@@ -82,21 +82,21 @@ class AmCharts extends Base {
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {
-            const me = this;
+            let me = this;
 
             me.chartsToCreate.forEach(config => {
-                me.create(config);
+                me.create(config)
             });
 
             me.chartsToCreate = [];
 
             setTimeout(() => {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
-                    me.updateData(dataValue);
+                    me.updateData(dataValue)
                 });
 
-                me.dataMap = {};
-            }, 1000);
+                me.dataMap = {}
+            }, 1000)
         }
     }
 
@@ -108,12 +108,12 @@ class AmCharts extends Base {
      */
     callMethod(data) {
         if (this.hasChart(data.id)) {
-            const chart      = this.charts[data.id],
-                  pathArray  = data.path.split('.'),
-                  methodName = pathArray.pop(),
-                  scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
+            let chart      = this.charts[data.id],
+                pathArray  = data.path.split('.'),
+                methodName = pathArray.pop(),
+                scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
 
-            scope[methodName].call(scope, ...data.params || []);
+            scope[methodName].call(scope, ...data.params || [])
         } else {
             // todo
         }
@@ -128,12 +128,12 @@ class AmCharts extends Base {
                 let text = "[bold]{dateX}[/]\n";
 
                 chart.series.each(item => {
-                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n"
                 });
 
-                return text;
-            });
-        });
+                return text
+            })
+        })
     }
 
     /**
@@ -147,10 +147,10 @@ class AmCharts extends Base {
      * @param {String}  data.type='XYChart'
      */
     create(data) {
-        const me = this;
+        let me = this;
 
         if (!me.scriptsLoaded) {
-            me.chartsToCreate.push(data);
+            me.chartsToCreate.push(data)
         } else {
             // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
 
@@ -159,7 +159,7 @@ class AmCharts extends Base {
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
 
             if (data.combineSeriesTooltip) {
-                me.combineSeriesTooltip(me.charts[data.id]);
+                me.combineSeriesTooltip(me.charts[data.id])
             }
 
             // in case data has arrived before the chart got created, apply it now
@@ -168,10 +168,10 @@ class AmCharts extends Base {
                     data    : data.data,
                     dataPath: data.dataPath,
                     id      : data.id
-                });
+                })
             } else if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
-                delete me.dataMap[data.id];
+                delete me.dataMap[data.id]
             }
         }
     }
@@ -182,7 +182,7 @@ class AmCharts extends Base {
      */
     destroy(data) {
         this.charts[data.id].dispose();
-        delete this.charts[data.id];
+        delete this.charts[data.id]
     }
 
     /**
@@ -190,7 +190,7 @@ class AmCharts extends Base {
      * @returns {Boolean}
      */
     hasChart(id) {
-        return !!this.charts[id];
+        return !!this.charts[id]
     }
 
     /**
@@ -199,8 +199,8 @@ class AmCharts extends Base {
      * => fetching the other files after core.js is loaded
      */
     insertAmChartsScripts(useFallback=false) {
-        const me       = this,
-              basePath = useFallback ? me.fallbackPath : me.downloadPath;
+        let me       = this,
+            basePath = useFallback ? me.fallbackPath : me.downloadPath;
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
@@ -209,12 +209,12 @@ class AmCharts extends Base {
                 DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
-                me.scriptsLoaded = true;
+                me.scriptsLoaded = true
             });
         }).catch(e => {
             console.log('Download from amcharts.com failed, switching to fallback', e);
-            me.insertAmChartsScripts(true);
-        });
+            me.insertAmChartsScripts(true)
+        })
     }
 
     /**
@@ -229,7 +229,7 @@ class AmCharts extends Base {
                 path : key,
                 value
             })
-        });
+        })
     }
 
     /**
@@ -241,12 +241,12 @@ class AmCharts extends Base {
      */
     setProperty(data) {
         if (this.hasChart(data.id)) {
-            const chart        = this.charts[data.id],
-                  pathArray    = data.path.split('.'),
-                  propertyName = pathArray.pop(),
-                  scope        = Neo.ns(pathArray.join('.'), false, chart);
+            let chart        = this.charts[data.id],
+                pathArray    = data.path.split('.'),
+                propertyName = pathArray.pop(),
+                scope        = Neo.ns(pathArray.join('.'), false, chart);
 
-            scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value;
+            scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value
         } else {
             // todo
         }
@@ -259,17 +259,17 @@ class AmCharts extends Base {
      * @param {String} data.id
      */
     updateData(data) {
-        const me = this;
+        let me = this;
 
         if (!me.scriptsLoaded || !me.hasChart(data.id)) {
-            me.dataMap[data.id] = data;
+            me.dataMap[data.id] = data
         } else {
             const chart = me.charts[data.id];
 
             if (data.dataPath === '') {
-                chart.data = data.data;
+                chart.data = data.data
             } else {
-                Neo.ns(data.dataPath, false, chart).data = data.data;
+                Neo.ns(data.dataPath, false, chart).data = data.data
             }
         }
     }

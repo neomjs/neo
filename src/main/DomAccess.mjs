@@ -105,6 +105,11 @@ class DomAccess extends Base {
             ]
         },
         /**
+         * @member {Boolean} renderCountDeltas_=false
+         * @protected
+         */
+        renderCountDeltas_: false,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -121,6 +126,12 @@ class DomAccess extends Base {
     }
 
     /**
+     * @member {Number} logDeltasIntervalId=0
+     * @protected
+     */
+    logDeltasIntervalId = 0
+
+    /**
      * @returns {HTMLElement}
      */
     get modalMask() {
@@ -129,7 +140,7 @@ class DomAccess extends Base {
         if (!me._modalMask) {
             me._modalMask = document.createElement('div');
             me._modalMask.className = 'neo-dialog-modal-mask';
-            me._modalMask.addEventListener('mousedown', doPreventDefault, { capture : true })
+            me._modalMask.addEventListener('mousedown', doPreventDefault, {capture : true})
         }
 
         return me._modalMask
@@ -141,20 +152,10 @@ class DomAccess extends Base {
     construct(config) {
         super.construct(config);
 
-        const me = this;
+        let me = this;
 
         if (Neo.config.renderCountDeltas) {
-            let node;
-
-            setInterval(() => {
-                node = document.getElementById('neo-delta-updates');
-
-                if (node) {
-                   node.innerHTML = String(me.countDeltasPer250ms * 4)
-                }
-
-                me.countDeltasPer250ms = 0
-            }, 250)
+            me.renderCountDeltas = true
         }
 
         me.initGlobalListeners();
@@ -164,23 +165,26 @@ class DomAccess extends Base {
         me.syncAligns = me.syncAligns.bind(me)
     }
 
+    /**
+     *
+     */
     initGlobalListeners() {
-        const me = this;
+        let me = this;
 
-        document.addEventListener('mousedown', me.onDocumentMouseDown.bind(me), { capture : true });
-        document.addEventListener('keydown', me.onDocumentKeyDown.bind(me), capturePassive);
-        document.addEventListener('keyup', me.onDocumentKeyUp.bind(me), capturePassive);
-        document.addEventListener('blur', me.onDocumentBlur.bind(me), capturePassive);
+        document.addEventListener('blur',      me.onDocumentBlur     .bind(me), capturePassive);
+        document.addEventListener('keydown',   me.onDocumentKeyDown  .bind(me), capturePassive);
+        document.addEventListener('keyup',     me.onDocumentKeyUp    .bind(me), capturePassive);
+        document.addEventListener('mousedown', me.onDocumentMouseDown.bind(me), {capture : true})
     }
 
     onDocumentMouseDown(e) {
-        const focusController = e.target?.closest('[data-focus]');
+        let focusController = e.target?.closest('[data-focus]');
 
         // data-focus on an element means reject mousedown gestures, and move focus
         // to the referenced element.
         if (focusController) {
             e.preventDefault();
-            document.getElementById(focusController.dataset.focus)?.focus();
+            document.getElementById(focusController.dataset.focus)?.focus()
         }
     }
 
@@ -207,11 +211,11 @@ class DomAccess extends Base {
      */
     addAligned(alignSpec) {
         const
-            me                     = this,
-            { id }                 = alignSpec,
-            aligns                 = me._aligns || (me._aligns = new Map()),
-            resizeObserver         = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
-            { constrainToElement } = alignSpec;
+            me                   = this,
+            {id}                 = alignSpec,
+            aligns               = me._aligns || (me._aligns = new Map()),
+            resizeObserver       = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
+            {constrainToElement} = alignSpec;
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
@@ -267,17 +271,46 @@ class DomAccess extends Base {
     }
 
     /**
+     * Triggered after the renderCountDeltas config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRenderCountDeltas(value, oldValue) {
+        let me                    = this,
+            {logDeltasIntervalId} = me,
+            node;
+
+        if (value) {
+            if (logDeltasIntervalId === 0) {
+                me.logDeltasIntervalId = setInterval(() => {
+                    node = document.getElementById('neo-delta-updates');
+
+                    if (node) {
+                        node.innerHTML = String(me.countDeltasPer250ms * 4)
+                    }
+
+                    me.countDeltasPer250ms = 0
+                }, 250)
+            }
+        } else {
+            logDeltasIntervalId && clearInterval(logDeltasIntervalId);
+            me.logDeltasInterval = 0
+        }
+    }
+
+    /**
      * @param {Object} data
      * @returns {Promise<void>}
      */
     async align(data) {
         const
-            me              = this,
-            { constrainTo } = data,
-            subject         = data.subject = me.getElement(data.id),
-            { style }       = subject,
-            align           = {...data},
-            lastAlign       = me._aligns?.get(data.id);
+            me            = this,
+            {constrainTo} = data,
+            subject       = data.subject = me.getElement(data.id),
+            {style}       = subject,
+            align         = {...data},
+            lastAlign     = me._aligns?.get(data.id);
 
         if (lastAlign) {
             subject.classList.remove(`neo-aligned-${lastAlign.result.position}`)
@@ -288,16 +321,17 @@ class DomAccess extends Base {
         me.resetDimensions(align);
 
         // The Rectangle's align spec target and constrainTo must be Rectangles
-        align.target = me.getClippedRect({ id : data.targetElement = me.getElementOrBody(data.target) });
+        align.target = me.getClippedRect({id : data.targetElement = me.getElementOrBody(data.target)});
 
         if (!align.target) {
             // Set the Component with id data.id to hidden : true
-            return Neo.worker.App.setConfigs({ id : data.id, hidden : true })
+            return Neo.worker.App.setConfigs({id: data.id, hidden: true})
         }
 
         data.offsetParent = data.targetElement.offsetParent;
+
         if (constrainTo) {
-            align.constrainTo = me.getBoundingClientRect({ id : data.constrainToElement = me.getElementOrBody(constrainTo) })
+            align.constrainTo = me.getBoundingClientRect({id : data.constrainToElement = me.getElementOrBody(constrainTo)})
         }
 
         // Get an aligned clone of myRect aligned according to the align object
@@ -310,9 +344,11 @@ class DomAccess extends Base {
             left      : 0,
             transform : `translate(${result.x}px,${result.y}px)`
         });
+
         if (result.width !== myRect.width) {
             style.width = `${result.width}px`
         }
+
         if (result.height !== myRect.height) {
             style.height = `${result.height}px`
         }
@@ -350,7 +386,7 @@ class DomAccess extends Base {
      */
     execCommand(data) {
         document.execCommand(data.command);
-        return data;
+        return data
     }
 
     /**
@@ -365,18 +401,19 @@ class DomAccess extends Base {
             // The children property means focus inner elements if possible.
             if (!DomUtils.isFocusable(node) && data.children) {
                 // query for the first focusable decendent
-                node = DomUtils.query(node, DomUtils.isFocusable);
+                node = DomUtils.query(node, DomUtils.isFocusable)
             }
+
             if (node) {
                 node.focus();
 
                 if (Neo.isNumber(node.selectionStart)) {
-                    node.selectionStart = node.selectionEnd = node.value.length;
+                    node.selectionStart = node.selectionEnd = node.value.length
                 }
             }
         }
 
-        return {id: data.id};
+        return {id: data.id}
     }
 
     /**
@@ -449,10 +486,10 @@ class DomAccess extends Base {
                 // Note that 0px is what the DOM reports if no minWidth is specified
                 // so we do not report a minimum in these cases.
                 if (lengthRE.test(minWidth) && minWidth !== '0px') {
-                    returnData.minWidth = me.measure({ value : minWidth, id : node})
+                    returnData.minWidth = me.measure({value: minWidth, id: node})
                 }
                 if (lengthRE.test(minHeight) && minHeight !== '0px') {
-                    returnData.minHeight = me.measure({ value : minHeight, id : node })
+                    returnData.minHeight = me.measure({value: minHeight, id: node})
                 }
             }
         }
@@ -465,9 +502,10 @@ class DomAccess extends Base {
      * @returns {Neo.util.Rectangle}
      */
     getClippedRect(data) {
-        let node            = this.getElement(typeof data === 'object' ? data.id : data),
-            { defaultView } = node.ownerDocument,
-            rect            = this.getBoundingClientRect(node);
+        let me            = this,
+            node          = me.getElement(typeof data === 'object' ? data.id : data),
+            {defaultView} = node.ownerDocument,
+            rect          = me.getBoundingClientRect(node);
 
         for (let parentElement = node.offsetParent; parentElement && rect && parentElement !== document.documentElement; parentElement = parentElement.parentElement) {
             if (defaultView.getComputedStyle(parentElement).getPropertyValue('overflow') !== 'visible') {
@@ -502,12 +540,12 @@ class DomAccess extends Base {
      * @returns {Object}
      */
     getScrollingDimensions(data) {
-        const me = this;
+        let me = this;
 
         if (Array.isArray(data.id)) {
-            return data.id.map(id => me.getScrollingDimensions({ id }))
+            return data.id.map(id => me.getScrollingDimensions({id}))
         } else {
-            const node = data.nodeType ? data : me.getElementOrBody(data.id);
+            let node = data.nodeType ? data : me.getElementOrBody(data.id);
 
             return {
                 clientHeight: node?.clientHeight,
@@ -723,7 +761,7 @@ class DomAccess extends Base {
         let attributes    = data.attributes || [],
             functions     = data.functions  || [],
             styles        = data.styles     || [],
-            vnodeId       = data.vnodeId,
+            {vnodeId}     = data,
             retAttributes = {},
             retFunctions  = {},
             retStyles     = {},
@@ -731,7 +769,7 @@ class DomAccess extends Base {
             fnName, scope;
 
         attributes.forEach(key => {
-            retAttributes[key] = element[key];
+            retAttributes[key] = element[key]
         });
 
         functions.forEach((key, index) => {
@@ -861,7 +899,7 @@ class DomAccess extends Base {
             };
 
         if (opts.behavior !== 'smooth') {
-            node.scrollIntoView(opts);
+            node.scrollIntoView(opts)
         } else {
             // scrollIntoView() does not provide a callback yet.
             // See: https://github.com/w3c/csswg-drafts/issues/3744
@@ -983,8 +1021,8 @@ class DomAccess extends Base {
      */
     syncAligns() {
         const
-            me          = this,
-            { _aligns } = me;
+            me        = this,
+            {_aligns} = me;
 
         // Keep all registered aligns aligned on any detected change
         _aligns?.forEach(align => {
@@ -1002,8 +1040,8 @@ class DomAccess extends Base {
                 }
 
                 const
-                    { _alignResizeObserver } = me,
-                    { constrainToElement }   = align;
+                    {_alignResizeObserver} = me,
+                    {constrainToElement}   = align;
 
                 // Stop observing the align elements
                 _alignResizeObserver.unobserve(align.subject);
@@ -1121,6 +1159,4 @@ class DomAccess extends Base {
     }
 }
 
-let instance = Neo.setupClass(DomAccess);
-
-export default instance;
+export default Neo.setupClass(DomAccess);

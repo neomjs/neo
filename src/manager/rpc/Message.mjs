@@ -74,8 +74,8 @@ class Message extends Base {
      */
     onMessageAjax(msg, api) {
         return new Promise((resolve, reject) => {
-            let me  = this,
-                url = api.url;
+            let me    = this,
+                {url} = api;
 
             me.register({
                 id           : me.messageId,
@@ -94,10 +94,10 @@ class Message extends Base {
                 me.endPointTimeouts.push(url);
 
                 setTimeout(() => {
-                    me.resolveBufferTimeout(url);
+                    me.resolveBufferTimeout(url)
                 }, me.requestBuffer)
             }
-        });
+        })
     }
 
     /**
@@ -109,27 +109,27 @@ class Message extends Base {
      */
     async onMessageWebsocket(msg, api) {
         let me         = this,
-            url        = api.url,
+            {url}      = api,
             connection = me.socketConnections[url];
 
         if (!connection) {
             let module = await import('../../data/connection/WebSocket.mjs');
 
-            me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url});
+            me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url})
         }
 
-        return await connection.promiseMessage(msg);
+        return await connection.promiseMessage(msg)
     }
 
     /**
      * @param {String} url
      */
     async resolveBufferTimeout(url) {
-        let me            = this,
-            itemIds       = [],
-            processItems  = me.find({transactionId: 0, url}),
-            requests      = [],
-            transactionId = me.transactionId,
+        let me              = this,
+            itemIds         = [],
+            processItems    = me.find({transactionId: 0, url}),
+            requests        = [],
+            {transactionId} = me,
             response;
 
         processItems.forEach(item => {
@@ -142,7 +142,7 @@ class Message extends Base {
                 method : item.method,
                 params : item.params,
                 service: item.service
-            });
+            })
         });
 
         NeoArray.remove(me.endPointTimeouts, url);
@@ -155,14 +155,12 @@ class Message extends Base {
             // todo: pass the item which is included inside the response object
             // todo: reject the Promise in case the item is missing
 
-            item.resolve();
+            item.resolve()
         });
 
         // todo: remove only the items which are included inside the response
-        me.remove(itemIds);
+        me.remove(itemIds)
     }
 }
 
-let instance = Neo.setupClass(Message);
-
-export default instance;
+export default Neo.setupClass(Message);

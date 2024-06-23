@@ -276,8 +276,8 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
         me.cls = cls
@@ -458,9 +458,9 @@ class DateSelector extends Component {
                             me.changeMonthWrapperCallback(slideDirection);
                             me.updateHeaderMonthWrapperCallback(headerMonthOpts);
                             me.triggerVdomUpdate()
-                        }, 300);
-                    });
-                });
+                        }, 300)
+                    })
+                })
             } else {
                 me.cacheUpdate()
             }
@@ -489,7 +489,7 @@ class DateSelector extends Component {
      * @protected
      */
     changeMonthWrapperCallback(slideDirection) {
-        let vdom = this.vdom;
+        let {vdom} = this;
 
         vdom.cn[1] = vdom.cn[1].cn[0].cn[slideDirection === 'right' ? 1 : 0]
     }
@@ -542,8 +542,8 @@ class DateSelector extends Component {
                             vdom.cn[1] = vdom.cn[1].cn[0].cn[scrollFromTop ? 1 : 0];
                             me.triggerVdomUpdate()
                         }, 300)
-                    });
-                });
+                    })
+                })
             } else {
                 me.cacheUpdate()
             }
@@ -589,7 +589,7 @@ class DateSelector extends Component {
      */
     createDayViewContent(silent=false, containerEl) {
         let me              = this,
-            currentDate     = me.currentDate,
+            {currentDate}   = me,
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
@@ -639,7 +639,7 @@ class DateSelector extends Component {
                         config.removeDom = true
                     }
 
-                    config.cls.push('neo-weekend');
+                    config.cls.push('neo-weekend')
                 }
 
                 if (maxDate && date > maxDate || minDate && date < minDate) {
@@ -758,10 +758,9 @@ class DateSelector extends Component {
      * @param {Object} data
      */
     onComponentWheel(data) {
-        let me         = this,
-            deltaX     = data.deltaX,
-            deltaY     = data.deltaY,
-            wheelDelta = me.mouseWheelDelta,
+        let me               = this,
+            {deltaX, deltaY} = me,
+            wheelDelta       = me.mouseWheelDelta,
             date, monthIncrement, yearIncrement;
 
         if (Math.abs(deltaY) >= Math.abs(deltaX)) {
@@ -902,7 +901,7 @@ class DateSelector extends Component {
             currentMonth   = dt.format(me.currentDate),
             monthEl        = me.getHeaderMonthEl(),
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom',
-            vdom           = me.vdom,
+            {vdom}         = me,
             headerCenterEl, y;
 
         if (!me.mounted || !me.useAnimations) {

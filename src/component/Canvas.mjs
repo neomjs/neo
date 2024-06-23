@@ -42,10 +42,10 @@ class Canvas extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me        = this,
-            id        = me.getCanvasId(),
-            offscreen = me.offscreen,
-            worker    = Neo.currentWorker;
+        let me          = this,
+            id          = me.getCanvasId(),
+            {offscreen} = me,
+            worker      = Neo.currentWorker;
 
         if (value && offscreen) {
             worker.promiseMessage('main', {
@@ -58,11 +58,11 @@ class Canvas extends Component {
                     node  : data.offscreen,
                     nodeId: id
                 }, [data.offscreen]).then(() => {
-                    me.offscreenRegistered = true;
-                });
-            });
+                    me.offscreenRegistered = true
+                })
+            })
         } else if (offscreen) {
-            me.offscreenRegistered = false;
+            me.offscreenRegistered = false
         }
     }
 
@@ -71,7 +71,7 @@ class Canvas extends Component {
      * @returns {String}
      */
     getCanvasId() {
-        return this.id;
+        return this.id
     }
 }
 

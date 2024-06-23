@@ -170,8 +170,8 @@ class Main extends core.Base {
      * @returns {Object}
      */
     getWindowData() {
-        let win    = window,
-            screen = win.screen;
+        let win      = window,
+            {screen} = win;
 
         return {
             innerHeight: win.innerHeight,
@@ -201,7 +201,7 @@ class Main extends core.Base {
      * @returns {Boolean}
      */
     async importAddon(data) {
-        let name = data.name,
+        let {name} = data,
             module;
 
         if (name.startsWith('WS/')) {
@@ -234,10 +234,10 @@ class Main extends core.Base {
      *
      */
     async onDomContentLoaded() {
-        let me               = this,
-            config           = Neo.config,
-            mainThreadAddons = config.mainThreadAddons,
-            imports          = [],
+        let me                 = this,
+            {config}           = Neo,
+            {mainThreadAddons} = config,
+            imports            = [],
             modules;
 
         DomAccess.onDomContentLoaded();
@@ -452,7 +452,11 @@ class Main extends core.Base {
      * @param {*} data.value
      */
     setNeoConfig(data) {
-        Neo.config[data.key] = data.value
+        let {key, value} = data;
+
+        Neo.config[key] = data.value;
+
+        key === 'renderCountDeltas' && DomAccess.set({[key]: value})
     }
 
     /**
@@ -526,6 +530,4 @@ class Main extends core.Base {
     }
 }
 
-let instance = Neo.setupClass(Main);
-
-export default instance;
+export default Neo.setupClass(Main);

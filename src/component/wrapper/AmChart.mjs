@@ -116,7 +116,7 @@ class AmChart extends Component {
 
             setTimeout(() => {
                 Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
-            }, 50);
+            }, 50)
         }
     }
 
@@ -129,25 +129,25 @@ class AmChart extends Component {
      */
     beforeSetChartConfig(value, oldValue) {
         if (!value) {
-            console.error('wrapper.AmChart defined without a chartConfig', this.id);
+            console.error('wrapper.AmChart defined without a chartConfig', this.id)
         }
 
         this.parseItemConfigs(value);
-        return value;
+        return value
     }
 
     /**
      *
      */
     getVdomRoot() {
-        return this.vdom.cn[0].cn[0];
+        return this.vdom.cn[0].cn[0]
     }
 
     /**
      *
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0].childNodes[0];
+        return this.vnode.childNodes[0].childNodes[0]
     }
 
     /**

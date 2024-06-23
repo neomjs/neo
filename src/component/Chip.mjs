@@ -70,7 +70,7 @@ class Chip extends Component {
                 click   : me.onCloseButtonClick,
                 delegate: 'neo-chip-close-button',
                 scope   : me
-            });
+            })
         }
     }
 
@@ -82,7 +82,7 @@ class Chip extends Component {
      */
     afterSetClosable(value, oldValue) {
         this.vdom.cn[2].removeDom = !value;
-        this.update();
+        this.update()
     }
 
     /**
@@ -94,7 +94,7 @@ class Chip extends Component {
     afterSetDisplay(value, oldValue) {
         let style = this.style;
         style.display = value;
-        this.style = style;
+        this.style = style
     }
 
     /**
@@ -110,13 +110,13 @@ class Chip extends Component {
         NeoArray.remove(iconNode.cls, oldValue);
 
         if (!value || value === '') {
-            iconNode.removeDom = true;
+            iconNode.removeDom = true
         } else {
             iconNode.removeDom = false;
-            NeoArray.add(iconNode.cls, value);
+            NeoArray.add(iconNode.cls, value)
         }
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -129,13 +129,13 @@ class Chip extends Component {
         let textNode = this.vdom.cn[1];
 
         if (!value || value === '') {
-            textNode.removeDom = true;
+            textNode.removeDom = true
         } else {
             textNode.removeDom = false;
-            textNode.innerHTML = value;
+            textNode.innerHTML = value
         }
 
-        this.update();
+        this.update()
     }
 
     /**

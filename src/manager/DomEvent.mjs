@@ -86,15 +86,15 @@ class DomEvent extends Base {
      * @protected
      */
     fire(event) {
-        let me         = this,
-            bubble     = true,
-            data       = event.data || {},
-            eventName  = event.eventName,
-            i          = 0,
-            listeners  = null,
-            pathIds    = data.path.map(e => e.id),
-            path       = ComponentManager.getParentPath(pathIds),
-            len        = path.length,
+        let me          = this,
+            bubble      = true,
+            data        = event.data || {},
+            {eventName} = event,
+            i           = 0,
+            listeners   = null,
+            pathIds     = data.path.map(e => e.id),
+            path        = ComponentManager.getParentPath(pathIds),
+            len         = path.length,
             component, delegationTargetId, id, preventFire;
 
         for (; i < len; i++) {
@@ -102,7 +102,7 @@ class DomEvent extends Base {
             component = Neo.getComponent(id);
 
             if (!component || component.disabled) {
-                break;
+                break
             }
 
             listeners = me.items[id]?.[eventName];
@@ -128,7 +128,7 @@ class DomEvent extends Base {
 
                                 // we only want mouseenter & leave to fire on their top level nodes, not for children
                                 if (eventName === 'mouseenter' || eventName === 'mouseleave') {
-                                    preventFire = !DomEvent.verifyMouseEnterLeave(component, data, delegationTargetId, eventName);
+                                    preventFire = !DomEvent.verifyMouseEnterLeave(component, data, delegationTargetId, eventName)
                                 }
 
                                 if (!preventFire) {
@@ -143,14 +143,14 @@ class DomEvent extends Base {
                                     result = listener.fn.apply(listener.scope || globalThis, [data]);
 
                                     if (!listener.bubble) {
-                                        bubble = false;
+                                        bubble = false
                                     }
                                 }
                             }
                         }
                         // If a listener returns false, we stop iterating the listeners
                         return result !== false
-                    });
+                    })
                 }
             }
 
@@ -161,12 +161,12 @@ class DomEvent extends Base {
                     data
                 });
 
-                break;
+                break
             }
 
             // Honor the Event cancelBubble property
             if (!bubble || data.cancelBubble) {
-                break;
+                break
             }
         }
 
@@ -179,7 +179,7 @@ class DomEvent extends Base {
                     'drop'      : 'onDrop',
                     'drop:enter': 'onDropEnter',
                     'drop:leave': 'onDropLeave',
-                }[eventName]].call(dragZone, data);
+                }[eventName]].call(dragZone, data)
             }
         }
     }
@@ -206,12 +206,12 @@ class DomEvent extends Base {
         if (Neo.isObject(config)) {
             Object.keys(config).forEach(key => {
                 if (!eventConfigKeys.includes(key)) {
-                    eventName = key;
+                    eventName = key
                 }
-            });
+            })
         }
 
-        return eventName;
+        return eventName
     }
 
     /**
@@ -231,7 +231,7 @@ class DomEvent extends Base {
         if (listeners?.[config.id]) {
             event = listeners[config.id][config.eventName];
 
-            return event || null;
+            return event || null
         }
     }
 
@@ -290,24 +290,21 @@ class DomEvent extends Base {
      * @returns {Boolean} true if the listener got registered successfully (false in case it was already there)
      */
     register(config) {
-        let alreadyRegistered = false,
-            eventName         = config.eventName,
-            id                = config.id,
-            listeners         = this.items,
-            opts              = config.opts,
-            scope             = config.scope,
-            fnType            = typeof opts,
+        let alreadyRegistered            = false,
+            {eventName, id, opts, scope} = config,
+            listeners                    = this.items,
+            fnType                       = typeof opts,
             fn, listener, listenerConfig, listenerId;
 
         if (fnType === 'function' || fnType === 'string') {
-            fn = opts;
+            fn = opts
         } else {
             fn    = opts.fn;
-            scope = opts.scope || scope;
+            scope = opts.scope || scope
         }
 
         if (!listeners[id]) {
-            listeners[id] = {};
+            listeners[id] = {}
         }
 
         if (listeners[id][eventName]) {
@@ -319,11 +316,11 @@ class DomEvent extends Base {
                     listener[key].scope         === scope &&
                     listener[key].delegate      === config.delegate
                 ) {
-                    alreadyRegistered = true;
+                    alreadyRegistered = true
                 }
             })
         } else {
-            listeners[id][eventName] = [];
+            listeners[id][eventName] = []
         }
 
         if (alreadyRegistered === true) {
@@ -378,7 +375,7 @@ class DomEvent extends Base {
         let listener = this.getListener(config);
 
         if (listener) {
-            console.log('listener found', listener);
+            console.log('listener found', listener)
         }
     }
 
@@ -404,7 +401,7 @@ class DomEvent extends Base {
                         for (; i < len; i++) {
                             if (listeners[i].originalConfig === oldDomListener) {
                                 NeoArray.remove(listeners, listeners[i]);
-                                break;
+                                break
                             }
                         }
                     }
@@ -435,7 +432,7 @@ class DomEvent extends Base {
                 }, 100)
             }
         } else {
-            Logger.logError('Component.domListeners have to be an array', component);
+            Logger.logError('Component.domListeners have to be an array', component)
         }
     }
 
@@ -445,14 +442,16 @@ class DomEvent extends Base {
      * @returns {Boolean|String} true in case the delegation string matches the event path
      */
     verifyDelegationPath(listener, path) {
-        const { delegate } = listener;
-
-        let j = 0, pathLen = path.length, targetId;
+        let {delegate} = listener,
+            j          = 0,
+            pathLen    = path.length,
+            targetId;
 
         if (typeof delegate === 'function') {
             j = delegate(path);
+
             if (j != null) {
-                targetId = path[j].id;
+                targetId = path[j].id
             }
         }
         else {
@@ -466,7 +465,7 @@ class DomEvent extends Base {
                 isId     = item.startsWith('#');
 
                 if (isId || item.startsWith('.')) {
-                    item = item.substr(1);
+                    item = item.substr(1)
                 }
 
                 for (; j < pathLen; j++) {
@@ -489,7 +488,7 @@ class DomEvent extends Base {
         // ensure the delegation path is a child of the owner components root node
         for (; j < pathLen; j++) {
             if (path[j].id === listener.vnodeId) {
-                return targetId;
+                return targetId
             }
         }
 
@@ -521,6 +520,4 @@ class DomEvent extends Base {
     }
 }
 
-let instance = Neo.setupClass(DomEvent);
-
-export default instance;
+export default Neo.setupClass(DomEvent);

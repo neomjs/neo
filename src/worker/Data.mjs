@@ -55,7 +55,7 @@ class Data extends Base {
 
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
-        me.channelPorts.app = port1;
+        me.channelPorts.app = port1
     }
 
     /**
@@ -91,8 +91,6 @@ class Data extends Base {
      * @param {Object} msg
      */
     async onRpc(msg) {
-        console.log('onRpc', msg);
-
         let me = this,
             response;
 
@@ -100,15 +98,13 @@ class Data extends Base {
             // todo: we could store calls which arrive too early and pass them to the manager once it is ready
             console.warn('manager.RemotesApi not loaded yet', msg);
 
-            me.reject(msg);
+            me.reject(msg)
         } else {
             response = await Neo.manager.rpc.Message.onMessage(msg);
 
-            me.resolve(msg, response);
+            me.resolve(msg, response)
         }
     }
 }
 
-let instance = Neo.setupClass(Data);
-
-export default instance;
+export default Neo.setupClass(Data);

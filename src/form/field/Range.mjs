@@ -79,7 +79,7 @@ class Range extends Number {
 
         inputEl.cls = ['neo-rangefield-input']; // replace neo-textfield-input
 
-        me.addValueToLabel();
+        me.addValueToLabel()
     }
 
     /**
@@ -93,22 +93,23 @@ class Range extends Number {
     }
 
     /**
-     * Override the NumberField implementation
-     * @param {Object} data
+     * Triggered after the value config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
      */
     afterSetValue(value, oldValue) {
         this.addValueToLabel();
-        super.afterSetValue(value, oldValue);
+        super.afterSetValue(value, oldValue)
     }
 
     /**
      * Update label with value
      */
     addValueToLabel() {
-        const me = this;
+        let me = this;
 
         if (me.showResultInLabel) {
-            me.getLabelEl().innerHTML = `[${me.value}] ` + me.labelText;
+            me.getLabelEl().innerHTML = `[${me.value}] ` + me.labelText
         }
     }
 }

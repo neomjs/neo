@@ -92,7 +92,7 @@ class TextArea extends Text {
 
         // Restore any configured height if autoGrow turned off
         if (!value) {
-            me.afterSetHeight(me._height);
+            me.afterSetHeight(me._height)
         }
     }
 
@@ -103,7 +103,7 @@ class TextArea extends Text {
      * @protected
      */
     afterSetCols(value, oldValue) {
-        this.changeInputElKey('cols', value);
+        this.changeInputElKey('cols', value)
     }
 
     /**
@@ -113,7 +113,7 @@ class TextArea extends Text {
      * @protected
      */
     afterSetInputTag(value, oldValue) {
-        this.changeInputElKey('tag', value);
+        this.changeInputElKey('tag', value)
     }
 
     /**
@@ -124,7 +124,7 @@ class TextArea extends Text {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        this.syncAutoGrowMonitor();
+        this.syncAutoGrowMonitor()
     }
 
     /**
@@ -138,7 +138,7 @@ class TextArea extends Text {
             style = this.getInputEl().style;
 
         style.resize = value ? null : 'none';
-        me.update();
+        me.update()
     }
 
     /**
@@ -148,7 +148,7 @@ class TextArea extends Text {
      * @protected
      */
     afterSetRows(value, oldValue) {
-        this.changeInputElKey('rows', value);
+        this.changeInputElKey('rows', value)
     }
 
     /**
@@ -162,7 +162,7 @@ class TextArea extends Text {
             inputEl = me.getInputEl();
 
         if (inputEl) {
-            inputEl.html = StringUtil.escapeHtml(value);
+            inputEl.html = StringUtil.escapeHtml(value)
         }
 
         super.afterSetValue(value, oldValue);
@@ -185,7 +185,7 @@ class TextArea extends Text {
      * @protected
      */
     afterSetWrap(value, oldValue) {
-        this.changeInputElKey('wrap', value);
+        this.changeInputElKey('wrap', value)
     }
 
     /**
@@ -196,7 +196,7 @@ class TextArea extends Text {
      * @protected
      */
     beforeSetWrap(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');
+        return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues')
     }
 
     /**

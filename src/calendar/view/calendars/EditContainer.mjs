@@ -110,8 +110,8 @@ class EditContainer extends FormContainer {
      *
      */
     createItems() {
-        let me     = this,
-            record = me.record;
+        let me       = this,
+            {record} = me;
 
         if (record) {
             me.colorsList = Neo.create({

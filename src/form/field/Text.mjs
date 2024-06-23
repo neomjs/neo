@@ -383,9 +383,8 @@ class Text extends Base {
      * @protected
      */
     afterSetEditable(value, oldValue) {
-        const
-            me      = this,
-            { cls } = me;
+        let me      = this,
+            {cls} = me;
 
         NeoArray.toggle(cls, 'neo-not-editable', !value);
         me.cls = cls;
@@ -486,8 +485,8 @@ class Text extends Base {
      * @protected
      */
     afterSetInputValue(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
 
@@ -532,9 +531,8 @@ class Text extends Base {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me   = this,
-            cls  = me.cls,
-            vdom = me.vdom,
+        let me          = this,
+            {cls, vdom} = me,
             centerBorderElCls, isEmpty;
 
         vdom.cn[1].removeDom = value !== 'top' ? true : !Boolean(me.subLabelText);
@@ -622,8 +620,7 @@ class Text extends Base {
     afterSetLabelWidth(value, oldValue) {
         if (this.labelPosition !== 'inline') {
             let me    = this,
-                vdom  = me.vdom,
-                label = vdom.cn[0];
+                label = me.vdom.cn[0];
 
             label.width = value;
             !me.hideLabel && me.updateInputWidth()
@@ -691,8 +688,8 @@ class Text extends Base {
      * @protected
      */
     afterSetPlaceholderText(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         me.changeInputElKey('placeholder', value === '' ? null : value);
 
@@ -711,8 +708,8 @@ class Text extends Base {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-readonly');
         me.cls = cls;
@@ -771,8 +768,8 @@ class Text extends Base {
      * @protected
      */
     afterSetSubLabelCls(value, oldValue) {
-        let me  = this,
-            cls = me.vdom.cn[1].cls;
+        let me    = this,
+            {cls} = me.vdom.cn[1];
 
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
@@ -805,7 +802,7 @@ class Text extends Base {
      */
     afterSetTriggers(value, oldValue) {
         let me           = this,
-            vdom         = me.vdom,
+            {vdom}       = me,
             inputEl      = vdom.cn[2], // inputEl or inputWrapperEl
             preTriggers  = [],
             postTriggers = [],
@@ -1116,7 +1113,7 @@ class Text extends Base {
         let me          = this,
             ignoreLabel = me.hideLabel || me.labelPosition === 'bottom' || me.labelPosition === 'inline' || me.labelPosition === 'top',
             labelWidth  = ignoreLabel ? 0 : me.labelWidth,
-            width       = me.width;
+            {width}     = me;
 
         if (labelWidth && width) {
             return parseInt(width) - parseInt(labelWidth)
@@ -1298,8 +1295,8 @@ class Text extends Base {
     onFocusEnter(data) {
         super.onFocusEnter(data);
 
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         if (!me.readOnly) {
             NeoArray.add(cls, 'neo-focus');
@@ -1379,8 +1376,8 @@ class Text extends Base {
      * @param {Object} data
      */
     onMouseEnter(data) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         if (!me.readOnly) {
             NeoArray.add(cls, 'neo-hovered');
@@ -1392,8 +1389,8 @@ class Text extends Base {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         if (!me.readOnly) {
             NeoArray.remove(cls, 'neo-hovered');
@@ -1479,8 +1476,8 @@ class Text extends Base {
      @param {Boolean} silent=false
      */
     updateError(value, silent = false) {
-        let me  = this,
-            cls = me.cls,
+        let me    = this,
+            {cls} = me,
             errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
@@ -1573,16 +1570,12 @@ class Text extends Base {
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
-        let me           = this,
-            maxLength    = me.maxLength,
-            minLength    = me.minLength,
-            required     = me.required,
-            returnValue  = true,
-            value        = me.value,
-            valueLength  = value?.toString().length,
-            inputPattern = me.inputPattern,
-            isEmpty      = value !== 0 && (!value || valueLength < 1),
-            errorParam   = {inputPattern, maxLength, minLength, valueLength},
+        let me          = this,
+            {inputPattern, maxLength, minLength, required, value} = me,
+            returnValue = true,
+            valueLength = value?.toString().length,
+            isEmpty     = value !== 0 && (!value || valueLength < 1),
+            errorParam  = {inputPattern, maxLength, minLength, valueLength},
             errorText;
 
         if (!silent) {

@@ -1,4 +1,5 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller        from '../../../src/controller/Component.mjs';
+import {getSearchParams} from '../Util.mjs';
 
 /**
  * @class Portal.view.ViewportController
@@ -12,6 +13,11 @@ class ViewportController extends Controller {
          */
         className: 'Portal.view.ViewportController',
         /**
+         * @member {String} ntype='viewport-controller'
+         * @protected
+         */
+        ntype: 'viewport-controller',
+        /**
          * @member {String|null} defaultHash='/home'
          */
         defaultHash: '/home',
@@ -24,6 +30,73 @@ class ViewportController extends Controller {
             '/home'          : 'onHomeRoute',
             '/learn'         : 'onLearnRoute',
             '/learn/{itemId}': 'onLearnRoute'
+        }
+    }
+
+    /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppConnect(data) {
+        let {appName, windowId} = data,
+            app                 = Neo.apps[appName],
+            mainView            = app.mainView;
+
+        if (appName === 'PortalPreview') {
+            let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
+                livePreviewId   = getSearchParams(searchString).id,
+                livePreview     = Neo.getComponent(livePreviewId),
+                sourceContainer = livePreview.getReference('preview'),
+                tabContainer    = livePreview.tabContainer,
+                sourceView      = sourceContainer.removeAt(0, false);
+
+            livePreview.previewContainer = mainView;
+            mainView.add(sourceView);
+
+            tabContainer.activeIndex = 0; // switch to the source view
+
+            tabContainer.getTabAtIndex(1).disabled = true
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppDisconnect(data) {
+        let me                  = this,
+            {appName, windowId} = data,
+            app                 = Neo.apps[appName],
+            mainView            = app.mainView;
+
+        // Closing a code preview window needs to drop the preview back into the related main app
+        if (appName === 'PortalPreview') {
+            let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
+                livePreviewId   = getSearchParams(searchString).id,
+                livePreview     = Neo.getComponent(livePreviewId),
+                sourceContainer = livePreview.getReference('preview'),
+                tabContainer    = livePreview.tabContainer,
+                sourceView      = mainView.removeAt(0, false);
+
+            livePreview.previewContainer = null;
+            sourceContainer.add(sourceView);
+
+            livePreview.disableRunSource = true; // will get reset after the next activeIndex change (async)
+            tabContainer.activeIndex = 1;        // switch to the source view
+
+            livePreview.getReference('popout-window-button').disabled = false;
+            tabContainer.getTabAtIndex(1).disabled = false
+        }
+        // Close popup windows when closing or reloading the main window
+        else if (appName === 'Portal') {
+            Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
 
@@ -48,6 +121,21 @@ class ViewportController extends Controller {
      */
     onBlogSearchFieldChange(data) {
         this.getReference('blog-list').filterItems(data)
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        });
     }
 
     /**

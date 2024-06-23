@@ -63,7 +63,7 @@ class Chip extends ComponentList {
 
             items.forEach(item => {
                 item.display = value ? 'flex' : 'inline-flex';
-            });
+            })
         }
     }
 
@@ -85,7 +85,7 @@ class Chip extends ComponentList {
             };
 
         if (listItem) {
-            listItem.setSilent(config);
+            listItem.setSilent(config)
         } else {
             items[index] = listItem = Neo.create({
                 appName  : me.appName,
@@ -93,12 +93,12 @@ class Chip extends ComponentList {
                 tabIndex : -1,
                 ...me.itemDefaults,
                 ...config
-            });
+            })
         }
 
         me.items = items;
 
-        return [listItem.vdom];
+        return [listItem.vdom]
     }
 }
 

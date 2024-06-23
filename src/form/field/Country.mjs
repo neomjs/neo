@@ -49,7 +49,7 @@ class Country extends ComboBox {
             return me.up().getReference(value)
         }
 
-        return value;
+        return value
     }
 }
 

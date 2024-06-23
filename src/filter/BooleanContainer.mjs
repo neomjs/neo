@@ -47,7 +47,7 @@ class BooleanContainer extends Container {
                 component: this,
                 oldValue,
                 value
-            });
+            })
         }
     }
 
@@ -85,7 +85,7 @@ class BooleanContainer extends Container {
             ...me.radioConfig
         }];
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
@@ -93,7 +93,7 @@ class BooleanContainer extends Container {
      */
     onRadioChange(data) {
         if (data.value) {
-            this.value = data.component.fieldValue;
+            this.value = data.component.fieldValue
         }
     }
 }

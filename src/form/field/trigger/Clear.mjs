@@ -45,7 +45,7 @@ class Clear extends Base {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-is-hidden');
         this.cls = cls;
@@ -59,10 +59,10 @@ class Clear extends Base {
      */
     beforeSetHidden(value, oldValue) {
         if (this.showOnHover && !this.isHovered) {
-            return true;
+            return true
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -77,25 +77,25 @@ class Clear extends Base {
             scope                     : me
         });
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
      * @returns {Boolean} true in case the trigger should be hidden
      */
     getHiddenState() {
-        let me    = this,
-            field = me.field,
-            value = field.value;
+        let me      = this,
+            {field} = me,
+            {value} = field;
 
         if (field.clearToOriginalValue) {
             return value === field.originalConfig.value;
         } else {
             if (value === 0) {
-                value = '0';
+                value = '0'
             }
 
-            return !field.value || value.toString().length < 1;
+            return !field.value || value.toString().length < 1
         }
     }
 
@@ -103,7 +103,7 @@ class Clear extends Base {
      * @param {Object} opts
      */
     onFieldChange(opts) {
-        this.hidden = this.getHiddenState();
+        this.hidden = this.getHiddenState()
     }
 
     /**
@@ -120,7 +120,7 @@ class Clear extends Base {
             scope                     : me
         });
 
-        me.hidden = me.getHiddenState();
+        me.hidden = me.getHiddenState()
     }
 
     /**
@@ -130,14 +130,14 @@ class Clear extends Base {
         let me = this;
 
         me.isHovered = true;
-        me.hidden    = me.getHiddenState();
+        me.hidden    = me.getHiddenState()
     }
 
     /**
      * @param {Object} data
      */
     onTriggerClick(data) {
-        this.field.clear();
+        this.field.clear()
     }
 }
 

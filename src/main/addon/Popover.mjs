@@ -34,7 +34,7 @@ class Popover extends Base {
      */
     hide(data) {
         this.getPopover(data.id).hidePopover();
-        return true;
+        return true
     }
 
     /**
@@ -44,7 +44,7 @@ class Popover extends Base {
      */
     show(data) {
         this.getPopover(data.id).showPopover();
-        return true;
+        return true
     }
 
     /**
@@ -54,14 +54,13 @@ class Popover extends Base {
      */
     toggle(data) {
         this.getPopover(data.id).togglePopover();
-        return true;
+        return true
     }
 
     getPopover(parentId) {
-        const parent = document.getElementById(parentId),
-              popover = document.getElementById(parent.getAttribute('popovertarget'));
+        const parent = DomAccess.getElement(parentId);
 
-        return popover;
+        return DomAccess.getElement(parent.getAttribute('popovertarget'))
     }
 }
 

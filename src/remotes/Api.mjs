@@ -39,8 +39,8 @@ class Api extends Base {
      *
      */
     load() {
-        let config = Neo.config,
-            path   = config.remotesApiUrl;
+        let {config} = Neo,
+            path     = config.remotesApiUrl;
 
         // relative paths need a special treatment
         if (!path.includes('http')) {
@@ -67,12 +67,10 @@ class Api extends Base {
             ns = Neo.ns(`${api.namespace}.${service}`, true);
 
             Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
-                ns[method] = this.generateRemote(service, method);
+                ns[method] = this.generateRemote(service, method)
             })
         })
     }
 }
 
-let instance = Neo.setupClass(Api);
-
-export default instance;
+export default Neo.setupClass(Api);

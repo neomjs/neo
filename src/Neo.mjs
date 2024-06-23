@@ -85,7 +85,7 @@ Neo = globalThis.Neo = Object.assign({
         if (target && Neo.typeOf(config) === 'Object') {
             Object.entries(config).forEach(([key, value]) => {
                 fnName = namespace[value];
-                target[key] = bind ? fnName.bind(namespace) : fnName;
+                target[key] = bind ? fnName.bind(namespace) : fnName
             })
         }
 
@@ -284,12 +284,13 @@ Neo = globalThis.Neo = Object.assign({
             descriptor = Object.getOwnPropertyDescriptor(proto, key);
 
             if (typeof descriptor === 'object' && typeof descriptor.set === 'function') {
-                return true;
+                return true
             }
-            proto = proto.__proto__;
+
+            proto = proto.__proto__
         }
 
-        return false;
+        return false
     },
 
     /**
@@ -339,13 +340,13 @@ Neo = globalThis.Neo = Object.assign({
 
         return names.reduce((prev, current) => {
             if (create && !prev[current]) {
-                prev[current] = {};
+                prev[current] = {}
             }
 
             if (prev) {
-                return prev[current];
+                return prev[current]
             }
-        }, scope || globalThis);
+        }, scope || globalThis)
     },
 
     /**
@@ -362,7 +363,7 @@ Neo = globalThis.Neo = Object.assign({
         return names.reduce((prev, current) => {
             if (create && !prev[current]) {
                 if (current.endsWith(']')) {
-                    return createArrayNs(true, current, prev);
+                    return createArrayNs(true, current, prev)
                 }
 
                 prev[current] = {}
@@ -370,7 +371,7 @@ Neo = globalThis.Neo = Object.assign({
 
             if (prev) {
                 if (current.endsWith(']')) {
-                    return createArrayNs(false, current, prev);
+                    return createArrayNs(false, current, prev)
                 }
 
                 return prev[current]
@@ -402,7 +403,7 @@ Neo = globalThis.Neo = Object.assign({
             config = ntype;
 
             if (!config.ntype) {
-                throw new Error('Class defined with object configuration missing ntype property. ' + config.ntype);
+                throw new Error('Class defined with object configuration missing ntype property. ' + config.ntype)
             }
 
             ntype = config.ntype
@@ -426,7 +427,7 @@ Neo = globalThis.Neo = Object.assign({
     setupClass(cls) {
         let baseCfg    = null,
             ntypeChain = [],
-            ntypeMap   = Neo.ntypeMap,
+            {ntypeMap} = Neo,
             proto      = cls.prototype || cls,
             protos     = [],
             cfg, config, ctor, ntype;
@@ -454,7 +455,7 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
 
             if (Neo.overwrites) {
-                ctor.applyOverwrites(cfg)
+                ctor.applyOverwrites?.(cfg)
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
@@ -487,7 +488,7 @@ Neo = globalThis.Neo = Object.assign({
                     throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`)
                 }
 
-                ntypeMap[ntype] = cfg.className;
+                ntypeMap[ntype] = cfg.className
             }
 
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
@@ -590,10 +591,10 @@ function applyMixins(cls, mixins) {
 
         if (mixin.isClass) {
             mixinProto = mixin.prototype;
-            mixinCls   = Neo.ns(mixinProto.className);
+            mixinCls   = Neo.ns(mixinProto.className)
         } else {
             if (!exists(mixin)) {
-                throw new Error('Attempting to mixin an undefined class: ' + mixin + ', ' + cls.prototype.className);
+                throw new Error('Attempting to mixin an undefined class: ' + mixin + ', ' + cls.prototype.className)
             }
 
             mixinCls   = Neo.ns(mixin);
@@ -602,10 +603,10 @@ function applyMixins(cls, mixins) {
 
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
 
-        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto));
+        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto))
     }
 
-    cls.prototype.mixins = mixinClasses; // todo: we should do a deep merge
+    cls.prototype.mixins = mixinClasses // todo: we should do a deep merge
 }
 
 /**
@@ -617,7 +618,7 @@ function applyMixins(cls, mixins) {
  */
 function autoGenerateGetSet(proto, key) {
     if (Neo.hasPropertySetter(proto, key)) {
-        throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead');
+        throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
     }
 
     if (!Neo[getSetCache]) {
@@ -693,10 +694,10 @@ function autoGenerateGetSet(proto, key) {
                     me.afterSetConfig?.(key, value, oldValue)
                 }
             }
-        };
+        }
     }
 
-    Object.defineProperty(proto, key, Neo[getSetCache][key]);
+    Object.defineProperty(proto, key, Neo[getSetCache][key])
 }
 
 /**
@@ -718,14 +719,14 @@ function createArrayNs(create, current, prev) {
     }
 
     if (!arrRoot) {
-        return;
+        return
     }
 
     for (; i < len; i++) {
         arrItem = parseInt(arrDetails[i]);
 
         if (create) {
-            arrRoot[arrItem] = arrRoot[arrItem] || {};
+            arrRoot[arrItem] = arrRoot[arrItem] || {}
         }
 
         arrRoot = arrRoot[arrItem]
@@ -743,7 +744,7 @@ function createArrayNs(create, current, prev) {
 function exists(className) {
     try {
         return !!className.split('.').reduce((prev, current) => {
-            return prev[current];
+            return prev[current]
         }, globalThis)
     } catch(e) {
         return false
@@ -759,7 +760,7 @@ function exists(className) {
 function mixinProperty(proto, mixinProto) {
     return function(key) {
         if (~ignoreMixin.indexOf(key)) {
-            return;
+            return
         }
 
         if (proto[key]?._from) {
@@ -770,7 +771,7 @@ function mixinProperty(proto, mixinProto) {
 
             throw new Error(
                 `${proto.className}: Multiple mixins defining same property (${mixinProto.className}, ${proto[key]._from}) => ${key}`
-            );
+            )
         }
 
         proto[key] = mixinProto[key];
@@ -780,7 +781,7 @@ function mixinProperty(proto, mixinProto) {
         if (typeof proto[key] === 'function') {
             proto[key]._name = key
         }
-    };
+    }
 }
 
 /**

@@ -169,8 +169,8 @@ class Container extends BaseContainer {
      */
     afterSetColumns(value, oldValue) {
         if (Array.isArray(oldValue) && oldValue.length > 0) {
-            let me            = this,
-                headerToolbar = me.headerToolbar;
+            let me              = this,
+                {headerToolbar} = me;
 
             if (headerToolbar) {
                 headerToolbar.items = value;
@@ -379,7 +379,7 @@ class Container extends BaseContainer {
             }
 
             if (renderer && Neo.isString(renderer) && me[renderer]) {
-                column.renderer = me[renderer];
+                column.renderer = me[renderer]
             }
 
             if (sorters?.[0]) {
@@ -410,8 +410,8 @@ class Container extends BaseContainer {
      * @param {Array} inputData
      */
     createViewData(inputData) {
-        let me    = this,
-            items = me.items;
+        let me      = this,
+            {items} = me;
 
         items[1].createViewData(inputData); // todo: save a reference to the view & headerContainer
 
@@ -509,8 +509,7 @@ class Container extends BaseContainer {
      * @protected
      */
     onStoreLoad(data) {
-        let me = this,
-            listenerId;
+        let me = this;
 
         if (me.rendered) {
             me.createViewData(data);
@@ -519,12 +518,11 @@ class Container extends BaseContainer {
                 me.removeSortingCss()
             }
         } else {
-            listenerId = me.on('rendered', () => {
-                me.un('rendered', listenerId);
+            me.on('rendered', () => {
                 setTimeout(() => {
                     me.createViewData(data)
                 }, 50)
-            });
+            }, me, {once: true})
         }
     }
 

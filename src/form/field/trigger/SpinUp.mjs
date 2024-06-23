@@ -33,7 +33,7 @@ class SpinUp extends Base {
      * @param {Object} data
      */
     onTriggerClick(data) {
-        this.field.onSpinButtonUpClick();
+        this.field.onSpinButtonUpClick()
     }
 }
 

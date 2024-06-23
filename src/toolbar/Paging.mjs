@@ -120,7 +120,7 @@ class Paging extends Toolbar {
      */
     afterSetCurrentPage(value, oldValue) {
         if (oldValue) {
-            this.store.currentPage = value;
+            this.store.currentPage = value
         }
     }
 
@@ -133,7 +133,7 @@ class Paging extends Toolbar {
     afterSetPageSize(value, oldValue) {
         if (oldValue) {
             this._currentPage = 1; // silent update
-            this.store.pageSize = value;
+            this.store.pageSize = value
         }
     }
 
@@ -144,7 +144,7 @@ class Paging extends Toolbar {
      * @protected
      */
     afterSetPagesText(value, oldValue) {
-        oldValue && this.updatePagesText();
+        oldValue && this.updatePagesText()
     }
 
     /**
@@ -154,7 +154,7 @@ class Paging extends Toolbar {
      * @protected
      */
     afterSetTotalText(value, oldValue) {
-        oldValue && this.updateTotalText();
+        oldValue && this.updateTotalText()
     }
 
     /**
@@ -172,28 +172,28 @@ class Paging extends Toolbar {
 
         oldValue?.un(listeners);
 
-        return ClassSystemUtil.beforeSetInstance(value, null, {listeners});
+        return ClassSystemUtil.beforeSetInstance(value, null, {listeners})
     }
 
     /**
      * @returns {Number}
      */
     getMaxPages() {
-        return Math.ceil(this.store.totalCount / this.pageSize);
+        return Math.ceil(this.store.totalCount / this.pageSize)
     }
 
     /**
      *
      */
     onFirstPageButtonClick() {
-        this.currentPage = 1;
+        this.currentPage = 1
     }
 
     /**
      *
      */
     onLastPageButtonClick() {
-        this.currentPage = this.getMaxPages();
+        this.currentPage = this.getMaxPages()
     }
 
     /**
@@ -203,7 +203,7 @@ class Paging extends Toolbar {
         let me = this;
 
         if (me.currentPage < me.getMaxPages()) {
-            me.currentPage++;
+            me.currentPage++
         }
     }
 
@@ -211,7 +211,7 @@ class Paging extends Toolbar {
      * @param {Object} data
      */
     onPageSizeFieldChange(data) {
-        this.pageSize = data.value;
+        this.pageSize = data.value
     }
 
     /**
@@ -219,7 +219,7 @@ class Paging extends Toolbar {
      */
     onPrevPageButtonClick() {
         if (this.currentPage > 1) {
-            this.currentPage--;
+            this.currentPage--
         }
     }
 
@@ -233,21 +233,21 @@ class Paging extends Toolbar {
 
         me.updateNavigationButtons();
         me.updatePagesText();
-        me.updateTotalText();
+        me.updateTotalText()
     }
 
     /**
      *
      */
     updateNavigationButtons() {
-        let me          = this,
-            currentPage = me.currentPage,
-            maxPages    = me.getMaxPages();
+        let me            = this,
+            {currentPage} = me,
+            maxPages      = me.getMaxPages();
 
         me.down({reference: 'nav-button-first'}).disabled = currentPage === 1;
         me.down({reference: 'nav-button-prev'}) .disabled = currentPage === 1;
         me.down({reference: 'nav-button-next'}) .disabled = currentPage === maxPages;
-        me.down({reference: 'nav-button-last'}) .disabled = currentPage === maxPages;
+        me.down({reference: 'nav-button-last'}) .disabled = currentPage === maxPages
     }
 
     /**
@@ -256,7 +256,7 @@ class Paging extends Toolbar {
     updatePagesText() {
         let me = this;
 
-        me.down({reference: 'pages-text'}).text = me.pagesText(me);
+        me.down({reference: 'pages-text'}).text = me.pagesText(me)
     }
 
     /**
@@ -265,7 +265,7 @@ class Paging extends Toolbar {
     updateTotalText() {
         let me = this;
 
-        me.down({reference: 'total-text'}).text = me.totalText(me.store.totalCount);
+        me.down({reference: 'total-text'}).text = me.totalText(me.store.totalCount)
     }
 }
 

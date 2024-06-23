@@ -19,7 +19,7 @@ class Siesta extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.adjustSiestaEnvironment();
+        this.adjustSiestaEnvironment()
     }
 
     /**
@@ -34,8 +34,9 @@ class Siesta extends Base {
 
         for (; i < len; i++) {
             sheet = document.styleSheets[i];
+
             if (sheet?.href.includes('highlightjs')) {
-                sheet.ownerNode.id = 'hljs-theme';
+                sheet.ownerNode.id = 'hljs-theme'
             }
         }
     }

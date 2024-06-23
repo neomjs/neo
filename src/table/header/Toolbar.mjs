@@ -99,7 +99,7 @@ class Toolbar extends BaseToolbar {
 
         let dockLeftWidth  = 0,
             dockRightWidth = 0,
-            items          = me.items,
+            {items}        = me,
             len            = items.length,
             style;
 
@@ -115,7 +115,7 @@ class Toolbar extends BaseToolbar {
                 item.vdom.cls = ['neo-locked'];
 
                 if (item.dock === 'left') {
-                    style.left = dockLeftWidth + 'px';
+                    style.left = dockLeftWidth + 'px'
                 }
 
                 dockLeftWidth += (item.width + 1) // todo: borders fix

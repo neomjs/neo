@@ -78,7 +78,7 @@ class Radio extends CheckBox {
 
         radios.forEach(item => {
             if (item.id !== me.id && item._checked) {
-                item.checked = false;
+                item.checked = false
             }
         })
     }

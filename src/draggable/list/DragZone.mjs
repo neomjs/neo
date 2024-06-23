@@ -32,10 +32,10 @@ class DragZone extends BaseDragZone {
     construct(config) {
         super.construct(config);
 
-        let me    = this,
-            owner = me.owner,
-            opts  = {delegate: '.neo-draggable', scope: me},
-            store = owner.store;
+        let me      = this,
+            {owner} = me,
+            opts    = {delegate: '.neo-draggable', scope: me},
+            {store} = owner;
 
         owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,   ...opts},
@@ -49,7 +49,7 @@ class DragZone extends BaseDragZone {
 
         // check if the store is already loaded
         if (store.getCount() > 0) {
-            me.onStoreLoad();
+            me.onStoreLoad()
         }
     }
 
@@ -57,9 +57,9 @@ class DragZone extends BaseDragZone {
      * @param {Boolean} draggable
      */
     adjustListItemCls(draggable) {
-        let me    = this,
-            owner = me.owner,
-            store = owner.store,
+        let me      = this,
+            {owner} = me,
+            {store} = owner,
             node;
 
         store.items.forEach((record, index) => {
@@ -67,11 +67,11 @@ class DragZone extends BaseDragZone {
 
             if (node) {
                 node.cls = node.cls || [];
-                NeoArray[draggable ? 'add' : 'remove'](node.cls, 'neo-draggable');
+                NeoArray[draggable ? 'add' : 'remove'](node.cls, 'neo-draggable')
             }
         });
 
-        owner.update();
+        owner.update()
     }
 
     /**
@@ -80,7 +80,7 @@ class DragZone extends BaseDragZone {
      * @returns {Object|null} vdom
      */
     getItemVdom(record, index) {
-        return this.owner.vdom.cn[index];
+        return this.owner.vdom.cn[index]
     }
 
     /**
@@ -105,9 +105,9 @@ class DragZone extends BaseDragZone {
                 proxy.wrapperStyle = wrapperStyle;
 
                 setTimeout(() => {
-                    me.dragEnd();
-                }, 300);
-            }, 30);
+                    me.dragEnd()
+                }, 300)
+            }, 30)
         }
     }
 
@@ -119,7 +119,7 @@ class DragZone extends BaseDragZone {
 
         if (me.owner.draggable) {
             me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
-            me.dragStart(data);
+            me.dragStart(data)
         }
     }
 
@@ -127,7 +127,7 @@ class DragZone extends BaseDragZone {
      *
      */
     onStoreLoad() {
-        this.adjustListItemCls(true);
+        this.adjustListItemCls(true)
     }
 
     /**
@@ -135,12 +135,12 @@ class DragZone extends BaseDragZone {
      */
     setData(data={}) {
         let me       = this,
-            owner    = me.owner,
+            {owner}  = me,
             recordId = owner.getItemRecordId(me.getDragElementRoot().id);
 
         data.record = owner.store.get(recordId);
 
-        super.setData(data);
+        super.setData(data)
     }
 }
 

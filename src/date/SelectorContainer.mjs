@@ -215,8 +215,8 @@ class SelectorContainer extends Container {
      * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
         me.cls = cls

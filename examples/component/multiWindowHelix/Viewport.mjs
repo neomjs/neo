@@ -1,13 +1,21 @@
-import MainContainer      from '../helix/MainContainer.mjs';
+import BaseViewport       from '../helix/Viewport.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowHelix.Viewport
- * @extends Neo.examples.component.helix.MainContainer
+ * @extends Neo.examples.component.helix.Viewport
  */
-class Viewport extends MainContainer {
+class Viewport extends BaseViewport {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.component.multiWindowHelix.Viewport'
+         * @protected
+         */
         className: 'Neo.examples.component.multiWindowHelix.Viewport',
+        /**
+         * @member {String[]} cls=['multi-window-helix-viewport']
+         */
+        cls: ['multi-window-helix-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          */

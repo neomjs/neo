@@ -19,8 +19,7 @@ class WebComponent extends Base {
      */
     construct(config) {
         super.construct(config);
-
-        this.registerElementLoader();
+        this.registerElementLoader()
     }
 
     /**
@@ -36,7 +35,7 @@ class WebComponent extends Base {
                 me.attachShadow({mode: 'open'}).innerHTML = content;
 
                 styles = me.querySelector('style');
-                styles && me.shadowRoot.append(styles);
+                styles && me.shadowRoot.append(styles)
             }
         });
     }

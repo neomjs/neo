@@ -28,14 +28,14 @@ class ColumnModel extends Model {
      *
      */
     addDomListener() {
-        let me   = this,
-            view = me.view;
+        let me     = this,
+            {view} = me;
 
         view.addDomListeners({
             click   : me.onCellClick,
             delegate: '.neo-table-cell',
             scope   : me
-        });
+        })
     }
 
     /**
@@ -50,11 +50,11 @@ class ColumnModel extends Model {
         for (; i < len; i++) {
             if (eventPath[i].tagName === 'td') {
                 id = eventPath[i].id;
-                break;
+                break
             }
         }
 
-        return id;
+        return id
     }
 
     /**
@@ -68,15 +68,15 @@ class ColumnModel extends Model {
             currentColumn = idArray[2],
             dataFields    = columns.map(c => c.dataField);
 
-        return dataFields.indexOf(currentColumn);
+        return dataFields.indexOf(currentColumn)
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            id   = ColumnModel.getCellId(data.path),
+        let me = this,
+            id = ColumnModel.getCellId(data.path),
             columnNodeIds, index, tbodyNode;
 
         if (id) {
@@ -84,7 +84,7 @@ class ColumnModel extends Model {
             tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
-            me.select(columnNodeIds);
+            me.select(columnNodeIds)
         }
     }
 
@@ -92,14 +92,14 @@ class ColumnModel extends Model {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1);
+        this.onNavKeyColumn(data, -1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1);
+        this.onNavKeyColumn(data, 1)
     }
 
     /**
@@ -110,13 +110,13 @@ class ColumnModel extends Model {
         let me            = this,
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
-            view          = me.view,
+            {view}        = me,
             dataFields    = view.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             columnNodeIds, id, tbodyNode;
 
         while (newIndex < 0) {
-            newIndex += dataFields.length;
+            newIndex += dataFields.length
         }
 
         idArray[2] = dataFields[newIndex];
@@ -126,7 +126,7 @@ class ColumnModel extends Model {
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.select(columnNodeIds);
-        view.focus(id); // we have to focus one cell to ensure the keynav keeps working
+        view.focus(id) // we have to focus one cell to ensure the keynav keeps working
     }
 
     /**
@@ -135,14 +135,12 @@ class ColumnModel extends Model {
     register(component) {
         super.register(component);
 
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let {id, view} = this;
 
         view.keys?._keys.push(
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
             {fn: 'onKeyDownRight', key: 'Right', scope: id}
-        );
+        )
     }
 
 
@@ -150,16 +148,14 @@ class ColumnModel extends Model {
      *
      */
     unregister() {
-        let me   = this,
-            id   = me.id,
-            view = me.view;
+        let {id, view} = this;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
             {fn: 'onKeyDownRight', key: 'Right', scope: id}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

@@ -103,17 +103,18 @@ class EditEventContainer extends FormContainer {
      */
     afterSetRecord(value, oldValue) {
         if (value && oldValue) {
-            let me         = this,
-                timeFormat = me.intlFormat_time;
+            let me                  = this,
+                timeFormat          = me.intlFormat_time,
+                {calendarId, title} = value;
 
             me.getField('endTime')  .then(field => field.minValue = me.getEndTimeMinValue(value));
             me.getField('startTime').then(field => field.maxValue = me.getStartTimeMaxValue(value));
 
             me.reset({
-                calendarId: value.calendarId,
-                endTime   : timeFormat.format(value.endDate),
-                startTime : timeFormat.format(value.startDate),
-                title     : value.title
+                calendarId,
+                endTime  : timeFormat.format(value.endDate),
+                startTime: timeFormat.format(value.startDate),
+                title
             })
         } else if (value) {
             this.createItems()
@@ -125,7 +126,7 @@ class EditEventContainer extends FormContainer {
      */
     createItems() {
         let me         = this,
-            record     = me.record,
+            {record}   = me,
             timeFormat = me.intlFormat_time,
             timeFieldDefaults = {
                 module              : TimeField,
@@ -171,7 +172,7 @@ class EditEventContainer extends FormContainer {
                         return 'var(--event-yellow-border-color)';
                     }
 
-                    return `var(--event-${value}-color)`;
+                    return `var(--event-${value}-color)`
                 },
 
                 store: {
@@ -230,7 +231,7 @@ class EditEventContainer extends FormContainer {
 
         date.setMinutes(date.getMinutes() - this.minimumEventDuration);
 
-        return this.intlFormat_time.format(date);
+        return this.intlFormat_time.format(date)
     }
 
     /**
@@ -238,7 +239,7 @@ class EditEventContainer extends FormContainer {
      */
     onCalendarFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
-            this.record.calendarId = data.record[data.component.store.keyProperty];
+            this.record.calendarId = data.record[data.component.store.keyProperty]
         }
     }
 
@@ -250,7 +251,7 @@ class EditEventContainer extends FormContainer {
         let me = this;
 
         me.getModel().getStore('events').remove(me.record);
-        me.unmount();
+        me.unmount()
     }
 
     /**
@@ -293,7 +294,7 @@ class EditEventContainer extends FormContainer {
      */
     onTitleFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
-            this.record.title = data.value;
+            this.record.title = data.value
         }
     }
 }

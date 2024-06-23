@@ -100,6 +100,9 @@ class Base extends Panel {
          * @protected
          */
         isDragging: false,
+        /**
+         * @member {Object} keys={Escape:'onKeyDownEscape'}
+         */
         keys: {
             Escape: 'onKeyDownEscape'
         },
@@ -152,8 +155,8 @@ class Base extends Panel {
     construct(config) {
         super.construct(config);
 
-        let me    = this,
-            style = me.style;
+        let me      = this,
+            {style} = me;
 
         me.createHeader();
 
@@ -188,7 +191,7 @@ class Base extends Panel {
      */
     afterSetAppName(value, oldValue) {
         let me        = this,
-            resizable = me.getPlugin({flag: 'resizable'});
+            resizable = me.getPlugin('resizable');
 
         if (me.dragZone) {
             me.dragZone.appName = value
@@ -246,7 +249,7 @@ class Base extends Panel {
                 me.domListeners       = [...me.domListeners, ...dragListeners];
                 me.dragListenersAdded = true
             }
-        });
+        })
     }
 
     /**
@@ -256,8 +259,8 @@ class Base extends Panel {
      * @protected
      */
     afterSetMaximized(value, oldValue) {
-        let me  = this,
-            cls = me.vdom.cls; // todo: using wrapperCls
+        let me    = this,
+            {cls} = me.vdom; // todo: using wrapperCls
 
         NeoArray.toggle(cls, 'neo-maximized', value);
         me.update()
@@ -298,22 +301,22 @@ class Base extends Panel {
      * @protected
      */
     afterSetResizable(value, oldValue) {
-        value && import('../plugin/Resizable.mjs').then(module => {
-            let me      = this,
-                plugins = me.plugins || [];
+        if (value && !this.getPlugin('resizable')) {
+            import('../plugin/Resizable.mjs').then(module => {
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
 
-            if (!me.getPlugin({flag: 'resizable'})) {
                 plugins.push({
                     module       : module.default,
-                    appName      : me.appName,
+                    appName,
                     delegationCls: 'neo-dialog',
-                    flag         : 'resizable',
                     ...me.resizablePluginConfig
                 });
 
                 me.plugins = plugins
-            }
-        })
+            })
+        }
     }
 
     /**
@@ -342,10 +345,9 @@ class Base extends Panel {
      *
      */
     async animateHide() {
-        let me      = this,
-            appName = me.appName,
-            { id }  = me,
-            rects   = await me.getDomRect([id, me.animateTargetId]);
+        let me            = this,
+            {appName, id} = me,
+            rects         = await me.getDomRect([id, me.animateTargetId]);
 
         await Neo.applyDeltas(appName, {
             id,
@@ -386,10 +388,9 @@ class Base extends Panel {
      *
      */
     async animateShow() {
-        let me            = this,
-            appName       = me.appName,
-            { id, style } = me,
-            rect          = await me.getDomRect(me.animateTargetId);
+        let me   = this,
+            {appName, id, style} = me,
+            rect = await me.getDomRect(me.animateTargetId);
 
         await me.render(true);
 
@@ -447,6 +448,7 @@ class Base extends Panel {
         let me = this;
 
         me.revertFocus();
+
         if (animate) {
             me.animateHide()
         } else {
@@ -666,7 +668,7 @@ class Base extends Panel {
         if (!me.maximized) {
             me.isDragging = true;
 
-            me.getPlugin({flag: 'resizable'})?.removeAllNodes();
+            me.getPlugin('resizable')?.removeAllNodes();
 
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
@@ -725,7 +727,7 @@ class Base extends Panel {
      */
     syncModalMask(id=this.id) {
         // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({ id, modal: this.modal })
+        Neo.main.DomAccess.syncModalMask({id, modal: this.modal})
     }
 
     /**
@@ -733,7 +735,7 @@ class Base extends Panel {
      */
     syncTrapFocus() {
         if (this.mounted) {
-            Neo.main.DomAccess.trapFocus({ id: this.id, trap: this.trapFocus })
+            Neo.main.DomAccess.trapFocus({id: this.id, trap: this.trapFocus})
         }
     }
 }

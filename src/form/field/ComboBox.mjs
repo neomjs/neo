@@ -154,7 +154,7 @@ class ComboBox extends Picker {
      */
     afterSetInputValue(value, oldValue) {
         super.afterSetInputValue(value, oldValue);
-        this.updateTypeAheadValue(value);
+        this.updateTypeAheadValue(value)
     }
 
     /**
@@ -245,9 +245,8 @@ class ComboBox extends Picker {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        const
-            me                          = this,
-            { valueField, displayField} = me;
+        let me                         = this,
+            {displayField, valueField} = me;
 
         oldValue?.destroy();
 
@@ -300,9 +299,8 @@ class ComboBox extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        let me           = this,
-            displayField = me.displayField,
-            store        = me.store,
+        let me                    = this,
+            {displayField, store} = me,
             record;
 
         // getting a record, nothing to do
@@ -380,11 +378,9 @@ class ComboBox extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        let me     = this,
-            store  = me.store,
-            filter = store.getFilter(me.displayField),
-            picker = me.picker,
-            record = me.value;
+        let me                      = this,
+            {picker, record, store} = me,
+            filter                  = store.getFilter(me.displayField);
 
         if (filter) {
             filter.value = value
@@ -395,9 +391,8 @@ class ComboBox extends Picker {
             me.showPicker();
 
             // List might not exist until the picker is created
-            const
-                { list }           = me,
-                { selectionModel } = list;
+            let {list }          = me,
+                {selectionModel} = list;
 
             // On show, set the active item to be the current selected record or the first
             if (record) {
@@ -474,7 +469,7 @@ class ComboBox extends Picker {
      * @returns {Object}
      */
     getRecord() {
-        let list      = this.list,
+        let {list}    = this,
             recordKey = list.selectionModel.getSelection()[0];
 
         return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null
@@ -551,8 +546,7 @@ class ComboBox extends Picker {
      */
     async onListItemSelectionChange({ selection }) {
         if (selection?.length) {
-            const
-                me       = this,
+            let me       = this,
                 selected = selection[0],
                 record   = typeof selected === 'string' ? me.store.get(me.list.getItemRecordId(selected)) : selected;
 
@@ -592,15 +586,14 @@ class ComboBox extends Picker {
         let {activeIndex} = record;
 
         if (activeIndex >= 0) {
-            const
-                me      = this,
+            let me      = this,
                 {store} = me;
 
             me.activeRecord   = store.getAt(activeIndex);
             me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty];
 
             // Update typeahead hint (which updates DOM), or update DOM
-            me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update();
+            me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update()
         }
     }
 
@@ -701,8 +694,7 @@ class ComboBox extends Picker {
      */
     updateTypeAhead(silent=false) {
         let me      = this,
-            inputEl = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-real-input'}),
-            vdom    = me.vdom;
+            inputEl = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-real-input'});
 
         if (me.typeAhead) {
             inputEl.parentNode.cn[inputEl.index] = {
@@ -719,7 +711,7 @@ class ComboBox extends Picker {
                 }, inputEl.vdom]
             }
         } else {
-            VDomUtil.replaceVdomChild(vdom, inputEl.parentNode.id, inputEl.vdom)
+            VDomUtil.replaceVdomChild(me.vdom, inputEl.parentNode.id, inputEl.vdom)
         }
 
         !silent && me.update()

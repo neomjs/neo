@@ -97,7 +97,7 @@ class Toolbar extends BaseToolbar {
                     align: 'center',
                     pack : 'start'
                 };
-                break;
+                break
             case 'left':
                 layoutConfig = {
                     ntype    : 'vbox',
@@ -105,7 +105,7 @@ class Toolbar extends BaseToolbar {
                     direction: 'column-reverse',
                     pack     : 'end'
                 };
-                break;
+                break
             case 'right':
                 layoutConfig = {
                     ntype    : 'vbox',
@@ -113,7 +113,7 @@ class Toolbar extends BaseToolbar {
                     direction: 'column',
                     pack     : 'start'
                 };
-                break;
+                break
         }
 
         return layoutConfig
@@ -130,7 +130,7 @@ class Toolbar extends BaseToolbar {
 
         if (fromIndex !== toIndex) {
             this.items.forEach((item, index) => {
-                item.index = index;
+                item.index = index
             })
         }
 

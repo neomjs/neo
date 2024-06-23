@@ -150,23 +150,23 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            cls       = me.cls,
+            {cls}     = me,
             container = me.up('table-container');
 
         switch(value) {
             case null:
                 NeoArray.add(cls, 'neo-sort-hidden');
-                break;
+                break
             case 'ASC':
                 NeoArray.remove(cls, 'neo-sort-desc');
                 NeoArray.remove(cls, 'neo-sort-hidden');
                 NeoArray.add(cls, 'neo-sort-asc');
-                break;
+                break
             case 'DESC':
                 NeoArray.remove(cls, 'neo-sort-asc');
                 NeoArray.remove(cls, 'neo-sort-hidden');
                 NeoArray.add(cls, 'neo-sort-desc');
-                break;
+                break
         }
 
         me.cls = cls;
@@ -231,8 +231,8 @@ class Button extends BaseButton {
      * @protected
      */
      afterSetSortable(value, oldValue) {
-        let me = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         if (value === true) {
             NeoArray.remove(cls, 'neo-sort-hidden');
@@ -319,8 +319,8 @@ class Button extends BaseButton {
      * @protected
      */
     onDragEnd() {
-        let me    = this,
-            style = me.style;
+        let me      = this,
+            {style} = me;
 
         delete style.opacity;
         me.style = style
@@ -330,8 +330,8 @@ class Button extends BaseButton {
      * @protected
      */
     onDragEnter() {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.add(cls, 'neo-drag-over');
         me.cls = cls
@@ -341,8 +341,8 @@ class Button extends BaseButton {
      * @protected
      */
     onDragLeave() {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.remove(cls, 'neo-drag-over');
         me.cls = cls
@@ -359,8 +359,8 @@ class Button extends BaseButton {
      * @protected
      */
     onDragStart() {
-        let me    = this,
-            style = me.style;
+        let me      = this,
+            {style} = me;
 
         style.opacity = 0.4;
         me.style = style
@@ -372,7 +372,7 @@ class Button extends BaseButton {
     onDrop(data) {
         let me             = this,
             headerToolbar  = me.parent,
-            style          = me.style,
+            {style}        = me,
             tableContainer = headerToolbar.parent;
 
         me.onDragLeave();
@@ -420,7 +420,7 @@ class Button extends BaseButton {
         let me             = this,
             tableContainer = me.up('table-container'),
             store          = tableContainer?.store,
-            value          = data.value,
+            {value}        = data,
             field, filter, filters, model;
 
         if (store) {
@@ -453,8 +453,8 @@ class Button extends BaseButton {
      * @protected
      */
     removeSortingCss() {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray.add(cls, 'neo-sort-hidden');
 

@@ -65,7 +65,7 @@ class Socket extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.createSocket();
+        this.createSocket()
     }
 
     /**
@@ -84,7 +84,7 @@ class Socket extends Base {
                 callback,
                 scope : scope || me,
                 single: true
-            });
+            })
         }
     }
 
@@ -94,12 +94,10 @@ class Socket extends Base {
      * @returns {String}
      */
     beforeSend(data) {
-        let me      = this,
-            channel = me.channel;
+        let me        = this,
+            {channel} = me;
 
-        console.log('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
-
-        return JSON.stringify(channel ? {channel, data} : data);
+        return JSON.stringify(channel ? {channel, data} : data)
     }
 
     /**
@@ -120,10 +118,10 @@ class Socket extends Base {
                 onopen   : me.onOpen   .bind(me)
             });
 
-            createInterceptor(value, 'send', me.beforeSend, me);
+            createInterceptor(value, 'send', me.beforeSend, me)
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -131,14 +129,14 @@ class Socket extends Base {
      * @param {String} [reason]
      */
     close(code, reason) {
-        this.socket.close(code, reason);
+        this.socket.close(code, reason)
     }
 
     /**
      *
      */
     createSocket() {
-        this.socket = new WebSocket(this.serverAddress);
+        this.socket = new WebSocket(this.serverAddress)
     }
 
     /**
@@ -146,7 +144,7 @@ class Socket extends Base {
      */
     destroy(...args) {
         this.close();
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -171,14 +169,14 @@ class Socket extends Base {
      * @param {Boolean}    wasClean Indicates whether or not the connection was cleanly closed.
      */
     onClose(event, reason, wasClean) {
-        console.log('onClose', event, reason, wasClean);
+        console.log('onClose', event, reason, wasClean)
     }
 
     /**
      *
      */
     onError() {
-        console.log('onError', arguments);
+        console.log('onError', arguments)
     }
 
     /**
@@ -188,11 +186,9 @@ class Socket extends Base {
         let me   = this,
             data = JSON.parse(event.data);
 
-        console.log('onMessage', data);
-
         if (data.mId) {
             me.messageCallbacks[data.mId].resolve(data.data);
-            delete me.messageCallbacks[data.mId];
+            delete me.messageCallbacks[data.mId]
         }
     }
 
@@ -200,7 +196,7 @@ class Socket extends Base {
      *
      */
     onOpen() {
-        this.fire('open', {scope: this});
+        this.fire('open', {scope: this})
     }
 
     /**
@@ -214,17 +210,17 @@ class Socket extends Base {
             me.messageCallbacks[me.messageId] = {reject, resolve};
 
             me.sendMessage({data, mId: me.messageId});
-            me.messageId++;
-        });
+            me.messageId++
+        })
     }
 
     /**
      * @param {Object} data
      */
     sendMessage(data) {
-        let me     = this,
-            socket = me.socket,
-            d      = data;
+        let me       = this,
+            {socket} = me,
+            d        = data;
 
         // CONNECTING  0   The connection is not yet open.
         // OPEN        1   The connection is open and ready to communicate.
@@ -241,8 +237,8 @@ class Socket extends Base {
                 break;
             case WebSocket.CONNECTING:
                 me.on('open', function() {
-                    me.sendMessage(d);
-                }, me, {single: true});
+                    me.sendMessage(d)
+                }, me, {once: true});
                 break;
             case WebSocket.OPEN:
                 socket.send(data);

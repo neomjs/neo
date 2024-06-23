@@ -61,7 +61,7 @@ class Circle extends Component {
             };
 
         if (listItem) {
-            listItem.setSilent(config);
+            listItem.setSilent(config)
         } else {
             items[index] = listItem = Neo.create({
                 appName    : me.appName,
@@ -73,12 +73,12 @@ class Circle extends Component {
                 width      : me.itemWidth,
                 ...me.itemDefaults,
                 ...config
-            });
+            })
         }
 
         me.items = items;
 
-        return [listItem.vdom];
+        return [listItem.vdom]
     }
 }
 

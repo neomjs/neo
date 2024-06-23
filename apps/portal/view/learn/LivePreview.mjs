@@ -12,6 +12,14 @@ const
  * @extends Neo.container.Base
  */
 class LivePreview extends Container {
+    /**
+     * Valid values for iconPosition
+     * @member {String[]} activeViews=['preview','source']
+     * @protected
+     * @static
+     */
+    static activeViews = ['preview', 'source']
+
     static config = {
         /**
          * @member {String} className='Portal.view.learn.LivePreview'
@@ -23,13 +31,19 @@ class LivePreview extends Container {
          * @protected
          */
         ntype: 'live-preview',
+        /**
+         * Valid values are 'preview' and 'source'
+         * @member {String} activeView_='source'
+         */
+        activeView_: 'source',
 
-        baseCls   : ['learn-live-preview'],
-        value_    : null,
-        autoMount : true,
-        autoRender: true,
-        height    : 400,
-        layout    : 'fit',
+        baseCls         : ['learn-live-preview'],
+        value_          : null,
+        autoMount       : true,
+        autoRender      : true,
+        disableRunSource: false,
+        height          : 400,
+        layout          : 'fit',
         /**
          * @member {Object[]} items
          */
@@ -75,7 +89,17 @@ class LivePreview extends Container {
      * @returns {Neo.component.Base|null}
      */
     get tabContainer() {
-        return this.getReference('tab-container')
+        return this.getItem('tab-container')
+    }
+
+    /**
+     * Triggered after the activeView config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetActiveView(value, oldValue) {
+        this.tabContainer.activeIndex = value === 'source' ? 0 : 1
     }
 
     /**
@@ -88,6 +112,17 @@ class LivePreview extends Container {
         if (value) {
             this.getItem('editor').value = value?.trim()
         }
+    }
+
+    /**
+     * Triggered before the activeView config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetActiveView(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'activeView')
     }
 
     /**
@@ -115,10 +150,12 @@ class LivePreview extends Container {
      *
      */
     doRunSource() {
-        let me     = this,
-            source = me.editorValue || me.value;
+        if (this.disableRunSource) {
+            return
+        }
 
-        const
+        let me                = this,
+            source            = me.editorValue || me.value,
             cleanLines        = [],
             importModuleNames = [],
             moduleNameAndPath = [],
@@ -235,6 +272,7 @@ class LivePreview extends Container {
         }
 
         this.getReference('popout-window-button').hidden = data.value !== 1
+        this.disableRunSource = false;
     }
 
     /**
@@ -243,8 +281,8 @@ class LivePreview extends Container {
     onConstructed() {
         super.onConstructed();
 
-        let me           = this,
-            tabContainer = me.getReference('tab-container');
+        let me             = this,
+            {tabContainer} = me;
 
         // we want to add a normal (non-header) button
         tabContainer.getTabBar().add({
@@ -256,7 +294,10 @@ class LivePreview extends Container {
             ui       : 'ghost'
         });
 
-        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me)
+        tabContainer.on('activeIndexChange', me.onActiveIndexChange, me);
+
+        // changing the activeView initially will not trigger our onActiveIndexChange() logic
+        me.activeView === 'preview' && me.doRunSource()
     }
 
     /**
@@ -269,7 +310,7 @@ class LivePreview extends Container {
         await me.createPopupWindow();
 
         // this component requires a view controller to manage connected apps
-        me.getController()?.connectedApps.push(me.id)
+        me.getController('viewport-controller')?.connectedApps.push(me.id)
     }
 }
 

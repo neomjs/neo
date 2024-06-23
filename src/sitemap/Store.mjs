@@ -1,5 +1,5 @@
-import Model     from './Model.mjs';
 import BaseStore from '../data/Store.mjs';
+import Model     from './Model.mjs';
 
 /**
  * @class Neo.sitemap.Store

@@ -18,6 +18,4 @@ class User extends Base {
     }
 }
 
-let instance = Neo.setupClass(User);
-
-export default instance;
+export default Neo.setupClass(User);

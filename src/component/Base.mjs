@@ -422,7 +422,7 @@ class Base extends CoreBase {
     get parent() {
         let me = this;
 
-        return me.parentComponent || me.parentId !== 'document.body' ? Neo.getComponent(me.parentId) : null
+        return me.parentComponent || me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId)
     }
 
     /**
@@ -840,22 +840,19 @@ class Base extends CoreBase {
      * @protected
      */
     async afterSetResponsive(value, oldValue) {
-        if (!value) {
-            return
+        if (value && !this.getPlugin('responsive')) {
+            let me      = this,
+                module  = await import(`../../src/plugin/Responsive.mjs`),
+                plugins = me.plugins || [];
+
+            plugins.push({
+                module : module.default,
+                appName: me.appName,
+                value
+            });
+
+            me.plugins = plugins
         }
-
-        let me      = this,
-            module  = await import(`../../src/plugin/Responsive.mjs`),
-            plugins = me.plugins || [];
-
-        plugins.push({
-            module : module.default,
-            appName: me.appName,
-            id     : 'responsive',
-            value
-        });
-
-        me.plugins = plugins
     }
 
     /**
@@ -1130,15 +1127,6 @@ class Base extends CoreBase {
      */
     beforeGetData(value) {
         return this.getModel().getHierarchyData()
-    }
-
-    /**
-     * Triggered when accessing the parentComponent config
-     * @param {Object} value
-     * @protected
-     */
-    beforeParentComponent(value) {
-        return value || this.parent
     }
 
     /**
@@ -1522,7 +1510,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Find an instance stored inside a config via optionally passing an ntype.
+     * Find an instance stored inside a config via optionally passing a ntype.
      * Returns this[configName] or the closest parent component with a match.
      * Used by getController() & getModel()
      * @param {String} configName
@@ -1530,9 +1518,9 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base|null}
      */
     getConfigInstanceByNtype(configName, ntype) {
-        let me              = this,
-            config          = me[configName],
-            parentComponent = me.parentComponent;
+        let me                = this,
+            config            = me[configName],
+            {parentComponent} = me;
 
         if (config && (!ntype || ntype === config.ntype)) {
             return config
@@ -1637,7 +1625,13 @@ class Base extends CoreBase {
      * @returns {Neo.plugin.Base|null}
      */
     getPlugin(opts) {
-        opts = typeof opts !== 'string' ? opts : {id: opts};
+        if (Neo.isString(opts)) {
+            if (!opts.startsWith('plugin-')) {
+                opts = 'plugin-' + opts
+            }
+
+            opts = {ntype: opts}
+        }
 
         let me = this,
             hasMatch;
@@ -1810,7 +1804,7 @@ class Base extends CoreBase {
                     resolve && me.resolveUpdateCache.push(resolve)
                     return true
                 } else {
-                    return me.isParentVdomUpdating(parent.parentId)
+                    return me.isParentVdomUpdating(parent.parentId, resolve)
                 }
             }
         }

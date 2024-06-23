@@ -26,10 +26,11 @@ class VBox extends Flexbox {
     /**
      * Applies the flex value to an item of the container this layout is bound to
      * @param {Neo.component.Base} item
+     * @param {Number} index
      */
-    applyChildAttributes(item) {
+    applyChildAttributes(item, index) {
         // Do not apply flex if fixed height
-        !item.height && super.applyChildAttributes(item)
+        !item.height && super.applyChildAttributes(item, index)
     }
 }
 

@@ -42,7 +42,7 @@ class SettingsContainer extends Container {
         let me = this;
 
         if (me.collapsed) {
-            me.vdom.removeDom = true;
+            me.vdom.removeDom = true
         }
     }
 
@@ -65,8 +65,8 @@ class SettingsContainer extends Container {
                 me.update();
 
                 me.mounted = false;
-            }, 400);
-        });
+            }, 400)
+        })
     }
 
     /**
@@ -133,7 +133,7 @@ class SettingsContainer extends Container {
             }
         }];
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
@@ -153,15 +153,15 @@ class SettingsContainer extends Container {
                 style = me.style || {}
                 style.marginRight = '0px';
                 me.style = style;
-            }, 50);
-        });
+            }, 50)
+        })
     }
 
     /**
      * @returns {Neo.calendar.view.MainContainer}
      */
     getMainContainer() {
-        return this.up('calendar-maincontainer');
+        return this.up('calendar-maincontainer')
     }
 
     /**
@@ -178,15 +178,15 @@ class SettingsContainer extends Container {
                 if (Neo.typeOf(mainContainer[`${container.flag}Component`]) !== 'NeoInstance') {
                     listenerId = mainContainer.on('cardLoaded', () => {
                         mainContainer.un('cardLoaded', listenerId);
-                        setTimeout(() => {container.createContent();}, 30);
-                    });
+                        setTimeout(() => {container.createContent();}, 30)
+                    })
                 } else {
-                    setTimeout(() => {container.createContent();}, 30);
+                    setTimeout(() => {container.createContent();}, 30)
                 }
             }
 
             if (container.flag !== 'general') {
-                mainContainer.activeView = container.flag;
+                mainContainer.activeView = container.flag
             }
         }
     }

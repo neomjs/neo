@@ -124,15 +124,14 @@ class Sorter extends Base {
      * @returns {Object|null}
      */
     export() {
-        let me        = this,
-            direction = me.direction,
-            property  = me.property;
+        let me                    = this,
+            {direction, property} = me;
 
         if (!me.sortBy && direction && property) {
-            return {direction, property};
+            return {direction, property}
         }
 
-        return null;
+        return null
     }
 
     /**
@@ -141,10 +140,10 @@ class Sorter extends Base {
      */
     transformValue(value) {
         if (typeof value === 'string') {
-            value = value.toLowerCase();
+            value = value.toLowerCase()
         }
 
-        return value;
+        return value
     }
 }
 

@@ -71,13 +71,12 @@ class Card extends Base {
      * @protected
      */
     async afterSetActiveIndex(value, oldValue) {
-        let me                  = this,
-            containerId         = me.containerId,
-            container           = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            sCfg                = me.constructor,
-            needsTransition     = me.slideDirection && oldValue !== undefined,
-            needsUpdate         = false,
-            removeInactiveCards = me.removeInactiveCards,
+        let me              = this,
+            {containerId, removeInactiveCards} = me,
+            container       = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            sCfg            = me.constructor,
+            needsTransition = me.slideDirection && oldValue !== undefined,
+            needsUpdate     = false,
             i, isActiveIndex, item, items, len, module, wrapperCls;
 
         if (Neo.isNumber(value) && container) {
@@ -123,7 +122,7 @@ class Card extends Base {
                         }
                     }
 
-                    item.wrapperCls = wrapperCls;
+                    item.wrapperCls = wrapperCls
                 }
             }
 
@@ -146,7 +145,7 @@ class Card extends Base {
             isActiveIndex = me.activeIndex === index,
             sCfg          = me.constructor,
             childCls      = item.wrapperCls,
-            vdom          = item.vdom;
+            {vdom}        = item;
 
         NeoArray.add(childCls, sCfg.itemCls);
         NeoArray.add(childCls, isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls);
@@ -195,13 +194,13 @@ class Card extends Base {
      * @returns {Neo.component.Base}
      */
     async loadModule(item, index) {
-        let me          = this,
-            containerId = me.containerId,
-            container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            items       = container.items,
-            sCfg        = me.constructor,
-            vdom        = container.vdom,
-            module      = item.module,
+        let me            = this,
+            {containerId} = me,
+            container     = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            items         = container.items,
+            sCfg          = me.constructor,
+            {vdom}        = container,
+            {module}      = item,
             proto, wrapperCls;
 
         if (!Neo.isNumber(index)) {

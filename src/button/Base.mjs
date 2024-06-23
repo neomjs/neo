@@ -304,8 +304,10 @@ class Base extends Component {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        if (this.menuList) {
-            this.menuList.theme = value
+        let {menuList} = this;
+
+        if (menuList) {
+            menuList.theme = value
         }
     }
 
@@ -537,8 +539,8 @@ class Base extends Component {
      *
      */
     async toggleMenu() {
-        let menuList = this.menuList,
-            hidden   = !menuList.hidden;
+        let {menuList} = this,
+            hidden     = !menuList.hidden;
 
         menuList.hidden = hidden;
 

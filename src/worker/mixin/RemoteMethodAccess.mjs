@@ -35,8 +35,8 @@ class RemoteMethodAccess extends Base {
      * @returns {function(*=, *=): Promise<any>}
      */
     generateRemote(remote, method) {
-        let me     = this,
-            origin = remote.origin;
+        let me       = this,
+            {origin} = remote;
 
         return function(data, buffer) {
             let opts = {
@@ -58,10 +58,9 @@ class RemoteMethodAccess extends Base {
      */
     onRegisterRemote(remote) {
         if (remote.destination === Neo.workerId) {
-            let me        = this,
-                className = remote.className,
-                methods   = remote.methods,
-                pkg       = Neo.ns(className, true);
+            let me                   = this,
+                {className, methods} = remote,
+                pkg                  = Neo.ns(className, true);
 
             methods.forEach(method => {
                 if (remote.origin !== 'main' && pkg[method]) {

@@ -146,10 +146,8 @@ class Filter extends Base {
      * @returns {Object|null}
      */
     export() {
-        let me       = this,
-            operator = me.operator,
-            property = me.property,
-            value    = me.value;
+        let me                          = this,
+            {operator, property, value} = me;
 
         if (!me.filterBy) {
             return {operator, property, value}
@@ -166,11 +164,8 @@ class Filter extends Base {
         let me = this;
 
         if (oldValue !== undefined && me.isUpdating !== true) {
-            me.fire('change', {
-                operator: me.operator,
-                property: me.property,
-                value   : me.value
-            })
+            let {operator, property, value} = me;
+            me.fire('change', {operator, property, value})
         }
     }
 

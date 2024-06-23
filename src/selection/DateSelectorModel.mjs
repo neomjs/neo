@@ -33,44 +33,44 @@ class DateSelectorModel extends Model {
             idArray, tmpArray;
 
         if (selection[0]) {
-            idArray = selection[0].split('__');
+            idArray = selection[0].split('__')
         } else {
-            idArray = data.path[0].id.split('__');
+            idArray = data.path[0].id.split('__')
         }
 
         tmpArray = idArray[1].split('-').map(e => parseInt(e));
 
         tmpArray[1]--; // the month inside the view is 1 based, a date needs 0 based
 
-        return new Date(...tmpArray);
+        return new Date(...tmpArray)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(data, 7);
+        this.onNavKeyRow(data, 7)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1);
+        this.onNavKeyColumn(data, -1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1);
+        this.onNavKeyColumn(data, 1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(data, -7);
+        this.onNavKeyRow(data, -7)
     }
 
     /**
@@ -80,7 +80,7 @@ class DateSelectorModel extends Model {
     onNavKeyColumn(data, step) {
         let me       = this,
             cellDate = me.getCellDate(data),
-            view     = me.view,
+            {view}   = me,
             daysInMonth, id, newDay;
 
         daysInMonth = DateUtil.getDaysInMonth(cellDate);
@@ -91,7 +91,7 @@ class DateSelectorModel extends Model {
         id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
 
         me.select(id);
-        view.focus(id);
+        view.focus(id)
     }
 
     /**
@@ -101,7 +101,7 @@ class DateSelectorModel extends Model {
     onNavKeyRow(data, step) {
         let me       = this,
             cellDate = me.getCellDate(data),
-            view     = me.view,
+            {view}   = me,
             daysInMonth, id, newDay;
 
         daysInMonth = DateUtil.getDaysInMonth(cellDate);
@@ -109,26 +109,26 @@ class DateSelectorModel extends Model {
 
         if (newDay > daysInMonth) {
             if (!me.stayInColumn) {
-                newDay += 1;
+                newDay += 1
             }
 
             while (newDay > 7) {
-                newDay -= step;
+                newDay -= step
             }
         } else if (newDay < 1) {
             if (!me.stayInColumn) {
-                newDay -= 1;
+                newDay -= 1
             }
 
             while (newDay < daysInMonth - 6) {
-                newDay -= step;
+                newDay -= step
             }
         }
 
         id = view.getCellId(cellDate.getFullYear(), cellDate.getMonth() + 1, newDay);
 
         me.select(id);
-        view.focus(id);
+        view.focus(id)
     }
 
     /**
@@ -137,25 +137,23 @@ class DateSelectorModel extends Model {
     register(component) {
         super.register(component);
 
-        let me    = this,
-            scope = {scope: me.id},
-            view  = me.view;
+        let scope  = {scope: this.id},
+            {view} = this.view;
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,...scope},
             {fn: 'onKeyDownRight' ,key: 'Right' ,...scope},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
-        );
+        )
     }
 
     /**
      *
      */
     unregister() {
-        let me    = this,
-            scope = {scope: me.id},
-            view  = me.view;
+        let scope  = {scope: this.id},
+            {view} = this.view;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
@@ -164,7 +162,7 @@ class DateSelectorModel extends Model {
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,...scope}
         ]);
 
-        super.unregister();
+        super.unregister()
     }
 }
 

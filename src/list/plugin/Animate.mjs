@@ -21,6 +21,11 @@ class Animate extends Base {
          */
         className: 'Neo.list.plugin.Animate',
         /**
+         * @member {String} ntype='plugin-list-animate'
+         * @protected
+         */
+        ntype: 'plugin-list-animate',
+        /**
          * Read only
          * @member {Number|null} columns=null
          */
@@ -63,11 +68,11 @@ class Animate extends Base {
     construct(config) {
         super.construct(config);
 
-        let me    = this,
-            owner = me.owner;
+        let me      = this,
+            {owner} = me;
 
         if (!owner.itemHeight || !owner.itemWidth) {
-            console.error('list.plugin.Animate requires fixed itemHeight and itemWidth values', owner);
+            console.error('list.plugin.Animate requires fixed itemHeight and itemWidth values', owner)
         }
 
         me.adjustCreateItem();
@@ -75,18 +80,18 @@ class Animate extends Base {
         owner.onStoreFilter = me.onStoreFilter.bind(me);
         owner.onStoreSort   = me.onStoreSort  .bind(me);
 
-        this.updateTransitionDetails(false);
+        this.updateTransitionDetails(false)
     }
 
     /**
      *
      */
     adjustCreateItem() {
-        let me    = this,
-            owner = me.owner;
+        let me      = this,
+            {owner} = me;
 
         me.ownerCreateItem = owner.createItem.bind(owner);
-        owner.createItem   = me.createItem.bind(owner, me);
+        owner.createItem   = me.createItem.bind(owner, me)
     }
 
     /**
@@ -96,7 +101,7 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue));
+        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue))
     }
 
     /**
@@ -106,7 +111,7 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionEasing(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(!!oldValue);
+        this.isConstructed && this.updateTransitionDetails(!!oldValue)
     }
 
     /**
@@ -116,7 +121,7 @@ class Animate extends Base {
      * @protected
      */
     beforeSetTransitionEasing(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'transitionEasing');
+        return this.beforeSetEnumValue(value, oldValue, 'transitionEasing')
     }
 
     /**
@@ -127,12 +132,12 @@ class Animate extends Base {
      */
     createItem(me, record, index) {
         let item     = me.ownerCreateItem(record, index),
-            owner    = me.owner,
+            {owner}  = me,
             position = me.getItemPosition(record, index),
             style    = item.style || {};
 
         if (!me.ownerRect) {
-            return null;
+            return null
         }
 
         Object.assign(style, {
@@ -144,7 +149,7 @@ class Animate extends Base {
 
         item.style = style;
 
-        return item;
+        return item
     }
 
     /**

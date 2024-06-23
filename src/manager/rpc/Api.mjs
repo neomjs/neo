@@ -38,6 +38,4 @@ class Api extends Base {
     }
 }
 
-let instance = Neo.setupClass(Api);
-
-export default instance;
+export default Neo.setupClass(Api);

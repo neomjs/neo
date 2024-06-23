@@ -256,12 +256,11 @@ class Component extends BaseComponent {
      * @param {Boolean} [silent=false]
      */
     adjustTotalHeight(data, silent=false) {
-        let me          = this,
-            rowHeight   = data.rowHeight,
-            rowsPerItem = data.rowsPerItem,
-            height      = data.totalHeight - rowHeight,
-            i           = 0,
-            gradient    = [];
+        let me                       = this,
+            {rowHeight, rowsPerItem} = data,
+            height                   = data.totalHeight - rowHeight,
+            i                        = 0,
+            gradient                 = [];
 
         for (; i < rowsPerItem; i++) {
             gradient.push(
@@ -355,27 +354,24 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEnableDrag(value, oldValue) {
-        let me = this;
-
-        if (value && !me.getPlugin({flag: 'dragdrop'})) {
+        if (value && !this.getPlugin('calendar-week-dragdrop')) {
             Promise.all([
                 import('./plugin/DragDrop.mjs'),
                 import('./plugin/EventResizable.mjs')
             ]).then(modules => {
-                let me      = this,
-                    plugins = me.plugins || [];
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
 
                 plugins.push({
                     module : modules[0].default,
-                    appName: me.appName,
-                    flag   : 'dragdrop',
+                    appName,
                     ...me.pluginDragDropConfig
                 }, {
                     module       : modules[1].default,
-                    appName      : me.appName,
+                    appName,
                     delegationCls: 'neo-event',
                     directions   : ['b', 't'],
-                    flag         : 'resizable',
                     ...me.pluginEventResizableConfig
                 });
 
@@ -391,8 +387,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventBorder(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
         value    && NeoArray.add(   cls, `neo-event-border-${value}`);
@@ -483,8 +479,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me    = this,
+            {cls} = me;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-weekends');
 
@@ -504,7 +500,7 @@ class Component extends BaseComponent {
      */
     afterSetTimeAxisPosition(value, oldValue) {
         let me                = this,
-            cls               = me.cls,
+            {cls}             = me,
             timeAxisContainer = me.getColumnTimeAxisContainer();
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls, 'neo-timeaxis-end');
@@ -681,17 +677,19 @@ class Component extends BaseComponent {
      */
     onEventDoubleClick(data) {
         if (this.data.events.enableEdit) {
-            !data.path[0].cls.includes('neo-event') && data.path.shift();
+            let {path} = data;
+
+            !path[0].cls.includes('neo-event') && path.shift();
 
             let me                 = this,
-                editEventContainer = me.owner.editEventContainer,
-                eventNode          = data.path[0],
+                {editEventContainer} = me.owner,
+                eventNode          = path[0],
                 eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
                 record             = me.eventStore.get(eventVdom.flag),
-                style              = editEventContainer.style;
+                {style}            = editEventContainer;
 
             Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top});
-            editEventContainer.setSilent({parentId: data.path[1].id, record, style});
+            editEventContainer.setSilent({parentId: path[1].id, record, style});
             editEventContainer.render(true)
         }
     }
@@ -716,8 +714,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data.path
      */
     onFocusChange(data) {
-        let oldPath = data.oldPath,
-            path    = data.path;
+        let {oldPath, path} = data;
 
         oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
         path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
@@ -742,15 +739,13 @@ class Component extends BaseComponent {
      */
     onWheel(data) {
         if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
-            let me              = this,
-                columns         = me.getColumnContainer(),
-                columnsBuffer   = me.columnsBuffer,
-                columnsVisible  = me.columnsVisible,
-                firstColumnDate = me.firstColumnDate,
-                header          = me.getHeaderContainer(),
-                i               = 0,
-                timeAxisWidth   = 50,
-                width           = data.clientWidth - timeAxisWidth,
+            let me                                               = this,
+                columns                                          = me.getColumnContainer(),
+                {columnsBuffer, columnsVisible, firstColumnDate} = me,
+                header                                           = me.getHeaderContainer(),
+                i                                                = 0,
+                timeAxisWidth                                    = 50,
+                width                                            = data.clientWidth - timeAxisWidth,
                 config, date, scrollValue;
 
             // console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
@@ -838,17 +833,13 @@ class Component extends BaseComponent {
         if (!me.mounted) {
             me.needsEventUpdate = true
         } else {
-            let calendarStore     = me.calendarStore,
-                eventStore        = me.eventStore,
-                timeAxis          = me.timeAxis,
-                endTime           = timeAxis.getTime(me.endTime),
-                startTime         = timeAxis.getTime(me.startTime),
-                totalTime         = endTime - startTime,
-                date              = DateUtil.clone(me.firstColumnDate),
-                vdom              = me.vdom,
-                content           = me.getColumnContainer(),
-                j                 = startIndex,
-                showEventEndTime  = me.showEventEndTime,
+            let {calendarStore, eventStore, showEventEndTime, timeAxis, vdom} = me,
+                endTime   = timeAxis.getTime(me.endTime),
+                startTime = timeAxis.getTime(me.startTime),
+                totalTime = endTime - startTime,
+                date      = DateUtil.clone(me.firstColumnDate),
+                content   = me.getColumnContainer(),
+                j         = startIndex,
                 calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
                 len, record, recordKey, startDate, startHours, top;
 
@@ -940,7 +931,7 @@ class Component extends BaseComponent {
                 date.setDate(date.getDate() + 1)
             }
 
-            me[silent ? '_vdom' : 'vdom'] = vdom
+            !silent && me.update()
         }
     }
 
@@ -949,13 +940,12 @@ class Component extends BaseComponent {
      * @param {Boolean} [silent=false]
      */
     updateHeader(create=false, silent=false) {
-        let me           = this,
-            date         = me.currentDate, // cloned
-            vdom         = me.vdom,
-            content      = me.getColumnContainer(),
-            header       = me.getHeaderContainer(),
-            i            = 0,
-            showWeekends = me.showWeekends,
+        let me             = this,
+            {showWeekends} = me,
+            date           = me.currentDate, // cloned
+            content        = me.getColumnContainer(),
+            header         = me.getHeaderContainer(),
+            i              = 0,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
 
         me.setFirstColumnDate(date);
@@ -998,13 +988,13 @@ class Component extends BaseComponent {
 
                 Object.assign(header.cn[i],       {id: headerId, removeDom});
                 Object.assign(header.cn[i].cn[0], {html: me.intlFormat_day.format(date), id: `${headerId}_day`});
-                Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`});
+                Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`})
             }
 
             date.setDate(date.getDate() + 1)
         }
 
-        me[silent ? '_vdom' : 'vdom'] = vdom
+        !silent && me.update()
     }
 }
 

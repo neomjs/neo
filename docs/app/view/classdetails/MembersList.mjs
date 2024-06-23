@@ -246,7 +246,7 @@ class MembersList extends Base {
 
             // methods
             if (item.params && item.kind !== 'event') {
-                if (item.$kind === 'property') {console.log(item);
+                if (item.$kind === 'property') {
                     headerText = 'get ' + headerText
                 }
 

@@ -58,20 +58,20 @@ class Accordion extends Panel {
      * @param {Number[]} oldValue
      */
     afterSetInitialOpen(value, oldValue) {
-        const me            = this,
-              items         = me.items,
-              expandedItems = me.expandedItems;
+        let me                     = this,
+            {expandedItems, items} = me,
+            id, item;
 
         value.forEach((itemNo) => {
-            const id   = Neo.getId(me.itemDefaults.ntype),
-                  item = items[itemNo];
+            id   = Neo.getId(me.itemDefaults.ntype),
+            item = items[itemNo];
 
             item.expanded = true;
-            item.id = id;
-            NeoArray.add(expandedItems, id);
+            item.id       = id;
+            NeoArray.add(expandedItems, id)
         });
 
-        me.expandedItems = expandedItems;
+        me.expandedItems = expandedItems
     }
 
     /**
@@ -80,8 +80,8 @@ class Accordion extends Panel {
      * @param {String|null} oldValue
      */
     afterSetTitle(value, oldValue) {
-        const me      = this,
-              titleEl = me.down({flag: 'titleEl'});
+        let me      = this,
+            titleEl = me.down({flag: 'titleEl'});
 
         if (value && !titleEl) {
             me.headers = [{
@@ -89,7 +89,7 @@ class Accordion extends Panel {
                 cls    : ['neo-accordion-title'],
                 dock   : 'top',
                 text   : value
-            }];
+            }]
         }
     }
 
@@ -102,26 +102,24 @@ class Accordion extends Panel {
      * @protected
      */
     childExpandChange(data) {
-        const me               = this,
-              maxExpandedItems = me.maxExpandedItems,
-              expandedItems    = me.expandedItems,
-              curNoOpenItems   = expandedItems.length,
-              target           = data.target,
-              targetId         = target.id,
-              expanded         = data.expanded;
+        let me                                = this,
+            {expandedItems, maxExpandedItems} = me,
+            {expanded, target}                = data,
+            curNoOpenItems                    = expandedItems.length,
+            targetId                          = target.id;
 
         if (expanded
             && maxExpandedItems !== 0
             && curNoOpenItems === maxExpandedItems
         ) {
             Neo.get(expandedItems[0]).expanded = false;
-            NeoArray.remove(expandedItems, expandedItems[0]);
+            NeoArray.remove(expandedItems, expandedItems[0])
         }
 
         target.expanded = expanded;
         NeoArray.toggle(expandedItems, targetId);
 
-        me.expandedItems = expandedItems;
+        me.expandedItems = expandedItems
     }
 }
 

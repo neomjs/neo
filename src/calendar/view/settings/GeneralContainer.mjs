@@ -28,7 +28,7 @@ class GeneralContainer extends Container {
     createItems() {
         let me       = this,
             calendar = me.up('calendar-maincontainer'),
-            data     = me.data;
+            {data}   = me;
 
         me.items = [{
             module    : NumberField,
@@ -259,21 +259,21 @@ class GeneralContainer extends Container {
             }]
         }];
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
      * @param {Object} data
      */
     onConfigChange(data) {
-        this.up('calendar-maincontainer')[data.component.name] = data.value;
+        this.up('calendar-maincontainer')[data.component.name] = data.value
     }
 
     /**
      * @param {Object} data
      */
     onDataChange(data) {
-        this.getModel().setData(data.component.name, data.value);
+        this.getModel().setData(data.component.name, data.value)
     }
 
     /**
@@ -281,7 +281,7 @@ class GeneralContainer extends Container {
      */
     onRadioDataChange(data) {
         if (data.value) {
-            this.getModel().setData(data.component.name, data.component.fieldValue);
+            this.getModel().setData(data.component.name, data.component.fieldValue)
         }
     }
 }

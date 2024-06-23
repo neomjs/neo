@@ -1,0 +1,10 @@
+{
+    "appPath"         : "apps/colors/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
+    "remotesApiUrl"   : "remotes-api.json",
+    "themes"          : ["neo-theme-dark"],
+    "useSharedWorkers": true
+}

@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../helix/ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowHelix.ViewportController
- * @extends Neo.controller.Component
+ * @extends Neo.examples.component.helix.ViewportController
  */
-class ViewportController extends Component {
+class ViewportController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.component.multiWindowHelix.ViewportController'
@@ -22,19 +22,31 @@ class ViewportController extends Component {
      *
      */
     async createPopupWindow() {
-        let me                         = this,
-            widget                     = me.getReference('controls-panel'),
-            winData                    = await Neo.Main.getWindowData(),
-            rect                       = await me.component.getDomRect(widget.id),
+        let me              = this,
+            {windowId}      = me,
+            {windowConfigs} = Neo,
+            firstWindowId   = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}      = windowConfigs[firstWindowId],
+            widget          = me.getReference('controls-panel'),
+            winData         = await Neo.Main.getWindowData({windowId}),
+            rect            = await me.component.getDomRect(widget.id),
             {height, left, top, width} = rect;
 
         height -= 62; // popup header in Chrome
         left   += (width + winData.screenLeft);
         top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
+        /*
+         * For this demo, the url './childapp/' would be sufficient.
+         * However, we also want to open it from within apps/portal.
+         *
+         * We match the basePath to the firstWindowId,
+         * assuming the first connected window is the (main) one which we want to be in charge.
+         */
         await Neo.Main.windowOpen({
-            url           : './childapp/index.html',
+            url           : basePath + 'examples/component/multiWindowHelix/childapp/',
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowId      : firstWindowId,
             windowName    : 'HelixControls'
         })
     }
@@ -81,7 +93,7 @@ class ViewportController extends Component {
             me.component.add(controlsPanel)
         }
         // Close popup windows when closing or reloading the main window
-        else {
+        else if (appName === 'Neo.examples.component.multiWindowHelix') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }

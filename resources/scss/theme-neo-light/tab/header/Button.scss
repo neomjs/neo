@@ -26,17 +26,15 @@
     --tab-button-margin-bottom                  : 0;
     --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
     --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
+    --tab-button-text-font-size                 : var(--sem-typo-label-regular-fontSize);
     --tab-button-text-transform                 : uppercase;
 
     // custom overrides
-    .neo-button-text {
-        font-size: var(--sem-typo-label-regular-fontSize) !important;
-    }
-
-    .pressed {
-        .neo-button-glyph, .neo-button-text {
-            color: var(--sem-color-fg-neutral-contrast) !important;
+    .neo-tab-header-button.neo-button {
+        .pressed {
+            .neo-button-glyph, .neo-button-text {
+                color: var(--sem-color-fg-neutral-contrast);
+            }
         }
     }
 }
-

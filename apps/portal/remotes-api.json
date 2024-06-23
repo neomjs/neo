@@ -1,0 +1,13 @@
+{
+    "namespace": "Colors.backend",
+    "type"     : "websocket",
+    "url"      : "https://still-castle-38841.herokuapp.com/",
+
+    "services": {
+        "ColorService": {
+            "methods": {
+                "read": {"params":  [{"type":  "Object"}]}
+            }
+        }
+    }
+}

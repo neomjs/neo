@@ -37,7 +37,7 @@ class CellRowModel extends CellModel {
     construct(config) {
         super.construct(config);
 
-        this.selectedRowIds = [];
+        this.selectedRowIds = []
     }
 
     /**
@@ -46,13 +46,13 @@ class CellRowModel extends CellModel {
     deselectAllRows(silent) {
         let me     = this,
             rowIds = [...me.selectedRowIds],
-            view   = me.view;
+            {view} = me;
 
         rowIds.forEach(rowId => {
-            me.deselectRow(rowId, true);
+            me.deselectRow(rowId, true)
         });
 
-        !silent && view.update();
+        !silent && view.update()
     }
 
     /**
@@ -60,20 +60,20 @@ class CellRowModel extends CellModel {
      * @param {Boolean} [silent] true to prevent a vdom update
      */
     deselectRow(rowId, silent) {
-        let me   = this,
-            view = me.view,
-            node = view.getVdomChild(rowId),
+        let me     = this,
+            {view} = me,
+            node   = view.getVdomChild(rowId),
             cls;
 
         if (node) {
             cls = node.cls || [];
             NeoArray.remove(cls, me.selectedCls);
-            node.cls = cls;
+            node.cls = cls
         }
 
         NeoArray.remove(me.selectedRowIds, rowId);
 
-        !silent && view.update();
+        !silent && view.update()
     }
 
     /**
@@ -86,10 +86,10 @@ class CellRowModel extends CellModel {
 
         if (id) {
             me.deselectAllRows(true);
-            me.selectRow(id);
+            me.selectRow(id)
         }
 
-        super.onCellClick(data);
+        super.onCellClick(data)
     }
 
     /**
@@ -99,24 +99,24 @@ class CellRowModel extends CellModel {
     onNavKeyRow(data, step) {
         super.onNavKeyRow(data, step);
 
-        let me         = this,
-            node       = RowModel.getRowNode(data.path),
-            view       = me.view,
-            store      = view.store,
-            vdomNode   = VDomUtil.findVdomChild(view.vdom, node.id),
-            newIndex   = (vdomNode.index + step) % store.getCount(),
-            parentNode = vdomNode.parentNode,
+        let me           = this,
+            node         = RowModel.getRowNode(data.path),
+            {view}       = me,
+            {store}      = view,
+            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            newIndex     = (vdomNode.index + step) % store.getCount(),
+            {parentNode} = vdomNode,
             id;
 
         while (newIndex < 0) {
-            newIndex += store.getCount();
+            newIndex += store.getCount()
         }
 
         id = parentNode.cn[newIndex].id;
 
         if (id) {
             me.deselectAllRows(true);
-            me.selectRow(id);
+            me.selectRow(id)
         }
     }
 
@@ -126,7 +126,7 @@ class CellRowModel extends CellModel {
      */
     selectRow(id, silent) {
         let me       = this,
-            view     = me.view,
+            {view}   = me,
             vdomNode = id && view.getVdomChild(id),
             cls;
 
@@ -135,10 +135,10 @@ class CellRowModel extends CellModel {
             NeoArray.add(cls, me.selectedCls);
             vdomNode.cls = cls;
 
-            me.selectedRowIds.push(id);
+            me.selectedRowIds.push(id)
         }
 
-        !silent && view.update();
+        !silent && view.update()
     }
 
     /**
@@ -146,7 +146,7 @@ class CellRowModel extends CellModel {
      */
     unregister() {
         this.deselectAllRows();
-        super.unregister();
+        super.unregister()
     }
 }
 

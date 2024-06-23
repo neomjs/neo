@@ -61,7 +61,7 @@ class NumberContainer extends Container {
                 component: this,
                 oldValue,
                 value
-            });
+            })
         }
     }
 
@@ -76,7 +76,7 @@ class NumberContainer extends Container {
                 component: this,
                 oldValue,
                 value
-            });
+            })
         }
     }
 
@@ -100,21 +100,21 @@ class NumberContainer extends Container {
             ...me.fieldConfig
         }];
 
-        super.createItems();
+        super.createItems()
     }
 
     /**
      * @param {Object} data
      */
     onOperatorChange(data) {
-        this.operator = data.component.value;
+        this.operator = data.component.value
     }
 
     /**
      * @param {Object} data
      */
     onValueChange(data) {
-        this.value = data.component.value;
+        this.value = data.component.value
     }
 }
 

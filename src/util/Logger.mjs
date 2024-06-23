@@ -129,7 +129,7 @@ class Logger extends Base {
                     // get the part after the last /
                     caller_path = line.match(/([^\/]+)$/)[1].match(/([^ ]+)$/)[1];
 
-                    break;
+                    break
                 }
             }
         }
@@ -165,7 +165,7 @@ class Logger extends Base {
      * @param {Object} data
      */
     onContextMenu(data) {
-        let config = Neo.config;
+        let {config} = Neo;
 
         if (
             data.ctrlKey
@@ -199,8 +199,8 @@ class Logger extends Base {
      * @protected
      */
     resolveArgs(...args) {
-        const identifier = args[0];
-        let argsObject   = {};
+        let identifier = args[0],
+            argsObject = {};
 
         if (args.length === 1) {
             if (Neo.isString(identifier)) {
@@ -210,7 +210,7 @@ class Logger extends Base {
             }
         } else if (args.length > 2) {
             argsObject.msg  = args[0];
-            argsObject.data = args.slice(1);
+            argsObject.data = args.slice(1)
         }
 
         return argsObject
@@ -236,7 +236,9 @@ class Logger extends Base {
         if (me.beforeSetLevel(level) < me.level) {
             return
         }
-console.log('#', args.msg, level)
+
+        console.log('#', args.msg, level);
+
         let logColor = me.logColors[level],
             logChar  = me.logChars[level],
             bg       = `background-color:${logColor}; color: white; font-weight: 900;`,
@@ -253,6 +255,4 @@ console.log('#', args.msg, level)
     }
 }
 
-let instance = Neo.setupClass(Logger);
-
-export default instance;
+export default Neo.setupClass(Logger);
