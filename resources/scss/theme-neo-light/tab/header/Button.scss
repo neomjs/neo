@@ -26,14 +26,11 @@
     --tab-button-margin-bottom                  : 0;
     --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
     --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
+    --tab-button-text-font-size                 : var(--sem-typo-label-regular-fontSize);
     --tab-button-text-transform                 : uppercase;
 
     // custom overrides
     .neo-tab-header-button.neo-button {
-        .neo-button-text {
-            font-size: var(--sem-typo-label-regular-fontSize);
-        }
-
         .pressed {
             .neo-button-glyph, .neo-button-text {
                 color: var(--sem-color-fg-neutral-contrast);
