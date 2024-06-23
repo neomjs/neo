@@ -48,7 +48,7 @@ class MainView extends Container {
             module   : Button,
             text: 'Button',
             listeners: { 
-                click: button => Neo.Main.log('Click!');
+                click: button => Neo.Main.log('Click!')
             }
         }]
     }
