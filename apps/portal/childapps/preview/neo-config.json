@@ -3,7 +3,7 @@
     "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"],
+    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
     "themes"          : ["neo-theme-neo-light", "neo-theme-dark"],
     "useSharedWorkers": true
 }
