@@ -28,7 +28,7 @@ class AfterMath extends Container {
         }, {
             cls : 'neo-h2',
             flex: 'none',
-            html: 'More to come her',
+            html: 'More to come here',
             // height: 200
         }, {
             cls : 'neo-content',
