@@ -51,7 +51,6 @@ class Helix extends Container {
                 activeView: 'preview',
                 cls       : ['page-live-preview'],
                 height    : '100%',
-                style     : {background: 'white'},
 
                 value: [
                     "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
