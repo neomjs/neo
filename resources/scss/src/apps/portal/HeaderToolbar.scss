@@ -1,55 +1,54 @@
 .learnneo-header-toolbar {
-  border-bottom: 1px solid #f2f2f2;
+    border-bottom: 1px solid #f2f2f2;
 
-  .logo {
-    margin-left: 1em;
-  }
-
-  .neo-button {
-    margin-left: 10px;
-
-    &.no-text {
-      margin-left: 0;
-      width: 1.2em;
-
-      &.github-button {
-        margin-left: 5em;
-      }
-
-      .neo-button-glyph {
-        font-size: 24px;
-      }
+    .logo {
+        margin-left: 1em;
     }
 
-    .neo-button-glyph {
-      &.neo-logo-blue {
-        background-image: url("../../../../../../../resources/images/logo/neo_logo_primary.svg");
-        height: 24px;
-        width: 24px;
-      }
+    .neo-button {
+        margin-left: 10px;
+
+        &.no-text {
+            margin-left: 0;
+            width      : 1.2em;
+
+            &.github-button {
+                margin-left: 5em;
+            }
+
+            .neo-button-glyph {
+                font-size: 24px;
+            }
+        }
+
+        .neo-button-glyph {
+            &.neo-logo-blue {
+                background-image: url("../../../../../../../resources/images/logo/neo_logo_primary.svg");
+                height          : 24px;
+                width           : 24px;
+            }
+        }
     }
-  }
 
-  .separate-bar {
-    position: absolute;
-    right: 20px;
-    top: 60px;
-    width: 40px;
+    .separate-bar {
+        animation: fade-in-animation 200ms linear;
+        position: absolute;
+        right   : 20px;
+        top     : 60px;
+        transform: rotate(0);
+        width   : 40px;
+        z-index  : 9;
+    }
 
-    z-index: 9;
-    transform: rotate(0);
-    animation: fade-in-animation 200ms linear;
-  }
-
-  // find parallel class hide-sidebar
-  &:has(+div .hide-sidebar) .separate-bar {
-    animation: fade-animation 200ms linear forwards;
-  }
+    // find parallel class hide-sidebar
+    &:has(+div .hide-sidebar) .separate-bar {
+        animation: fade-animation 200ms linear forwards;
+    }
 }
 
 .vector {
-  animation: fade-and-scale-animation auto linear;
-  animation-timeline: --page-scroll;
+    animation: fade-and-scale-animation auto linear;
+    animation-timeline: --page-scroll;
 }
 
 //@scroll-timeline --page-scroll {
@@ -61,70 +60,71 @@
 
 /* Style and position the progress bar */
 #progress {
-  position: fixed;
-  z-index: 1000;
-  top: 0;
-  height: 2px;
-  width: 100%;
-  background: var(--button-background-color);
-  background: var(--sem-color-surface-primary-background);
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    height: 2px;
+    width: 100%;
+    background: var(--button-background-color);
+    background: var(--sem-color-surface-primary-background);
 
-  scale: 0 1;
-  transform-origin: left;
+    scale: 0 1;
+    transform-origin: left;
 
-  /* Attach the animation using an anonymous Scroll Progress Timeline */
-  animation: grow-progress linear;
-  animation-timeline: --page-scroll;
+    /* Attach the animation using an anonymous Scroll Progress Timeline */
+    animation: grow-progress linear;
+    animation-timeline: --page-scroll;
 }
 
 @keyframes grow-progress {
-  to { scale: 1 1; }
+    to {
+        scale: 1 1;
+    }
 }
 
 .hello-world {
-  animation-timeline: view(block 100% -500%);
+    animation-timeline: view(block 100% -500%);
 
-  animation-name: appear-animation;
-  animation-fill-mode: both;
-  animation-duration: 1ms; /* Firefox requires this to apply the animation */
-  animation-timing-function: linear;
+    animation-name: appear-animation;
+    animation-fill-mode: both;
+    animation-duration: 1ms; /* Firefox requires this to apply the animation */
+    animation-timing-function: linear;
 }
 
 @keyframes appear-animation {
-  0% {
-    transform: translateX(-400%);
-    opacity: 0;
-  }
-  90% {
-    opacity: .3;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
+    0% {
+        transform: translateX(-400%);
+        opacity  : 0;
+    }
+    90% {
+        opacity: .3;
+    }
+    100% {
+        transform: translateX(0);
+        opacity  : 1;
+    }
 }
 
 .cool-stuff {
-  animation-timeline: view(block 100% -500%);
-
-  animation-name: appear-cool-stuff;
-  animation-fill-mode: both;
-  animation-duration: 1ms; /* Firefox requires this to apply the animation */
-  animation-timing-function: linear;
+    animation-timeline       : view(block 100% -500%);
+    animation-name           : appear-cool-stuff;
+    animation-fill-mode      : both;
+    animation-duration       : 1ms; /* Firefox requires this to apply the animation */
+    animation-timing-function: linear;
 }
 
 @keyframes appear-cool-stuff {
-  0% {
-    transform: translateX(400%);
-    opacity: 0;
-  }
-  90% {
-    opacity: .3;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
+    0% {
+        transform: translateX(400%);
+        opacity  : 0;
+    }
+    90% {
+        opacity: .3;
+    }
+    100% {
+        transform: translateX(0);
+        opacity  : 1;
+    }
 }
 
 
@@ -133,65 +133,83 @@
 //}
 
 .portal-home-maincontainer {
-  scroll-timeline: --page-scroll block;
+    scroll-timeline: --page-scroll block;
 }
 
 @keyframes rotateAnimation {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes fade-and-scale-animation {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  12%, 100% {
-    opacity: 0;
-    transform: scale(1.5);
-  }
+    0% {
+        opacity  : 1;
+        transform: scale(1);
+    }
+    12%, 100% {
+        opacity  : 0;
+        transform: scale(1.5);
+    }
 }
 
 @keyframes fade-in-animation {
-  from { opacity: 0; right: -10px}
-  to   { opacity: 1; right: 20px;}
+    from {
+        opacity: 0;
+        right  : -10px
+    }
+    to {
+        opacity: 1;
+        right  : 20px;
+    }
 }
+
 @keyframes fade-animation {
-  from { opacity: 1; right: 20px;}
-  to   { opacity: 0; right: -10px}
+    from {
+        opacity: 1;
+        right  : 20px;
+    }
+    to {
+        opacity: 0;
+        right  : -10px
+    }
 }
 
 .button-group {
-  overflow: visible;
+    overflow: visible;
 }
 
 .get-started-button {
-  opacity: 0;
-  animation: show-get-started-button 400ms 1300ms linear forwards;
+    opacity  : 0;
+    animation: show-get-started-button 400ms 1300ms linear forwards;
 }
 
 .neo-github {
-  opacity: 0;
-  animation: show-github-button 600ms 1150ms linear forwards;
+    opacity  : 0;
+    animation: show-github-button 600ms 1150ms linear forwards;
 }
 
 @keyframes show-get-started-button {
-  from {
-    opacity: 0;
-    transform: translate(70px, 30px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(0, 0);
-  }
+    from {
+        opacity  : 0;
+        transform: translate(70px, 30px);
+    }
+    to {
+        opacity  : 1;
+        transform: translate(0, 0);
+    }
 }
+
 @keyframes show-github-button {
-  from {
-    opacity: 0;
-    transform: translate(-70px, 50px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(0, 0);
-  }
+    from {
+        opacity  : 0;
+        transform: translate(-70px, 50px);
+    }
+    to {
+        opacity  : 1;
+        transform: translate(0, 0);
+    }
 }
