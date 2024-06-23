@@ -455,7 +455,7 @@ Neo = globalThis.Neo = Object.assign({
             cfg = ctor.config || {};
 
             if (Neo.overwrites) {
-                ctor.applyOverwrites(cfg)
+                ctor.applyOverwrites?.(cfg)
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
