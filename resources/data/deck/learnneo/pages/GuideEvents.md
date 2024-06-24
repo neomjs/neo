@@ -80,7 +80,7 @@ class MainView extends Container {
         }]
     }
     foo(data){
-        Neo.Main.log({value:data.value});
+        Neo.Main.log({value:data.value})
     }
 }
 Neo.setupClass(MainView);
@@ -97,10 +97,10 @@ import Controller from '../../../../src/controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController',
+        className: 'Example.view.MainViewController'
     }
     foo(data){
-        Neo.Main.log({value:data.value});
+        Neo.Main.log({value:data.value})
     }
 }
 Neo.setupClass(MainViewController);
@@ -141,13 +141,13 @@ import Controller from '../../../../src/controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController',
+        className: 'Example.view.MainViewController'
     }
     foo(data){
-        Neo.Main.log({value:data.value});
+        Neo.Main.log({value:data.value})
     }
     onComponentConstructed(){
-        debugger;
+        debugger
     }
 }
 Neo.setupClass(MainViewController);
@@ -183,16 +183,16 @@ import Controller from '../../../../src/controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController',
+        className: 'Example.view.MainViewController'
     }
     foo(data){
-        Neo.Main.log('foo' + {value:data.value};
+        Neo.Main.log('foo' + {value:data.value}
     }
 
     // This is a controller lifecycle method run after the controller's view has been constructed
     onComponentConstructed(){
         // Note the use of this.getReference() -- that's used to get a component reference with the specified name
-        this.getReference('nameTextfield').on('change', this.foo, this); 
+        this.getReference('nameTextfield').on('change', this.foo, this)
     }
 }
 Neo.setupClass(MainViewController);
@@ -212,7 +212,7 @@ class MainView extends Container {
         items: [{
             module   : TextField,
             reference: 'nameTextfield', // This component can be fetched using this.getReference('nameTextfield')
-            labelText: 'Name',
+            labelText: 'Name'
         }]
     }
 }
