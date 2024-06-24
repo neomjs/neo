@@ -1244,7 +1244,7 @@ class Base extends CoreBase {
      * Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.util.KeyNavigation}
+     * @returns {Neo.util.KeyNavigation|null}
      * @protected
      */
     beforeSetKeys(value, oldValue) {
