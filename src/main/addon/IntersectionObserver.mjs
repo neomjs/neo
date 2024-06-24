@@ -78,6 +78,25 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
+     * @param {IntersectionObserverEntry[]} entries
+     * @param {IntersectionObserver} observer
+     */
+    isVisible(entries, observer) {
+        let me = this,
+            data, path, target;
+
+        entries.forEach(entry => {
+            target = entry.target;
+            data   = target.dataset && {...target.dataset} || null;
+            path   = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
+
+            if (entry.isIntersecting) {
+                me.sendMessage({data, id: observer.rootId, isIntersecting: true, path, targetId: target.id})
+            }
+        })
+    }
+
+    /**
      * Add more or new items into an existing observer instance
      * @param {Object} data
      * @param {Boolean} [data.disconnect=false] true removes all currently observed targets
@@ -128,7 +147,7 @@ class NeoIntersectionObserver extends Base {
      */
     register(data) {
         let me            = this,
-            cache         = me.cache,
+            {cache}       = me,
             {id, observe} = data,
             observer;
 
