@@ -79,10 +79,10 @@ class Helix extends Container {
             style : {background: 'grey', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
-                module    : LivePreview,
-                activeView: 'preview',
-                cls       : ['page-live-preview'],
-                height    : '100%',
+                module   : LivePreview,
+                cls      : ['page-live-preview'],
+                height   : '100%',
+                reference: 'live-preview',
 
                 value: [
                     "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
@@ -99,6 +99,13 @@ class Helix extends Container {
                 ].join('\n')
             }]
         }]
+    }
+
+    /**
+     *
+     */
+    activate() {
+        this.getReference('live-preview').activeView = 'preview'
     }
 }
 
