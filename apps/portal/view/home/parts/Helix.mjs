@@ -12,14 +12,17 @@ class Helix extends Container {
          * @protected
          */
         className: 'Portal.view.home.parts.Helix',
-
+        /**
+         * @member {String[]} cls=['page','cool-stuff']
+         */
         cls: ['page', 'cool-stuff'],
-
+        /**
+         * @member {Object} responsive
+         */
         responsive: {
             medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
             large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
         },
-
         /**
          * @member {Object[]} items
          */
@@ -28,38 +31,48 @@ class Helix extends Container {
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
-            items : [
-                {
-                    cls : 'neo-h1',
-                    flex: 'none',
-                    html: 'Extreme Speed'
-                }, 
-                {
-                    cls : 'neo-h2',
-                    flex: 'none',
-                    html: '40,000 Updates /s'
-                }, 
-                {
-                    cls : 'neo-h3',
-                    flex: 'none',
-                    html: 'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. As you do, look at the delta updates counter at the top. Neo.mjs easily handles 40,000 updates per second, and beyond.'
-                }, 
-                {
-                    cls : 'neo-h1',
-                    flex: 'none',
-                    html: 'Multi-Window'
-                },  
-                {
-                    cls : 'neo-h2',
-                    flex: 'none',
-                    html: 'Seamless and Simple'
-                },  
-                               {
-                    cls : 'neo-h3',
-                    flex: 'none',
-                    html: 'Click on the small window icon in the Helix Controls title bar and the controls open in their own window which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; the logic updates the controls just like before, and the DOM updates thread seamlessly handles updating the DOM.'
-                }
-        ]
+            items : [{
+                cls : 'neo-h1',
+                flex: 'none',
+                html: 'Extreme Speed',
+                vdom: {tag: 'h1'}
+            }, {
+                cls : 'neo-h2',
+                flex: 'none',
+                html: '40,000 Updates /s',
+                vdom: {tag: 'h2'}
+            }, {
+                cls : 'neo-h3',
+                flex: 'none',
+                vdom: {tag: 'p'},
+
+                html: [
+                    'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. ',
+                    'Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. ',
+                    'As you do, look at the delta updates counter at the top. ',
+                    'Neo.mjs easily handles 40,000 updates per second, and beyond.'
+                ].join('')
+            }, {
+                cls : 'neo-h1',
+                flex: 'none',
+                html: 'Multi-Window',
+                vdom: {tag: 'h1'}
+            }, {
+                cls : 'neo-h2',
+                flex: 'none',
+                html: 'Seamless and Simple',
+                vdom: {tag: 'h12'}
+            }, {
+                cls : 'neo-h3',
+                flex: 'none',
+                vdom: {tag: 'p'},
+
+                html: [
+                    'Click on the small window icon in the Helix Controls title bar and the controls open in their own window ',
+                    'which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; ',
+                    'the logic updates the controls just like before, and the DOM updates thread seamlessly handles updating the DOM.'
+                ].join('')
+            }]
         }, {
             module: Container,
             flex  : '2',
