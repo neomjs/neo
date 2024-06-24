@@ -47,12 +47,8 @@ class MainView extends Container {
         items: [{
             module   : TextField,
             labelText: 'Name',
-            listeners: { 
-<<<<<<< Updated upstream
-                click: button => Neo.Main.log('Click!')
-=======
-                change    : data => Neo.Main.log({value:data.value}),
->>>>>>> Stashed changes
+            listeners: {
+                change: data => Neo.Main.log({value:data.value})
             }
         }]
     }
@@ -79,7 +75,7 @@ class MainView extends Container {
             module   : TextField,
             labelText: 'Name',
             listeners: { 
-                change    : 'up.foo'
+                change: 'up.foo'
             }
         }]
     }
@@ -97,9 +93,9 @@ Any view class can specify a controller &mdash; wWhen the view is created a cont
 also created. 
 
 <pre data-neo>
-import Base from '../../../../src/controller/Component.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
 
-class MainViewController extends Base {
+class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController',
     }
@@ -125,7 +121,7 @@ class MainView extends Container {
             module   : TextField,
             labelText: 'Name',
             listeners: { 
-                change    : 'foo'
+                change: 'foo'
             }
         }]
     }
@@ -141,9 +137,9 @@ a listener proccedurally.
 Any obversable class has an `addListener` method, along with an easier-to-type version called `on`.
 
 <pre data-neo>
-import Base from '../../../../src/controller/Component.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
 
-class MainViewController extends Base {
+class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController',
     }
@@ -172,7 +168,7 @@ class MainView extends Container {
             module   : TextField,
             labelText: 'Name',
             listeners: { 
-                change    : 'foo'
+                change: 'foo'
             }
         }]
     }
@@ -180,12 +176,12 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 </pre>
 
-The method specified in `on()` doen't have to be an arrow function; you can use a controller function.
+The method specified in `on()` doesn't have to be an arrow function; you can use a controller function.
 
 <pre data-neo>
-import Base from '../../../../src/controller/Component.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
 
-class MainViewController extends Base {
+class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController',
     }
