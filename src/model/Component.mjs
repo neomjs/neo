@@ -567,7 +567,7 @@ class Component extends Base {
                 component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
                 config    = {};
                 model     = component.getModel() || me;
-                console.log('##### binding');
+
                 if (!hierarchyData[model.id]) {
                     hierarchyData[model.id] = model.getHierarchyData()
                 }
