@@ -392,12 +392,9 @@ class Base {
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
-                currentWorker.on({
-                    connected: {
-                        fn  : () => {Base.sendRemotes(className, remote)},
-                        once: true
-                    }
-                })
+                currentWorker.on('connected', () => {
+                    Base.sendRemotes(className, remote)
+                }, me, {once: true})
             } else {
                 Base.sendRemotes(className, remote)
             }
