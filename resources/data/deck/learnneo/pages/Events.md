@@ -53,27 +53,31 @@ A `Neo.controller.Component` is a simple class associated with a component class
 instance of its associated controller is automatically created. 
 
 <pre data-neo>
-import Container  from '../../../../src/container/Base.mjs';
-import Controller from '../../../../src/controller/Component.mjs';
-import TextField  from  '../../../../src/form/field/Text.mjs';
+import Base from '../../../../src/controller/Component.mjs';
 
-class MainViewController extends Controller {
+class MainViewController extends Base {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'Example.view.MainViewController',
     }
     onChange(data) {
-        Neo.Main.log({value: data.value})
+        Neo.Main.log({value: data.value});
     }
+
 }
 Neo.setupClass(MainViewController);
 
 
+import Container from '../../../../src/container/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
+
 class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+
         controller: MainViewController,
-        layout    : {ntype:'vbox', align:'start'},
-        items     : [{
+        className: 'Example.view.MainView',
+
+        layout   : {ntype:'vbox', align:'start'},
+        items: [{
             module   : TextField,
             labelText: 'Name',
             listeners: {
@@ -84,6 +88,8 @@ class MainView extends Container {
 }
 Neo.setupClass(MainView);
 </pre>
+
+
 
 (It's important to keep in mind that in Neo.mjs, all class definitions are coded in their own
 source file: one class per file. In the examples we're putting all the relevant classes together

@@ -28,19 +28,38 @@ class Helix extends Container {
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
-            items : [{
-                cls : 'neo-h1',
-                flex: 'none',
-                html: 'Interactive Views'
-            }, {
-                cls : 'neo-h2',
-                flex: 'none',
-                html: 'Expand the widget into multiple Windows'
-            }, {
-                cls : 'neo-content',
-                flex: 'none',
-                html: 'The State Management will continue to work.'
-            }]
+            items : [
+                {
+                    cls : 'neo-h1',
+                    flex: 'none',
+                    html: 'Extreme Speed'
+                }, 
+                {
+                    cls : 'neo-h2',
+                    flex: 'none',
+                    html: '40,000 Updates /s'
+                }, 
+                {
+                    cls : 'neo-h3',
+                    flex: 'none',
+                    html: 'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. As you do, look at the delta updates counter at the top. Neo.mjs easily handles 40,000 updates per second, and beyond.'
+                }, 
+                {
+                    cls : 'neo-h1',
+                    flex: 'none',
+                    html: 'Multi-Window'
+                },  
+                {
+                    cls : 'neo-h2',
+                    flex: 'none',
+                    html: 'Seamless and Simple'
+                },  
+                               {
+                    cls : 'neo-h3',
+                    flex: 'none',
+                    html: 'Click on the small window icon in the Helix Controls title bar and the controls open in their own window which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; the logic updates the controls just like before, and the DOM updates thread seamlessly handles updating the DOM.'
+                }
+        ]
         }, {
             module: Container,
             flex  : '2',

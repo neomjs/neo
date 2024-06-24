@@ -1,4 +1,4 @@
-As you read in the Getting Started > Events topic, components, stores, and many other objects fire events.
+As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
 
 
 <pre data-neo>
@@ -32,12 +32,12 @@ Neo.setupClass(MainView);
 
 ### In-line
 
-The event listener function can be coded in-line. Normally, you want event handlers to be in a view's controller, 
-but for very simple situation it can be convenient to use this syntax.
+The event listener function can be coded in-line. Normally you want event handlers to be in a view's 
+controller, but for very simple situation it can be convenient to use this syntax.
 
 <pre data-neo>
 import Container from '../../../../src/container/Base.mjs';
-import Button from '../../../../src/button/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -45,10 +45,14 @@ class MainView extends Container {
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
-            module   : Button,
-            text: 'Button',
+            module   : TextField,
+            labelText: 'Name',
             listeners: { 
+<<<<<<< Updated upstream
                 click: button => Neo.Main.log('Click!')
+=======
+                change    : data => Neo.Main.log({value:data.value}),
+>>>>>>> Stashed changes
             }
         }]
     }
@@ -59,12 +63,12 @@ Neo.setupClass(MainView);
 ### As a view method
 
 You can also use the `up.` qualifier to specify a method in the component's parent view. Like the
-in-line syntax above, using `up.` might be convenient for simple event handlers, or when you 
-simply haven't gotten around to definining a view's controller.
+in-line syntax you saw above, using the `up.` syntax might be convenient for simple classees, 
+or when you simply haven't gotten around to defining a view's controller.
 
 <pre data-neo>
 import Container from '../../../../src/container/Base.mjs';
-import Button from '../../../../src/button/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -72,16 +76,15 @@ class MainView extends Container {
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
-            module   : Button,
-            text: 'Button',
-            listeners: {
-                click: 'up.onButtonClick'
+            module   : TextField,
+            labelText: 'Name',
+            listeners: { 
+                change    : 'up.foo'
             }
         }]
     }
-
-    onButtonClick(){
-        Neo.Main.log(arguments);
+    foo(data){
+        Neo.Main.log({value:data.value});
     }
 }
 Neo.setupClass(MainView);
@@ -89,12 +92,136 @@ Neo.setupClass(MainView);
 
 ### As a controller method
 
+Despite the examples above, the most correct way of setting up event handlers is to use a controller.
+Any view class can specify a controller &mdash; wWhen the view is created a controller instance is
+also created. 
+
+<pre data-neo>
+import Base from '../../../../src/controller/Component.mjs';
+
+class MainViewController extends Base {
+    static config = {
+        className: 'Example.view.MainViewController',
+    }
+    foo(data){
+        Neo.Main.log({value:data.value});
+    }
+}
+Neo.setupClass(MainViewController);
+
+
+import Container from '../../../../src/container/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
+
+class MainView extends Container {
+    static config = {
+        controller: {
+            module: MainViewController
+        },
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+
+        items: [{
+            module   : TextField,
+            labelText: 'Name',
+            listeners: { 
+                change    : 'foo'
+            }
+        }]
+    }
+}
+Neo.setupClass(MainView);
+</pre>
+
 ## Adding listeners procedurally
 
 Event listeners are normally specified declaratively, via the `listeners: {}` config. But occasionally you need to add
 a listener proccedurally.
 
-Any obversable class has an `addListener` method. There's also an easier to type version called `on`.
+Any obversable class has an `addListener` method, along with an easier-to-type version called `on`.
+
+<pre data-neo>
+import Base from '../../../../src/controller/Component.mjs';
+
+class MainViewController extends Base {
+    static config = {
+        className: 'Example.view.MainViewController',
+    }
+    foo(data){
+        Neo.Main.log({value:data.value});
+    }
+    onComponentConstructed(){
+        debugger;
+    }
+}
+Neo.setupClass(MainViewController);
+
+
+import Container from '../../../../src/container/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
+
+class MainView extends Container {
+    static config = {
+        controller: {
+            module: MainViewController
+        },
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+
+        items: [{
+            module   : TextField,
+            labelText: 'Name',
+            listeners: { 
+                change    : 'foo'
+            }
+        }]
+    }
+}
+Neo.setupClass(MainView);
+</pre>
+
+The method specified in `on()` doen't have to be an arrow function; you can use a controller function.
+
+<pre data-neo>
+import Base from '../../../../src/controller/Component.mjs';
+
+class MainViewController extends Base {
+    static config = {
+        className: 'Example.view.MainViewController',
+    }
+    foo(data){
+        Neo.Main.log('foo' + {value:data.value};
+    }
+
+    // This is a controller lifecycle method run after the controller's view has been constructed
+    onComponentConstructed(){
+        // Note the use of this.getReference() -- that's used to get a component reference with the specified name
+        this.getReference('nameTextfield').on('change', this.foo, this); 
+    }
+}
+Neo.setupClass(MainViewController);
+
+
+import Container from '../../../../src/container/Base.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
+
+class MainView extends Container {
+    static config = {
+        controller: {
+            module: MainViewController
+        },
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+
+        items: [{
+            module   : TextField,
+            reference: 'nameTextfield', // This component can be fetched using this.getReference('nameTextfield')
+            labelText: 'Name',
+        }]
+    }
+}
+Neo.setupClass(MainView);
+</pre>
 
 
 
