@@ -153,12 +153,14 @@ class Component extends Base {
      * @protected
      */
     beforeSetStores(value, oldValue) {
-        let controller = this.component.getController();
+        if (value) {
+            let controller = this.component.getController();
 
-        value && Object.entries(value).forEach(([key, storeValue]) => {
-            controller?.parseConfig(storeValue);
-            value[key] = ClassSystemUtil.beforeSetInstance(storeValue)
-        });
+            Object.entries(value).forEach(([key, storeValue]) => {
+                controller?.parseConfig(storeValue);
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue)
+            })
+        }
 
         return value
     }
@@ -445,13 +447,13 @@ class Component extends Base {
      * @returns {Neo.model.Component|null}
      */
     getParent() {
-        let me = this;
+        let {parent} = this;
 
-        if (me.parent) {
-            return me.parent
+        if (parent) {
+            return parent
         }
 
-        return me.component.parent?.getModel() || null
+        return this.component.parent?.getModel() || null
     }
 
     /**

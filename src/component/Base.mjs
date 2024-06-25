@@ -13,8 +13,10 @@ import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 
 const
-    lengthRE = /^\d+\w+$/,
-    addUnits = value => value == null ? value : isNaN(value) ? value : `${value}px`;
+    addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
+    closestController = Symbol.for('closestController'),
+    closestModel      = Symbol.for('closestModel'),
+    lengthRE          = /^\d+\w+$/;
 
 /**
  * @class Neo.component.Base
@@ -577,9 +579,11 @@ class Base extends CoreBase {
     afterSetDomListeners(value, oldValue) {
         let me = this;
 
-        me.getController()?.parseDomListeners(me);
+        if (value?.[0] || oldValue?.[0]) {
+            me.getController()?.parseDomListeners(me);
 
-        DomEventManager.updateDomListeners(me, value, oldValue)
+            DomEventManager.updateDomListeners(me, value, oldValue)
+        }
     }
 
     /**
@@ -1240,7 +1244,7 @@ class Base extends CoreBase {
      * Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.util.KeyNavigation}
+     * @returns {Neo.util.KeyNavigation|null}
      * @protected
      */
     beforeSetKeys(value, oldValue) {
@@ -1503,10 +1507,10 @@ class Base extends CoreBase {
         const result = [];
 
         if (this.floating) {
-            result.push('neo-floating');
+            result.push('neo-floating')
         }
 
-        return result;
+        return result
     }
 
     /**
@@ -1543,7 +1547,24 @@ class Base extends CoreBase {
      * @returns {Neo.controller.Component|null}
      */
     getController(ntype) {
-        return this.getConfigInstanceByNtype('controller', ntype)
+        let me = this,
+            controller;
+
+        if (!ntype) {
+            controller = me[closestController];
+
+            if (controller) {
+                return controller
+            }
+        }
+
+        controller = me.getConfigInstanceByNtype('controller', ntype);
+
+        if (!ntype) {
+            me[closestController] = controller;
+        }
+
+        return controller
     }
 
     /**
@@ -1553,7 +1574,7 @@ class Base extends CoreBase {
      * @returns {Promise<Neo.util.Rectangle>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
-        const result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
+        let result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))
@@ -1572,7 +1593,24 @@ class Base extends CoreBase {
             return null
         }
 
-        return this.getConfigInstanceByNtype('model', ntype)
+        let me = this,
+            model;
+
+        if (!ntype) {
+            model = me[closestModel];
+
+            if (model) {
+                return model
+            }
+        }
+
+        model = me.getConfigInstanceByNtype('model', ntype);
+
+        if (!ntype) {
+            me[closestModel] = model
+        }
+
+        return model
     }
 
     /**

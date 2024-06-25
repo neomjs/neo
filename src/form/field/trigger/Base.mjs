@@ -115,10 +115,6 @@ class Base extends Component {
         (this.vdom.data || (this.vdom.data = {})).focus = value?.getInputElId()
     }
 
-    afterSetField(field) {
-        (this.vdom.data || (this.vdom.data = {})).focus = field && field.getInputElId();
-    }
-
     /**
      * Triggered after the hidden config got changed
      * @param {Boolean} value

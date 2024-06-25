@@ -33,11 +33,27 @@ class Observable extends Base {
      * @returns {String|null} eventId null in case an object gets passed as the name (multiple ids)
      */
     addListener(name, opts, scope, eventId, data, order) {
-        let me         = this,
-            delay      = 0,
-            nameObject = typeof name === 'object',
-            once       = false,
+        let me            = this,
+            delay         = 0,
+            eventIdObject = typeof eventId === 'object',
+            nameObject    = typeof name    === 'object',
+            once          = false,
+            optsType      = typeof opts,
             listener, existing, eventConfig;
+
+        /*
+         * let us support the following format too:
+         *
+         * currentWorker.on('connected', () => {
+         *     Base.sendRemotes(className, remote)
+         * }, me, {once: true})
+         */
+        if (eventIdObject && optsType === 'function') {
+            eventId.fn = opts;
+            opts     = eventId;
+            optsType = 'object';
+            eventId  = null;
+        }
 
         if (nameObject) {
             if (name.hasOwnProperty('delay')) {
@@ -62,16 +78,16 @@ class Observable extends Base {
                     me.addListener(key, {delay, fn: value, once, scope})
                 }
             })
-        } else if (typeof opts === 'object') {
+        } else if (optsType === 'object') {
             delay    = delay   || opts.delay;
             eventId  = eventId || opts.eventId;
             listener = opts.fn;
             once     = once    || opts.once;
             order    = order   || opts.order;
             scope    = scope   || opts.scope
-        } else if (typeof opts === 'function') {
+        } else if (optsType === 'function') {
             listener = opts
-        } else if (typeof opts === 'string') {
+        } else if (optsType === 'string') {
             listener = opts // VC hook, can get parsed after onConstructed in case the view uses the parent VC
         } else {
             throw new Error('Invalid addListener call: ' + name)

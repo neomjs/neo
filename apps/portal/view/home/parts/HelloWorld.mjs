@@ -44,15 +44,18 @@ class HelloWorld extends Container {
                 cls : 'neo-h1',
                 id  : 'neo-hello-world-h1',
                 flex: 'none',
-                html: 'Hello World'
+                html: 'Hello World',
+                vdom: {tag: 'h1'}
             }, {
                 cls : 'neo-h2',
                 flex: 'none',
-                html: 'Your first code snippet'
+                html: 'Your first code snippet',
+                vdom: {tag: 'h2'}
             }, {
                 cls : 'neo-content',
                 flex: 'none',
-                html: 'If you understand these lines, you are ready to start with Neo.mjs'
+                html: 'If you understand these lines, you are ready to start with Neo.mjs',
+                vdom: {tag: 'p'}
             }]
         }, {
             module: LivePreviewContainer,

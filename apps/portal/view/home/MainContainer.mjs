@@ -3,6 +3,7 @@ import Colors     from './parts/Colors.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Features   from './parts/Features.mjs';
 import Helix      from './parts/Helix.mjs';
+import How        from './parts/How.mjs';
 import HelloWorld from './parts/HelloWorld.mjs';
 import MainNeo    from './parts/MainNeo.mjs';
 
@@ -29,8 +30,9 @@ class MainContainer extends Container {
             MainNeo,
             Features,
             HelloWorld,
-            Colors,
             Helix,
+            Colors,
+            How,
             AfterMath
         ],
         /**
@@ -39,10 +41,37 @@ class MainContainer extends Container {
         scrollable: true,
 
         domListeners: [{
+            intersect(data) {
+                Neo.getComponent(data.targetId)?.activate?.()
+            },
             scroll(event) {
                 this.toggleCls('hide-sidebar', event.scrollTop > 80)
             }
         }]
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me             = this,
+            {id, windowId} = me;
+
+        value && setTimeout(() => {
+            Neo.main.addon.IntersectionObserver.register({
+                callback : 'isVisible',
+                id,
+                observe  : ['.page'],
+                root     : `#${id}`,
+                threshold: 1.0,
+                windowId
+            })
+        }, 50)
     }
 }
 

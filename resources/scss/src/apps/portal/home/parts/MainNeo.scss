@@ -1,0 +1,22 @@
+.portal-home-main-neo.page {
+    .button-group {
+        display       : flex !important;
+        flex-direction: row-reverse !important;
+        gap           : 8px !important;
+    }
+
+    .neo-h1 {
+        margin-bottom: 1.25em;
+    }
+
+    .vector {
+        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_text_primary.svg");
+        background-position: center center;
+        background-repeat  : no-repeat;
+        background-size    : contain;
+        height             : 10vW;
+        margin             : 0 0 3rem 0;
+        max-height         : 130px;
+        width              : 100%;
+    }
+}

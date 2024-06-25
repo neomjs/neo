@@ -91,15 +91,6 @@ class StringUtil extends Base {
     static uncapitalize(value) {
         return value && value[0].toLowerCase() + value.substring(1)
     }
-
-    /**
-     * Returns the passed string with the first letter uncapitalized.
-     * @param {String} value
-     * @returns  {String}
-     */
-    static uncapitalize(value) {
-        return value && value[0].toLowerCase() + value.substring(1)
-    }
 }
 
 Neo.setupClass(StringUtil);
