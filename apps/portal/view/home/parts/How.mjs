@@ -1,16 +1,16 @@
-import Container from '../../../../../src/container/Base.mjs';
+import BaseContainer from './BaseContainer.mjs';
 
 /**
  * @class Portal.view.home.parts.How
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class How extends Container {
+class How extends BaseContainer {
     static config = {
-        className: 'Portal.view.home.parts.How',
         /**
-         * @member {String[]} cls=['page','cool-stuff']
+         * @member {String} className='Portal.view.home.parts.How'
+         * @protected
          */
-        cls: ['page', 'cool-stuff'],
+        className: 'Portal.view.home.parts.How',
         /**
          * @member {Object} responsive
          */
@@ -22,7 +22,7 @@ class How extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            ntype : 'container',
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
@@ -48,7 +48,7 @@ class How extends Container {
                 ].join('')
             }]
         }, {
-            module: Container,
+            ntype : 'container',
             flex  : '2',
             style : {background: 'lightgray', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},

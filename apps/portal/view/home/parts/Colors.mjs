@@ -1,30 +1,29 @@
-import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from '../../learn/LivePreview.mjs';
+import BaseContainer from './BaseContainer.mjs';
+import LivePreview   from '../../learn/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.parts.Colors
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class Colors extends Container {
+class Colors extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.Colors'
          * @protected
          */
         className: 'Portal.view.home.parts.Colors',
-
-        cls: ['page', 'cool-stuff'],
-
+        /**
+         * @member {Object} responsive
+         */
         responsive: {
             medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
             large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
         },
-
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            ntype : 'container',
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
@@ -59,7 +58,7 @@ class Colors extends Container {
                 ].join('')
             }]
         }, {
-            module: Container,
+            ntype : 'container',
             flex  : '2',
             style : {background: 'lightgray', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},

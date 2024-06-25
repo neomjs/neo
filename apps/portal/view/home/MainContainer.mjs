@@ -66,7 +66,7 @@ class MainContainer extends Container {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
-                observe  : ['.page'],
+                observe  : ['.portal-home-content-view'],
                 root     : `#${id}`,
                 threshold: 1.0,
                 windowId

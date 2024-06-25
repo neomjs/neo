@@ -1,54 +1,57 @@
-import Container from '../../../../../src/container/Base.mjs';
+import BaseContainer from './BaseContainer.mjs';
 
 /**
  * @class Portal.view.home.parts.AfterMath
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class AfterMath extends Container {
+class AfterMath extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.AfterMath'
          * @protected
          */
         className: 'Portal.view.home.parts.AfterMath',
-
-        cls: ['page', 'after-math'],
-
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch',pack:'center'}
+         */
         layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
-            flex  : 1
+            ntype: 'container',
+            flex : 1
         }, {
             cls : 'neo-h1',
             flex: 'none',
-            html: 'Additional Stuff'
+            html: 'Additional Stuff',
+            vdom: {tag: 'h1'}
         }, {
             cls : 'neo-h2',
             flex: 'none',
             html: 'More to come here',
-            // height: 200
+            vdom: {tag: 'h2'}
         }, {
             cls : 'neo-content',
             flex: 'none',
             html: 'Neo uses several cores to run the application. See the spinner on the page?',
-            // height: 200
+            vdom: {tag: 'p'}
         }, {
-            module: Container,
-            flex  : 1
+            ntype: 'container',
+            flex : 1
         }, {
-            module: Container,
+            ntype : 'container',
             cls   : 'home-footer',
             height: '40%',
+            html  : 'This is the footer',
+            vdom  : {tag: 'footer'},
+
             style : { // todo: css
                 background: 'black',
                 color     : 'white',
                 height    : '40%',
                 padding   : '15px'
-            },
-            html  : 'This is the footer'
+            }
         }]
     }
 }
