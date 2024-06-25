@@ -13,7 +13,7 @@ class MainNeo extends Container {
          */
         className: 'Portal.view.home.parts.MainNeo',
 
-        cls: ['page', 'landing-page'],
+        cls: ['page', 'portal-home-main-neo'],
 
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
         /**
@@ -24,9 +24,10 @@ class MainNeo extends Container {
             cls   : ['vector'],
             flex  : 'none',
         }, {
-            cls : 'neo-h1',
+            cls : ['neo-h1'],
             flex: 'none',
-            html: 'The High-Performance Web Framework for Next Generation Interfaces'
+            html: 'The High-Performance Web Framework for Next Generation Interfaces',
+            vdom: {tag: 'h1'}
         }, {
             module: Container,
             cls   : ['button-group'],
