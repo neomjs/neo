@@ -9,11 +9,17 @@
 
         .neo-h1 {
             font-size: min(max(5.5vw, 30px), 64px);
+            text-align   : center;
+            margin       : 0;
+            line-height  : 1em;
         }
 
         .neo-h2 {
             font-size: min(max(3.5vw, 24px), 44px);
-        }
+            text-align   : center;
+            margin       : 0;
+            line-height  : 1em;
+            }
 
         .neo-content {
             font-size: min(max(2.3vw, 16px), 30px);
@@ -33,8 +39,6 @@
     .neo-h1 {
         font-size    : 32px;
         font-weight  : 600;
-        text-align   : center;
-        margin-bottom: 1.25em;
     }
 
     .vector {

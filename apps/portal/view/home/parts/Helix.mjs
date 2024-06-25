@@ -45,7 +45,6 @@ class Helix extends Container {
                 cls : 'neo-h3',
                 flex: 'none',
                 vdom: {tag: 'p'},
-
                 html: [
                     'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. ',
                     'Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. ',
@@ -70,13 +69,13 @@ class Helix extends Container {
                 html: [
                     'Click on the small window icon in the Helix Controls title bar and the controls open in their own window ',
                     'which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; ',
-                    'the logic updates the controls just like before, and the DOM updates thread seamlessly handles updating the DOM.'
+                    'the logic updates the controls just like before, and framework seamlessly handles updating the DOM across windows.'
                 ].join('')
             }]
         }, {
             module: Container,
             flex  : '2',
-            style : {background: 'grey', padding: '20px'},
+            style : {background: 'lightgray', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
                 module   : LivePreview,

@@ -31,20 +31,41 @@ class Colors extends Container {
             items : [{
                 cls : 'neo-h1',
                 flex: 'none',
-                html: 'Colors Dashboard'
+                html: 'Amazing Potential'
             }, {
                 cls : 'neo-h2',
                 flex: 'none',
-                html: 'Expand the widgets into multiple Windows'
+                html: 'Socket Data'
             }, {
-                cls : 'neo-content',
+            flex: 'none',
+            vdom: {tag: 'p'},
+            html: `
+This is similar to the Helix demo &mdash; it's an extremely fast multi-window app. Click the start button to see
+the view reflect changes in the data. And the app is multi-window: the table and charts can be 
+undocked into their own windows. In fact, the entire demo can be undocked. 
+`
+            }, 
+            {
                 flex: 'none',
-                html: 'The State Management will continue to work.'
-            }]
+                vdom: {tag: 'p'},
+                html: `
+    But the demo differs from the helix example because the the data is provided via a <i>socket</i>. 
+    `
+                },
+                {
+                    flex: 'none',
+                    vdom: {tag: 'p'},
+                    html: `
+Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as 
+stock market trading data and medical or scientific telemetry.
+        `
+                    }
+    
+        ]
         }, {
             module: Container,
             flex  : '2',
-            style : {background: 'grey', padding: '20px'},
+            style : {background: 'lightgray', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
                 module   : LivePreview,

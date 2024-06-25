@@ -3,6 +3,7 @@ import Colors     from './parts/Colors.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Features   from './parts/Features.mjs';
 import Helix      from './parts/Helix.mjs';
+import How        from './parts/How.mjs';
 import HelloWorld from './parts/HelloWorld.mjs';
 import MainNeo    from './parts/MainNeo.mjs';
 
@@ -29,8 +30,9 @@ class MainContainer extends Container {
             MainNeo,
             Features,
             HelloWorld,
-            Colors,
             Helix,
+            Colors,
+            How,
             AfterMath
         ],
         /**
