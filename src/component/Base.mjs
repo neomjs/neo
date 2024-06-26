@@ -1491,12 +1491,7 @@ class Base extends CoreBase {
      * @param {String} id=this.id
      */
     focus(id=this.id) {
-        Neo.main.DomAccess.focus({
-            id,
-            windowId: this.id
-        }).catch(err => {
-            console.log('Error attempting to receive focus for component', err, this)
-        })
+        Neo.main.DomAccess.focus({id, windowId: this.windowId})
     }
 
     /**

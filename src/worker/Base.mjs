@@ -252,9 +252,14 @@ class Base extends CoreBase {
 
         return new Promise(function(resolve, reject) {
             let message = me.sendMessage(dest, opts, transfer),
-                msgId   = message.id;
+                msgId   = message?.id;
 
-            me.promises[msgId] = {reject, resolve}
+            if (!msgId) {
+                // a window got closed and the message port no longer exist (SharedWorkers)
+                reject()
+            } else {
+                me.promises[msgId] = {reject, resolve}
+            }
         })
     }
 
@@ -282,22 +287,24 @@ class Base extends CoreBase {
                 port = me.getPort({id: opts.port}).port
             } else if (opts.windowId) {
                 portObject = me.getPort({windowId: opts.windowId});
-                port       = portObject.port;
+                port       = portObject?.port;
 
-                opts.port = portObject.id
+                opts.port = portObject?.id
             }  else if (opts.appName) {
                 portObject = me.getPort({appName: opts.appName});
-                port       = portObject.port;
+                port       = portObject?.port;
 
-                opts.port = portObject.id
+                opts.port = portObject?.id
             } else {
                 port = me.ports[0].port
             }
         }
 
-        message = new Message(opts);
+        if (port) {
+            message = new Message(opts);
+            port.postMessage(message, transfer);
+        }
 
-        port.postMessage(message, transfer);
         return message
     }
 }
