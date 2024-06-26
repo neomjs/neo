@@ -41,8 +41,8 @@ class Colors extends BaseContainer {
                 flex: 'none',
                 vdom: {tag: 'p'},
                 html: [
-                    'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button',
-                    'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be',
+                    'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button ',
+                    'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be ',
                     'undocked into their own windows. In fact, the entire demo can be undocked.'
                 ].join('')
             }, {
@@ -53,7 +53,7 @@ class Colors extends BaseContainer {
                 flex: 'none',
                 vdom: {tag: 'p'},
                 html: [
-                    'Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as',
+                    'Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as ',
                     'stock market trading data and medical or scientific telemetry.'
                 ].join('')
             }]
