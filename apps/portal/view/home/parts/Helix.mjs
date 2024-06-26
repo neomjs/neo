@@ -100,7 +100,8 @@ class Helix extends BaseContainer {
     /**
      *
      */
-    activate() {
+    async activate() {
+        await this.timeout(1000);
         this.getReference('live-preview').activeView = 'preview'
     }
 }
