@@ -13,7 +13,55 @@ other libraries or frameworks often call them Stores.
 
 Since we also have Data Stores (tabular data), we chose to use the name VM to avoid confusion.
 
-## Inline Model
+## Inline Model: direct bindings
+<pre data-neo>
+import Button    from  '../../../../src/button/Base.mjs';
+import Container from  '../../../../src/container/Base.mjs';
+import Label     from  '../../../../src/component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+        model: {
+            data: {
+                hello: 'Hello',
+                world: 'world!'
+            }
+        },
+        itemDefaults: {
+            module: Label,
+            style : {margin: '1em'}
+        },
+        items: [{
+            bind: {
+                text: data => data.hello
+            }
+        }, {
+            bind: {
+                text: data => data.world
+            }
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({hello: 'Hi'}),
+            text   : 'Change Hello'
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+            text   : 'Change World'
+        }],
+        layout: {ntype: 'vbox', align: 'start'}
+    }
+}
+Neo.setupClass(MainView);
+</pre>
+
+We use a Container with a VM containing the data props `hello` and `world`.
+Inside the Container are 2 Labels which bind their `text` config to a data prop directly.
+
+We can easily bind 1:1 to specific data props using the following syntax:</br>
+`bind: {text: data => data.hello}`
+
+## Inline Model: bindings with multiple data props
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
@@ -63,7 +111,7 @@ Neo.setupClass(MainView);
 </pre>
 
 We use a Container with a VM containing the data props `hello` and `world`.
-Inside the Container are 3 Labels which bind their `text` Config to a combination of both data props.
+Inside the Container are 3 Labels which bind their `text` config to a combination of both data props.
 
 We are showcasing 3 different ways how you can define your binding (resulting in the same output).
 
