@@ -440,12 +440,13 @@ class Base extends Component {
      * @protected
      */
     changeRoute() {
-        let me = this;
+        let me         = this,
+            {windowId} = me;
 
         if (me.editRoute) {
             Neo.Main.editRoute(me.route)
         } else {
-            Neo.Main.setRoute({value: me.route})
+            Neo.Main.setRoute({value: me.route, windowId})
         }
     }
 
