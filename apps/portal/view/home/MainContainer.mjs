@@ -37,7 +37,7 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [
-            {ntype: 'component', id: 'progress'},
+            {ntype: 'component', cls: ['portal-home-progress']},
             MainNeo,
             Features,
             HelloWorld,

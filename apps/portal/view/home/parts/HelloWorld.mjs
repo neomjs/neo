@@ -41,7 +41,6 @@ class HelloWorld extends BaseContainer {
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
             items : [{
                 cls : 'neo-h1',
-                id  : 'neo-hello-world-h1',
                 flex: 'none',
                 html: 'Hello World',
                 vdom: {tag: 'h1'}
