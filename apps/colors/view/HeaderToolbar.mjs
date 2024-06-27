@@ -39,31 +39,31 @@ class HeaderToolbar extends Toolbar {
             clearable    : false,
             editable     : false,
             labelPosition: 'inline',
-            labelText    : 'Amount Colors',
+            labelText    : '# Colors',
             listeners    : {change: 'onChangeAmountColors'},
             maxValue     : 10,
             minValue     : 3,
-            width        : 120
+            width        : 90
         }, {
             module       : ComboBox,
             bind         : {value: data => String(data.amountColumns)},
             clearable    : false,
             editable     : false,
             labelPosition: 'inline',
-            labelText    : 'Amount Columns',
+            labelText    : '# Columns',
             listeners    : {change: 'onChangeAmountColumns'},
             store        : ['5', '10', '15', '20', '26'],
-            width        : 120
+            width        : 90
         }, {
             module       : ComboBox,
             bind         : {value: data => String(data.amountRows)},
             clearable    : false,
             editable     : false,
             labelPosition: 'inline',
-            labelText    : 'Amount Rows',
+            labelText    : '# Rows',
             listeners    : {change: 'onChangeAmountRows'},
             store        : ['5', '10', '15', '20'],
-            width        : 120
+            width        : 90
         }, '->', {
             handler  : 'onDetachTableButtonClick',
             iconCls  : 'fas fa-table',
