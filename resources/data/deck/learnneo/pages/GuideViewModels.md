@@ -262,3 +262,55 @@ Or we can directly pass the object containing the change(s):</br>
 `data => data.component.getModel().setData({user: {firstname: 'Max'}})`
 
 Hint: This will not override left out nested data props (lastname in this case).
+
+## Class based Models
+When your models contain many data props or need custom logic, you can easily move them into their own classes.
+
+### Direct Bindings
+<pre data-neo>
+import Button    from  '../../../../src/button/Base.mjs';
+import Container from  '../../../../src/container/Base.mjs';
+import Label     from  '../../../../src/component/Label.mjs';
+import ViewModel from  '../../../../src/model/Component.mjs';
+
+class MainViewModel extends ViewModel {
+    static config = {
+        className: 'Example.view.MainViewModel',
+        data: {
+            hello: 'Hello',
+            world: 'world!'
+        }
+    }
+}
+
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+        model    : MainViewModel, // directly assign the imported module
+
+        itemDefaults: {
+            module: Label,
+            style : {margin: '1em'}
+        },
+        items: [{
+            bind: {
+                text: data => data.hello
+            }
+        }, {
+            bind: {
+                text: data => data.world
+            }
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({hello: 'Hi'}),
+            text   : 'Change Hello'
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+            text   : 'Change World'
+        }],
+        layout: {ntype: 'vbox', align: 'start'}
+    }
+}
+Neo.setupClass(MainView);
+</pre>
