@@ -281,6 +281,11 @@ class MainViewModel extends ViewModel {
             world: 'world!'
         }
     }
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+        // do custom things there, like firing events
+        Neo.Main.log({value: `onDataPropertyChange: key: ${key}, value: ${value}, oldValue: ${oldValue}`})
+    }
 }
 
 class MainView extends Container {
