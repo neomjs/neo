@@ -201,4 +201,63 @@ The same goes for the Button handlers: `setData()` will find the closest matchin
 We can even change data props which live inside different VMs at once. As easy as this:</br>
 `setData({hello: 'foo', world: 'bar'})`
 
-Hint: Modify the example code to try it out right away!
+Hint: Modify the example code (Button handler) to try it out right away!
+
+## Nested Data Properties
+<pre data-neo>
+import Button    from  '../../../../src/button/Base.mjs';
+import Container from  '../../../../src/container/Base.mjs';
+import Label     from  '../../../../src/component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+        model: {
+            data: {
+                user: {
+                    firstname: 'Tobias',
+                    lastname : 'Uhlig'
+                }
+            }
+        },
+        itemDefaults: {
+            module: Label,
+            style : {margin: '1em'}
+        },
+        items: [{
+            bind: {
+                text: data => `${data.user.firstname} ${data.user.lastname}`
+            }
+        }, {
+            bind: {
+                text: data => data.user.firstname + ' ' + data.user.lastname
+            }
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({user: {firstname: 'Max'}}),
+            text   : 'Change Firstname'
+        }, {
+            module : Button,
+            handler: data => data.component.getModel().setData({'user.lastname': 'Rahder'}),
+            text   : 'Change Lastname'
+        }],
+        layout: {ntype: 'vbox', align: 'start'}
+    }
+}
+Neo.setupClass(MainView);
+</pre>
+Data props inside VMs can be nested. Our VM contains a `user` data prop as an object,
+which contains the nested props `firstname` and `lastname`.
+
+We can bind to these nested props like before:</br>
+`bind: {text: data => data.user.firstname + ' ' + data.user.lastname}`
+
+Any change of a nested data prop will directly get reflected into the bound components.
+
+We can update a nested data prop with passing its path:</br>
+`data => data.component.getModel().setData({'user.lastname': 'Rahder'})`
+
+Or we can directly pass the object containing the change(s):</br>
+`data => data.component.getModel().setData({user: {firstname: 'Max'}})`
+
+Hint: This will not override left out nested data props (lastname in this case).
