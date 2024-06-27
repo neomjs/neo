@@ -129,7 +129,6 @@ data.component equals to the Button instance itself. Since the Button instance d
 `getModel()` will return the closest VM inside the parent chain.
 
 ## Nested Inline Models
-
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
@@ -201,3 +200,5 @@ The same goes for the Button handlers: `setData()` will find the closest matchin
 
 We can even change data props which live inside different VMs at once. As easy as this:</br>
 `setData({hello: 'foo', world: 'bar'})`
+
+Hint: Modify the example code to try it out right away!
