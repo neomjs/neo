@@ -137,3 +137,19 @@ class MainView extends Container {
 }
 Neo.setupClass(MainView);
 </pre>
+
+The output of this demo is supposed to exactly look the same like the previous demo.
+
+This time we nest our Labels into a Container with a fit layout.
+Just for demo purposes, we want to avoid overnesting inside real apps.
+
+Our top level VM now only contains the `hello` data prop, and we added a second VM inside the nested Container
+which contains the `world` data prop.
+
+As a result, the bindings for all 3 Labels contain a combination of data props which live inside different VMs.
+As long as these VMs are inside the parent hierarchy this works fine.
+
+The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the VM parent chain.
+
+We can even change data props which live inside different VMs at once. As easy as this:</br>
+`setData({hello: 'foo', world: 'bar'})`
