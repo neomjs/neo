@@ -13,7 +13,8 @@ other libraries or frameworks often call them Stores.
 
 Since we also have Data Stores (tabular data), we chose to use the name VM to avoid confusion.
 
-## Inline Model: direct bindings
+## Inline Models
+### Direct Bindings
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
@@ -61,7 +62,7 @@ Inside the Container are 2 Labels which bind their `text` config to a data prop 
 We can easily bind 1:1 to specific data props using the following syntax:</br>
 `bind: {text: data => data.hello}`
 
-## Inline Model: bindings with multiple data props
+### Bindings with multiple data props
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
@@ -128,7 +129,7 @@ Let us take a look at the Button handler:</br>
 data.component equals to the Button instance itself. Since the Button instance does not have its own VM,
 `getModel()` will return the closest VM inside the parent chain.
 
-## Nested Inline Models
+### Nested Inline Models
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
@@ -203,7 +204,7 @@ We can even change data props which live inside different VMs at once. As easy a
 
 Hint: Modify the example code (Button handler) to try it out right away!
 
-## Nested Data Properties
+### Nested Data Properties
 <pre data-neo>
 import Button    from  '../../../../src/button/Base.mjs';
 import Container from  '../../../../src/container/Base.mjs';
