@@ -263,6 +263,129 @@ Or we can directly pass the object containing the change(s):</br>
 
 Hint: This will not override left out nested data props (lastname in this case).
 
+### Dialog connecting to a Container
+<pre data-neo>
+import Controller from '../../../../src/controller/Component.mjs';
+import Dialog     from '../../../../src/dialog/Base.mjs';
+import Panel      from '../../../../src/container/Panel.mjs';
+import TextField  from '../../../../src/form/field/Text.mjs';
+import Viewport   from '../../../../src/container/Viewport.mjs';
+
+class EditUserDialogController extends Controller {
+    static config = {
+        className: 'Neo.examples.model.dialog.EditUserDialogController'
+    }
+
+    onFirstnameTextFieldChange(data) {
+        this.getModel().setData({
+            'user.firstname': data.value || ''
+        })
+    }
+
+    onLastnameTextFieldChange(data) {
+        this.getModel().setData({
+            'user.lastname': data.value || ''
+        })
+    }
+}
+Neo.setupClass(EditUserDialogController);
+
+class EditUserDialog extends Dialog {
+    static config = {
+        className      : 'Neo.examples.model.dialog.EditUserDialog',
+        containerConfig: {style: {padding: '1em'}},
+        controller     : EditUserDialogController,
+        title          : 'Edit User',
+        itemDefaults   : {module: TextField, flex: 'none', labelWidth: 110},
+        items: [{
+            bind     : {value: data => data.user.firstname},
+            labelText: 'Firstname:',
+            listeners: {change: 'onFirstnameTextFieldChange'}
+        }, {
+            bind     : {value: data => data.user.lastname},
+            labelText: 'Lastname:',
+            listeners: {change: 'onLastnameTextFieldChange'}
+        }],
+        wrapperStyle: {height: '300px', width : '400px'}
+    }
+}
+Neo.setupClass(EditUserDialog);
+
+class MainContainerController extends Controller {
+    static config = {
+        className: 'Neo.examples.model.dialog.MainContainerController',
+        dialog   : null
+    }
+
+    onEditUserButtonClick(data) {
+        let me = this;
+
+        if (!me.dialog) {
+            me.dialog = Neo.create({
+                module         : EditUserDialog,
+                animateTargetId: me.getReference('edit-user-button').id,
+                appName        : me.component.appName,
+                closeAction    : 'hide',
+
+                model: {
+                    parent: me.getModel()
+                }
+            })
+        } else {
+            me.dialog.show()
+        }
+    }
+}
+Neo.setupClass(MainContainerController);
+
+class MainView extends Viewport {
+    static config = {
+        className : 'Neo.examples.model.dialog.MainContainer',
+        controller: MainContainerController,
+        model: {
+            data: {
+                user: {
+                    firstname: 'Tobias',
+                    lastname : 'Uhlig'
+                }
+            }
+        },
+        style: {padding: '20px'},
+        items: [{
+            module: Panel,
+            containerConfig: {
+                layout: {ntype: 'vbox', align: 'start'},
+                style : {padding: '20px'}
+            },
+            headers: [{
+                dock : 'top',
+                items: [{
+                    ntype: 'label',
+                    bind : {
+                        text: data => `Current user: ${data.user.firstname} ${data.user.lastname}`
+                    }
+                }, {
+                    ntype: 'component',
+                    flex : 1
+                }, {
+                    handler  : 'onEditUserButtonClick',
+                    iconCls  : 'fa fa-user',
+                    reference: 'edit-user-button',
+                    text     : 'Edit user'
+                }]
+            }],
+
+            items: [{
+                ntype: 'label',
+                text : 'Click the edit user button to edit the user data </br> inside this container view model.'
+            }]
+        }]
+    }
+}
+
+Neo.setupClass(MainView);
+</pre>
+
 ## Class based Models
 When your models contain many data props or need custom logic, you can easily move them into their own classes.
 
