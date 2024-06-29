@@ -95,10 +95,10 @@ class Color extends ComboBox {
      * @returns {String}
      */
     getColor() {
-        let me              = this,
-            {record, value} = me;
+        let me                  = this,
+            {inputValue, value} = me;
 
-        return record ? me.colorFormatter(me, record) : me.forceSelection ? null : value
+        return value ? me.colorFormatter(me, value) : me.forceSelection ? null : inputValue
     }
 
     /**
