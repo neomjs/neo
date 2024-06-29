@@ -734,8 +734,11 @@ class Base extends Panel {
      *
      */
     syncTrapFocus() {
-        if (this.mounted) {
-            Neo.main.DomAccess.trapFocus({id: this.id, trap: this.trapFocus})
+        let me             = this,
+            {id, windowId} = me;
+
+        if (me.mounted) {
+            Neo.main.DomAccess.trapFocus({id, trap: me.trapFocus, windowId})
         }
     }
 }
