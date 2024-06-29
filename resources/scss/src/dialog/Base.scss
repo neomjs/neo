@@ -30,6 +30,7 @@
 
 .neo-dialog {
     border        : 1px solid var(--dialog-border-color);
+    box-shadow    : var(--dialog-box-shadow);
     display       : flex;
     flex-direction: column;
 
