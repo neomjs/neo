@@ -136,17 +136,10 @@ class Base extends Panel {
         title_: null,
         /**
          * Set to `true` to have tabbing wrap within this Dialog.
-         *
          * Should be used with `modal`.
          * @member {Boolean} trapFocus_=false
          */
-        trapFocus_: false,
-        /**
-         * Set to `true` to have this Dialog centered in the viewport.
-         *
-         * @member {Boolean} centered_=false
-         */
-        centered_: false
+        trapFocus_: false
     }
 
     /**
@@ -187,17 +180,6 @@ class Base extends Panel {
         }
 
         super.afterSetAppName(value, oldValue)
-    }
-
-    /**
-     * Triggered after the centered config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetCentered(value, oldValue) {
-        NeoArray.toggle(this.vdom.cls, 'neo-centered', value);
-        this.update();
     }
 
     /**
