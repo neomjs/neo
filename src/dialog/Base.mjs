@@ -699,8 +699,11 @@ class Base extends Panel {
         }
     }
 
+    /**
+     *
+     */
     onKeyDownEscape() {
-        this.hidden = true;
+        this.hidden = true
     }
 
     /**
@@ -710,7 +713,7 @@ class Base extends Panel {
         let me = this;
 
         if (animate) {
-            me.animateShow();
+            me.animateShow()
         } else {
             if (!me.rendered) {
                 me.render(true)
