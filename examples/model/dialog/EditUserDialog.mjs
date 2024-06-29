@@ -46,14 +46,7 @@ class EditUserDialog extends Dialog {
             labelText : 'Lastname:',
             labelWidth: 110,
             listeners : {change: 'onLastnameTextFieldChange'}
-        }],
-        /**
-         * @member {Object} wrapperStyle={height: '300px',width : '400px'}
-         */
-        wrapperStyle: {
-            height: '300px',
-            width : '400px'
-        }
+        }]
     }
 }
 

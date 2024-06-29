@@ -154,22 +154,7 @@ class Base extends Panel {
      */
     construct(config) {
         super.construct(config);
-
-        let me      = this,
-            {style} = me;
-
-        me.createHeader();
-
-        if (!me.animateTargetId && !me.centered) {
-            Neo.assignDefaults(style, {
-                left     : '50%',
-                top      : '50%',
-                transform: 'translate(-50%, -50%)',
-                width    : '50%'
-            });
-
-            me.style = style
-        }
+        this.createHeader()
     }
 
     /**
@@ -392,7 +377,11 @@ class Base extends Panel {
             {appName, id, style} = me,
             rect = await me.getDomRect(me.animateTargetId);
 
+        // rendered outside the visible area
         await me.render(true);
+
+        let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
+        console.log(dialogRect, bodyRect);
 
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
@@ -415,11 +404,10 @@ class Base extends Panel {
                 add: ['animated-hiding-showing']
             },
             style: {
-                height   : style?.height    || null, // height will point to the animation origin, so we need a reset
-                left     : style?.left      || '50%',
-                top      : style?.top       || '50%',
-                transform: style?.transform || 'translate(-50%, -50%)',
-                width    : style?.width     || '50%'
+                height: style?.height || `${dialogRect.height}px`,
+                left  : style?.left   || `${Math.round(bodyRect.width  / 2 - dialogRect.width  / 2)}px`,
+                top   : style?.top    || `${Math.round(bodyRect.height / 2 - dialogRect.height / 2)}px`,
+                width : style?.width  || `${dialogRect.width}px`
             }
         });
 
