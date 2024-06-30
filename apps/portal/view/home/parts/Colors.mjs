@@ -1,30 +1,29 @@
-import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from '../../learn/LivePreview.mjs';
+import BaseContainer from './BaseContainer.mjs';
+import LivePreview   from '../../learn/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.parts.Colors
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class Colors extends Container {
+class Colors extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.Colors'
          * @protected
          */
         className: 'Portal.view.home.parts.Colors',
-
-        cls: ['page', 'cool-stuff'],
-
+        /**
+         * @member {Object} responsive
+         */
         responsive: {
             medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
             large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
         },
-
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            ntype : 'container',
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
@@ -42,8 +41,8 @@ class Colors extends Container {
                 flex: 'none',
                 vdom: {tag: 'p'},
                 html: [
-                    'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button',
-                    'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be',
+                    'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button ',
+                    'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be ',
                     'undocked into their own windows. In fact, the entire demo can be undocked.'
                 ].join('')
             }, {
@@ -54,12 +53,12 @@ class Colors extends Container {
                 flex: 'none',
                 vdom: {tag: 'p'},
                 html: [
-                    'Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as',
+                    'Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as ',
                     'stock market trading data and medical or scientific telemetry.'
                 ].join('')
             }]
         }, {
-            module: Container,
+            ntype : 'container',
             flex  : '2',
             style : {background: 'lightgray', padding: '20px'},
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
@@ -88,7 +87,8 @@ class Colors extends Container {
     /**
      *
      */
-    activate() {
+    async activate() {
+        await this.timeout(1000);
         this.getReference('live-preview').activeView = 'preview'
     }
 }

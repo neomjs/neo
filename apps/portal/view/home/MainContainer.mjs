@@ -23,10 +23,21 @@ class MainContainer extends Container {
          */
         cls: ['portal-home-maincontainer'],
         /**
+         * @member {Object[]} domListeners
+         */
+        domListeners: [{
+            intersect(data) {
+                Neo.getComponent(data.targetId)?.activate?.()
+            },
+            scroll(event) {
+                this.toggleCls('hide-sidebar', event.scrollTop > 80)
+            }
+        }],
+        /**
          * @member {Object[]} items
          */
         items: [
-            {ntype: 'component', id: 'progress'},
+            {ntype: 'component', cls: ['portal-home-progress']},
             MainNeo,
             Features,
             HelloWorld,
@@ -38,16 +49,7 @@ class MainContainer extends Container {
         /**
          * @member {Boolean} scrollable=true
          */
-        scrollable: true,
-
-        domListeners: [{
-            intersect(data) {
-                Neo.getComponent(data.targetId)?.activate?.()
-            },
-            scroll(event) {
-                this.toggleCls('hide-sidebar', event.scrollTop > 80)
-            }
-        }]
+        scrollable: true
     }
 
     /**
@@ -66,7 +68,7 @@ class MainContainer extends Container {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
-                observe  : ['.page'],
+                observe  : ['.portal-home-content-view'],
                 root     : `#${id}`,
                 threshold: 1.0,
                 windowId

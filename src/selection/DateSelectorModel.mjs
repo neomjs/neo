@@ -138,7 +138,7 @@ class DateSelectorModel extends Model {
         super.register(component);
 
         let scope  = {scope: this.id},
-            {view} = this.view;
+            {view} = this;
 
         view.keys?._keys.push(
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},
@@ -153,7 +153,7 @@ class DateSelectorModel extends Model {
      */
     unregister() {
         let scope  = {scope: this.id},
-            {view} = this.view;
+            {view} = this;
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,...scope},

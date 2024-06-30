@@ -27,9 +27,8 @@ class HeaderToolbar extends Base {
          */
         items: [{
             cls     : ['logo'],
-            id      : 'neo-logo-button',
-            minWidth: 60,
             iconCls : 'neo-logo-blue',
+            minWidth: 60,
             route   : '/home',
             text    : 'Neo.mjs'
         }, '->', {

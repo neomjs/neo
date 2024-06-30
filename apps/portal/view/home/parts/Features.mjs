@@ -1,11 +1,11 @@
-import Container  from '../../../../../src/container/Base.mjs';
-import ContentBox from '../ContentBox.mjs';
+import BaseContainer from './BaseContainer.mjs';
+import ContentBox    from '../ContentBox.mjs';
 
 /**
  * @class Portal.view.home.parts.Features
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class Features extends Container {
+class Features extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.Features'
@@ -13,9 +13,9 @@ class Features extends Container {
          */
         className: 'Portal.view.home.parts.Features',
         /**
-         * @member {String[]} cls=['portal-home-features','page']
+         * @member {String[]} cls=['portal-home-features']
          */
-        cls: ['portal-home-features', 'page'],
+        cls: ['portal-home-features'],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch',wrap:'wrap'}
          */

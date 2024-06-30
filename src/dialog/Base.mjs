@@ -136,17 +136,10 @@ class Base extends Panel {
         title_: null,
         /**
          * Set to `true` to have tabbing wrap within this Dialog.
-         *
          * Should be used with `modal`.
          * @member {Boolean} trapFocus_=false
          */
-        trapFocus_: false,
-        /**
-         * Set to `true` to have this Dialog centered in the viewport.
-         *
-         * @member {Boolean} centered_=false
-         */
-        centered_: false
+        trapFocus_: false
     }
 
     /**
@@ -154,22 +147,7 @@ class Base extends Panel {
      */
     construct(config) {
         super.construct(config);
-
-        let me      = this,
-            {style} = me;
-
-        me.createHeader();
-
-        if (!me.animateTargetId && !me.centered) {
-            Neo.assignDefaults(style, {
-                left     : '50%',
-                top      : '50%',
-                transform: 'translate(-50%, -50%)',
-                width    : '50%'
-            });
-
-            me.style = style
-        }
+        this.createHeader()
     }
 
     /**
@@ -202,17 +180,6 @@ class Base extends Panel {
         }
 
         super.afterSetAppName(value, oldValue)
-    }
-
-    /**
-     * Triggered after the centered config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetCentered(value, oldValue) {
-        NeoArray.toggle(this.vdom.cls, 'neo-centered', value);
-        this.update();
     }
 
     /**
@@ -392,7 +359,11 @@ class Base extends Panel {
             {appName, id, style} = me,
             rect = await me.getDomRect(me.animateTargetId);
 
+        // rendered outside the visible area
         await me.render(true);
+
+        let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
+        console.log(dialogRect, bodyRect);
 
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
@@ -415,11 +386,10 @@ class Base extends Panel {
                 add: ['animated-hiding-showing']
             },
             style: {
-                height   : style?.height    || null, // height will point to the animation origin, so we need a reset
-                left     : style?.left      || '50%',
-                top      : style?.top       || '50%',
-                transform: style?.transform || 'translate(-50%, -50%)',
-                width    : style?.width     || '50%'
+                height: style?.height || `${dialogRect.height}px`,
+                left  : style?.left   || `${Math.round(bodyRect.width  / 2 - dialogRect.width  / 2)}px`,
+                top   : style?.top    || `${Math.round(bodyRect.height / 2 - dialogRect.height / 2)}px`,
+                width : style?.width  || `${dialogRect.width}px`
             }
         });
 
@@ -699,8 +669,11 @@ class Base extends Panel {
         }
     }
 
+    /**
+     *
+     */
     onKeyDownEscape() {
-        this.hidden = true;
+        this.hidden = true
     }
 
     /**
@@ -710,7 +683,7 @@ class Base extends Panel {
         let me = this;
 
         if (animate) {
-            me.animateShow();
+            me.animateShow()
         } else {
             if (!me.rendered) {
                 me.render(true)
@@ -726,16 +699,21 @@ class Base extends Panel {
      * @param {String} id=this.id
      */
     syncModalMask(id=this.id) {
+        let {modal, windowId} = this;
+
         // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({id, modal: this.modal})
+        Neo.main.DomAccess.syncModalMask({id, modal, windowId})
     }
 
     /**
      *
      */
     syncTrapFocus() {
-        if (this.mounted) {
-            Neo.main.DomAccess.trapFocus({id: this.id, trap: this.trapFocus})
+        let me             = this,
+            {id, windowId} = me;
+
+        if (me.mounted) {
+            Neo.main.DomAccess.trapFocus({id, trap: me.trapFocus, windowId})
         }
     }
 }

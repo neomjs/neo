@@ -96,15 +96,15 @@ class Base extends CoreBase {
      *
      */
     async onConstructed() {
-        let me            = this,
-            currentHash   = HashHistory.first(),
-            {defaultHash} = me;
+        let me                      = this,
+            {defaultHash, windowId} = me,
+            currentHash             = HashHistory.first(windowId);
 
         // get outside the construction chain => a related cmp & vm has to be constructed too
         await me.timeout(1);
 
         if (currentHash) {
-            if (currentHash.windowId === me.windowId) {
+            if (currentHash.windowId === windowId) {
                 await me.onHashChange(currentHash, null)
             }
         } else {
@@ -113,7 +113,7 @@ class Base extends CoreBase {
              * We only want to set a default route, in case the HashHistory is empty and there is no initial
              * value that will get consumed.
              */
-            !Neo.config.hash && defaultHash && Neo.Main.setRoute({value: defaultHash})
+            !Neo.config.hash && defaultHash && Neo.Main.setRoute({value: defaultHash, windowId})
         }
     }
 

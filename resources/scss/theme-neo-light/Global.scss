@@ -46,17 +46,19 @@
         font-style: italic;
     }
 
-    code &:not(.hljs) {
-        background-color: #F0F2F0;
-        border          : 1px solid var(--sem-color-border-subtle);
-        border-radius   : 4px;
-        color           : var(--sem-color-fg-neutral-contrast);
-        font-family     : var(--core-fontfamily-mono);
-        font-size       : var(--core-fontsize-body);
-        font-weight     : var(--core-fontweight-regular);
-        line-height     : var(--core-lineheight-headline);
-        padding         : 2px 0.3em;
-        font-size       : 16px;
+    code {
+        &:not(.hljs) {
+            background-color: #F0F2F0;
+            border          : 1px solid var(--sem-color-border-subtle);
+            border-radius   : 4px;
+            color           : var(--sem-color-fg-neutral-contrast);
+            font-family     : var(--core-fontfamily-mono);
+            font-size       : var(--core-fontsize-body);
+            font-weight     : var(--core-fontweight-regular);
+            line-height     : var(--core-lineheight-headline);
+            padding         : 2px 0.3em;
+            font-size       : 16px;
+        }
     }
 
     mark {

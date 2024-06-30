@@ -1,11 +1,11 @@
-import Container            from '../../../../../src/container/Base.mjs';
+import BaseContainer        from './BaseContainer.mjs';
 import LivePreviewContainer from '../preview/PageCodeContainer.mjs';
 
 /**
  * @class Portal.view.home.parts.HelloWorld
- * @extends Neo.container.Base
+ * @extends Portal.view.home.parts.BaseContainer
  */
-class HelloWorld extends Container {
+class HelloWorld extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.HelloWorld'
@@ -31,18 +31,16 @@ class HelloWorld extends Container {
             medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
             large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
         },
-
         /**
          * @member {Object[]} items
          */
         items: [{
-            module: Container,
+            ntype : 'container',
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
             items : [{
                 cls : 'neo-h1',
-                id  : 'neo-hello-world-h1',
                 flex: 'none',
                 html: 'Hello World',
                 vdom: {tag: 'h1'}
@@ -59,7 +57,7 @@ class HelloWorld extends Container {
             }]
         }, {
             module: LivePreviewContainer,
-            flex: 0.8,
+            flex  : 0.8,
             value : [
                 "import Container from '../../../../src/container/Base.mjs';",
                 "",

@@ -239,7 +239,7 @@ class EditEventContainer extends FormContainer {
      */
     onCalendarFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
-            this.record.calendarId = data.record[data.component.store.keyProperty]
+            this.record.calendarId = data.value[data.component.store.keyProperty]
         }
     }
 

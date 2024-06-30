@@ -26,6 +26,7 @@
         {"name": "User Input (Forms)",                      "parentId": "InDepth",           "isLeaf": false, "id": "Forms"},
         {"name": "Component and Container Basics",          "parentId": "InDepth",           "isLeaf": true,  "id": "ComponentsAndContainers"},
         {"name": "Layouts",                                 "parentId": "InDepth",           "isLeaf": false, "id": "Layouts"},
+        {"name": "View Models",                             "parentId": "InDepth",           "isLeaf": true,  "id": "GuideViewModels"},
         {"name": "Custom Components",                       "parentId": "InDepth",           "isLeaf": true,  "id": "CustomComponents"},
         {"name": "Events",                                  "parentId": "InDepth",           "isLeaf": true,  "expanded": false, "id": "GuideEvents"},
         {"name": "Tables (Stores)",                         "parentId": "InDepth",           "isLeaf": false, "id": "Tables"},
