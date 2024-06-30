@@ -6,9 +6,9 @@ to test.
 Consider this code. It's a panel with a header and a table. The table has a store. 
 
 <pre data-neo>
-import Button from '../../../../src/button/Base.mjs';
-import Panel  from '../../../../src/container/Panel.mjs';
-import Table  from '../../../../src/table/Container.mjs';
+import Button from '../button/Base.mjs';
+import Panel  from '../container/Panel.mjs';
+import Table  from '../table/Container.mjs';
 
 class MainView extends Panel {
     static config = {
@@ -49,10 +49,10 @@ have been refactored into their own classes, and the main view is using them. Th
 more abstract, and each class can be reused, tested, and maintained independently. 
 
 <pre data-neo>
-import Button from '../../../../src/button/Base.mjs';
-import Panel  from '../../../../src/container/Panel.mjs';
-import Store  from '../../../../src/data/Store.mjs';
-import Table  from '../../../../src/table/Container.mjs';
+import Button from '../button/Base.mjs';
+import Panel  from '../container/Panel.mjs';
+import Store  from '../data/Store.mjs';
+import Table  from '../table/Container.mjs';
 
 class BeatlesButton extends Button {
     static config = {

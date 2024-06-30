@@ -4,9 +4,9 @@ A _view model_ &mdash; `Neo.model.Component` &mdash; instance holds properties t
 can be bound to component properties.
 
 <pre data-neo>
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
-import TextField from  '../../../../src/form/field/Text.mjs';
+import Container from  '../container/Base.mjs';
+import Label     from  '../component/Label.mjs';
+import TextField from  '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -56,9 +56,9 @@ usually coded as separate classes.)
 Below is another example.
 
 <pre data-neo>
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
-import Panel     from  '../../../../src/container/Panel.mjs';
+import Container from  '../container/Base.mjs';
+import Label     from  '../component/Label.mjs';
+import Panel     from  '../container/Panel.mjs';
 
 class MyPanel extends Panel {
     static config = {

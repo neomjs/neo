@@ -1298,10 +1298,10 @@ If we replace the top table with the map, `view/MainView.mjs` ends up with this 
 
 <pre data-javascript>
 
-import Container           from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Container           from '../container/Base.mjs';
 import Controller          from './MainViewController.mjs';
 import EarthquakesTable    from './earthquakes/Table.mjs';
-import GoogleMapsComponent from '../../../src/component/wrapper/GoogleMaps.mjs';
+import GoogleMapsComponent from '../component/wrapper/GoogleMaps.mjs';
 import ViewModel           from './MainViewModel.mjs';
 
 class MainView extends Container {

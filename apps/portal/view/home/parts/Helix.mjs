@@ -81,7 +81,7 @@ class Helix extends BaseContainer {
                 reference: 'live-preview',
 
                 value: [
-                    "import Viewport from '../../../../examples/component/multiWindowHelix/Viewport.mjs';",
+                    "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
                     "",
                     "class MainView extends Viewport {",
                     "    static config = {",

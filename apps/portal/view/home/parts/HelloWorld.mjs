@@ -59,7 +59,7 @@ class HelloWorld extends BaseContainer {
             module: LivePreviewContainer,
             flex  : 0.8,
             value : [
-                "import Container from '../../../../src/container/Base.mjs';",
+                "import Container from '../container/Base.mjs';",
                 "",
                 "class MainView extends Container {",
                 "    static config = {",

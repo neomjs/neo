@@ -26,7 +26,7 @@ primitive. Components introduce various properties, such as `width`, `height`, `
 Here's a container, with one child item.
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
@@ -48,7 +48,7 @@ Components also have an `html`. The `html` property is rarely used, and goes aga
 sometimes it's handy as a placeholder as you stub out views.
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
@@ -78,7 +78,7 @@ some commonly-used layouts.
 Fix is used when there's a single child. The component is sized to fit the container.
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
@@ -99,8 +99,8 @@ Neo.setupClass(MainView);
 With `vbox` and `hbox`, items are arranged vertically or horizontally.
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
@@ -126,10 +126,10 @@ Neo.setupClass(MainView);
 A card container has multiple child items, one of which is visible. 
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Base from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
-class MainView extends Base {
+class MainView extends Container {
     static config = {
         className: 'Example.view.MainView',
         layout   : 'vbox',
@@ -178,7 +178,7 @@ Neo.mjs is class-based, and thus, any component or container can be defined as i
 other component in the framework.
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
+import Button from '../button/Base.mjs';
 // In practice this would be some handy reusable component
 class MySpecialButton extends Button {
     static config = {
@@ -191,7 +191,7 @@ class MySpecialButton extends Button {
 Neo.setupClass(MySpecialButton);
 
 
-import Container from '../../../../src/container/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {

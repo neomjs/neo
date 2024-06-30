@@ -4,9 +4,9 @@ In case you did not work with neo yet, but come from a more HTML driven ecosyste
 you could achieve the task in a similar way.
 
 <pre data-neo>
-import Component from '../../../../src/component/Base.mjs';
-import NeoArray  from '../../../../src/util/Array.mjs';
-import VdomUtil  from '../../../../src/util/VDom.mjs';
+import Component from '../component/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
+import VdomUtil  from '../util/VDom.mjs';
 
 class MainComponent extends Component {
     static config = {
@@ -117,12 +117,12 @@ Neo.setupClass(MainComponent);
 content
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
-import List      from '../../../../src/list/Base.mjs';
-import Model     from '../../../../src/data/Model.mjs';
-import Store     from '../../../../src/data/Store.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
-import Toolbar   from '../../../../src/toolbar/Base.mjs';
+import Container from '../container/Base.mjs';
+import List      from '../list/Base.mjs';
+import Model     from '../data/Model.mjs';
+import Store     from '../data/Store.mjs';
+import TextField from '../form/field/Text.mjs';
+import Toolbar   from '../toolbar/Base.mjs';
 
 class TodoListModel extends Model {
     static config = {

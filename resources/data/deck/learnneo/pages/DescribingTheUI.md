@@ -11,8 +11,8 @@ use to describe the component you're creating> You can also access or set the pr
 ## A view with one component
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
@@ -47,8 +47,8 @@ Let's put a second button in the container.
 ## A view with two components
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {

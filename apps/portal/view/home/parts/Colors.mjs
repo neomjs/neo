@@ -69,7 +69,7 @@ class Colors extends BaseContainer {
                 reference: 'live-preview',
 
                 value: [
-                    "import Viewport from '../../../../apps/colors/view/Viewport.mjs';",
+                    "import Viewport from '../../apps/colors/view/Viewport.mjs';",
                     "",
                     "class MainView extends Viewport {",
                     "    static config = {",

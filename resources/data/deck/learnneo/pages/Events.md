@@ -14,8 +14,8 @@ The code below shows two text fields, with `listeners` for `change` and `focusEn
 (The events for any component are documented in the API docs.)
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -53,7 +53,7 @@ A `Neo.controller.Component` is a simple class associated with a component class
 instance of its associated controller is automatically created. 
 
 <pre data-neo>
-import Base from '../../../../src/controller/Component.mjs';
+import Base from '../controller/Component.mjs';
 
 class MainViewController extends Base {
     static config = {
@@ -67,8 +67,8 @@ class MainViewController extends Base {
 Neo.setupClass(MainViewController);
 
 
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -118,8 +118,8 @@ before the value is accessed. We're using the _after_ method to fire a `change` 
 
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class ToggleButton extends Button {
     static config = {

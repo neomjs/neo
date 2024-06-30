@@ -18,8 +18,8 @@ The `Simple` class introduces syntax. It doesn't have any content, so if you run
 see anything. We'll change that in the next example.
 
 <pre data-neo>
-import Component  from '../../../../src/component/Base.mjs';
-import Container  from '../../../../src/container/Base.mjs';
+import Component from '../component/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
@@ -59,8 +59,8 @@ updated or accessed. You're free to implment these methods to provide business r
 values, or have side-effects, such as updating a view or firing an event.
 
 <pre data-neo>
-import Component  from '../../../../src/component/Base.mjs';
-import Container  from '../../../../src/container/Base.mjs';
+import Component from '../component/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
@@ -113,8 +113,8 @@ Typically, the _afterSet_ method is used to update a view or to fire an event.
 Look at this code: `afterSetBar()` fires an event, and the config in the `items[]` is listening to it.
 
 <pre data-neo>
-import Component  from '../../../../src/component/Base.mjs';
-import Container  from '../../../../src/container/Base.mjs';
+import Component from '../component/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
