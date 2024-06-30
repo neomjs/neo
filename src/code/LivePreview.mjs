@@ -1,6 +1,6 @@
-import Container    from '../../../../src/container/Base.mjs';
-import MonacoEditor from '../../../../src/component/wrapper/MonacoEditor.mjs'
-import TabContainer from '../../../../src/tab/Container.mjs';
+import Container    from '../container/Base.mjs';
+import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
+import TabContainer from '../tab/Container.mjs';
 
 const
     classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
@@ -8,7 +8,7 @@ const
     importRegex           = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
 
 /**
- * @class Portal.view.learn.LivePreview
+ * @class Neo.code.LivePreview
  * @extends Neo.container.Base
  */
 class LivePreview extends Container {
@@ -22,10 +22,10 @@ class LivePreview extends Container {
 
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.LivePreview'
+         * @member {String} className='Neo.code.LivePreview'
          * @protected
          */
-        className: 'Portal.view.learn.LivePreview',
+        className: 'Neo.code.LivePreview',
         /**
          * @member {String} ntype='live-preview'
          * @protected
@@ -37,7 +37,7 @@ class LivePreview extends Container {
          */
         activeView_: 'source',
 
-        baseCls         : ['learn-live-preview'],
+        baseCls         : ['neo-code-live-preview'],
         value_          : null,
         autoMount       : true,
         autoRender      : true,
@@ -63,7 +63,7 @@ class LivePreview extends Container {
                 },
                 listeners      : {
                     editorChange: data => {
-                        let container         = data.component.up({className: 'Portal.view.learn.LivePreview'});
+                        let container         = data.component.up({className: 'Neo.code.LivePreview'});
                         container.editorValue = data.value;
 
                         if (container.previewContainer) {

@@ -1,5 +1,5 @@
 import Component   from '../../../../src/component/Base.mjs';
-import LivePreview from './LivePreview.mjs';
+import LivePreview from '../../../../src/code/LivePreview.mjs';
 import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const

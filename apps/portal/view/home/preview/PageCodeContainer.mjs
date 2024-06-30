@@ -1,5 +1,5 @@
 import Container   from '../../../../../src/container/Base.mjs';
-import LivePreview from '../../learn/LivePreview.mjs';
+import LivePreview from '../../../../../src/code/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.preview.PageCodeContainer
