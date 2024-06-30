@@ -2,4 +2,51 @@
     overflow-x      : hidden!important;
     scroll-behavior : smooth;
     scroll-snap-type: y mandatory;
+
+    @keyframes appear-left {
+        0% {
+            transform: translateX(-400%);
+            opacity  : 0;
+        }
+        90% {
+            opacity: .3;
+        }
+        100% {
+            transform: translateX(0);
+            opacity  : 1;
+        }
+    }
+
+    @keyframes appear-right {
+        0% {
+            transform: translateX(400%);
+            opacity  : 0;
+        }
+        90% {
+            opacity: .3;
+        }
+        100% {
+            transform: translateX(0);
+            opacity  : 1;
+        }
+    }
+
+    .portal-home-content-view {
+        &:not(:first-child) {
+            &:not(:last-child) {
+                animation-timeline       : view(block 100% -500%);
+                animation-fill-mode      : both;
+                animation-duration       : 1ms; /* Firefox requires this to apply the animation */
+                animation-timing-function: linear;
+
+                &:nth-child(even) {
+                    animation-name: appear-right;
+                }
+
+                &:nth-child(odd) {
+                    animation-name: appear-left;
+                }
+            }
+        }
+    }
 }
