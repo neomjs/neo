@@ -2,6 +2,10 @@
     min-height       : 100%;
     scroll-snap-align: center;
 
+    .neo-content {
+        font-size: min(max(2.3vw, 16px), 30px);
+    }
+
     .neo-h1 {
         font-size  : min(max(5.5vw, 30px), 64px);
         text-align : center;
@@ -15,10 +19,6 @@
         text-align : center;
         margin     : 0;
         line-height: 1em;
-    }
-
-    .neo-content {
-        font-size: min(max(2.3vw, 16px), 30px);
     }
 
     .page-live-preview {
