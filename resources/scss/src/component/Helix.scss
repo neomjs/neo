@@ -65,7 +65,7 @@
         height             : 160px;
         overflow           : hidden;
         width              : 120px;
-        will-change        : transform;
+        will-change        : auto;
 
         &:focus {
             outline: 0;
