@@ -82,52 +82,6 @@
     }
 }
 
-.hello-world {
-    animation-timeline: view(block 100% -500%);
-
-    animation-name: appear-animation;
-    animation-fill-mode: both;
-    animation-duration: 1ms; /* Firefox requires this to apply the animation */
-    animation-timing-function: linear;
-}
-
-@keyframes appear-animation {
-    0% {
-        transform: translateX(-400%);
-        opacity  : 0;
-    }
-    90% {
-        opacity: .3;
-    }
-    100% {
-        transform: translateX(0);
-        opacity  : 1;
-    }
-}
-
-.cool-stuff {
-    animation-timeline       : view(block 100% -500%);
-    animation-name           : appear-cool-stuff;
-    animation-fill-mode      : both;
-    animation-duration       : 1ms; /* Firefox requires this to apply the animation */
-    animation-timing-function: linear;
-}
-
-@keyframes appear-cool-stuff {
-    0% {
-        transform: translateX(400%);
-        opacity  : 0;
-    }
-    90% {
-        opacity: .3;
-    }
-    100% {
-        transform: translateX(0);
-        opacity  : 1;
-    }
-}
-
-
 //.page {
 //  scroll-timeline: --page block;
 //}

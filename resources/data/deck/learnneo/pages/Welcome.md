@@ -50,8 +50,8 @@ icon on the right  <span class="far fa-xs fa-window-maximize"></span>. This web 
 and the ability to launch browser windows &mdash; all integrated within a single app &mdash; is a unique feature of Neo.mjs!
 
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {

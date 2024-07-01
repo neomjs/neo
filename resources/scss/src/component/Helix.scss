@@ -4,7 +4,6 @@
     display         : flex;
     font-family     : var(--neo-font-family);
     margin          : 0;
-    overflow        : hidden;
     padding         : 0;
     perspective     : 800px;
     transform       : translateZ(0px);
@@ -65,7 +64,7 @@
         height             : 160px;
         overflow           : hidden;
         width              : 120px;
-        will-change        : transform;
+        will-change        : auto;
 
         &:focus {
             outline: 0;

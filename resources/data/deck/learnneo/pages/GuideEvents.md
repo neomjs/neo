@@ -2,8 +2,8 @@ As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, 
 
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -36,8 +36,8 @@ The event listener function can be coded in-line. Normally you want event handle
 controller, but for very simple situation it can be convenient to use this syntax.
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -63,8 +63,8 @@ in-line syntax you saw above, using the `up.` syntax might be convenient for sim
 or when you simply haven't gotten around to defining a view's controller.
 
 <pre data-neo>
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -93,7 +93,7 @@ Any view class can specify a controller &mdash; wWhen the view is created a cont
 also created. 
 
 <pre data-neo>
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
@@ -106,8 +106,8 @@ class MainViewController extends Controller {
 Neo.setupClass(MainViewController);
 
 
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -132,12 +132,12 @@ Neo.setupClass(MainView);
 ## Adding listeners procedurally
 
 Event listeners are normally specified declaratively, via the `listeners: {}` config. But occasionally you need to add
-a listener proccedurally.
+a listener procedurally.
 
-Any obversable class has an `addListener` method, along with an easier-to-type version called `on`.
+Any observable class has an `addListener` method, along with an easier-to-type version called `on`.
 
 <pre data-neo>
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
@@ -153,8 +153,8 @@ class MainViewController extends Controller {
 Neo.setupClass(MainViewController);
 
 
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -179,7 +179,7 @@ Neo.setupClass(MainView);
 The method specified in `on()` doesn't have to be an arrow function; you can use a controller function.
 
 <pre data-neo>
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
@@ -198,8 +198,8 @@ class MainViewController extends Controller {
 Neo.setupClass(MainViewController);
 
 
-import Container from '../../../../src/container/Base.mjs';
-import TextField from '../../../../src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -218,7 +218,6 @@ class MainView extends Container {
 }
 Neo.setupClass(MainView);
 </pre>
-
 
 
 ## Events versus binding

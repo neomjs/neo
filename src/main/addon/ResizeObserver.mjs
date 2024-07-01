@@ -20,6 +20,12 @@ class NeoResizeObserver extends Base {
          */
         instance: null,
         /**
+         * If a target node is not found when calling register(),
+         * we can specify the amount of retries with a 100ms delay.
+         * @member {Number} registerAttempts=3
+         */
+        registerAttempts: 3,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -92,9 +98,19 @@ class NeoResizeObserver extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
+     * @param {Number} count=0
      */
-    register(data) {
-        this.instance.observe(DomAccess.getElement(data.id))
+    async register(data, count=0) {
+        let me   = this,
+            node = DomAccess.getElement(data.id);
+
+        if (node) {
+            me.instance.observe(node)
+        } else if (count < me.registerAttempts) {
+            await me.timeout(100);
+            count++;
+            me.register(data, count)
+        }
     }
 
     /**

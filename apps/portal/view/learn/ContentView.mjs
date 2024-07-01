@@ -1,5 +1,5 @@
 import Component   from '../../../../src/component/Base.mjs';
-import LivePreview from './LivePreview.mjs';
+import LivePreview from '../../../../src/code/LivePreview.mjs';
 import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const
@@ -124,6 +124,8 @@ class ContentView extends Component {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
                 Neo.create(LivePreview, {
                     appName        : me.appName,
+                    autoMount      : true,
+                    autoRender     : true,
                     parentComponent: me,
                     parentId       : key,
                     value          : neoDivs[key],

@@ -15,8 +15,8 @@ running the code. Even though it's running in a new window, it's still part of t
 seamlessly share events, data, etc. &mdash; the code doesn't care that some code is running in a
 separate window.
 <pre data-neo>
-import Button    from '../../../../src/button/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {

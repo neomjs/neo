@@ -16,9 +16,9 @@ Since we also have Data Stores (tabular data), we chose to use the name VM to av
 ## Inline Models
 ### Direct Bindings
 <pre data-neo>
-import Button    from  '../../../../src/button/Base.mjs';
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -64,9 +64,9 @@ We can easily bind 1:1 to specific data props using the following syntax:</br>
 
 ### Bindings with multiple data props
 <pre data-neo>
-import Button    from  '../../../../src/button/Base.mjs';
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -131,9 +131,9 @@ data.component equals to the Button instance itself. Since the Button instance d
 
 ### Nested Inline Models
 <pre data-neo>
-import Button    from  '../../../../src/button/Base.mjs';
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -206,9 +206,9 @@ Hint: Modify the example code (Button handler) to try it out right away!
 
 ### Nested Data Properties
 <pre data-neo>
-import Button    from  '../../../../src/button/Base.mjs';
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -265,11 +265,11 @@ Hint: This will not override left out nested data props (lastname in this case).
 
 ### Dialog connecting to a Container
 <pre data-neo>
-import Controller from '../../../../src/controller/Component.mjs';
-import Dialog     from '../../../../src/dialog/Base.mjs';
-import Panel      from '../../../../src/container/Panel.mjs';
-import TextField  from '../../../../src/form/field/Text.mjs';
-import Viewport   from '../../../../src/container/Viewport.mjs';
+import Controller from '../controller/Component.mjs';
+import Dialog     from '../dialog/Base.mjs';
+import Panel      from '../container/Panel.mjs';
+import TextField  from '../form/field/Text.mjs';
+import Viewport   from '../container/Viewport.mjs';
 
 class EditUserDialogController extends Controller {
     static config = {
@@ -391,10 +391,10 @@ When your models contain many data props or need custom logic, you can easily mo
 
 ### Direct Bindings
 <pre data-neo>
-import Button    from  '../../../../src/button/Base.mjs';
-import Container from  '../../../../src/container/Base.mjs';
-import Label     from  '../../../../src/component/Label.mjs';
-import ViewModel from  '../../../../src/model/Component.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
+import ViewModel from '../model/Component.mjs';
 
 class MainViewModel extends ViewModel {
     static config = {

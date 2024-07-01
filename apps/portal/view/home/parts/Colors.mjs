@@ -1,5 +1,5 @@
 import BaseContainer from './BaseContainer.mjs';
-import LivePreview   from '../../learn/LivePreview.mjs';
+import LivePreview   from '../../../../../src/code/LivePreview.mjs';
 
 /**
  * @class Portal.view.home.parts.Colors
@@ -69,7 +69,7 @@ class Colors extends BaseContainer {
                 reference: 'live-preview',
 
                 value: [
-                    "import Viewport from '../../../../apps/colors/view/Viewport.mjs';",
+                    "import Viewport from '../../apps/colors/view/Viewport.mjs';",
                     "",
                     "class MainView extends Viewport {",
                     "    static config = {",

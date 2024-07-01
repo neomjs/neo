@@ -21,8 +21,8 @@ If you move quickly, you might reach 20,000 or 30,000 delta updates per second. 
 second &mdash; but we've never actually hit the limit.
 
 <pre data-neo>
-import Base from '../../../../src/container/Base.mjs';
-import Helix from '../../../../src/component/Helix.mjs';
+import Base from '../container/Base.mjs';
+import Helix from '../component/Helix.mjs';
 class Foo extends Base {
     static config = {
         className: 'Foo',
