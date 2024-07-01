@@ -36,11 +36,11 @@ class LivePreview extends Container {
          * @member {String} activeView_='source'
          */
         activeView_: 'source',
-
-        baseCls         : ['neo-code-live-preview'],
+        /**
+         * @member {String[]} baseCls=['neo-code-live-preview']
+         */
+        baseCls: ['neo-code-live-preview'],
         value_          : null,
-        autoMount       : true,
-        autoRender      : true,
         disableRunSource: false,
         height          : 400,
         layout          : 'fit',

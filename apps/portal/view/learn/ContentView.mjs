@@ -124,6 +124,8 @@ class ContentView extends Component {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
                 Neo.create(LivePreview, {
                     appName        : me.appName,
+                    autoMount      : true,
+                    autoRender     : true,
                     parentComponent: me,
                     parentId       : key,
                     value          : neoDivs[key],
