@@ -64,21 +64,10 @@ class LivePreview extends Container {
             items: [{
                 module         : MonacoEditor,
                 hideLabel      : true,
+                listeners      : {editorChange: 'up.onEditorChange'},
                 style          : {height: '100%'},
                 reference      : 'editor',
-                tabButtonConfig: {
-                    text: 'Source'
-                },
-                listeners      : {
-                    editorChange: data => {
-                        let container         = data.component.up({className: 'Neo.code.LivePreview'});
-                        container.editorValue = data.value;
-
-                        if (container.previewContainer) {
-                            container.doRunSource()
-                        }
-                    }
-                }
+                tabButtonConfig: {text: 'Source'}
             }, {
                 module         : Container,
                 reference      : 'preview',
@@ -311,6 +300,20 @@ class LivePreview extends Container {
 
         // changing the activeView initially will not trigger our onActiveIndexChange() logic
         me.activeView === 'preview' && me.doRunSource()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onEditorChange(data) {console.log('onEditorChange', data);
+        let me = this;
+
+        me.editorValue = data.value;
+
+        // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
+        if (me.previewContainer) {
+            me.doRunSource()
+        }
     }
 
     /**
