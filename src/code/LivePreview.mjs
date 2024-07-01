@@ -305,7 +305,7 @@ class LivePreview extends Container {
     /**
      * @param {Object} data
      */
-    onEditorChange(data) {console.log('onEditorChange', data);
+    onEditorChange(data) {
         let me = this;
 
         me.editorValue = data.value;
