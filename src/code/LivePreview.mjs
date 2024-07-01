@@ -40,10 +40,18 @@ class LivePreview extends Container {
          * @member {String[]} baseCls=['neo-code-live-preview']
          */
         baseCls: ['neo-code-live-preview'],
-        value_          : null,
+        /**
+         * @member {Boolean} disableRunSource=false
+         */
         disableRunSource: false,
-        height          : 400,
-        layout          : 'fit',
+        /**
+         * @member {Number} height=400
+         */
+        height: 400,
+        /**
+         * @member {Object|String} layout='fit'
+         */
+        layout: 'fit',
         /**
          * @member {Object[]} items
          */
@@ -76,7 +84,12 @@ class LivePreview extends Container {
                 reference      : 'preview',
                 tabButtonConfig: {text: 'Preview'}
             }]
-        }]
+        }],
+        /**
+         * The code to display inside the Monaco editor
+         * @member {String|null} value_=null
+         */
+        value_: null,
     }
 
     /**
