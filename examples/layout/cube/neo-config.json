@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/layout/cube/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
