@@ -367,7 +367,7 @@ class Base extends Panel {
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
             id,
-            style : {
+            style: {
                 height: `${rect.height}px`,
                 left  : `${rect.left  }px`,
                 top   : `${rect.top   }px`,
