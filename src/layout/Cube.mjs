@@ -49,7 +49,19 @@ class Cube extends Base {
         /**
          * @member {Number} rotateZ_=0
          */
-        rotateZ_: 0
+        rotateZ_: 0,
+        /**
+         * @member {Number} sideX_=300
+         */
+        sideX_: 300,
+        /**
+         * @member {Number} sideY_=300
+         */
+        sideY_: 300,
+        /**
+         * @member {Number} sideZ_=300
+         */
+        sideZ_: 300
     }
 
     /**
@@ -94,13 +106,7 @@ class Cube extends Base {
      * @protected
      */
     afterSetPerspective(value, oldValue) {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {style}    = container;
-
-        style['--perspective'] = value + 'px';
-
-        container.style = style
+        this.updateContainerCssVar('--perspective', value + 'px')
     }
 
     /**
@@ -131,6 +137,36 @@ class Cube extends Base {
      */
     afterSetRotateZ(value, oldValue) {
         this.rotateTo(null, null, value)
+    }
+
+    /**
+     * Triggered after the sideX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetSideX(value, oldValue) {
+        this.updateContainerCssVar('--side-x', value + 'px')
+    }
+
+    /**
+     * Triggered after the sideX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetSideY(value, oldValue) {
+        this.updateContainerCssVar('--side-y', value + 'px')
+    }
+
+    /**
+     * Triggered after the sideX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetSideZ(value, oldValue) {
+        this.updateContainerCssVar('--side-z', value + 'px')
     }
 
     /**
@@ -191,6 +227,20 @@ class Cube extends Base {
         if (Neo.isNumber(x)) {style['--rot-x'] = x + 'deg'}
         if (Neo.isNumber(y)) {style['--rot-y'] = y + 'deg'}
         if (Neo.isNumber(z)) {style['--rot-z'] = z + 'deg'}
+
+        container.style = style
+    }
+
+    /**
+     * @param {String} name
+     * @param {String} value
+     */
+    updateContainerCssVar(name, value) {
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            {style}    = container;
+
+        style[name] = value;
 
         container.style = style
     }

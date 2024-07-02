@@ -55,6 +55,31 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 1,
             value    : layout.rotateZ
         }, {
+            module   : RangeField,
+            labelText: 'sideX',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'sideX')},
+            maxValue : 400,
+            minValue : 100,
+            stepSize : 10,
+            style    : {marginTop: '20px'},
+            value    : layout.sideX
+        }, {
+            module   : RangeField,
+            labelText: 'sideY',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'sideY')},
+            maxValue : 400,
+            minValue : 100,
+            stepSize : 10,
+            value    : layout.sideY
+        }, {
+            module   : RangeField,
+            labelText: 'sideZ',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'sideZ')},
+            maxValue : 400,
+            minValue : 100,
+            stepSize : 10,
+            value    : layout.sideZ
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'height',
