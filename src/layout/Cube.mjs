@@ -35,6 +35,10 @@ class Cube extends Base {
          */
         activeFace_: null,
         /**
+         * @member {Number} perspective_=600
+         */
+        perspective_: 600,
+        /**
          * @member {Number} rotateX_=0
          */
         rotateX_: 0,
@@ -81,6 +85,22 @@ class Cube extends Base {
         if (value) {
             this.rotateTo(...Cube.faces[value])
         }
+    }
+
+    /**
+     * Triggered after the perspective config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetPerspective(value, oldValue) {
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            {style}    = container;
+
+        style['--perspective'] = value + 'px';
+
+        container.style = style
     }
 
     /**
@@ -164,21 +184,13 @@ class Cube extends Base {
      * @param {Number|null} [z]
      */
     rotateTo(x, y, z) {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {style}    = container;
+        let me        = this,
+            container = Neo.getComponent(me.containerId),
+            {style}   = container;
 
-        if (Neo.isNumber(x)) {
-            style['--rotX'] = x + 'deg';
-        }
-
-        if (Neo.isNumber(y)) {
-            style['--rotY'] = y + 'deg';
-        }
-
-        if (Neo.isNumber(z)) {
-            style['--rotZ'] = z + 'deg';
-        }
+        if (Neo.isNumber(x)) {style['--rot-x'] = x + 'deg'}
+        if (Neo.isNumber(y)) {style['--rot-y'] = y + 'deg'}
+        if (Neo.isNumber(z)) {style['--rot-z'] = z + 'deg'}
 
         container.style = style
     }

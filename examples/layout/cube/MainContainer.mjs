@@ -23,11 +23,20 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : RangeField,
+            labelText: 'perspective',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'perspective')},
+            maxValue : 2000,
+            minValue : 400,
+            stepSize : 10,
+            value    : layout.perspective
+        }, {
+            module   : RangeField,
             labelText: 'rotateX',
             listeners: {change: me.onLayoutConfigChange.bind(me, 'rotateX')},
             maxValue : 360,
             minValue : 0,
             stepSize : 1,
+            style    : {marginTop: '20px'},
             value    : layout.rotateX
         }, {
             module   : RangeField,
@@ -52,7 +61,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'height')},
             maxValue : 1000,
             minValue : 300,
-            stepSize : 5,
+            stepSize : 10,
             style    : {marginTop: '20px'},
             value    : me.exampleComponent.height
         }, {
@@ -62,7 +71,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'width')},
             maxValue : 1000,
             minValue : 300,
-            stepSize : 5,
+            stepSize : 10,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }];
