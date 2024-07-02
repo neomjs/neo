@@ -50,8 +50,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 300,
-            minValue : 30,
+            maxValue : 1000,
+            minValue : 300,
             stepSize : 5,
             style    : {marginTop: '20px'},
             value    : me.exampleComponent.height
@@ -60,8 +60,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
+            maxValue : 1000,
+            minValue : 300,
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
@@ -73,15 +73,22 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create({
-            module   : Container,
-            height   : 300,
-            width    : 400,
+            module: Container,
+            height: 500,
+            layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+            width : 500,
 
             items: [{
                 module   : Container,
-                layout   : {ntype: 'cube'},
                 reference: 'container',
-                style    : {color: 'white', fontSize: '50px', textAlign: 'center'},
+                style    : {color: 'white', fontSize: '50px', margin: '50px', textAlign: 'center'},
+
+                layout: {
+                    ntype  : 'cube',
+                    rotateX: 194,
+                    rotateY: 213,
+                    rotateZ: 162
+                },
 
                 items: [
                     {style: {backgroundColor: 'rgba(255,   0,   0, 0.5)'}, html: 'Front'},
@@ -102,19 +109,14 @@ class MainContainer extends ConfigurationViewport {
                     style  : {marginRight: '.3em'}
                 },
 
-                items: [{
-                    text: 'Front'
-                }, {
-                    text: 'Back'
-                }, {
-                    text: 'Left'
-                }, {
-                    text: 'Right'
-                }, {
-                    text: 'Top'
-                }, {
-                    text: 'Bottom'
-                }]
+                items: [
+                    {text: 'Front'},
+                    {text: 'Back'},
+                    {text: 'Left'},
+                    {text: 'Right'},
+                    {text: 'Top'},
+                    {text: 'Bottom'}
+                ]
             }]
         })
     }

@@ -24,6 +24,7 @@
 
     background-color  : transparent;
     height            : var(--sideY);
+    overflow          : visible;
     perspective       : var(--perspective);
     perspective-origin: center center;
     width             : var(--sideX);
