@@ -2,6 +2,7 @@ import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Container             from '../../../src/container/Base.mjs';
 import CubeLayout            from '../../../src/layout/Cube.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
 import RangeField            from '../../../src/form/field/Range.mjs';
 import Toolbar               from '../../../src/toolbar/Base.mjs';
 
@@ -22,12 +23,29 @@ class MainContainer extends ConfigurationViewport {
             {layout} = me.exampleComponent.getItem('container');
 
         return [{
+            module        : Radio,
+            checked       : layout.ntype === 'layout-cube',
+            hideValueLabel: false,
+            labelText     : 'layout',
+            listeners     : {change: me.onRadioLayoutChange.bind(me, 'cube')},
+            name          : 'layout',
+            valueLabelText: 'Cube'
+        }, {
+            module        : Radio,
+            checked       : layout.ntype === 'layout-vbox',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioLayoutChange.bind(me, 'vbox')},
+            name          : 'layout',
+            valueLabelText: 'VBox'
+        }, {
             module   : RangeField,
             labelText: 'perspective',
             listeners: {change: me.onLayoutConfigChange.bind(me, 'perspective')},
             maxValue : 2000,
             minValue : 400,
             stepSize : 10,
+            style    : {marginTop: '20px'},
             value    : layout.perspective
         }, {
             module   : RangeField,
@@ -169,6 +187,27 @@ class MainContainer extends ConfigurationViewport {
      */
     onLayoutConfigChange(config, opts) {
         this.getItem('container').layout[config] = opts.value
+    }
+
+    /**
+     * @param {String} name
+     * @param {Object} opts
+     */
+    onRadioLayoutChange(name, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            let layout = name;
+
+            if (name === 'cube') {
+                layout = {
+                    ntype  : 'cube',
+                    rotateX: 194,
+                    rotateY: 213,
+                    rotateZ: 162
+                }
+            }
+
+            this.getItem('container').layout = layout;
+        }
     }
 }
 
