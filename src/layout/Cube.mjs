@@ -204,6 +204,36 @@ class Cube extends Base {
     }
 
     /**
+     * Removes all CSS rules from a container item this layout is bound to.
+     * Gets called when switching to a different layout.
+     * @param {Neo.component.Base} item
+     * @param {Number} index
+     * @protected
+     */
+    removeChildAttributes(item, index) {
+        let {wrapperCls} = item;
+
+        NeoArray.remove(wrapperCls, ['neo-face', Object.keys(Cube.faces)[index]]);
+
+        switch(index) {
+            case 0:
+            case 1:
+                NeoArray.remove(wrapperCls, 'neo-face-z');
+                break;
+            case 2:
+            case 3:
+                NeoArray.remove(wrapperCls, 'neo-face-x');
+                break;
+            case 4:
+            case 5:
+                NeoArray.remove(wrapperCls, 'neo-face-y');
+                break;
+        }
+
+        item.wrapperCls = wrapperCls
+    }
+
+    /**
      * @param {Number|null} [x]
      * @param {Number|null} [y]
      * @param {Number|null} [z]
