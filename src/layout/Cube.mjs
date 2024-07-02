@@ -7,10 +7,17 @@ import NeoArray from '../util/Array.mjs';
  */
 class Cube extends Base {
     /**
-     * @member {String[]} faces=['front','back','left','right','top','bottom']
+     * @member {Object} faces
      * @static
      */
-    static faces = ['front', 'back', 'left', 'right', 'top', 'bottom']
+    static faces = {
+        front : [  0,   0, 0],
+        back  : [  0, 180, 0],
+        left  : [  0,  90, 0],
+        right : [  0, 270, 0],
+        top   : [270,   0, 0],
+        bottom: [ 90,   0, 0]
+    }
 
     static config = {
         /**
@@ -23,6 +30,10 @@ class Cube extends Base {
          * @protected
          */
         ntype: 'layout-cube',
+        /**
+         * @member {String|null} activeFace_=null
+         */
+        activeFace_: null,
         /**
          * @member {Number} rotateX_=0
          */
@@ -57,6 +68,18 @@ class Cube extends Base {
         // override
         container.getVdomItemsRoot = function() {
             return this.vdom.cn[0].cn[0]
+        }
+    }
+
+    /**
+     * Triggered after the activeFace config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetActiveFace(value, oldValue) {
+        if (value) {
+            this.rotateTo(...Cube.faces[value])
         }
     }
 
@@ -98,7 +121,7 @@ class Cube extends Base {
     applyChildAttributes(item, index) {
         let {wrapperCls} = item;
 
-        wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Cube.faces[index]);
+        wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Object.keys(Cube.faces)[index]);
 
         switch(index) {
             case 0:

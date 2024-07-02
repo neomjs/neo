@@ -96,15 +96,24 @@ class MainContainer extends ConfigurationViewport {
                 flex  : 'none',
                 style : {marginTop: '1em'},
 
+                itemDefaults: {
+                    ntype  : 'button',
+                    handler: 'up.onFaceButtonClick',
+                    style  : {marginRight: '.3em'}
+                },
+
                 items: [{
-                    disabled: true,
-                    handler  : 'up.onPrevButtonClick',
-                    reference: 'prev-button',
-                    text     : 'Prev'
-                }, '->', {
-                    handler  : 'up.onNextButtonClick',
-                    reference: 'next-button',
-                    text     : 'Next'
+                    text: 'Front'
+                }, {
+                    text: 'Back'
+                }, {
+                    text: 'Left'
+                }, {
+                    text: 'Right'
+                }, {
+                    text: 'Top'
+                }, {
+                    text: 'Bottom'
                 }]
             }]
         })
@@ -113,33 +122,17 @@ class MainContainer extends ConfigurationViewport {
     /**
      * @param {Object} data
      */
-    onNextButtonClick(data) {
-        let cardContainer = this.getItem('container'),
-            {layout}      = cardContainer;
-
-        layout.activeIndex++;
-        data.component.disabled = layout.activeIndex === cardContainer.items.length - 1;
-        this.getItem('prev-button').disabled = false
+    onFaceButtonClick(data) {
+        this.getItem('container').layout['activeFace'] = data.component.text.toLowerCase()
     }
 
-    /**
+
+        /**
      * @param {String} config
      * @param {Object} opts
      */
     onLayoutConfigChange(config, opts) {
         this.getItem('container').layout[config] = opts.value
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onPrevButtonClick(data) {
-        let cardContainer = this.getItem('container'),
-            {layout}      = cardContainer;
-
-        layout.activeIndex--;
-        data.component.disabled = layout.activeIndex === 0;
-        this.getItem('next-button').disabled = false
     }
 }
 
