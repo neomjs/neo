@@ -14,9 +14,9 @@
     --backface-visibility: visible;
     --perspective        : 600px;
 
-    --rotX: 0deg;
-    --rotY: 0deg;
-    --rotZ: 0deg;
+    --rot-x: 0deg;
+    --rot-y: 0deg;
+    --rot-z: 0deg;
 
     --sideX: 300px; /* horizontal */
     --sideY: 300px; /* vertical */
@@ -36,7 +36,7 @@
     .neo-box {
         height          : var(--sideY);
         position        : relative;
-        transform       : rotateX(var(--rotX)) rotateY(var(--rotY)) rotateZ(var(--rotZ));
+        transform       : rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
         transform-style : preserve-3d;
         transform-origin: center center;
         translate       : 0 0 calc(var(--sideZ) / -2);

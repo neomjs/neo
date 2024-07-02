@@ -2,7 +2,7 @@ import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Container             from '../../../src/container/Base.mjs';
 import CubeLayout            from '../../../src/layout/Cube.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
-import Radio                 from '../../../src/form/field/Radio.mjs';
+import RangeField            from '../../../src/form/field/Range.mjs';
 import Toolbar               from '../../../src/toolbar/Base.mjs';
 
 /**
@@ -19,28 +19,52 @@ class MainContainer extends ConfigurationViewport {
 
     createConfigurationComponents() {
         let me       = this,
-            {layout} = me.exampleComponent.getItem('card-container');
+            {layout} = me.exampleComponent.getItem('container');
 
         return [{
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            module   : RangeField,
+            labelText: 'rotateX',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'rotateX')},
+            maxValue : 360,
+            minValue : 0,
+            stepSize : 1,
+            value    : layout.rotateX
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            module   : RangeField,
+            labelText: 'rotateY',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'rotateY')},
+            maxValue : 360,
+            minValue : 0,
+            stepSize : 1,
+            value    : layout.rotateY
+        }, {
+            module   : RangeField,
+            labelText: 'rotateZ',
+            listeners: {change: me.onLayoutConfigChange.bind(me, 'rotateZ')},
+            maxValue : 360,
+            minValue : 0,
+            stepSize : 1,
+            value    : layout.rotateZ
+        }, {
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 300,
+            minValue : 30,
+            stepSize : 5,
+            style    : {marginTop: '20px'},
+            value    : me.exampleComponent.height
+        }, {
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 300,
+            minValue : 100,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
         }];
     }
 
@@ -56,7 +80,7 @@ class MainContainer extends ConfigurationViewport {
             items: [{
                 module   : Container,
                 layout   : {ntype: 'cube'},
-                reference: 'card-container',
+                reference: 'container',
                 style    : {color: 'white', fontSize: '50px', textAlign: 'center'},
 
                 items: [
@@ -90,7 +114,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} data
      */
     onNextButtonClick(data) {
-        let cardContainer = this.getItem('card-container'),
+        let cardContainer = this.getItem('container'),
             {layout}      = cardContainer;
 
         layout.activeIndex++;
@@ -100,20 +124,17 @@ class MainContainer extends ConfigurationViewport {
 
     /**
      * @param {String} config
-     * @param {String} value
      * @param {Object} opts
      */
-    onRadioLayoutChange(config, value, opts) {
-        if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.getItem('card-container').layout[config] = value
-        }
+    onLayoutConfigChange(config, opts) {
+        this.getItem('container').layout[config] = opts.value
     }
 
     /**
      * @param {Object} data
      */
     onPrevButtonClick(data) {
-        let cardContainer = this.getItem('card-container'),
+        let cardContainer = this.getItem('container'),
             {layout}      = cardContainer;
 
         layout.activeIndex--;

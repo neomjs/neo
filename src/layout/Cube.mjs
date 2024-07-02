@@ -22,7 +22,19 @@ class Cube extends Base {
          * @member {String} ntype='layout-cube'
          * @protected
          */
-        ntype: 'layout-cube'
+        ntype: 'layout-cube',
+        /**
+         * @member {Number} rotateX_=0
+         */
+        rotateX_: 0,
+        /**
+         * @member {Number} rotateY_=0
+         */
+        rotateY_: 0,
+        /**
+         * @member {Number} rotateZ_=0
+         */
+        rotateZ_: 0
     }
 
     /**
@@ -46,6 +58,36 @@ class Cube extends Base {
         container.getVdomItemsRoot = function() {
             return this.vdom.cn[0].cn[0]
         }
+    }
+
+    /**
+     * Triggered after the rotateX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRotateX(value, oldValue) {
+        this.rotateTo(value)
+    }
+
+    /**
+     * Triggered after the rotateX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRotateY(value, oldValue) {
+        this.rotateTo(null, value)
+    }
+
+    /**
+     * Triggered after the rotateX config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRotateZ(value, oldValue) {
+        this.rotateTo(null, null, value)
     }
 
     /**
@@ -91,6 +133,31 @@ class Cube extends Base {
         NeoArray.add(wrapperCls, 'neo-layout-cube');
 
         container.wrapperCls = wrapperCls
+    }
+
+    /**
+     * @param {Number|null} [x]
+     * @param {Number|null} [y]
+     * @param {Number|null} [z]
+     */
+    rotateTo(x, y, z) {
+        let me         = this,
+            container  = Neo.getComponent(me.containerId),
+            {style}    = container;
+
+        if (Neo.isNumber(x)) {
+            style['--rotX'] = x + 'deg';
+        }
+
+        if (Neo.isNumber(y)) {
+            style['--rotY'] = y + 'deg';
+        }
+
+        if (Neo.isNumber(z)) {
+            style['--rotZ'] = z + 'deg';
+        }
+
+        container.style = style
     }
 }
 
