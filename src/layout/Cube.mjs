@@ -37,6 +37,11 @@ class Cube extends Base {
          */
         activeFace_: null,
         /**
+         * @member {String|null} containerCls='neo-layout-fit'
+         * @protected
+         */
+        containerCls: 'neo-layout-cube',
+        /**
          * @member {Number} perspective_=600
          */
         perspective_: 600,
@@ -196,22 +201,6 @@ class Cube extends Base {
         }
 
         item.wrapperCls = wrapperCls
-    }
-
-    /**
-     * Applies CSS classes to the container this layout is bound to
-     */
-    applyRenderAttributes() {
-        let {container} = this,
-            wrapperCls  = container?.wrapperCls || [];
-
-        if (!container) {
-            Neo.logError('layout.Cube: applyRenderAttributes -> container not yet created', this.containerId)
-        }
-
-        NeoArray.add(wrapperCls, 'neo-layout-cube');
-
-        container.wrapperCls = wrapperCls
     }
 
     /**

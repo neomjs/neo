@@ -16,23 +16,12 @@ class Grid extends Base {
          * @member {String} ntype='layout-hbox'
          * @protected
          */
-        ntype: 'layout-grid'
-    }
-
-    /**
-     * Applies CSS classes to the container this layout is bound to
-     */
-    applyRenderAttributes() {
-        let {container} = this,
-            wrapperCls  = container?.wrapperCls || [];
-
-        if (!container) {
-            Neo.logError('layout.Grid: applyRenderAttributes -> container not yet created', this.containerId)
-        }
-
-        NeoArray.add(wrapperCls, 'neo-layout-grid');
-
-        container.wrapperCls = wrapperCls
+        ntype: 'layout-grid',
+        /**
+         * @member {String|null} containerCls='neo-layout-fit'
+         * @protected
+         */
+        containerCls: 'neo-layout-grid'
     }
 }
 

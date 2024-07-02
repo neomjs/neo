@@ -16,7 +16,12 @@ class Fit extends Base {
          * @member {String} ntype='layout-fit'
          * @protected
          */
-        ntype: 'layout-fit'
+        ntype: 'layout-fit',
+        /**
+         * @member {String|null} containerCls='neo-layout-fit'
+         * @protected
+         */
+        containerCls: 'neo-layout-fit'
     }
 
     /**
@@ -31,22 +36,6 @@ class Fit extends Base {
     }
 
     /**
-     * Applies CSS classes to the container this layout is bound to
-     */
-    applyRenderAttributes() {
-        let {container}  = this,
-            {wrapperCls} = container;
-
-        if (!container) {
-            Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', this.containerId)
-        }
-
-        NeoArray.add(wrapperCls, 'neo-layout-fit');
-
-        container.wrapperCls = wrapperCls
-    }
-
-    /**
      * Removes all CSS rules from a container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
@@ -58,23 +47,6 @@ class Fit extends Base {
             NeoArray.remove(wrapperCls, 'neo-layout-fit-item');
             item.wrapperCls = wrapperCls
         }
-    }
-
-    /**
-     * Removes all CSS rules from the container this layout is bound to.
-     * Gets called when switching to a different layout.
-     */
-    removeRenderAttributes() {
-        let {container}  = this,
-            {wrapperCls} = container;
-
-        if (!container) {
-            Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', this)
-        }
-
-        NeoArray.remove(wrapperCls, 'neo-layout-fit');
-
-        container.wrapperCls = wrapperCls
     }
 }
 

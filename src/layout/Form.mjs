@@ -18,15 +18,15 @@ class Form extends Base {
          */
         ntype: 'layout-form',
         /**
+         * @member {String|null} containerCls='neo-layout-fit'
+         * @protected
+         */
+        containerCls: 'neo-layout-form',
+        /**
          * flex css allows gap. This adds it to the component style
          * @member {String} gap_=null
          */
-        gap_: null,
-        /**
-         * CSS className prefix
-         * @member {String} prefix='neo-form-'
-         */
-        prefix: 'neo-layout-form-'
+        gap_: null
     }
 
     /**
@@ -64,22 +64,6 @@ class Form extends Base {
     }
 
     /**
-     * Applies CSS classes to the container this layout is bound to
-     */
-    applyRenderAttributes() {
-        let {container}  = this,
-            {wrapperCls} = container;
-
-        if (!container) {
-            Neo.logError('layout.Form: applyRenderAttributes -> container not yet created', this.containerId)
-        }
-
-        NeoArray.add(wrapperCls, 'neo-layout-form');
-
-        container.wrapperCls = wrapperCls
-    }
-
-    /**
      * Removes all CSS rules from an container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
@@ -90,23 +74,6 @@ class Form extends Base {
 
         style.flex = item.flex || null;
         item.wrapperStyle = style
-    }
-
-    /**
-     * Removes all CSS rules from the container this layout is bound to.
-     * Gets called when switching to a different layout.
-     */
-    removeRenderAttributes() {
-        let {container}  = this,
-            {wrapperCls} = container;
-
-        if (!container) {
-            Neo.logError('layout.Form: removeRenderAttributes -> container not yet created', this.containerId)
-        }
-
-        NeoArray.remove(wrapperCls, 'neo-layout-form');
-
-        container.wrapperCls = wrapperCls
     }
 }
 
