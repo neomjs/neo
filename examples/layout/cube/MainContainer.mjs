@@ -126,9 +126,9 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: Container,
-            height: 500,
+            height: 550,
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
-            width : 500,
+            width : 550,
 
             items: [{
                 module   : Container,
