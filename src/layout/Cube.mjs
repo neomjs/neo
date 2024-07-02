@@ -2,6 +2,8 @@ import Base     from './Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
+ * See: examples/layout.Cube for a demo.
+ * Strongly inspired by https://www.mobzystems.com/code/3d-css-and-custom-properties/
  * @class Neo.layout.Cube
  * @extends Neo.layout.Base
  */
