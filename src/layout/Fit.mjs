@@ -34,12 +34,11 @@ class Fit extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container}  = this,
+            {wrapperCls} = container;
 
         if (!container) {
-            Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', this.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-fit');
@@ -54,7 +53,7 @@ class Fit extends Base {
      */
     removeChildAttributes(item) {
         if (!item.ignoreLayout) {
-            let wrapperCls = item.wrapperCls;
+            let {wrapperCls} = item;
 
             NeoArray.remove(wrapperCls, 'neo-layout-fit-item');
             item.wrapperCls = wrapperCls
@@ -66,12 +65,11 @@ class Fit extends Base {
      * Gets called when switching to a different layout.
      */
     removeRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container}  = this,
+            {wrapperCls} = container;
 
         if (!container) {
-            Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', this)
         }
 
         NeoArray.remove(wrapperCls, 'neo-layout-fit');

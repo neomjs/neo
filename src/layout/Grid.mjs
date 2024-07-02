@@ -23,12 +23,11 @@ class Grid extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container} = this,
+            wrapperCls  = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Grid: applyRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Grid: applyRenderAttributes -> container not yet created', this.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-grid');

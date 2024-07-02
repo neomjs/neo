@@ -72,8 +72,7 @@ class Cube extends Base {
     construct(config) {
         super.construct(config);
 
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
+        let {container} = this,
             {vdom}    = container,
             {cn}      = vdom;
 
@@ -203,12 +202,11 @@ class Cube extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container} = this,
+            wrapperCls  = container?.wrapperCls || [];
 
         if (!container) {
-            Neo.logError('layout.Cube: applyRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Cube: applyRenderAttributes -> container not yet created', this.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-cube');
@@ -222,9 +220,8 @@ class Cube extends Base {
      * @param {Number|null} [z]
      */
     rotateTo(x, y, z) {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            {style}   = container;
+        let {container} = this,
+            {style}     = container;
 
         if (Neo.isNumber(x)) {style['--rot-x'] = x + 'deg'}
         if (Neo.isNumber(y)) {style['--rot-y'] = y + 'deg'}
@@ -238,9 +235,8 @@ class Cube extends Base {
      * @param {String} value
      */
     updateContainerCssVar(name, value) {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {style}    = container;
+        let {container} = this,
+            {style}     = container;
 
         style[name] = value;
 

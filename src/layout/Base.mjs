@@ -45,7 +45,10 @@ class Base extends CoreBase {
      * @returns {Neo.container.Base|null}
      */
     get container() {
-        return Neo.getComponent(this.containerId)
+        let {containerId} = this;
+
+        // the instance might not be registered yet
+        return Neo.getComponent(containerId) || Neo.get(containerId)
     }
 
     /**

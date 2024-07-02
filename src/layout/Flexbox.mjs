@@ -107,11 +107,12 @@ class Flexbox extends Base {
     afterSetGap(value, oldValue) {
         if (!value && !oldValue) return;
 
-        let item  = Neo.getComponent(this.containerId),
-            style = item.wrapperStyle;
+        let {container}    = this,
+            {wrapperStyle} = container;
 
-        style.gap = value;
-        item.wrapperStyle = style
+        wrapperStyle.gap = value;
+
+        container.wrapperStyle = wrapperStyle
     }
 
     /**
@@ -155,10 +156,9 @@ class Flexbox extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {prefix}   = me,
-            wrapperCls = container?.wrapperCls || [];
+        let me                  = this,
+            {container, prefix} = me,
+            {wrapperCls}        = container;
 
         if (!container) {
             Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId)
@@ -237,10 +237,9 @@ class Flexbox extends Base {
      * @protected
      */
     removeRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {prefix}   = me,
-            wrapperCls = container?.wrapperCls || [];
+        let me                  = this,
+            {container, prefix} = me,
+            {wrapperCls}        = container;
 
         if (!container) {
             Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId)
@@ -292,10 +291,9 @@ class Flexbox extends Base {
      * @protected
      */
     updateInputValue(value, oldValue, propertyName) {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            {prefix}   = me,
-            wrapperCls = container?.wrapperCls;
+        let me                  = this,
+            {container, prefix} = me,
+            {wrapperCls}        = container;
 
         if (container?.rendered) {
             NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);

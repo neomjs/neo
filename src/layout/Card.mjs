@@ -72,8 +72,7 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me              = this,
-            {containerId, removeInactiveCards} = me,
-            container       = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            {container, containerId, removeInactiveCards} = me,
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
@@ -163,12 +162,11 @@ class Card extends Base {
      * Applies CSS classes to the container this layout is bound to
      */
     applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container}  = this,
+            {wrapperCls} = container;
 
         if (!container) {
-            Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', this.containerId)
         }
 
         NeoArray.add(wrapperCls, 'neo-layout-card');
@@ -194,13 +192,12 @@ class Card extends Base {
      * @returns {Neo.component.Base}
      */
     async loadModule(item, index) {
-        let me            = this,
-            {containerId} = me,
-            container     = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            items         = container.items,
-            sCfg          = me.constructor,
-            {vdom}        = container,
-            {module}      = item,
+        let me          = this,
+            {container} = me,
+            items       = container.items,
+            sCfg        = me.constructor,
+            {vdom}      = container,
+            {module}    = item,
             proto, wrapperCls;
 
         if (!Neo.isNumber(index)) {
@@ -239,12 +236,11 @@ class Card extends Base {
      * Gets called when switching to a different layout.
      */
     removeRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
+        let {container}  = this,
+            {wrapperCls} = container;
 
         if (!container) {
-            Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId)
+            Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', this.containerId)
         }
 
         NeoArray.remove(wrapperCls, 'neo-layout-card');
