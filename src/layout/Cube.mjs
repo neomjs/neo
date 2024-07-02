@@ -6,6 +6,12 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.layout.Base
  */
 class Cube extends Base {
+    /**
+     * @member {String[]} faces=['front','back','left','right','top','bottom']
+     * @static
+     */
+    static faces = ['front', 'back', 'left', 'right', 'top', 'bottom']
+
     static config = {
         /**
          * @member {String} className='Neo.layout.Cube'
@@ -17,6 +23,57 @@ class Cube extends Base {
          * @protected
          */
         ntype: 'layout-cube'
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me        = this,
+            container = Neo.getComponent(me.containerId),
+            {vdom}    = container,
+            {cn}      = vdom;
+
+        vdom.cn = [
+            {cls: ['neo-plane'], cn: [
+                {cls: ['neo-box'], cn}
+            ]}
+        ];
+
+        // override
+        container.getVdomItemsRoot = function() {
+            return this.vdom.cn[0].cn[0]
+        }
+    }
+
+    /**
+     * Initially sets the CSS classes of the container items this layout is bound to.
+     * @param {Neo.component.Base} item
+     * @param {Number} index
+     */
+    applyChildAttributes(item, index) {
+        let {wrapperCls} = item;
+
+        wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Cube.faces[index]);
+
+        switch(index) {
+            case 0:
+            case 1:
+                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-z');
+                break;
+            case 2:
+            case 3:
+                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-x');
+                break;
+            case 4:
+            case 5:
+                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-y');
+                break;
+        }
+
+        item.wrapperCls = wrapperCls
     }
 
     /**

@@ -1,3 +1,76 @@
+/*
+ * Container Structure:
+ *    div.neo-layout-cube
+ *        div.neo-plane
+ *            div.neo-box
+ *                div.neo-face.neo-face-z.front
+ *                div.neo-face.neo-face-z.back
+ *                div.neo-face.neo-face-x.left
+ *                div.neo-face.neo-face-x.right
+ *                div.neo-face.neo-face-y.top
+ *                div.neo-face.neo-face-y.bottom
+ */
 .neo-layout-cube {
+    --backface-visibility: visible;
+    --perspective        : 600px;
 
+    --rotX: 0deg;
+    --rotY: 0deg;
+    --rotZ: 0deg;
+
+    --sideX: 300px; /* horizontal */
+    --sideY: 300px; /* vertical */
+    --sideZ: 300px; /* depth */
+
+    background-color  : transparent;
+    height            : var(--sideY);
+    perspective       : var(--perspective);
+    perspective-origin: center center;
+    width             : var(--sideX);
+
+    .neo-plane {
+        transform      : translateZ(calc(var(--sideZ) / -2));
+        transform-style: preserve-3d;
+    }
+
+    .neo-box {
+        height          : var(--sideY);
+        position        : relative;
+        transform       : rotateX(var(--rotX)) rotateY(var(--rotY)) rotateZ(var(--rotZ));
+        transform-style : preserve-3d;
+        transform-origin: center center;
+        translate       : 0 0 calc(var(--sideZ) / -2);
+        width           : var(--sideX);
+    }
+
+    .neo-face {
+        backface-visibility: var(--backface-visibility);
+        background         : center/cover no-repeat;
+        position           : absolute;
+
+        &.front  {transform: rotateY(  0deg) translateZ(calc(var(--sideZ) / 2));}
+        &.back   {transform: rotateY(180deg) translateZ(calc(var(--sideZ) / 2));}
+        &.left   {transform: rotateY(-90deg) translateZ(calc(var(--sideZ) / 2));}
+        &.right  {transform: rotateY( 90deg) translateZ(calc(var(--sideX) - var(--sideZ) / 2));}
+        &.top    {transform: rotateX( 90deg) translateZ(calc(var(--sideZ) / 2));}
+        &.bottom {transform: rotateX(-90deg) translateZ(calc(var(--sideY) - var(--sideZ) / 2));}
+    }
+
+    .neo-face-x {
+        height     : var(--sideY);
+        line-height: var(--sideY);
+        width      : var(--sideZ);
+    }
+
+    .neo-face-y {
+        height     : var(--sideZ);
+        line-height: var(--sideZ);
+        width      : var(--sideX);
+    }
+
+    .neo-face-z {
+        height     : var(--sideY);
+        line-height: var(--sideY);
+        width      : var(--sideX);
+    }
 }
