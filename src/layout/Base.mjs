@@ -1,5 +1,5 @@
 import CoreBase from '../core/Base.mjs';
-import NeoArray from "src/util/Array.mjs";
+import NeoArray from '../util/Array.mjs';
 
 /**
  * The base class for all other layouts.
