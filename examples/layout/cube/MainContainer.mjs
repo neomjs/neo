@@ -59,12 +59,12 @@ class MainContainer extends ConfigurationViewport {
                 reference: 'card-container',
 
                 items: [
-                    {style: {backgroundColor: 'red'}},
-                    {style: {backgroundColor: 'blue'}},
-                    {style: {backgroundColor: 'green'}},
-                    {style: {backgroundColor: 'orange'}},
-                    {style: {backgroundColor: 'darkblue'}},
-                    {style: {backgroundColor: 'darkgreen'}}
+                    {style: {backgroundColor: 'rgba(255,   0,   0, 0.5)'}},
+                    {style: {backgroundColor: 'rgba(  0, 255,   0, 0.5)'}},
+                    {style: {backgroundColor: 'rgba(  0,   0, 255, 0.5)'}},
+                    {style: {backgroundColor: 'rgba(  0, 255, 255, 0.5)'}},
+                    {style: {backgroundColor: 'rgba(255,   0, 255, 0.5)'}},
+                    {style: {backgroundColor: 'rgba(255, 255,   0, 0.5)'}}
                 ]
             }, {
                 module: Toolbar,
