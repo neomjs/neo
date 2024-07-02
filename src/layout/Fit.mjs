@@ -39,8 +39,9 @@ class Fit extends Base {
      * Removes all CSS rules from a container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
+     * @param {Number} index
      */
-    removeChildAttributes(item) {
+    removeChildAttributes(item, index) {
         if (!item.ignoreLayout) {
             let {wrapperCls} = item;
 

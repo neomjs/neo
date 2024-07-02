@@ -222,9 +222,10 @@ class Flexbox extends Base {
      * Removes all CSS rules from a container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
+     * @param {Number} index
      * @protected
      */
-    removeChildAttributes(item) {
+    removeChildAttributes(item, index) {
         let style = item.wrapperStyle || {};
 
         style.flex = item.flex || null;

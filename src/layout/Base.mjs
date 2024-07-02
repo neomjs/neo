@@ -132,9 +132,10 @@ class Base extends CoreBase {
     /**
      * Placeholder method
      * @param {Neo.component.Base} item
+     * @param {Number} index
      * @protected
      */
-    removeChildAttributes(item) {}
+    removeChildAttributes(item, index) {}
 
     /**
      * Placeholder method
