@@ -108,28 +108,6 @@ class Form extends Base {
 
         container.wrapperCls = wrapperCls
     }
-
-    /**
-     * Updates the Container CSS wrapperCls
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @param {String} propertyName
-     * @protected
-     */
-    updateInputValue(value, oldValue, propertyName) {
-        let {container, prefix} = this,
-            {wrapperCls}        = container;
-
-        if (container?.rendered) {
-            NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
-
-            if (value !== null) {
-                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value)
-            }
-
-            container.wrapperCls = wrapperCls
-        }
-    }
 }
 
 Neo.setupClass(Form);
