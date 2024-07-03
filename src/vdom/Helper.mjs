@@ -269,7 +269,7 @@ class Helper extends Base {
                         indexDelta = 0;
 
                         if (VNodeUtil.findChildVnodeById(oldVnode, newVnode.id)) {
-                            let parentNode = VNodeUtil.findChildVnodeById(newVnodeRoot, parentId);
+                            let parentNode = newVnodeMap[parentId].vnode;
 
                             if (parentNode.childNodes.length === 1) {
                                 // the old vnode replaced a parent vnode
@@ -308,7 +308,7 @@ class Helper extends Base {
 
                                 parentNode.childNodes.forEach((node, index) => {
                                     if (index > 0) {
-                                        movedOldNode = VNodeUtil.findChildVnodeById(oldVnodeRoot, node.id);
+                                        movedOldNode = oldVnodeMap[node.id];
 
                                         if (movedOldNode) {
                                             deltas.push({
