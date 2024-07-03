@@ -149,7 +149,7 @@ class Helper extends Base {
 
         if (newVnode && !oldVnode) { // new node at top level or at the end of a child array
             if (oldVnodeRoot) {
-                movedOldNode = oldVnodeMap[newVnode.id]
+                movedOldNode = oldVnodeMap.get(newVnode.id)
             }
 
             if (!movedOldNode) {
@@ -165,7 +165,7 @@ class Helper extends Base {
             }
         } else if (!newVnode && oldVnode) {
             if (newVnodeRoot) {
-                movedNode = newVnodeMap[oldVnode.id]
+                movedNode = newVnodeMap.get(oldVnode.id)
             }
 
             // use case: calendar week view => move an event into a column on the right side
@@ -173,7 +173,7 @@ class Helper extends Base {
             if (movedNode) {
                 //console.log({movedNode});
 
-                movedOldNode = oldVnodeMap[movedNode.parentNode.id];
+                movedOldNode = oldVnodeMap.get(movedNode.parentNode.id);
 
                 if (movedOldNode) {
                     deltas.push({
@@ -206,7 +206,7 @@ class Helper extends Base {
 
                 // We only need a parentId for vtype text
                 if (oldVnode.vtype === 'text') {
-                    let removedNodeDetails = oldVnodeMap[oldVnode.id];
+                    let removedNodeDetails = oldVnodeMap.get(oldVnode.id);
 
                     delta.parentId = removedNodeDetails?.parentNode.id
                 }
@@ -215,8 +215,8 @@ class Helper extends Base {
             }
         } else {
             if (newVnode && oldVnode && newVnode.id !== oldVnode.id) {
-                movedNode    = newVnodeMap[oldVnode.id];
-                movedOldNode = oldVnodeMap[newVnode.id];
+                movedNode    = newVnodeMap.get(oldVnode.id);
+                movedOldNode = oldVnodeMap.get(newVnode.id);
 
                 // console.log('movedNode', movedNode);
                 // console.log('movedOldNode', movedOldNode);
@@ -269,7 +269,7 @@ class Helper extends Base {
                         indexDelta = 0;
 
                         if (VNodeUtil.findChildVnodeById(oldVnode, newVnode.id)) {
-                            let parentNode = newVnodeMap[parentId].vnode;
+                            let parentNode = newVnodeMap.get(parentId).vnode;
 
                             if (parentNode.childNodes.length === 1) {
                                 // the old vnode replaced a parent vnode
@@ -308,7 +308,7 @@ class Helper extends Base {
 
                                 parentNode.childNodes.forEach((node, index) => {
                                     if (index > 0) {
-                                        movedOldNode = oldVnodeMap[node.id];
+                                        movedOldNode = oldVnodeMap.get(node.id);
 
                                         if (movedOldNode) {
                                             deltas.push({
@@ -339,16 +339,16 @@ class Helper extends Base {
                             // vdom.cn[1] = vdom.cn[2].cn[0];
                             // vdom.cn.splice(2, 1);
 
-                            let movedOldNodeDetails = oldVnodeMap[movedOldNode.vnode.id],
-                                oldVnodeDetails     = oldVnodeMap[oldVnode.id];
+                            let movedOldNodeDetails = oldVnodeMap.get(movedOldNode.vnode.id),
+                                oldVnodeDetails     = oldVnodeMap.get(oldVnode.id);
 
                             indexDelta = 1;
 
                             if (movedOldNodeDetails.parentNode.id === oldVnodeDetails.parentNode.id) {
                                 // console.log('potential move node', index, movedOldNodeDetails.index);
 
-                                let newVnodeDetails = newVnodeMap[newVnode.id],
-                                    targetIndex = index + 1; // +1 since the current index will already get removed
+                                let newVnodeDetails = newVnodeMap.get(newVnode.id),
+                                    targetIndex     = index + 1; // +1 since the current index will already get removed
 
                                 // console.log(newVnodeDetails.parentNode);
 
@@ -448,7 +448,7 @@ class Helper extends Base {
 
                     // check if the vnode got moved inside the vnode tree
 
-                    let newVnodeDetails = newVnodeMap[newVnode.id],
+                    let newVnodeDetails = newVnodeMap.get(newVnode.id),
                         sameParent      = newVnodeDetails.parentNode.id === movedNode.parentNode.id;
 
                     if (sameParent) {
@@ -489,7 +489,7 @@ class Helper extends Base {
                     deltas.push({
                         action  : 'updateVtext',
                         id      : newVnode.id,
-                        parentId: newVnodeMap[newVnode.id].parentNode.id,
+                        parentId: newVnodeMap.get(newVnode.id).parentNode.id,
                         value   : newVnode.innerHTML
                     })
                 } else {
@@ -716,20 +716,20 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} parentNode=null
      * @param {String[]} parentPath=[]
      * @param {Number} index=0
-     * @param {Object} map={}
-     * @returns {Object}
+     * @param {Map} map=new Map()
+     * @returns {Map}
      *     {String} id vnode.id (convenience shortcut)
      *     {Number} index
      *     {String} parentId
      *     {String[]} parentPath
      *     {Neo.vdom.VNode} vnode
      */
-    createVnodeMap(vnode, parentNode=null, parentPath=[], index=0, map={}) {
+    createVnodeMap(vnode, parentNode=null, parentPath=[], index=0, map=new Map()) {
         let id = vnode?.id;
 
         parentNode && parentPath.push(parentNode.id);
 
-        map[id] = {id, index, parentNode, parentPath, vnode};
+        map.set(id, {id, index, parentNode, parentPath, vnode});
 
         vnode?.childNodes?.forEach((childNode, index) => {
             this.createVnodeMap(childNode, vnode, [...parentPath], index, map)
