@@ -628,6 +628,177 @@ StartTest(t => {
             ]
         }, 'vnode got updated successfully');
 
-        console.log(deltas);
+        //console.log(deltas);
+    });
+
+    t.it('Replacing a parent node with one child', t => {
+        t.diag("Creating the tree");
+
+        vdom =
+        {id: 'level-1', cn: [
+            {id: 'level-2', cn: [
+                {id: 'level-3'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'level-1',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            outerHTML : t.any(String),
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes: [{
+                id        : 'level-2',
+                attributes: {},
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode',
+
+                childNodes: [{
+                    id        : 'level-3',
+                    attributes: {},
+                    childNodes: [],
+                    className : [],
+                    innerHTML : undefined,
+                    nodeName  : 'div',
+                    style     : {},
+                    vtype     : 'vnode'
+                }]
+            }]
+        }, 'vnode got created successfully');
+
+        // replace level 2 with level 3
+        vdom.cn = vdom.cn[0].cn;
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'level-1',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes:[{
+                id        : 'level-3',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }]
+        }, 'vnode got updated successfully');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'replaceChild', fromId: 'level-2', parentId: 'level-1', toId: 'level-3'}
+        ], 'deltas got created successfully');
+    });
+
+    t.it('Replacing a parent node with multiple children', t => {
+        t.diag("Creating the tree");
+
+        vdom =
+        {id: 'level-1', cn: [
+            {id: 'level-2', cn: [
+                {id: 'level-3-1'},
+                {id: 'level-3-2'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'level-1',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            outerHTML : t.any(String),
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes: [{
+                id        : 'level-2',
+                attributes: {},
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode',
+
+                childNodes: [{
+                    id        : 'level-3-1',
+                    attributes: {},
+                    childNodes: [],
+                    className : [],
+                    innerHTML : undefined,
+                    nodeName  : 'div',
+                    style     : {},
+                    vtype     : 'vnode'
+                }, {
+                    id        : 'level-3-2',
+                    attributes: {},
+                    childNodes: [],
+                    className : [],
+                    innerHTML : undefined,
+                    nodeName  : 'div',
+                    style     : {},
+                    vtype     : 'vnode'
+                }]
+            }]
+        }, 'vnode got created successfully');
+
+        // replace level 2 with level 3
+        vdom.cn = vdom.cn[0].cn;
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'level-1',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes:[{
+                id        : 'level-3-1',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }, {
+                id        : 'level-3-2',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }]
+        }, 'vnode got updated successfully');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-2', index: 1, parentId: 'level-1'},
+            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'}
+        ], 'deltas got created successfully');
     });
 });
