@@ -430,6 +430,8 @@ class Helper extends Base {
                         })
                     }
 
+                    // console.log('insertNode', newVnode, me.findMovedNodes(newVnode, oldVnodeMap));
+
                     deltas.push({
                         action   : 'insertNode',
                         id       : newVnode.id,
@@ -734,6 +736,30 @@ class Helper extends Base {
         })
 
         return map
+    }
+
+    /**
+     * The logic will parse the vnode (tree) to find existing items inside a given map.
+     * The logic will not search for further childNodes inside an already found vnode.
+     * @param {Neo.vdom.VNode} vnode
+     * @param {Object} vnodeMap
+     * @param {Map} movedNodes=new Map()
+     * @returns {Map}
+     */
+    findMovedNodes(vnode, vnodeMap, movedNodes=new Map()) {
+        if (vnodeMap[vnode.id]) {
+            movedNodes.set(vnode.id, vnode)
+        } else {
+            let childNodes = vnode.childNodes,
+                i          = 0,
+                len        = childNodes?.length || 0;
+
+            for (; i < len; i++) {
+                this.findMovedNodes(childNodes[i], vnodeMap, movedNodes)
+            }
+        }
+
+        return movedNodes
     }
 
     /**
