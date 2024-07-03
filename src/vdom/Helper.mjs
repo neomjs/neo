@@ -255,15 +255,70 @@ class Helper extends Base {
                         indexDelta = 0;
 
                         if (VNodeUtil.findChildVnodeById(oldVnode, newVnode.id)) {
-                            // the old vnode replaced a parent vnode
-                            // e.g.: vdom.cn[1] = vdom.cn[1].cn[0];
+                            let parentNode = VNodeUtil.findChildVnodeById(newVnodeRoot, parentId);
 
-                            deltas.push({
-                                action: 'replaceChild',
-                                fromId: oldVnode.id,
-                                parentId,
-                                toId  : newVnode.id
-                            })
+                            if (parentNode.childNodes.length === 1) {
+                                // the old vnode replaced a parent vnode
+                                // e.g.: vdom.cn[1] = vdom.cn[1].cn[0];
+                                deltas.push({
+                                    action: 'replaceChild',
+                                    fromId: oldVnode.id,
+                                    parentId,
+                                    toId  : newVnode.id
+                                })
+                            } else {
+                                /* the old vnode replaced a parent, but there are new or moved siblings.
+                                 *
+                                 * old vdom:
+                                 * div id="level-1"
+                                 *     div id="level-2"
+                                 *         div id="level-3-1"
+                                 *         div id="level-3-2"
+                                 *
+                                 * new vdom:
+                                 * div id="level-1"
+                                 *     div id="level-3-1"
+                                 *     div id="level-3-2"
+                                 *
+                                 *  see: https://github.com/neomjs/neo/issues/5518
+                                 */
+
+                                deltas.push({
+                                    action: 'moveNode',
+                                    id    : newVnode.id,
+                                    index : 0,
+                                    parentId
+                                })
+
+                                parentNode.childNodes.forEach((node, index) => {
+                                    if (index > 0) {
+                                        movedOldNode = VNodeUtil.findChildVnodeById(oldVnodeRoot, node.id);
+
+                                        if (movedOldNode) {
+                                            deltas.push({
+                                                action: 'moveNode',
+                                                id    : node.id,
+                                                index,
+                                                parentId
+                                            })
+                                        } else {
+                                            deltas.push({
+                                                action   : 'insertNode',
+                                                id       : node.id,
+                                                index,
+                                                outerHTML: me.createStringFromVnode(node),
+                                                parentId
+                                            })
+                                        }
+                                    }
+                                });
+
+                                deltas.push({
+                                    action: 'removeNode',
+                                    id    : oldVnode.id,
+                                    parentId
+                                })
+                            }
                         } else {
                             // the old vnode got moved into a different higher level branch
                             // and its parent got removed
