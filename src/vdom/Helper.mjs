@@ -143,7 +143,7 @@ class Helper extends Base {
             oldVnodeRoot  = config.oldVnodeRoot || oldVnode,
             attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, styles, add, remove, returnValue, tmp, wrappedNode;
 
-        //deltas.length === 0 && console.log(newVnodeMap);
+        // deltas.length === 0 && console.log(newVnodeMap);
 
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
@@ -712,21 +712,25 @@ class Helper extends Base {
      * Creates a flap map of the tree, containing ids as keys and infos as values
      * @param {Neo.vdom.VNode} vnode
      * @param {Neo.vdom.VNode} parentNode=null
+     * @param {String[]} parentPath=[]
      * @param {Number} index=0
      * @param {Object} map={}
      * @returns {Object}
      *     {String} id vnode.id (convenience shortcut)
      *     {Number} index
      *     {String} parentId
+     *     {String[]} parentPath
      *     {Neo.vdom.VNode} vnode
      */
-    createVnodeMap(vnode, parentNode=null, index=0, map={}) {
+    createVnodeMap(vnode, parentNode=null, parentPath=[], index=0, map={}) {
         let id = vnode?.id;
 
-        map[id] = {id, index, parentNode, vnode};
+        parentNode && parentPath.push(parentNode.id);
+
+        map[id] = {id, index, parentNode, parentPath, vnode};
 
         vnode?.childNodes?.forEach((childNode, index) => {
-            this.createVnodeMap(childNode, vnode, index, map)
+            this.createVnodeMap(childNode, vnode, [...parentPath], index, map)
         })
 
         return map
