@@ -126,8 +126,10 @@ class Helper extends Base {
      * @param {Array} config.deltas
      * @param {Number} config.index
      * @param {Object} config.newVnode
+     * @param {Object} config.newVnodeMap
      * @param {Object} config.newVnodeRoot
      * @param {Object} config.oldVnode
+     * @param {Object} config.oldVnodeMap
      * @param {Object} config.oldVnodeRoot
      * @param {String} config.parentId
      * @returns {Array} deltas
@@ -135,15 +137,19 @@ class Helper extends Base {
     createDeltas(config) {
         let {deltas=[], index, newVnode, oldVnode, parentId} = config,
             me            = this,
+            newVnodeMap   = config.newVnodeMap  || me.createVnodeMap(newVnode),
             newVnodeRoot  = config.newVnodeRoot || newVnode,
+            oldVnodeMap   = config.oldVnodeMap  || me.createVnodeMap(oldVnode),
             oldVnodeRoot  = config.oldVnodeRoot || oldVnode,
             attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, styles, add, remove, returnValue, tmp, wrappedNode;
+
+        //deltas.length === 0 && console.log(newVnodeMap);
 
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
         if (newVnode && !oldVnode) { // new node at top level or at the end of a child array
             if (oldVnodeRoot) {
-                movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode)
+                movedOldNode = oldVnodeMap[newVnode.id]
             }
 
             if (!movedOldNode) {
@@ -159,31 +165,37 @@ class Helper extends Base {
             }
         } else if (!newVnode && oldVnode) {
             if (newVnodeRoot) {
-                movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode)
+                movedNode = newVnodeMap[oldVnode.id]
             }
 
             // use case: calendar week view => move an event into a column on the right side
 
             if (movedNode) {
-                deltas.push({
-                    action: 'moveNode',
-                    id      : oldVnode.id,
-                    index   : movedNode.index,
-                    parentId: movedNode.parentNode.id
-                });
+                //console.log({movedNode});
 
-                movedOldNode = me.findVnode(oldVnodeRoot, movedNode.parentNode.id);
+                movedOldNode = oldVnodeMap[movedNode.parentNode.id];
 
-                me.createDeltas({
-                    deltas,
-                    newVnode: movedNode.vnode,
-                    newVnodeRoot,
-                    oldVnode,
-                    oldVnodeRoot,
-                    parentId: movedNode.parentNode.id
-                });
+                if (movedOldNode) {
+                    deltas.push({
+                        action: 'moveNode',
+                        id      : oldVnode.id,
+                        index   : movedNode.index,
+                        parentId: movedNode.parentNode.id
+                    });
 
-                movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode)
+                    me.createDeltas({
+                        deltas,
+                        newVnode: movedNode.vnode,
+                        newVnodeMap,
+                        newVnodeRoot,
+                        oldVnode,
+                        oldVnodeMap,
+                        oldVnodeRoot,
+                        parentId: movedNode.parentNode.id
+                    });
+
+                    movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode)
+                }
             } else {
                 // console.log('top level removed node', oldVnode.id, oldVnode);
 
@@ -194,7 +206,7 @@ class Helper extends Base {
 
                 // We only need a parentId for vtype text
                 if (oldVnode.vtype === 'text') {
-                    let removedNodeDetails = me.findVnode(oldVnodeRoot, oldVnode.id);
+                    let removedNodeDetails = oldVnodeMap[oldVnode.id];
 
                     delta.parentId = removedNodeDetails?.parentNode.id
                 }
@@ -203,8 +215,8 @@ class Helper extends Base {
             }
         } else {
             if (newVnode && oldVnode && newVnode.id !== oldVnode.id) {
-                movedNode    = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
-                movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode);
+                movedNode    = newVnodeMap[oldVnode.id];
+                movedOldNode = oldVnodeMap[newVnode.id];
 
                 // console.log('movedNode', movedNode);
                 // console.log('movedOldNode', movedOldNode);
@@ -242,8 +254,10 @@ class Helper extends Base {
                     me.createDeltas({
                         deltas,
                         newVnode,
+                        newVnodeMap,
                         newVnodeRoot,
                         oldVnode: movedOldNode.vnode,
+                        oldVnodeMap,
                         oldVnodeRoot,
                         parentId: movedNode.parentNode.id
                     });
@@ -379,8 +393,10 @@ class Helper extends Base {
                         me.createDeltas({
                             deltas,
                             newVnode,
+                            newVnodeMap,
                             newVnodeRoot,
                             oldVnode: movedOldNode.vnode,
+                            oldVnodeMap,
                             oldVnodeRoot,
                             parentId
                         });
@@ -399,7 +415,7 @@ class Helper extends Base {
                         }
                     }
                 } else if (!movedOldNode) {
-                    // new node inside of a child array
+                    // new node inside a child array
                     // console.log('new node', index, parentId, newVnode);
 
                     wrappedNode = movedNode && VNodeUtil.findChildVnodeById(newVnode, oldVnode.id);
@@ -455,8 +471,10 @@ class Helper extends Base {
                     me.createDeltas({
                         deltas,
                         newVnode: movedNode.vnode,
+                        newVnodeMap,
                         newVnodeRoot,
                         oldVnode,
+                        oldVnodeMap,
                         oldVnodeRoot,
                         parentId: movedNode.parentNode.id
                     });
@@ -528,8 +546,10 @@ class Helper extends Base {
                                         deltas,
                                         index   : i,
                                         newVnode: value[i],
+                                        newVnodeMap,
                                         newVnodeRoot,
                                         oldVnode: oldVnode.childNodes[i + indexDelta],
+                                        oldVnodeMap,
                                         oldVnodeRoot,
                                         parentId: newVnode.id
                                     });
@@ -692,45 +712,27 @@ class Helper extends Base {
     }
 
     /**
+     * Creates a flap map of the tree, containing ids as keys and infos as values
      * @param {Neo.vdom.VNode} vnode
-     * @param {String} id
-     * @param {Neo.vdom.VNode} parentNode
-     * @param {Number} index
+     * @param {Neo.vdom.VNode} parentNode=null
+     * @param {Number} index=0
+     * @param {Object} map={}
      * @returns {Object}
+     *     {String} id vnode.id (convenience shortcut)
      *     {Number} index
      *     {String} parentId
      *     {Neo.vdom.VNode} vnode
      */
-    findVnode(vnode, id, parentNode, index) {
-        if (!index) {
-            index = 0
-        }
+    createVnodeMap(vnode, parentNode=null, index=0, map={}) {
+        let id = vnode?.id;
 
-        let returnValue = null,
-            children, childValue, i, len;
+        map[id] = {id, index, parentNode, vnode};
 
-        if (vnode.id === id) {
-            returnValue = {index, parentNode, vnode}
-        } else if (vnode.vtype !== 'text') {
-            children = vnode.childNodes;
-            i        = 0;
-            len      = children?.length || 0;
+        vnode?.childNodes?.forEach((childNode, index) => {
+            this.createVnodeMap(childNode, vnode, index, map)
+        })
 
-            for (; i < len; i++) {
-                childValue = this.findVnode(children[i], id, vnode, i);
-
-                if (childValue && childValue.vnode.id === id) {
-                    returnValue = childValue;
-                    break
-                }
-            }
-        }
-
-        if (returnValue && returnValue.parentId === 'root') {
-            returnValue.index = null
-        }
-
-        return returnValue;
+        return map
     }
 
     /**
