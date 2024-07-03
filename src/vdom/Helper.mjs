@@ -290,6 +290,8 @@ class Helper extends Base {
                                     parentId
                                 })
 
+                                let idx = 0; // correct index ignoring nodes which will get added later
+
                                 parentNode.childNodes.forEach((node, index) => {
                                     if (index > 0) {
                                         movedOldNode = VNodeUtil.findChildVnodeById(oldVnodeRoot, node.id);
@@ -298,19 +300,16 @@ class Helper extends Base {
                                             deltas.push({
                                                 action: 'moveNode',
                                                 id    : node.id,
-                                                index,
+                                                index : idx,
                                                 parentId
                                             })
                                         } else {
-                                            deltas.push({
-                                                action   : 'insertNode',
-                                                id       : node.id,
-                                                index,
-                                                outerHTML: me.createStringFromVnode(node),
-                                                parentId
-                                            })
+                                            // the engine will add new nodes afterwards
+                                            idx--
                                         }
                                     }
+
+                                    idx++
                                 });
 
                                 deltas.push({

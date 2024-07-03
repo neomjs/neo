@@ -801,4 +801,72 @@ StartTest(t => {
             {action: 'removeNode', id: 'level-2',             parentId: 'level-1'}
         ], 'deltas got created successfully');
     });
+
+    t.it('Replacing a parent node with multiple children & adding a new node', t => {
+        t.diag("Creating the tree");
+
+        vdom =
+        {id: 'level-1', cn: [
+            {id: 'level-2', cn: [
+                {id: 'level-3-1'},
+                {id: 'level-3-2'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        // replace level 2 with level 3
+        vdom.cn = vdom.cn[0].cn;
+
+        // adding a new node
+        vdom.cn.splice(1, 0, {id: 'new-node'})
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(vnode, {
+            attributes: {},
+            className : [],
+            id        : 'level-1',
+            innerHTML : undefined,
+            nodeName  : 'div',
+            style     : {},
+            vtype     : 'vnode',
+
+            childNodes:[{
+                id        : 'level-3-1',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }, {
+                id        : 'new-node',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }, {
+                id        : 'level-3-2',
+                attributes: {},
+                childNodes: [],
+                className : [],
+                innerHTML : undefined,
+                nodeName  : 'div',
+                style     : {},
+                vtype     : 'vnode'
+            }]
+        }, 'vnode got updated successfully');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-2', index: 1, parentId: 'level-1'},
+            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'},
+            {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)}
+        ], 'deltas got created successfully');
+    });
 });
