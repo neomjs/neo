@@ -125,21 +125,21 @@ class Helper extends Base {
      * @param {Object}         config
      * @param {Object[]}       config.deltas=[]
      * @param {Number}         config.index
-     * @param {Object}         config.newVnode
+     * @param {Neo.vdom.VNode} config.newVnode
      * @param {Neo.vdom.VNode} config.newVnodeMap
-     * @param {Object}         config.newVnodeRoot
-     * @param {Object}         config.oldVnode
+     * @param {Neo.vdom.VNode} config.newVnodeRoot
+     * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.oldVnodeMap
-     * @param {Object}         config.oldVnodeRoot
+     * @param {Neo.vdom.VNode} config.oldVnodeRoot
      * @param {String}         config.parentId
      * @returns {Object[]} deltas
      */
     createDeltas(config) {
         let {deltas=[], index, newVnode, oldVnode, parentId} = config,
             me            = this,
-            newVnodeMap   = config.newVnodeMap  || me.createVnodeMap(newVnode),
+            newVnodeMap   = config.newVnodeMap  || me.createVnodeMap({vnode: newVnode}),
             newVnodeRoot  = config.newVnodeRoot || newVnode,
-            oldVnodeMap   = config.oldVnodeMap  || me.createVnodeMap(oldVnode),
+            oldVnodeMap   = config.oldVnodeMap  || me.createVnodeMap({vnode: oldVnode}),
             oldVnodeRoot  = config.oldVnodeRoot || oldVnode,
             attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, styles, add, remove, returnValue, tmp, wrappedNode;
 
@@ -186,7 +186,8 @@ class Helper extends Base {
                         parentId: movedNode.parentNode.id
                     });
 
-                    movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode)
+                    movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode);
+                    me.createVnodeMap({vnode: oldVnodeRoot, map: oldVnodeMap, reset: true})
                 }
             } else {
                 // top level removed node
@@ -211,7 +212,6 @@ class Helper extends Base {
 
                 if (!movedNode && !movedOldNode) {
                     // Replace the current node
-                    deltas.push({action: 'removeNode', id: oldVnode.id});
                     me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
 
                     return {
@@ -240,7 +240,8 @@ class Helper extends Base {
                     });
 
                     // see: https://github.com/neomjs/neo/issues/3116
-                    movedOldNode.parentNode.childNodes.splice(index, 0, movedOldNode)
+                    movedOldNode.parentNode.childNodes.splice(index, 0, movedOldNode);
+                    me.createVnodeMap({vnode: oldVnodeRoot, map: oldVnodeMap, reset: true})
                 } else if (!movedNode && movedOldNode) {
                     if (newVnode.id === movedOldNode.vnode.id) {
                         indexDelta = 0;
@@ -338,6 +339,7 @@ class Helper extends Base {
                                 // console.log(movedOldNodeDetails.index, targetIndex);
 
                                 movedOldNodeDetails.parentNode.childNodes.splice(movedOldNodeDetails.index, 1);
+                                me.createVnodeMap({vnode: oldVnodeRoot, map: oldVnodeMap, reset: true});
 
                                 // do not move a node in case its previous sibling nodes will get removed
                                 if (movedOldNodeDetails.index !== targetIndex) {
@@ -348,8 +350,6 @@ class Helper extends Base {
                                         parentId
                                     })
                                 }
-
-                                // console.log(movedOldNodeDetails);
 
                                 indexDelta = 0
                             }
@@ -660,11 +660,13 @@ class Helper extends Base {
 
     /**
      * Creates a flap map of the tree, containing ids as keys and infos as values
-     * @param {Neo.vdom.VNode} vnode
-     * @param {Neo.vdom.VNode} parentNode=null
-     * @param {String[]}       parentPath=[]
-     * @param {Number}         index=0
-     * @param {Map}            map=new Map()
+     * @param {Object}         config
+     * @param {Neo.vdom.VNode} config.vnode
+     * @param {Neo.vdom.VNode} [config.parentNode=null]
+     * @param {String[]}       [config.parentPath=[]]
+     * @param {Number}         [config.index=0]
+     * @param {Map}            [config.map=new Map()]
+     * @param {Boolean}        [config.reset=false]
      * @returns {Map}
      *     {String}         id vnode.id (convenience shortcut)
      *     {Number}         index
@@ -672,15 +674,17 @@ class Helper extends Base {
      *     {String[]}       parentPath
      *     {Neo.vdom.VNode} vnode
      */
-    createVnodeMap(vnode, parentNode=null, parentPath=[], index=0, map=new Map()) {
-        let id = vnode?.id;
+    createVnodeMap(config) {
+        let {vnode, parentNode=null, parentPath=[], index=0, map=new Map(), reset=false} = config,
+            id = vnode?.id;
 
         parentNode && parentPath.push(parentNode.id);
+        reset      && map.clear();
 
         map.set(id, {id, index, parentNode, parentPath, vnode});
 
         vnode?.childNodes?.forEach((childNode, index) => {
-            this.createVnodeMap(childNode, vnode, [...parentPath], index, map)
+            this.createVnodeMap({vnode: childNode, parentNode: vnode, parentPath: [...parentPath], index, map})
         })
 
         return map
@@ -709,7 +713,9 @@ class Helper extends Base {
                     len        = childNodes?.length || 0;
 
                 for (; i < len; i++) {
-                    this.findMovedNodes(childNodes[i], newVnodeMap, oldVnodeMap, movedNodes)
+                    if (childNodes[i].vtype !== 'text') {
+                        this.findMovedNodes(childNodes[i], newVnodeMap, oldVnodeMap, movedNodes)
+                    }
                 }
             }
         }
