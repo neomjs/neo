@@ -153,15 +153,7 @@ class Helper extends Base {
             }
 
             if (!movedOldNode) {
-                // console.log('insertNode', newVnode);
-
-                deltas.push({
-                    action   : 'insertNode',
-                    id       : newVnode.id,
-                    index,
-                    outerHTML: me.createStringFromVnode(newVnode),
-                    parentId
-                })
+                me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
             }
         } else if (!newVnode && oldVnode) {
             if (newVnodeRoot) {
@@ -197,12 +189,8 @@ class Helper extends Base {
                     movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode)
                 }
             } else {
-                // console.log('top level removed node', oldVnode.id, oldVnode);
-
-                delta = {
-                    action: 'removeNode',
-                    id    : oldVnode.id
-                };
+                // top level removed node
+                delta = {action: 'removeNode', id: oldVnode.id};
 
                 // We only need a parentId for vtype text
                 if (oldVnode.vtype === 'text') {
@@ -222,20 +210,9 @@ class Helper extends Base {
                 // console.log('movedOldNode', movedOldNode);
 
                 if (!movedNode && !movedOldNode) {
-                    // console.log('replace node', oldVnode.id, '('+newVnode.id+')');
-
-                    deltas.push({
-                        action: 'removeNode',
-                        id    : oldVnode.id,
-                    });
-
-                    deltas.push({
-                        action   : 'insertNode',
-                        id       : newVnode.id,
-                        index,
-                        outerHTML: me.createStringFromVnode(newVnode),
-                        parentId
-                    });
+                    // Replace the current node
+                    deltas.push({action: 'removeNode', id: oldVnode.id});
+                    me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
 
                     return {
                         indexDelta: 0
@@ -326,11 +303,7 @@ class Helper extends Base {
                                     idx++
                                 });
 
-                                deltas.push({
-                                    action: 'removeNode',
-                                    id    : oldVnode.id,
-                                    parentId
-                                })
+                                deltas.push({action: 'removeNode', id: oldVnode.id, parentId})
                             }
                         } else {
                             // the old vnode got moved into a different higher level branch
@@ -381,11 +354,7 @@ class Helper extends Base {
                                 indexDelta = 0
                             }
 
-                            deltas.push({
-                                action: 'removeNode',
-                                id    : oldVnode.id,
-                                parentId
-                            })
+                            deltas.push({action: 'removeNode', id: oldVnode.id, parentId})
                         }
 
                         me.createDeltas({
@@ -402,11 +371,7 @@ class Helper extends Base {
                         return {indexDelta}
                     } else {
                         // console.log('removed node', oldVnode.id, '('+newVnode.id+')');
-
-                        deltas.push({
-                            action: 'removeNode',
-                            id    : oldVnode.id
-                        });
+                        deltas.push({action: 'removeNode', id: oldVnode.id});
 
                         return {
                             indexDelta: 1
@@ -541,10 +506,7 @@ class Helper extends Base {
                                     // this case happens for infinite scrolling upwards:
                                     // add new nodes at the start, remove nodes at the end
                                     for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
-                                        deltas.push({
-                                            action: 'removeNode',
-                                            id    : oldVnode.childNodes[i].id
-                                        })
+                                        deltas.push({action: 'removeNode', id: oldVnode.childNodes[i].id})
                                     }
                                 }
 
