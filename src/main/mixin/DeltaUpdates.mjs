@@ -120,7 +120,7 @@ class DeltaUpdates extends Base {
             node       = this.getElement(delta.id),
             parentNode = this.getElement(delta.parentId);
 
-        if (parentNode) {
+        if (node && parentNode) {
             if (index >= parentNode.children.length) {
                 parentNode.appendChild(node)
             } else {

@@ -783,14 +783,21 @@ class Helper extends Base {
             me         = this,
             movedNodes = me.findMovedNodes(newVnode, newVnodeMap, oldVnodeMap);
 
-        console.log('insertNode', newVnode, movedNodes);
-
         deltas.push({
             action   : 'insertNode',
             id       : newVnode.id,
             index,
             outerHTML: me.createStringFromVnode(newVnode, movedNodes),
             parentId
+        });
+
+        movedNodes.forEach(details => {
+            deltas.push({
+                action: 'moveNode',
+                id      : details.id,
+                index   : details.index,
+                parentId: details.parentNode.id
+            })
         });
 
         return deltas
