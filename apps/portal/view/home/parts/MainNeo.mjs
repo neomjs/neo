@@ -31,10 +31,14 @@ class MainNeo extends BaseContainer {
             html: 'The High-Performance Web Framework for Next Generation Interfaces',
             vdom: {tag: 'h1'}
         }, {
+            cls : ['neo-h3'],
+            ntype: 'component',
+            html: 'Extreme speed. Multi-threaded. Multi-window. Standards-based, simple code.',
+            vdom: {tag: 'h3'}
+        }, {
             ntype: 'container',
             cls  : ['button-group'],
             flex : 'none',
-
             items: [{
                 module : Button,
                 cls    : ['get-started-button'],

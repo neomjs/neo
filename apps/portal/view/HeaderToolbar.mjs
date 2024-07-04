@@ -39,9 +39,6 @@ class HeaderToolbar extends Base {
             reference: 'blog-header-button',
             route    : '/blog'
         }, {
-            text : 'Docs',
-            route: '/docs'
-        }, {
             ntype : 'container',
             layout: 'hbox',
 
