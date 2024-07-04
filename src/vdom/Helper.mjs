@@ -122,17 +122,17 @@ class Helper extends Base {
     }
 
     /**
-     * @param {Object} config
-     * @param {Array} config.deltas
-     * @param {Number} config.index
-     * @param {Object} config.newVnode
-     * @param {Object} config.newVnodeMap
-     * @param {Object} config.newVnodeRoot
-     * @param {Object} config.oldVnode
-     * @param {Object} config.oldVnodeMap
-     * @param {Object} config.oldVnodeRoot
-     * @param {String} config.parentId
-     * @returns {Array} deltas
+     * @param {Object}         config
+     * @param {Object[]}       config.deltas=[]
+     * @param {Number}         config.index
+     * @param {Object}         config.newVnode
+     * @param {Neo.vdom.VNode} config.newVnodeMap
+     * @param {Object}         config.newVnodeRoot
+     * @param {Object}         config.oldVnode
+     * @param {Neo.vdom.VNode} config.oldVnodeMap
+     * @param {Object}         config.oldVnodeRoot
+     * @param {String}         config.parentId
+     * @returns {Object[]} deltas
      */
     createDeltas(config) {
         let {deltas=[], index, newVnode, oldVnode, parentId} = config,
@@ -430,15 +430,7 @@ class Helper extends Base {
                         })
                     }
 
-                    // console.log('insertNode', newVnode, me.findMovedNodes(newVnode, oldVnodeMap));
-
-                    deltas.push({
-                        action   : 'insertNode',
-                        id       : newVnode.id,
-                        index,
-                        outerHTML: me.createStringFromVnode(newVnode),
-                        parentId
-                    });
+                    me.insertNode({deltas, newVnode, newVnodeMap, oldVnodeMap, parentId});
 
                     return {
                         indexDelta: wrappedNode ? 0 : -1
@@ -714,14 +706,14 @@ class Helper extends Base {
      * Creates a flap map of the tree, containing ids as keys and infos as values
      * @param {Neo.vdom.VNode} vnode
      * @param {Neo.vdom.VNode} parentNode=null
-     * @param {String[]} parentPath=[]
-     * @param {Number} index=0
-     * @param {Map} map=new Map()
+     * @param {String[]}       parentPath=[]
+     * @param {Number}         index=0
+     * @param {Map}            map=new Map()
      * @returns {Map}
-     *     {String} id vnode.id (convenience shortcut)
-     *     {Number} index
-     *     {String} parentId
-     *     {String[]} parentPath
+     *     {String}         id vnode.id (convenience shortcut)
+     *     {Number}         index
+     *     {String}         parentId
+     *     {String[]}       parentPath
      *     {Neo.vdom.VNode} vnode
      */
     createVnodeMap(vnode, parentNode=null, parentPath=[], index=0, map=new Map()) {
@@ -740,14 +732,14 @@ class Helper extends Base {
 
     /**
      * The logic will parse the vnode (tree) to find existing items inside a given map.
-     * The logic will not search for further childNodes inside an already found vnode.
+     * It will not search for further childNodes inside an already found vnode.
      * @param {Neo.vdom.VNode} vnode
-     * @param {Object} vnodeMap
-     * @param {Map} movedNodes=new Map()
+     * @param {Object}         vnodeMap
+     * @param {Map}            movedNodes=new Map()
      * @returns {Map}
      */
     findMovedNodes(vnode, vnodeMap, movedNodes=new Map()) {
-        if (vnodeMap[vnode.id]) {
+        if (vnodeMap.get(vnode.id)) {
             movedNodes.set(vnode.id, vnode)
         } else {
             let childNodes = vnode.childNodes,
@@ -760,6 +752,32 @@ class Helper extends Base {
         }
 
         return movedNodes
+    }
+
+    /**
+     * @param {Object}         config
+     * @param {Object[]}       config.deltas
+     * @param {Number}         config.index
+     * @param {Neo.vdom.VNode} config.newVnode
+     * @param {Map}            config.oldVnodeMap
+     * @param {String}         config.parentId
+     * @returns {Object[]} deltas
+     */
+    insertNode(config) {
+        let {deltas, index, newVnode, oldVnodeMap, parentId} = config,
+            me = this;
+
+        console.log('insertNode', newVnode, me.findMovedNodes(newVnode, oldVnodeMap));
+
+        deltas.push({
+            action   : 'insertNode',
+            id       : newVnode.id,
+            index,
+            outerHTML: me.createStringFromVnode(newVnode),
+            parentId
+        });
+
+        return deltas
     }
 
     /**
