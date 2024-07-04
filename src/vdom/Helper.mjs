@@ -655,28 +655,35 @@ class Helper extends Base {
     }
 
     /**
-     * @param {Object} vnode
+     * @param {Neo.vdom.VNode} vnode
+     * @param {Map}            [movedNodes]
      */
-    createStringFromVnode(vnode) {
-        let me = this;
+    createStringFromVnode(vnode, movedNodes) {
+        let me = this,
+            id = vnode?.id;
+
+        if (id && movedNodes?.get(id)) {
+            return ''
+        }
 
         switch (vnode.vtype) {
             case 'root':
-                return me.createStringFromVnode(vnode.childNodes[0])
+                return me.createStringFromVnode(vnode.childNodes[0], movedNodes)
             case 'text':
                 return vnode.innerHTML === undefined ? '' : String(vnode.innerHTML)
             case 'vnode':
-                return me.createOpenTag(vnode) + me.createTagContent(vnode) + me.createCloseTag(vnode)
+                return me.createOpenTag(vnode) + me.createTagContent(vnode, movedNodes) + me.createCloseTag(vnode)
             default:
                 return ''
         }
     }
 
     /**
-     * @param {Object} vnode
+     * @param {Neo.vdom.VNode} vnode
+     * @param {Map}            [movedNodes]
      * @protected
      */
-    createTagContent(vnode) {
+    createTagContent(vnode, movedNodes) {
         if (vnode.innerHTML) {
             return vnode.innerHTML
         }
@@ -688,7 +695,7 @@ class Helper extends Base {
 
         for (; i < len; i++) {
             childNode = vnode.childNodes[i];
-            outerHTML = this.createStringFromVnode(childNode);
+            outerHTML = this.createStringFromVnode(childNode, movedNodes);
 
             if (childNode.innerHTML !== outerHTML) {
                 if (this.returnChildNodeOuterHtml) {
@@ -773,15 +780,16 @@ class Helper extends Base {
      */
     insertNode(config) {
         let {deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId} = config,
-            me = this;
+            me         = this,
+            movedNodes = me.findMovedNodes(newVnode, newVnodeMap, oldVnodeMap);
 
-        console.log('insertNode', newVnode, me.findMovedNodes(newVnode, newVnodeMap, oldVnodeMap));
+        console.log('insertNode', newVnode, movedNodes);
 
         deltas.push({
             action   : 'insertNode',
             id       : newVnode.id,
             index,
-            outerHTML: me.createStringFromVnode(newVnode),
+            outerHTML: me.createStringFromVnode(newVnode, movedNodes),
             parentId
         });
 
