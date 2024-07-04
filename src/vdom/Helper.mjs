@@ -414,21 +414,8 @@ class Helper extends Base {
                     }
                 } else if (!movedOldNode) {
                     // new node inside a child array
-                    // console.log('new node', index, parentId, newVnode);
 
                     wrappedNode = movedNode && VNodeUtil.findChildVnodeById(newVnode, oldVnode.id);
-
-                    if (wrappedNode) {
-                        // an existing vnode got wrapped into a new vnode
-                        // => we need to remove the old one, since it will get recreated
-
-                        // console.log('movedNode removeNode', movedNode.vnode.id);
-
-                        deltas.push({
-                            action: 'removeNode',
-                            id    : movedNode.vnode.id
-                        })
-                    }
 
                     me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
 
