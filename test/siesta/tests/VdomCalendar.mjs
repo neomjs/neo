@@ -340,8 +340,6 @@ StartTest(t => {
     });
 
     t.it('Month View infinite scrolling', t => {
-        t.diag('Month View infinite scrolling');
-
         vdom =
         {cls: ['neo-c-m-scrollcontainer', 'neo-scroll-shadows', 'neo-is-scrolling'], id: 'neo-vnode-150', cn: [
             {id: 'neo-component-6__week__2021-02-21', flag: '2021-02-21', cls: ['neo-week'], cn: [
@@ -369,110 +367,56 @@ StartTest(t => {
             ]},
             {tag: 'div', id: 'neo-vnode-168', 'cls': ['neo-month-header'], 'cn': [
                 {tag: 'div', id: 'neo-vnode-167', 'cls': ['neo-month-header-content'], 'cn': [
-                    {'tag': 'span', 'cls': ['neo-month-name'], 'flag': 'month-name', 'html': 'Mar', 'id': 'neo-vnode-166'},
+                    {tag: 'span', cls: ['neo-month-name'], flag: 'month-name', html: 'Mar', id: 'neo-vnode-166'},
                     {vtype: 'text', id: 'neo-vtext-7', html: ' 2021'}
                 ]}
             ]},
             {tag : 'div', id: 'neo-component-6__week__2021-02-28', flag: '2021-03-01', cls: ['neo-week'], cn: [
                 {tag: 'div', cls: ['neo-day', 'neo-weekend'], id : 'neo-component-6__day__2021-02-28', cn: [
-                    {cls : ['neo-day-number'], html: 28, id: 'neo-component-6__day_number__2021-02-28', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 28, id: 'neo-component-6__day_number__2021-02-28', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-01', cn: [
-                    {cls : ['neo-day-number'], html: 1, id: 'neo-component-6__day_number__2021-03-01', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 1, id: 'neo-component-6__day_number__2021-03-01', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-02', cn: [
-                    {cls : ['neo-day-number'], html: 2, id: 'neo-component-6__day_number__2021-03-02', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 2, id: 'neo-component-6__day_number__2021-03-02', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-03', cn: [
-                    {cls : ['neo-day-number'], html: 3, id: 'neo-component-6__day_number__2021-03-03', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 3, id: 'neo-component-6__day_number__2021-03-03', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-04', cn: [
-                    {cls : ['neo-day-number'], html: 4, id: 'neo-component-6__day_number__2021-03-04', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 4, id: 'neo-component-6__day_number__2021-03-04', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-05', cn: [
-                    {cls : ['neo-day-number'], html: 5, id: 'neo-component-6__day_number__2021-03-05', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 5, id: 'neo-component-6__day_number__2021-03-05', tag: 'div'}
                 ]},
                 {tag: 'div', cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-03-06', cn: [
-                    {cls : ['neo-day-number'], html: 6, id: 'neo-component-6__day_number__2021-03-06', tag : 'div'}
+                    {cls : ['neo-day-number'], html: 6, id: 'neo-component-6__day_number__2021-03-06', tag: 'div'}
                 ]}
             ]},
-            {
-                flag: '2021-03-07',
-                cls : ['neo-week'],
-                cn  : [{
-                    cls: ['neo-day', 'neo-weekend'],
-                    id : 'neo-component-6__day__2021-03-07',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 7,
-                        id  : 'neo-component-6__day_number__2021-03-07',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-03-08',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 8,
-                        id  : 'neo-component-6__day_number__2021-03-08',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-03-09',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 9,
-                        id  : 'neo-component-6__day_number__2021-03-09',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-03-10',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 10,
-                        id  : 'neo-component-6__day_number__2021-03-10',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-03-11',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 11,
-                        id  : 'neo-component-6__day_number__2021-03-11',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-03-12',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 12,
-                        id  : 'neo-component-6__day_number__2021-03-12',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }, {
-                    cls: ['neo-day', 'neo-weekend'],
-                    id : 'neo-component-6__day__2021-03-13',
-                    cn : [{
-                        cls : ['neo-day-number'],
-                        html: 13,
-                        id  : 'neo-component-6__day_number__2021-03-13',
-                        tag : 'div'
-                    }],
-                    tag: 'div'
-                }],
-                id  : 'neo-component-6__week__2021-03-07',
-                tag : 'div'
-            }, {
+            {tag: 'div', id: 'neo-component-6__week__2021-03-07', flag: '2021-03-07', cls: ['neo-week'], cn: [
+                {tag: 'div', cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-03-07', cn: [
+                    {cls: ['neo-day-number'], html: 7, id: 'neo-component-6__day_number__2021-03-07', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-08', cn: [
+                    {cls: ['neo-day-number'], html: 8, id: 'neo-component-6__day_number__2021-03-08', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-09', cn: [
+                    {cls: ['neo-day-number'], html: 9, id: 'neo-component-6__day_number__2021-03-09', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-10', cn: [
+                    {cls: ['neo-day-number'], html: 10, id: 'neo-component-6__day_number__2021-03-10', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-11', cn: [
+                    {cls: ['neo-day-number'], html: 11, id: 'neo-component-6__day_number__2021-03-11', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day'], id: 'neo-component-6__day__2021-03-12', cn: [
+                    {cls: ['neo-day-number'], html: 12, id: 'neo-component-6__day_number__2021-03-12', tag: 'div'}
+                ]},
+                {tag: 'div', cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-03-13', cn: [
+                    {cls: ['neo-day-number'], html: 13, id: 'neo-component-6__day_number__2021-03-13', tag: 'div'}
+                ]}
+            ]}, {
                 flag: '2021-03-14',
                 cls : ['neo-week'],
                 cn  : [{
@@ -1667,63 +1611,53 @@ StartTest(t => {
 
         vdom =
         {cls: ['neo-c-m-scrollcontainer', 'neo-scroll-shadows', 'neo-is-scrolling'], id: 'neo-vnode-150', cn: [
-            {id  : 'neo-component-6__week__2021-04-04', flag: '2021-04-04', cls : ['neo-week'], cn: [
+            {id: 'neo-component-6__week__2021-04-04', flag: '2021-04-04', cls: ['neo-week'], cn: [
                 {cls: ['neo-day', 'neo-weekend'], id : 'neo-component-6__day__2021-04-04', cn : [
                     {cls: ['neo-day-number'], html: 4, id: 'neo-component-6__day_number__2021-04-04'}
                 ]},
-                {cls: ['neo-day'], id : 'neo-component-6__day__2021-04-05', cn : [
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-05', cn: [
                     {cls: ['neo-day-number'], html: 5, id: 'neo-component-6__day_number__2021-04-05'}
                 ]},
-                {cls: ['neo-day'], id : 'neo-component-6__day__2021-04-06', cn : [
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-06', cn: [
                     {cls: ['neo-day-number'], html: 6, id: 'neo-component-6__day_number__2021-04-06'}
                 ]},
-                {cls: ['neo-day'], id : 'neo-component-6__day__2021-04-07', cn : [
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-07', cn: [
                     {cls: ['neo-day-number'], html: 7, id: 'neo-component-6__day_number__2021-04-07'}
                 ]},
-                {cls: ['neo-day'], id : 'neo-component-6__day__2021-04-08', cn : [
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-08', cn: [
                     {cls: ['neo-day-number'], html: 8, id: 'neo-component-6__day_number__2021-04-08'}
                 ]},
-                {cls: ['neo-day'], id : 'neo-component-6__day__2021-04-09', cn : [
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-09', cn: [
                     {cls: ['neo-day-number'], html: 9, id: 'neo-component-6__day_number__2021-04-09'}
                 ]},
-                {cls: ['neo-day', 'neo-weekend'], id : 'neo-component-6__day__2021-04-10', cn : [
+                {cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-04-10', cn: [
                     {cls: ['neo-day-number'], html: 10, id: 'neo-component-6__day_number__2021-04-10'}
                 ]}
             ]},
+            {id: 'neo-component-6__week__2021-04-11', flag: '2021-04-11', cls: ['neo-week'], cn: [
+                {cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-04-11', cn: [
+                    {cls: ['neo-day-number'], html: 11, id: 'neo-component-6__day_number__2021-04-11'}
+                ]},
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-12', cn: [
+                    {cls: ['neo-day-number'], html: 12, id: 'neo-component-6__day_number__2021-04-12'}
+                ]},
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-13', cn: [
+                    {cls: ['neo-day-number'], html: 13, id: 'neo-component-6__day_number__2021-04-13'}
+                ]},
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-14', cn: [
+                    {cls: ['neo-day-number'], html: 14, id: 'neo-component-6__day_number__2021-04-14'}
+                ]},
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-15', cn: [
+                    {cls: ['neo-day-number'], html: 15, id: 'neo-component-6__day_number__2021-04-15'}
+                ]},
+                {cls: ['neo-day'], id: 'neo-component-6__day__2021-04-16', cn: [
+                    {cls: ['neo-day-number'], html: 16, id: 'neo-component-6__day_number__2021-04-16'}
+                ]},
+                {cls: ['neo-day', 'neo-weekend'], id: 'neo-component-6__day__2021-04-17', cn: [
+                    {cls: ['neo-day-number'], html: 17, id: 'neo-component-6__day_number__2021-04-17'}
+                ]}
+            ]},
             {
-                flag: '2021-04-11',
-                cls : ['neo-week'],
-                cn  : [{
-                    cls: ['neo-day', 'neo-weekend'],
-                    id : 'neo-component-6__day__2021-04-11',
-                    cn : [{cls: ['neo-day-number'], html: 11, id: 'neo-component-6__day_number__2021-04-11'}]
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-04-12',
-                    cn : [{cls: ['neo-day-number'], html: 12, id: 'neo-component-6__day_number__2021-04-12'}]
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-04-13',
-                    cn : [{cls: ['neo-day-number'], html: 13, id: 'neo-component-6__day_number__2021-04-13'}]
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-04-14',
-                    cn : [{cls: ['neo-day-number'], html: 14, id: 'neo-component-6__day_number__2021-04-14'}]
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-04-15',
-                    cn : [{cls: ['neo-day-number'], html: 15, id: 'neo-component-6__day_number__2021-04-15'}]
-                }, {
-                    cls: ['neo-day'],
-                    id : 'neo-component-6__day__2021-04-16',
-                    cn : [{cls: ['neo-day-number'], html: 16, id: 'neo-component-6__day_number__2021-04-16'}]
-                }, {
-                    cls: ['neo-day', 'neo-weekend'],
-                    id : 'neo-component-6__day__2021-04-17',
-                    cn : [{cls: ['neo-day-number'], html: 17, id: 'neo-component-6__day_number__2021-04-17'}]
-                }],
-                id  : 'neo-component-6__week__2021-04-11'
-            }, {
                 flag: '2021-04-18',
                 cls : ['neo-week'],
                 cn  : [{
@@ -1938,6 +1872,7 @@ StartTest(t => {
             }, {
                 cls: ['neo-month-header'],
                 cn : [{
+                    id : 'neo-vnode-152',
                     cls: ['neo-month-header-content'],
                     cn : [{
                         tag : 'span',
@@ -1945,8 +1880,7 @@ StartTest(t => {
                         flag: 'month-name',
                         html: 'Jun',
                         id  : 'neo-vnode-151'
-                    }, {vtype: 'text', html: ' 2021', id: 'neo-vtext-2'}],
-                    id : 'neo-vnode-152'
+                    }, {vtype: 'text', html: ' 2021', id: 'neo-vtext-2'}]
                 }],
                 id : 'neo-vnode-153'
             }, {
@@ -2459,14 +2393,14 @@ StartTest(t => {
             {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
             {action: 'removeNode', id: 'neo-vnode-171', parentId: 'neo-vnode-150'},
             {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-vnode-3', index: 14, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-06-27', index: 15, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-07-04', index: 16, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-07-11', index: 17, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-07-18', index: 18, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-07-25', index: 19, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-vnode-6', index: 20, parentId: 'neo-vnode-150'},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150'}
+            {action: 'insertNode', id: 'neo-vnode-3', index: 14, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-06-27', index: 15, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-07-04', index: 16, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-07-11', index: 17, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-07-18', index: 18, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-07-25', index: 19, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-vnode-6', index: 20, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)}
         ], 'deltas got created successfully');
 
 
