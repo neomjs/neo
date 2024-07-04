@@ -83,23 +83,11 @@ class Cube extends Base {
     construct(config) {
         super.construct(config);
 
-        let {container} = this,
-            {vdom}      = container,
-            {cn}        = vdom;
+        let {container} = this;
 
-        vdom.cn = [
-            {cls: ['neo-plane'], cn: [
-                {cls: ['neo-box'], cn}
-            ]}
-        ];
+        this.nestVdom()
 
-        // Cache the original method for run-time container layout changes
-        this.#cachedVdomItemsRoot = container.getVdomItemsRoot;
-
-        // Override
-        container.getVdomItemsRoot = function() {
-            return this.vdom.cn[0].cn[0]
-        }
+        container.mounted && container.update()
     }
 
     /**
@@ -227,6 +215,26 @@ class Cube extends Base {
         container.update();
 
         super.destroy(...args)
+    }
+
+    nestVdom() {
+        let {container} = this,
+            {vdom}      = container,
+            {cn}        = vdom;
+
+        vdom.cn = [
+            {cls: ['neo-plane'], cn: [
+                {cls: ['neo-box'], cn}
+            ]}
+        ];
+
+        // Cache the original method for run-time container layout changes
+        this.#cachedVdomItemsRoot = container.getVdomItemsRoot;
+
+        // Override
+        container.getVdomItemsRoot = function() {
+            return this.vdom.cn[0].cn[0]
+        }
     }
 
     /**
