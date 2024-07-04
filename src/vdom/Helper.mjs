@@ -430,7 +430,7 @@ class Helper extends Base {
                         })
                     }
 
-                    me.insertNode({deltas, newVnode, newVnodeMap, oldVnodeMap, parentId});
+                    me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
 
                     return {
                         indexDelta: wrappedNode ? 0 : -1
