@@ -248,7 +248,11 @@ class ViewportController extends Component {
         if (store.getCount()) {
             table.bulkUpdateRecords(records)
         } else {
-            store.data = records
+            // Depending on the delay of the Socket Connection,
+            // the next data package could still contain the old settings
+            if (this.getModel().getData('amountRows') === records.length) {
+                store.data = records
+            }
         }
     }
 
