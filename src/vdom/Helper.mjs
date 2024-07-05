@@ -275,30 +275,28 @@ class Helper extends Base {
                                  *  see: https://github.com/neomjs/neo/issues/5518
                                  */
 
-                                deltas.push({
-                                    action: 'moveNode',
-                                    id    : newVnode.id,
-                                    index : 0,
-                                    parentId
-                                })
-
                                 let idx = 0; // correct index ignoring nodes which will get added later
 
-                                parentNode.childNodes.forEach((node, index) => {
-                                    if (index > 0) {
-                                        movedOldNode = oldVnodeMap.get(node.id);
+                                parentNode.childNodes.forEach(node => {
+                                    movedOldNode = oldVnodeMap.get(node.id);
 
-                                        if (movedOldNode) {
-                                            deltas.push({
-                                                action: 'moveNode',
-                                                id    : node.id,
-                                                index : idx,
-                                                parentId
-                                            })
-                                        } else {
-                                            // the engine will add new nodes afterwards
-                                            idx--
-                                        }
+                                    if (movedOldNode) {
+                                        // this will trigger top-level move OPs
+
+                                        me.createDeltas({
+                                            deltas,
+                                            index: idx,
+                                            node,
+                                            newVnodeMap,
+                                            newVnodeRoot,
+                                            oldVnode: movedOldNode.vnode,
+                                            oldVnodeMap,
+                                            oldVnodeRoot,
+                                            parentId
+                                        })
+                                    } else {
+                                        // the engine will add new nodes afterwards
+                                        idx--
                                     }
 
                                     idx++

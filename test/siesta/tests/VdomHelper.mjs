@@ -864,7 +864,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
-            {action: 'moveNode',   id: 'level-3-2', index: 1, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2',             parentId: 'level-1'},
             {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)}
         ], 'deltas got created successfully');
