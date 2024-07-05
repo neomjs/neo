@@ -2380,8 +2380,6 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
 
-        console.log(deltas);
-
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
         t.isDeeplyStrict(deltas, [

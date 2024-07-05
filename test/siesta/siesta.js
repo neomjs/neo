@@ -22,7 +22,16 @@ project.plan(
     'tests/CollectionBase.mjs',
     'tests/Rectangle.mjs',
     'tests/VdomHelper.mjs',
-    'tests/VdomCalendar.mjs'
+    'tests/VdomCalendar.mjs',
+    {
+        group: 'vdom',
+        items: [{
+            group: 'layout',
+            items: [
+                'tests/vdom/layout/Cube.mjs'
+            ]
+        }]
+    }
 );
 
 project.start();
