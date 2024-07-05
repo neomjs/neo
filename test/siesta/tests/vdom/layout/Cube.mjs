@@ -124,9 +124,7 @@ StartTest(t => {
 
         let {deltas, vnode} = VdomHelper.update({vdom, vnode: oldVnode});
 
-        console.log(deltas);
-
-        t.is(deltas.length, 7, 'Count deltas equals 7');
+        t.is(deltas.length, 9, 'Count deltas equals 9');
 
         t.isDeeplyStrict(deltas, [
             {
@@ -138,8 +136,10 @@ StartTest(t => {
             },
             {action: 'moveNode', id: 'neo-component-1', index: 0, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-2', index: 1, parentId: 'neo-vnode-2'},
+            {id: 'neo-component-2', style: {backgroundColor: 'red'}},
             {action: 'moveNode', id: 'neo-component-3', index: 2, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-4', index: 3, parentId: 'neo-vnode-2'},
+            {id: 'neo-component-4', cls: {add: ['custom-cls'], remove: []}},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-vnode-2'}
         ], 'Deltas got created successfully');

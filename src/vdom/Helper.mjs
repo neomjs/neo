@@ -153,7 +153,7 @@ class Helper extends Base {
             }
 
             if (!movedOldNode) {
-                me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
+                me.insertNode({deltas, index, newVnode, newVnodeMap, newVnodeRoot, oldVnodeMap, oldVnodeRoot, parentId});
             }
         } else if (!newVnode && oldVnode) {
             if (newVnodeRoot) {
@@ -212,7 +212,7 @@ class Helper extends Base {
 
                 if (!movedNode && !movedOldNode) {
                     // Replace the current node
-                    me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
+                    me.insertNode({deltas, index, newVnode, newVnodeMap, newVnodeRoot, oldVnodeMap, oldVnodeRoot, parentId});
 
                     return {
                         indexDelta: 0
@@ -382,7 +382,7 @@ class Helper extends Base {
 
                     wrappedNode = movedNode && VNodeUtil.findChildVnodeById(newVnode, oldVnode.id);
 
-                    me.insertNode({deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId});
+                    me.insertNode({deltas, index, newVnode, newVnodeMap, newVnodeRoot, oldVnodeMap, oldVnodeRoot, parentId});
 
                     return {
                         indexDelta: wrappedNode ? 0 : -1
@@ -729,12 +729,14 @@ class Helper extends Base {
      * @param {Number}         config.index
      * @param {Neo.vdom.VNode} config.newVnode
      * @param {Map}            config.newVnodeMap
+     * @param {Object}         config.newVnodeRoot
      * @param {Map}            config.oldVnodeMap
+     * @param {Object}         config.oldVnodeRoot
      * @param {String}         config.parentId
      * @returns {Object[]} deltas
      */
     insertNode(config) {
-        let {deltas, index, newVnode, newVnodeMap, oldVnodeMap, parentId} = config,
+        let {deltas, index, newVnode, newVnodeMap, newVnodeRoot, oldVnodeMap, oldVnodeRoot, parentId} = config,
             me         = this,
             movedNodes = me.findMovedNodes(newVnode, newVnodeMap, oldVnodeMap);
 
@@ -747,11 +749,25 @@ class Helper extends Base {
         });
 
         movedNodes.forEach(details => {
+            let {id}     = details,
+                parentId = details.parentNode.id;
+
             deltas.push({
                 action: 'moveNode',
-                id      : details.id,
-                index   : details.index,
-                parentId: details.parentNode.id
+                id,
+                index : details.index,
+                parentId
+            });
+
+            me.createDeltas({
+                deltas,
+                newVnode: details.vnode,
+                newVnodeMap,
+                newVnodeRoot,
+                oldVnode: oldVnodeMap.get(id).vnode,
+                oldVnodeMap,
+                oldVnodeRoot,
+                parentId
             })
         });
 
