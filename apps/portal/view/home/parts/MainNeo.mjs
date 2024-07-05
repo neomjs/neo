@@ -33,7 +33,7 @@ class MainNeo extends BaseContainer {
         }, {
             cls : ['neo-h3'],
             ntype: 'component',
-            html: 'Extreme speed. Multi-threaded. Multi-window. Standards-based. Smple code.',
+            html: 'Extreme speed. Multi-threaded. Multi-window. Smple code.',
             vdom: {tag: 'h3'}
         }, {
             ntype: 'container',
