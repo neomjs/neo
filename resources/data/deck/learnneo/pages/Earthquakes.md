@@ -532,7 +532,7 @@ class MainView extends Base {
                         type: "Date",
                     }],
                 },
-                url: "https://apis.is/earthquake/is",
+                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "results",
                 autoLoad: true,
             },
@@ -604,7 +604,7 @@ Here's the config for the store.
             type: "Date",
         }],
     },
-    url: "https://apis.is/earthquake/is",
+    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
     responseRoot: "results",
     autoLoad: true,
 }
@@ -773,7 +773,7 @@ static config = {
                         type: "Date",
                     }],
                 },
-                url: "https://apis.is/earthquake/is",
+                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "results",
                 autoLoad: true,
             },
@@ -896,7 +896,7 @@ class MainView extends Base {
                             type: "Date"
                         }]
                     },
-                    url: "https://apis.is/earthquake/is",
+                    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                     responseRoot: "results",
                     autoLoad: true
                 },    
@@ -920,7 +920,7 @@ class MainView extends Base {
                         type: "Date"
                     }]
                 },
-                url: "https://apis.is/earthquake/is",
+                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "results",
                 autoLoad: true
             },
@@ -939,7 +939,7 @@ class MainView extends Base {
                         type: "Date"
                     }]
                 },
-                url: "https://apis.is/earthquake/is",
+                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "results",
                 autoLoad: true
             },
@@ -1012,7 +1012,7 @@ class MainView extends Base {
                             type: "Date"
                         }]
                     },
-                    url: "https://apis.is/earthquake/is",
+                    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                     responseRoot: "results",
                     autoLoad: true
                 },    
@@ -1092,7 +1092,7 @@ class MainViewModel extends Model {
                         type: "Date"
                     }]
                 },
-                url: "https://apis.is/earthquake/is",
+                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "results",
                 autoLoad: true
             },    
