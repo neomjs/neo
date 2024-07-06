@@ -462,34 +462,21 @@ class Helper extends Base {
             {index}    = details,
             parentId   = details.parentNode.id,
             me         = this,
-            movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap});
+            movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
+            outerHTML  = me.createStringFromVnode(vnode, movedNodes);
 
-        deltas.push({
-            action   : 'insertNode',
-            id       : vnode.id,
-            index,
-            outerHTML: me.createStringFromVnode(vnode, movedNodes),
-            parentId
-        });
+        deltas.push({action: 'insertNode', id: vnode.id, index, outerHTML, parentId});
+
+        // Insert the new node into the old tree, to simplify future OPs
+        oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
 
         movedNodes.forEach(details => {
             let {id}     = details,
                 parentId = details.parentNode.id;
 
-            deltas.push({
-                action: 'moveNode',
-                id,
-                index : details.index,
-                parentId
-            });
+            deltas.push({action: 'moveNode', id, index: details.index, parentId});
 
-            me.createDeltas({
-                deltas,
-                oldVnode: oldVnodeMap.get(id).vnode,
-                oldVnodeMap,
-                vnode: details.vnode,
-                vnodeMap,
-            })
+            me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
         });
 
         return deltas
