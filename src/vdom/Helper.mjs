@@ -244,6 +244,7 @@ class Helper extends Base {
             i             = 0,
             indexDelta    = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
+            removeDeltas  = [],
             childNode, oldChildNode;
 
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
@@ -256,7 +257,13 @@ class Helper extends Base {
                 if (childNode.id === oldChildNode.id) {
                     me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
-                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
+                    me.insertOrMoveNode({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
+
+                    if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
+                        // The node to remove could contain nodes which still need to get moved.
+                        // We need to process these deltas once the loop is finished.
+                        removeDeltas.push({action: 'removeNode', id: oldChildNode.id})
+                    }
                 }
             } else if (childNode) {
                 me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
@@ -267,6 +274,8 @@ class Helper extends Base {
                 }
             }
         }
+
+        deltas.push(...removeDeltas);
 
         return deltas
     }

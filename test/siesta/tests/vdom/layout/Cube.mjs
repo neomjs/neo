@@ -91,7 +91,7 @@ StartTest(t => {
             {action: 'moveNode', id: 'neo-component-4', index: 3, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-container-1'},
-            {action: 'removeNode', id: 'neo-vnode-1', parentId: 'neo-container-1'}
+            {action: 'removeNode', id: 'neo-vnode-1'}
         ], 'Deltas got created successfully');
     });
 
@@ -185,7 +185,7 @@ StartTest(t => {
             {id: 'neo-component-4', cls: {add: [], remove: ['custom-cls']}},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-container-1'},
-            {action: 'removeNode', id: 'neo-vnode-1', parentId: 'neo-container-1'}
+            {action: 'removeNode', id: 'neo-vnode-1'}
         ], 'Deltas got created successfully');
     });
 });
