@@ -126,7 +126,7 @@ class Helper extends Base {
      * @param {Object[]}       config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.vnode
-     * @param {Neo.vdom.VNode} config.vnodeMap
+     * @param {Map}            config.vnodeMap
      * @returns {Object[]} deltas
      */
     compareAttributes(config) {
@@ -224,9 +224,9 @@ class Helper extends Base {
      * @param {Object}         config
      * @param {Object[]}       config.deltas=[]
      * @param {Neo.vdom.VNode} config.oldVnode
-     * @param {Neo.vdom.VNode} config.oldVnodeMap
+     * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
-     * @param {Neo.vdom.VNode} config.vnodeMap
+     * @param {Map}            config.vnodeMap
      * @returns {Object[]} deltas
      */
     createDeltas(config) {
