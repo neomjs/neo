@@ -2389,14 +2389,6 @@ StartTest(t => {
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-168', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-171', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'},
             {action: 'insertNode', id: 'neo-vnode-3', index: 14, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-06-27', index: 15, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-04', index: 16, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
@@ -2404,7 +2396,15 @@ StartTest(t => {
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-18', index: 18, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-25', index: 19, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-vnode-6', index: 20, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)}
+            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-vnode-168',                     parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-vnode-171',                     parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'}
         ], 'deltas got created successfully');
 
 

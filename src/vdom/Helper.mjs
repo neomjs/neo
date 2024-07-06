@@ -245,8 +245,8 @@ class Helper extends Base {
         let me            = this,
             oldVnodeMap   = config.oldVnodeMap || me.createVnodeMap({vnode: oldVnode}),
             vnodeMap      = config.vnodeMap    || me.createVnodeMap({vnode}),
-            {childNodes}  = vnode,
-            oldChildNodes = oldVnode.childNodes,
+            childNodes    = vnode   .childNodes || [],
+            oldChildNodes = oldVnode.childNodes || [],
             i             = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, oldChildNode;
