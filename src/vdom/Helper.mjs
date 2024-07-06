@@ -232,6 +232,12 @@ class Helper extends Base {
     createDeltas(config) {
         let {deltas=[], oldVnode, vnode} = config;
 
+        // Edge case: setting `removeDom: true` on a top-level vdom node
+        if (!vnode && oldVnode?.id) {
+            deltas.push({action: 'removeNode', id: oldVnode.id});
+            return deltas
+        }
+
         if (vnode.id !== oldVnode.id) {
             throw new Error(`createDeltas() must get called for the same node. ${vnode.id}, ${oldVnode.id}`);
         }
@@ -242,7 +248,6 @@ class Helper extends Base {
             {childNodes}  = vnode,
             oldChildNodes = oldVnode.childNodes,
             i             = 0,
-            indexDelta    = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, oldChildNode;
 
@@ -265,7 +270,7 @@ class Helper extends Base {
                     me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
             } else if (childNode) {
-                me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
+                me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
             } else if (oldChildNode) {
                 // Remove node, if no longer inside the new tree
                 if (!vnodeMap.get(oldChildNode.id)) {
@@ -502,12 +507,7 @@ class Helper extends Base {
         if (!movedNode) {
             me.insertNode(config)
         } else {
-            deltas.push({
-                action: 'moveNode',
-                id      : vnode.id,
-                index,
-                parentId
-            });
+            deltas.push({action: 'moveNode', id: vnode.id, index, parentId});
 
             me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap});
 
