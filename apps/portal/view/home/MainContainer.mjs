@@ -1,9 +1,9 @@
-import AfterMath from './parts/AfterMath.mjs';
-import Colors    from './parts/Colors.mjs';
-import Container from '../../../../src/container/Base.mjs';
-import Helix     from './parts/Helix.mjs';
-import How       from './parts/How.mjs';
-import MainNeo   from './parts/MainNeo.mjs';
+import AfterMath  from './parts/AfterMath.mjs';
+import Colors     from './parts/Colors.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import Helix      from './parts/Helix.mjs';
+import How        from './parts/How.mjs';
+import MainNeo    from './parts/MainNeo.mjs';
 import References from './parts/References.mjs';
 
 /**
@@ -33,14 +33,22 @@ class MainContainer extends Container {
             }
         }],
         /**
+         * @member {Object} responsiveConfig
+         */
+        responsiveConfig: {
+            medium: {maxWidth: 840},
+            large : {minWidth: 841}
+        },
+        responsive      : {},
+        /**
          * @member {Object[]} items
          */
         items: [
             {ntype: 'component', cls: ['portal-home-progress']},
             MainNeo,
-            References,
-            // Features,
             Helix,
+            // Features,
+            References,
             Colors,
             How,
             AfterMath

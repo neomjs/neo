@@ -1,56 +1,82 @@
 .portal-home-content-view {
-    min-height       : 100%;
-    scroll-snap-align: center;
+  min-height: 100%;
+  scroll-snap-align: center;
 
-    @keyframes appear-left {
-        0%   {opacity: 0; transform: translateX(-400%);}
-        90%  {opacity: .3;}
-        100% {opacity: 1; transform: translateX(0);}
+  @keyframes appear-left {
+    0% {
+      opacity: 0;
+      transform: translateX(-400%);
     }
-
-    @keyframes appear-right {
-        0%   {opacity: 0; transform: translateX(400%);}
-        90%  {opacity: .3;}
-        100% {opacity: 1; transform: translateX(0);}
+    90% {
+      opacity: .3;
     }
-
-    &:not(:first-child) {
-        &:not(:last-child) {
-            animation-timeline       : view(block 100% -500%);
-            animation-fill-mode      : both;
-            animation-duration       : 1ms; /* Firefox requires this to apply the animation */
-            animation-timing-function: linear;
-
-            &:nth-child(even) {
-                animation-name: appear-right;
-            }
-
-            &:nth-child(odd) {
-                animation-name: appear-left;
-            }
-        }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
     }
+  }
 
-    .neo-content {
-        font-size: min(max(2.3vw, 16px), 30px);
+  @keyframes appear-right {
+    0% {
+      opacity: 0;
+      transform: translateX(400%);
     }
+    90% {
+      opacity: .3;
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 
-    .neo-h1 {
-        font-size  : min(max(5.5vw, 30px), 64px);
-        text-align : center;
-        margin     : 0;
-        line-height: 1em;
-    }
+  &:not(:first-child) {
+    &:not(:last-child) {
+      animation-timeline: view(block 100% -500%);
+      animation-fill-mode: both;
+      animation-duration: 1ms; /* Firefox requires this to apply the animation */
+      animation-timing-function: linear;
 
-    .neo-h2 {
-        font-size  : min(max(3.5vw, 24px), 44px);
-        font-weight: 600;
-        text-align : center;
-        margin     : 0;
-        line-height: 1em;
-    }
+      &:nth-child(even) {
+        animation-name: appear-right;
+      }
 
-    .page-live-preview {
-        margin: 0;
+      &:nth-child(odd) {
+        animation-name: appear-left;
+      }
     }
+  }
+
+  .neo-content {
+    font-size: min(max(2.3vw, 16px), 30px);
+  }
+
+  .neo-h1.neo-h1 {
+    font-size: min(max(5.5vw, 30px), 64px);
+    text-align: center;
+    margin: min(max(5.5vw, 30px), 64px) 0 0;
+    line-height: 1em;
+  }
+
+  .neo-h2.neo-h2 {
+    font-size: min(max(3.5vw, 24px), 44px);
+    font-weight: 600;
+    text-align: center;
+    margin: min(max(3.5vw, 24px), 44px) 0 0;
+    line-height: 1em;
+  }
+
+  .neo-h3.neo-h3 {
+    font-size: min(max(2vw, var(--core-fontsize-body)), 21px);
+    max-width: 40em;
+    margin: 3em auto 1em;
+
+    &:last-of-type {
+      margin-bottom: 3em;
+    }
+  }
+
+  .page-live-preview {
+    margin: 0;
+  }
 }

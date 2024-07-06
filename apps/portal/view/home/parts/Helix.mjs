@@ -1,5 +1,6 @@
 import BaseContainer from './BaseContainer.mjs';
 import LivePreview   from '../../../../../src/code/LivePreview.mjs';
+import Button        from "../../../../../src/button/Base.mjs";
 
 /**
  * @class Portal.view.home.parts.Helix
@@ -15,17 +16,17 @@ class Helix extends BaseContainer {
         /**
          * @member {Object} responsive
          */
-        responsive: {
-            medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
-            large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
-        },
+        // responsive: {
+        //     medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
+        //     large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
+        // },
         /**
          * @member {Object[]} items
          */
         items: [{
             ntype : 'container',
-            flex  : '1',
-            style : {padding: '2rem'},
+            flex  : 'none',
+            style : {paddingTop: '2rem', overflow: 'visible'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
             items : [{
                 cls : 'neo-h1',
@@ -33,41 +34,55 @@ class Helix extends BaseContainer {
                 html: 'Extreme Speed',
                 vdom: {tag: 'h1'}
             }, {
-                cls : 'neo-h2',
-                flex: 'none',
-                html: '40,000 Updates /s',
-                vdom: {tag: 'h2'}
-            }, {
-                cls : 'neo-h3',
-                flex: 'none',
-                vdom: {tag: 'p'},
+                ntype: 'container',
+                cls  : 'overlay-outer',
+                items: [{
+                    ntype: 'container',
+                    cls  : 'overlay-container',
+                    items: [{
+                        cls : 'neo-h2 overlay-content',
+                        flex: 'none',
+                        html: '40,000 Updates /s',
+                        vdom: {tag: 'h2'}
+                    }, {
+                        cls : 'neo-h3 overlay-content',
+                        vdom: {tag: 'p'},
+                        html: [
+                            'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. ',
+                            'Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. ',
+                            'As you do, look at the delta updates counter at the top. ',
+                            'Neo.mjs easily handles 40,000 updates per second, and beyond.'
+                        ].join('')
+                    }, {
+                        cls : 'neo-h3 overlay-content',
+                        vdom: {tag: 'p'},
+                        html: [
+                            'Click on the small window icon in the Helix Controls title bar and the controls open in their own window ',
+                            'which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; ',
+                            'the logic updates the controls just like before, and framework seamlessly handles updating the DOM across windows.'
+                        ].join('')
+                    }, {
+                        module : Button,
+                        cls    : 'toggle-button',
+                        iconCls: 'fa fa-angle-up',
+                        state  : 'down',
+                        handler: function (event) {
+                            const button           = event.component,
+                                  overlayContainer = button.up();
 
-                html: [
-                    'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. ',
-                    'Move your cursor over the helix, then rapidly scroll left and right to rotate, and up and down to zoom. ',
-                    'As you do, look at the delta updates counter at the top. ',
-                    'Neo.mjs easily handles 40,000 updates per second, and beyond.'
-                ].join('')
-            }, {
-                cls : 'neo-h1',
-                flex: 'none',
-                html: 'Multi-Window',
-                vdom: {tag: 'h1'}
-            }, {
-                cls : 'neo-h2',
-                flex: 'none',
-                html: 'Seamless and Simple',
-                vdom: {tag: 'h2'}
-            }, {
-                cls : 'neo-h3',
-                flex: 'none',
-                vdom: {tag: 'p'},
-
-                html: [
-                    'Click on the small window icon in the Helix Controls title bar and the controls open in their own window ',
-                    'which can be moved to a separate monitor. But the application logic doesn\'t care &mdash; ',
-                    'the logic updates the controls just like before, and framework seamlessly handles updating the DOM across windows.'
-                ].join('')
+                            if (button.state === 'down') {
+                                button.iconCls = 'fa fa-angle-down';
+                                overlayContainer.addCls('hidden');
+                                button.state = 'up';
+                            } else {
+                                button.iconCls = 'fa fa-angle-up';
+                                overlayContainer.removeCls('hidden');
+                                button.state = 'down';
+                            }
+                            button.update();
+                        }
+                    }]
+                }]
             }]
         }, {
             ntype : 'container',
