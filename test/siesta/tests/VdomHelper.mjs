@@ -41,7 +41,7 @@ StartTest(t => {
         vdom.cls = ['neo-component'];
         t.diag("vdom.cls = ['neo-component'];");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -65,7 +65,7 @@ StartTest(t => {
         vdom.cls = ['neo-panel', 'neo-container', 'neo-component'];
         t.diag("vdom.cls = ['neo-panel', 'neo-container', 'neo-component'];");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -89,7 +89,7 @@ StartTest(t => {
         vdom.cls = ['neo-container'];
         t.diag("vdom.cls = ['neo-container'];");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -115,7 +115,7 @@ StartTest(t => {
         vdom.style = {backgroundColor: 'red'};
         t.diag("vdom.style = {backgroundColor: 'red'};");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -138,7 +138,7 @@ StartTest(t => {
         vdom.style = {backgroundColor: 'red', color: 'green', height: '100px'};
         t.diag("vdom.style = {backgroundColor: 'red', color: 'green', height: '100px'};");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -162,7 +162,7 @@ StartTest(t => {
         vdom.style = {color: 'green'};
         t.diag("vdom.style = {color: 'green'};");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -188,7 +188,7 @@ StartTest(t => {
         vdom.tabIndex = -1;
         t.diag("vdom.tabIndex = -1;");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {tabIndex: '-1'},
@@ -211,7 +211,7 @@ StartTest(t => {
         vdom.tabIndex = 0;
         t.diag("vdom.tabIndex = 0;");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {tabIndex: '0'},
@@ -234,7 +234,7 @@ StartTest(t => {
         delete vdom.tabIndex;
         t.diag("delete vdom.tabIndex;");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -259,7 +259,7 @@ StartTest(t => {
         vdom.cn = [{tag: 'div'}, {tag: 'div', id: 'neo-button-1'}, {tag: 'div'}];
         t.diag("vdom.cn = [{tag: 'div'}, {tag: 'div', id: 'neo-button-1'}, {tag: 'div'}];");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
         VDomUtil.syncVdomIds(vnode, vdom);
 
         t.isDeeplyStrict(vnode, {
@@ -287,7 +287,7 @@ StartTest(t => {
         tmp = vdom.cn[0]; vdom.cn[0] = vdom.cn[2]; vdom.cn[2] = tmp;
         t.diag("tmp = vdom.cn[0]; vdom.cn[0] = vdom.cn[2]; vdom.cn[2] = tmp;");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -313,7 +313,7 @@ StartTest(t => {
         vdom.cn.push(vdom.cn.shift()); // left shift
         t.diag("vdom.cn.push(vdom.cn.shift());");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -339,7 +339,7 @@ StartTest(t => {
         vdom.cn.unshift(vdom.cn.pop()); // right shift
         t.diag("vdom.cn.unshift(vdom.cn.pop());");
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -412,7 +412,7 @@ StartTest(t => {
             {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1}
         ];
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -430,10 +430,12 @@ StartTest(t => {
             ]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 3, 'Count deltas equals 3');
+
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-list-1__jsakalos', parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__mrsunshine'},
-            {action: 'removeNode', id: 'neo-list-1__rwaters'}
+            {action: 'removeNode', id: 'neo-list-1__jsakalos',   parentId: 'neo-list-1'},
+            {action: 'removeNode', id: 'neo-list-1__mrsunshine', parentId: 'neo-list-1'},
+            {action: 'removeNode', id: 'neo-list-1__rwaters',    parentId: 'neo-list-1'}
         ], 'deltas got created successfully');
 
         t.diag("recreate the 3 removed items");
@@ -447,7 +449,7 @@ StartTest(t => {
             {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1}
         ];
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -468,6 +470,8 @@ StartTest(t => {
             ]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 3, 'Count deltas equals 3');
+
         t.isDeeplyStrict(deltas, [
             {action: 'insertNode', id: 'neo-list-1__jsakalos',   index: 2, outerHTML: '<li class="neo-list-item" id="neo-list-1__jsakalos" tabIndex="-1">Jozef</li>',  parentId: 'neo-list-1'},
             {action: 'insertNode', id: 'neo-list-1__mrsunshine', index: 3, outerHTML: '<li class="neo-list-item" id="neo-list-1__mrsunshine" tabIndex="-1">Nils</li>', parentId: 'neo-list-1'},
@@ -483,7 +487,7 @@ StartTest(t => {
             {tag: 'li', cls: ['neo-list-item'], html: 'Nils',    id: 'neo-list-1__mrsunshine',    tabIndex: -1}
         ];
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -505,14 +509,14 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'neo-list-1__tobiu', index: 2, parentId: 'neo-list-1'},
             {action: 'removeNode', id: 'neo-list-1__jsakalos',        parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__rwaters'}
+            {action: 'removeNode', id: 'neo-list-1__rwaters',         parentId: 'neo-list-1'}
         ], 'deltas got created successfully');
 
         t.diag("remove first list item");
 
         vdom.cn.splice(0, 1);
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode.childNodes, [
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__camtnbikerrwc', innerHTML: 'Gerard',  nodeName: 'li', style: {}, vtype: 'vnode'},
@@ -535,7 +539,7 @@ StartTest(t => {
             {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1}
         ];
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode.childNodes, [
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__bhaustein',     innerHTML: 'Bastian', nodeName: 'li', style: {}, vtype: 'vnode'},
@@ -603,7 +607,7 @@ StartTest(t => {
             {id: '0', html: 'g'}
         ];
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -678,7 +682,7 @@ StartTest(t => {
         // replace level 2 with level 3
         vdom.cn = vdom.cn[0].cn;
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -763,7 +767,7 @@ StartTest(t => {
         // replace level 2 with level 3
         vdom.cn = vdom.cn[0].cn;
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -821,7 +825,7 @@ StartTest(t => {
         // adding a new node
         vdom.cn.splice(1, 0, {id: 'new-node'})
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
@@ -862,11 +866,13 @@ StartTest(t => {
             }]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 4, 'Count deltas equals 4');
+
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
+            {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)},
             {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
-            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'},
-            {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)}
+            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'}
         ], 'deltas got created successfully');
     });
 });

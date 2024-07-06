@@ -39,7 +39,7 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-1'},
@@ -62,7 +62,7 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
@@ -94,7 +94,9 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 2, 'Count deltas equals 2');
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-2'},
@@ -109,7 +111,7 @@ StartTest(t => {
             {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event']}]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
@@ -142,7 +144,9 @@ StartTest(t => {
             {id: 'neo-column-2', cls: ['neo-c-w-column'], cn: []}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 2, 'Count deltas equals 2');
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-1'},
@@ -161,12 +165,14 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 3, 'Count deltas equals 3');
 
         t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'}, // todo: does not hurt, but not needed
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-2'},
-            {cls: {add: [], remove: ['foo']}, id: 'neo-event-2'},
-            {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'} // todo: does not hurt, but not needed
+            {cls: {add: [], remove: ['foo']}, id: 'neo-event-2'}
         ], 'deltas got created successfully');
     });
 
@@ -189,7 +195,7 @@ StartTest(t => {
             {id: 'neo-column-3'}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-column-1', parentId: 'neo-calendar-week'}
@@ -204,7 +210,7 @@ StartTest(t => {
             {id: 'neo-column-3'}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'insertNode', id: 'neo-column-1', index:0, outerHTML: '<div id="neo-column-1"></div>', parentId: 'neo-calendar-week'}
@@ -219,10 +225,10 @@ StartTest(t => {
             {id: 'neo-column-3', removeDom: true}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-column-3'}
+            {action: 'removeNode', id: 'neo-column-3', parentId: 'neo-calendar-week'}
         ], 'deltas got created successfully');
 
         t.diag('Revert operation');
@@ -234,7 +240,7 @@ StartTest(t => {
             {id: 'neo-column-3'}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'insertNode', id: 'neo-column-3', index:2, outerHTML: '<div id="neo-column-3"></div>', parentId: 'neo-calendar-week'}
@@ -250,7 +256,7 @@ StartTest(t => {
         vdom =
         {id: 'neo-1', removeDom: true};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-1'}
@@ -283,7 +289,7 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'},
@@ -332,7 +338,7 @@ StartTest(t => {
             ]}
         ]};
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-calendar-calendars-list-1__1', parentId: 'neo-calendar-calendars-list-1'}
@@ -2378,19 +2384,11 @@ StartTest(t => {
             }]
         };
 
-        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-168', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-171', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'},
             {action: 'insertNode', id: 'neo-vnode-3', index: 14, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-06-27', index: 15, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-04', index: 16, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
@@ -2398,7 +2396,15 @@ StartTest(t => {
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-18', index: 18, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-25', index: 19, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-vnode-6', index: 20, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)}
+            {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-vnode-168',                     parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-vnode-171',                     parentId: 'neo-vnode-150'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'}
         ], 'deltas got created successfully');
 
 
