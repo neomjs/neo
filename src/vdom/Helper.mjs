@@ -149,7 +149,7 @@ class Helper extends Base {
                 } else if (prop === 'attributes') { // find removed attributes
                     Object.keys(oldVnode[prop]).forEach(attr => {
                         if (!vnode[prop].hasOwnProperty(attr)) {
-                            vnode[prop][attr] = null;
+                            vnode[prop][attr] = null
                         }
                     })
                 }
@@ -267,7 +267,7 @@ class Helper extends Base {
                         continue
                     }
 
-                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
+                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
             } else if (childNode) {
                 me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
@@ -673,7 +673,6 @@ class Helper extends Base {
          * Rationale: Trees to remove could contain nodes which we want to re-use (move),
          * so we need to execute the removeNode OPs last.
          */
-
         deltas = [
             ...deltas.filter(item => item.action !== 'removeNode'),
             ...deltas.filter(item => item.action === 'removeNode')
