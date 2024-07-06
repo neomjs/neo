@@ -68,9 +68,30 @@
         height          : 9rem;
         overflow        : hidden;
 
+        &:before {
+            content: '';
+            position: absolute;
+            background: linear-gradient(90deg, var(--button-text-color-active) 0%, var(--button-text-color-active) 50%, rgba(0, 0, 0, 0) 100%);
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 30px;
+            z-index: 11;
+        }
+        &:after {
+            content: '';
+            position: absolute;
+            background: linear-gradient(270deg, var(--button-text-color-active) 0%, var(--button-text-color-active) 50%, rgba(0, 0, 0, 0) 100%);
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 30px;
+            z-index: 11;
+        }
         .neo-carousel-item {
             height : 9rem;
             padding: 15px;
+            text-align: center;
         }
     }
 }
