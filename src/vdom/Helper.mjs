@@ -244,7 +244,6 @@ class Helper extends Base {
             i             = 0,
             indexDelta    = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
-            removeDeltas  = [],
             childNode, oldChildNode;
 
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
@@ -258,9 +257,7 @@ class Helper extends Base {
                     me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
                     if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
-                        // The node to remove could contain nodes which still need to get moved.
-                        // We need to process these deltas once the loop is finished.
-                        removeDeltas.push({action: 'removeNode', id: oldChildNode.id});
+                        deltas.push({action: 'removeNode', id: oldChildNode.id});
 
                         NeoArray.remove(oldVnodeMap.get(oldChildNode.id).parentNode.childNodes, oldChildNode);
                         i--;
@@ -278,8 +275,6 @@ class Helper extends Base {
                 }
             }
         }
-
-        deltas.push(...removeDeltas);
 
         return deltas
     }
@@ -666,10 +661,24 @@ class Helper extends Base {
      * @returns {Object|Promise<Object>}
      */
     update(opts) {
-        let me        = this,
-            vnode     = me.parseHelper(opts.vdom),
-            deltas    = me.createDeltas({oldVnode: opts.vnode, vnode}),
-            returnObj = {deltas, updateVdom: true, vnode};
+        let me     = this,
+            vnode  = me.parseHelper(opts.vdom),
+            deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
+
+        /*
+         * Instead of managing 2 separate arrays for removeNode deltas & other OPs (which we'd need to pass to several methods),
+         * we just order the resulting deltas here.
+         *
+         * Rationale: Trees to remove could contain nodes which we want to re-use (move),
+         * so we need to execute the removeNode OPs last.
+         */
+
+        deltas = [
+            ...deltas.filter(item => item.action !== 'removeNode'),
+            ...deltas.filter(item => item.action === 'removeNode')
+        ];
+
+        let returnObj = {deltas, updateVdom: true, vnode};
 
         return Neo.config.useVdomWorker ? returnObj : Promise.resolve(returnObj)
     }
