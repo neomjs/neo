@@ -257,17 +257,21 @@ class Helper extends Base {
                 if (childNode.id === oldChildNode.id) {
                     me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
-                    me.insertOrMoveNode({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
-
                     if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
                         // The node to remove could contain nodes which still need to get moved.
                         // We need to process these deltas once the loop is finished.
-                        removeDeltas.push({action: 'removeNode', id: oldChildNode.id})
+                        removeDeltas.push({action: 'removeNode', id: oldChildNode.id});
+
+                        NeoArray.remove(oldVnodeMap.get(oldChildNode.id).parentNode.childNodes, oldChildNode);
+                        i--;
+                        continue
                     }
+
+                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
             } else if (childNode) {
                 me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
-            } else { // oldChildNode
+            } else if (oldChildNode) {
                 // Remove node, if no longer inside the new tree
                 if (!vnodeMap.get(oldChildNode.id)) {
                     deltas.push({action: 'removeNode', id: oldChildNode.id})
@@ -508,15 +512,18 @@ class Helper extends Base {
      */
     insertOrMoveNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
-            details    = vnodeMap.get(vnode.id),
-            {index}    = details,
-            parentId   = details.parentNode.id,
-            movedNode  = oldVnodeMap.get(vnode.id),
-            me         = this;
+            details   = vnodeMap.get(vnode.id),
+            {index}   = details,
+            parentId  = details.parentNode.id,
+            movedNode = oldVnodeMap.get(vnode.id),
+            me        = this,
+            movedParentNode;
 
         if (!movedNode) {
             me.insertNode(config)
         } else {
+            console.log(vnode.id, index, movedNode.parentNode.childNodes.indexOf(movedNode.vnode), [...movedNode.parentNode.childNodes]);
+
             deltas.push({
                 action: 'moveNode',
                 id      : vnode.id,
@@ -524,7 +531,15 @@ class Helper extends Base {
                 parentId
             });
 
-            me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
+            me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap});
+
+            movedParentNode = movedNode.parentNode;
+
+            if (parentId === movedParentNode.id) {
+                let {childNodes} = movedParentNode;
+
+                NeoArray.move(childNodes, childNodes.indexOf(movedNode.vnode), index)
+            }
         }
 
         return deltas

@@ -430,6 +430,8 @@ StartTest(t => {
             ]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 3, 'Count deltas equals 3');
+
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-list-1__jsakalos', parentId: 'neo-list-1'},
             {action: 'removeNode', id: 'neo-list-1__mrsunshine'},
@@ -467,6 +469,8 @@ StartTest(t => {
                 {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__tobiu',         innerHTML: 'Tobias',  nodeName: 'li', style: {}, vtype: 'vnode'}
             ]
         }, 'vnode got updated successfully');
+
+        t.is(deltas.length, 3, 'Count deltas equals 3');
 
         t.isDeeplyStrict(deltas, [
             {action: 'insertNode', id: 'neo-list-1__jsakalos',   index: 2, outerHTML: '<li class="neo-list-item" id="neo-list-1__jsakalos" tabIndex="-1">Jozef</li>',  parentId: 'neo-list-1'},
