@@ -257,9 +257,7 @@ class Helper extends Base {
                     me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
                     if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
-                        deltas.push({action: 'removeNode', id: oldChildNode.id});
-
-                        NeoArray.remove(oldVnodeMap.get(oldChildNode.id).parentNode.childNodes, oldChildNode);
+                        me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
                         i--;
                         continue
                     }
@@ -271,7 +269,7 @@ class Helper extends Base {
             } else if (oldChildNode) {
                 // Remove node, if no longer inside the new tree
                 if (!vnodeMap.get(oldChildNode.id)) {
-                    deltas.push({action: 'removeNode', id: oldChildNode.id})
+                    me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap})
                 }
             }
         }
@@ -517,8 +515,6 @@ class Helper extends Base {
         if (!movedNode) {
             me.insertNode(config)
         } else {
-            console.log(vnode.id, index, movedNode.parentNode.childNodes.indexOf(movedNode.vnode), [...movedNode.parentNode.childNodes]);
-
             deltas.push({
                 action: 'moveNode',
                 id      : vnode.id,
@@ -650,6 +646,24 @@ class Helper extends Base {
         });
 
         return new VNode(node)
+    }
+
+    /**
+     * @param {Object}         config
+     * @param {Object[]}       config.deltas
+     * @param {Neo.vdom.VNode} config.oldVnode
+     * @param {Map}            config.oldVnodeMap
+     * @returns {Object[]} deltas
+     */
+    removeNode(config) {
+        let {deltas, oldVnode, oldVnodeMap} = config,
+            {parentNode} = oldVnodeMap.get(oldVnode.id);
+
+        deltas.push({action: 'removeNode', id: oldVnode.id, parentId: parentNode.id});
+
+        NeoArray.remove(parentNode.childNodes, oldVnode);
+
+        return deltas
     }
 
     /**
