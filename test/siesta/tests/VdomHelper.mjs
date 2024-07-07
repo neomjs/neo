@@ -54,12 +54,8 @@ StartTest(t => {
             vtype     : 'vnode'
         }, 'vnode got updated successfully');
 
-        t.isDeeplyStrict(deltas, [{
-            id : 'neo-vnode-1',
-            cls: {
-                add   : ['neo-component'],
-                remove: []
-            }
+        t.isDeeplyStrict(deltas, [
+            {id: 'neo-vnode-1', cls: {add: ['neo-component']}
         }], 'deltas got created successfully');
 
         vdom.cls = ['neo-panel', 'neo-container', 'neo-component'];
@@ -78,12 +74,8 @@ StartTest(t => {
             vtype     : 'vnode'
         }, 'vnode got updated successfully');
 
-        t.isDeeplyStrict(deltas, [{
-            id : 'neo-vnode-1',
-            cls: {
-                add   : ['neo-panel', 'neo-container'],
-                remove: []
-            }
+        t.isDeeplyStrict(deltas, [
+            {id: 'neo-vnode-1', cls: {add: ['neo-panel', 'neo-container']}
         }], 'deltas got created successfully');
 
         vdom.cls = ['neo-container'];
@@ -102,12 +94,8 @@ StartTest(t => {
             vtype     : 'vnode'
         }, 'vnode got updated successfully');
 
-        t.isDeeplyStrict(deltas, [{
-            id : 'neo-vnode-1',
-            cls: {
-                add   : [],
-                remove: ['neo-panel', 'neo-component']
-            }
+        t.isDeeplyStrict(deltas, [
+            {id: 'neo-vnode-1', cls: {remove: ['neo-panel', 'neo-component']}
         }], 'deltas got created successfully');
     });
 

@@ -115,7 +115,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
-            {cls: {add: [], remove: ['foo']}, id: 'neo-event-1'},
+            {cls: {remove: ['foo']}, id: 'neo-event-1'},
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-2'} // todo: does not hurt, but not needed
         ], 'deltas got created successfully');
     });
@@ -172,7 +172,7 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'}, // todo: does not hurt, but not needed
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-2'},
-            {cls: {add: [], remove: ['foo']}, id: 'neo-event-2'}
+            {cls: {remove: ['foo']}, id: 'neo-event-2'}
         ], 'deltas got created successfully');
     });
 

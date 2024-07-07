@@ -139,7 +139,7 @@ StartTest(t => {
             {id: 'neo-component-2', style: {backgroundColor: 'red'}},
             {action: 'moveNode', id: 'neo-component-3', index: 2, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-4', index: 3, parentId: 'neo-vnode-2'},
-            {id: 'neo-component-4', cls: {add: ['custom-cls'], remove: []}},
+            {id: 'neo-component-4', cls: {add: ['custom-cls']}},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-vnode-2'}
         ], 'Deltas got created successfully');
@@ -182,7 +182,7 @@ StartTest(t => {
             {id: 'neo-component-2', style: {backgroundColor: null}},
             {action: 'moveNode', id: 'neo-component-3', index: 2, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-4', index: 3, parentId: 'neo-container-1'},
-            {id: 'neo-component-4', cls: {add: [], remove: ['custom-cls']}},
+            {id: 'neo-component-4', cls: {remove: ['custom-cls']}},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-container-1'},
             {action: 'removeNode', id: 'neo-vnode-1'}

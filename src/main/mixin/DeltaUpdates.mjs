@@ -225,8 +225,8 @@ class DeltaUpdates extends Base {
                         });
                         break
                     case 'cls':
-                        node.classList.add(...value.add || []);
-                        node.classList.remove(...value.remove || []);
+                        value.add    && node.classList.add(...value.add);
+                        value.remove && node.classList.remove(...value.remove);
                         break
                     case 'innerHTML':
                         node.innerHTML = value || '';

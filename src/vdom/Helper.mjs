@@ -205,7 +205,10 @@ class Helper extends Base {
                         }
 
                         if (add.length > 0 || remove.length > 0) {
-                            delta.cls = {add, remove}
+                            delta.cls = {};
+
+                            if (add   .length > 0) {delta.cls.add    = add}
+                            if (remove.length > 0) {delta.cls.remove = remove}
                         }
                         break
                 }
