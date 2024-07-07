@@ -433,9 +433,9 @@ StartTest(t => {
         t.is(deltas.length, 3, 'Count deltas equals 3');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-list-1__jsakalos',   parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__mrsunshine', parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__rwaters',    parentId: 'neo-list-1'}
+            {action: 'removeNode', id: 'neo-list-1__jsakalos'},
+            {action: 'removeNode', id: 'neo-list-1__mrsunshine'},
+            {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ], 'deltas got created successfully');
 
         t.diag("recreate the 3 removed items");
@@ -508,8 +508,8 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'neo-list-1__tobiu', index: 2, parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__jsakalos',        parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__rwaters',         parentId: 'neo-list-1'}
+            {action: 'removeNode', id: 'neo-list-1__jsakalos'},
+            {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ], 'deltas got created successfully');
 
         t.diag("remove first list item");
@@ -525,7 +525,7 @@ StartTest(t => {
         ], 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-list-1__bhaustein', parentId: 'neo-list-1'}
+            {action: 'removeNode', id: 'neo-list-1__bhaustein'}
         ], 'deltas got created successfully');
 
         t.diag("restore the initial list state");
@@ -802,7 +802,7 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
             {action: 'moveNode',   id: 'level-3-2', index: 1, parentId: 'level-1'},
-            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'}
+            {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
 
@@ -872,7 +872,7 @@ StartTest(t => {
             {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
             {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)},
             {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
-            {action: 'removeNode', id: 'level-2',             parentId: 'level-1'}
+            {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
 });

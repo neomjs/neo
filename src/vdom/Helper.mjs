@@ -644,9 +644,14 @@ class Helper extends Base {
      */
     removeNode(config) {
         let {deltas, oldVnode, oldVnodeMap} = config,
+            delta        = {action: 'removeNode', id: oldVnode.id},
             {parentNode} = oldVnodeMap.get(oldVnode.id);
 
-        deltas.push({action: 'removeNode', id: oldVnode.id, parentId: parentNode.id});
+        if (oldVnode.type === 'text') {
+            delta.parentId = parentNode.id
+        }
+
+        deltas.push(delta);
 
         NeoArray.remove(parentNode.childNodes, oldVnode);
 

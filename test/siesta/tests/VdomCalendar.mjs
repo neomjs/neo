@@ -198,7 +198,7 @@ StartTest(t => {
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-column-1', parentId: 'neo-calendar-week'}
+            {action: 'removeNode', id: 'neo-column-1'}
         ], 'deltas got created successfully');
 
         t.diag('Revert operation');
@@ -228,7 +228,7 @@ StartTest(t => {
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-column-3', parentId: 'neo-calendar-week'}
+            {action: 'removeNode', id: 'neo-column-3'}
         ], 'deltas got created successfully');
 
         t.diag('Revert operation');
@@ -341,7 +341,7 @@ StartTest(t => {
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-calendar-calendars-list-1__1', parentId: 'neo-calendar-calendars-list-1'}
+            {action: 'removeNode', id: 'neo-calendar-calendars-list-1__1'}
         ], 'deltas got created successfully');
     });
 
@@ -2397,14 +2397,14 @@ StartTest(t => {
             {action: 'insertNode', id: 'neo-component-6__week__2021-07-25', index: 19, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-vnode-6', index: 20, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'insertNode', id: 'neo-component-6__week__2021-08-01', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-168',                     parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21', parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-vnode-171',                     parentId: 'neo-vnode-150'},
-            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28', parentId: 'neo-vnode-150'}
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-21'},
+            {action: 'removeNode', id: 'neo-vnode-168'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-02-28'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-07'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-14'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-21'},
+            {action: 'removeNode', id: 'neo-vnode-171'},
+            {action: 'removeNode', id: 'neo-component-6__week__2021-03-28'}
         ], 'deltas got created successfully');
 
 
