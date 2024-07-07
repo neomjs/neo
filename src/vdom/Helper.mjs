@@ -277,7 +277,8 @@ class Helper extends Base {
             } else if (oldChildNode) {
                 // Remove node, if no longer inside the new tree
                 if (!vnodeMap.get(oldChildNode.id)) {
-                    me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap})
+                    me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
+                    i--
                 }
             }
         }
