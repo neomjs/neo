@@ -266,11 +266,10 @@ class Helper extends Base {
                 } else {
                     if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
                         me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
-                        i--;
-                        continue
+                        i--
+                    } else {
+                        me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
                     }
-
-                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
             } else if (childNode) {
                 me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
