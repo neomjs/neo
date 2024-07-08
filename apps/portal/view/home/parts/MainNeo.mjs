@@ -28,13 +28,8 @@ class MainNeo extends BaseContainer {
         }, {
             cls : ['neo-h1'],
             flex: 'none',
-            html: 'The High-Performance Web Framework for Next Generation Interfaces',
+            html: 'Harness the Power of Multi-Threading for Ultra-Fast Frontends',
             vdom: {tag: 'h1'}
-        }, {
-            cls : ['neo-h3'],
-            ntype: 'component',
-            html: 'Extreme speed. Multi-threaded. Multi-window. Smple code.',
-            vdom: {tag: 'h3'}
         }, {
             ntype: 'container',
             cls  : ['button-group'],
