@@ -18,6 +18,7 @@ class NeoArray extends Base {
      * Only primitive items will get found as duplicates
      * @param {Array} arr
      * @param {*} items
+     * @returns {Array}
      */
     static add(arr, items) {
         if (!Array.isArray(items)) {
@@ -50,6 +51,41 @@ class NeoArray extends Base {
      */
     static hasItem(arr, item) {
         return arr.includes(item)
+    }
+
+    /**
+     * Inserts an item or Array of items to an array in case it does not already exist.
+     * Duplicates will only get matched by reference.
+     * @param {Array} arr
+     * @param {Number} index
+     * @param {*} items
+     * @returns {Array}
+     */
+    static insert(arr, index, items) {
+        if (!Array.isArray(items)) {
+            items = [items]
+        }
+
+        let len = items.length -1,
+            i   = len,
+            currentIndex, item;
+
+        // Iterate backwards
+        for (; i > -1; i--) {
+            item = items[i];
+
+            currentIndex = arr.indexOf(item);
+
+            if (index !== currentIndex) {
+                if (currentIndex > -1) {
+                    this.move(arr, currentIndex, index)
+                } else {
+                    arr.splice(index, 0, item)
+                }
+            }
+        }
+
+        return arr
     }
 
     /**
