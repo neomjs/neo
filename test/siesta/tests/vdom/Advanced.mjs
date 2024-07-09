@@ -71,7 +71,7 @@ StartTest(t => {
             {                    id: 'neo-event-2', cls: {add: ['foo3']}},
             {                    id: 'neo-event-2__time', innerHTML: '06:00'},
             {                    id: 'neo-column-2', cls: {add: ['foo4']}}
-        ], 'deltas got created successfully');
+        ], 'Deltas got created successfully');
     });
 
     t.it('Add, Move & Edit multiple Events', t => {
@@ -149,6 +149,6 @@ StartTest(t => {
             {action: 'insertNode', id: 'neo-event-7',        index: 0, parentId: 'neo-column-2', outerHTML: t.any(String)},
             {                      id: 'neo-event-2',        cls: {remove: ['foo2']}},
             {action: 'removeNode', id: 'neo-event-3'}
-        ], 'deltas got created successfully');
+        ], 'Deltas got created successfully');
     });
 });
