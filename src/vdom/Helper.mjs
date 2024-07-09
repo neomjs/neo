@@ -493,11 +493,11 @@ class Helper extends Base {
             {index, parentNode} = details,
             parentId            = parentNode.id,
             movedNode           = oldVnodeMap.get(vnode.id),
-            me                  = this,
+            addDelta            = false,
             movedParentNode;
 
         if (!movedNode) {
-            me.insertNode(config)
+            this.insertNode(config)
         } else {
             movedParentNode = movedNode.parentNode;
 
@@ -520,17 +520,18 @@ class Helper extends Base {
                 }
 
                 childNodes = movedNode.parentNode.childNodes;
-
-                deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
+                addDelta   = true
             } else if (index !== childNodes.indexOf(movedNode.vnode)) {
                 // Only add a move delta, in case there is a real index change
-                deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
+                addDelta = true
             }
+
+            addDelta && deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
 
             // Add the node into the old vnode tree to simplify future OPs
             NeoArray.insert(childNodes, index, movedNode.vnode);
 
-            me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
+            this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
         }
 
         return deltas
