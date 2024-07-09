@@ -232,16 +232,18 @@ class Helper extends Base {
      * @returns {Object[]} deltas
      */
     createDeltas(config) {
-        let {deltas=[], oldVnode, vnode} = config;
+        let {deltas=[], oldVnode, vnode} = config,
+            oldVnodeId = oldVnode?.id,
+            vnodeId    = vnode?.id;
 
         // Edge case: setting `removeDom: true` on a top-level vdom node
-        if (!vnode && oldVnode?.id) {
-            deltas.push({action: 'removeNode', id: oldVnode.id});
+        if (!vnode && oldVnodeId) {
+            deltas.push({action: 'removeNode', id: oldVnodeId});
             return deltas
         }
 
-        if (vnode.id !== oldVnode.id) {
-            throw new Error(`createDeltas() must get called for the same node. ${vnode.id}, ${oldVnode.id}`);
+        if (vnodeId !== oldVnodeId) {
+            throw new Error(`createDeltas() must get called for the same node. ${vnodeId}, ${oldVnodeId}`);
         }
 
         let me            = this,
@@ -254,6 +256,11 @@ class Helper extends Base {
             childNode, nodeInNewTree, oldChildNode;
 
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
+
+        if (childNodes.length === 0 && oldChildNodes.length > 1) {
+            deltas.push({action: 'removeAll', parentId: vnodeId});
+            return deltas
+        }
 
         for (; i < len; i++) {
             childNode    = childNodes[i];
@@ -280,7 +287,7 @@ class Helper extends Base {
                  * This prevents not needed negative index-shifts for the current child node.
                  * See: https://github.com/neomjs/neo/issues/5549
                  */
-                if (childNode && vnode.id !== nodeInNewTree.parentNode.id && oldVnodeMap.get(childNode.id)) {
+                if (childNode && vnodeId !== nodeInNewTree.parentNode.id && oldVnodeMap.get(childNode.id)) {
                     me.insertOrMoveNode({deltas, oldVnodeMap, silent: true, vnode: nodeInNewTree.vnode, vnodeMap});
                     i--;
                     continue
@@ -715,8 +722,8 @@ class Helper extends Base {
          * so we need to execute the removeNode OPs last.
          */
         deltas = [
-            ...deltas.filter(item => item.action !== 'removeNode'),
-            ...deltas.filter(item => item.action === 'removeNode')
+            ...deltas.filter(item => item.action !== 'removeAll' && item.action !== 'removeNode'),
+            ...deltas.filter(item => item.action === 'removeAll' || item.action === 'removeNode')
         ];
 
         let returnObj = {deltas, updateVdom: true, vnode};

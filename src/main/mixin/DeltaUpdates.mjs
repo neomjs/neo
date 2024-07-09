@@ -134,6 +134,18 @@ class DeltaUpdates extends Base {
 
     /**
      * @param {Object} delta
+     * @param {String} delta.parentId
+     */
+    du_removeAll(delta) {
+        let node = this.getElement(delta.parentId);
+
+        if (node) {
+            node.innerHTML = ''
+        }
+    }
+
+    /**
+     * @param {Object} delta
      * @param {String} delta.id
      * @param {String} delta.parentId
      */
@@ -311,6 +323,7 @@ class DeltaUpdates extends Base {
             focusNode     : me.du_focusNode,
             insertNode    : me.du_insertNode,
             moveNode      : me.du_moveNode,
+            removeAll     : me.du_removeAll,
             removeNode    : me.du_removeNode,
             replaceChild  : me.du_replaceChild,
             setTextContent: me.du_setTextContent,
