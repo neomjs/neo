@@ -60,8 +60,6 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
-        console.log(deltas);
-
         t.is(deltas.length, 8, 'Count deltas equals 8');
 
         t.isDeeplyStrict(deltas, [
@@ -69,7 +67,7 @@ StartTest(t => {
             {                    id: 'neo-event-3', cls: {add: ['foo1']}},
             {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-1'},
             {                    id: 'neo-event-4', cls: {add: ['foo2']}},
-            {action: 'moveNode', id: 'neo-event-2', index: 2, parentId: 'neo-column-1'}, // todo: not needed
+            {action: 'moveNode', id: 'neo-event-2', index: 2, parentId: 'neo-column-1'},
             {                    id: 'neo-event-2', cls: {add: ['foo3']}},
             {                    id: 'neo-event-2__time', innerHTML: '06:00'},
             {                    id: 'neo-column-2', cls: {add: ['foo4']}}
