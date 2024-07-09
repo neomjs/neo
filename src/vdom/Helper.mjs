@@ -3,7 +3,6 @@ import NeoArray  from '../util/Array.mjs';
 import NeoString from '../util/String.mjs';
 import Style     from '../util/Style.mjs';
 import VNode     from './VNode.mjs';
-import VNodeUtil from '../util/VNode.mjs';
 
 /**
  * The central class for the VDom worker to create vnodes & delta updates.
