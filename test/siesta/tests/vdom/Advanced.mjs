@@ -128,7 +128,7 @@ StartTest(t => {
                 {id: 'neo-event-2', cn: [ // moved from column-1
                     {id: 'neo-event-2__time',  html: '10:00'},
                     {id: 'neo-event-2__title', html: 'Event 2'}
-                ]},
+                ]}
             ]}
         ]};
 
