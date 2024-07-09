@@ -168,10 +168,9 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
-        t.is(deltas.length, 3, 'Count deltas equals 3');
+        t.is(deltas.length, 2, 'Count deltas equals 2');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'}, // todo: does not hurt, but not needed
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-2'},
             {cls: {remove: ['foo']}, id: 'neo-event-2'}
         ], 'deltas got created successfully');
