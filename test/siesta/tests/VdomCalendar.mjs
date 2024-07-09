@@ -100,7 +100,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-2'},
-            {cls: {add: ['foo'], remove: []}, id: 'neo-event-1'}
+            {cls: {add: ['foo']}, id: 'neo-event-1'}
         ], 'deltas got created successfully');
 
         t.diag('Revert operation');
@@ -113,10 +113,11 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
+        t.is(deltas.length, 2, 'Count deltas equals 2');
+
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
-            {cls: {remove: ['foo']}, id: 'neo-event-1'},
-            {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-2'} // todo: does not hurt, but not needed
+            {cls: {remove: ['foo']}, id: 'neo-event-1'}
         ], 'deltas got created successfully');
     });
 
@@ -150,7 +151,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-1'},
-            {cls: {add: ['foo'], remove: []}, id: 'neo-event-2'}
+            {cls: {add: ['foo']}, id: 'neo-event-2'}
         ], 'deltas got created successfully');
 
         t.diag('Revert operation');
@@ -291,9 +292,10 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
+        t.is(deltas.length, 1, 'Count deltas equals 1');
+
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'},
-            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-2'}  // todo: does not hurt, but not needed
+            {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'}
         ], 'deltas got created successfully');
 
         t.diag('Remove the first item inside the calendars list');

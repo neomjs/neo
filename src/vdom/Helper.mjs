@@ -489,27 +489,48 @@ class Helper extends Base {
      */
     insertOrMoveNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
-            details   = vnodeMap.get(vnode.id),
-            {index}   = details,
-            parentId  = details.parentNode.id,
-            movedNode = oldVnodeMap.get(vnode.id),
-            me        = this,
+            details             = vnodeMap.get(vnode.id),
+            {index, parentNode} = details,
+            parentId            = parentNode.id,
+            movedNode           = oldVnodeMap.get(vnode.id),
+            me                  = this,
             movedParentNode;
 
         if (!movedNode) {
             me.insertNode(config)
         } else {
-            deltas.push({action: 'moveNode', id: vnode.id, index, parentId});
-
-            me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap});
-
             movedParentNode = movedNode.parentNode;
 
-            if (parentId === movedParentNode.id) {
-                let {childNodes} = movedParentNode;
+            let {childNodes} = movedParentNode;
 
-                NeoArray.move(childNodes, childNodes.indexOf(movedNode.vnode), index)
+            if (parentId !== movedParentNode.id) {
+                // We need to remove the node from the old parent childNodes
+                // (which must not be the same as the node they got moved into)
+                NeoArray.remove(childNodes, movedNode.vnode);
+
+                let oldParentNode = oldVnodeMap.get(parentId);
+
+                if (oldParentNode) {
+                    // If moved into a new parent node, update the reference inside the flat map
+                    movedNode.parentNode = oldParentNode.vnode
+                } else {
+                    // Not ideal. util.Array: insert() might need a change to search items by different content
+                    // instead of reference. Open a ticket in case you run into an issue.
+                    movedNode.parentNode = Neo.clone(parentNode, true)
+                }
+
+                childNodes = movedNode.parentNode.childNodes;
+
+                deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
+            } else if (index !== childNodes.indexOf(movedNode.vnode)) {
+                // Only add a move delta, in case there is a real index change
+                deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
             }
+
+            // Add the node into the old vnode tree to simplify future OPs
+            NeoArray.insert(childNodes, index, movedNode.vnode);
+
+            me.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
         }
 
         return deltas
