@@ -231,6 +231,7 @@ relating to changes to the store. The event handler if a function run when the e
 A binding detects a changed view model value, and assigns it to a property. 
 
 
+
 ### When to use an event
 
 Events and event handlers are used when you need to run non-trivial logic in response to the event. For example, you 
@@ -245,9 +246,87 @@ like a button click or component focus.
 A binding is a way to keep properties in sync with values in the view model hierarchy. For example, button text, 
 field values, or store properties, can simultaneously reflect the same view model property. That's pretty handy, 
 but keep in mind that a class can define a property as a _lifecycle property_. That means that updating a property
-can may result in complex logic being triggered. Furthermore, a _two way binding_ meansx 
+can may result in complex logic being triggered. Furthermore, a _two way binding_ means a change to a property 
+will automatically be reflected in the view model.
 
+### A simple comparison
 
+To contrast syntax, and to illustrate the simplicity of a binding, let's look at two exmaples of updating a component
+to reflect the value of a text field. THe first example uses events; the second uses bindings.
+
+<pre data-neo>
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
+import Component from '../component/Base.mjs';
+
+class MainView extends Container {    
+    static config = {
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+
+        items: [{
+            module   : TextField,
+            labelText: 'Text',
+            reference: 'textFieldOne',
+            value: 'Hello',
+            listeners: {
+                change    : 'up.onTextChange'
+            }
+        }, {
+            module   : TextField,
+            labelText: 'Text',
+            reference: 'textFieldTwo',
+            value: 'world!',
+            listeners: {
+                change    : 'up.onTextChange'
+            }
+        }, {
+            module: Component,
+            reference: 'foo',
+        }]        
+    }
+    onTextChange(data){
+        this.getReference('foo').html = `${this.getReference('textFieldOne').value} ${this.getReference('textFieldTwo').value}`
+    }
+}
+Neo.setupClass(MainView);
+</pre>
+
+<pre data-neo>
+import Container from '../container/Base.mjs';
+import TextField from '../form/field/Text.mjs';
+import Component from '../component/Base.mjs';
+
+class MainView extends Container {    
+    static config = {
+        className: 'Example.view.MainView',
+        model: {
+            data: {
+                foo: 'Hello',
+                bar: 'world!'
+            }
+        },
+        layout   : {ntype:'vbox', align:'start'},
+        
+        items: [{
+            module   : TextField,
+            labelText: 'Text',
+            bind: {value: {twoWay: true, value: data => data.foo}}
+        }, {
+            module   : TextField,
+            labelText: 'Text',
+            bind: {value: {twoWay: true, value: data => data.bar}}
+        }, {
+            module: Component,
+            bind: {html: data => `${data.foo} ${data.bar}`}
+        }]
+    }
+    onTextChange(data){
+        this.getReference('foo').html = data.value;
+    }
+}
+Neo.setupClass(MainView);
+</pre>
 
 ##
 
