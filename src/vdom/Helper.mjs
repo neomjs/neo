@@ -260,18 +260,14 @@ class Helper extends Base {
             childNode    = childNodes[i];
             oldChildNode = oldChildNodes[i];
 
-            // Remove node, if no longer inside the new tree
-            if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
+            if (childNode && childNode.id === oldChildNode?.id) {
+                me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
+            } else if (oldChildNode && !vnodeMap.get(oldChildNode.id)) {
+                // Remove node, if no longer inside the new tree
                 me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
                 i--
-            } else if (childNode && oldChildNode) {
-                if (childNode.id === oldChildNode.id) {
-                    me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap})
-                } else {
-                    me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
-                }
             } else if (childNode) {
-                me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap});
+                me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
             }
         }
 
