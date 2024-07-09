@@ -693,8 +693,11 @@ StartTest(t => {
             }]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 2, 'Count deltas equals 2');
+
         t.isDeeplyStrict(deltas, [
-            {action: 'replaceChild', fromId: 'level-2', parentId: 'level-1', toId: 'level-3'}
+            {action: 'moveNode', id: 'level-3', index: 0, parentId: 'level-1'},
+            {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
 
