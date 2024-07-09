@@ -33,7 +33,7 @@ StartTest(t => {
         ], 'Deltas got created successfully');
     });
 
-    t.it('Remove all Table Rows', t => {
+    t.it('Remove all Table Rows & move 2 into a different Table', t => {
         oldVdom =
         {id: 'neo-wrapper-1', cn: [
             {id: 'neo-table-container-1', cn: [
