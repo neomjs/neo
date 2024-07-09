@@ -26,19 +26,17 @@ project.plan(
     {
         group: 'vdom',
         items: [{
-            group: 'table',
-            items: [
-                'tests/vdom/table/Container.mjs'
-            ]
-        }]
-    }, {
-        group: 'vdom',
-        items: [{
             group: 'layout',
             items: [
                 'tests/vdom/layout/Cube.mjs'
             ]
-        }]
+        }, {
+            group: 'table',
+            items: [
+                'tests/vdom/table/Container.mjs'
+            ]
+        },
+        'tests/vdom/Advanced.mjs']
     }
 );
 
