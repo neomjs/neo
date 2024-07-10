@@ -3,14 +3,14 @@ import Neo       from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
 
 class TestClass extends core.Base {
-    fieldA = 1;
-    fieldB = 2;
-
     static config = {
         className: 'Neo.TestClass',
         configA_ : 3,
         configB_ : 4
     }
+
+    fieldA = 1;
+    fieldB = 2;
 
     beforeSetConfigA(value) {
         return this.fieldA + value;
@@ -21,7 +21,7 @@ class TestClass extends core.Base {
     }
 }
 
-Neo.applyClassConfig(TestClass);
+Neo.setupClass(TestClass);
 
 it('Test section', t => {
     t.it('Default class fields inside constructors', t => {
@@ -74,7 +74,7 @@ it('Test section', t => {
             }
         }
 
-        Neo.applyClassConfig(NeoCtorTest);
+        Neo.setupClass(NeoCtorTest);
 
         Neo.create(NeoCtorTest);
 
@@ -281,7 +281,7 @@ it('Test section', t => {
             }
         }
 
-        Neo.applyClassConfig(AdvancedClass);
+        Neo.setupClass(AdvancedClass);
 
         let instance = Neo.create(AdvancedClass);
 
