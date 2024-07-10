@@ -70,6 +70,17 @@ StartTest(t => {
             {                    id: 'neo-column-2', cls: {add: ['foo4']}}
         ], 'Deltas got created successfully');
 
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-1'},
+            {                    id: 'neo-event-3', cls: {add: ['foo1']}},
+            {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-1'},
+            {                    id: 'neo-event-4', cls: {add: ['foo2']}},
+            {action: 'moveNode', id: 'neo-event-2', index: 2, parentId: 'neo-column-1'},
+            {                    id: 'neo-event-2', cls: {add: ['foo3']}},
+            {                    id: 'neo-event-2__time', innerHTML: '06:00'},
+            {                    id: 'neo-column-2', cls: {add: ['foo4']}}
+        ], 'Deltas got created successfully');
+
         t.diag('Revert operation');
 
         vdom =
@@ -101,15 +112,15 @@ StartTest(t => {
         t.is(deltas.length, 8, 'Count deltas equals 8');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-2'},
-            {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-2'},
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
             {                    id: 'neo-event-2', cls: {remove: ['foo3']}},
             {                    id: 'neo-event-2__time', innerHTML: '10:00'},
             {                    id: 'neo-column-2', cls: {remove: ['foo4']}},
+            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-2'},
             {                    id: 'neo-event-3',  cls: {remove: ['foo1']}},
+            {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-2'},
             {                    id: 'neo-event-4',  cls: {remove: ['foo2']}}
-        ], 'Deltas got created successfully');
+        ], 'Deltas got created successfully')
     });
 
     t.it('Add, Move & Edit multiple Events', t => {
@@ -177,15 +188,14 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'insertNode',                           index: 0, parentId: 'neo-column-1', outerHTML: t.any(String)},
             {action: 'insertNode',                           index: 1, parentId: 'neo-column-1', outerHTML: t.any(String)},
-            {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-4'},
-            {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-4'},
             {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-4__title', index: 1, parentId: 'neo-event-1'},
             {                      id: 'neo-event-4__title', innerHTML: 'Event 4_new'},
-            // index: 0 would be correct, but a bigger index does not matter
-            {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-2'},
+            {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-4'},
+            {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-4'},
             {                      id: 'neo-column-2',       cls: {remove: ['foo4']}},
             {action: 'insertNode',                           index: 0, parentId: 'neo-column-2', outerHTML: t.any(String)},
+            {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-2'},
             {                      id: 'neo-event-2',        cls: {remove: ['foo2']}},
             {action: 'removeNode', id: 'neo-event-3'}
         ], 'Deltas got created successfully');
@@ -220,13 +230,13 @@ StartTest(t => {
         t.is(deltas.length, 12, 'Count deltas equals 12');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-4'},
-            {action: 'moveNode',   id: 'neo-event-4__title', index: 1, parentId: 'neo-event-4'},
             {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-1'},
             {                      id: 'neo-event-2',        cls: {add: ['foo2']}},
             {action: 'insertNode',                           index: 2, parentId: 'neo-column-1', outerHTML: t.any(String)},
+            {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-4'},
+            {action: 'moveNode',   id: 'neo-event-4__title', index: 1, parentId: 'neo-event-4'},
             {                      id: 'neo-event-4__title', innerHTML: 'Event 4'},
             {                      id: 'neo-column-2',       cls: {add: ['foo4']}},
             {action: 'removeNode', id: 'neo-event-5'},

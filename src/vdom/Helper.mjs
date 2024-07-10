@@ -252,6 +252,7 @@ class Helper extends Base {
             childNodes    = vnode   .childNodes || [],
             oldChildNodes = oldVnode.childNodes || [],
             i             = 0,
+            indexDelta    = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, nodeInNewTree, oldChildNode;
 
@@ -264,8 +265,13 @@ class Helper extends Base {
 
         for (; i < len; i++) {
             childNode    = childNodes[i];
-            oldChildNode = oldChildNodes[i];
+            oldChildNode = oldChildNodes[i + indexDelta];
 
+            if (!childNode && !oldChildNode) {
+                break
+            }
+
+            // Same node, continue recursively
             if (childNode && childNode.id === oldChildNode?.id) {
                 me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
                 continue
@@ -274,22 +280,17 @@ class Helper extends Base {
             if (oldChildNode) {
                 nodeInNewTree = vnodeMap.get(oldChildNode.id);
 
+                // Remove node, if no longer inside the new tree
                 if (!nodeInNewTree) {
-                    // Remove node, if no longer inside the new tree
                     me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
                     i--;
                     continue
                 }
 
-                /*
-                 * The old child node got moved into a different not processed array.
-                 * Let us move it there first, without calling createDeltas() further (it will get processed later).
-                 * This prevents not needed negative index-shifts for the current child node.
-                 * See: https://github.com/neomjs/neo/issues/5549
-                 */
-                if (childNode && vnodeId !== nodeInNewTree.parentNode.id && oldVnodeMap.get(childNode.id)) {
-                    me.insertOrMoveNode({deltas, oldVnodeMap, silent: true, vnode: nodeInNewTree.vnode, vnodeMap});
+                // The old child node got moved into a different not processed array. It will get picked up there.
+                if (childNode && vnodeId !== nodeInNewTree.parentNode.id) {
                     i--;
+                    indexDelta++;
                     continue
                 }
             }
@@ -505,13 +506,12 @@ class Helper extends Base {
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Map}            config.oldVnodeMap
-     * @param {Boolean}        [config.silent=false] true will skipp further createDeltas() calls
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      * @returns {Object} deltas
      */
     insertOrMoveNode(config) {
-        let {deltas, oldVnodeMap, silent=false, vnode, vnodeMap} = config,
+        let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
             details             = vnodeMap.get(vnode.id),
             {index, parentNode} = details,
             parentId            = parentNode.id,
@@ -554,7 +554,7 @@ class Helper extends Base {
             // Add the node into the old vnode tree to simplify future OPs
             NeoArray.insert(childNodes, index, movedNode.vnode);
 
-            !silent && this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
+            this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
         }
 
         return deltas
