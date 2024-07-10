@@ -1,9 +1,6 @@
 import Neo        from '../../../../src/Neo.mjs';
 import * as core  from '../../../../src/core/_export.mjs';
-import NeoArray   from '../../../../src/util/Array.mjs';
-import Style      from '../../../../src/util/Style.mjs';
 import VdomHelper from '../../../../src/vdom/Helper.mjs';
-import VDomUtil   from '../../../../src/util/VDom.mjs';
 
 let deltas, output, vdom, vnode;
 
