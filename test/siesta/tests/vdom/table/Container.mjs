@@ -50,11 +50,11 @@ StartTest(t => {
         t.is(deltas.length, 5, 'Count deltas equals 5');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-table-row-1', index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
-            {action: 'insertNode', id: 'neo-table-row-2', index: 1, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-2"></tr>'},
-            {action: 'insertNode', id: 'neo-table-row-3', index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},
-            {action: 'insertNode', id: 'neo-table-row-4', index: 3, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-4"></tr>'},
-            {action: 'insertNode', id: 'neo-table-row-5', index: 4, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-5"></tr>'}
+            {action: 'insertNode', index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
+            {action: 'insertNode', index: 1, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-2"></tr>'},
+            {action: 'insertNode', index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},
+            {action: 'insertNode', index: 3, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-4"></tr>'},
+            {action: 'insertNode', index: 4, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-5"></tr>'}
         ], 'Deltas got created successfully');
     });
 
@@ -123,11 +123,11 @@ StartTest(t => {
         t.is(deltas.length, 5, 'Count deltas equals 5');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-table-row-1', index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
+            {action: 'insertNode',                        index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
             {action: 'moveNode',   id: 'neo-table-row-2', index: 1, parentId: 'neo-table-view-1'},
-            {action: 'insertNode', id: 'neo-table-row-3', index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},
+            {action: 'insertNode',                        index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},
             {action: 'moveNode',   id: 'neo-table-row-4', index: 3, parentId: 'neo-table-view-1'},
-            {action: 'insertNode', id: 'neo-table-row-5', index: 4, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-5"></tr>'}
+            {action: 'insertNode',                        index: 4, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-5"></tr>'}
         ], 'Deltas got created successfully');
     });
 });

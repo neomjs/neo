@@ -490,7 +490,7 @@ class Helper extends Base {
             movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
             outerHTML  = me.createStringFromVnode(vnode, movedNodes);
 
-        deltas.default.push({action: 'insertNode', id: vnode.id, index, outerHTML, parentId});
+        deltas.default.push({action: 'insertNode', index, outerHTML, parentId});
 
         // Insert the new node into the old tree, to simplify future OPs
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);

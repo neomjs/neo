@@ -175,8 +175,8 @@ StartTest(t => {
         t.is(deltas.length, 12, 'Count deltas equals 12');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-event-5',        index: 0, parentId: 'neo-column-1', outerHTML: t.any(String)},
-            {action: 'insertNode', id: 'neo-event-6',        index: 1, parentId: 'neo-column-1', outerHTML: t.any(String)},
+            {action: 'insertNode',                           index: 0, parentId: 'neo-column-1', outerHTML: t.any(String)},
+            {action: 'insertNode',                           index: 1, parentId: 'neo-column-1', outerHTML: t.any(String)},
             {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-4'},
             {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-4'},
             {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-1'},
@@ -185,7 +185,7 @@ StartTest(t => {
             // index: 0 would be correct, but a bigger index does not matter
             {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-2'},
             {                      id: 'neo-column-2',       cls: {remove: ['foo4']}},
-            {action: 'insertNode', id: 'neo-event-7',        index: 0, parentId: 'neo-column-2', outerHTML: t.any(String)},
+            {action: 'insertNode',                           index: 0, parentId: 'neo-column-2', outerHTML: t.any(String)},
             {                      id: 'neo-event-2',        cls: {remove: ['foo2']}},
             {action: 'removeNode', id: 'neo-event-3'}
         ], 'Deltas got created successfully');
@@ -226,7 +226,7 @@ StartTest(t => {
             {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-1'},
             {                      id: 'neo-event-2',        cls: {add: ['foo2']}},
-            {action: 'insertNode', id: 'neo-event-3',        index: 2, parentId: 'neo-column-1', outerHTML: t.any(String)},
+            {action: 'insertNode',                           index: 2, parentId: 'neo-column-1', outerHTML: t.any(String)},
             {                      id: 'neo-event-4__title', innerHTML: 'Event 4'},
             {                      id: 'neo-column-2',       cls: {add: ['foo4']}},
             {action: 'removeNode', id: 'neo-event-5'},
@@ -275,18 +275,18 @@ StartTest(t => {
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-wrapper-1',   index: 0, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-1"></div>'},
+            {action: 'insertNode',                        index: 0, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-1"></div>'},
             {action: 'moveNode',   id: 'neo-component-1', index: 0, parentId: 'neo-wrapper-1'},
             {                      id: 'neo-component-1', cls: {add: ['foo1']}},
-            {action: 'insertNode', id: 'neo-wrapper-2',   index: 1, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-2"><div id="neo-wrapper-3"></div></div>'},
+            {action: 'insertNode',                        index: 1, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-2"><div id="neo-wrapper-3"></div></div>'},
             {action: 'moveNode',   id: 'neo-component-2', index: 0, parentId: 'neo-wrapper-3'},
             {                      id: 'neo-component-2', cls: {add: ['foo2']}},
-            {action: 'insertNode', id: 'neo-wrapper-4',   index: 2, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-4"></div>'},
+            {action: 'insertNode',                        index: 2, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-4"></div>'},
             {action: 'moveNode',   id: 'neo-component-3', index: 0, parentId: 'neo-wrapper-4'},
             {                      id: 'neo-component-3', cls: {add: ['foo3']}},
             {action: 'moveNode',   id: 'neo-component-4', index: 1, parentId: 'neo-wrapper-4'},
             {                      id: 'neo-component-4', cls: {add: ['foo4']}},
-            {action: 'insertNode', id: 'neo-wrapper-5',   index: 3, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-5"><div id="neo-wrapper-6"></div></div>'},
+            {action: 'insertNode',                        index: 3, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-5"><div id="neo-wrapper-6"></div></div>'},
             {action: 'moveNode',   id: 'neo-component-5', index: 0, parentId: 'neo-wrapper-5'},
             {                      id: 'neo-component-5', cls: {add: ['foo5']}},
             {action: 'moveNode',   id: 'neo-component-6', index: 0, parentId: 'neo-wrapper-6'},

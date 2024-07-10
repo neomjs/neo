@@ -267,9 +267,9 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-vnode-2',  index: 0, outerHTML: '<div id="neo-vnode-2"></div>',  parentId: 'neo-vnode-1'},
-            {action: 'insertNode', id: 'neo-button-1', index: 1, outerHTML: '<div id="neo-button-1"></div>', parentId: 'neo-vnode-1'},
-            {action: 'insertNode', id: 'neo-vnode-3',  index: 2, outerHTML: '<div id="neo-vnode-3"></div>',  parentId: 'neo-vnode-1'}
+            {action: 'insertNode', index: 0, outerHTML: '<div id="neo-vnode-2"></div>',  parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 1, outerHTML: '<div id="neo-button-1"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 2, outerHTML: '<div id="neo-vnode-3"></div>',  parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
 
         tmp = vdom.cn[0]; vdom.cn[0] = vdom.cn[2]; vdom.cn[2] = tmp;
@@ -461,9 +461,9 @@ StartTest(t => {
         t.is(deltas.length, 3, 'Count deltas equals 3');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', id: 'neo-list-1__jsakalos',   index: 2, outerHTML: '<li class="neo-list-item" id="neo-list-1__jsakalos" tabIndex="-1">Jozef</li>',  parentId: 'neo-list-1'},
-            {action: 'insertNode', id: 'neo-list-1__mrsunshine', index: 3, outerHTML: '<li class="neo-list-item" id="neo-list-1__mrsunshine" tabIndex="-1">Nils</li>', parentId: 'neo-list-1'},
-            {action: 'insertNode', id: 'neo-list-1__rwaters',    index: 4, outerHTML: '<li class="neo-list-item" id="neo-list-1__rwaters" tabIndex="-1">Rich</li>',    parentId: 'neo-list-1'}
+            {action: 'insertNode', index: 2, outerHTML: '<li class="neo-list-item" id="neo-list-1__jsakalos" tabIndex="-1">Jozef</li>',  parentId: 'neo-list-1'},
+            {action: 'insertNode', index: 3, outerHTML: '<li class="neo-list-item" id="neo-list-1__mrsunshine" tabIndex="-1">Nils</li>', parentId: 'neo-list-1'},
+            {action: 'insertNode', index: 4, outerHTML: '<li class="neo-list-item" id="neo-list-1__rwaters" tabIndex="-1">Rich</li>',    parentId: 'neo-list-1'}
         ], 'deltas got created successfully');
 
         t.diag("remove items at index: 2, 4, switch nils & tobi");
@@ -696,7 +696,7 @@ StartTest(t => {
         t.is(deltas.length, 2, 'Count deltas equals 2');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'level-3', index: 0, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3', index: 0, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
@@ -861,7 +861,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
-            {action: 'insertNode', id: 'new-node',  index: 1, parentId: 'level-1', outerHTML: t.any(String)},
+            {action: 'insertNode',                  index: 1, parentId: 'level-1', outerHTML: t.any(String)},
             {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');

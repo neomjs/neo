@@ -39,7 +39,6 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {
                 action   : 'insertNode',
-                id       : 'neo-vnode-1',
                 index    : 0,
                 outerHTML: '<div id="neo-vnode-1"><div id="neo-vnode-2"></div></div>',
                 parentId : 'neo-container-1'
@@ -129,17 +128,16 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {
                 action   : 'insertNode',
-                id       : 'neo-vnode-1',
                 index    : 0,
                 outerHTML: '<div id="neo-vnode-1"><div id="neo-vnode-2"></div></div>',
                 parentId : 'neo-container-1'
             },
             {action: 'moveNode', id: 'neo-component-1', index: 0, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-2', index: 1, parentId: 'neo-vnode-2'},
-            {id: 'neo-component-2', style: {backgroundColor: 'red'}},
+            {                    id: 'neo-component-2', style: {backgroundColor: 'red'}},
             {action: 'moveNode', id: 'neo-component-3', index: 2, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-4', index: 3, parentId: 'neo-vnode-2'},
-            {id: 'neo-component-4', cls: {add: ['custom-cls']}},
+            {                    id: 'neo-component-4', cls: {add: ['custom-cls']}},
             {action: 'moveNode', id: 'neo-component-5', index: 4, parentId: 'neo-vnode-2'},
             {action: 'moveNode', id: 'neo-component-6', index: 5, parentId: 'neo-vnode-2'}
         ], 'Deltas got created successfully');
