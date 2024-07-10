@@ -122,18 +122,18 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object[]}       config.deltas
+     * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object[]} deltas
+     * @returns {Object} deltas
      */
     compareAttributes(config) {
         let {deltas, oldVnode, vnode, vnodeMap} = config,
             attributes, delta, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
-            deltas.push({
+            deltas.default.push({
                 action  : 'updateVtext',
                 id      : vnode.id,
                 parentId: vnodeMap.get(vnode.id).parentNode.id,
@@ -214,7 +214,7 @@ class Helper extends Base {
 
                 if (Object.keys(delta).length > 0) {
                     delta.id = vnode.id;
-                    deltas.push(delta)
+                    deltas.default.push(delta)
                 }
             })
         }
@@ -224,21 +224,21 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object[]}       config.deltas=[]
+     * @param {Object}         config.deltas={default: [], remove: []}
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object[]} deltas
+     * @returns {Object} deltas
      */
     createDeltas(config) {
-        let {deltas=[], oldVnode, vnode} = config,
+        let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
             oldVnodeId = oldVnode?.id,
             vnodeId    = vnode?.id;
 
         // Edge case: setting `removeDom: true` on a top-level vdom node
         if (!vnode && oldVnodeId) {
-            deltas.push({action: 'removeNode', id: oldVnodeId});
+            deltas.remove.push({action: 'removeNode', id: oldVnodeId});
             return deltas
         }
 
@@ -258,7 +258,7 @@ class Helper extends Base {
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
 
         if (childNodes.length === 0 && oldChildNodes.length > 1) {
-            deltas.push({action: 'removeAll', parentId: vnodeId});
+            deltas.remove.push({action: 'removeAll', parentId: vnodeId});
             return deltas
         }
 
@@ -475,11 +475,11 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object[]}       config.deltas
+     * @param {Object}         config.deltas
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object[]} deltas
+     * @returns {Object} deltas
      */
     insertNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
@@ -490,7 +490,7 @@ class Helper extends Base {
             movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
             outerHTML  = me.createStringFromVnode(vnode, movedNodes);
 
-        deltas.push({action: 'insertNode', id: vnode.id, index, outerHTML, parentId});
+        deltas.default.push({action: 'insertNode', id: vnode.id, index, outerHTML, parentId});
 
         // Insert the new node into the old tree, to simplify future OPs
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
@@ -499,7 +499,7 @@ class Helper extends Base {
             let {id}     = details,
                 parentId = details.parentNode.id;
 
-            deltas.push({action: 'moveNode', id, index: details.index, parentId});
+            deltas.default.push({action: 'moveNode', id, index: details.index, parentId});
 
             me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
         });
@@ -509,12 +509,12 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object[]}       config.deltas
+     * @param {Object}         config.deltas
      * @param {Map}            config.oldVnodeMap
      * @param {Boolean}        [config.silent=false] true will skipp further createDeltas() calls
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object[]} deltas
+     * @returns {Object} deltas
      */
     insertOrMoveNode(config) {
         let {deltas, oldVnodeMap, silent=false, vnode, vnodeMap} = config,
@@ -555,7 +555,7 @@ class Helper extends Base {
                 addDelta = true
             }
 
-            addDelta && deltas.push({action: 'moveNode', id: vnode.id, index, parentId})
+            addDelta && deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
 
             // Add the node into the old vnode tree to simplify future OPs
             NeoArray.insert(childNodes, index, movedNode.vnode);
@@ -680,10 +680,10 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object[]}       config.deltas
+     * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
-     * @returns {Object[]} deltas
+     * @returns {Object} deltas
      */
     removeNode(config) {
         let {deltas, oldVnode, oldVnodeMap} = config,
@@ -694,7 +694,7 @@ class Helper extends Base {
             delta.parentId = parentNode.id
         }
 
-        deltas.push(delta);
+        deltas.remove.push(delta);
 
         NeoArray.remove(parentNode.childNodes, oldVnode);
 
@@ -714,17 +714,9 @@ class Helper extends Base {
             vnode  = me.parseHelper(opts.vdom),
             deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 
-        /*
-         * Instead of managing 2 separate arrays for removeNode deltas & other OPs (which we'd need to pass to several methods),
-         * we just order the resulting deltas here.
-         *
-         * Rationale: Trees to remove could contain nodes which we want to re-use (move),
-         * so we need to execute the removeNode OPs last.
-         */
-        deltas = [
-            ...deltas.filter(item => item.action !== 'removeAll' && item.action !== 'removeNode'),
-            ...deltas.filter(item => item.action === 'removeAll' || item.action === 'removeNode')
-        ];
+        // Trees to remove could contain nodes which we want to re-use (move),
+        // so we need to execute the removeNode OPs last.
+        deltas = deltas.default.concat(deltas.remove);
 
         let returnObj = {deltas, updateVdom: true, vnode};
 
