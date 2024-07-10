@@ -248,7 +248,6 @@ StartTest(t => {
 
         vnode = VdomHelper.create(vdom);
 
-
         vdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-wrapper-1', cn: [ // single wrapper
@@ -292,6 +291,41 @@ StartTest(t => {
             {                      id: 'neo-component-5', cls: {add: ['foo5']}},
             {action: 'moveNode',   id: 'neo-component-6', index: 0, parentId: 'neo-wrapper-6'},
             {                      id: 'neo-component-6', cls: {add: ['foo6']}}
+        ], 'Deltas got created successfully');
+
+        t.diag('Revert operation');
+
+        vdom =
+        {id: 'neo-container-1', cn: [
+            {id: 'neo-component-1'},
+            {id: 'neo-component-2'},
+            {id: 'neo-component-3'},
+            {id: 'neo-component-4'},
+            {id: 'neo-component-5'},
+            {id: 'neo-component-6'}
+        ]};
+
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 16, 'Count deltas equals 16');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode',   id: 'neo-component-1', index: 0, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-1', cls: {remove: ['foo1']}},
+            {action: 'moveNode',   id: 'neo-component-2', index: 1, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-2', cls: {remove: ['foo2']}},
+            {action: 'moveNode',   id: 'neo-component-3', index: 2, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-3', cls: {remove: ['foo3']}},
+            {action: 'moveNode',   id: 'neo-component-4', index: 3, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-4', cls: {remove: ['foo4']}},
+            {action: 'moveNode',   id: 'neo-component-5', index: 4, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-5', cls: {remove: ['foo5']}},
+            {action: 'moveNode',   id: 'neo-component-6', index: 5, parentId: 'neo-container-1'},
+            {                      id: 'neo-component-6', cls: {remove: ['foo6']}},
+            {action: 'removeNode', id: 'neo-wrapper-1'},
+            {action: 'removeNode', id: 'neo-wrapper-2'},
+            {action: 'removeNode', id: 'neo-wrapper-4'},
+            {action: 'removeNode', id: 'neo-wrapper-5'}
         ], 'Deltas got created successfully');
     });
 });
