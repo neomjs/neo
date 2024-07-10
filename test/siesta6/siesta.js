@@ -5,8 +5,8 @@ const project = Project.new({
     isEcmaModule: true,
 
     preload: [{
-        text: [
-            "Neo = self.Neo || {};",
+        code: [
+            "let Neo = globalThis.Neo || {};",
             "Neo.config = Neo.config || {};",
             "Object.assign(Neo.config, {",
                 "environment : 'development',",
