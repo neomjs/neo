@@ -538,7 +538,8 @@ class Helper extends Base {
 
             deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
 
-            // Add the node into the old vnode tree to simplify future OPs
+            // Add the node into the old vnode tree to simplify future OPs.
+            // NeoArray.insert() will switch to move() in case the node already exists.
             NeoArray.insert(childNodes, index, movedNode.vnode);
 
             this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
