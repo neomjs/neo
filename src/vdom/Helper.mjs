@@ -417,7 +417,6 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} [config.parentNode=null]
      * @param {Number}         [config.index=0]
      * @param {Map}            [config.map=new Map()]
-     * @param {Boolean}        [config.reset=false]
      * @returns {Map}
      *     {String}         id vnode.id (convenience shortcut)
      *     {Number}         index
@@ -425,10 +424,8 @@ class Helper extends Base {
      *     {Neo.vdom.VNode} vnode
      */
     createVnodeMap(config) {
-        let {vnode, parentNode=null, index=0, map=new Map(), reset=false} = config,
+        let {vnode, parentNode=null, index=0, map=new Map()} = config,
             id = vnode?.id;
-
-        reset && map.clear();
 
         map.set(id, {id, index, parentNode, vnode});
 
