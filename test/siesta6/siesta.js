@@ -18,6 +18,4 @@ const project = Project.new({
 
 project.planGlob('tests/**/*.t.mjs');
 
-project.planDir('tests');
-
 project.start();

@@ -1,3 +1,4 @@
+import { it }    from '@bryntum/siesta/index.js';
 import Neo       from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
 
@@ -22,7 +23,7 @@ class TestClass extends core.Base {
 
 Neo.applyClassConfig(TestClass);
 
-StartTest(t => {
+it('Test section', t => {
     t.it('Default class fields inside constructors', t => {
         t.diag("Default class");
 
