@@ -516,7 +516,6 @@ class Helper extends Base {
             {index, parentNode} = details,
             parentId            = parentNode.id,
             movedNode           = oldVnodeMap.get(vnode.id),
-            addDelta            = false,
             movedParentNode;
 
         if (!movedNode) {
@@ -536,20 +535,12 @@ class Helper extends Base {
                 if (oldParentNode) {
                     // If moved into a new parent node, update the reference inside the flat map
                     movedNode.parentNode = oldParentNode.vnode
-                } else {
-                    // Not ideal. util.Array: insert() might need a change to search items by different content
-                    // instead of reference. Open a ticket in case you run into an issue.
-                    movedNode.parentNode = Neo.clone(parentNode, true)
                 }
 
-                childNodes = movedNode.parentNode.childNodes;
-                addDelta   = true
-            } else if (index !== childNodes.indexOf(movedNode.vnode)) {
-                // Only add a move delta, in case there is a real index change
-                addDelta = true
+                childNodes = movedNode.parentNode.childNodes
             }
 
-            addDelta && deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
+            deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
 
             // Add the node into the old vnode tree to simplify future OPs
             NeoArray.insert(childNodes, index, movedNode.vnode);
