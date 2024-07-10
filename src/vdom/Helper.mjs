@@ -224,11 +224,11 @@ class Helper extends Base {
 
     /**
      * @param {Object}         config
-     * @param {Object}         config.deltas={default: [], remove: []}
+     * @param {Object}         [config.deltas={default: [], remove: []}]
      * @param {Neo.vdom.VNode} config.oldVnode
-     * @param {Map}            config.oldVnodeMap
+     * @param {Map}            [config.oldVnodeMap]
      * @param {Neo.vdom.VNode} config.vnode
-     * @param {Map}            config.vnodeMap
+     * @param {Map}            [config.vnodeMap]
      * @returns {Object} deltas
      */
     createDeltas(config) {
@@ -247,8 +247,8 @@ class Helper extends Base {
         }
 
         let me            = this,
-            oldVnodeMap   = config.oldVnodeMap || me.createVnodeMap({vnode: oldVnode}),
-            vnodeMap      = config.vnodeMap    || me.createVnodeMap({vnode}),
+            oldVnodeMap   = config.oldVnodeMap  || me.createVnodeMap({vnode: oldVnode}),
+            vnodeMap      = config.vnodeMap     || me.createVnodeMap({vnode}),
             childNodes    = vnode   .childNodes || [],
             oldChildNodes = oldVnode.childNodes || [],
             i             = 0,
@@ -432,7 +432,7 @@ class Helper extends Base {
 
         vnode?.childNodes?.forEach((childNode, index) => {
             this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
-        })
+        });
 
         return map
     }
@@ -441,7 +441,7 @@ class Helper extends Base {
      * The logic will parse the vnode (tree) to find existing items inside a given map.
      * It will not search for further childNodes inside an already found vnode.
      * @param {Object}         config
-     * @param {Map}            config.movedNodes=new Map()
+     * @param {Map}            [config.movedNodes=new Map()]
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
@@ -474,7 +474,6 @@ class Helper extends Base {
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object} deltas
      */
     insertNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
@@ -497,9 +496,7 @@ class Helper extends Base {
             deltas.default.push({action: 'moveNode', id, index: details.index, parentId});
 
             me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
-        });
-
-        return deltas
+        })
     }
 
     /**
@@ -508,7 +505,6 @@ class Helper extends Base {
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
-     * @returns {Object} deltas
      */
     insertOrMoveNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
@@ -547,8 +543,6 @@ class Helper extends Base {
 
             this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
         }
-
-        return deltas
     }
 
     /**
@@ -668,7 +662,6 @@ class Helper extends Base {
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
-     * @returns {Object} deltas
      */
     removeNode(config) {
         let {deltas, oldVnode, oldVnodeMap} = config,
@@ -681,9 +674,7 @@ class Helper extends Base {
 
         deltas.remove.push(delta);
 
-        NeoArray.remove(parentNode.childNodes, oldVnode);
-
-        return deltas
+        NeoArray.remove(parentNode.childNodes, oldVnode)
     }
 
     /**
