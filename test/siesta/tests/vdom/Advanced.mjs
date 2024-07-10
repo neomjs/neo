@@ -70,17 +70,6 @@ StartTest(t => {
             {                    id: 'neo-column-2', cls: {add: ['foo4']}}
         ], 'Deltas got created successfully');
 
-        t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-1'},
-            {                    id: 'neo-event-3', cls: {add: ['foo1']}},
-            {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-1'},
-            {                    id: 'neo-event-4', cls: {add: ['foo2']}},
-            {action: 'moveNode', id: 'neo-event-2', index: 2, parentId: 'neo-column-1'},
-            {                    id: 'neo-event-2', cls: {add: ['foo3']}},
-            {                    id: 'neo-event-2__time', innerHTML: '06:00'},
-            {                    id: 'neo-column-2', cls: {add: ['foo4']}}
-        ], 'Deltas got created successfully');
-
         t.diag('Revert operation');
 
         vdom =
