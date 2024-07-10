@@ -534,10 +534,10 @@ class Helper extends Base {
 
                 if (oldParentNode) {
                     // If moved into a new parent node, update the reference inside the flat map
-                    movedNode.parentNode = oldParentNode.vnode
-                }
+                    movedNode.parentNode = oldParentNode.vnode;
 
-                childNodes = movedNode.parentNode.childNodes
+                    childNodes = movedNode.parentNode.childNodes
+                }
             }
 
             deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
