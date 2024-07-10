@@ -415,7 +415,6 @@ class Helper extends Base {
      * @param {Object}         config
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Neo.vdom.VNode} [config.parentNode=null]
-     * @param {String[]}       [config.parentPath=[]]
      * @param {Number}         [config.index=0]
      * @param {Map}            [config.map=new Map()]
      * @param {Boolean}        [config.reset=false]
@@ -423,20 +422,18 @@ class Helper extends Base {
      *     {String}         id vnode.id (convenience shortcut)
      *     {Number}         index
      *     {String}         parentId
-     *     {String[]}       parentPath
      *     {Neo.vdom.VNode} vnode
      */
     createVnodeMap(config) {
-        let {vnode, parentNode=null, parentPath=[], index=0, map=new Map(), reset=false} = config,
+        let {vnode, parentNode=null, index=0, map=new Map(), reset=false} = config,
             id = vnode?.id;
 
-        parentNode && parentPath.push(parentNode.id);
-        reset      && map.clear();
+        reset && map.clear();
 
-        map.set(id, {id, index, parentNode, parentPath, vnode});
+        map.set(id, {id, index, parentNode, vnode});
 
         vnode?.childNodes?.forEach((childNode, index) => {
-            this.createVnodeMap({vnode: childNode, parentNode: vnode, parentPath: [...parentPath], index, map})
+            this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
         })
 
         return map
