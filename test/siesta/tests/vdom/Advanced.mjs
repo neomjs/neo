@@ -192,5 +192,49 @@ StartTest(t => {
             {                      id: 'neo-event-2',        cls: {remove: ['foo2']}},
             {action: 'removeNode', id: 'neo-event-3'}
         ], 'Deltas got created successfully');
+
+        t.diag('Revert operation');
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1', cls: ['foo1'], cn: [
+                    {id: 'neo-event-1__time',  html: '08:00'},
+                    {id: 'neo-event-1__title', html: 'Event 1'}
+                ]},
+                {id: 'neo-event-2', cls: ['foo2'], cn: [
+                    {id: 'neo-event-2__time',  html: '10:00'},
+                    {id: 'neo-event-2__title', html: 'Event 2'}
+                ]},
+                {id: 'neo-event-3', cls: ['foo3'], cn: [
+                    {id: 'neo-event-3__time',  html: '06:00'},
+                    {id: 'neo-event-3__title', html: 'Event 3'}
+                ]},
+                {id: 'neo-event-4', cn: [
+                    {id: 'neo-event-4__time',  html: '08:00'},
+                    {id: 'neo-event-4__title', html: 'Event 4'}
+                ]}
+            ]},
+            {id: 'neo-column-2', cls: ['foo4'], cn: []}
+        ]};
+
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 12, 'Count deltas equals 12');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-4'},
+            {action: 'moveNode',   id: 'neo-event-4__title', index: 1, parentId: 'neo-event-4'},
+            {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-1'},
+            {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-1'},
+            {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-1'},
+            {                      id: 'neo-event-2',        cls: {add: ['foo2']}},
+            {action: 'insertNode', id: 'neo-event-3',        index: 2, parentId: 'neo-column-1', outerHTML: t.any(String)},
+            {                      id: 'neo-event-4__title', innerHTML: 'Event 4'},
+            {                      id: 'neo-column-2',       cls: {add: ['foo4']}},
+            {action: 'removeNode', id: 'neo-event-5'},
+            {action: 'removeNode', id: 'neo-event-6'},
+            {action: 'removeNode', id: 'neo-event-7'}
+        ], 'Deltas got created successfully');
     });
 });
