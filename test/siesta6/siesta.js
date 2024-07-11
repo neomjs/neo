@@ -1,21 +1,39 @@
-import { Project } from "@bryntum/siesta/nodejs.js"
+import { Project } from "@bryntum/siesta/index.js"
 
 const project = Project.new({
     title       : 'Neo test suite',
-    isEcmaModule: true,
-
-    preload: [{
-        code: [
-            "let Neo = globalThis.Neo || {};",
-            "Neo.config = Neo.config || {};",
-            "Object.assign(Neo.config, {",
-                "environment : 'development',",
-                "unitTestMode: true",
-            "});"
-        ].join("")
-    }]
 });
 
-project.planGlob('tests/**/*.t.mjs');
+// no "planDir/planGlob" for isomorphic projects
+project.plan(
+    {
+        url       : 'tests',
+
+        items       : [
+            {
+                url       : 'vdom',
+
+                items       : [
+                    {
+                        url       : 'layout',
+
+                        items       : [
+                            'Cube.t.mjs',
+                        ]
+                    },
+                    {
+                        url       : 'table',
+
+                        items       : [
+                            'Container.t.mjs',
+                        ]
+                    },
+                    'Advanced.t.mjs',
+                ]
+            },
+            'ClassConfigsAndFields.t.mjs',
+        ]
+    }
+)
 
 project.start();

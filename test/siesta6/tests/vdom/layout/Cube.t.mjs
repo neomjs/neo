@@ -3,6 +3,12 @@ import Neo        from '../../../../../src/Neo.mjs';
 import * as core  from '../../../../../src/core/_export.mjs';
 import VdomHelper from '../../../../../src/vdom/Helper.mjs';
 
+Neo.config = Neo.config || {};
+Object.assign(Neo.config, {
+    environment : 'development',
+    unitTestMode: true,
+})
+
 let oldVdom, oldVnode, vdom;
 
 it('Test section', t => {
@@ -37,7 +43,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 7, 'Count deltas equals 7');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {
                 action   : 'insertNode',
                 index    : 0,
@@ -84,7 +90,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 7, 'Count deltas equals 7');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode', id: 'neo-component-1', index: 0, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-2', index: 1, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-3', index: 2, parentId: 'neo-container-1'},
@@ -126,7 +132,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 9, 'Count deltas equals 9');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {
                 action   : 'insertNode',
                 index    : 0,
@@ -175,7 +181,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 9, 'Count deltas equals 9');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode', id: 'neo-component-1', index: 0, parentId: 'neo-container-1'},
             {action: 'moveNode', id: 'neo-component-2', index: 1, parentId: 'neo-container-1'},
             {id: 'neo-component-2', style: {backgroundColor: null}},
