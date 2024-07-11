@@ -3,6 +3,12 @@ import Neo        from '../../../../../src/Neo.mjs';
 import * as core  from '../../../../../src/core/_export.mjs';
 import VdomHelper from '../../../../../src/vdom/Helper.mjs';
 
+Neo.config = Neo.config || {};
+Object.assign(Neo.config, {
+    environment : 'development',
+    unitTestMode: true,
+})
+
 let deltas, output, vdom, vnode;
 
 it('Test section', t => {
@@ -29,7 +35,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 1, 'Count deltas equals 1');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'removeAll', parentId: 'neo-table-view-1'}
         ], 'Deltas got created successfully');
 
@@ -50,7 +56,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 5, 'Count deltas equals 5');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'insertNode', index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
             {action: 'insertNode', index: 1, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-2"></tr>'},
             {action: 'insertNode', index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},
@@ -95,7 +101,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 3, 'Count deltas equals 3');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode', id: 'neo-table-row-2', index: 0, parentId: 'neo-table-view-2'},
             {action: 'moveNode', id: 'neo-table-row-4', index: 1, parentId: 'neo-table-view-2'},
             {action: 'removeAll', parentId: 'neo-table-view-1'}
@@ -123,7 +129,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 5, 'Count deltas equals 5');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'insertNode',                        index: 0, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-1"></tr>'},
             {action: 'moveNode',   id: 'neo-table-row-2', index: 1, parentId: 'neo-table-view-1'},
             {action: 'insertNode',                        index: 2, parentId: 'neo-table-view-1', outerHTML: '<tr id="neo-table-row-3"></tr>'},

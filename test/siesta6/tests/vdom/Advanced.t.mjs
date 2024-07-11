@@ -3,6 +3,12 @@ import Neo        from '../../../../src/Neo.mjs';
 import * as core  from '../../../../src/core/_export.mjs';
 import VdomHelper from '../../../../src/vdom/Helper.mjs';
 
+Neo.config = Neo.config || {};
+Object.assign(Neo.config, {
+    environment : 'development',
+    unitTestMode: true,
+})
+
 let deltas, output, vdom, vnode;
 
 it('Test section', t => {
@@ -60,7 +66,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 8, 'Count deltas equals 8');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-1'},
             {                    id: 'neo-event-3', cls: {add: ['foo1']}},
             {action: 'moveNode', id: 'neo-event-4', index: 1, parentId: 'neo-column-1'},
@@ -101,7 +107,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 8, 'Count deltas equals 8');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
             {                    id: 'neo-event-2', cls: {remove: ['foo3']}},
             {                    id: 'neo-event-2__time', innerHTML: '10:00'},
@@ -175,7 +181,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 12, 'Count deltas equals 12');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'insertNode',                           index: 0, parentId: 'neo-column-1', outerHTML: t.any(String)},
             {action: 'insertNode',                           index: 1, parentId: 'neo-column-1', outerHTML: t.any(String)},
             {action: 'moveNode',   id: 'neo-event-4__time',  index: 0, parentId: 'neo-event-1'},
@@ -219,7 +225,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 12, 'Count deltas equals 12');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode',   id: 'neo-event-1__time',  index: 0, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-1__title', index: 1, parentId: 'neo-event-1'},
             {action: 'moveNode',   id: 'neo-event-2',        index: 1, parentId: 'neo-column-1'},
@@ -274,7 +280,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'insertNode',                        index: 0, parentId: 'neo-container-1', outerHTML: '<div id="neo-wrapper-1"></div>'},
             {action: 'moveNode',   id: 'neo-component-1', index: 0, parentId: 'neo-wrapper-1'},
             {                      id: 'neo-component-1', cls: {add: ['foo1']}},
@@ -309,7 +315,7 @@ it('Test section', t => {
 
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
-        t.isDeeplyStrict(deltas, [
+        t.isDeeply(deltas, [
             {action: 'moveNode',   id: 'neo-component-1', index: 0, parentId: 'neo-container-1'},
             {                      id: 'neo-component-1', cls: {remove: ['foo1']}},
             {action: 'moveNode',   id: 'neo-component-2', index: 1, parentId: 'neo-container-1'},
