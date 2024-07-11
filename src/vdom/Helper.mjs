@@ -296,7 +296,7 @@ class Helper extends Base {
             }
 
             if (childNode) {
-                me.insertOrMoveNode({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
+                me[oldVnodeMap.get(childNode.id) ? 'moveNode' : 'insertNode']({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
             }
         }
 
@@ -618,44 +618,37 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      */
-    insertOrMoveNode(config) {
+    moveNode(config) {
         let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
             details             = vnodeMap.get(vnode.id),
             {index, parentNode} = details,
             parentId            = parentNode.id,
             movedNode           = oldVnodeMap.get(vnode.id),
-            movedParentNode;
+            movedParentNode     = movedNode.parentNode,
+            {childNodes}        = movedParentNode;
 
-        if (!movedNode) {
-            this.insertNode(config)
-        } else {
-            movedParentNode = movedNode.parentNode;
+        if (parentId !== movedParentNode.id) {
+            // We need to remove the node from the old parent childNodes
+            // (which must not be the same as the node they got moved into)
+            NeoArray.remove(childNodes, movedNode.vnode);
 
-            let {childNodes} = movedParentNode;
+            let oldParentNode = oldVnodeMap.get(parentId);
 
-            if (parentId !== movedParentNode.id) {
-                // We need to remove the node from the old parent childNodes
-                // (which must not be the same as the node they got moved into)
-                NeoArray.remove(childNodes, movedNode.vnode);
+            if (oldParentNode) {
+                // If moved into a new parent node, update the reference inside the flat map
+                movedNode.parentNode = oldParentNode.vnode;
 
-                let oldParentNode = oldVnodeMap.get(parentId);
-
-                if (oldParentNode) {
-                    // If moved into a new parent node, update the reference inside the flat map
-                    movedNode.parentNode = oldParentNode.vnode;
-
-                    childNodes = movedNode.parentNode.childNodes
-                }
+                childNodes = movedNode.parentNode.childNodes
             }
-
-            deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId})
-
-            // Add the node into the old vnode tree to simplify future OPs.
-            // NeoArray.insert() will switch to move() in case the node already exists.
-            NeoArray.insert(childNodes, index, movedNode.vnode);
-
-            this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
         }
+
+        deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId});
+
+        // Add the node into the old vnode tree to simplify future OPs.
+        // NeoArray.insert() will switch to move() in case the node already exists.
+        NeoArray.insert(childNodes, index, movedNode.vnode);
+
+        this.createDeltas({deltas, oldVnode: movedNode.vnode, oldVnodeMap, vnode, vnodeMap})
     }
 
     /**
