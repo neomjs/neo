@@ -2,14 +2,16 @@
     transition: padding var(--website-transition-duration) ease-out;
 
     .neo-list-item {
-        cursor     : default;
-        display    : flex;
-        max-width  : 800px;
-        overflow   : hidden;
-        padding    : 0;
-        transition : height var(--website-transition-duration) ease-out, margin-bottom var(--website-transition-duration) ease-out;
-        white-space: normal;
-        width      : 100%;
+        cursor      : default;
+        display     : flex;
+        margin-left : auto;
+        margin-right: auto;
+        max-width   : 800px;
+        overflow    : hidden;
+        padding     : 0;
+        transition  : height var(--website-transition-duration) ease-out, margin-bottom var(--website-transition-duration) ease-out;
+        white-space : normal;
+        width       : 100%;
 
         .content {
             flex: 1;
