@@ -327,4 +327,41 @@ StartTest(t => {
             {action: 'removeNode', id: 'neo-wrapper-5'}
         ], 'Deltas got created successfully');
     });
+
+    t.it('Ignoring static nodes', t => {
+        vdom =
+        {id: 'neo-container-1', cn: [
+            {id: 'neo-component-1', static: true},
+            {id: 'neo-component-2', cn: [
+                {id: 'neo-component-3', static: true}
+            ]},
+            {id: 'neo-component-4', static: true, cn: [
+                {id: 'neo-component-5'},
+                {id: 'neo-component-6'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        t.is(vnode.outerHTML.includes('static'), false, 'The generated DOM does not include "static"');
+        t.isDeeplyStrict(vnode.static, undefined, 'Top-level VNode did not get the static attribute');
+        t.isDeeplyStrict(vnode.childNodes[0].static, true, 'First VNode childNode got the static attribute');
+
+        vdom =
+        {id: 'neo-container-1', cn: [
+            {id: 'neo-component-1', cls: ['foo1'], static: true},
+            {id: 'neo-component-2', cn: [
+                {id: 'neo-component-3', cls: ['foo3'], static: true}
+            ]},
+            {id: 'neo-component-4', static: true, cn: [
+                {id: 'neo-component-6'}, // switched the order of child items
+                {id: 'neo-component-5', cls: ['foo5']}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        // All our changes must get ignored
+        t.is(deltas.length, 0, 'Count deltas equals 0 => all static node changes got ignored');
+    });
 });

@@ -242,6 +242,10 @@ class Helper extends Base {
             return deltas
         }
 
+        if (vnode.static) {
+            return deltas
+        }
+
         if (vnodeId !== oldVnodeId) {
             throw new Error(`createDeltas() must get called for the same node. ${vnodeId}, ${oldVnodeId}`);
         }
@@ -502,6 +506,9 @@ class Helper extends Base {
                         break
                     case 'id':
                         node.id = value;
+                        break
+                    case 'static':
+                        node.static = value;
                         break
                     case 'style':
                         style = node.style;
