@@ -30,7 +30,7 @@ class Container extends BaseContainer {
                 module         : SearchField,
                 cls            : ['portal-blog-searchfield', 'neo-searchfield', 'neo-textfield'],
                 listeners      : {change: 'onBlogSearchFieldChange'},
-                placeholderText: 'Filter Items',
+                placeholderText: 'Filter Blog Items',
                 width          : 240
             }]
         }, {
