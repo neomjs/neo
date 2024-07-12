@@ -41,6 +41,7 @@ class VNode {
          */
 
         /**
+         * Valid values are "root", "text" & "vnode"
          * @member {String} vtype='vnode'
          */
 
