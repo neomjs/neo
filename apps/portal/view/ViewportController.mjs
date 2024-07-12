@@ -71,8 +71,7 @@ class ViewportController extends Controller {
      * @param {Number} data.windowId
      */
     async onAppDisconnect(data) {
-        let me                  = this,
-            {appName, windowId} = data,
+        let {appName, windowId} = data,
             app                 = Neo.apps[appName],
             mainView            = app.mainView;
 
@@ -96,7 +95,7 @@ class ViewportController extends Controller {
         }
         // Close popup windows when closing or reloading the main window
         else if (appName === 'Portal') {
-            Neo.Main.windowClose({names: me.connectedApps, windowId})
+            Neo.Main.windowCloseAll({windowId})
         }
     }
 
