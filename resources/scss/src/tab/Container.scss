@@ -22,18 +22,18 @@
             border-top: 0;
         }
     }
-}
 
-.neo-tab-container-plain {
+    &.neo-tab-container-plain {
 
-}
+    }
 
-.neo-tab-content-container {
-    border  : var(--tab-container-content-border);
-    overflow: hidden;
-}
+    .neo-tab-content-container {
+        border  : var(--tab-container-content-border);
+        overflow: hidden;
+    }
 
-.neo-tab-header-toolbar {
-    background-color: transparent;
-    padding         : 0;
+    .neo-tab-header-toolbar {
+        background-color: transparent;
+        padding         : 0;
+    }
 }
