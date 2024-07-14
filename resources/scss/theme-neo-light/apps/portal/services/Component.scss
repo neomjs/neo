@@ -3,9 +3,17 @@
 
     .info-block {
         background-color: lighten(#8BA6FF, 10%);
-        // background-color: rgb(58, 63, 94);
         border-radius   : 10px;
+        margin-left     : auto;
+        margin-right    : auto;
         margin-top      : 2em;
+        max-width       : 800px;
         padding         : 0.5em 3em 1em 3em;
+    }
+
+    h1 {
+        margin-left : auto;
+        margin-right: auto;
+        width       : fit-content;
     }
 }
