@@ -18,9 +18,9 @@ class Container extends BaseContainer {
          */
         baseCls: ['portal-blog-container', 'neo-container'],
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
-        items: [{ //#323232
+        items: [{
             module: BaseContainer,
             cls   : ['portal-blog-toolbar', 'neo-container'],
             flex  : 'none',
@@ -39,7 +39,7 @@ class Container extends BaseContainer {
             reference: 'blog-list'
         }],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

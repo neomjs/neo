@@ -16,14 +16,14 @@ class Container extends BaseContainer {
          */
         baseCls: ['portal-services-container', 'neo-container'],
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
         items: [{
             html: 'Services',
             vdom: {tag: 'h1'}
         }],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

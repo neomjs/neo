@@ -27,17 +27,17 @@ class How extends BaseContainer {
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
             items : [{
-                cls : 'neo-h1',
+                cls : ['neo-h1'],
                 flex: 'none',
                 html: 'How?',
                 vdom: {tag: 'h1'}
             }, {
-                cls : 'neo-h2',
+                cls : ['neo-h2'],
                 flex: 'none',
                 html: 'How Does Neo.mjs Do It?',
                 vdom: {tag: 'h2'}
             }, {
-                cls : 'neo-h3',
+                cls : ['neo-h3'],
                 flex: 'none',
                 vdom: {tag: 'p'},
                 html: [

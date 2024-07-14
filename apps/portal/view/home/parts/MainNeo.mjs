@@ -37,9 +37,9 @@ class MainNeo extends BaseContainer {
             items: [{
                 module : Button,
                 cls    : ['get-started-button'],
-                text   : 'Get started',
                 flex   : 'none',
-                route : '/learn'
+                route : '/learn',
+                text   : 'Get started'
             }, {
                 module: Button,
                 cls   : ['neo-github'],
