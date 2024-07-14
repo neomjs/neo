@@ -1,3 +1,11 @@
 .portal-services-component {
     padding: 1em 6em;
+
+    .info-block {
+        background-color: lighten(#8BA6FF, 10%);
+        // background-color: rgb(58, 63, 94);
+        border-radius   : 10px;
+        margin-top      : 2em;
+        padding         : 0.5em 3em 1em 3em;
+    }
 }
