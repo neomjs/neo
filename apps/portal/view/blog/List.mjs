@@ -52,7 +52,7 @@ class List extends BaseList {
         value.on({
             load : 'onBlogPostStoreLoad',
             scope: this.getController()
-        });
+        })
     }
 
     /**
@@ -65,10 +65,10 @@ class List extends BaseList {
             basePath = '../../../../resources/website';
 
             if (Neo.config.environment !== 'development') {
-                basePath = '../../' + basePath;
+                basePath = '../../' + basePath
             }
         } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website';
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website'
         }
 
         const vdomCn = [
@@ -99,7 +99,7 @@ class List extends BaseList {
             VDomUtil.getByFlag(vdomCn[0], 'author').cn.push(
                 {vtype: 'text', html : ' in '},
                 {tag: 'span', cls: ['neo-bold'], html: record.publisher}
-            );
+            )
         }
 
         if (record.selectedInto.length > 0) {

@@ -14,21 +14,21 @@ class Container extends BaseContainer {
          */
         className: 'Portal.view.blog.Container',
         /**
-         * @member {String[]} baseCls=['portal-blog-container','neo-container']
+         * @member {String[]} cls=['portal-blog-container']
          */
-        baseCls: ['portal-blog-container', 'neo-container'],
+        cls: ['portal-blog-container'],
         /**
          * @member {Object[]} items
          */
         items: [{
             module: BaseContainer,
-            cls   : ['portal-blog-toolbar', 'neo-container'],
+            cls   : ['portal-blog-toolbar'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
                 module         : SearchField,
-                cls            : ['portal-blog-searchfield', 'neo-searchfield', 'neo-textfield'],
+                cls            : ['portal-blog-searchfield'],
                 listeners      : {change: 'onBlogSearchFieldChange'},
                 placeholderText: 'Filter Blog Items',
                 width          : 240
