@@ -12,6 +12,34 @@
 </p>
 
 # Harness the Power of Multi-Threading for Ultra-Fast Frontends
+
+Neo.mjs is **not** intended for rather simple & static websites.
+
+The framework does not focus primarily on a fast first rendering experience for new users,
+but instead on a super-fast update & navigation experience for returning users.
+
+Neo.mjs drives the OMT (off the main thread) paradigm into perfection,
+which is intended to move expensive tasks into Workers.
+
+> So, what are the most expensive tasks we are dealing with?
+ 
+The answer is simple: a framework and the apps which we build with it.
+
+Neo.mjs moves most parts of the framework and your App(s) including their Components
+into an Application Worker.
+
+This enables us to re-use existing Component instances and mount & unmount them
+several times. Even into different Browser-Windows.
+
+Neo.mjs also provides sharing state across multiple Browser-Windows.
+
+So far, it is the only framework which enables us to build complex multi-Window Apps
+without the need for a native shell.
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/workers-setup-v4.png">
+
+</br></br>
+
 [Spoiler] We are in the middle of wrapping up the new Framework Website,
 which will include the first version of a self-study based Learning Section.
 
