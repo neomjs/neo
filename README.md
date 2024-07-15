@@ -15,7 +15,7 @@
 
 Neo.mjs is **not** intended for rather simple & static websites.
 
-The framework does not focus primarily on a fast first rendering experience for new users,
+The Framework does not focus primarily on a fast first rendering experience for new users,
 but instead on a super-fast update & navigation experience for returning users.
 
 Neo.mjs drives the OMT (off the main thread) paradigm into perfection,
@@ -23,7 +23,7 @@ which is intended to move expensive tasks into Workers.
 
 > So, what are the most expensive tasks we are dealing with?
  
-The answer is simple: a framework and the apps which we build with it.
+The answer is simple: a Framework and the Apps which we build with it.
 
 Neo.mjs moves most parts of the framework and your App(s) including their Components
 into an Application Worker.
@@ -33,10 +33,16 @@ several times. Even into different Browser-Windows.
 
 Neo.mjs also provides sharing state across multiple Browser-Windows.
 
-So far, it is the only framework which enables us to build complex multi-Window Apps
+So far, it is the only Framework which enables us to build complex multi-Window Apps
 without the need for a native shell.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/workers-setup-v4.png">
+
+Potential Use-Cases:
+1. Finance (Banking & Trading Apps)
+2. Data Science
+3. Web-based IDEs
+4. Multi-Window Data Visualisation
 
 </br></br>
 
