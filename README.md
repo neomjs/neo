@@ -1,7 +1,7 @@
 <p align="center">
-  <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/logos/Neo_Logo_Text.svg">
+  <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/logo/neo_logo_text_primary.svg">
 </p>
-
+</br>
 <p align="center">
   <a href="https://npmcharts.com/compare/neo.mjs?minimal=true"><img src="https://img.shields.io/npm/dm/neo.mjs.svg?label=Downloads" alt="Downloads"></a>
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/v/neo.mjs.svg?logo=npm" alt="Version"></a>
