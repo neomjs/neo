@@ -36,7 +36,7 @@
         "css",
         "json"
     ],
-    "author": "Tobias Uhlig, Rich Waters",
+    "author": "Tobias Uhlig",
     "license": "MIT",
     "bugs": {
         "url": "https://github.com/neomjs/neo/issues"

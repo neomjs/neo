@@ -56,4 +56,3 @@ The current development state is already inside the dev branch.
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
-& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

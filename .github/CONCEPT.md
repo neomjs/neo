@@ -461,4 +461,3 @@ items: [{
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
-& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
