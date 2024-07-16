@@ -1,11 +1,12 @@
-.learn-content-container {
+.portal-learn-page-container {
     overflow: auto;
 
     .content-bottom-toolbar {
-        gap          : 8px;
-        padding      : 0 3rem;
-        margin-bottom: 3rem;
-        margin-top   : 3rem;
+        gap                  : 8px;
+        grid-template-columns: repeat(2, 1fr);
+        margin-bottom        : 3rem;
+        margin-top           : 3rem;
+        padding              : 0 3rem;
 
         .neo-button {
             flex           : 1 !important;
@@ -18,18 +19,23 @@
         }
 
         .content-bottom-toolbar-previous:before {
-            content         : 'Previous Page';
-            font-family     : var(--core-fontfamily-sans);
-            position        : absolute;
-            top             : var(--cmp-button-spacinghorizontal);
-            left            : var(--cmp-button-spacinghorizontal);
+            content    : 'Previous Page';
+            font-family: var(--core-fontfamily-sans);
+            left       : var(--cmp-button-spacinghorizontal);
+            position   : absolute;
+            top        : var(--cmp-button-spacinghorizontal);
         }
-        .content-bottom-toolbar-next:before {
-            content         : 'Next Page';
-            font-family     : var(--core-fontfamily-sans);
-            position        : absolute;
-            top             : var(--cmp-button-spacinghorizontal);
-            right            : var(--cmp-button-spacinghorizontal);
+
+        .content-bottom-toolbar-next {
+            grid-column: 2/3;
+
+            &:before {
+                content    : 'Next Page';
+                font-family: var(--core-fontfamily-sans);
+                position   : absolute;
+                right      : var(--cmp-button-spacinghorizontal);
+                top        : var(--cmp-button-spacinghorizontal);
+            }
         }
     }
 }
