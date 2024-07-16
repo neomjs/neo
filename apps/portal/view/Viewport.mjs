@@ -1,9 +1,15 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Container          from '../../../src/container/Base.mjs';
+import CubeLayout         from '../../../src/layout/Cube.mjs';
 import HeaderToolbar      from './HeaderToolbar.mjs';
 import NeoArray           from '../../../src/util/Array.mjs';
 import ViewportController from './ViewportController.mjs';
 import ViewportModel      from './ViewportModel.mjs';
+
+import BlogContainer     from './blog/Container.mjs';
+import HomeContainer     from './home/MainContainer.mjs';
+import LearnContainer    from './learn/MainContainer.mjs';
+import ServicesComponent from './services/Component.mjs';
 
 /**
  * @class Portal.view.Viewport
@@ -40,15 +46,20 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : Container,
-            layout   : {ntype: 'card', activeIndex: null},
+            //layout   : {ntype: 'card', activeIndex: null},
+            layout: {ntype: 'cube', fitContainer: true},
             reference: 'main-content',
 
             items: [
-                {module: () => import('./home/MainContainer.mjs')},
-                {module: () => import('./learn/MainContainer.mjs')},
-                {module: () => import('./blog/Container.mjs')},
-                {module: () => import('./services/Component.mjs')},
-                {module: () => import('../../../docs/app/view/MainContainer.mjs')}
+                {module: HomeContainer},
+                {module: LearnContainer},
+                {module: BlogContainer},
+                // {module: () => import('./home/MainContainer.mjs')},
+                // {module: () => import('./learn/MainContainer.mjs')},
+                // {module: () => import('./blog/Container.mjs')},
+                {module: () => import('../../../docs/app/view/MainContainer.mjs')},
+                {module: ServicesComponent}
+                // {module: () => import('./services/Component.mjs')}
             ]
         }],
         /**

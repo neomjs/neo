@@ -171,7 +171,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onServicesRoute(params, value, oldValue) {
-        this.setMainContentIndex(3)
+        this.setMainContentIndex(4)
     }
 
     /**

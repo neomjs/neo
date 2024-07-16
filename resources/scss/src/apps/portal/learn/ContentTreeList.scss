@@ -6,6 +6,26 @@
     background-color: white;
     padding         : 8px 2px 8px 8px;
 
+    &.neo-tree-list {
+        .neo-list-container {
+            .neo-list-item {
+                .neo-list-item-content:before {
+                    content: unset !important;
+                }
+
+                &.neo-list-folder {
+                    .neo-list-item-content:before {
+                        content: unset !important;
+                    }
+
+                    &.neo-folder-open .neo-list-item-content:before {
+                        content: unset !important;
+                    }
+                }
+            }
+        }
+    }
+
     .neo-list-container {
         padding: 3px;
     }

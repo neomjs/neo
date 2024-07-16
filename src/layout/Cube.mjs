@@ -37,10 +37,19 @@ class Cube extends Base {
          */
         activeFace_: null,
         /**
+         * @member {Number|null} activeIndex_=null
+         */
+        activeIndex_: null,
+        /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
          */
         containerCls: 'neo-layout-cube',
+        /**
+         * Updates the cube size to fit the owner container dimensions
+         * @member {Boolean} fitContainer_=false
+         */
+        fitContainer_: false,
         /**
          * @member {Number} perspective_=600
          */
@@ -99,6 +108,47 @@ class Cube extends Base {
     afterSetActiveFace(value, oldValue) {
         if (value) {
             this.rotateTo(...Cube.faces[value])
+        }
+    }
+
+    /**
+     * Triggered after the activeIndex config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetActiveIndex(value, oldValue) {
+        Neo.isNumber(value) && this.rotateTo(...Object.values(Cube.faces)[value])
+    }
+
+    /**
+     * Triggered after the fitContainer config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetFitContainer(value, oldValue) {
+        let me          = this,
+            {container} = me;
+
+        console.log('afterSetFitContainer', value);
+        console.log(container.mounted);
+
+        if (!container.mounted) {
+            container.on('mounted', () => {
+                console.log('mounted');
+
+                container.getDomRect(container.parentId).then(({height, width}) => {
+                    height -= 59;
+                    console.log(height, width);
+
+                    this.set({
+                        sideX: width,
+                        sideY: height,
+                        sideZ: Math.min(height, width)
+                    })
+                })
+            })
         }
     }
 

@@ -59,20 +59,17 @@
     }
 
     .neo-face-x {
-        height     : var(--side-y);
-        line-height: var(--side-y);
-        width      : var(--side-z);
+        height: var(--side-y);
+        width : var(--side-z);
     }
 
     .neo-face-y {
-        height     : var(--side-z);
-        line-height: var(--side-z);
-        width      : var(--side-x);
+        height: var(--side-z);
+        width : var(--side-x);
     }
 
     .neo-face-z {
-        height     : var(--side-y);
-        line-height: var(--side-y);
-        width      : var(--side-x);
+        height: var(--side-y);
+        width : var(--side-x);
     }
 }
