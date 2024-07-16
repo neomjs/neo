@@ -18,9 +18,9 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.learn.MainContainer',
         /**
-         * @member {String[]} cls=['learnneo-maincontainer']
+         * @member {String[]} cls=['portal-learn-maincontainer']
          */
-        cls: ['learnneo-maincontainer'],
+        cls: ['portal-learn-maincontainer'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
