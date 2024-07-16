@@ -34,7 +34,7 @@ class MainContainer extends Container {
             cls     : ['sidenav-container'],
             layout  : 'fit',
             minWidth: 350,
-            vdom    : {tag: 'aside', cn: []},
+            tag     :'aside',
             width   : 350,
 
             items: [{

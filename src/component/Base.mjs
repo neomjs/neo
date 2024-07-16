@@ -334,6 +334,13 @@ class Base extends CoreBase {
          */
         theme_: null,
         /**
+         * While it is recommended to define tags inside the vdom of classes,
+         * this shortcut enables us to change the vdom root tag on instance level.
+         * Use cases: switch a Toolbar to a "nav" tag, switch a SideNav to an "aside" tag.
+         * @member {String|null} tag_=null
+         */
+        tag_: null,
+        /**
          * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
          *
@@ -918,6 +925,16 @@ class Base extends CoreBase {
         if (!(!value && oldValue === undefined)) {
             this.updateStyle(value, oldValue)
         }
+    }
+
+    /**
+     * Triggered after the tag config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTag(value, oldValue) {
+        value && this.changeVdomRootKey('tag', value)
     }
 
     /**

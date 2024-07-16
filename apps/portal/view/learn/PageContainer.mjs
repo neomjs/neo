@@ -40,8 +40,7 @@ class PageContainer extends Container {
             flex  : 'none',
             cls   : ['content-bottom-toolbar'],
             layout: 'grid',
-            vdom  : {tag: 'nav', cn: []},
-
+            tag   : 'nav',
             items : [{
                 cls      : ['content-bottom-toolbar-previous'],
                 handler  : 'onPreviousPageButtonClick',
