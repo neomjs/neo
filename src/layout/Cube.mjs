@@ -1,13 +1,13 @@
-import Base     from './Base.mjs';
+import Card     from './Card.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
  * See: examples/layout.Cube for a demo.
  * Strongly inspired by https://www.mobzystems.com/code/3d-css-and-custom-properties/
  * @class Neo.layout.Cube
- * @extends Neo.layout.Base
+ * @extends Neo.layout.Card
  */
-class Cube extends Base {
+class Cube extends Card {
     /**
      * @member {Object} faces
      * @static
@@ -36,10 +36,6 @@ class Cube extends Base {
          * @member {String|null} activeFace_=null
          */
         activeFace_: null,
-        /**
-         * @member {Number|null} activeIndex_=null
-         */
-        activeIndex_: null,
         /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
@@ -117,8 +113,21 @@ class Cube extends Base {
      * @param {Number|null} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        Neo.isNumber(value) && this.rotateTo(...Object.values(Cube.faces)[value])
+    async afterSetActiveIndex(value, oldValue) {
+        if (Neo.isNumber(value)) {
+            let me          = this,
+                {container} = me,
+                item        = container.items[value];
+
+            if (Neo.typeOf(item.module) === 'Function') {
+                await me.loadModule(item, value);
+                container.update();
+
+                await me.timeout(20) // wait for the view to get painted first
+            }
+
+            this.rotateTo(...Object.values(Cube.faces)[value])
+        }
     }
 
     /**
@@ -131,16 +140,11 @@ class Cube extends Base {
         let me          = this,
             {container} = me;
 
-        console.log('afterSetFitContainer', value);
-        console.log(container.mounted);
-
         if (!container.mounted) {
             container.on('mounted', () => {
-                console.log('mounted');
 
                 container.getDomRect(container.parentId).then(({height, width}) => {
-                    height -= 59;
-                    console.log(height, width);
+                    height -= 59; // todo: hack for the portal app
 
                     this.set({
                         sideX: width,
