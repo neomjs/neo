@@ -37,3 +37,4 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
