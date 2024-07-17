@@ -13,6 +13,7 @@ import Toolbar               from '../../../src/toolbar/Base.mjs';
 class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.layout.cube.MainContainer',
+        cls                 : ['examples-layout-cube-maincontainer'],
         configItemLabelWidth: 160,
         configItemWidth     : 280,
         layout              : {ntype: 'hbox', align: 'stretch'}

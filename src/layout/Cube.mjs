@@ -1,13 +1,15 @@
-import Base     from './Base.mjs';
+import Card     from './Card.mjs';
 import NeoArray from '../util/Array.mjs';
+
+const configSymbol = Symbol.for('configSymbol');
 
 /**
  * See: examples/layout.Cube for a demo.
  * Strongly inspired by https://www.mobzystems.com/code/3d-css-and-custom-properties/
  * @class Neo.layout.Cube
- * @extends Neo.layout.Base
+ * @extends Neo.layout.Card
  */
-class Cube extends Base {
+class Cube extends Card {
     /**
      * @member {Object} faces
      * @static
@@ -37,10 +39,19 @@ class Cube extends Base {
          */
         activeFace_: null,
         /**
+         * @member {Number|null} activeIndex=null
+         */
+        activeIndex: null,
+        /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
          */
         containerCls: 'neo-layout-cube',
+        /**
+         * Updates the cube size to fit the owner container dimensions
+         * @member {Boolean} fitContainer_=false
+         */
+        fitContainer_: false,
         /**
          * @member {Number} perspective_=600
          */
@@ -83,11 +94,16 @@ class Cube extends Base {
     construct(config) {
         super.construct(config);
 
-        let {container} = this;
+        let me          = this,
+            {container} = me;
 
-        this.nestVdom()
+        me.nestVdom();
 
-        container.mounted && container.update()
+        container.mounted && container.update();
+
+        me.timeout(100).then(() => {
+            container.addCls('neo-animate')
+        })
     }
 
     /**
@@ -98,7 +114,58 @@ class Cube extends Base {
      */
     afterSetActiveFace(value, oldValue) {
         if (value) {
-            this.rotateTo(...Cube.faces[value])
+            this.activeIndex = Object.keys(Cube.faces).indexOf(value)
+        }
+    }
+
+    /**
+     * Triggered after the activeIndex config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    async afterSetActiveIndex(value, oldValue) {
+        if (Neo.isNumber(value)) {
+            let me          = this,
+                {container} = me,
+                item        = container.items[value];
+
+            // Since activeFace & activeIndex are optional, we need to clear out default values
+            if (!Neo.isNumber(oldValue)) {
+                delete me[configSymbol].rotateX;
+                delete me[configSymbol].rotateY;
+                delete me[configSymbol].rotateZ;
+            }
+
+            if (Neo.typeOf(item.module) === 'Function') {
+                await me.loadModule(item, value);
+                container.update();
+
+                await me.timeout(100) // wait for the view to get painted first
+            }
+
+            this.rotateTo(...Object.values(Cube.faces)[value])
+        }
+    }
+
+    /**
+     * Triggered after the fitContainer config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetFitContainer(value, oldValue) {
+        if (value) {
+            let me          = this,
+                {container} = me;
+
+            if (container.mounted) {
+                me.updateContainerSize()
+            } else {
+                container.on('mounted', () => {
+                    me.updateContainerSize()
+                })
+            }
         }
     }
 
@@ -123,7 +190,7 @@ class Cube extends Base {
     }
 
     /**
-     * Triggered after the rotateX config got changed
+     * Triggered after the rotateY config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -133,7 +200,7 @@ class Cube extends Base {
     }
 
     /**
-     * Triggered after the rotateX config got changed
+     * Triggered after the rotateZ config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -204,8 +271,20 @@ class Cube extends Base {
      *
      */
     destroy(...args) {
-        let {container} = this,
-            {vdom}      = container;
+        let {container}   = this,
+            {style, vdom} = container;
+
+        Object.assign(style, {
+            '--perspective': null,
+            '--rot-x'      : null,
+            '--rot-y'      : null,
+            '--rot-z'      : null,
+            '--side-x'     : null,
+            '--side-y'     : null,
+            '--side-z'     : null
+        });
+
+        container.style = style;
 
         vdom.cn = container.getVdomItemsRoot().cn;
 
@@ -221,6 +300,11 @@ class Cube extends Base {
         let {container} = this,
             {vdom}      = container,
             {cn}        = vdom;
+
+        // Important when switching from a card layout to this one
+        cn.forEach(node => {
+            delete node.removeDom
+        });
 
         vdom.cn = [
             {cls: ['neo-plane'], cn: [
@@ -268,17 +352,26 @@ class Cube extends Base {
     }
 
     /**
+     * @protected
+     */
+    removeRenderAttributes() {
+        super.removeRenderAttributes();
+        this.container.removeCls('neo-animate')
+    }
+
+    /**
      * @param {Number|null} [x]
      * @param {Number|null} [y]
      * @param {Number|null} [z]
      */
     rotateTo(x, y, z) {
-        let {container} = this,
+        let me          = this,
+            {container} = me,
             {style}     = container;
 
-        if (Neo.isNumber(x)) {style['--rot-x'] = x + 'deg'}
-        if (Neo.isNumber(y)) {style['--rot-y'] = y + 'deg'}
-        if (Neo.isNumber(z)) {style['--rot-z'] = z + 'deg'}
+        if (Neo.isNumber(x)) {me._rotateX = x; style['--rot-x'] = x + 'deg'}
+        if (Neo.isNumber(y)) {me._rotateY = y; style['--rot-y'] = y + 'deg'}
+        if (Neo.isNumber(z)) {me._rotateZ = z; style['--rot-z'] = z + 'deg'}
 
         container.style = style
     }
@@ -294,6 +387,22 @@ class Cube extends Base {
         style[name] = value;
 
         container.style = style
+    }
+
+    /**
+     *
+     */
+    async updateContainerSize() {
+        let {container}     = this,
+            {height, width} = await container.getDomRect(container.parentId);
+
+        height -= 59; // todo: hack for the portal app
+
+        this.set({
+            sideX: width,
+            sideY: height,
+            sideZ: Math.min(height, width)
+        })
     }
 }
 

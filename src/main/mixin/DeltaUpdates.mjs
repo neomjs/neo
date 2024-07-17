@@ -121,7 +121,7 @@ class DeltaUpdates extends Base {
             parentNode = this.getElement(delta.parentId);
 
         if (node && parentNode) {
-            if (index >= parentNode.children.length) {console.log('append', node);
+            if (index >= parentNode.children.length) {
                 parentNode.appendChild(node)
             } else {
                 //index++; // todo?: increase the index in case same parent, oldIndex < newIndex, direct swap
