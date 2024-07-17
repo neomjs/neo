@@ -1,12 +1,12 @@
 .neo-viewport {
     .neo-layout-cube {
         .neo-face {
-            border : 1px solid #3E63DD;
             opacity: 0.8;
+            transition: opacity 50ms ease-out;
         }
 
         .neo-plane {
-            transform: translateZ(-20px);
+            transform: translateZ(0px);
         }
     }
 }

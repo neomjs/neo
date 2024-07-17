@@ -1,6 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Container          from '../../../src/container/Base.mjs';
-import CubeLayout         from '../../../src/layout/Cube.mjs';
 import HeaderToolbar      from './HeaderToolbar.mjs';
 import NeoArray           from '../../../src/util/Array.mjs';
 import ViewportController from './ViewportController.mjs';
@@ -41,8 +40,7 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : Container,
-            //layout   : {ntype: 'card', activeIndex: null},
-            layout: {ntype: 'cube', activeIndex: null, fitContainer: true},
+            layout   : {ntype: 'card', activeIndex: null},
             reference: 'main-content',
 
             items: [

@@ -40,9 +40,14 @@
         transform       : rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
         transform-style : preserve-3d;
         transform-origin: center center;
-        transition      : transform 300ms ease-out;
         translate       : 0 0 calc(var(--side-z) / -2);
         width           : var(--side-x);
+    }
+
+    &.neo-animate {
+        .neo-box {
+            transition: transform 300ms ease-out;
+        }
     }
 
     .neo-face {

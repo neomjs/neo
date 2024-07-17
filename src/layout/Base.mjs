@@ -77,7 +77,6 @@ class Base extends CoreBase {
     applyChildAttributes(item, index) {}
 
     /**
-     * Placeholder method
      * @protected
      */
     applyRenderAttributes() {
@@ -138,7 +137,6 @@ class Base extends CoreBase {
     removeChildAttributes(item, index) {}
 
     /**
-     * Placeholder method
      * @protected
      */
     removeRenderAttributes() {

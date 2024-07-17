@@ -18,6 +18,10 @@ class ViewportController extends Controller {
          */
         ntype: 'viewport-controller',
         /**
+         * @member {Number|null} activeIndex=null
+         */
+        activeIndex: null,
+        /**
          * @member {String|null} defaultHash='/home'
          */
         defaultHash: '/home',
@@ -175,10 +179,35 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @param {Number} value
+     * @param {Number} index
      */
-    setMainContentIndex(value) {
-        this.getReference('main-content').layout.activeIndex = value
+    async setMainContentIndex(index) {
+        let me            = this,
+            {activeIndex} = me,
+            container     = me.getReference('main-content');
+
+        if (index !== activeIndex) {
+            // skip the initial painting, since there is no transition
+            if (Neo.isNumber(activeIndex)) {
+                await import('../../../src/layout/Cube.mjs');
+
+                container.wrapperStyle; // todo: without accessing the getter, the flex value can get lost.
+
+                container.layout = {ntype: 'cube', activeIndex, fitContainer: true};
+
+                await me.timeout(200);
+
+                container.layout.activeIndex = index;
+
+                await me.timeout(800);
+
+                container.layout = {ntype: 'card', activeIndex: index}
+            } else {
+                container.layout.activeIndex = index
+            }
+
+            me.activeIndex = index
+        }
     }
 }
 

@@ -1476,7 +1476,7 @@ class Base extends CoreBase {
         // we can not set the config directly => it could already be false,
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true)
+        me.afterSetNeedsVdomUpdate?.(false, true);
 
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
