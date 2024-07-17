@@ -72,7 +72,7 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me              = this,
-            {container, containerId, removeInactiveCards} = me,
+            {container, removeInactiveCards} = me,
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
