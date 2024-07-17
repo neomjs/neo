@@ -6,11 +6,6 @@ import NeoArray           from '../../../src/util/Array.mjs';
 import ViewportController from './ViewportController.mjs';
 import ViewportModel      from './ViewportModel.mjs';
 
-import BlogContainer     from './blog/Container.mjs';
-import HomeContainer     from './home/MainContainer.mjs';
-import LearnContainer    from './learn/MainContainer.mjs';
-import ServicesComponent from './services/Component.mjs';
-
 /**
  * @class Portal.view.Viewport
  * @extends Neo.container.Viewport
@@ -47,19 +42,15 @@ class Viewport extends BaseViewport {
         }, {
             module   : Container,
             //layout   : {ntype: 'card', activeIndex: null},
-            layout: {ntype: 'cube', fitContainer: true},
+            layout: {ntype: 'cube', activeIndex: null, fitContainer: true},
             reference: 'main-content',
 
             items: [
-                {module: HomeContainer},
-                {module: LearnContainer},
-                {module: BlogContainer},
-                // {module: () => import('./home/MainContainer.mjs')},
-                // {module: () => import('./learn/MainContainer.mjs')},
-                // {module: () => import('./blog/Container.mjs')},
+                {module: () => import('./home/MainContainer.mjs')},
+                {module: () => import('./learn/MainContainer.mjs')},
+                {module: () => import('./blog/Container.mjs')},
                 {module: () => import('../../../docs/app/view/MainContainer.mjs')},
-                {module: ServicesComponent}
-                // {module: () => import('./services/Component.mjs')}
+                {module: () => import('./services/Component.mjs')}
             ]
         }],
         /**
