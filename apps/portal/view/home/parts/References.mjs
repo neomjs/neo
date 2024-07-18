@@ -38,7 +38,6 @@ class References extends BaseContainer {
             vdom: {tag: 'h2'}
         }, {
             module: Carousel,
-            style : {marginTop: '3em'},
             // will automatically change to the next extry every 5500 ms
             // if not set or 0, this will show arrows to navigate
             autoRun: 5500,
@@ -80,9 +79,6 @@ class References extends BaseContainer {
                 cls : 'neo-details',
                 html: `${data.publisher} - ${data.date}`
             }]
-        }, {
-            ntype: 'container',
-            flex : '1 1 100%'
         }]
     }
 }
