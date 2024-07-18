@@ -28,19 +28,18 @@ class MainNeo extends BaseContainer {
         }, {
             cls : ['neo-h1'],
             flex: 'none',
-            html: 'The High-Performance Web Framework for Next Generation Interfaces',
+            html: 'Harness the Power of Multi-Threading for Ultra-Fast Frontends',
             vdom: {tag: 'h1'}
         }, {
             ntype: 'container',
             cls  : ['button-group'],
             flex : 'none',
-
             items: [{
-                module : Button,
-                cls    : ['get-started-button'],
-                text   : 'Get started',
-                flex   : 'none',
-                route : '/learn'
+                module: Button,
+                cls   : ['get-started-button'],
+                flex  : 'none',
+                route : '/learn',
+                text  : 'Get started'
             }, {
                 module: Button,
                 cls   : ['neo-github'],

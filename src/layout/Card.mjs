@@ -49,6 +49,11 @@ class Card extends Base {
          * @member {Number} activeIndex_=0
          */
         activeIndex_: 0,
+        /**
+         * @member {String|null} containerCls='neo-layout-card'
+         * @protected
+         */
+        containerCls: 'neo-layout-card',
         /*
          * Remove the DOM of inactive cards.
          * This will keep the instances & vdom trees
@@ -72,8 +77,7 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me              = this,
-            {containerId, removeInactiveCards} = me,
-            container       = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            {container, removeInactiveCards} = me,
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
@@ -144,7 +148,7 @@ class Card extends Base {
         let me            = this,
             isActiveIndex = me.activeIndex === index,
             sCfg          = me.constructor,
-            childCls      = item.wrapperCls,
+            childCls      = item.wrapperCls || [],
             {vdom}        = item;
 
         NeoArray.add(childCls, sCfg.itemCls);
@@ -153,27 +157,10 @@ class Card extends Base {
         if (!keepInDom && me.removeInactiveCards) {
             vdom.removeDom  = !isActiveIndex;
             item.wrapperCls = childCls;
-            item.update()
+            item.update?.() // can get called for an item config
         } else {
             item.wrapperCls = childCls
         }
-    }
-
-    /**
-     * Applies CSS classes to the container this layout is bound to
-     */
-    applyRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
-
-        if (!container) {
-            Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId)
-        }
-
-        NeoArray.add(wrapperCls, 'neo-layout-card');
-
-        container.wrapperCls = wrapperCls
     }
 
     /**
@@ -194,14 +181,11 @@ class Card extends Base {
      * @returns {Neo.component.Base}
      */
     async loadModule(item, index) {
-        let me            = this,
-            {containerId} = me,
-            container     = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            items         = container.items,
-            sCfg          = me.constructor,
-            {vdom}        = container,
-            {module}      = item,
-            proto, wrapperCls;
+        let me          = this,
+            {container} = me,
+            items       = container.items,
+            {module}    = item,
+            proto;
 
         if (!Neo.isNumber(index)) {
             index = items.indexOf(item)
@@ -209,47 +193,25 @@ class Card extends Base {
 
         item.isLoading = true; // prevent the item from getting queued multiple times inside form.Container
 
-        module     = await module();
-        module     = module.default;
-        proto      = module.prototype;
-        wrapperCls = item.wrapperCls || proto.constructor.config.wrapperCls || [];
+        module = await module();
+        module = module.default;
+        proto  = module.prototype;
 
-        item.className  = proto.className;
-        item.wrapperCls = [...wrapperCls, sCfg.itemCls];
-        item.module     = module;
+        item.className = proto.className;
+        item.module    = module;
+
+        me.applyChildAttributes(item, index);
 
         delete item.isLoading;
         delete item.vdom;
 
         items[index] = item = Neo.create(item);
 
-        if (me.removeInactiveCards) {
-            item.vdom.removeDom = true
-        }
+        container.getVdomItemsRoot().cn[index] = item.vdom;
 
         container.fire('cardLoaded', {item});
 
-        vdom.cn[index] = item.vdom;
-
         return item
-    }
-
-    /**
-     * Removes all CSS rules from the container this layout is bound to.
-     * Gets called when switching to a different layout.
-     */
-    removeRenderAttributes() {
-        let me         = this,
-            container  = Neo.getComponent(me.containerId),
-            wrapperCls = container?.wrapperCls || [];
-
-        if (!container) {
-            Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId)
-        }
-
-        NeoArray.remove(wrapperCls, 'neo-layout-card');
-
-        container.wrapperCls = wrapperCls
     }
 
     /**

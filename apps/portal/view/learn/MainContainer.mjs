@@ -18,9 +18,9 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.learn.MainContainer',
         /**
-         * @member {String[]} cls=['learnneo-maincontainer']
+         * @member {String[]} cls=['portal-learn-maincontainer']
          */
-        cls: ['learnneo-maincontainer'],
+        cls: ['portal-learn-maincontainer'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
@@ -34,6 +34,7 @@ class MainContainer extends Container {
             cls     : ['sidenav-container'],
             layout  : 'fit',
             minWidth: 350,
+            tag     :'aside',
             width   : 350,
 
             items: [{

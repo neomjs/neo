@@ -32,10 +32,16 @@ class VNode {
          */
 
         /**
+         * true excludes the node from delta-updates
+         * @member {Boolean} static
+         */
+
+        /**
          * @member {Object} style
          */
 
         /**
+         * Valid values are "root", "text" & "vnode"
          * @member {String} vtype='vnode'
          */
 
@@ -48,7 +54,12 @@ class VNode {
             nodeName  : config.nodeName,
             style     : config.style,
             vtype     : config.vtype      || 'vnode'
-        })
+        });
+
+        // We only apply the static attribute, in case the value is true
+        if (config.static) {
+            this.static = true
+        }
     }
 }
 

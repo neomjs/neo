@@ -2,13 +2,13 @@
     padding: 3em;
 
     .button-group {
-        display       : flex !important;
-        flex-direction: row-reverse !important;
-        gap           : 8px !important;
+        display       : flex;
+        flex-direction: row-reverse;
+        gap           : 8px;
     }
 
     .neo-h1 {
-        margin-bottom: 1.25em;
+        margin: 3rem;
     }
 
     .vector {
@@ -17,7 +17,6 @@
         background-repeat  : no-repeat;
         background-size    : contain;
         height             : 10vW;
-        margin             : 0 0 3rem 0;
         max-height         : 130px;
         width              : 100%;
     }

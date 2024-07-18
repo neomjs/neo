@@ -28,12 +28,12 @@ class Colors extends BaseContainer {
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
             items : [{
-                cls : 'neo-h1',
+                cls : ['neo-h1'],
                 flex: 'none',
                 html: 'Amazing Potential',
                 vdom: {tag: 'h1'}
             }, {
-                cls : 'neo-h2',
+                cls : ['neo-h2'],
                 flex: 'none',
                 html: 'Socket Data',
                 vdom: {tag: 'h2'}

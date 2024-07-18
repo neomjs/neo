@@ -16,6 +16,7 @@ class MainContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/learn'         : 'onRouteDefault',
             '/learn/{itemId}': 'onRouteLearnItem'
         }
     }
@@ -129,6 +130,16 @@ class MainContainerController extends Controller {
 
     /**
      * @param {Object} data
+     */
+    onRouteDefault(data) {
+        if (!this.getModel().data.currentPageRecord) {
+            this.onRouteLearnItem({itemId: 'WhyNeo-Intro'})
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.itemId
      */
     onRouteLearnItem(data) {
         let model = this.getModel(),

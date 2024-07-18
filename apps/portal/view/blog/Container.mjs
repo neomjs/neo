@@ -14,23 +14,23 @@ class Container extends BaseContainer {
          */
         className: 'Portal.view.blog.Container',
         /**
-         * @member {String[]} baseCls=['website-blog-container','neo-container']
+         * @member {String[]} cls=['portal-blog-container']
          */
-        baseCls: ['website-blog-container', 'neo-container'],
+        cls: ['portal-blog-container'],
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
-        items: [{ //#323232
+        items: [{
             module: BaseContainer,
-            cls   : ['website-blog-toolbar', 'neo-container'],
+            cls   : ['portal-blog-toolbar'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
                 module         : SearchField,
-                cls            : ['website-blog-searchfield', 'neo-searchfield', 'neo-textfield'],
+                cls            : ['portal-blog-searchfield'],
                 listeners      : {change: 'onBlogSearchFieldChange'},
-                placeholderText: 'Filter Items',
+                placeholderText: 'Filter Blog Items',
                 width          : 240
             }]
         }, {
@@ -39,7 +39,7 @@ class Container extends BaseContainer {
             reference: 'blog-list'
         }],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

@@ -120,7 +120,7 @@ class DeltaUpdates extends Base {
             node       = this.getElement(delta.id),
             parentNode = this.getElement(delta.parentId);
 
-        if (parentNode) {
+        if (node && parentNode) {
             if (index >= parentNode.children.length) {
                 parentNode.appendChild(node)
             } else {
@@ -129,6 +129,18 @@ class DeltaUpdates extends Base {
                     parentNode.insertBefore(node, parentNode.children[index])
                 }
             }
+        }
+    }
+
+    /**
+     * @param {Object} delta
+     * @param {String} delta.parentId
+     */
+    du_removeAll(delta) {
+        let node = this.getElement(delta.parentId);
+
+        if (node) {
+            node.innerHTML = ''
         }
     }
 
@@ -225,8 +237,8 @@ class DeltaUpdates extends Base {
                         });
                         break
                     case 'cls':
-                        node.classList.add(...value.add || []);
-                        node.classList.remove(...value.remove || []);
+                        value.add    && node.classList.add(...value.add);
+                        value.remove && node.classList.remove(...value.remove);
                         break
                     case 'innerHTML':
                         node.innerHTML = value || '';
@@ -311,6 +323,7 @@ class DeltaUpdates extends Base {
             focusNode     : me.du_focusNode,
             insertNode    : me.du_insertNode,
             moveNode      : me.du_moveNode,
+            removeAll     : me.du_removeAll,
             removeNode    : me.du_removeNode,
             replaceChild  : me.du_replaceChild,
             setTextContent: me.du_setTextContent,

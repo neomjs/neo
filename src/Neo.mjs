@@ -430,7 +430,7 @@ Neo = globalThis.Neo = Object.assign({
             {ntypeMap} = Neo,
             proto      = cls.prototype || cls,
             protos     = [],
-            cfg, config, ctor, ntype;
+            cfg, config, ctor, ns, ntype;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
@@ -531,8 +531,19 @@ Neo = globalThis.Neo = Object.assign({
         });
 
         if (proto.singleton) {
-            cls = Neo.create(cls);
-            Neo.applyToGlobalNs(cls)
+            ns = Neo.ns(proto.className);
+
+            // Only create new singleton instances, in case the namespace is not in use. Using multiple neo versions
+            // will cause issues otherwise (e.g. combining dist/production & development). Example: code.LivePreview.
+            if (!ns) {
+                cls = Neo.create(cls);
+                Neo.applyToGlobalNs(cls)
+            }
+            // If the singleton already exists, just return this version instead.
+            // This enables us to still use it with default import statements.
+            else {
+                return ns
+            }
         }
 
         return cls

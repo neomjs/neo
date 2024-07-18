@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Colors.view.ViewportController
  * @extends Neo.controller.Component
  */
-class ViewportController extends Component {
+class ViewportController extends Controller {
     static config = {
         /**
          * @member {String} className='Colors.view.ViewportController'
@@ -248,7 +248,11 @@ class ViewportController extends Component {
         if (store.getCount()) {
             table.bulkUpdateRecords(records)
         } else {
-            store.data = records
+            // Depending on the delay of the Socket Connection,
+            // the next data package could still contain the old settings
+            if (this.getModel().getData('amountRows') === records.length) {
+                store.data = records
+            }
         }
     }
 

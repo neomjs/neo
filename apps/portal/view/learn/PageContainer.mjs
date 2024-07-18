@@ -14,10 +14,10 @@ class PageContainer extends Container {
          */
         className: 'Portal.view.learn.PageContainer',
         /**
-         * @member {String[]} baseCls=['learn-content-container','neo-container']
+         * @member {String[]} baseCls=['portal-learn-page-container','neo-container']
          * @protected
          */
-        baseCls: ['learn-content-container', 'neo-container'],
+        baseCls: ['portal-learn-page-container', 'neo-container'],
         /**
          * @member {Object} bind
          */
@@ -38,7 +38,9 @@ class PageContainer extends Container {
         }, {
             module: Toolbar,
             flex  : 'none',
-            cls   : 'content-bottom-toolbar',
+            cls   : ['content-bottom-toolbar'],
+            layout: 'grid',
+            tag   : 'nav',
             items : [{
                 cls      : ['content-bottom-toolbar-previous'],
                 handler  : 'onPreviousPageButtonClick',

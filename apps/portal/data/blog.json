@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jul 12, 2024",
+        "id"          : 59,
+        "image"       : "transform_dom_tree.png",
+        "name"        : "A blazing-fast algorithm to transform one DOM tree into another",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/a-blazing-fast-algorithm-to-transform-one-dom-tree-into-another-4ff9c934bc49?source=friends_link&sk=f1de46dbd464095b8d0b0a271644cb75"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jun 17, 2024",
         "id"          : 58,
         "image"       : "Sharing_real_time_data.png",

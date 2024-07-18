@@ -1,4 +1,5 @@
 import CoreBase from '../core/Base.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * The base class for all other layouts.
@@ -30,6 +31,12 @@ class Base extends CoreBase {
          */
         containerId: null,
         /**
+         * A layout specific CSS selector which gets added to Container the layout is bound to.
+         * @member {String|null} containerCls_=null
+         * @protected
+         */
+        containerCls_: null,
+        /**
          * Identifier for all classes that extend layout.Base
          * @member {Boolean} isLayout=true
          * @protected
@@ -45,7 +52,10 @@ class Base extends CoreBase {
      * @returns {Neo.container.Base|null}
      */
     get container() {
-        return Neo.getComponent(this.containerId)
+        let {containerId} = this;
+
+        // the instance might not be registered yet
+        return Neo.getComponent(containerId) || Neo.get(containerId)
     }
 
     /**
@@ -67,10 +77,23 @@ class Base extends CoreBase {
     applyChildAttributes(item, index) {}
 
     /**
-     * Placeholder method
      * @protected
      */
-    applyRenderAttributes() {}
+    applyRenderAttributes() {
+        let me                        = this,
+            {container, containerCls} = me,
+            {wrapperCls}              = container;
+
+        if (containerCls) {
+            if (!container) {
+                Neo.logError(me.className + ': applyRenderAttributes -> container not yet created', me.containerId)
+            }
+
+            NeoArray.add(wrapperCls, containerCls);
+
+            container.wrapperCls = wrapperCls
+        }
+    }
 
     /**
      *
@@ -108,15 +131,29 @@ class Base extends CoreBase {
     /**
      * Placeholder method
      * @param {Neo.component.Base} item
+     * @param {Number} index
      * @protected
      */
-    removeChildAttributes(item) {}
+    removeChildAttributes(item, index) {}
 
     /**
-     * Placeholder method
      * @protected
      */
-    removeRenderAttributes() {}
+    removeRenderAttributes() {
+        let me                        = this,
+            {container, containerCls} = me,
+            {wrapperCls}              = container;
+
+        if (containerCls) {
+            if (!container) {
+                Neo.logError(me.className + ': removeRenderAttributes -> container not yet created', me.containerId)
+            }
+
+            NeoArray.remove(wrapperCls, containerCls);
+
+            container.wrapperCls = wrapperCls
+        }
+    }
 }
 
 Neo.setupClass(Base);

@@ -1,3 +1,18 @@
-.learnneo-viewport {
+.neo-viewport {
+    .neo-layout-cube {
+        &.neo-animate {
+            .neo-box {
+                transition: transform 800ms ease-in-out;
+            }
+        }
 
+        .neo-face {
+            opacity: 0.8;
+            transition: opacity 50ms ease-out;
+        }
+
+        .neo-plane {
+            transform: translateZ(0px);
+        }
+    }
 }

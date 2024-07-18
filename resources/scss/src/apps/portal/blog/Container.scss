@@ -1,18 +1,18 @@
-.website-blog-container {
-    .website-blog-searchfield {
-        transition: margin var(--website-transition-duration) ease-out;
+.portal-blog-container {
+    .portal-blog-searchfield {
+        transition: margin var(--portal-transition-duration) ease-out;
         width     : 240px;
 
         @media (max-height: 400px), (max-width: 600px) {
-            margin: 5px;
+            margin: 5px auto;
         }
 
         @media (min-height: 401px) and (min-width: 601px) {
-            margin: 10px;
+            margin: 10px auto;
         }
     }
 
-    .website-blog-toolbar {
-        background-color: var(--website-blog-toolbar-background-color);
+    .portal-blog-toolbar {
+        background-color: var(--portal-blog-toolbar-background-color);
     }
 }

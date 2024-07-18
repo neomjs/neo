@@ -18,6 +18,10 @@
         margin: 0.5em 0 0.7em 0;
     }
 
+    details {
+        margin: 1em 0 1em 0;
+    }
+
     details summary {
         cursor    : pointer;
         transition: margin 300ms ease-out;

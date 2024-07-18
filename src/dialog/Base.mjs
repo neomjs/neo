@@ -363,12 +363,11 @@ class Base extends Panel {
         await me.render(true);
 
         let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
-        console.log(dialogRect, bodyRect);
 
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
             id,
-            style : {
+            style: {
                 height: `${rect.height}px`,
                 left  : `${rect.left  }px`,
                 top   : `${rect.top   }px`,

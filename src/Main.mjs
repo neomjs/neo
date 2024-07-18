@@ -56,6 +56,7 @@ class Main extends core.Base {
                 'setNeoConfig',
                 'setRoute',
                 'windowClose',
+                'windowCloseAll',
                 'windowMoveTo',
                 'windowOpen',
                 'windowResizeTo'
@@ -471,7 +472,7 @@ class Main extends core.Base {
     /**
      * Closes popup windows
      * @param {Object} data
-     * @param {Array|String} data.names
+     * @param {String|String[]} data.names
      */
     windowClose(data) {
         if (!Array.isArray(data.names)) {
@@ -482,6 +483,19 @@ class Main extends core.Base {
             this.openWindows[name]?.close();
             delete this.openWindows[name]
         })
+    }
+
+    /**
+     * Closes all popup windows
+     * @param {Object} data
+     */
+    windowCloseAll(data) {
+        Object.values(this.openWindows).forEach(value => {
+            console.log(value);
+            value.close()
+        });
+
+        this.openWindows = {}
     }
 
     /**

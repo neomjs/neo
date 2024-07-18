@@ -1,0 +1,80 @@
+/*
+ * Container Structure:
+ *    div.neo-layout-cube
+ *        div.neo-plane
+ *            div.neo-box
+ *                div.neo-face.neo-face-z.front
+ *                div.neo-face.neo-face-z.back
+ *                div.neo-face.neo-face-x.left
+ *                div.neo-face.neo-face-x.right
+ *                div.neo-face.neo-face-y.top
+ *                div.neo-face.neo-face-y.bottom
+ */
+.neo-layout-cube {
+    --backface-visibility: visible;
+    --perspective        : 600px;
+
+    --rot-x: 0deg;
+    --rot-y: 0deg;
+    --rot-z: 0deg;
+
+    --side-x: 300px; /* horizontal */
+    --side-y: 300px; /* vertical */
+    --side-z: 300px; /* depth */
+
+    background-color  : transparent;
+    height            : var(--side-y);
+    overflow          : visible;
+    perspective       : var(--perspective);
+    perspective-origin: center center;
+    width             : var(--side-x);
+
+    .neo-plane {
+        transform      : translateZ(calc(var(--side-z) / -2));
+        transform-style: preserve-3d;
+    }
+
+    .neo-box {
+        height          : var(--side-y);
+        position        : relative;
+        transform       : rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
+        transform-style : preserve-3d;
+        transform-origin: center center;
+        translate       : 0 0 calc(var(--side-z) / -2);
+        width           : var(--side-x);
+    }
+
+    &.neo-animate {
+        .neo-box {
+            transition: transform 300ms ease-out;
+        }
+    }
+
+    .neo-face {
+        backface-visibility: var(--backface-visibility);
+        background         : center/cover no-repeat;
+        position           : absolute;
+
+        &.front  {transform: rotateY(  0deg) translateZ(calc(var(--side-z) / 2));}
+        &.back   {transform: rotateY(180deg) translateZ(calc(var(--side-z) / 2));}
+        &.left   {transform: rotateY(-90deg) translateZ(calc(var(--side-z) / 2));}
+        &.right  {transform: rotateY( 90deg) translateZ(calc(var(--side-x) - var(--side-z) / 2));}
+        &.top    {transform: rotateX( 90deg) translateZ(calc(var(--side-z) / 2));}
+        &.bottom {transform: rotateX(-90deg) translateZ(calc(var(--side-y) - var(--side-z) / 2));}
+    }
+
+    .neo-face-x {
+        height: var(--side-y);
+        width : var(--side-z);
+    }
+
+    .neo-face-y {
+        height: var(--side-z);
+        width : var(--side-x);
+    }
+
+    .neo-face-z {
+        height: var(--side-y);
+        width : var(--side-x);
+    }
+}

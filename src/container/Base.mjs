@@ -149,7 +149,9 @@ class Base extends Component {
             me.items.forEach((item, index) => {
                 oldValue?.removeChildAttributes(item, index);
                 value.applyChildAttributes(item, index)
-            })
+            });
+
+            oldValue?.destroy()
         }
     }
 
