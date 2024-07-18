@@ -413,9 +413,7 @@ class Cube extends Card {
      */
     async updateContainerSize() {
         let {container}     = this,
-            {height, width} = await container.getDomRect(container.parentId);
-
-        height -= 59; // todo: hack for the portal app
+            {height, width} = await container.getDomRect(container.id);
 
         this.set({
             sideX: width,
