@@ -40,8 +40,9 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : Container,
-            layout   : {ntype: 'card', activeIndex: null},
             reference: 'main-content',
+
+            // The layout will get assigned inside ViewportController
 
             items: [
                 {module: () => import('./home/MainContainer.mjs')},

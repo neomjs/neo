@@ -1,4 +1,5 @@
 import Controller        from '../../../src/controller/Component.mjs';
+import CubeLayout        from '../../../src/layout/Cube.mjs';
 import {getSearchParams} from '../Util.mjs';
 
 /**
@@ -6,6 +7,14 @@ import {getSearchParams} from '../Util.mjs';
  * @extends Neo.controller.Component
  */
 class ViewportController extends Controller {
+    /**
+     * Valid values for mainContentLayout
+     * @member {String[]} iconPositions=['top','right','bottom','left']
+     * @protected
+     * @static
+     */
+    static mainContentLayouts = ['card', 'cube', 'mixed']
+
     static config = {
         /**
          * @member {String} className='Portal.view.ViewportController'
@@ -26,6 +35,10 @@ class ViewportController extends Controller {
          */
         defaultHash: '/home',
         /**
+         * @member {String} mainContentLayout_='cube'
+         */
+        mainContentLayout_: 'mixed',
+        /**
          * @member {Object} routes
          */
         routes: {
@@ -42,6 +55,33 @@ class ViewportController extends Controller {
      * @member {String[]} connectedApps=[]
      */
     connectedApps = []
+
+    /**
+     * Triggered after the mainContentLayout config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMainContentLayout(value, oldValue) {
+        let {activeIndex} = this,
+            container     = this.component.getItem('main-content'); // happens before instantiation
+
+        if (value === 'cube') {
+            container.layout = {ntype: 'cube', activeIndex, fitContainer: true}
+        } else {
+            container.layout = {ntype: 'card', activeIndex}
+        }
+    }
+
+    /**
+     * Triggered before the mainContentLayout config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetMainContentLayout(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'mainContentLayout')
+    }
 
     /**
      * @param {Object} data
@@ -182,14 +222,15 @@ class ViewportController extends Controller {
      * @param {Number} index
      */
     async setMainContentIndex(index) {
-        let me            = this,
-            {activeIndex} = me,
-            container     = me.getReference('main-content');
+        let me                               = this,
+            {activeIndex, mainContentLayout} = me,
+            container                        = me.getReference('main-content'),
+            updateLayout                     = true;
 
         if (index !== activeIndex) {
-            // skip the initial painting, since there is no transition
-            if (Neo.isNumber(activeIndex)) {
-                await import('../../../src/layout/Cube.mjs');
+            // skip the initial layout-switch, since we do not need a transition
+            if (mainContentLayout === 'mixed' && Neo.isNumber(activeIndex)) {
+                updateLayout = false;
 
                 container.wrapperStyle; // todo: without accessing the getter, the flex value can get lost.
 
@@ -202,7 +243,9 @@ class ViewportController extends Controller {
                 await me.timeout(800);
 
                 container.layout = {ntype: 'card', activeIndex: index}
-            } else {
+            }
+
+            if (updateLayout) {
                 container.layout.activeIndex = index
             }
 
