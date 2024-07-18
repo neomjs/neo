@@ -2,7 +2,7 @@
     .neo-layout-cube {
         &.neo-animate {
             .neo-box {
-                transition: transform 500ms ease-out;
+                transition: transform 800ms ease-in-out;
             }
         }
 

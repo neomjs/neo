@@ -53,6 +53,11 @@ class Cube extends Card {
          */
         fitContainer_: false,
         /**
+         * Important for dynamically switching from a cube to a card layout
+         * @member {Boolean} hideInactiveCardsOnDestroy=false
+         */
+        hideInactiveCardsOnDestroy: false,
+        /**
          * @member {Number} perspective_=600
          */
         perspective_: 600,
@@ -271,7 +276,8 @@ class Cube extends Card {
      *
      */
     destroy(...args) {
-        let {container}   = this,
+        let me            = this,
+            {container}   = me,
             {style, vdom} = container;
 
         Object.assign(style, {
@@ -288,8 +294,16 @@ class Cube extends Card {
 
         vdom.cn = container.getVdomItemsRoot().cn;
 
+        if (me.hideInactiveCardsOnDestroy) {
+            vdom.cn.forEach((item, index) => {
+                if (index !== me.activeIndex) {
+                    item.removeDom = true
+                }
+            })
+        }
+
         // override
-        container.getVdomItemsRoot = this.#cachedVdomItemsRoot;
+        container.getVdomItemsRoot = me.#cachedVdomItemsRoot;
 
         container.update();
 
@@ -297,14 +311,10 @@ class Cube extends Card {
     }
 
     nestVdom() {
-        let {container} = this,
+        let me          = this,
+            {container} = me,
             {vdom}      = container,
             {cn}        = vdom;
-
-        // Important when switching from a card layout to this one
-        cn.forEach(node => {
-            delete node.removeDom
-        });
 
         vdom.cn = [
             {cls: ['neo-plane'], cn: [
@@ -313,12 +323,21 @@ class Cube extends Card {
         ];
 
         // Cache the original method for run-time container layout changes
-        this.#cachedVdomItemsRoot = container.getVdomItemsRoot;
+        me.#cachedVdomItemsRoot = container.getVdomItemsRoot;
 
         // Override
         container.getVdomItemsRoot = function() {
             return this.vdom.cn[0].cn[0]
         }
+
+        me.timeout(50).then(() => {
+            // Important when switching from a card layout to this one
+            container.vdom.cn[0].cn[0].cn.forEach(node => {
+                delete node.removeDom
+            });
+
+            container.update()
+        })
     }
 
     /**

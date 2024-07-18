@@ -67,7 +67,7 @@ class ViewportController extends Controller {
             container     = this.component.getItem('main-content'); // happens before instantiation
 
         if (value === 'cube') {
-            container.layout = {ntype: 'cube', activeIndex, fitContainer: true}
+            container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true}
         } else {
             container.layout = {ntype: 'card', activeIndex}
         }
@@ -234,13 +234,13 @@ class ViewportController extends Controller {
 
                 container.wrapperStyle; // todo: without accessing the getter, the flex value can get lost.
 
-                container.layout = {ntype: 'cube', activeIndex, fitContainer: true};
+                container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true};
 
                 await me.timeout(200);
 
                 container.layout.activeIndex = index;
 
-                await me.timeout(800);
+                await me.timeout(1100);
 
                 container.layout = {ntype: 'card', activeIndex: index}
             }
