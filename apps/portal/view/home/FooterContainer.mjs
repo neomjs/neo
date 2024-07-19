@@ -64,6 +64,33 @@ class FooterContainer extends Container {
             items: [{
                 module: Component,
                 cls   : ['neo-h2'],
+                html  : 'Community',
+                tag   : 'h2'
+            }, {
+                iconCls: 'fa-brands fa-github',
+                text   : 'Contribute',
+                url    : 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md'
+            }, {
+                iconCls: 'fa-brands fa-github',
+                text   : 'Code of Conduct',
+                url    : 'https://github.com/neomjs/neo/blob/dev/.github/CODE_OF_CONDUCT.md'
+            }, {
+                iconCls: 'fa-brands fa-github',
+                text   : 'Report Issues',
+                url    : 'https://github.com/neomjs/neo/issues'
+            }, {
+                iconCls: 'fa-brands fa-slack',
+                text   : 'Slack',
+                url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA'
+            }, {
+                iconCls: 'fa-brands fa-discord',
+                text   : 'Discord',
+                url    : 'https://discord.gg/6p8paPq'
+            }]
+        }, {
+            items: [{
+                module: Component,
+                cls   : ['neo-h2'],
                 html  : 'Social Media',
                 tag   : 'h2'
             }, {
@@ -78,13 +105,6 @@ class FooterContainer extends Container {
                 iconCls: 'fa-brands fa-x-twitter',
                 text   : 'X',
                 url    : 'https://x.com/neomjs1'
-            }]
-        }, {
-            items: [{
-                module: Component,
-                cls   : ['neo-h2'],
-                html  : 'Section 3',
-                tag   : 'h2'
             }]
         }],
         /**
