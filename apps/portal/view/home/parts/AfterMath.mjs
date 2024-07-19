@@ -20,26 +20,24 @@ class AfterMath extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            ntype: 'container',
-            flex : 1
+            flex: 1
         }, {
-            cls : 'neo-h1',
+            cls : ['neo-h1'],
             flex: 'none',
             html: 'Additional Stuff',
-            vdom: {tag: 'h1'}
+            tag : 'h1'
         }, {
-            cls : 'neo-h2',
+            cls : ['neo-h2'],
             flex: 'none',
             html: 'More to come here',
-            vdom: {tag: 'h2'}
+            tag : 'h2'
         }, {
-            cls : 'neo-content',
+            cls : ['neo-content'],
             flex: 'none',
             html: 'Neo uses several cores to run the application. See the spinner on the page?',
-            vdom: {tag: 'p'}
+            tag : 'p'
         }, {
-            ntype: 'container',
-            flex : 1
+            flex: 1
         }, {
             module: FooterContainer,
             height: '40%'
