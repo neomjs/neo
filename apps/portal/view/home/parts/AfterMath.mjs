@@ -42,15 +42,7 @@ class AfterMath extends BaseContainer {
             flex : 1
         }, {
             module: FooterContainer,
-            cls   : 'home-footer',
-            height: '40%',
-
-            style : { // todo: css
-                background: 'black',
-                color     : 'white',
-                height    : '40%',
-                padding   : '15px'
-            }
+            height: '40%'
         }]
     }
 }

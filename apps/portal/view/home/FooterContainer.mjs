@@ -12,6 +12,10 @@ class FooterContainer extends Base {
          */
         className: 'Portal.view.home.FooterContainer',
         /**
+         * @member {String[]} cls=['portal-home-footer-container']
+         */
+        cls: ['portal-home-footer-container'],
+        /**
          * @member {Object[]} items
          */
         items: [{
