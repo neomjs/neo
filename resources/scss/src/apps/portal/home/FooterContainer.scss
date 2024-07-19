@@ -1,5 +1,31 @@
 .portal-home-footer-container {
-    background: black;
-    color     : white;
-    padding   : 15px;
+    background-color: black;
+    padding         : 15px;
+
+    .neo-button.neo-button-ghost {
+        justify-content: start;
+        min-width      : 10em;
+
+        &:hover {
+            background-color: #333;
+        }
+
+        .neo-button-glyph {
+            color    : white;
+            font-size: 20px;
+        }
+
+        .neo-button-text {
+            color: white;
+        }
+    }
+
+    h2.neo-h2 {
+        color: white;
+    }
+
+    .portal-home-footer-section {
+        background-color: transparent;
+        color           : white;
+    }
 }
