@@ -13,6 +13,10 @@ class AfterMath extends BaseContainer {
          */
         className: 'Portal.view.home.parts.AfterMath',
         /**
+         * @member {String[]} cls=['portal-home-aftermath']
+         */
+        cls: ['portal-home-aftermath'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch',pack:'center'}
          */
         layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
@@ -34,13 +38,13 @@ class AfterMath extends BaseContainer {
         }, {
             cls : ['neo-content'],
             flex: 'none',
-            html: 'Neo uses several cores to run the application. See the spinner on the page?',
+            html: 'Lorem Ipsum',
             tag : 'p'
         }, {
             flex: 1
         }, {
             module: FooterContainer,
-            height: '40%'
+            height: '35%'
         }]
     }
 }
