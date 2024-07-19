@@ -34,9 +34,32 @@ class FooterContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            html: 'Section 1'
-        }, {
-            html: 'Section 2'
+            items: [{
+                module: Component,
+                cls   : ['neo-h2'],
+                html  : 'Content',
+                tag   : 'h2'
+            }, {
+                iconCls: 'fas fa-people-group',
+                route  : '/about-us',
+                text   : 'About Us'
+            }, {
+                iconCls: 'fas fa-book',
+                route  : '/docs',
+                text   : 'API Docs'
+            }, {
+                iconCls: 'fas fa-blog',
+                route  : '/blog',
+                text   : 'Blog'
+            }, {
+                iconCls: 'fas fa-graduation-cap',
+                route  : '/learn',
+                text   : 'Learn'
+            }, {
+                iconCls: 'fas fa-handshake-angle',
+                route  : '/services',
+                text   : 'Services'
+            }]
         }, {
             items: [{
                 module: Component,
@@ -55,6 +78,13 @@ class FooterContainer extends Container {
                 iconCls: 'fa-brands fa-x-twitter',
                 text   : 'X',
                 url    : 'https://x.com/neomjs1'
+            }]
+        }, {
+            items: [{
+                module: Component,
+                cls   : ['neo-h2'],
+                html  : 'Section 3',
+                tag   : 'h2'
             }]
         }],
         /**

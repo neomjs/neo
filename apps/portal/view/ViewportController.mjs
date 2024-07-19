@@ -188,7 +188,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onDocsRoute(params, value, oldValue) {
-        this.setMainContentIndex(4)
+        this.setMainContentIndex(3)
     }
 
     /**
