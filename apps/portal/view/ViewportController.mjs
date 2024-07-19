@@ -35,7 +35,7 @@ class ViewportController extends Controller {
          */
         defaultHash: '/home',
         /**
-         * @member {String} mainContentLayout_='cube'
+         * @member {String} mainContentLayout_='mixed'
          */
         mainContentLayout_: 'mixed',
         /**
