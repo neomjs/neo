@@ -1,4 +1,5 @@
-import BaseContainer from './BaseContainer.mjs';
+import BaseContainer   from './BaseContainer.mjs';
+import FooterContainer from '../FooterContainer.mjs';
 
 /**
  * @class Portal.view.home.parts.AfterMath
@@ -40,11 +41,9 @@ class AfterMath extends BaseContainer {
             ntype: 'container',
             flex : 1
         }, {
-            ntype : 'container',
+            module: FooterContainer,
             cls   : 'home-footer',
             height: '40%',
-            html  : 'This is the footer',
-            vdom  : {tag: 'footer'},
 
             style : { // todo: css
                 background: 'black',
