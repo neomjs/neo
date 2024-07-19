@@ -8,6 +8,88 @@ import VDomUtil   from '../../../src/util/VDom.mjs';
 let deltas, output, vdom, vnode;
 
 StartTest(t => {
+    t.it('Week view: Infinite Scrolling', t => {
+        vdom =
+        {id: 'neo-vnode-1', cn: [
+            {id: 'col-6'},
+            {id: 'col-7'},
+            {id: 'col-8'},
+            {id: 'col-9'},
+            {id: 'col-10'},
+            {id: 'col-11'},
+            {id: 'col-12'},
+            {id: 'col-13'},
+            {id: 'col-14'},
+            {id: 'col-15'}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        vdom =
+        {id: 'neo-vnode-1', cn: [
+            {id: 'col-1'},
+            {id: 'col-2'},
+            {id: 'col-3'},
+            {id: 'col-4'},
+            {id: 'col-5'},
+            {id: 'col-6'},
+            {id: 'col-7'},
+            {id: 'col-8'},
+            {id: 'col-9'},
+            {id: 'col-10'}
+        ]};
+
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 10, 'Count deltas equals 10');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'insertNode', index: 0, outerHTML: '<div id="col-1"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 1, outerHTML: '<div id="col-2"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 2, outerHTML: '<div id="col-3"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 3, outerHTML: '<div id="col-4"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 4, outerHTML: '<div id="col-5"></div>', parentId: 'neo-vnode-1'},
+            {action: 'removeNode', id: 'col-11'},
+            {action: 'removeNode', id: 'col-12'},
+            {action: 'removeNode', id: 'col-13'},
+            {action: 'removeNode', id: 'col-14'},
+            {action: 'removeNode', id: 'col-15'}
+        ], 'deltas got created successfully');
+
+        t.diag('Revert operation');
+
+        vdom =
+        {id: 'neo-vnode-1', cn: [
+            {id: 'col-6'},
+            {id: 'col-7'},
+            {id: 'col-8'},
+            {id: 'col-9'},
+            {id: 'col-10'},
+            {id: 'col-11'},
+            {id: 'col-12'},
+            {id: 'col-13'},
+            {id: 'col-14'},
+            {id: 'col-15'}
+        ]};
+
+        output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.is(deltas.length, 10, 'Count deltas equals 10');
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'insertNode', index: 10, outerHTML: '<div id="col-11"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 11, outerHTML: '<div id="col-12"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 12, outerHTML: '<div id="col-13"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 13, outerHTML: '<div id="col-14"></div>', parentId: 'neo-vnode-1'},
+            {action: 'insertNode', index: 14, outerHTML: '<div id="col-15"></div>', parentId: 'neo-vnode-1'},
+            {action: 'removeNode', id: 'col-1'},
+            {action: 'removeNode', id: 'col-2'},
+            {action: 'removeNode', id: 'col-3'},
+            {action: 'removeNode', id: 'col-4'},
+            {action: 'removeNode', id: 'col-5'}
+        ], 'deltas got created successfully');
+    });
+
     t.it('Drag an event to the top inside the same column', t => {
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -2390,14 +2472,14 @@ StartTest(t => {
         t.is(deltas.length, 16, 'Count deltas equals 16');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'insertNode', index: 14, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 15, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 16, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 17, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 18, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 19, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 20, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
-            {action: 'insertNode', index: 21, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 22, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 23, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 24, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 25, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 26, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 27, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 28, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
+            {action: 'insertNode', index: 29, parentId: 'neo-vnode-150', outerHTML: t.any(String)},
             {action: 'removeNode', id: 'neo-component-6__week__2021-02-21'},
             {action: 'removeNode', id: 'neo-vnode-168'},
             {action: 'removeNode', id: 'neo-component-6__week__2021-02-28'},

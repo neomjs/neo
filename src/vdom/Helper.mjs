@@ -257,6 +257,7 @@ class Helper extends Base {
             oldChildNodes = oldVnode.childNodes || [],
             i             = 0,
             indexDelta    = 0,
+            insertDelta   = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
             childNode, nodeInNewTree, oldChildNode;
 
@@ -270,6 +271,8 @@ class Helper extends Base {
         for (; i < len; i++) {
             childNode    = childNodes[i];
             oldChildNode = oldChildNodes[i + indexDelta];
+
+            // console.log(childNode?.id, oldChildNode?.id);
 
             if (!childNode && !oldChildNode) {
                 break
@@ -288,6 +291,7 @@ class Helper extends Base {
                 if (!nodeInNewTree) {
                     me.removeNode({deltas, oldVnode: oldChildNode, oldVnodeMap});
                     i--;
+                    insertDelta++;
                     continue
                 }
 
@@ -300,7 +304,15 @@ class Helper extends Base {
             }
 
             if (childNode) {
-                me[oldVnodeMap.get(childNode.id) ? 'moveNode' : 'insertNode']({deltas, oldVnodeMap, vnode: childNode, vnodeMap})
+                if (oldVnodeMap.get(childNode.id)) {
+                    me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
+                } else {
+                    me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
+                }
+
+                if (oldChildNode && vnodeId === vnodeMap.get(oldChildNode.id)?.parentNode.id) {
+                    len++;
+                }
             }
         }
 
@@ -590,14 +602,14 @@ class Helper extends Base {
     /**
      * @param {Object}         config
      * @param {Object}         config.deltas
+     * @param {Number}         config.index
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      */
     insertNode(config) {
-        let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
+        let {deltas, index, oldVnodeMap, vnode, vnodeMap} = config,
             details    = vnodeMap.get(vnode.id),
-            {index}    = details,
             parentId   = details.parentNode.id,
             me         = this,
             movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
@@ -621,12 +633,13 @@ class Helper extends Base {
     /**
      * @param {Object}         config
      * @param {Object}         config.deltas
+     * @param {Number}         config.insertDelta
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      */
     moveNode(config) {
-        let {deltas, oldVnodeMap, vnode, vnodeMap} = config,
+        let {deltas, insertDelta, oldVnodeMap, vnode, vnodeMap} = config,
             details             = vnodeMap.get(vnode.id),
             {index, parentNode} = details,
             parentId            = parentNode.id,
@@ -649,7 +662,7 @@ class Helper extends Base {
             }
         }
 
-        deltas.default.push({action: 'moveNode', id: vnode.id, index, parentId});
+        deltas.default.push({action: 'moveNode', id: vnode.id, index: index + insertDelta, parentId});
 
         // Add the node into the old vnode tree to simplify future OPs.
         // NeoArray.insert() will switch to move() in case the node already exists.
