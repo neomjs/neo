@@ -74,13 +74,13 @@ class List extends BaseList {
         let basePath;
 
         if (Neo.config.isGitHubPages) {
-            basePath = '../../../../resources/website/examples';
+            basePath = '../../../../resources_pub/website/examples';
 
             if (Neo.config.environment !== 'development') {
                 basePath = '../../' + basePath
             }
         } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website/examples'
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
         }
 
         return [

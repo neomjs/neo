@@ -62,13 +62,13 @@ class List extends BaseList {
         let basePath;
 
         if (Neo.config.isGitHubPages) {
-            basePath = '../../../../resources/website';
+            basePath = '../../../../resources_pub/website';
 
             if (Neo.config.environment !== 'development') {
                 basePath = '../../' + basePath
             }
         } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources/website'
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website'
         }
 
         const vdomCn = [

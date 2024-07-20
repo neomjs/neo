@@ -1,5 +1,5 @@
 <p align="center">
-  <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/logo/neo_logo_text_primary.svg">
+  <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/logo/neo_logo_text_primary.svg">
 </p>
 </br>
 <p align="center">
@@ -36,7 +36,7 @@ Neo.mjs also provides sharing state across multiple Browser-Windows.
 So far, it is the only Framework which enables us to build complex multi-Window Apps
 without the need for a native shell.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/workers-setup-v4.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/workers-setup-v4.png">
 
 Potential Use-Cases:
 1. Finance (Banking & Trading Apps)

@@ -39,10 +39,10 @@ class AmCharts extends Base {
          */
         downloadPath: 'https://www.amcharts.com/lib/4/',
         /**
-         * @member {String} fallbackPath='https://neomjs.github.io/pages/resources/amCharts/'
+         * @member {String} fallbackPath='https://neomjs.github.io/pages/resources_pub/amCharts/'
          * @protected
          */
-        fallbackPath: 'https://neomjs.github.io/pages/resources/amCharts/',
+        fallbackPath: 'https://neomjs.github.io/pages/resources_pub/amCharts/',
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
