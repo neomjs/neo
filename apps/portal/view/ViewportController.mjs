@@ -35,7 +35,7 @@ class ViewportController extends Controller {
          */
         defaultHash: '/home',
         /**
-         * @member {String} mainContentLayout_='cube'
+         * @member {String} mainContentLayout_='mixed'
          */
         mainContentLayout_: 'mixed',
         /**
@@ -188,7 +188,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onDocsRoute(params, value, oldValue) {
-        this.setMainContentIndex(4)
+        this.setMainContentIndex(3)
     }
 
     /**

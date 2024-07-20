@@ -168,7 +168,9 @@ class Cube extends Card {
                 me.updateContainerSize()
             } else {
                 container.on('mounted', () => {
-                    me.updateContainerSize()
+                    me.timeout(50).then(() => {
+                        me.updateContainerSize()
+                    })
                 })
             }
         }
@@ -414,6 +416,8 @@ class Cube extends Card {
     async updateContainerSize() {
         let {container}     = this,
             {height, width} = await container.getDomRect(container.id);
+
+        console.log({height, width});
 
         this.set({
             sideX: width,

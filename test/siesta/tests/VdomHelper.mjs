@@ -494,8 +494,10 @@ StartTest(t => {
             ]
         }, 'vnode got updated successfully');
 
+        t.is(deltas.length, 3, 'Count deltas equals 3');
+
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode',   id: 'neo-list-1__tobiu', index: 2, parentId: 'neo-list-1'},
+            {action: 'moveNode',   id: 'neo-list-1__tobiu', index: 3, parentId: 'neo-list-1'},
             {action: 'removeNode', id: 'neo-list-1__jsakalos'},
             {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ], 'deltas got created successfully');
@@ -696,7 +698,7 @@ StartTest(t => {
         t.is(deltas.length, 2, 'Count deltas equals 2');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode',   id: 'level-3', index: 0, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3', index: 1, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
@@ -791,8 +793,8 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
-            {action: 'moveNode',   id: 'level-3-2', index: 1, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-1', index: 1, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
@@ -810,11 +812,12 @@ StartTest(t => {
 
         vnode = VdomHelper.create(vdom);
 
-        // replace level 2 with level 3
-        vdom.cn = vdom.cn[0].cn;
-
-        // adding a new node
-        vdom.cn.splice(1, 0, {id: 'new-node'})
+        vdom =
+        {id: 'level-1', cn: [
+            {id: 'level-3-1'},
+            {id: 'new-node'},
+            {id: 'level-3-2'}
+        ]};
 
         output = VdomHelper.update({vdom, vnode}); deltas = output.deltas; vnode = output.vnode;
 
@@ -860,9 +863,9 @@ StartTest(t => {
         t.is(deltas.length, 4, 'Count deltas equals 4');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode',   id: 'level-3-1', index: 0, parentId: 'level-1'},
-            {action: 'insertNode',                  index: 1, parentId: 'level-1', outerHTML: t.any(String)},
-            {action: 'moveNode',   id: 'level-3-2', index: 2, parentId: 'level-1'},
+            {action: 'moveNode',   id: 'level-3-1', index: 1, parentId: 'level-1'},
+            {action: 'insertNode',                  index: 2, parentId: 'level-1', outerHTML: t.any(String)},
+            {action: 'moveNode',   id: 'level-3-2', index: 3, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ], 'deltas got created successfully');
     });
