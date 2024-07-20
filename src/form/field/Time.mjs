@@ -398,7 +398,7 @@ class Time extends Picker {
         let me     = this,
             {list} = me,
             id     = list.getItemId(me.value);
-console.log(id);
+
         list.selectionModel.select(id);
 
         if (!preventFocus) {
