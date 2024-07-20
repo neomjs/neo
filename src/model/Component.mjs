@@ -3,8 +3,9 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
-const dataVariableRegex = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
-      variableNameRegex = /^\w*/;
+const dataVariableRegex   = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
+      twoWayBindingSymbol = Symbol.for('twoWayBinding'),
+      variableNameRegex   = /^\w*/;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -213,6 +214,7 @@ class Component extends Base {
      * @param {String} componentId
      * @param {String} formatter
      * @param {String} value
+     * @returns {String[]}
      */
     createBindingByFormatter(componentId, formatter, value) {
         let me            = this,
@@ -220,7 +222,9 @@ class Component extends Base {
 
         formatterVars.forEach(key => {
             me.createBinding(componentId, key, value, formatter)
-        })
+        });
+
+        return formatterVars
     }
 
     /**
@@ -228,12 +232,21 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
+            let twoWayBinding = false,
+                formatterVars;
+
             if (Neo.isObject(value)) {
-                value = value.value
+                twoWayBinding = true;
+                value         = value.value
             }
 
             if (!this.isStoreValue(value)) {
-                this.createBindingByFormatter(component.id, value, key)
+                formatterVars = this.createBindingByFormatter(component.id, value, key);
+
+                if (twoWayBinding) {
+                    component.bind[key].key = formatterVars[0];
+                    component[twoWayBindingSymbol] = true;
+                }
             }
         })
     }

@@ -13,10 +13,11 @@ import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 
 const
-    addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
-    closestController = Symbol.for('closestController'),
-    closestModel      = Symbol.for('closestModel'),
-    lengthRE          = /^\d+\w+$/;
+    addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
+    closestController   = Symbol.for('closestController'),
+    closestModel        = Symbol.for('closestModel'),
+    lengthRE            = /^\d+\w+$/,
+    twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
  * @class Neo.component.Base
@@ -555,11 +556,13 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetConfig(key, value, oldValue) {
-        if (Neo.currentWorker.isUsingViewModels && oldValue !== undefined) {
-            let binding = this.bind?.[key];
+        let me = this;
+
+        if (Neo.currentWorker.isUsingViewModels && me[twoWayBindingSymbol] && oldValue !== undefined) {
+            let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getModel()?.setData(key, value)
+                this.getModel()?.setData(binding.key, value)
             }
         }
     }
