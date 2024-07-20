@@ -830,7 +830,7 @@ class DateSelector extends Component {
         // using force => we do want to keep the same ids
         syncIds && me.syncVdomIds(me.vnode, me.vdom, true);
 
-        me.triggerVdomUpdate(silent)
+        !silent && me.update()
     }
 
     /**
