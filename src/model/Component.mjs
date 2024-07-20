@@ -292,7 +292,13 @@ class Component extends Base {
 
         Object.defineProperty(root, key, {
             get() {
-                return root['_' + key]
+                let value = root['_' + key];
+
+                if (Neo.typeOf(value) === 'Date') {
+                    value = new Date(value.valueOf())
+                }
+
+                return value
             },
 
             set(value) {

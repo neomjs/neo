@@ -638,8 +638,8 @@ class MainContainer extends Container {
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {
-        let me          = this,
-            currentDate = me.data.currentDate,
+        let me            = this,
+            {currentDate} = me.data,
 
         map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
