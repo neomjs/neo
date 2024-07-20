@@ -24,7 +24,7 @@ The best way to get a feeling for workers is using the Google Chrome Dev Tools (
 In case you open the <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a>
 (or any other neo.mjs app), you will get a dropdown menu where you can pick the console scope:
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/concept/worker_scope.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/concept/worker_scope.png">
 
 The default scope (top) will show the (console) logs inside all threads.
 
@@ -162,7 +162,7 @@ class Gallery extends Component {
 <a href="https://github.com/neomjs/neo/blob/dev/src/component/Gallery.mjs">Full component.Gallery Source Code</a>
 
 Now let us take a look at the source code inside the browser:
-<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources/images/concept/gallery_workers.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/concept/gallery_workers.png">
 
 Expand the image and take a close look at the Chrome Dev Tools:
 1. The source code is 1:1 the same
