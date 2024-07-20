@@ -468,11 +468,12 @@ class MainContainer extends Container {
             flex  : 1,
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
-                module: Container,
-                cls   : ['neo-calendar-sidebar', 'neo-container'],
-                layout: {ntype: 'vbox', align: 'stretch'},
-                width : me.sideBarWidth,
-                items : [me.dateSelector, me.calendarsContainer]
+                module  : Container,
+                cls     : ['neo-calendar-sidebar', 'neo-container'],
+                layout  : {ntype: 'vbox', align: 'stretch'},
+                minWidth: me.sideBarWidth,
+                width   : me.sideBarWidth,
+                items   : [me.dateSelector, me.calendarsContainer]
             }, {
                 module   : Container,
                 flex     : 1,
