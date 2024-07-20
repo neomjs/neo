@@ -593,10 +593,10 @@ class Base extends Component {
 
     /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
-     * @param {String} id
+     * @param {String} [id=this.id]
      */
-    focus(id) {
-        Neo.main.addon.Navigator.navigateTo([id, this.navigator])
+    focus(id=this.id) {
+        this.mounted && Neo.main.addon.Navigator.navigateTo([id, this.navigator])
     }
 
     /**

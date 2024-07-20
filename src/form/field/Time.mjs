@@ -92,9 +92,7 @@ class Time extends Picker {
 
         me.originalConfig.value = me.formatTime(me.value);
 
-        if (clearTrigger) {
-            clearTrigger.onFieldChange();
-        }
+        clearTrigger?.onFieldChange();
 
         me.collection = Neo.create({
             module     : Collection,
@@ -115,9 +113,8 @@ class Time extends Picker {
         );
 
         me.list.on({
-            itemClick   : me.onListItemClick,
-            itemNavigate: me.onListItemNavigate,
-            scope       : me
+            itemClick: me.onListItemClick,
+            scope    : me
         })
     }
 
@@ -273,7 +270,8 @@ class Time extends Picker {
 
         while (currentDate <= endDate) {
             listItems.push({
-                value: dt.format(currentDate)
+                isRecord: true,
+                value   : dt.format(currentDate)
             });
 
             currentDate.setSeconds(currentDate.getSeconds() + me.stepSize)
@@ -350,10 +348,12 @@ class Time extends Picker {
     }
 
     /**
-     * @param {Object} record
+     * @param {Object} data
+     * @param {Object} data.record
      */
-    onListItemClick(record) {
+    onListItemClick(data) {
         let me       = this,
+            {record} = data,
             oldValue = me.value,
             {value}  = record;
 
@@ -363,13 +363,6 @@ class Time extends Picker {
             me._value = value;
             me.afterSetValue(value, oldValue, true) // prevent the list from getting selected / focused
         }
-    }
-
-    /**
-     * @param {Object} record
-     */
-    onListItemNavigate(record) {
-        this.onListItemClick(record)
     }
 
     /**
@@ -405,10 +398,19 @@ class Time extends Picker {
         let me     = this,
             {list} = me,
             id     = list.getItemId(me.value);
-
+console.log(id);
         list.selectionModel.select(id);
 
         if (!preventFocus) {
+
+            if (list.mounted) {
+                list.focus(id)
+            } else {
+                list.on('mounted', () => {
+                    list.focus(id)
+                }, me, {once: true})
+            }
+
             list.focus(id)
         } else {
             Neo.main.DomAccess.scrollIntoView({
