@@ -759,7 +759,7 @@ class DateSelector extends Component {
      */
     onComponentWheel(data) {
         let me               = this,
-            {deltaX, deltaY} = me,
+            {deltaX, deltaY} = data,
             wheelDelta       = me.mouseWheelDelta,
             date, monthIncrement, yearIncrement;
 
