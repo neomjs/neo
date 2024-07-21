@@ -9,15 +9,6 @@ import NeoArray         from '../../util/Array.mjs';
  */
 class Base extends Component {
     /**
-     * @member {Object} delayable
-     * @protected
-     * @static
-     */
-    static delayable = {
-        fireChangeEvent    : {type: 'debounce', timer: 1000},
-        fireUserChangeEvent: {type: 'debounce', timer: 1000}
-    }
-    /**
      * Valid values for isTouchedEvent
      * @member {String[]} isTouchedEvents=['focusEnter','focusLeave']
      * @protected
