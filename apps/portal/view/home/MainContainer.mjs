@@ -4,6 +4,8 @@ import Container from '../../../../src/container/Base.mjs';
 import Helix     from './parts/Helix.mjs';
 import How       from './parts/How.mjs';
 import MainNeo   from './parts/MainNeo.mjs';
+import Features  from './parts/Features.mjs';
+
 // import References from './parts/References.mjs';
 
 /**
@@ -39,7 +41,7 @@ class MainContainer extends Container {
             {ntype: 'component', cls: ['portal-home-progress']},
             MainNeo,
             // References,
-            // Features,
+            Features,
             Helix,
             Colors,
             How,
