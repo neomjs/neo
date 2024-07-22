@@ -61,7 +61,7 @@ class MainContainer extends Viewport {
             },
 
             modelData: {
-                currentDate: new Date('2021-07-20')
+                currentDate: new Date('2024-07-21')
             }
         }]
     }
