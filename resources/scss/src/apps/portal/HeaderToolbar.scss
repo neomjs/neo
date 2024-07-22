@@ -23,9 +23,14 @@
 
         .neo-button-glyph {
             &.neo-logo-blue {
-                background-image: url("../../../../../../resources/images/logo/neo_logo_primary.svg");
-                height          : 24px;
-                width           : 24px;
+                background-image   : url("../../../../../../resources/images/logo/neo_logo_primary.svg");
+                background-position: center center;
+                background-repeat  : no-repeat;
+                background-size    : contain;
+                height             : 24px;
+                min-height         : 24px;
+                min-width          : 24px;
+                width              : 24px;
             }
         }
     }

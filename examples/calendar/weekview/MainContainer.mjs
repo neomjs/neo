@@ -29,7 +29,7 @@ class MainContainer extends Viewport {
         model: {
             module: MainContainerModel,
             data  : {
-                currentDate: new Date('2021-07-20')
+                currentDate: new Date('2024-07-21')
             }
         },
         /**

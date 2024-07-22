@@ -16,8 +16,20 @@
         background-position: center center;
         background-repeat  : no-repeat;
         background-size    : contain;
-        height             : 10vW;
+        height             : 10VW;
         max-height         : 130px;
         width              : 100%;
+    }
+
+    @media (max-width: 600px) {
+        padding: 3em 0.5em;
+
+        .neo-h1 {
+            margin: 2em 0;
+        }
+
+        .vector {
+            height: 17VW;
+        }
     }
 }
