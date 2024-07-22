@@ -80,6 +80,7 @@ class Viewport extends BaseViewport {
         }, {
             module   : Panel,
             layout   : {ntype: 'vbox', align: 'stretch'},
+            cls      : ['neo-helix-controls-panel'],
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
             width    : 250,
