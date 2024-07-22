@@ -1,12 +1,11 @@
-import Base from './BaseContainer.mjs';
+import BaseContainer from './BaseContainer.mjs';
 import ContentBox    from '../ContentBox.mjs';
-import Component          from '../../../../../src/component/Base.mjs';
 
 /**
  * @class Portal.view.home.parts.Features
  * @extends Portal.view.home.parts.BaseContainer
  */
-class Features extends Base {
+class Features extends BaseContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.Features'
@@ -20,29 +19,30 @@ class Features extends Base {
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch',wrap:'wrap'}
          */
-
-        layout: {ntype: 'vbox', align: 'stretch', wrap: 'wrap'},
+        layout: {ntype: 'hbox', align: 'stretch', wrap: 'wrap'},
+        /**
+         * @member {Object[]} items
+         */
         items: [{
-            module: Component,
-            style: {fontSize: '2em;'},
-            vdom: {tag: 'ul'},
-            html: `
-                <li>The unique ability to code multi-window applications
-                <li>App logic, DOM updates, and backend calls &mdash; all run in parallel threads
-                <li>Easily handles over 40,000 DOM updates per second
-                <li>Standards based JavaScript, with no special extensions or webpack processes
-                <li>Component-based declarative code, with elegant state management, and easy debugging
-            `,
-            flex: 1,
+            module: ContentBox,
+            header: 'Next-Generation Runtime',
+            route : '#/learn/WhyNeo-Quick',
+
+            content: [
+                'Multi-threaded',
+                'Elegant state management',
+                'Simple and powerful debugging'
+            ]
         }, {
-            module: Component,
-            vdom: {tag: 'p'},
-            // style: {textAlign: 'center'},
-            html: `
-                Scroll down to see some demos or go straight to the <a href="#/learn">Learning Section</a>.
-                If you need help, read about <a>programming or training services</a>. 
-            `,
-            flex: 1,
+            module: ContentBox,
+            header: 'Extreme Speed',
+            route : '#/learn/WhyNeo-Speed',
+
+            content: [
+                'Multi-threaded',
+                'Over 40,000 delta updates per second',
+                'Item 3'
+            ]
         }]
     }
 }
