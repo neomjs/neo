@@ -78,6 +78,19 @@ class Features extends BaseContainer {
                 'Observable',
                 'Supporting different architectures like MVVM without enforcing them'
             ]
+        }, {
+            module: ContentBox,
+            header: 'Core Features',
+            route : '#/learn/WhyNeo-Speed',
+
+            content: [
+                'RPC Layer (cross-realm, including Backends)',
+                'Extensibility',
+                'Scalability',
+                'Class Config System',
+                'Drag & Drop',
+                'Mixins, Plugins & Main-Thread Addons'
+            ]
         }]
     }
 }
