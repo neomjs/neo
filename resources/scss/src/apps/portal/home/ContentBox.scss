@@ -22,4 +22,8 @@
     .portal-content-box-header {
 
     }
+
+    @media (max-width: 600px) {
+        margin-right: 0;
+    }
 }
