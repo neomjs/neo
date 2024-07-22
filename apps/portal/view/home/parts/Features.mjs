@@ -25,23 +25,57 @@ class Features extends BaseContainer {
          */
         items: [{
             module: ContentBox,
-            header: 'Next-Generation Runtime',
+            header: 'Multi-Window Apps',
             route : '#/learn/WhyNeo-Quick',
 
             content: [
-                'Multi-threaded',
-                'Elegant state management',
-                'Simple and powerful debugging'
+                'No need for a Native Shell (e.g. Electron)',
+                'Sharing Data across Windows',
+                'Sharing State across Windows',
+                'Moving Components across Windows while keeping the same JS instances'
             ]
         }, {
             module: ContentBox,
-            header: 'Extreme Speed',
+            header: 'Multi-threading',
+            route : '#/learn/WhyNeo-Quick',
+
+            content: [
+                'Following the OMT (Off the Main-Thread) paradigm',
+                'Your Apps & the Framework live within an Application Worker',
+                'Additional Workers for OffscreenCanvas, Data, Delta-Updates & Tasks',
+                'A ServiceWorker connected to the App Worker for predictive Caching'
+            ]
+        }, {
+            module: ContentBox,
+            header: 'Modern JavaScript directly in your Browser',
+            route : '#/learn/WhyNeo-Quick',
+
+            content: [
+                'The Dev-Mode runs without the need for Transpilations or Compilations',
+                'Using the latest ECMAScript Features, as soon as the Browser Support is there',
+                'Simple and powerful Debugging',
+                'Reduced Development Costs'
+            ]
+        }, {
+            module: ContentBox,
+            header: 'Powerful Component-Library',
+            route : '#/learn/WhyNeo-Quick',
+
+            content: [
+                'Declarative Component-Trees',
+                'High Order Components',
+                'Many out of the box Components, including nested lazy-loaded forms',
+                'Multiple themes, which can get nested'
+            ]
+        }, {
+            module: ContentBox,
+            header: 'Elegant State Management',
             route : '#/learn/WhyNeo-Speed',
 
             content: [
-                'Multi-threaded',
-                'Over 40,000 delta updates per second',
-                'Item 3'
+                'Multiple communicating State-Providers',
+                'Observable',
+                'Supporting different architectures like MVVM without enforcing them'
             ]
         }]
     }
