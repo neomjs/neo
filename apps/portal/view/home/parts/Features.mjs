@@ -42,6 +42,7 @@ class Features extends BaseContainer {
             content: [
                 'Following the OMT (Off the Main-Thread) paradigm',
                 'Your Apps & the Framework live within an Application Worker',
+                'Non-blocking, no-freeze, user interaction responses, even for heavy data i/o, processing, and intensive, complex screen updating',
                 'Additional Workers for OffscreenCanvas, Data, Delta-Updates & Tasks',
                 'A ServiceWorker connected to the App Worker for predictive Caching'
             ]
