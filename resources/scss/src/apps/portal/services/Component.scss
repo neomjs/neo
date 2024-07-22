@@ -1,6 +1,7 @@
 .portal-services-component {
     background-color: #fff !important;
-    padding         : 1em 6em;
+    overflow-y      : auto;
+    padding         : 0.1em 6em 1em 6em;
 
     .info-block {
         background-color: lighten(#8BA6FF, 10%);
@@ -16,5 +17,13 @@
         margin-left : auto;
         margin-right: auto;
         width       : fit-content;
+    }
+
+    @media (max-width: 600px) {
+        padding: 0.1em 1em 1em 1em;
+
+        .info-block {
+            padding: 0.1em 1em 1em 1em;
+        }
     }
 }
