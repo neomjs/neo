@@ -64,7 +64,7 @@ class Features extends BaseContainer {
             content: [
                 'Declarative Component-Trees',
                 'High Order Components',
-                'Many out of the box Components, including nested lazy-loaded forms',
+                'Many out-of-the-box Components, including nested lazy-loaded forms',
                 'Multiple themes, which can get nested'
             ]
         }, {
