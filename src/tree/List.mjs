@@ -3,6 +3,7 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import NeoArray        from '../util/Array.mjs';
 import TreeModel       from '../selection/TreeModel.mjs';
+import VDomUtil        from "../util/VDom.mjs";
 
 /**
  * @class Neo.tree.List
@@ -434,6 +435,23 @@ class Tree extends Base {
         } else {
             this.expandAll()
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Number} data.index
+     * @param {Neo.data.Model} data.model
+     * @param {Object} data.record
+     */
+    onStoreRecordChange(data) {
+        let me      = this,
+            {record} = data,
+            node     = VDomUtil.findVdomChild(me.vdom, me.getItemId(record.id));
+
+        node.vdom.cn[0].innerHTML = record.name;
+
+        me.update();
     }
 }
 
