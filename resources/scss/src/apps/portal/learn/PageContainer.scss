@@ -16,6 +16,12 @@
             .neo-button-text, .neo-button-glyph {
                 padding-top: 16px;
             }
+
+            .neo-button-text {
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                word-break   : break-word;
+            }
         }
 
         .content-bottom-toolbar-previous:before {

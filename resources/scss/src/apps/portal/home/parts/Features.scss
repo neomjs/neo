@@ -1,3 +1,5 @@
 .portal-home-features {
-    padding: 3em;
+    padding      : 3em;
+    overflow-y   : auto;
+    place-content: start;
 }
