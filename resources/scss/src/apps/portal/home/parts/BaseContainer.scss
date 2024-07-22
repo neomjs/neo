@@ -53,4 +53,11 @@
     .page-live-preview {
         margin: 0;
     }
+
+    .portal-content-text {
+        @media (max-width: 600px) {
+            justify-content: start;
+            overflow-y     : auto;
+        }
+    }
 }

@@ -24,6 +24,7 @@ class Colors extends BaseContainer {
          */
         items: [{
             ntype : 'container',
+            cls   : ['portal-content-text'],
             flex  : '1',
             style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
