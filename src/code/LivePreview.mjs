@@ -45,6 +45,10 @@ class LivePreview extends Container {
          */
         disableRunSource: false,
         /**
+         * @member {Boolean} enableFullscreen=true
+         */
+        enableFullscreen: true,
+        /**
          * @member {Number} height=400
          */
         height: 400,
@@ -125,6 +129,73 @@ class LivePreview extends Container {
      */
     beforeSetActiveView(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'activeView')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async collapseExpand(data) {
+        let me       = this,
+            button   = data.component,
+            collapse = button.iconCls === 'fas fa-compress',
+            {vdom}   = me,
+            rect;
+
+        button.iconCls = collapse ? 'fas fa-expand' : 'fas fa-compress';
+
+        if (collapse) {
+            button.iconCls = 'fas fa-expand';
+
+            rect = me.collapseRect;
+
+            delete me.collapseRect;
+
+            Object.assign(vdom.style, {
+                height  : rect.height + 'px',
+                left    : rect.x      + 'px',
+                top     : rect.y      + 'px',
+                width   : rect.width  + 'px'
+            });
+
+            me.update();
+
+            await me.timeout(300);
+
+            Object.assign(vdom.style, {
+                position: null,
+                zIndex  : null
+            })
+        } else {
+            button.iconCls = 'fas fa-compress';
+
+            rect = await me.getDomRect(me.id);
+
+            me.collapseRect = rect;
+
+            vdom.style = vdom.style || {};
+
+            Object.assign(vdom.style, {
+                height  : rect.height + 'px',
+                left    : rect.x      + 'px',
+                position: 'fixed',
+                top     : rect.y      + 'px',
+                width   : rect.width  + 'px',
+                zIndex  : 100
+            });
+
+            me.update();
+
+            await me.timeout(50);
+
+            Object.assign(vdom.style, {
+                height: '100%',
+                left  : 0,
+                top   : 0,
+                width : '100%'
+            })
+        }
+
+        me.update()
     }
 
     /**
@@ -269,12 +340,20 @@ class LivePreview extends Container {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
+        let me                   = this,
+            collapseExpandButton = me.getReference('collapse-expand-button'),
+            hidden               = data.value !== 1;
+
         if (data.item.reference === 'preview') {
-            this.doRunSource()
+            me.doRunSource()
         }
 
-        this.getReference('popout-window-button').hidden = data.value !== 1
-        this.disableRunSource = false;
+        if (collapseExpandButton) {
+            collapseExpandButton.hidden = hidden
+        }
+
+        me.getReference('popout-window-button').hidden = hidden
+        me.disableRunSource = false;
     }
 
     /**
@@ -284,17 +363,33 @@ class LivePreview extends Container {
         super.onConstructed();
 
         let me             = this,
+            items          = [],
             {tabContainer} = me;
 
-        // we want to add a normal (non-header) button
-        tabContainer.getTabBar().add({
+        if (me.enableFullscreen) {
+            items.push({
+                handler  : me.collapseExpand.bind(me),
+                hidden   : tabContainer.activeIndex !== 1,
+                iconCls  : 'fas fa-expand',
+                reference: 'collapse-expand-button',
+                ui       : 'ghost'
+            })
+        }
+
+        items.push({
             handler  : me.popoutPreview.bind(me),
             hidden   : tabContainer.activeIndex !== 1,
             iconCls  : 'far fa-window-maximize',
             reference: 'popout-window-button',
-            style    : {marginLeft: 'auto'},
             ui       : 'ghost'
         });
+
+        items[0].style = {marginLeft: 'auto'};
+
+        // we want to add a normal (non-header) button
+        tabContainer.getTabBar().add(items);
+
+        tabContainer.getTabBar().update();
 
         tabContainer.on('activeIndexChange', me.onActiveIndexChange, me);
 
