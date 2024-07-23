@@ -842,13 +842,6 @@ class Helix extends Component {
     }
 
     /**
-     * @param {Object} data
-     */
-    onTouchMove(data) {
-        this.onMouseWheel(data)
-    }
-
-    /**
      * @param {String[]} value
      * @param {String[]} oldValue
      */
@@ -877,6 +870,13 @@ class Helix extends Component {
     onStoreLoad(items) {
         this.getItemsRoot().cn = []; // silent update
         this.createItems()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchMove(data) {
+        this.onMouseWheel(data)
     }
 
     /**
