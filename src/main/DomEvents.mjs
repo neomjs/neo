@@ -112,6 +112,12 @@ class DomEvents extends Base {
     }
 
     /**
+     *
+     * @member {Object} touch
+     */
+    lastTouch = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {

@@ -34,6 +34,7 @@ const globalDomEvents = [
     'neonavigate',
     'scroll',
     'selectionchange',
+    'touchmove',
     'wheel'
 ];
 
