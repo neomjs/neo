@@ -66,7 +66,12 @@ class TouchDomEvents extends Base {
         }
 
         me.sendMessageToApp(data);
-        me.lastTouch = touch
+
+        me.lastTouch = touch;
+
+        if (me.testPathInclusion(event, ['neo-helix'])) {
+            event.preventDefault()
+        }
     }
 
     /**

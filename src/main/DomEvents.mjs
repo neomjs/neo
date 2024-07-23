@@ -27,7 +27,7 @@ const touchEvents = [
     {name: 'touchend',    handler: 'onTouchEnd'},
     {name: 'touchenter',  handler: 'onTouchEnter'},
     {name: 'touchleave',  handler: 'onTouchLeave'},
-    {name: 'touchmove',   handler: 'onTouchMove'},
+    {name: 'touchmove',   handler: 'onTouchMove', options: {passive: false}},
     {name: 'touchstart',  handler: 'onTouchStart'}
 ];
 
@@ -612,7 +612,7 @@ class DomEvents extends Base {
      */
     onScroll(event) {
         let {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target;
-
+event.preventDefault();
         this.sendMessageToApp({
             ...this.getEventData(event),
             clientHeight,
