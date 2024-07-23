@@ -769,7 +769,6 @@ class Base extends Component {
      * @param {Number} data.index
      * @param {Neo.data.Model} data.model
      * @param {Object} data.record
-     *
      */
     onStoreRecordChange(data) {
         let me      = this,

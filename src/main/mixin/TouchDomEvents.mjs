@@ -19,14 +19,20 @@ class TouchDomEvents extends Base {
      * @param {Object} event
      */
     onTouchCancel(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let me = this;
+
+        me.sendMessageToApp(me.getEventData(event));
+        me.lastTouch = null
     }
 
     /**
      * @param {Object} event
      */
     onTouchEnd(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let me = this;
+
+        me.sendMessageToApp(me.getEventData(event));
+        me.lastTouch = null
     }
 
     /**
@@ -47,14 +53,31 @@ class TouchDomEvents extends Base {
      * @param {Object} event
      */
     onTouchMove(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let me          = this,
+            data        = me.getEventData(event),
+            touch       = event.touches[0],
+            {lastTouch} = me;
+
+        if (lastTouch) {
+            Object.assign(data, {
+                deltaX: touch.clientX - lastTouch.clientX,
+                deltaY: touch.clientY - lastTouch.clientY
+            })
+        }
+
+        me.sendMessageToApp(data);
+        me.lastTouch = touch
     }
 
     /**
      * @param {Object} event
      */
     onTouchStart(event) {
-        this.sendMessageToApp(this.getEventData(event))
+        let me = this;
+
+        me.lastTouch = event.touches[0];
+
+        me.sendMessageToApp(me.getEventData(event))
     }
 }
 

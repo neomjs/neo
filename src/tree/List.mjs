@@ -3,6 +3,7 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import NeoArray        from '../util/Array.mjs';
 import TreeModel       from '../selection/TreeModel.mjs';
+import VDomUtil        from "../util/VDom.mjs";
 
 /**
  * @class Neo.tree.List
@@ -173,6 +174,53 @@ class Tree extends Base {
     }
 
     /**
+     *
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createItem(record) {
+        let me                   = this,
+            {folderCls, itemCls} = me,
+            cls                  = [itemCls],
+            itemVdom;
+
+        if (record.isLeaf) {
+            cls.push(itemCls + (record.singleton ? '-leaf-singleton' : '-leaf'))
+        } else {
+            cls.push(folderCls);
+
+            if (!record.collapsed) {
+                cls.push('neo-folder-open')
+            }
+        }
+
+        itemVdom = {
+            tag: 'li',
+            cls,
+            id : me.getItemId(record.id),
+            cn : [{
+                tag      : 'span',
+                cls      : [itemCls + '-content', record.iconCls],
+                innerHTML: record.name,
+                style    : {pointerEvents: 'none'}
+            }],
+            style: {
+                display : record.hidden ? 'none' : 'flex',
+                padding : '10px',
+                position: record.isLeaf ? null : 'sticky',
+                top     : record.isLeaf ? null : (record.level * 38) + 'px',
+                zIndex  : record.isLeaf ? null : (20 / (record.level + 1))
+            }
+        };
+
+        if (me.itemsFocusable) {
+            itemVdom.tabIndex = -1
+        }
+
+        return itemVdom
+    }
+
+    /**
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -181,10 +229,9 @@ class Tree extends Base {
      * @protected
      */
     createItems(parentId, vdomRoot, level, hidden=false) {
-        let me                   = this,
-            items                = me.store.find('parentId', parentId),
-            {folderCls, itemCls} = me,
-            cls, itemVdom, tmpRoot;
+        let me    = this,
+            items = me.store.find('parentId', parentId),
+            tmpRoot;
 
         if (items.length > 0) {
             if (!vdomRoot.cn) {
@@ -207,45 +254,12 @@ class Tree extends Base {
                 tmpRoot = vdomRoot
             }
 
-            items.forEach(item => {
-                cls = [itemCls];
+            items.forEach(record => {
+                record.level = level;
 
-                if (item.isLeaf) {
-                    cls.push(itemCls + (item.singleton ? '-leaf-singleton' : '-leaf'))
-                } else {
-                    cls.push(folderCls);
+                tmpRoot.cn.push(me.createItem(record));
 
-                    if (!item.collapsed) {
-                        cls.push('neo-folder-open')
-                    }
-                }
-
-                itemVdom = {
-                    tag: 'li',
-                    cls,
-                    id : me.getItemId(item.id),
-                    cn : [{
-                        tag      : 'span',
-                        cls      : [itemCls + '-content', item.iconCls],
-                        innerHTML: item.name,
-                        style    : {pointerEvents: 'none'}
-                    }],
-                    style: {
-                        display : item.hidden ? 'none' : 'flex',
-                        padding : '10px',
-                        position: item.isLeaf ? null : 'sticky',
-                        top     : item.isLeaf ? null : (level * 38) + 'px',
-                        zIndex  : item.isLeaf ? null : (20 / (level + 1))
-                    }
-                };
-
-                if (me.itemsFocusable) {
-                    itemVdom.tabIndex = -1
-                }
-
-                tmpRoot.cn.push(itemVdom);
-
-                me.createItems(item.id, tmpRoot, level + 1, item.hidden || hidden)
+                me.createItems(record.id, tmpRoot, level + 1, record.hidden || hidden)
             })
         }
 
@@ -434,6 +448,23 @@ class Tree extends Base {
         } else {
             this.expandAll()
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Number} data.index
+     * @param {Neo.data.Model} data.model
+     * @param {Object} data.record
+     */
+    onStoreRecordChange(data) {
+        let me                  = this,
+            {record}            = data,
+            {index, parentNode} = VDomUtil.findVdomChild(me.vdom, me.getItemId(record.id));
+
+        parentNode.cn[index] = me.createItem(record);
+
+        me.update()
     }
 }
 

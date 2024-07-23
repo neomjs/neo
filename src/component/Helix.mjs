@@ -258,9 +258,10 @@ class Helix extends Component {
         me[lockWheel]    = true;
 
         me.addDomListeners({
-            click: me.onClick,
-            wheel: me.onMouseWheel,
-            scope: me
+            click    : me.onClick,
+            touchmove: me.onTouchMove,
+            wheel    : me.onMouseWheel,
+            scope    : me
         })
     }
 
@@ -838,6 +839,13 @@ class Helix extends Component {
             me.fire('changeRotation',   me._rotationAngle);
             me.fire('changeTranslateZ', me._translateZ)
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchMove(data) {
+        this.onMouseWheel(data)
     }
 
     /**
