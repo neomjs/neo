@@ -876,6 +876,9 @@ class Helix extends Component {
      * @param {Object} data
      */
     onTouchMove(data) {
+        data.deltaX *= 1.5;
+        data.deltaY *= 3;
+
         this.onMouseWheel(data)
     }
 
