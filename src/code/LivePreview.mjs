@@ -141,8 +141,6 @@ class LivePreview extends Container {
             {vdom}   = me,
             rect;
 
-        button.iconCls = collapse ? 'fas fa-expand' : 'fas fa-compress';
-
         if (collapse) {
             button.iconCls = 'fas fa-expand';
 
@@ -168,7 +166,7 @@ class LivePreview extends Container {
         } else {
             button.iconCls = 'fas fa-compress';
 
-            rect = await me.getDomRect(me.id);
+            rect = await me.getDomRect();
 
             me.collapseRect = rect;
 
