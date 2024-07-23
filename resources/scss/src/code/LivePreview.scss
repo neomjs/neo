@@ -1,5 +1,8 @@
 .neo-code-live-preview {
-    margin-bottom: 2em;
+    margin-bottom             : 2em;
+    transition-duration       : .3s;
+    transition-property       : height, left, top, width;
+    transition-timing-function: ease-out;
 
     .live-preview-container {
         border-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
