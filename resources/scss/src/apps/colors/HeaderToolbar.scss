@@ -8,4 +8,26 @@
     .neo-checkboxfield {
         margin-left: 1em;
     }
+
+    @media (max-width: 600px) {
+        .header-spacer {
+            display: none;
+        }
+
+        .neo-checkboxfield {
+            display: none;
+        }
+
+        .neo-button {
+            .neo-button-glyph {
+                margin-right: 0;
+            }
+
+            .neo-button-text {
+                &:nth-child(2) {
+                    display: none;
+                }
+            }
+        }
+    }
 }

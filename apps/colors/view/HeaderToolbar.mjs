@@ -64,7 +64,11 @@ class HeaderToolbar extends Toolbar {
             listeners    : {change: 'onChangeAmountRows'},
             store        : ['5', '10', '15', '20'],
             width        : 90
-        }, '->', {
+        }, {
+            ntype: 'component',
+            cls  : ['header-spacer'],
+            flex : 1
+        }, {
             handler  : 'onDetachTableButtonClick',
             iconCls  : 'fas fa-table',
             reference: 'detach-table-button',
