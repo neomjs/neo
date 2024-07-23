@@ -15,9 +15,9 @@ class HeaderToolbar extends Toolbar {
          */
         className: 'Colors.view.HeaderToolbar',
         /**
-         * @member {String[]} cls=['portal-header-toolbar']
+         * @member {String[]} cls=['colors-header-toolbar']
          */
-        cls: ['portal-header-toolbar'],
+        cls: ['colors-header-toolbar'],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch',wrap:'wrap'}
          */
