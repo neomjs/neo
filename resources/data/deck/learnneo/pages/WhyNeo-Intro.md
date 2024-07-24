@@ -1,11 +1,10 @@
-Why would an organization choose Neo.mjs?
+Why do organizations choose Neo.mjs?
 
-- There are technical advantages relating to app development and debugging.
+- Neo.mjs provides a lightning fast user experience, and is unique in its ability to allow multi-window applications.
 
-- For managerial reasons, because Neo.mjs scales well, is coded in standards-based
-modular JavaSciript.
+- Neo.mjs applications scale well, from simple to extremely complex
 
-- For strategic reasons &mdash; Neo.mjs provides a lightning fast user experience,
-and is unique in its ability to allow multi-window applications.
+- Neo.mjs uses standards-based Javascript, without library-specific addons or special transpilation
+
 
 Read on to learn more about Neo.mjs key features and benefits...

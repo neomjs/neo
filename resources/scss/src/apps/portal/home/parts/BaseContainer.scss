@@ -14,22 +14,22 @@
         100% {opacity: 1; transform: translateX(0);}
     }
 
-    &:not(:first-child) {
-        &:not(:last-child) {
-            animation-timeline       : view(block 100% -500%);
-            animation-fill-mode      : both;
-            animation-duration       : 1ms; /* Firefox requires this to apply the animation */
-            animation-timing-function: linear;
+    // &:not(:first-child) {
+    //     &:not(:last-child) {
+    //         animation-timeline       : view(block 100% -500%);
+    //         animation-fill-mode      : both;
+    //         animation-duration       : 1ms; /* Firefox requires this to apply the animation */
+    //         animation-timing-function: linear;
 
-            &:nth-child(even) {
-                animation-name: appear-right;
-            }
+    //         &:nth-child(even) {
+    //             animation-name: appear-right;
+    //         }
 
-            &:nth-child(odd) {
-                animation-name: appear-left;
-            }
-        }
-    }
+    //         &:nth-child(odd) {
+    //             animation-name: appear-left;
+    //         }
+    //     }
+    // }
 
     .neo-content {
         font-size: min(max(2.3vw, 16px), 30px);
