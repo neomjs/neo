@@ -378,7 +378,7 @@ class Resizable extends Base {
             len              = data.path.length,
             {appName, owner} = me,
             style            = owner.wrapperStyle, // todo: delegation target
-            target;
+            target, vdom, vdomStyle;
 
         me.isDragging = true;
 
@@ -409,11 +409,19 @@ class Resizable extends Base {
         me.addBodyCursorCls();
 
         if (!me.dragZone) {
+            vdom      = Neo.clone(owner.vdom, true);
+            vdomStyle = vdom.style;
+
+            delete vdomStyle.height;
+            delete vdomStyle.left;
+            delete vdomStyle.top;
+            delete vdomStyle.width;
+
             me.dragZone = Neo.create({
                 module             : DragZone,
                 appName,
                 boundaryContainerId: owner.boundaryContainerId,
-                dragElement        : owner.vdom,
+                dragElement        : vdom,
                 moveInMainThread   : false,
                 owner,
                 ...me.dragZoneConfig
@@ -454,7 +462,7 @@ class Resizable extends Base {
             }
 
             if (target) {
-                if (target.id !== (targetNode && targetNode.id)) {
+                if (target.id !== targetNode?.id) {
                     if (targetNode) {
                         me.removeAllNodes()
                     }
