@@ -417,12 +417,10 @@ class Cube extends Card {
         let {container}     = this,
             {height, width} = await container.getDomRect(container.id);
 
-        console.log({height, width});
-
         this.set({
             sideX: width,
             sideY: height,
-            sideZ: Math.min(height, width)
+            sideZ: width
         })
     }
 }
