@@ -42,13 +42,12 @@
         cursor: sw-resize;
         left  : 0;
         height: 1em;
-        width : 1.05em;
+        width : 1em;
 
         &::after {
-            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
-            content  : "\f00a";
+            content  : "\f101";
             font-size: 1em;
-            transform: rotate(90deg);
+            transform: rotate(135deg);
         }
     }
 
@@ -57,12 +56,12 @@
         cursor: se-resize;
         right : 0;
         height: 1em;
-        width : 1.05em;
+        width : 1em;
 
         &::after {
-            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
-            content  : "\f00a";
+            content  : "\f101";
             font-size: 1em;
+            transform: rotate(45deg);
         }
     }
 
@@ -89,10 +88,9 @@
         width : 1.05em;
 
         &::after {
-            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
-            content  : "\f00a";
+            content  : "\f101";
             font-size: 1em;
-            transform: rotate(180deg);
+            transform: rotate(-135deg);
         }
     }
 
@@ -104,10 +102,9 @@
         width : 1.05em;
 
         &::after {
-            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
-            content  : "\f00a";
+            content  : "\f101";
             font-size: 1em;
-            transform: rotate(270deg);
+            transform: rotate(-45deg);
         }
     }
 }
