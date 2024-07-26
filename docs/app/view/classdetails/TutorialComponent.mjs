@@ -48,12 +48,12 @@ class TutorialComponent extends Component {
             url    = '../../docs/tutorials/' + me.fileName;
 
         Neo.Xhr[isJson ? 'promiseJson' : 'promiseRequest']({
-            url: url
+            url
         }).then(data => {
-            setTimeout(() => { // ensure we are not mounting
+            me.timeout(100).then(() => { // ensure we are not mounting
                 me.applySourceCode(isJson ? data.json : data.response);
-            }, 100);
-        });
+            })
+        })
     }
 
     /**
@@ -64,16 +64,16 @@ class TutorialComponent extends Component {
         let me = this;
 
         if (me.fileType === 'json') {
-            me.vdom.cn = data;
+            me.vdom.cn = data
         } else {
-            me.vdom.innerHTML = data;
+            me.vdom.innerHTML = data
         }
 
         me.update();
 
-        setTimeout(() => {
-            TutorialComponent.syntaxHighlight();
-        }, 50);
+        me.timeout(50).then(() => {
+            TutorialComponent.syntaxHighlight()
+        })
     }
 
     /**

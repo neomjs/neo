@@ -79,9 +79,9 @@ class SourceViewComponent extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && setTimeout(() => {
-            this.syntaxHighlight();
-        }, 50);
+        value && this.timeout(50).then(() => {
+            this.syntaxHighlight()
+        })
     }
 
     /**
@@ -94,14 +94,14 @@ class SourceViewComponent extends Component {
         if (value) {
             let me = this;
 
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 Neo.main.addon.HighlightJS.syntaxHighlightLine({
                     addLine   : me.line,
                     appName   : me.appName,
                     removeLine: me.previousLine,
                     vnodeId   : me.vdom.cn[0].cn[0].id
-                });
-            }, 50)
+                })
+            })
         }
     }
 
