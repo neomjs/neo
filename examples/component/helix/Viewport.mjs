@@ -275,7 +275,7 @@ class Viewport extends BaseViewport {
             });
 
             if (me.showGitHubStarButton) {
-                setTimeout(() => {
+                me.timeout(200).then(() => {
                     let {windowId}  = me,
                         {windowIds} = Viewport;
 
@@ -289,7 +289,7 @@ class Viewport extends BaseViewport {
                             windowId
                         })
                     }
-                }, 200)
+                })
             }
         }
     }

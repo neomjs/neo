@@ -85,7 +85,7 @@ class MainContainer extends ConfigurationViewport {
             name     : 'group2',
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.store.getAt(1).name
-        }];
+        }]
     }
 
     /**
@@ -94,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
      */
     changeSorting(direction, data) {
         if (data.value) {
-            this.exampleComponent.store.sorters[0].direction = direction;
+            this.exampleComponent.store.sorters[0].direction = direction
         }
     }
 
@@ -112,7 +112,7 @@ class MainContainer extends ConfigurationViewport {
 
         list.store.on('sort', this.onStoreSort, this);
 
-        return list;
+        return list
     }
 
     /**
@@ -120,20 +120,20 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} data
      */
     onGroupNameChange(index, data) {
-        this.exampleComponent.items[index].title = data.value;
+        this.exampleComponent.items[index].title = data.value
     }
 
     /**
      * @param {Object} data
      */
     onStoreSort(data) {
-        setTimeout(() => {
+        this.timeout(10).then(() => {
             let me    = this,
                 items = me.exampleComponent.items;
 
             me.down({name: 'group1'}).value = items[0].title;
-            me.down({name: 'group2'}).value = items[1].title;
-        }, 10);
+            me.down({name: 'group2'}).value = items[1].title
+        })
     }
 }
 

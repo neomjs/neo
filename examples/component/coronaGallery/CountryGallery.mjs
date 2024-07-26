@@ -176,10 +176,12 @@ class CountryGallery extends Gallery {
     onStoreLoad(items) {
         super.onStoreLoad(items);
 
-        setTimeout(() => {
-            this.selectOnMount = true;
-            this.afterSetMounted(true, false);
-        }, Neo.config.environment === 'development' ? 200 : 500);
+        let me = this;
+
+        me.timeout(Neo.config.environment === 'development' ? 200 : 500).then(() => {
+            me.selectOnMount = true;
+            me.afterSetMounted(true, false)
+        })
     }
 }
 
