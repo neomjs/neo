@@ -139,9 +139,10 @@ class DomEvents extends Base {
      * @param {Object} data
      */
     addDomListener(data) {
-        let me  = this,
-            i   = 0,
-            len = data.events.length,
+        let me       = this,
+            i        = 0,
+            len      = data.events.length,
+            failedId = null,
             event, id, targetNode;
 
         for (; i < len; i++) {
@@ -161,14 +162,22 @@ class DomEvents extends Base {
                 targetNode = document.querySelector(`[data-neo-id='${id}']`)
             }
 
-            targetNode.addEventListener(event.name, me[event.handler].bind(me));
+            if (targetNode) {
+                targetNode.addEventListener(event.name, me[event.handler].bind(me))
+            } else {
+                failedId = id
+            }
+        }
+
+        if (failedId && Neo.config.environment === 'development') {
+            console.warn('DomEvents:addDomListener() => target node not found:', failedId)
         }
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
             data,
             replyId: data.id,
-            success: true
+            success: !failedId
         })
     }
 
