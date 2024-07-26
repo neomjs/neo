@@ -225,12 +225,21 @@ class Base extends Panel {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMaximized(value, oldValue) {
-        let me    = this,
-            {cls} = me.vdom; // todo: using wrapperCls
+    async afterSetMaximized(value, oldValue) {
+        let me        = this,
+            firstCall = oldValue === undefined,
+            {cls}     = me.vdom;
 
+        !firstCall && NeoArray.add(cls, 'animated-hiding-showing');
         NeoArray.toggle(cls, 'neo-maximized', value);
-        me.update()
+        me.update();
+
+        if (!firstCall) {
+            await(me.timeout(250));
+
+            NeoArray.remove(cls, 'animated-hiding-showing');
+            me.update()
+        }
     }
 
     /**
