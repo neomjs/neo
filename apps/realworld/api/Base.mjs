@@ -57,14 +57,14 @@ class Base extends CoreBase {
         let me = this;
 
         if (!Neo.apps || !Neo.apps['RealWorld']) {
-            setTimeout(() => {
-                me.afterConstructed();
-            }, 100);
+            me.timeout(100).then(() => {
+                me.afterConstructed()
+            })
         } else {
             if (Neo.apps['RealWorld'].rendered) {
-                me.onAppRendered();
+                me.onAppRendered()
             } else {
-                Neo.apps['RealWorld'].on('render',me.onAppRendered, me);
+                Neo.apps['RealWorld'].on('render',me.onAppRendered, me)
             }
         }
     }

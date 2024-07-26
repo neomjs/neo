@@ -41,7 +41,7 @@ class Base extends CoreBase {
         if (!Base.initialTokenRequestSent) {
             Base.initialTokenRequestSent = true;
 
-            setTimeout(() => {
+            me.timeout(Neo.config.environment === 'development' ? 0 : 200).then(() => {
                 Neo.main.addon.LocalStorage.readLocalStorageItem({
                     key: LOCAL_STORAGE_KEY
                 }).then(data => {
@@ -52,14 +52,14 @@ class Base extends CoreBase {
                     }
 
                     me.onReady(token);
-                    Base.fire('ready', token);
-                });
-            }, Neo.config.environment === 'development' ? 0 : 200);
+                    Base.fire('ready', token)
+                })
+            })
         } else {
             Base.on({
                 ready: me.onReady,
                 scope: me
-            });
+            })
         }
     }
 

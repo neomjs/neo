@@ -178,9 +178,11 @@ class TableContainer extends Container {
      * @protected
      */
     afterSetCountryRecord(value, oldValue) {
-        setTimeout(() => {
-            this.controller.onCountryChange(value);
-        }, this.isConstructed ? 0 : 50);
+        let me = this;
+
+        me.timeout(me.isConstructed ? 0 : 50).then(() => {
+            me.controller.onCountryChange(value)
+        })
     }
 }
 

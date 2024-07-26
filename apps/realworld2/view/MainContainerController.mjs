@@ -228,12 +228,12 @@ class MainContainerController extends ComponentController {
             value: userData.token
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
-            setTimeout(() => {
+            this.timeout(50).then(() => {
                 Neo.Main.setRoute({
                     value: '/'
-                });
-            }, 50);
-        });
+                })
+            })
+        })
     }
 
     /**
@@ -246,12 +246,12 @@ class MainContainerController extends ComponentController {
             key: LOCAL_STORAGE_KEY
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
-            setTimeout(() => {
+            this.timeout(50).then(() => {
                 Neo.Main.setRoute({
                     value: '/'
-                });
-            }, 50);
-        });
+                })
+            })
+        })
     }
 
     /**
@@ -303,9 +303,9 @@ class MainContainerController extends ComponentController {
             }*/
 
             // short delay to ensure the new card already got added
-            setTimeout(() => {
-                cards.layout.activeIndex = cards.indexOf(newView);
-            }, 100);
+            me.timeout(100).then(() => {
+                cards.layout.activeIndex = cards.indexOf(newView)
+            });
 
             switch (newView.reference) {
                 case 'gallery':

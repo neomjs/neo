@@ -68,14 +68,14 @@ class ContentView extends Component {
 
         let me = this;
 
-        value && setTimeout(() => {
+        value && me.timeout(50).then(() => {
             Neo.main.addon.IntersectionObserver.register({
                 callback: 'findTopmostItem',
                 id      : me.id,
                 root    : `#${me.parentId}`,
                 windowId: me.windowId
             })
-        }, 50)
+        })
     }
 
     /**

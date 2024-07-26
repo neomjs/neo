@@ -265,7 +265,7 @@ class MainContainerController extends ComponentController {
 
         if (dialog.appName === dragEndWindowAppName) {
             dragEndWindowAppName = me.component.appName;
-            side                 = me.getOppositeSide(me.dockedWindowSide);
+            side                 = me.getOppositeSide(me.dockedWindowSide)
         }
 
         proxyPosition = me.getProxyPosition(data.proxyRect, side, data.fullyIncludeIntoWindow);
@@ -274,12 +274,12 @@ class MainContainerController extends ComponentController {
 
         // we need a delay to ensure dialog.Base: onDragEnd() is done.
         // we could use the dragEnd event of the dragZone instead.
-        setTimeout(() => {
+        me.timeout(70).then(() => {
             dialog.appName = dialog.appName === dragEndWindowAppName ? appName : dragEndWindowAppName;
 
             me.getOpenDialogButtons().forEach(button => {
                 if (button.appName === dialog.appName) {
-                    dialog.animateTargetId = button.id;
+                    dialog.animateTargetId = button.id
                 }
             });
 
@@ -292,8 +292,8 @@ class MainContainerController extends ComponentController {
 
             me.destroyDockedWindowProxy();
 
-            dialog.mount();
-        }, 70);
+            dialog.mount()
+        })
     }
 
     /**

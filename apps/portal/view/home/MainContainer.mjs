@@ -65,7 +65,7 @@ class MainContainer extends Container {
         let me             = this,
             {id, windowId} = me;
 
-        value && setTimeout(() => {
+        value && me.timeout(50).then(() => {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
@@ -74,7 +74,7 @@ class MainContainer extends Container {
                 threshold: 1.0,
                 windowId
             })
-        }, 50)
+        })
     }
 }
 

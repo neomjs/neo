@@ -90,11 +90,11 @@ class MainContainerController extends ComponentController {
         }
 
         if (!activeView || !activeView.isConstructed) {
-            setTimeout(() => {
+            me.timeout(10).then(() => {
                 me.onHashChange(value, oldValue);
-            }, 10);
+            });
 
-            return;
+            return
         }
 
         switch (hash.mainview) {
@@ -143,9 +143,9 @@ class MainContainerController extends ComponentController {
         }
 
         if (store?.getCount() < 1) {
-            setTimeout(() => {
-                store.load();
-            }, 50);
+            me.timeout(50).then(() => {
+                store.load()
+            })
         }
     }
 
@@ -158,24 +158,24 @@ class MainContainerController extends ComponentController {
         Neo.main.DomAccess.scrollIntoView({
             id: targetId
         }).then(() => {
-            setTimeout(() => {
+            this.timeout(900).then(() => {
                 Neo.main.DomAccess.setStyle({
                     id: targetId,
                     style: {
                         color: 'red'
                     }
                 }).then(() => {
-                    setTimeout(() => {
+                    this.timeout(300).then(() => {
                         Neo.main.DomAccess.setStyle({
                             id: targetId,
                             style: {
                                 color: null
                             }
-                        });
-                    }, 300)
-                });
-            }, 900)
-        });
+                        })
+                    })
+                })
+            })
+        })
     }
 
     /**

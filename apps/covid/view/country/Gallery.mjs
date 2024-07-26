@@ -162,10 +162,12 @@ class CountryGallery extends Gallery {
     onStoreLoad(items) {
         super.onStoreLoad(items);
 
-        setTimeout(() => {
-            this.selectOnMount = true;
-            this.afterSetMounted(true, false);
-        }, 400);
+        let me = this;
+
+        me.timeout(400).then(() => {
+            me.selectOnMount = true;
+            me.afterSetMounted(true, false)
+        })
     }
 }
 

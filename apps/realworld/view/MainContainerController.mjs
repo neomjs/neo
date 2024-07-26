@@ -91,16 +91,18 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            this.getReference('header').set({
+            let me = this;
+
+            me.getReference('header').set({
                 loggedIn : !!value,
                 userImage: value ? value.image    : null,
                 userName : value ? value.username : null
             }).then(() => {
                 // todo: test to ensure the initial markup is rendered
-                setTimeout(() => {
-                    this.fire('afterSetCurrentUser', value);
-                }, 200);
-            });
+                me.timeout(200).then(() => {
+                    me.fire('afterSetCurrentUser', value)
+                })
+            })
         }
     }
 
@@ -229,12 +231,12 @@ class MainContainerController extends ComponentController {
             value: userData.token
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
-            setTimeout(() => {
+            this.timeout(50).then(() => {
                 Neo.Main.setRoute({
                     value: '/'
-                });
-            }, 50);
-        });
+                })
+            })
+        })
     }
 
     /**
@@ -247,12 +249,12 @@ class MainContainerController extends ComponentController {
             key: LOCAL_STORAGE_KEY
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
-            setTimeout(() => {
+            this.timeout(50).then(() => {
                 Neo.Main.setRoute({
                     value: '/'
-                });
-            }, 50);
-        });
+                })
+            })
+        })
     }
 
     /**
@@ -375,11 +377,11 @@ class MainContainerController extends ComponentController {
                     break;
                 case 'settings':
                     if (me.currentUser) {
-                        setTimeout(() => { // added a short delay to not interfere with the mainContainer update
-                            me.settingsComponent.onCurrentUserChange(me.currentUser);
-                        }, 50);
+                        me.timeout(50).then(() => { // added a short delay to not interfere with the mainContainer update
+                            me.settingsComponent.onCurrentUserChange(me.currentUser)
+                        })
                     }
-                    break;
+                    break
                 case 'signup':
                     newView.errors = [];
                     break;
