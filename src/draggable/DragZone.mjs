@@ -235,13 +235,13 @@ class DragZone extends Base {
         let me = this,
             id = me.dragProxy.id;
 
-        setTimeout(() => {
+        me.timeout(me.moveInMainThread ? 0 : 30).then(() => {
             Neo.currentWorker.promiseMessage('main', {
                 action : 'updateDom',
                 appName: me.appName,
                 deltas : [{action: 'removeNode', id: id}]
             });
-        }, me.moveInMainThread ? 0 : 30);
+        });
 
         me.dragProxy.destroy()
     }
@@ -425,9 +425,9 @@ class DragZone extends Base {
      *
      */
     resetData() {
-        setTimeout(() => {
+        this.timeout(50).then(() => {
             this.data = null
-        }, 30)
+        })
     }
 
     /**

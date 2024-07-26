@@ -599,13 +599,13 @@ class Base extends Panel {
 
                     style.transitionProperty = 'none';
 
-                    setTimeout(() => {
+                    me.timeout(50).then(() => {
                         style = me.style;
 
                         style.transitionProperty = initialTransitionProperty;
 
                         me.style = style
-                    }, 50)
+                    })
                 }
 
                 me.style = style;

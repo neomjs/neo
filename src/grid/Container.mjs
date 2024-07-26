@@ -304,9 +304,9 @@ class Container extends BaseContainer {
         } else {
             listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     me.createViewData(data)
-                }, 50)
+                })
             })
         }
     }

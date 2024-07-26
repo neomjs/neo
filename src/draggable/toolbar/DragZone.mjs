@@ -72,16 +72,16 @@ class DragZone extends BaseDragZone {
             proxy.cls = cls;
 
             // ensure to get into the next animation frame
-            setTimeout(() => {
+            me.timeout(30).then(() => {
                 wrapperStyle.left = `${rect.left}px`;
                 wrapperStyle.top  = `${rect.top}px`;
 
                 proxy.wrapperStyle = wrapperStyle;
 
-                setTimeout(() => {
+                me.timeout(100).then(() => {
                     me.dragEnd()
-                }, 100)
-            }, 30)
+                })
+            })
         }
     }
 

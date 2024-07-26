@@ -234,11 +234,11 @@ class SortZone extends DragZone {
                 });
 
                 // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
-                setTimeout(() => {
+                me.timeout(5).then(() => {
                     itemStyle = button.style || {};
                     itemStyle.visibility = 'hidden';
-                    button.style = itemStyle;
-                }, 5)
+                    button.style = itemStyle
+                })
             })
         }
     }

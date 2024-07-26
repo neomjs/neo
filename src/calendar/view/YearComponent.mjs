@@ -517,10 +517,10 @@ class YearComponent extends Component {
                         vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
                         me.update();
 
-                        setTimeout(() => {
+                        me.timeout(300).then(() => {
                             vdom.cn[0] = vdom.cn[0].cn[0].cn[scrollFromTop ? 1 : 0];
                             me.triggerVdomUpdate()
-                        }, 300)
+                        })
                     })
                 })
             }

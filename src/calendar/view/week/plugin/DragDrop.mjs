@@ -213,7 +213,7 @@ class DragDrop extends Base {
             me[newRecordSymbol] = record;
 
             // wait until the new event got mounted
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 eventId     = owner.getEventId(record.id);
                 dragElement = VDomUtil.findVdomChild(owner.vdom, eventId).vdom;
 
@@ -227,13 +227,13 @@ class DragDrop extends Base {
                 owner.getPlugin(me.resizablePluginType).onDragStart(data);
                 eventDragZone.dragStart(data);
 
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     me.isDragging && Neo.applyDeltas(me.appName, {
                         id   : eventId,
                         style: {opacity: 0}
                     })
-                }, 50)
-            }, 50)
+                })
+            })
         }
     }
 

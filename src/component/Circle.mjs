@@ -244,10 +244,10 @@ class Circle extends Component {
                 } else {
                     me.updateItemOpacity(0, true, value);
 
-                    setTimeout(() => {
+                    me.timeout(300).then(() => {
                         frontEl.cn.splice(value + 2);
                         me.update()
-                    }, 300);
+                    })
                 }
 
                 me.updateItemPositions(true);
@@ -596,13 +596,13 @@ class Circle extends Component {
         }).then(data => {
             me.store.items = data.json.data;
 
-            setTimeout(() => {
+            me.timeout(100).then(() => {
                 me.updateTitle();
                 me.createItems()
-            }, 100)
+            })
         }).catch(err => {
             console.log('Error for Neo.Xhr.request', err, me.id)
-        });
+        })
     }
 
     /**

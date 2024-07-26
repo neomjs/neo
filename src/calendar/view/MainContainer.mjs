@@ -235,9 +235,9 @@ class MainContainer extends Container {
                 } else {
                     me.createSettingsContainer(true).then(() => {
                         // short delay to ensure the vnode already exists
-                        setTimeout(() => {
+                        me.timeout(50).then(() => {
                             me.items[1].items[2].expand()
-                        }, 50)
+                        })
                     })
                 }
             } else {
@@ -264,10 +264,10 @@ class MainContainer extends Container {
                 me.promiseUpdate().then(() => {
                     sideBar.mounted = true;
 
-                    setTimeout(() => {
+                    me.timeout(50).then(() => {
                         style.marginLeft = '0px';
-                        sideBar.style = style;
-                    }, 50)
+                        sideBar.style = style
+                    })
                 })
             } else {
                 style.marginLeft    = `-${me.sideBarWidth}px`;
@@ -275,13 +275,13 @@ class MainContainer extends Container {
                 sideBar._vdom.style = style; // silent update
 
                 me.promiseUpdate().then(() => {
-                    setTimeout(() => {
+                    me.timeout(400).then(() => {
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
 
                         sideBar.mounted = false
-                    }, 400)
-                });
+                    })
+                })
             }
         }
     }
@@ -299,13 +299,13 @@ class MainContainer extends Container {
             me.settingsExpanded && me.createSettingsContainer(false);
 
             // we need a short delay to ensure the items already got created
-            setTimeout(() => {
+            me.timeout(10).then(() => {
                 me.items[0].items[1].add({
                     handler: me.toggleSettings.bind(me),
                     iconCls: 'fa fa-cog',
                     style  : {marginLeft: '10px'}
                 })
-            }, 10)
+            })
         } else if (!value && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
             me.items[1]         .removeLast();

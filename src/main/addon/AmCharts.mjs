@@ -90,13 +90,13 @@ class AmCharts extends Base {
 
             me.chartsToCreate = [];
 
-            setTimeout(() => {
+            me.timeout(1000).then(() => {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
                     me.updateData(dataValue)
                 });
 
                 me.dataMap = {}
-            }, 1000)
+            })
         }
     }
 

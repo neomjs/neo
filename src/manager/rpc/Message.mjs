@@ -93,9 +93,9 @@ class Message extends Base {
             if (!me.endPointTimeouts.includes(url)) {
                 me.endPointTimeouts.push(url);
 
-                setTimeout(() => {
+                me.timeout(me.requestBuffer).then(() => {
                     me.resolveBufferTimeout(url)
-                }, me.requestBuffer)
+                })
             }
         })
     }

@@ -159,14 +159,14 @@ class MonacoEditor extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && setTimeout(() => {
-            let me = this;
+        let me = this;
 
+        value && me.timeout(150).then(() => {
             Neo.main.addon.MonacoEditor.createInstance(me.getInitialOptions()).then(() => {
                 // use this custom method as needed inside your class extensions
                 me.onEditorMounted?.()
             })
-        }, 150)
+        })
     }
 
     /**

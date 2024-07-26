@@ -168,13 +168,13 @@ class TextArea extends Text {
         super.afterSetValue(value, oldValue);
 
         if (me.autoGrow && me.mounted && me.readOnly) {
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 Neo.main.DomAccess.monitorAutoGrowHandler({
                     appName : me.appName,
                     id      : inputEl.id,
                     windowId: me.windowId
                 })
-            }, 50)
+            })
         }
     }
 

@@ -371,11 +371,11 @@ class App extends Base {
             app = module.onStart();
 
             // short delay to ensure Component Controllers are ready
-            config.hash && setTimeout(() => {
+            config.hash && me.timeout(5).then(() => {
                 HashHistory.push(config.hash);
                 // apps which will get created later must not use outdated hash values
                 delete config.hash
-            }, 5)
+            })
         })
     }
 

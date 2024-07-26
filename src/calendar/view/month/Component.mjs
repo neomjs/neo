@@ -309,10 +309,10 @@ class Component extends BaseComponent {
         if (value) {
             if (me.needsEventUpdate) {
                 me.createContent();
-                me.needsEventUpdate = false;
+                me.needsEventUpdate = false
             }
 
-            setTimeout(() => {
+            me.timeout(100).then(() => {
                 me.getDomRect([me.vdom.cn[1].id, me.vdom.cn[0].id]).then(data => {
                     me.headerHeight = data[1].height;
 
@@ -320,9 +320,9 @@ class Component extends BaseComponent {
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
                         value    : data[0].height - data[1].height
-                    });
+                    })
                 })
-            }, 100)
+            })
         }
     }
 

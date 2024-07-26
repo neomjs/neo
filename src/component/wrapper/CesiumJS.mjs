@@ -50,11 +50,11 @@ class CesiumJS extends Component {
         if (value) {
             let opts = {appName, createOsmBuildings, id, windowId};
 
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 Neo.main.addon.CesiumJS.create(opts).then(() => {
                     me.onComponentMounted()
                 })
-            }, 50)
+            })
         }
     }
 

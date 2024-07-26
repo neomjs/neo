@@ -124,17 +124,17 @@ class Strip extends Component {
                 activeTabIndicator.style.opacity = 0;
                 me.update();
 
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     me.moveActiveIndicator([tabStripRect, rects[0]])
-                }, 50)
+                })
             } else {
                 activeTabIndicator.style.opacity = 1;
                 me.update();
 
-                setTimeout(() => {
+                me.timeout(300).then(() => {
                     activeTabIndicator.style.opacity = 0;
                     me.update()
-                }, 300)
+                })
             }
         }
     }

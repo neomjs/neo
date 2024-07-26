@@ -911,7 +911,7 @@ class DomAccess extends Base {
 
                     node.scrollIntoView(opts);
 
-                    !hasListener && setTimeout(() => resolve(), 500)
+                    !hasListener && this.timeout(500).then(() => {resolve()})
                 } else {
                     resolve()
                 }

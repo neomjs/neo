@@ -153,11 +153,11 @@ class Focus extends CoreBase {
 
         me.lastFocusOutDate = new Date();
 
-        setTimeout(() => {
+        me.timeout(me.maxFocusInOutGap).then(() => {
             if (me.lastFocusOutDate > me.lastFocusInDate) {
                 me.focusLeave(opts)
             }
-        }, me.maxFocusInOutGap);
+        })
     }
 
     /**

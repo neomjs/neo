@@ -274,9 +274,10 @@ class Manager extends Base {
         me.constructedThreads++;
 
         if (me.constructedThreads === me.activeWorkers) {
-            NeoConfig.appPath && setTimeout(() => { // better safe than sorry => all remotes need to be registered
+            // better safe than sorry => all remotes need to be registered
+            NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
                 me.loadApplication(NeoConfig.appPath)
-            }, NeoConfig.loadApplicationDelay)
+            })
         }
     }
 
