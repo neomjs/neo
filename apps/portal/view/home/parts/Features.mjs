@@ -27,7 +27,7 @@ class Features extends BaseContainer {
                         <h2>Extremely High Performance</h2>
                         <ul>
                         <li>Multi-threaded via web workers
-                        <li>Very fast rendering
+                        <li>Lightning fast rendering
                         </ul>
                         <p>Neo.mjs runs key processes in separate web workers, each running in a parallel thread: one thread for app logic, one for managing DOM updates, and one for communicating with the backend. And if you have specialized or processor-intensive tasks, you can easily spawn additional threads.</p>
                         <p>Besides the benefit of running in a separate thread, the DOM update thread has highly optimized code for tracking and applying delta updates, easily handling tens of thousands of updates per second.</p>
@@ -51,7 +51,7 @@ class Features extends BaseContainer {
                     <li>Standard ECMAscript, without proprietary extenions
                     <li>Property lifecycle hooks, elegant state management
                     </ul>
-                    <p>Neo.mjs components are abstract, and configured declaratively. Compared to other librares, Neo.mjs has features that make it easier to do data binding, and to detect property updates and events.</p>
+                    <p>Neo.mjs components are abstract, and configured declaratively. Compared to other libraries, Neo.mjs has features that make it much easier to do data binding, and to detect property updates and events.</p>
                     <p>Since Neo.mjs uses standard JavaScript, there are no special WebPack transpilations. This also makes debugging easier: any statement you write in your application logic also runs in the devtools console.</p>
             `
         }]
