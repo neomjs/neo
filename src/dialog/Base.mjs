@@ -332,12 +332,13 @@ class Base extends Panel {
     async animateHide() {
         let me                  = this,
             {animateTarget, id} = me,
-            rects               = await me.getDomRect([id, me.animateTargetId]),
-            appName;
+            appName, rects;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.appName  = appName = animateTarget.appName;
         me.windowId = animateTarget.windowId;
+        me.appName  = appName = animateTarget.appName;
+
+        rects = await me.getDomRect([id, me.animateTargetId])
 
         await Neo.applyDeltas(appName, {
             id,
@@ -380,12 +381,13 @@ class Base extends Panel {
     async animateShow() {
         let me                         = this,
             {animateTarget, id, style} = me,
-            rect                       = await me.getDomRect(me.animateTargetId),
-            appName;
+            appName, rect;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.appName  = appName = animateTarget.appName;
         me.windowId = animateTarget.windowId;
+        me.appName  = appName = animateTarget.appName;
+
+        rect = await me.getDomRect(me.animateTargetId);
 
         // rendered outside the visible area
         await me.render(true);
