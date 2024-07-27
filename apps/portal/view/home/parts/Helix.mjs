@@ -102,11 +102,12 @@ class Helix extends BaseContainer {
      *
      */
     async activate() {
-        let me = this;
+        let me       = this,
+            {parent} = me;
 
-        await me.timeout(2000);
+        await me.timeout(1000);
 
-        if (me.mounted) {
+        if (parent.activePartsId === me.id && parent.mounted) {
             me.getReference('live-preview').activeView = 'preview'
         }
     }

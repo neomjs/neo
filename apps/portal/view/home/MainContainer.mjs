@@ -28,6 +28,7 @@ class MainContainer extends Container {
          */
         domListeners: [{
             intersect(data) {
+                this.activePartsId = data.targetId;
                 Neo.getComponent(data.targetId)?.activate?.()
             },
             scroll(event) {
@@ -52,6 +53,12 @@ class MainContainer extends Container {
          */
         scrollable: true
     }
+
+    /**
+     * Internal flag containing the id of the currently visible parts item
+     * @member {String|null} activePartsId=null
+     */
+    activePartsId = null
 
     /**
      * Triggered after the mounted config got changed
