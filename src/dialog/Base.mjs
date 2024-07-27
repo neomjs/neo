@@ -302,8 +302,10 @@ class Base extends Panel {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        if (this.headerToolbar) {
-            this.headerToolbar.title = value
+        let {headerToolbar} = this;
+
+        if (headerToolbar) {
+            headerToolbar.title = value
         }
     }
 
