@@ -143,6 +143,13 @@ class Base extends Panel {
     }
 
     /**
+     * @member {Neo.component.Base|null} animateTarget=null
+     */
+    get animateTarget() {
+        return Neo.getComponent(this.animateTargetId)
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -323,9 +330,14 @@ class Base extends Panel {
      *
      */
     async animateHide() {
-        let me            = this,
-            {appName, id} = me,
-            rects         = await me.getDomRect([id, me.animateTargetId]);
+        let me                  = this,
+            {animateTarget, id} = me,
+            rects               = await me.getDomRect([id, me.animateTargetId]),
+            appName;
+
+        // Assuming that we want to show the dialog inside the same browser window as the animation target
+        me.appName  = appName = animateTarget.appName;
+        me.windowId = animateTarget.windowId;
 
         await Neo.applyDeltas(appName, {
             id,
@@ -366,9 +378,14 @@ class Base extends Panel {
      *
      */
     async animateShow() {
-        let me   = this,
-            {appName, id, style} = me,
-            rect = await me.getDomRect(me.animateTargetId);
+        let me                         = this,
+            {animateTarget, id, style} = me,
+            rect                       = await me.getDomRect(me.animateTargetId),
+            appName;
+
+        // Assuming that we want to show the dialog inside the same browser window as the animation target
+        me.appName  = appName = animateTarget.appName;
+        me.windowId = animateTarget.windowId;
 
         // rendered outside the visible area
         await me.render(true);
