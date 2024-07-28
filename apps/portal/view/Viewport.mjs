@@ -40,6 +40,7 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : Container,
+            cls      : ['portal-main-content'],
             reference: 'main-content',
 
             // The layout will get assigned inside ViewportController

@@ -1,4 +1,11 @@
 .neo-viewport {
+    // sometimes when transitioning between card & cube layouts, the flex value does get lost
+    .portal-main-content {
+        > * {
+            flex: 1 0 100%;
+        }
+    }
+
     .neo-layout-cube {
         &.neo-animate {
             .neo-box {
