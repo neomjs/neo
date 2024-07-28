@@ -8,6 +8,12 @@
         margin-top           : 3rem;
         padding              : 0 3rem;
 
+        @media (max-width: 600px) {
+            margin-bottom: 1rem;
+            margin-top   : 1rem;
+            padding      : 0 1rem;
+        }
+
         .neo-button {
             flex           : 1 !important;
             height         : 75px;
