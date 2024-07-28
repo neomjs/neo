@@ -38,10 +38,8 @@
     .separate-bar {
         animation: fade-in-animation 200ms linear;
         position: absolute;
-        right   : 20px;
-        top     : 60px;
-        transform: rotate(0);
-        width   : 40px;
+        right   : 0;
+        top     : 59px;
         z-index  : 9;
     }
 
