@@ -4,6 +4,10 @@
     padding  : 1em 1em 4em;
     position : relative;
 
+    &:not(:nth-child(2)) {
+        margin-top: 1em;
+    }
+
     .portal-profile-component {
         display: flex;
 
