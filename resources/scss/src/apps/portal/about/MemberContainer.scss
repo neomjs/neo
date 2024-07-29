@@ -16,8 +16,7 @@
         }
 
         .portal-profile-content {
-            margin-left: 2em;
-            margin-top : 2em;
+            margin-top: 2em;
         }
 
         .portal-profile-location {
@@ -35,6 +34,7 @@
         .portal-profile-picture {
             border-radius: 50%;
             height       : 150px;
+            margin-right : 2em;
             width        : 150px;
         }
     }
@@ -45,6 +45,25 @@
 
         .portal-profile {
             font-size: 2em;
+        }
+    }
+
+    @media (max-width: 600px) {
+        min-width: 100%;
+        padding  : 1em;
+
+        .portal-profiles {
+            flex-direction: column;
+            right         : 0;
+            top           : 0;
+        }
+
+        .portal-profile-component {
+            flex-direction: column;
+
+            .portal-profile-content {
+                margin-top: 1em;
+            }
         }
     }
 }
