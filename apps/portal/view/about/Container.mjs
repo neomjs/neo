@@ -31,6 +31,14 @@ class Container extends Base {
             profileLinkedIn: 'https://www.linkedin.com/in/tobiasuhlig/',
             profileX       : 'https://x.com/UhligTobias',
             teamRole       : 'Co-Founder & Core Team Member'
+        }, {
+            module         : MemberContainer,
+            location       : 'Germany',
+            name           : 'Torsten Dinkheller',
+            picture        : 'torsten.png',
+            profileGitHub  : 'https://github.com/Dinkh',
+            profileLinkedIn: 'https://www.linkedin.com/in/dinkheller/',
+            teamRole       : 'Co-Founder & Core Team Member'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'start'}
