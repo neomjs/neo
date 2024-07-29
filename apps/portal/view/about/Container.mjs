@@ -1,4 +1,5 @@
-import Base from '../../../../src/container/Base.mjs';
+import Base            from '../../../../src/container/Base.mjs';
+import MemberComponent from './MemberComponent.mjs';
 
 /**
  * @class Portal.view.about.Container
@@ -15,7 +16,11 @@ class Container extends Base {
          * @member {Object[]} items
          */
         items: [{
-            html: 'Meet the Team'
+            html: 'Meet the Team',
+            tag : 'h1'
+        }, {
+            module: MemberComponent,
+            name  : 'Tobias Uhlig'
         }]
     }
 }
