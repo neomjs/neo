@@ -1,5 +1,5 @@
 import Base            from '../../../../src/container/Base.mjs';
-import MemberComponent from './MemberComponent.mjs';
+import MemberContainer from './MemberContainer.mjs';
 
 /**
  * @class Portal.view.about.Container
@@ -23,8 +23,10 @@ class Container extends Base {
             html: 'Meet the Team',
             tag : 'h1'
         }, {
-            module: MemberComponent,
-            name  : 'Tobias Uhlig'
+            module         : MemberContainer,
+            githubProfile  : 'https://github.com/tobiu',
+            linkedinProfile: 'https://www.linkedin.com/in/tobiasuhlig/',
+            name           : 'Tobias Uhlig'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'start'}

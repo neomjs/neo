@@ -1,4 +1,4 @@
-.portal-about-member-component {
+.portal-about-member-container {
     border    : 1px solid var(--sem-color-border-default);
     min-height: 400px;
     min-width : 600px;
@@ -9,9 +9,8 @@
         position: absolute;
         right   : 1em;
 
-        .portal-github-profile {
-            font-size : 2em;
-            font-style: normal !important;
+        .portal-profile {
+            font-size: 2em;
         }
     }
 }
