@@ -13,6 +13,10 @@ class Container extends Base {
          */
         className: 'Portal.view.about.Container',
         /**
+         * @member {String[]} cls=['portal-about-container']
+         */
+        cls: ['portal-about-container'],
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -21,7 +25,11 @@ class Container extends Base {
         }, {
             module: MemberComponent,
             name  : 'Tobias Uhlig'
-        }]
+        }],
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'start'}
+         */
+        layout: {ntype: 'vbox', align: 'start'}
     }
 }
 
