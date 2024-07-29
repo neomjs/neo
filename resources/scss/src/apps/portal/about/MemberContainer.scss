@@ -40,8 +40,9 @@
     }
 
     .portal-profiles {
+        padding : 0;
         position: absolute;
-        right   : 1em;
+        right   : .5em;
 
         .portal-profile {
             font-size: 2em;
