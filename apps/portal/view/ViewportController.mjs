@@ -9,7 +9,7 @@ import {getSearchParams} from '../Util.mjs';
 class ViewportController extends Controller {
     /**
      * Valid values for mainContentLayout
-     * @member {String[]} iconPositions=['top','right','bottom','left']
+     * @member {String[]} mainContentLayouts=['card','cube','mixed']
      * @protected
      * @static
      */
