@@ -108,7 +108,7 @@ class ViewportController extends Controller {
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
-                tabContainer    = livePreview.tabContainer,
+                {tabContainer}  = livePreview,
                 sourceView      = sourceContainer.removeAt(0, false);
 
             livePreview.previewContainer = mainView;
@@ -136,7 +136,7 @@ class ViewportController extends Controller {
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
-                tabContainer    = livePreview.tabContainer,
+                {tabContainer}  = livePreview,
                 sourceView      = mainView.removeAt(0, false);
 
             livePreview.previewContainer = null;
