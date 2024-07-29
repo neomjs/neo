@@ -25,9 +25,21 @@ class MemberContainer extends Container {
          */
         linkedinProfile_: null,
         /**
+         * @member {String|null} location_=null
+         */
+        location_: null,
+        /**
          * @member {String|null} name_=null
          */
         name_: null,
+        /**
+         * @member {String|null} picture_=null
+         */
+        picture_: null,
+        /**
+         * @member {String|null} teamRole_=null
+         */
+        teamRole_: null,
         /**
          * @member {Object[]} items
          */
@@ -42,7 +54,19 @@ class MemberContainer extends Container {
                 iconCls: 'portal-profile fa-brands fa-linkedin'
             }]
         }, {
-
+            cls : ['portal-profile-component'],
+            vdom:
+            {cn: [
+                {tag: 'img', cls: ['portal-profile-picture']},
+                {cls: ['portal-profile-content'], cn: [
+                    {tag: 'h2', cls: ['portal-profile-name']},
+                    {cls: ['portal-profile-role']},
+                    {cn: [
+                        {tag: 'i', cls: ['portal-profile-location']},
+                        {vtype: 'text'}
+                    ]}
+                ]}
+            ]}
         }]
     }
 
@@ -67,6 +91,21 @@ class MemberContainer extends Container {
     }
 
     /**
+     * Triggered after the location config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLocation(value, oldValue) {
+        if (value) {
+            let item = this.items[1];
+
+            item.vdom.cn[1].cn[2].cn[1].html = value;
+            item.update?.()
+        }
+    }
+
+    /**
      * Triggered after the name config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -76,7 +115,37 @@ class MemberContainer extends Container {
         if (value) {
             let item = this.items[1];
 
-            item.html = value;
+            item.vdom.cn[1].cn[0].html = value;
+            item.update?.()
+        }
+    }
+
+    /**
+     * Triggered after the picture config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetPicture(value, oldValue) {
+        if (value) {
+            let item = this.items[1];
+
+            item.vdom.cn[0].src = '../../../resources/images/team/' + value;
+            item.update?.()
+        }
+    }
+
+    /**
+     * Triggered after the teamRole config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTeamRole(value, oldValue) {
+        if (value) {
+            let item = this.items[1];
+
+            item.vdom.cn[1].cn[1].html = value;
             item.update?.()
         }
     }

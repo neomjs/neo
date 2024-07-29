@@ -1,9 +1,36 @@
 .portal-about-member-container {
     border    : 1px solid var(--sem-color-border-default);
-    min-height: 400px;
+    min-height: 250px;
     min-width : 600px;
     padding   : 1em;
     position  : relative;
+
+    .portal-profile-component {
+        display: flex;
+
+        .portal-profile-content {
+            margin-left: 2em;
+            margin-top : 2em;
+        }
+
+        .portal-profile-location {
+            color       : #777;
+            font-family : "Font Awesome 6 Free";
+            font-style  : normal;
+            font-weight : 600;
+            margin-right: .5em;
+
+            &:before {
+                content: "\f3c5";
+            }
+        }
+
+        .portal-profile-picture {
+            border-radius: 50%;
+            height       : 150px;
+            width        : 150px;
+        }
+    }
 
     .portal-profiles {
         position: absolute;

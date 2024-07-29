@@ -26,7 +26,10 @@ class Container extends Base {
             module         : MemberContainer,
             githubProfile  : 'https://github.com/tobiu',
             linkedinProfile: 'https://www.linkedin.com/in/tobiasuhlig/',
-            name           : 'Tobias Uhlig'
+            location       : 'Germany',
+            name           : 'Tobias Uhlig',
+            picture        : 'tobiu.png',
+            teamRole       : 'Co-Founder & Core Team Member'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'start'}
