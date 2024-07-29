@@ -17,14 +17,6 @@ class MemberContainer extends Container {
          */
         cls: ['portal-about-member-container'],
         /**
-         * @member {String|null} githubProfile_=null
-         */
-        githubProfile_: null,
-        /**
-         * @member {String|null} linkedinProfile_=null
-         */
-        linkedinProfile_: null,
-        /**
          * @member {String|null} location_=null
          */
         location_: null,
@@ -36,6 +28,18 @@ class MemberContainer extends Container {
          * @member {String|null} picture_=null
          */
         picture_: null,
+        /**
+         * @member {String|null} profileGitHub_=null
+         */
+        profileGitHub_: null,
+        /**
+         * @member {String|null} profileLinkedIn_=null
+         */
+        profileLinkedIn_: null,
+        /**
+         * @member {String|null} profileX_=null
+         */
+        profileX_: null,
         /**
          * @member {String|null} teamRole_=null
          */
@@ -52,6 +56,8 @@ class MemberContainer extends Container {
                 iconCls: 'portal-profile fa-brands fa-github'
             }, {
                 iconCls: 'portal-profile fa-brands fa-linkedin'
+            }, {
+                iconCls: 'portal-profile fa-brands fa-x-twitter'
             }]
         }, {
             cls : ['portal-profile-component'],
@@ -68,26 +74,6 @@ class MemberContainer extends Container {
                 ]}
             ]}
         }]
-    }
-
-    /**
-     * Triggered after the githubProfile config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetGithubProfile(value, oldValue) {
-        this.updateProfileButton(this.items[0].items[0], value)
-    }
-
-    /**
-     * Triggered after the linkedinProfile config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetLinkedinProfile(value, oldValue) {
-        this.updateProfileButton(this.items[0].items[1], value)
     }
 
     /**
@@ -133,6 +119,36 @@ class MemberContainer extends Container {
             item.vdom.cn[0].src = '../../../resources/images/team/' + value;
             item.update?.()
         }
+    }
+
+    /**
+     * Triggered after the profileGitHub config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetProfileGitHub(value, oldValue) {
+        this.updateProfileButton(this.items[0].items[0], value)
+    }
+
+    /**
+     * Triggered after the profileLinkedIn config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetProfileLinkedIn(value, oldValue) {
+        this.updateProfileButton(this.items[0].items[1], value)
+    }
+
+    /**
+     * Triggered after the profileX config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetProfileX(value, oldValue) {
+        this.updateProfileButton(this.items[0].items[2], value)
     }
 
     /**

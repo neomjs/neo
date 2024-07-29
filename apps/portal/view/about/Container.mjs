@@ -24,11 +24,12 @@ class Container extends Base {
             tag : 'h1'
         }, {
             module         : MemberContainer,
-            githubProfile  : 'https://github.com/tobiu',
-            linkedinProfile: 'https://www.linkedin.com/in/tobiasuhlig/',
             location       : 'Germany',
             name           : 'Tobias Uhlig',
             picture        : 'tobiu.png',
+            profileGitHub  : 'https://github.com/tobiu',
+            profileLinkedIn: 'https://www.linkedin.com/in/tobiasuhlig/',
+            profileX       : 'https://x.com/UhligTobias',
             teamRole       : 'Co-Founder & Core Team Member'
         }],
         /**

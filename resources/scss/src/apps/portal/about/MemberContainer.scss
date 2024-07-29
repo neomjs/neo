@@ -1,12 +1,15 @@
 .portal-about-member-container {
-    border    : 1px solid var(--sem-color-border-default);
-    min-height: 250px;
-    min-width : 600px;
-    padding   : 1em;
-    position  : relative;
+    border   : 1px solid var(--sem-color-border-default);
+    min-width: 600px;
+    padding  : 1em 1em 4em;
+    position : relative;
 
     .portal-profile-component {
         display: flex;
+
+        h2.portal-profile-name {
+            margin: .3em 0;
+        }
 
         .portal-profile-content {
             margin-left: 2em;
