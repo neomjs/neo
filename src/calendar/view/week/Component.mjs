@@ -769,7 +769,7 @@ class Component extends BaseComponent {
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {me.updateEvents(false, columnsBuffer + columnsVisible, me.totalColumns)}, 50);
+                me.timeout(50).then(() => {me.updateEvents(false, columnsBuffer + columnsVisible, me.totalColumns)});
 
                 scrollValue = -width
             }
@@ -793,7 +793,7 @@ class Component extends BaseComponent {
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {me.updateEvents(false, 0, columnsBuffer)}, 50);
+                me.timeout(50).then(() => {me.updateEvents(false, 0, columnsBuffer)});
 
                 scrollValue = width
             }

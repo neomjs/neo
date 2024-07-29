@@ -124,7 +124,7 @@ class Toast extends Base {
      * Timeout in ms after which the toast is removed
      * @member {Number} timeout=3000
      */
-    timeout = 3000
+    timeout = 3000 // todo: conflicting class field name => timeout()
 
     /**
      * @param {Object} config

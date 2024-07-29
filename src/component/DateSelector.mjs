@@ -454,11 +454,11 @@ class DateSelector extends Component {
                         me.updateHeaderMonthTransitionCallback(headerMonthOpts);
                         me.update();
 
-                        setTimeout(() => {
+                        me.timeout(300).then(() => {
                             me.changeMonthWrapperCallback(slideDirection);
                             me.updateHeaderMonthWrapperCallback(headerMonthOpts);
                             me.triggerVdomUpdate()
-                        }, 300)
+                        })
                     })
                 })
             } else {
@@ -538,10 +538,10 @@ class DateSelector extends Component {
                         vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
                         me.update();
 
-                        setTimeout(() => {
+                        me.timeout(300).then(() => {
                             vdom.cn[1] = vdom.cn[1].cn[0].cn[scrollFromTop ? 1 : 0];
                             me.triggerVdomUpdate()
-                        }, 300)
+                        })
                     })
                 })
             } else {

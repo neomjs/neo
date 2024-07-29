@@ -148,9 +148,9 @@ class Observable extends Base {
      * @param {Number} delay
      */
     delayedCallback(cb, args, delay) {
-        setTimeout(() => {
+        this.timeout(delay).then(() => {
             cb.fn.apply(cb.scope, args)
-        }, delay)
+        })
     }
 
     /**

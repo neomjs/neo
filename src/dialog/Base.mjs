@@ -143,6 +143,13 @@ class Base extends Panel {
     }
 
     /**
+     * @member {Neo.component.Base|null} animateTarget=null
+     */
+    get animateTarget() {
+        return Neo.getComponent(this.animateTargetId)
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -225,12 +232,21 @@ class Base extends Panel {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMaximized(value, oldValue) {
-        let me    = this,
-            {cls} = me.vdom; // todo: using wrapperCls
+    async afterSetMaximized(value, oldValue) {
+        let me        = this,
+            firstCall = oldValue === undefined,
+            {cls}     = me.vdom;
 
+        !firstCall && NeoArray.add(cls, 'animated-hiding-showing');
         NeoArray.toggle(cls, 'neo-maximized', value);
-        me.update()
+        me.update();
+
+        if (!firstCall) {
+            await(me.timeout(250));
+
+            NeoArray.remove(cls, 'animated-hiding-showing');
+            me.update()
+        }
     }
 
     /**
@@ -293,8 +309,10 @@ class Base extends Panel {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        if (this.headerToolbar) {
-            this.headerToolbar.title = value
+        let {headerToolbar} = this;
+
+        if (headerToolbar) {
+            headerToolbar.title = value
         }
     }
 
@@ -312,9 +330,15 @@ class Base extends Panel {
      *
      */
     async animateHide() {
-        let me            = this,
-            {appName, id} = me,
-            rects         = await me.getDomRect([id, me.animateTargetId]);
+        let me                  = this,
+            {animateTarget, id} = me,
+            appName, rects;
+
+        // Assuming that we want to show the dialog inside the same browser window as the animation target
+        me.windowId = animateTarget.windowId;
+        me.appName  = appName = animateTarget.appName;
+
+        rects = await me.getDomRect([id, me.animateTargetId])
 
         await Neo.applyDeltas(appName, {
             id,
@@ -355,9 +379,15 @@ class Base extends Panel {
      *
      */
     async animateShow() {
-        let me   = this,
-            {appName, id, style} = me,
-            rect = await me.getDomRect(me.animateTargetId);
+        let me                         = this,
+            {animateTarget, id, style} = me,
+            appName, rect;
+
+        // Assuming that we want to show the dialog inside the same browser window as the animation target
+        me.windowId = animateTarget.windowId;
+        me.appName  = appName = animateTarget.appName;
+
+        rect = await me.getDomRect(me.animateTargetId);
 
         // rendered outside the visible area
         await me.render(true);
@@ -599,13 +629,13 @@ class Base extends Panel {
 
                     style.transitionProperty = 'none';
 
-                    setTimeout(() => {
+                    me.timeout(50).then(() => {
                         style = me.style;
 
                         style.transitionProperty = initialTransitionProperty;
 
                         me.style = style
-                    }, 50)
+                    })
                 }
 
                 me.style = style;

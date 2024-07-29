@@ -1,0 +1,70 @@
+.portal-about-member-container {
+    border   : 1px solid var(--sem-color-border-default);
+    min-width: 600px;
+    padding  : 1em 1em 4em;
+    position : relative;
+
+    &:not(:nth-child(2)) {
+        margin-top: 1em;
+    }
+
+    .portal-profile-component {
+        display: flex;
+
+        h2.portal-profile-name {
+            margin: .3em 0;
+        }
+
+        .portal-profile-content {
+            margin-top: 2em;
+        }
+
+        .portal-profile-location {
+            color       : #777;
+            font-family : "Font Awesome 6 Free";
+            font-style  : normal;
+            font-weight : 600;
+            margin-right: .5em;
+
+            &:before {
+                content: "\f3c5";
+            }
+        }
+
+        .portal-profile-picture {
+            border-radius: 50%;
+            height       : 150px;
+            margin-right : 2em;
+            width        : 150px;
+        }
+    }
+
+    .portal-profiles {
+        padding : 0;
+        position: absolute;
+        right   : .5em;
+
+        .portal-profile {
+            font-size: 2em;
+        }
+    }
+
+    @media (max-width: 600px) {
+        min-width: 100%;
+        padding  : 1em;
+
+        .portal-profiles {
+            flex-direction: column;
+            right         : 0;
+            top           : 0;
+        }
+
+        .portal-profile-component {
+            flex-direction: column;
+
+            .portal-profile-content {
+                margin-top: 1em;
+            }
+        }
+    }
+}

@@ -256,7 +256,7 @@ class Gallery extends Component {
         if (value) {
             me.focusOnMount && me.focus(me.id);
 
-            setTimeout(() => {
+            me.timeout(300).then(() => {
                 Neo.currentWorker.promiseMessage('main', {
                     action    : 'readDom',
                     appName   : me.appName,
@@ -280,7 +280,7 @@ class Gallery extends Component {
                         selectionModel.select(key)
                     }
                 })
-            }, 300)
+            })
         } else {
             selectionModel.items = []
         }
@@ -302,19 +302,19 @@ class Gallery extends Component {
             if (me.rendered) {
                 me.refreshImageReflection();
 
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     for (; i < len; i++) {
                         view.cn[i].style.transform = me.getItemTransform(i)
                     }
 
                     me.update();
 
-                    setTimeout(() => {
+                    me.timeout(500).then(() => {
                         let sm = me.selectionModel;
 
                         sm.hasSelection() && me.onSelectionChange(sm.items)
-                    }, 500)
-                }, 50)
+                    })
+                })
             }
         }
     }
@@ -695,9 +695,9 @@ class Gallery extends Component {
                     view.cn = newCn;
                     me.update();
 
-                    setTimeout(() => {
+                    me.timeout(50).then(() => {
                         me.afterSetOrderByRow(me.orderByRow, !me.orderByRow)
-                    }, 50)
+                    })
                 }
             }
         }

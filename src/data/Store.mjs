@@ -398,9 +398,9 @@ class Store extends Base {
         }
 
         if (me.autoLoad) {
-            setTimeout(() => { // todo
+            me.timeout(100).then(() => { // todo
                 me.load()
-            }, 100)
+            })
         }
     }
 

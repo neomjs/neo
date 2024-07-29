@@ -548,9 +548,9 @@ class Helix extends Component {
         if (!me.mounted) {
             const listenerId = me.on('mounted', () => {
                 me.un('mounted', listenerId);
-                setTimeout(() => {
-                    me.createItems(startIndex);
-                }, 100)
+                me.timeout(100).then(() => {
+                    me.createItems(startIndex)
+                })
             })
         } else {
             for (; i < len; i++) {
@@ -601,9 +601,9 @@ class Helix extends Component {
                 me[itemsMounted] = true;
                 me.fire('itemsMounted');
 
-                setTimeout(() => {
+                me.timeout(200).then(() => {
                     me[lockWheel] = false
-                }, 200)
+                })
             })
         }
     }
@@ -642,9 +642,9 @@ class Helix extends Component {
             me.clonedItems = [];
 
             Neo.applyDeltas(me.appName, deltas).then(data => {
-                setTimeout(() => {
+                me.timeout(650).then(() => {
                     Neo.applyDeltas(me.appName, removeDeltas)
-                }, 650)
+                })
             })
         }
     }
@@ -701,7 +701,7 @@ class Helix extends Component {
             }).then(data => {
                 me.clonedItems.push(itemVdom);
 
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     Neo.applyDeltas(appName, {
                         id   : itemVdom.id,
                         style: {
@@ -709,7 +709,7 @@ class Helix extends Component {
                             transform: me.getCloneTransform()
                         }
                     })
-                }, 50)
+                })
             })
         }
     }
@@ -756,7 +756,7 @@ class Helix extends Component {
     getOffsetValues(delay=100) {
         let me = this;
 
-        setTimeout(() => {
+        me.timeout(delay).then(() => {
             Neo.currentWorker.promiseMessage('main', {
                 action    : 'readDom',
                 appName   : me.appName,
@@ -764,9 +764,9 @@ class Helix extends Component {
                 vnodeId   : me.id
             }).then(data => {
                 me.offsetHeight = data.attributes.offsetHeight;
-                me.offsetWidth  = data.attributes.offsetWidth;
+                me.offsetWidth  = data.attributes.offsetWidth
             })
-        }, delay)
+        })
     }
 
     /**

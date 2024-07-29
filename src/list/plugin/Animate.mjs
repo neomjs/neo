@@ -166,7 +166,7 @@ class Animate extends Base {
             x      = column * (margin + owner.itemWidth)  + margin,
             y      = row    * (margin + owner.itemHeight) + margin;
 
-        return {x, y};
+        return {x, y}
     }
 
     /**
@@ -177,13 +177,13 @@ class Animate extends Base {
      */
     getItemIndex(obj, map, intercept) {
         if (!intercept) {
-            return obj.index;
+            return obj.index
         }
 
         let owner = this.owner,
             key   = owner.getKeyProperty();
 
-        return map.indexOf(owner.getItemId(obj.record[key]));
+        return map.indexOf(owner.getItemId(obj.record[key]))
     }
 
     /**
@@ -201,8 +201,8 @@ class Animate extends Base {
             });
 
             // if the store got loaded before this plugin is ready, create the items now
-            owner.store.getCount() > 0 && owner.createItems();
-        });
+            owner.store.getCount() > 0 && owner.createItems()
+        })
     }
 
     /**
@@ -241,15 +241,15 @@ class Animate extends Base {
                     item.reAdded = true;
                 }
 
-                addedItems.push(item);
+                addedItems.push(item)
             } else {
-                movedItems.push(item);
+                movedItems.push(item)
             }
         });
 
         data.oldItems.forEach((record, index) => {
             if (!data.items.includes(record)) {
-                removedItems.push({index, record});
+                removedItems.push({index, record})
             }
         });
 
@@ -263,7 +263,7 @@ class Animate extends Base {
                     vdom.cn.splice(index, 0, me.createItem(me, obj.record, obj.index));
 
                     obj.item = vdom.cn[index];
-                    obj.item.style.opacity = 0;
+                    obj.item.style.opacity = 0
                 }
             }
         });
@@ -271,7 +271,7 @@ class Animate extends Base {
         hasAddedItems && owner.update();
 
         // ensure to get into the next animation frame
-        setTimeout(() => {
+        me.timeout(50).then(() => {
             // new items are already added into the vdom, while old items are not yet removed
             // => we need a map to ensure getting the correct index
             map = vdom.cn.map(e => e.id);
@@ -281,7 +281,7 @@ class Animate extends Base {
 
                 if (index > -1) {
                     // we can change the opacity for re-added items too => the vdom engine will ignore this
-                    vdom.cn[index].style.opacity = 1;
+                    vdom.cn[index].style.opacity = 1
                 }
             });
 
@@ -294,7 +294,7 @@ class Animate extends Base {
                     Object.assign(vdom.cn[index].style, {
                         opacity  : 1,
                         transform: `translate(${position.x}px, ${position.y}px)`
-                    });
+                    })
                 }
             });
 
@@ -303,13 +303,13 @@ class Animate extends Base {
 
                 if (index > -1) {
                     obj.item = vdom.cn[index];
-                    obj.item.style.opacity = 0;
+                    obj.item.style.opacity = 0
                 }
             });
 
             owner.update();
-            me.triggerTransitionCallback();
-        }, 50);
+            me.triggerTransitionCallback()
+        })
     }
 
     /**
@@ -351,7 +351,7 @@ class Animate extends Base {
                 newVdomCn.push(vdom.cn[fromIndex]);
 
                 if (fromIndex !== index) {
-                    hasChange = true;
+                    hasChange = true
                 }
             });
 
@@ -360,9 +360,9 @@ class Animate extends Base {
                 owner.update();
 
                 // we need to ensure to get this call into the next animation frame
-                setTimeout(() => {
-                    owner.createItems();
-                }, 50);
+                me.timeout(50).then(() => {
+                    owner.createItems()
+                })
             }
         }
     }
@@ -391,10 +391,10 @@ class Animate extends Base {
                 item      = vdom.cn[fromIndex];
                 position  = me.getItemPosition(record, index);
 
-                item.style.transform = `translate(${position.x}px, ${position.y}px)`;
+                item.style.transform = `translate(${position.x}px, ${position.y}px)`
             });
 
-            owner.update();
+            owner.update()
         }
     }
 
@@ -407,8 +407,8 @@ class Animate extends Base {
         me.transitionTimeoutId = setTimeout(() => {
             me.transitionTimeoutId = null;
 
-            me.owner.createItems();
-        }, me.transitionDuration);
+            me.owner.createItems()
+        }, me.transitionDuration)
     }
 
     /**

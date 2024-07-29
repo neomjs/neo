@@ -42,6 +42,7 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/about-us'      : 'onAboutUsRoute',
             '/blog'          : 'onBlogRoute',
             '/docs'          : 'onDocsRoute',
             '/home'          : 'onHomeRoute',
@@ -81,6 +82,15 @@ class ViewportController extends Controller {
      */
     beforeSetMainContentLayout(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'mainContentLayout')
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onAboutUsRoute(params, value, oldValue) {
+        this.setMainContentIndex(5)
     }
 
     /**

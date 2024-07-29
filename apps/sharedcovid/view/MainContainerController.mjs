@@ -237,11 +237,11 @@ class MainContainerController extends ComponentController {
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err))
             .then(data => me.applySummaryData(data));
 
-        setTimeout(() => {
+        me.timeout(2000).then(() => {
             if (!me.summaryData) {
-                me.onLoadSummaryDataFail();
+                me.onLoadSummaryDataFail()
             }
-        }, 2000);
+        })
     }
 
     /**
@@ -293,11 +293,10 @@ class MainContainerController extends ComponentController {
             parentView.remove(view, false);
 
             Neo.apps[name].on('render', () => {
-                setTimeout(() => {
-                    me.getMainView(name).add(view);
-                }, 100);
-            });
-
+                me.timeout(100).then(() => {
+                    me.getMainView(name).add(view)
+                })
+            })
         }
     }
 
@@ -439,11 +438,11 @@ class MainContainerController extends ComponentController {
             me.activeMainTabIndex    = activeIndex;
 
             if (!activeView) {
-                setTimeout(() => {
-                    me.onHashChange(value, oldValue);
-                }, 10);
+                me.timeout(10).then(() => {
+                    me.onHashChange(value, oldValue)
+                })
 
-                return;
+                return
             }
 
             me.getModel().setData({

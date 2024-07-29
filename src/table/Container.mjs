@@ -477,9 +477,9 @@ class Container extends BaseContainer {
 
         if (me.createRandomData) {
             // todo: if mounting apply after mount
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 me.createRandomViewData(me.amountRows)
-            }, 50)
+            })
         }
     }
 
@@ -519,9 +519,9 @@ class Container extends BaseContainer {
             }
         } else {
             me.on('rendered', () => {
-                setTimeout(() => {
+                me.timeout(50).then(() => {
                     me.createViewData(data)
-                }, 50)
+                })
             }, me, {once: true})
         }
     }

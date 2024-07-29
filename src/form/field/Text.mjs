@@ -571,9 +571,9 @@ class Text extends Base {
 
             me.updateInputWidth();
 
-            !isEmpty && setTimeout(() => {
+            !isEmpty && me.timeout(20).then(() => {
                 me.updateCenterBorderElWidth(false)
-            }, 20)
+            })
         } else {
             // changes from e.g. left to top
             me.updateInputWidth()

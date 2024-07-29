@@ -59,8 +59,10 @@ class Logger extends Base {
     construct(config) {
         super.construct(config);
 
+        let me = this;
+
         // aliases
-        Neo.applyFromNs(Neo, this, {
+        Neo.applyFromNs(Neo, me, {
             error   : 'error',
             info    : 'info',
             log     : 'log',
@@ -68,11 +70,11 @@ class Logger extends Base {
             warn    : 'warn'
         }, true);
 
-        setTimeout(() => {
+        me.timeout(50).then(() => {
             if (!Neo.config.enableLogsInProduction && Neo.config.environment === 'dist/production') {
-                this.write = Neo.emptyFn
+                me.write = Neo.emptyFn
             }
-        }, 50)
+        })
     }
 
     /**

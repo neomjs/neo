@@ -1,6 +1,16 @@
 :root .neo-theme-neo-light { // .neo-dialog
     --dialog-border-color: #ddd;
     --dialog-box-shadow  : 0 5px 10px rgba(0,0,0,.4);
-    --dialog-header-color: #1c60a0;
-    --dialog-icon-color  : #1c60a0;
+    --dialog-header-color: var(--purple-500);
+    --dialog-icon-color  : var(--purple-500);
+
+    .neo-dialog {
+        .neo-header-toolbar {
+            .neo-button {
+                background-color: transparent;
+                height          : unset;
+                min-width       : unset;
+            }
+        }
+    }
 }

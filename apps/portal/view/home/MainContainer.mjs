@@ -28,6 +28,7 @@ class MainContainer extends Container {
          */
         domListeners: [{
             intersect(data) {
+                this.activePartsId = data.targetId;
                 Neo.getComponent(data.targetId)?.activate?.()
             },
             scroll(event) {
@@ -54,6 +55,12 @@ class MainContainer extends Container {
     }
 
     /**
+     * Internal flag containing the id of the currently visible parts item
+     * @member {String|null} activePartsId=null
+     */
+    activePartsId = null
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -65,7 +72,7 @@ class MainContainer extends Container {
         let me             = this,
             {id, windowId} = me;
 
-        value && setTimeout(() => {
+        value && me.timeout(50).then(() => {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
@@ -74,7 +81,7 @@ class MainContainer extends Container {
                 threshold: 1.0,
                 windowId
             })
-        }, 50)
+        })
     }
 }
 

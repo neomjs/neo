@@ -159,13 +159,15 @@ class Toast extends Base {
     showToast(toast) {
         toast.render(true);
 
+        let me = this;
+
         // increase total of displayed toasts for a position
-        this.running[toast.position].unshift(toast.id);
+        me.running[toast.position].unshift(toast.id);
 
         // todo: we could use a mounted listener
-        setTimeout(() => {
-            this.updateItemsInPosition(toast.id)
-        }, 50)
+        me.timeout(50).then(() => {
+            me.updateItemsInPosition(toast.id)
+        })
     }
 
     /**

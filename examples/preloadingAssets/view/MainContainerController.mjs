@@ -17,7 +17,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onActiveIndexChange(data) {
-        console.log('onActiveIndexChange', data);
+        console.log('onActiveIndexChange', data)
     }
 
     /**
@@ -26,13 +26,13 @@ class MainContainerController extends Component {
     onMounted(id) {
         console.log('onMounted', id);
 
-        setTimeout(() => {
+        this.timeout(3000).then(() => {
             Neo.ServiceWorker.preloadAssets({
                 files: ['https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/examples/ai_images/000074.jpg']
             }).then(data => {
-                console.log(data);
-            });
-        }, 3000)
+                console.log(data)
+            })
+        })
     }
 }
 

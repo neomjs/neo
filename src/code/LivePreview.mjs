@@ -141,8 +141,6 @@ class LivePreview extends Container {
             {vdom}   = me,
             rect;
 
-        button.iconCls = collapse ? 'fas fa-expand' : 'fas fa-compress';
-
         if (collapse) {
             button.iconCls = 'fas fa-expand';
 
@@ -168,7 +166,7 @@ class LivePreview extends Container {
         } else {
             button.iconCls = 'fas fa-compress';
 
-            rect = await me.getDomRect(me.id);
+            rect = await me.getDomRect();
 
             me.collapseRect = rect;
 
@@ -340,16 +338,11 @@ class LivePreview extends Container {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        let me                   = this,
-            collapseExpandButton = me.getReference('collapse-expand-button'),
-            hidden               = data.value !== 1;
+        let me     = this,
+            hidden = data.value !== 1;
 
         if (data.item.reference === 'preview') {
             me.doRunSource()
-        }
-
-        if (collapseExpandButton) {
-            collapseExpandButton.hidden = hidden
         }
 
         me.getReference('popout-window-button').hidden = hidden
@@ -368,11 +361,9 @@ class LivePreview extends Container {
 
         if (me.enableFullscreen) {
             items.push({
-                handler  : me.collapseExpand.bind(me),
-                hidden   : tabContainer.activeIndex !== 1,
-                iconCls  : 'fas fa-expand',
-                reference: 'collapse-expand-button',
-                ui       : 'ghost'
+                handler: me.collapseExpand.bind(me),
+                iconCls: 'fas fa-expand',
+                ui     : 'ghost'
             })
         }
 

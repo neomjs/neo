@@ -230,9 +230,9 @@ class HelixModel extends Model {
             listenerId = view.on('mounted', () => {
                 view.un('mounted', listenerId);
 
-                setTimeout(() => {
-                    me.select(itemId, toggleSelection);
-                }, 300)
+                me.timeout(300).then(() => {
+                    me.select(itemId, toggleSelection)
+                })
             })
         }
 

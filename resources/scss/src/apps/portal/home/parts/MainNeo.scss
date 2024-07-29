@@ -1,35 +1,90 @@
+@font-face {
+    font-family: "GT-Planar";
+    src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+}
 .portal-home-main-neo.portal-home-content-view {
     padding: 3em;
+
+    .logo-container {
+        display        : flex;
+        flex-direction : row;
+        flex-wrap      : wrap;
+        gap            : 20px;
+        min-width      : 240px;
+        min-height     : 130px;
+    }
 
     .button-group {
         display       : flex;
         flex-direction: row-reverse;
         gap           : 8px;
+        margin        : 2rem 0px;
     }
 
     .neo-h1 {
-        margin: 3rem;
+        font-size  : 110px;
+        font-family: "GT-Planar";
+    }
+
+    .neo-h2 {
+        margin: 2rem;
+    }
+
+    .neo-h3 {
+        margin   : 1rem 14rem;
+        max-width: 900px;
     }
 
     .vector {
-        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_text_primary.svg");
+        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
         background-position: center center;
         background-repeat  : no-repeat;
         background-size    : contain;
         height             : 10VW;
         max-height         : 130px;
-        width              : 100%;
+        min-height         : 120px;
+        min-width          : 140px;
     }
 
-    @media (max-width: 600px) {
-        padding: 3em 0.5em;
+    @media (max-width: 1000px) {
+        .neo-h3 {
+            margin: 1rem 10rem;
+        }
+    }
 
-        .neo-h1 {
-            margin: 2em 0;
+    @media (max-width: 900px) {
+        .neo-h3 {
+            margin: 1rem 7rem;
+        }
+    }
+
+    @media (max-width: 645px) {
+        padding: 1.5em 0.5em;
+
+        .neo-h2 {
+            margin: 0.5rem 0;
+        }
+
+        .neo-h3 {
+            margin: 1rem 2rem;
         }
 
         .vector {
             height: 17VW;
+        }
+
+        .button-group {
+            margin: 0.5rem 0;
+        }
+    }
+
+    @media (max-width: 500px) {
+        .neo-h1 {
+            font-size: 100px;
+        }
+
+        .neo-h2 {
+            margin: 0.5rem 2rem;
         }
     }
 }

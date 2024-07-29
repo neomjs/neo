@@ -196,9 +196,9 @@ class MapboxGL extends Base {
     autoResize(data) {
         let map = this.maps[data.id];
 
-        map && setTimeout(() => {
+        map && this.timeout(100).then(() => {
             map.resize()
-        }, 100)
+        })
     }
 
     /**
@@ -337,7 +337,7 @@ class MapboxGL extends Base {
     onMapReallyLoaded(data, event) {
         let me = this;
 
-        setTimeout(() => {
+        me.timeout(100).then(() => {
             if (data.data) {
                 me.updateData({
                     data        : data.data,
@@ -347,7 +347,7 @@ class MapboxGL extends Base {
             } else if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id])
             }
-        }, 100);
+        })
     }
 
     /**

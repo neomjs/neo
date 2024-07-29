@@ -97,9 +97,9 @@ class List extends ComponentList {
     onClick(data) {
         // The click even arrives before the CheckBox onInputValueChange() gets triggered.
         // We need a short delay to ensure the vdom of the list item contains the new checked state
-        setTimeout(() => {
+        this.timeout(20).then(() => {
             super.onClick(data)
-        }, 20);
+        });
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let me                    = this,

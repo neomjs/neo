@@ -428,9 +428,9 @@ class DomEvent extends Base {
             });
 
             if (component.mounted) {
-                setTimeout(() => {
+                me.timeout(100).then(() => {
                     me.mountDomListeners(component)
-                }, 100)
+                })
             }
         } else {
             Logger.logError('Component.domListeners have to be an array', component)

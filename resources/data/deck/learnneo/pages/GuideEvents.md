@@ -328,11 +328,9 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 </pre>
 
-##
+##How are events set up?
 
-[Add content on listeners options here]
-
-How are events set up? The details don't really matter, but in case you're curious: 
+The details don't really matter, but in case you're curious: 
 Neo.mjs has a `Neo.core.Observable` class that can be mixed into any class. It maintains 
 a `listeners` object map that's a key-value pair, where the key is the event name, and 
 the value is an array of function references. The first time a listener is added, an 

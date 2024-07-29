@@ -89,8 +89,14 @@ class Colors extends BaseContainer {
      *
      */
     async activate() {
-        await this.timeout(1000);
-        this.getReference('live-preview').activeView = 'preview'
+        let me       = this,
+            {parent} = me;
+
+        await me.timeout(1000);
+
+        if (parent.activePartsId === me.id && parent.mounted) {
+            me.getReference('live-preview').activeView = 'preview'
+        }
     }
 }
 

@@ -23,13 +23,25 @@ class MainNeo extends BaseContainer {
          */
         items: [{
             ntype: 'container',
-            cls  : ['vector'],
-            flex : 'none',
+            cls  : ['logo-container'],
+            items: [{
+                ntype: 'container',
+                cls  : ['vector']
+            }, {
+                cls : ['neo-h1'],
+                html: 'Neo.mjs',
+                tag : 'h1'
+            }]
         }, {
-            cls : ['neo-h1'],
+            cls : ['neo-h2'],
             flex: 'none',
-            html: 'Harness the Power of Multi-Threading for Ultra-Fast Frontends',
-            vdom: {tag: 'h1'}
+            html: 'Modern Enterprise-Ready JavaScript Framework',
+            tag : 'h2'
+        }, {
+            cls : ['neo-h3'],
+            flex: 'none',
+            html: 'Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging a vast component library and harness the power of multi-threading for extreme real-time performance.',
+            tag : 'h3'
         }, {
             ntype: 'container',
             cls  : ['button-group'],

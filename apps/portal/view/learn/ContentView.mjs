@@ -68,14 +68,14 @@ class ContentView extends Component {
 
         let me = this;
 
-        value && setTimeout(() => {
+        value && me.timeout(50).then(() => {
             Neo.main.addon.IntersectionObserver.register({
                 callback: 'findTopmostItem',
                 id      : me.id,
                 root    : `#${me.parentId}`,
                 windowId: me.windowId
             })
-        }, 50)
+        })
     }
 
     /**
@@ -83,8 +83,22 @@ class ContentView extends Component {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    afterSetRecord(value, oldValue) {
-        value && this.doFetchContent(value)
+    async afterSetRecord(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            await me.doFetchContent(value);
+
+            if (oldValue) {
+                await me.timeout(50);
+
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.parentId,
+                    value    : 0
+                })
+            }
+        }
     }
 
     /**

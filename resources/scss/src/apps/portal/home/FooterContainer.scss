@@ -28,4 +28,16 @@
         background-color: transparent;
         color           : white;
     }
+
+    @media (max-width: 600px) {
+        padding: 1em;
+
+        h2.neo-h2 {
+            font-size: 1.2rem;
+        }
+
+        .neo-button {
+            padding: 0 3px;
+        }
+    }
 }

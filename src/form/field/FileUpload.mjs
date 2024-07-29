@@ -382,7 +382,7 @@ class FileUpload extends Base {
         me.file = me.document = null;
 
         // We have to wait for the DOM to have changed, and the input field to be visible
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await me.timeout(100);
         me.focus(me.getInputEl().id);
     }
 
@@ -445,7 +445,7 @@ class FileUpload extends Base {
         me.state = 'starting';
 
         // We have to wait for the DOM to have changed, and the action button to be visible
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await me.timeout(100);
         me.focus(me.vdom.cn[2].id);
 
         me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(file.name);
@@ -641,7 +641,7 @@ class FileUpload extends Base {
 
                 switch (status) {
                     case 'scanning':
-                        setTimeout(() => me.checkDocumentStatus(), me.statusScanInterval);
+                        me.timeout(me.statusScanInterval).then(() => {me.checkDocumentStatus()});
                         break;
                     case 'deleted':
                         me.error = `${me.documentText} ${me.documentId} ${isNoLongerAvailable}`;

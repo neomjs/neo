@@ -15,9 +15,9 @@ class HeaderToolbar extends Toolbar {
          */
         className: 'Colors.view.HeaderToolbar',
         /**
-         * @member {String[]} cls=['portal-header-toolbar']
+         * @member {String[]} cls=['colors-header-toolbar']
          */
-        cls: ['portal-header-toolbar'],
+        cls: ['colors-header-toolbar'],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch',wrap:'wrap'}
          */
@@ -64,7 +64,11 @@ class HeaderToolbar extends Toolbar {
             listeners    : {change: 'onChangeAmountRows'},
             store        : ['5', '10', '15', '20'],
             width        : 90
-        }, '->', {
+        }, {
+            ntype: 'component',
+            cls  : ['header-spacer'],
+            flex : 1
+        }, {
             handler  : 'onDetachTableButtonClick',
             iconCls  : 'fas fa-table',
             reference: 'detach-table-button',

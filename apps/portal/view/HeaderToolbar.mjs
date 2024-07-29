@@ -12,9 +12,9 @@ class HeaderToolbar extends Base {
          */
         className: 'Portal.view.HeaderToolbar',
         /**
-         * @member {String[]} cls=['learnneo-header-toolbar']
+         * @member {String[]} cls=['portal-header-toolbar']
          */
-        cls: ['learnneo-header-toolbar'],
+        cls: ['portal-header-toolbar'],
         /**
          * @member {Object} itemDefaults
          */

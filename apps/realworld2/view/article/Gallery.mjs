@@ -93,10 +93,12 @@ class Gallery extends BaseGallery {
     onStoreLoad(items) {
         super.onStoreLoad(items);
 
-        setTimeout(() => {
-            this.selectOnMount = true;
-            this.afterSetMounted(true, false);
-        }, 200);
+        let me = this;
+
+        me.timeout(200).then(() => {
+            me.selectOnMount = true;
+            me.afterSetMounted(true, false)
+        })
     }
 }
 

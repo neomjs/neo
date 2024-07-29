@@ -315,28 +315,28 @@ class MembersList extends Base {
                             tag : 'code',
                             html: example
                         }]
-                    });
-                });
+                    })
+                })
             }
 
             if (item.params?.length > 0) {
-                itemConfig.cn.push(MembersList.createParametersTable(item.params));
+                itemConfig.cn.push(MembersList.createParametersTable(item.params))
             }
 
             if (item.returns?.[0].type && item.kind !== 'event') {
                 itemConfig.cn.push({
                     innerHTML: 'Returns {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '} ') + (item.returns[0].description || '')
-                });
+                })
             }
 
-            vdom.cn.push(itemConfig);
+            vdom.cn.push(itemConfig)
         });
 
         me.update();
 
-        setTimeout(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit();
-        }, 100)
+        me.timeout(100).then(() => {
+            Neo.main.addon.HighlightJS.syntaxHighlightInit()
+        })
     }
 
     /**

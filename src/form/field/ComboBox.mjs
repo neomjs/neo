@@ -401,11 +401,12 @@ class ComboBox extends Picker {
                 selectionModel.select(record);
                 selectionModel.suspendEvents = false
             }
-            setTimeout(() => {
+
+            me.timeout(100).then(() => {
                 const index = store.indexOf(record);
                 list._focusIndex = -1; // silent update to ensure afterSetFocusIndex() always gets called
                 list.focusIndex  = index > -1 ? index : 0
-            }, 100)
+            })
         }
         // Filtered down to nothing - hide picker if it has been created.
         else {

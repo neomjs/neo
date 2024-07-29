@@ -54,18 +54,18 @@ class SettingsContainer extends Container {
             style = me.style || {};
 
         style.marginRight = `-${width}px`;
-        me._style      = style; // silent update
-        me._vdom.style = style; // silent update
+        me._style         = style; // silent update
+        me._vdom.style    = style; // silent update
 
         me.parent.promiseUpdate().then(() => {
-            setTimeout(() => {
+            me.timeout(400).then(() => {
                 me.collapsed = true;
 
                 me.vdom.removeDom = true;
                 me.update();
 
-                me.mounted = false;
-            }, 400)
+                me.mounted = false
+            })
         })
     }
 
@@ -149,11 +149,11 @@ class SettingsContainer extends Container {
             me.collapsed = false;
             me.mounted   = true;
 
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 style = me.style || {}
                 style.marginRight = '0px';
-                me.style = style;
-            }, 50)
+                me.style = style
+            })
         })
     }
 
@@ -178,10 +178,10 @@ class SettingsContainer extends Container {
                 if (Neo.typeOf(mainContainer[`${container.flag}Component`]) !== 'NeoInstance') {
                     listenerId = mainContainer.on('cardLoaded', () => {
                         mainContainer.un('cardLoaded', listenerId);
-                        setTimeout(() => {container.createContent();}, 30)
+                        me.timeout(30).then(() => {container.createContent()})
                     })
                 } else {
-                    setTimeout(() => {container.createContent();}, 30)
+                    me.timeout(30).then(() => {container.createContent()})
                 }
             }
 

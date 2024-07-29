@@ -193,12 +193,12 @@ class GoogleMaps extends Base {
                 zoomControl      : me.zoomControl
             };
 
-            setTimeout(() => {
+            me.timeout(50).then(() => {
                 Neo.main.addon.GoogleMaps.create(opts).then(() => {
                     me.mapCreated = true;
                     me.onComponentMounted()
                 })
-            }, 50)
+            })
         }
     }
 

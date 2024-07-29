@@ -82,9 +82,9 @@ class ViewportModel extends Component {
             if (page instanceof Neo.core.Base) {
                 page.setValues(me.formData, true);
             } else {
-                setTimeout(() => {
+                me.timeout(30).then(() => {
                     me.onDataPropertyChange(key, value, oldValue)
-                }, 30)
+                })
             }
         }
     }

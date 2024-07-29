@@ -816,9 +816,9 @@ class Base extends CoreBase {
 
                 if (me.domListeners?.length > 0) {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
-                    setTimeout(() => {
+                    me.timeout(150).then(() => {
                         DomEventManager.mountDomListeners(me)
-                    }, 150)
+                    })
                 }
 
                 me.doResolveUpdateCache();
@@ -1798,7 +1798,7 @@ class Base extends CoreBase {
             }
 
             if (timeout) {
-                setTimeout(removeFn, timeout)
+                me.timeout(timeout).then(removeFn)
             } else {
                 removeFn()
             }
