@@ -1,5 +1,6 @@
 .portal-header-toolbar {
-    border-bottom: 1px solid var(--sem-color-border-default);
+    box-shadow: 0 5px 10px rgba(0,0,0,.3);
+    z-index   : 8;
 
     .logo {
         margin-left: 1em;
@@ -37,9 +38,10 @@
 
     .separate-bar {
         animation: fade-in-animation 200ms linear;
+        box-shadow: 0 5px 10px rgba(0,0,0,.3);
         position: absolute;
         right   : 0;
-        top     : 59px;
+        top     : 58px;
         z-index  : 9;
     }
 
