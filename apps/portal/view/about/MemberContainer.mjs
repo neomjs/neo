@@ -53,18 +53,7 @@ class MemberContainer extends Container {
      * @protected
      */
     afterSetGithubProfile(value, oldValue) {
-        let button = this.items[0].items[0];
-
-        if (button.set) {
-            button.set({
-                hidden: !value,
-                url   : value
-            })
-        } else {
-            // initial values
-            button.hidden = !value;
-            button.url    = value;
-        }
+        this.updateProfileButton(this.items[0].items[0], value)
     }
 
     /**
@@ -74,18 +63,7 @@ class MemberContainer extends Container {
      * @protected
      */
     afterSetLinkedinProfile(value, oldValue) {
-        let button = this.items[0].items[1];
-
-        if (button.set) {
-            button.set({
-                hidden: !value,
-                url   : value
-            })
-        } else {
-            // initial values
-            button.hidden = !value;
-            button.url    = value;
-        }
+        this.updateProfileButton(this.items[0].items[1], value)
     }
 
     /**
@@ -100,6 +78,25 @@ class MemberContainer extends Container {
 
             item.html = value;
             item.update?.()
+        }
+    }
+
+    /**
+     * Depending on the lifecycle, we will either pass a button instance or a config object
+     * @param {Neo.button.Base|Object} button
+     * @param {String|null} url
+     * @protected
+     */
+    updateProfileButton(button, url) {
+        if (button.set) {
+            button.set({
+                hidden: !url,
+                url
+            })
+        } else {
+            // initial values
+            button.hidden = !url;
+            button.url    = url;
         }
     }
 }
