@@ -16,6 +16,10 @@ class MemberComponent extends Component {
          */
         cls: ['portal-about-member-component'],
         /**
+         * @member {String|null} githubProfile_=null
+         */
+        githubProfile_: null,
+        /**
          * @member {String|null} name_=null
          */
         name_: null,
@@ -24,6 +28,9 @@ class MemberComponent extends Component {
          */
         _vdom:
         {cn: [
+            {cls: ['portal-profiles'], cn: [
+                {tag: 'i', cls: ['portal-github-profile', 'fa-brands', 'fa-github']},
+            ]},
             {}
         ]}
     }
@@ -36,7 +43,7 @@ class MemberComponent extends Component {
      */
     afterSetName(value, oldValue) {
         if (value) {
-            this.vdom.cn[0].html = value;
+            this.vdom.cn[1].html = value;
             this.update()
         }
     }

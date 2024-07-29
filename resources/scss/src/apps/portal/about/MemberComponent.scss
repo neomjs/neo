@@ -3,4 +3,15 @@
     min-height: 400px;
     min-width : 600px;
     padding   : 1em;
+    position  : relative;
+
+    .portal-profiles {
+        position: absolute;
+        right   : 1em;
+
+        .portal-github-profile {
+            font-size : 2em;
+            font-style: normal !important;
+        }
+    }
 }
