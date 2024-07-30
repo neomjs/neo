@@ -9,7 +9,7 @@ import {getSearchParams} from '../Util.mjs';
 class ViewportController extends Controller {
     /**
      * Valid values for mainContentLayout
-     * @member {String[]} iconPositions=['top','right','bottom','left']
+     * @member {String[]} mainContentLayouts=['card','cube','mixed']
      * @protected
      * @static
      */
@@ -56,6 +56,12 @@ class ViewportController extends Controller {
      * @member {String[]} connectedApps=[]
      */
     connectedApps = []
+    /**
+     * Internal flag to store the amount of main navigation changes
+     * @member {Number} #transitionId=0
+     * @private
+     */
+    #transitionId = 0
 
     /**
      * Triggered after the mainContentLayout config got changed
@@ -108,7 +114,7 @@ class ViewportController extends Controller {
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
-                tabContainer    = livePreview.tabContainer,
+                {tabContainer}  = livePreview,
                 sourceView      = sourceContainer.removeAt(0, false);
 
             livePreview.previewContainer = mainView;
@@ -136,7 +142,7 @@ class ViewportController extends Controller {
                 livePreviewId   = getSearchParams(searchString).id,
                 livePreview     = Neo.getComponent(livePreviewId),
                 sourceContainer = livePreview.getReference('preview'),
-                tabContainer    = livePreview.tabContainer,
+                {tabContainer}  = livePreview,
                 sourceView      = mainView.removeAt(0, false);
 
             livePreview.previewContainer = null;
@@ -235,16 +241,23 @@ class ViewportController extends Controller {
         let me                               = this,
             {activeIndex, mainContentLayout} = me,
             container                        = me.getReference('main-content'),
-            updateLayout                     = true;
+            updateLayout                     = true,
+            transitionId;
 
         if (index !== activeIndex) {
+            me.activeIndex = index;
+            me.#transitionId++;
+
+            transitionId = me.#transitionId;
+
             // skip the initial layout-switch, since we do not need a transition
             if (mainContentLayout === 'mixed' && Neo.isNumber(activeIndex)) {
                 updateLayout = false;
 
-                container.wrapperStyle; // todo: without accessing the getter, the flex value can get lost.
-
-                container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true};
+                // enable "fast clicking" on main nav items => do not replace a cube layout with a new instance of cube
+                if (container.layout.ntype !== 'layout-cube') {
+                    container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true}
+                }
 
                 await me.timeout(200);
 
@@ -252,14 +265,14 @@ class ViewportController extends Controller {
 
                 await me.timeout(1100);
 
-                container.layout = {ntype: 'card', activeIndex: index}
+                if (transitionId === me.#transitionId) {
+                    container.layout = {ntype: 'card', activeIndex: index}
+                }
             }
 
             if (updateLayout) {
                 container.layout.activeIndex = index
             }
-
-            me.activeIndex = index
         }
     }
 }

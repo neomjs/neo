@@ -36,7 +36,20 @@ class Container extends BaseContainer {
         }, {
             module   : List,
             flex     : 1,
-            reference: 'blog-list'
+            reference: 'blog-list',
+            /**
+             * @member {Object[]} domListeners
+             */
+            domListeners: [{
+                scroll(event) {
+                    const isHomeContainer = event.target.cls.includes('portal-blog-list'),
+                          beyondEighty    = event.scrollTop > 80;
+
+                    if (isHomeContainer) {
+                        this.toggleCls('hide-sidebar', beyondEighty);
+                    }
+                }
+            }]
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
