@@ -29,17 +29,21 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module  : Container,
-            bind    : {hidden: data => data.size === 'x-small'},
-            cls     : ['sidenav-container'],
-            layout  : 'fit',
-            minWidth: 350,
-            tag     :'aside',
-            width   : 350,
+            module   : Container,
+            cls      : ['sidenav-container'],
+            layout   : 'fit',
+            reference: 'sidenav-container',
+            tag      : 'aside',
 
             items: [{
                 module   : ContentTreeList,
                 reference: 'tree'
+            }, {
+                ntype  : 'button',
+                cls    : ['sidenav-button'],
+                handler: 'onSideNaveToggleButtonClick',
+                iconCls: 'fas fa-bars',
+                ui     : 'secondary'
             }]
         }, {
             module      : Splitter,

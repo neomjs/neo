@@ -28,9 +28,9 @@ class ViewportController extends Controller {
          */
         ntype: 'viewport-controller',
         /**
-         * @member {Number|null} activeIndex=null
+         * @member {Number|null} activeIndex_=null
          */
-        activeIndex: null,
+        activeIndex_: null,
         /**
          * @member {String|null} defaultHash='/home'
          */
@@ -305,7 +305,7 @@ class ViewportController extends Controller {
     /**
      *
      */
-    updateHeaderToolbar() {
+    async updateHeaderToolbar() {
         let me                  = this,
             {activeIndex, size} = me;
 
@@ -315,13 +315,20 @@ class ViewportController extends Controller {
                 vertical          = size === 'x-small',
                 hidden            = activeIndex !== 0 && vertical;
 
-            headerSocialIcons.hidden = hidden;
+            NeoArray.toggle(cls, 'hide-sidebar', hidden);
 
             if (!hidden) {
-                NeoArray.toggle(cls, 'separate-bar', vertical);
-
-                headerSocialIcons.cls = cls
+                NeoArray.toggle(cls, 'separate-bar', vertical)
             }
+
+            headerSocialIcons.cls = cls
+
+
+            if (hidden && vertical) {
+                await me.timeout(200)
+            }
+
+            headerSocialIcons.hidden = hidden;
         }
     }
 }

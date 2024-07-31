@@ -108,6 +108,8 @@ class MainContainerModel extends Component {
 
                 me.setData({nextPageText, nextPageRecord});
 
+                me.component.getReference('sidenav-container')?.toggleCls('neo-expanded', false)
+
                 break
             }
 

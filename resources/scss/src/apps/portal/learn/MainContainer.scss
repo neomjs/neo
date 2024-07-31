@@ -4,32 +4,32 @@
     .main-content-splitter {
         margin: 0;
     }
-}
 
-// todo: @mxmrtns this makes scrollbars globally(!) invisible
-// Scrollbar Behaviour
-/*::-webkit-scrollbar {
-    width: 6px;
-}
+    .sidenav-container {
+        min-width: 350px;
+        width    : 350px;
+    }
 
-::-webkit-scrollbar-track {
-background: transparent;
-}
+    @media (max-width: 640px) {
+        .sidenav-container {
+            box-shadow: 0 5px 10px rgba(0,0,0,.3);
+            left      : -350px;
+            overflow  : visible;
+            position  : fixed;
+            transition: left 250ms ease-out;
 
-::-webkit-scrollbar-thumb {
-background: transparent;
-}
+            &.neo-expanded {
+                left: 0;
+            }
 
-.neo-tree-list:hover {
-    ::-webkit-scrollbar-thumb {
-        background: #b2b2b2;
-        border-radius: 100px;
+            .sidenav-button {
+                box-shadow: 0 5px 10px rgba(0,0,0,.3);
+                height    : 35px;
+                min-width : 35px;
+                position  : absolute;
+                right     : -42px;
+                width     : 35px;
+            }
+        }
     }
 }
-
-.learn-content:hover {
-    ::-webkit-scrollbar-thumb {
-        background: #b2b2b2;
-        border-radius: 100px;
-    }
-}*/
