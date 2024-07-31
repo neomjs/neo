@@ -17,6 +17,7 @@
             overflow  : visible;
             position  : fixed;
             transition: left 250ms ease-out;
+            z-index   : 100;
 
             &.neo-expanded {
                 left: 0;
