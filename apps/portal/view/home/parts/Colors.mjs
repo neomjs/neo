@@ -13,12 +13,13 @@ class Colors extends BaseContainer {
          */
         className: 'Portal.view.home.parts.Colors',
         /**
-         * @member {Object} responsive
+         * @member {String[]} cls=['portal-home-parts-colors']
          */
-        responsive: {
-            medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
-            large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
-        },
+        cls: ['portal-home-parts-colors'],
+        /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch',pack:'center'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch', pack: 'center'},
         /**
          * @member {Object[]} items
          */
