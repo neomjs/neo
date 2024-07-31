@@ -5,6 +5,10 @@
         margin: 0;
     }
 
+    .sidenav-button {
+        display: none;
+    }
+
     .sidenav-container {
         min-width: 350px;
         width    : 350px;
@@ -25,6 +29,7 @@
 
             .sidenav-button {
                 box-shadow: 0 5px 10px rgba(0,0,0,.3);
+                display   : flex;
                 height    : 35px;
                 min-width : 35px;
                 position  : absolute;
