@@ -41,7 +41,7 @@ class MainContainer extends Container {
             }, {
                 ntype  : 'button',
                 cls    : ['sidenav-button'],
-                handler: 'onSideNaveToggleButtonClick',
+                handler: 'onSideNavToggleButtonClick',
                 iconCls: 'fas fa-bars',
                 ui     : 'secondary'
             }]
@@ -55,9 +55,8 @@ class MainContainer extends Container {
             module: PageContainer
         }, {
             module   : PageSectionsContainer,
-            bind     : {hidden: data => data.size !== 'large'},
-            reference: 'page-sections-container',
-            width    : 250
+            //bind     : {hidden: data => data.size !== 'large'},
+            reference: 'page-sections-container'
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

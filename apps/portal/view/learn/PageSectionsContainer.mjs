@@ -20,11 +20,17 @@ class PageSectionsContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
+            ntype  : 'button',
+            bind   : {hidden: data => data.size === 'large'},
+            cls    : ['sections-container-button'],
+            handler: 'onPageSectionsToggleButtonClick',
+            iconCls: 'fas fa-bars',
+            ui     : 'secondary'
+        }, {
             vdom:
             {cn: [
                 {tag: 'h3', html: 'On this page'}
             ]}
-
         }, {
             module   : PageSectionsList,
             reference: 'list'
@@ -32,9 +38,7 @@ class PageSectionsContainer extends Container {
         /**
          * @member {Object} layout={ntype:'vbox'}
          */
-        layout: {
-            ntype: 'vbox'
-        }
+        layout: {ntype: 'vbox'}
     }
 
     /**

@@ -3,12 +3,42 @@
     border          : none; // reset the default 1px
     display         : block;
     flex-shrink     : 0;
+    min-width       : 250px;
     position        : fixed;
     right           : 0;
     width           : 250px;
     z-index         : 1;
 
     h3 {
-        margin-left: 16px;
+        margin-bottom: .4em;
+        margin-left  : 16px;
+    }
+
+    .sections-container-button {
+        display: none;
+    }
+
+    @media (max-width: 1296px) {
+        background-color: #fff;
+        box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+        overflow        : visible;
+        right           : -250px;
+        transition      : right 250ms ease-out;
+        z-index         : 100;
+
+        &.neo-expanded {
+            right: 0;
+        }
+
+        .sections-container-button {
+            background-color: #fff;
+            box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+            display         : flex;
+            height          : 35px;
+            min-width       : 35px;
+            position        : absolute;
+            left            : -42px;
+            width           : 35px;
+        }
     }
 }
