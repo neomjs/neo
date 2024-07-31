@@ -30,12 +30,12 @@ class References extends BaseContainer {
             cls : 'neo-h1',
             flex: 'none',
             html: 'References',
-            vdom: {tag: 'h1'}
+            tag : 'h1'
         }, {
             cls : 'neo-h2',
             flex: 'none',
             html: 'What people think about Neo',
-            vdom: {tag: 'h2'}
+            tag : 'h2'
         }, {
             module: Carousel,
             // will automatically change to the next extry every 5500 ms

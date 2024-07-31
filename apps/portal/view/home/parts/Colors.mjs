@@ -33,15 +33,16 @@ class Colors extends BaseContainer {
                 cls : ['neo-h1'],
                 flex: 'none',
                 html: 'Amazing Potential',
-                vdom: {tag: 'h1'}
+                tag : 'h1'
             }, {
                 cls : ['neo-h2'],
                 flex: 'none',
                 html: 'Socket Data',
-                vdom: {tag: 'h2'}
+                tag : 'h2'
             }, {
                 flex: 'none',
-                vdom: {tag: 'p'},
+                tag : 'p',
+
                 html: [
                     'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button ',
                     'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be ',
@@ -50,10 +51,11 @@ class Colors extends BaseContainer {
             }, {
                 flex: 'none',
                 html: 'But the demo differs from the helix example because the data is provided via a <i>socket</i>.',
-                vdom: {tag: 'p'}
+                tag : 'p'
             }, {
                 flex: 'none',
-                vdom: {tag: 'p'},
+                tag : 'p',
+
                 html: [
                     'Neo.mjs uniquely fits the bill for applications that need real-time visualizations of real-time data, such as ',
                     'stock market trading data and medical or scientific telemetry.'
