@@ -32,11 +32,8 @@ class MainContainer extends Container {
                 Neo.getComponent(data.targetId)?.activate?.()
             },
             scroll(event) {
-                const isHomeContainer = event.target.cls.includes('portal-home-maincontainer'),
-                      beyondEighty    = event.scrollTop > 80;
-
-                if (isHomeContainer) {
-                    this.toggleCls('hide-sidebar', beyondEighty);
+                if (event.target.cls.includes('portal-home-maincontainer')) {
+                    this.toggleCls('hide-sidebar', event.scrollTop > 80)
                 }
             }
         }],

@@ -1,5 +1,6 @@
 import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
+import NeoArray          from '../../../src/util/Array.mjs';
 import {getSearchParams} from '../Util.mjs';
 
 /**
@@ -49,7 +50,12 @@ class ViewportController extends Controller {
             '/learn'         : 'onLearnRoute',
             '/learn/{itemId}': 'onLearnRoute',
             '/services'      : 'onServicesRoute',
-        }
+        },
+        /**
+         * Values are: large, medium, small, xSmall
+         * @member {String|null} size_=null
+         */
+        size_: null
     }
 
     /**
@@ -62,6 +68,16 @@ class ViewportController extends Controller {
      * @private
      */
     #transitionId = 0
+
+    /**
+     * Triggered after the size activeIndex got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetActiveIndex(value, oldValue) {
+        value !== null && this.updateHeaderToolbar()
+    }
 
     /**
      * Triggered after the mainContentLayout config got changed
@@ -78,6 +94,16 @@ class ViewportController extends Controller {
         } else {
             container.layout = {ntype: 'card', activeIndex}
         }
+    }
+
+    /**
+     * Triggered after the size config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        value && this.updateHeaderToolbar()
     }
 
     /**
@@ -272,6 +298,29 @@ class ViewportController extends Controller {
 
             if (updateLayout) {
                 container.layout.activeIndex = index
+            }
+        }
+    }
+
+    /**
+     *
+     */
+    updateHeaderToolbar() {
+        let me                  = this,
+            {activeIndex, size} = me;
+
+        if (Neo.isNumber(activeIndex) && size) {
+            let headerSocialIcons = me.getReference('header-social-icons'),
+                {cls}             = headerSocialIcons,
+                vertical          = size === 'x-small',
+                hidden            = activeIndex !== 0 && vertical;
+
+            headerSocialIcons.hidden = hidden;
+
+            if (!hidden) {
+                NeoArray.toggle(cls, 'separate-bar', vertical);
+
+                headerSocialIcons.cls = cls
             }
         }
     }

@@ -16,19 +16,6 @@ class Component extends BaseComponent {
          */
         cls: ['portal-services-component'],
         /**
-         * @member {Object[]} domListeners
-         */
-        domListeners: [{
-            scroll(event) {
-                const isHomeContainer = event.target.cls.includes('portal-services-component'),
-                      beyondEighty    = event.scrollTop > 80;
-
-                if (isHomeContainer) {
-                    this.toggleCls('hide-sidebar', beyondEighty);
-                }
-            }
-        }],
-        /**
          * @member {Object} vdom
          */
         vdom:

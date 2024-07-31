@@ -42,13 +42,9 @@ class HeaderToolbar extends Base {
             text : 'Services',
             route: '/services'
         }, {
-            ntype : 'container',
-            layout: 'hbox',
-
-            responsive: {
-                medium: { cls: ['separate-bar'], layout: 'vbox' },
-                large : { cls: ['inline'],       layout: 'hbox' }
-            },
+            ntype    : 'container',
+            layout   : 'hbox',
+            reference: 'header-social-icons',
 
             itemDefaults: {
                 ntype: 'button',

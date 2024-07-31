@@ -12,12 +12,13 @@ class How extends BaseContainer {
          */
         className: 'Portal.view.home.parts.How',
         /**
-         * @member {Object} responsive
+         * @member {String[]} cls=['portal-home-parts-how']
          */
-        responsive: {
-            medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
-            large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
-        },
+        cls: ['portal-home-parts-how'],
+        /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch',pack:'center'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch', pack: 'center'},
         /**
          * @member {Object[]} items
          */
@@ -31,16 +32,17 @@ class How extends BaseContainer {
                 cls : ['neo-h1'],
                 flex: 'none',
                 html: 'How?',
-                vdom: {tag: 'h1'}
+                tag : 'h1'
             }, {
                 cls : ['neo-h2'],
                 flex: 'none',
                 html: 'How Does Neo.mjs Do It?',
-                vdom: {tag: 'h2'}
+                tag : 'h2'
             }, {
                 cls : ['neo-h3'],
                 flex: 'none',
-                vdom: {tag: 'p'},
+                tag : 'p',
+
                 html: [
                     'When a Neo.mjs app launches three webworkers are spawned: one that holds app logic, one for tracking delta DOM updates, ',
                     'and one for backend calls. Each webworker runs in its own thread, and thus, in its own processor core. ',

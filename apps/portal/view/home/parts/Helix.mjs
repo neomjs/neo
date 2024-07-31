@@ -13,12 +13,13 @@ class Helix extends BaseContainer {
          */
         className: 'Portal.view.home.parts.Helix',
         /**
-         * @member {Object} responsive
+         * @member {String[]} cls=['portal-home-parts-helix']
          */
-        responsive: {
-            medium: {layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}},
-            large : {layout: {ntype: 'hbox', align: 'stretch', pack: 'center'}}
-        },
+        cls: ['portal-home-parts-helix'],
+        /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch',pack:'center'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch', pack: 'center'},
         /**
          * @member {Object[]} items
          */
@@ -32,16 +33,16 @@ class Helix extends BaseContainer {
                 cls : 'neo-h1',
                 flex: 'none',
                 html: 'Extreme Speed',
-                vdom: {tag: 'h1'}
+                tag : 'h1'
             }, {
                 cls : 'neo-h2',
                 flex: 'none',
                 html: '40,000 Updates /s',
-                vdom: {tag: 'h2'}
+                tag : 'h2'
             }, {
                 cls : 'neo-h3',
                 flex: 'none',
-                vdom: {tag: 'p'},
+                tag : 'p',
 
                 html: [
                     'This demo shows the Neo.mjs helix component, along with a "Helix Controls" panel. ',
@@ -53,16 +54,16 @@ class Helix extends BaseContainer {
                 cls : 'neo-h1',
                 flex: 'none',
                 html: 'Multi-Window',
-                vdom: {tag: 'h1'}
+                tag : 'h1'
             }, {
                 cls : 'neo-h2',
                 flex: 'none',
                 html: 'Seamless and Simple',
-                vdom: {tag: 'h2'}
+                tag : 'h2'
             }, {
                 cls : 'neo-h3',
                 flex: 'none',
-                vdom: {tag: 'p'},
+                tag : 'p',
 
                 html: [
                     'Click on the small window icon in the Helix Controls title bar and the controls open in their own window ',

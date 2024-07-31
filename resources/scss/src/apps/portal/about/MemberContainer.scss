@@ -50,8 +50,9 @@
     }
 
     @media (max-width: 600px) {
-        min-width: 100%;
-        padding  : 1em;
+        min-height: 300px;
+        min-width : 100%;
+        padding   : 1em;
 
         .portal-profiles {
             flex-direction: column;
