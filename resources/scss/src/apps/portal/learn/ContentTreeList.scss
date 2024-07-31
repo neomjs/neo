@@ -9,17 +9,33 @@
     &.neo-tree-list {
         .neo-list-container {
             .neo-list-item {
+                &.neo-list-item-leaf {
+                    .neo-list-item-content:after {
+                        content: none !important;
+                    }
+                }
+
                 .neo-list-item-content:before {
                     content: unset !important;
                 }
 
                 &.neo-list-folder {
+                    .neo-list-item-content:after {
+                        content: "\e5cc" !important;
+                    }
+
                     .neo-list-item-content:before {
                         content: unset !important;
                     }
 
-                    &.neo-folder-open .neo-list-item-content:before {
-                        content: unset !important;
+                    &.neo-folder-open {
+                        .neo-list-item-content:after {
+                            content: "\e5cf" !important;
+                        }
+
+                        .neo-list-item-content:before {
+                            content: unset !important;
+                        }
                     }
                 }
             }
@@ -75,30 +91,6 @@
 
             &:before {
                 content: unset !important;
-            }
-        }
-    }
-
-    &.neo-tree-list {
-        .neo-list-container {
-            .neo-list-item {
-                &.neo-list-item-leaf {
-                    .neo-list-item-content:after {
-                        content: none !important;
-                    }
-                }
-
-                &.neo-list-folder {
-                    .neo-list-item-content:after {
-                        content: "\e5cc" !important;
-                    }
-
-                    &.neo-folder-open {
-                        .neo-list-item-content:after {
-                            content: "\e5cf" !important;
-                        }
-                    }
-                }
             }
         }
     }
