@@ -124,6 +124,13 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onPageSectionsToggleButtonClick(data) {
+        this.getReference('page-sections-container').toggleCls('neo-expanded')
+    }
+
+    /**
+     * @param {Object} data
+     */
     onPreviousPageButtonClick(data) {
         this.navigateTo(this.getModel().getData('previousPageRecord').id)
     }
@@ -159,7 +166,7 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onSideNaveToggleButtonClick(data) {
+    onSideNavToggleButtonClick(data) {
         this.getReference('sidenav-container').toggleCls('neo-expanded')
     }
 }

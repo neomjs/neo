@@ -5,6 +5,10 @@
         margin: 0;
     }
 
+    .sidenav-button {
+        display: none;
+    }
+
     .sidenav-container {
         min-width: 350px;
         width    : 350px;
@@ -17,6 +21,7 @@
             overflow  : visible;
             position  : fixed;
             transition: left 250ms ease-out;
+            z-index   : 101;
 
             &.neo-expanded {
                 left: 0;
@@ -24,11 +29,13 @@
 
             .sidenav-button {
                 box-shadow: 0 5px 10px rgba(0,0,0,.3);
+                display   : flex;
                 height    : 35px;
                 min-width : 35px;
                 position  : absolute;
                 right     : -42px;
                 width     : 35px;
+                z-index   : 101;
             }
         }
     }

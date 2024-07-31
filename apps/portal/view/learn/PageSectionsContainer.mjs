@@ -20,21 +20,26 @@ class PageSectionsContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
+            ntype  : 'button',
+            bind   : {hidden: data => data.size === 'large'},
+            cls    : ['sections-container-button'],
+            handler: 'onPageSectionsToggleButtonClick',
+            iconCls: 'fas fa-bars',
+            ui     : 'secondary'
+        }, {
             vdom:
             {cn: [
                 {tag: 'h3', html: 'On this page'}
             ]}
-
         }, {
             module   : PageSectionsList,
+            listeners: {pageListSelect: 'up.onPageListSelect'},
             reference: 'list'
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
          */
-        layout: {
-            ntype: 'vbox'
-        }
+        layout: {ntype: 'vbox'}
     }
 
     /**
@@ -43,6 +48,13 @@ class PageSectionsContainer extends Container {
      */
     get list() {
         return this.getReference('list')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPageListSelect(data) {
+        this.toggleCls('neo-expanded', false)
     }
 }
 

@@ -40,8 +40,9 @@ class MainContainer extends Container {
                 reference: 'tree'
             }, {
                 ntype  : 'button',
+                bind   : {hidden: data => data.size !== 'x-small'},
                 cls    : ['sidenav-button'],
-                handler: 'onSideNaveToggleButtonClick',
+                handler: 'onSideNavToggleButtonClick',
                 iconCls: 'fas fa-bars',
                 ui     : 'secondary'
             }]
@@ -55,9 +56,7 @@ class MainContainer extends Container {
             module: PageContainer
         }, {
             module   : PageSectionsContainer,
-            bind     : {hidden: data => data.size !== 'large'},
-            reference: 'page-sections-container',
-            width    : 250
+            reference: 'page-sections-container'
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
