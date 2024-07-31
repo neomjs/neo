@@ -160,7 +160,7 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onSideNaveToggleButtonClick(data) {
-        console.log('onSideNaveToggleButtonClick');
+        this.getReference('sidenav-container').toggleCls('neo-expanded')
     }
 }
 

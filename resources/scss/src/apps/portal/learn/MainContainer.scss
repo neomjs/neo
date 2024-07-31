@@ -13,12 +13,22 @@
     @media (max-width: 640px) {
         .sidenav-container {
             box-shadow: 0 5px 10px rgba(0,0,0,.3);
+            left      : -350px;
             overflow  : visible;
             position  : fixed;
+            transition: left 250ms ease-out;
+
+            &.neo-expanded {
+                left: 0;
+            }
 
             .sidenav-button {
-                position: absolute;
-                right   : -56px;
+                box-shadow: 0 5px 10px rgba(0,0,0,.3);
+                height    : 35px;
+                min-width : 35px;
+                position  : absolute;
+                right     : -42px;
+                width     : 35px;
             }
         }
     }

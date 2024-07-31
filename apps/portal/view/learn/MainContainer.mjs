@@ -29,11 +29,11 @@ class MainContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module  : Container,
-            //bind    : {hidden: data => data.size === 'x-small'},
-            cls     : ['sidenav-container'],
-            layout  : 'fit',
-            tag     :'aside',
+            module   : Container,
+            cls      : ['sidenav-container'],
+            layout   : 'fit',
+            reference: 'sidenav-container',
+            tag      : 'aside',
 
             items: [{
                 module   : ContentTreeList,
