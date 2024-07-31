@@ -155,6 +155,13 @@ class MainContainerController extends Controller {
             })
         }
     }
+
+    /**
+     * @param {Object} data
+     */
+    onSideNaveToggleButtonClick(data) {
+        console.log('onSideNaveToggleButtonClick');
+    }
 }
 
 Neo.setupClass(MainContainerController);

@@ -30,16 +30,20 @@ class MainContainer extends Container {
          */
         items: [{
             module  : Container,
-            bind    : {hidden: data => data.size === 'x-small'},
+            //bind    : {hidden: data => data.size === 'x-small'},
             cls     : ['sidenav-container'],
             layout  : 'fit',
-            minWidth: 350,
             tag     :'aside',
-            width   : 350,
 
             items: [{
                 module   : ContentTreeList,
                 reference: 'tree'
+            }, {
+                ntype  : 'button',
+                cls    : ['sidenav-button'],
+                handler: 'onSideNaveToggleButtonClick',
+                iconCls: 'fas fa-bars',
+                ui     : 'secondary'
             }]
         }, {
             module      : Splitter,

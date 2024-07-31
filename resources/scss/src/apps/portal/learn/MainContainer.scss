@@ -4,4 +4,22 @@
     .main-content-splitter {
         margin: 0;
     }
+
+    .sidenav-container {
+        min-width: 350px;
+        width    : 350px;
+    }
+
+    @media (max-width: 640px) {
+        .sidenav-container {
+            box-shadow: 0 5px 10px rgba(0,0,0,.3);
+            overflow  : visible;
+            position  : fixed;
+
+            .sidenav-button {
+                position: absolute;
+                right   : -56px;
+            }
+        }
+    }
 }
