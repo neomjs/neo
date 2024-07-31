@@ -62,6 +62,8 @@ class PageSectionsList extends List {
         if (record) {
             me.isAnimating = true;
 
+            me.fire('pageListSelect', {record});
+
             await Neo.main.DomAccess.scrollIntoView({
                 querySelector: `[data-record-id='${record.id}']`,
                 windowId     : me.windowId

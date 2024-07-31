@@ -33,6 +33,7 @@ class PageSectionsContainer extends Container {
             ]}
         }, {
             module   : PageSectionsList,
+            listeners: {pageListSelect: 'up.onPageListSelect'},
             reference: 'list'
         }],
         /**
@@ -47,6 +48,13 @@ class PageSectionsContainer extends Container {
      */
     get list() {
         return this.getReference('list')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onPageListSelect(data) {
+        this.toggleCls('neo-expanded', false)
     }
 }
 
