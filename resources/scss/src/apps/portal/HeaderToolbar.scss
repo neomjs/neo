@@ -44,6 +44,10 @@
         right         : 0;
         top           : 58px;
         z-index       : 9;
+
+        &.hide-sidebar {
+            animation: fade-out-animation 200ms linear forwards;
+        }
     }
 
     // find parallel class hide-sidebar
