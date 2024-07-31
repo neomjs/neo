@@ -37,12 +37,13 @@
     }
 
     .separate-bar {
-        animation: fade-in-animation 200ms linear;
-        box-shadow: 0 5px 10px rgba(0,0,0,.3);
-        position: absolute;
-        right   : 0;
-        top     : 58px;
-        z-index  : 9;
+        animation     : fade-in-animation 200ms linear;
+        box-shadow    : 0 5px 10px rgba(0,0,0,.3);
+        flex-direction: column;
+        position      : absolute;
+        right         : 0;
+        top           : 58px;
+        z-index       : 9;
     }
 
     // find parallel class hide-sidebar

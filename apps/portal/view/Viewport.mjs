@@ -95,7 +95,9 @@ class Viewport extends BaseViewport {
             NeoArray.add(   cls, 'portal-size-' + value);
             me.cls = cls;
 
-            me.model.setData({size: value})
+            me.model.setData({size: value});
+
+            me.controller.size = value
         }
     }
 

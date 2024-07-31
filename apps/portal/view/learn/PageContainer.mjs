@@ -26,19 +26,6 @@ class PageContainer extends Container {
             previousPageRecord: data => data.previousPageRecord
         },
         /**
-         * @member {Object[]} domListeners
-         */
-        domListeners: [{
-            scroll(event) {
-                const isHomeContainer = event.target.cls.includes('portal-learn-page-container'),
-                      beyondEighty    = event.scrollTop > 80;
-
-                if (isHomeContainer) {
-                    this.toggleCls('hide-sidebar', beyondEighty);
-                }
-            }
-        }],
-        /**
          * @member {Object[]} items
          */
         items: [{
