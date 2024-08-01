@@ -37,6 +37,14 @@
                 right     : -42px;
                 width     : 35px;
                 z-index   : 101;
+
+                .neo-button-glyph {
+                    font-size: 13px;
+                }
+            }
+
+            .topics-tree {
+                padding-bottom: 4em;
             }
         }
     }

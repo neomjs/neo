@@ -1,5 +1,6 @@
 .portal-content-box {
-    border         : 1px solid var(--sem-color-border-default);
+    border-radius  : 3px;
+    box-shadow     : 0 3px 6px rgba(0, 0, 0, 0.3);
     cursor         : pointer;
     color          : #000;
     min-width      : 300px;
@@ -11,7 +12,7 @@
     }
 
     .portal-content-box-content {
-
+        padding-left: 1.3em;
     }
 
     .portal-content-box-header {
