@@ -1,18 +1,13 @@
 .portal-content-box {
-    border         : 1px solid darkgray;
+    border         : 1px solid var(--sem-color-border-default);
     cursor         : pointer;
     color          : #000;
-    margin-top     : 2em;
+    min-width      : 300px;
     padding        : 0 1em 1em 1em;
     text-decoration: none;
-    width          : 300px;
 
     &:hover {
-        background-color: lightblue;
-    }
-
-    &:not(:last-child) {
-        margin-right: 3em;
+        background-color: var(--sem-color-surface-primary-background);
     }
 
     .portal-content-box-content {
@@ -21,9 +16,5 @@
 
     .portal-content-box-header {
 
-    }
-
-    @media (max-width: 600px) {
-        margin-right: 0;
     }
 }

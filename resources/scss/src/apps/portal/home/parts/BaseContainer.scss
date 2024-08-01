@@ -2,52 +2,23 @@
     min-height       : 100%;
     scroll-snap-align: center;
 
-    @keyframes appear-left {
-        0%   {opacity: 0; transform: translateX(-400%);}
-        90%  {opacity: .3;}
-        100% {opacity: 1; transform: translateX(0);}
-    }
-
-    @keyframes appear-right {
-        0%   {opacity: 0; transform: translateX(400%);}
-        90%  {opacity: .3;}
-        100% {opacity: 1; transform: translateX(0);}
-    }
-
-    // &:not(:first-child) {
-    //     &:not(:last-child) {
-    //         animation-timeline       : view(block 100% -500%);
-    //         animation-fill-mode      : both;
-    //         animation-duration       : 1ms; /* Firefox requires this to apply the animation */
-    //         animation-timing-function: linear;
-
-    //         &:nth-child(even) {
-    //             animation-name: appear-right;
-    //         }
-
-    //         &:nth-child(odd) {
-    //             animation-name: appear-left;
-    //         }
-    //     }
-    // }
-
     .neo-content {
         font-size: min(max(2.3vw, 16px), 30px);
     }
 
     .neo-h1 {
         font-size  : min(max(5.5vw, 30px), 64px);
-        text-align : center;
-        margin     : 0;
         line-height: 1em;
+        margin     : 0;
+        text-align : center;
     }
 
     .neo-h2 {
         font-size  : min(max(3.5vw, 24px), 44px);
         font-weight: 600;
-        text-align : center;
-        margin     : 0;
         line-height: 1em;
+        margin     : 0;
+        text-align : center;
     }
 
     .page-live-preview {

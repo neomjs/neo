@@ -178,7 +178,7 @@ class LivePreview extends Container {
                 position: 'fixed',
                 top     : rect.y      + 'px',
                 width   : rect.width  + 'px',
-                zIndex  : 100
+                zIndex  : 103
             });
 
             me.update();

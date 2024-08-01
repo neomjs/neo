@@ -61,41 +61,6 @@
     animation-timeline: --page-scroll;
 }
 
-//@scroll-timeline --page-scroll {
-//    source: auto;
-//    orientation: vertical;
-//    scroll-offsets: 0%, 100%;
-//}
-
-
-/* Style and position the progress bar */
-.portal-home-progress {
-    position: fixed;
-    z-index: 1000;
-    top: 0;
-    height: 2px;
-    width: 100%;
-    background: var(--button-background-color);
-    background: var(--sem-color-surface-primary-background);
-
-    scale: 0 1;
-    transform-origin: left;
-
-    /* Attach the animation using an anonymous Scroll Progress Timeline */
-    animation: grow-progress linear;
-    animation-timeline: --page-scroll;
-}
-
-@keyframes grow-progress {
-    to {
-        scale: 1 1;
-    }
-}
-
-//.page {
-//  scroll-timeline: --page block;
-//}
-
 .portal-home-maincontainer {
     scroll-timeline: --page-scroll block;
 }

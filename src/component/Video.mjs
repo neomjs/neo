@@ -1,13 +1,18 @@
 import BaseComponent from '../component/Base.mjs';
-import VDomUtil      from '../util/VDom.mjs';
+import VDomUtil from '../util/VDom.mjs';
 
 /**
  * @class Neo.component.Video
  * @extends Neo.component.Base
  *
  * @example
- *     ntype: 'video',
- *     url: 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
+ *     ntype   : 'video',
+ *     url     : 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
+ *     autoplay: true
+ *
+ * @methods
+ *      play
+ *      pause
  */
 class Video extends BaseComponent {
     static config = {
@@ -25,6 +30,19 @@ class Video extends BaseComponent {
          * @member {String[]} baseCls=['neo-video']
          */
         baseCls: ['neo-video'],
+        /**
+         * Automatically start the video
+         * Initial setting, which does not make sense to change later
+         * !!Most browsers only support muted autostart
+         * @member {Boolean} autoplay=false
+         */
+        autoplay: false,
+        /**
+         * In case the browser does not support the video source
+         * the component should show an error.
+         * @member {Boolean} errorMsg='The browser does not support the video'
+         */
+        errorMsg: 'Your browser does not support the video tag.',
         /**
          * Current state of the video
          * @member {Boolean} playing_=false
@@ -45,18 +63,17 @@ class Video extends BaseComponent {
         _vdom: {
             cn: [{
                 flag: 'ghost',
-                cls : ['neo-video-ghost'],
-                cn  : [{
-                    // The <i> tag defines a part of text in an alternate voice or mood. The content inside is typically displayed in italic.
+                cls: ['neo-video-ghost'],
+                cn: [{
                     tag: 'i',
                     cls: ['fa-solid', 'fa-circle-play']
                 }]
             }, {
                 // Neo specific configs
-                tag      : 'video',
-                flag     : 'media',
+                tag: 'video',
+                flag: 'media',
+                cls: ['neo-video-media'],
                 removeDom: true,
-                cls      : ['neo-video-media'],
                 // dom attributes
                 autoplay: true,
                 controls: true
@@ -72,8 +89,9 @@ class Video extends BaseComponent {
 
         let me = this;
 
+        me.handleAutoplay();
         me.addDomListeners(
-            {click: me.play,  delegate: '.neo-video-ghost'},
+            {click: me.play, delegate: '.neo-video-ghost'},
             {click: me.pause, delegate: '.neo-video-media'}
         )
     }
@@ -100,8 +118,8 @@ class Video extends BaseComponent {
      */
     afterSetPlaying(value, oldValue) {
         let {vdom} = this,
-            media  = VDomUtil.getFlags(vdom, 'media')[0],
-            ghost  = VDomUtil.getFlags(vdom, 'ghost')[0];
+            media = VDomUtil.getFlags(vdom, 'media')[0],
+            ghost = VDomUtil.getFlags(vdom, 'ghost')[0];
 
         ghost.removeDom = value;
         media.removeDom = !value;
@@ -117,20 +135,39 @@ class Video extends BaseComponent {
      * @param {String|null} oldValue
      */
     afterSetUrl(value, oldValue) {
-        if (!value) {
-            return
-        }
+        if (!value) return;
 
-        let me    = this,
-            media = me.vdom.cn[1];
+        let {vdom} = this,
+            media = VDomUtil.getFlags(vdom, 'media')[0];
 
         media.cn = [{
-            tag : 'source',
-            src : value,
-            type: me.type
+            tag: 'source',
+            src: value,
+            type: this.type
+        }, {
+            tag: 'span',
+            html: this.errorMsg,
         }];
 
-        me.update()
+        this.update()
+    }
+
+    /**
+     * autoplay - run the event listeners
+     */
+    handleAutoplay() {
+        if (!this.autoplay) return;
+
+        let {vdom} = this,
+            media = VDomUtil.getFlags(vdom, 'media')[0];
+
+        // Most browsers require videos to be muted for autoplay to work.
+        media.muted = true;
+        // Allows inline playback on iOS devices
+        media.playsInline = true;
+
+        this.update();
+        this.playing = true;
     }
 
     /**
