@@ -18,13 +18,13 @@
         display       : flex;
         flex-direction: row-reverse;
         gap           : 8px;
-        margin        : 2rem 0px;
+        margin        : 2rem 0;
     }
 
     .neo-h1 {
         font-size  : 110px;
         font-family: "GT-Planar";
-        margin-top : -8px;
+        line-height: 1;
     }
 
     .neo-h2 {
