@@ -30,16 +30,6 @@ class Features extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            header: 'Multi-Window Apps',
-            route : '#/learn/WhyNeo-Quick',
-
-            content: [
-                'No need for a Native Shell (e.g. Electron)',
-                'Sharing Data across Windows',
-                'Sharing State across Windows',
-                'Moving Components across Windows while keeping the same JS instances'
-            ]
-        }, {
             header: 'Multi-threading',
             route : '#/learn/WhyNeo-Quick',
 
@@ -49,6 +39,16 @@ class Features extends BaseContainer {
                 'Non-blocking, no-freeze, user interaction responses, even for heavy data i/o, processing, and intensive, complex screen updating',
                 'Additional Workers for OffscreenCanvas, Data, Delta-Updates & Tasks',
                 'A ServiceWorker connected to the App Worker for predictive Caching'
+            ]
+        }, {
+            header: 'Multi-Window Apps',
+            route : '#/learn/WhyNeo-Quick',
+
+            content: [
+                'No need for a Native Shell (e.g. Electron)',
+                'Sharing Data across Windows',
+                'Sharing State across Windows',
+                'Moving Components across Windows while keeping the same JS instances'
             ]
         }, {
             header: 'Modern JavaScript directly in your Browser',
