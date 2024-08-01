@@ -33,6 +33,15 @@ class Container extends Base {
             teamRole       : 'Co-Founder & Core Team Member'
         }, {
             module         : MemberContainer,
+            location       : 'Florida, USA',
+            name           : 'Rich Waters',
+            picture        : 'rwaters.png',
+            profileGitHub  : 'https://github.com/rwaters',
+            profileLinkedIn: 'https://www.linkedin.com/in/rwaters/',
+            profileX       : 'https://x.com/rwaters',
+            teamRole       : 'Co-Founder & Core Team Member'
+        }, {
+            module         : MemberContainer,
             location       : 'Germany',
             name           : 'Torsten Dinkheller',
             picture        : 'torsten.png',
