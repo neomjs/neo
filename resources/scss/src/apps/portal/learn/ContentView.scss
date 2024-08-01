@@ -11,7 +11,7 @@
     pre[data-javascript] {
         border       : thin solid lightgray;
         border-radius: 4px;
-        min-width    : fit-content;
+        overflow-x   : scroll;
         padding      : 12px;
     }
 
