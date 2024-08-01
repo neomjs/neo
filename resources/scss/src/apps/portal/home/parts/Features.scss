@@ -1,5 +1,21 @@
 .portal-home-features {
-    padding      : 3em;
-    overflow-y   : auto;
-    place-content: start;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x           : auto;
+    padding              : 3em;
+    place-content        : start;
+
+    .col-1-1 {
+        grid-column-start: 1;
+        grid-column-end  : 1;
+    }
+
+    .col-2-2 {
+        grid-column-start: 2;
+        grid-column-end  : 2;
+    }
+
+    .col-3-3 {
+        grid-column-start: 3;
+        grid-column-end  : 3;
+    }
 }
