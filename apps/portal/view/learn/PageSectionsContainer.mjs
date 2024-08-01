@@ -39,7 +39,11 @@ class PageSectionsContainer extends Container {
         /**
          * @member {Object} layout={ntype:'vbox'}
          */
-        layout: {ntype: 'vbox'}
+        layout: {ntype: 'vbox'},
+        /**
+         * @member {String} tag='aside'
+         */
+        tag: 'aside'
     }
 
     /**

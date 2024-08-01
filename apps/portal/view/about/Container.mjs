@@ -48,6 +48,14 @@ class Container extends Base {
             profileGitHub  : 'https://github.com/Dinkh',
             profileLinkedIn: 'https://www.linkedin.com/in/dinkheller/',
             teamRole       : 'Co-Founder & Core Team Member'
+        },{
+            module         : MemberContainer,
+            location       : 'Madison, Wisconsin',
+            name           : 'Max Rahder',
+            picture        : 'Max.jpeg',
+            profileGitHub  : 'https://github.com/maxrahder/',
+            profileLinkedIn: 'https://www.linkedin.com/in/maxrahder/',
+            teamRole       : 'Training'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'start'}

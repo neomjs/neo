@@ -3,7 +3,9 @@
     border          : none; // reset the default 1px
     display         : block;
     flex-shrink     : 0;
+    height          : 100%;
     min-width       : 250px;
+    overflow        : visible;
     position        : fixed;
     right           : 0;
     width           : 250px;
@@ -18,10 +20,14 @@
         display: none;
     }
 
+    .topics-tree {
+        height        : 100%;
+        padding-bottom: 8em;
+    }
+
     @media (max-width: 1296px) {
         background-color: #fff;
         box-shadow      : 0 5px 10px rgba(0,0,0,.3);
-        overflow        : visible;
         right           : -250px;
         transition      : right 250ms ease-out;
         z-index         : 100;

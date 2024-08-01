@@ -17,6 +17,7 @@
     @media (max-width: 640px) {
         .sidenav-container {
             box-shadow: 0 5px 10px rgba(0,0,0,.3);
+            height    : 100%;
             left      : -350px;
             overflow  : visible;
             position  : fixed;
