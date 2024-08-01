@@ -1,5 +1,5 @@
 .portal-content-box {
-    border         : 1px solid darkgray;
+    border         : 1px solid var(--sem-color-border-default);
     cursor         : pointer;
     color          : #000;
     margin-top     : 2em;
@@ -8,7 +8,7 @@
     width          : 300px;
 
     &:hover {
-        background-color: lightblue;
+        background-color: var(--sem-color-surface-primary-background);
     }
 
     &:not(:last-child) {

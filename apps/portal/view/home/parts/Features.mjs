@@ -21,10 +21,16 @@ class Features extends BaseContainer {
          */
         layout: {ntype: 'hbox', align: 'stretch', wrap: 'wrap'},
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module : ContentBox,
+            tooltip: 'Click for more Details'
+        },
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module: ContentBox,
             header: 'Multi-Window Apps',
             route : '#/learn/WhyNeo-Quick',
 
@@ -35,7 +41,6 @@ class Features extends BaseContainer {
                 'Moving Components across Windows while keeping the same JS instances'
             ]
         }, {
-            module: ContentBox,
             header: 'Multi-threading',
             route : '#/learn/WhyNeo-Quick',
 
@@ -47,7 +52,6 @@ class Features extends BaseContainer {
                 'A ServiceWorker connected to the App Worker for predictive Caching'
             ]
         }, {
-            module: ContentBox,
             header: 'Modern JavaScript directly in your Browser',
             route : '#/learn/WhyNeo-Quick',
 
@@ -58,7 +62,6 @@ class Features extends BaseContainer {
                 'Reduced Development Costs'
             ]
         }, {
-            module: ContentBox,
             header: 'Powerful Component-Library',
             route : '#/learn/WhyNeo-Quick',
 
@@ -69,7 +72,6 @@ class Features extends BaseContainer {
                 'Multiple themes, which can get nested'
             ]
         }, {
-            module: ContentBox,
             header: 'Elegant State Management',
             route : '#/learn/WhyNeo-Speed',
 
@@ -79,7 +81,6 @@ class Features extends BaseContainer {
                 'Supporting different architectures like MVVM without enforcing them'
             ]
         }, {
-            module: ContentBox,
             header: 'Core Features',
             route : '#/learn/WhyNeo-Speed',
 
