@@ -80,8 +80,13 @@
     }
 
     @media (max-width: 500px) {
+        .logo-container {
+            gap: 10px;
+        }
+
         .neo-h1 {
-            font-size: 100px;
+            font-size  : 100px;
+            line-height: 1.2;
         }
 
         .neo-h2 {
