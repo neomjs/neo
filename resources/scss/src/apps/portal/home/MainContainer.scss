@@ -2,4 +2,27 @@
     overflow-x      : hidden!important;
     scroll-behavior : smooth;
     scroll-snap-type: y mandatory;
+
+    /* Style and position the progress bar */
+    .portal-home-progress {
+        background      : var(--sem-color-surface-primary-background);
+        height          : 4px;
+        position        : fixed;
+        scale           : 0 1;
+        top             : 0;
+        transform-origin: left;
+        width           : 100%;
+        z-index         : 1000;
+
+
+        /* Attach the animation using an anonymous Scroll Progress Timeline */
+        animation         : grow-progress linear;
+        animation-timeline: --page-scroll;
+    }
+
+    @keyframes grow-progress {
+        to {
+            scale: 1 1;
+        }
+    }
 }
