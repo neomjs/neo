@@ -9,7 +9,7 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 610px) {
+    @media (max-width: 700px) {
         grid-template-columns: repeat(6, 1fr);
     }
 }
