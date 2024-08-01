@@ -62,6 +62,14 @@
     @media (max-width: 645px) {
         padding: 1.5em 0.5em;
 
+        .logo-container {
+            gap: 10px;
+        }
+
+        .neo-h1 {
+            line-height: 1.2;
+        }
+
         .neo-h2 {
             margin: 0.5rem 0;
         }
