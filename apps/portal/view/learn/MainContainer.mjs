@@ -31,6 +31,7 @@ class MainContainer extends Container {
         items: [{
             module   : Container,
             cls      : ['sidenav-container'],
+            flex     : 'none',
             layout   : 'fit',
             reference: 'sidenav-container',
             tag      : 'aside',
