@@ -33,16 +33,7 @@ class ExamplesTreeList extends TreeList {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        Neo.Xhr.promiseJson({
-            url: '../../docs/examples.json'
-        }).then(data => {
-            me.store.data = data.json;
-            me.createItems(null, me.getListItemsRoot(), 0);
-            me.update();
-        });
+        this.store.load()
     }
 }
 

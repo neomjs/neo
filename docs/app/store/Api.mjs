@@ -19,7 +19,11 @@ class Api extends Store {
         /**
          * @member {Neo.data.Model} model=ApiModel
          */
-        model: ApiModel
+        model: ApiModel,
+        /**
+         * @member {String} url='../../docs/output/structure.json'
+         */
+        url: '../../docs/output/structure.json'
     }
 }
 

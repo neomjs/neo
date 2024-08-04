@@ -451,6 +451,21 @@ class Tree extends Base {
     }
 
     /**
+     *
+     */
+    onStoreLoad() {
+        let me = this;
+
+        if (!me.mounted && me.rendering) {
+            me.on('mounted', () => {
+                me.recreateItems()
+            }, me, {once: true});
+        } else {
+            me.recreateItems()
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
      * @param {Number} data.index
@@ -464,6 +479,19 @@ class Tree extends Base {
 
         parentNode.cn[index] = me.createItem(record);
 
+        me.update()
+    }
+
+    /**
+     *
+     */
+    recreateItems() {
+        let me        = this,
+            itemsRoot = me.getListItemsRoot();
+
+        itemsRoot.cn = [];
+
+        me.createItems(null, itemsRoot, 0);
         me.update()
     }
 }
