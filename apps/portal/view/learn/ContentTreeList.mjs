@@ -62,17 +62,7 @@ class ContentTreeList extends TreeList {
      *
      */
     doLoadStore() {
-        let me = this;
-
-        Neo.Xhr.promiseJson({
-            url: `${me.contentPath}/tree.json`
-        }).then(data => {
-            // TODO: Tree lists should do this themselves when their store is loaded.
-            me.store.data = data.json.data;
-            me.getModel().data.countPages = me.store.getCount();
-            me.createItems(null, me.getListItemsRoot(), 0);
-            me.update()
-        })
+        this.store.load({url: `${this.contentPath}/tree.json`})
     }
 
     /**
@@ -85,6 +75,15 @@ class ContentTreeList extends TreeList {
             value   : `/learn/${record.id}`,
             windowId: this.windowId
         })
+    }
+
+    /**
+     *
+     */
+    onStoreLoad() {
+        super.onStoreLoad();
+
+        this.getModel().data.countPages = this.store.getCount()
     }
 }
 
