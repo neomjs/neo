@@ -168,8 +168,8 @@ class Tree extends Base {
             }
         });
 
-        if (hasMatch) {
-            !silent && me.update()
+        if (hasMatch && !silent) {
+            me.update()
         }
     }
 
@@ -286,8 +286,8 @@ class Tree extends Base {
             }
         });
 
-        if (hasMatch) {
-            !silent && me.update()
+        if (hasMatch && !silent) {
+            me.update()
         }
     }
 
