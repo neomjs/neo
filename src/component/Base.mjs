@@ -964,15 +964,15 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetTooltip(value, oldValue) {
-        oldValue?.destroy();
+        oldValue?.destroy?.();
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
-                this.createTooltip(value);
+                this.createTooltip(value)
             } else {
                 import('../tooltip/Base.mjs').then(() => {
-                    this.createTooltip(value);
-                });
+                    this.createTooltip(value)
+                })
             }
         }
     }
@@ -1366,7 +1366,7 @@ class Base extends CoreBase {
         if (typeof value === 'string') {
             value = {
                 text: value
-            };
+            }
         }
 
         let me = this;
