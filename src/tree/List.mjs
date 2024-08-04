@@ -228,7 +228,7 @@ class Tree extends Base {
      * @returns {Object} vdomRoot
      * @protected
      */
-    createItems(parentId, vdomRoot, level, hidden=false) {
+    createItemLevel(parentId, vdomRoot, level, hidden=false) {
         let me    = this,
             items = me.store.find('parentId', parentId),
             tmpRoot;
@@ -259,11 +259,24 @@ class Tree extends Base {
 
                 tmpRoot.cn.push(me.createItem(record));
 
-                me.createItems(record.id, tmpRoot, level + 1, record.hidden || hidden)
+                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden)
             })
         }
 
         return vdomRoot
+    }
+
+    /**
+     * @protected
+     */
+    createItems() {
+        let me        = this,
+            itemsRoot = me.getListItemsRoot();
+
+        itemsRoot.cn = [];
+
+        me.createItemLevel(null, itemsRoot, 0);
+        me.update()
     }
 
     /**
@@ -451,21 +464,6 @@ class Tree extends Base {
     }
 
     /**
-     *
-     */
-    onStoreLoad() {
-        let me = this;
-
-        if (!me.mounted && me.rendering) {
-            me.on('mounted', () => {
-                me.recreateItems()
-            }, me, {once: true});
-        } else {
-            me.recreateItems()
-        }
-    }
-
-    /**
      * @param {Object} data
      * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
      * @param {Number} data.index
@@ -479,19 +477,6 @@ class Tree extends Base {
 
         parentNode.cn[index] = me.createItem(record);
 
-        me.update()
-    }
-
-    /**
-     *
-     */
-    recreateItems() {
-        let me        = this,
-            itemsRoot = me.getListItemsRoot();
-
-        itemsRoot.cn = [];
-
-        me.createItems(null, itemsRoot, 0);
         me.update()
     }
 }
