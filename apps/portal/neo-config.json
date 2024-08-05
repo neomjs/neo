@@ -3,8 +3,19 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "DragDrop", "HighlightJS", "IntersectionObserver", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet"],
     "remotesApiUrl"   : "remotes-api.json",
     "themes"          : ["neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
-    "useSharedWorkers": true
+    "useSharedWorkers": true,
+
+    "mainThreadAddons": [
+        "AmCharts",
+        "DragDrop",
+        "HighlightJS",
+        "IntersectionObserver",
+        "MonacoEditor",
+        "Navigator",
+        "ResizeObserver",
+        "Stylesheet",
+        "WebComponent"
+    ]
 }
