@@ -28,14 +28,18 @@ class WebComponent extends Base {
     registerElementLoader() {
         customElements.define('element-loader', class extends HTMLElement {
             async connectedCallback() {
-                let me      = this,
-                    content = await (await fetch(me.getAttribute('src'))).text(),
-                    styles;
+                let me = this,
+                    content, styles;
 
-                me.attachShadow({mode: 'open'}).innerHTML = content;
+                // move OPs will trigger the connectedCallback() again
+                if (!me.shadowRoot) {
+                    content = await (await fetch(me.getAttribute('src'))).text();
 
-                styles = me.querySelector('style');
-                styles && me.shadowRoot.append(styles)
+                    me.attachShadow({mode: 'open'}).innerHTML = content;
+
+                    styles = me.querySelector('style');
+                    styles && me.shadowRoot.append(styles)
+                }
             }
         });
     }
