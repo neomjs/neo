@@ -60,7 +60,9 @@ class How extends BaseContainer {
                 cls   : 'portal-content-container',
                 layout: 'fit',
                 items : [{
-                    cls: 'neo-worker-setup'
+                    cls : 'neo-worker-setup',
+                    tag : 'element-loader',
+                    vdom: {src: '../../resources/images/workers-focus.svg'}
                 }]
             }]
         }]
