@@ -8,6 +8,10 @@
     padding         : 0 3rem;
     width           : -webkit-fill-available;
 
+    @media (max-width: 600px) {
+        padding: 0 1rem;
+    }
+
     pre[data-javascript] {
         border       : thin solid lightgray;
         border-radius: 4px;
