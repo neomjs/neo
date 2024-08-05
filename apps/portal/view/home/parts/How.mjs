@@ -52,13 +52,16 @@ class How extends BaseContainer {
             }]
         }, {
             ntype : 'container',
+            cls   : 'portal-content-wrapper',
             flex  : '2',
-            style : {background: 'lightgray', padding: '20px'},
-            layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
+            layout: 'fit',
             items : [{
-                flex : 'none',
-                style: {width: '100%'},
-                vdom : {tag: 'img', src: 'https://s3.amazonaws.com/mjs.neo.learning.images/why/IndexHtmlFlow.png'}
+                ntype : 'container',
+                cls   : 'portal-content-container',
+                layout: 'fit',
+                items : [{
+                    cls: 'neo-worker-setup'
+                }]
             }]
         }]
     }
