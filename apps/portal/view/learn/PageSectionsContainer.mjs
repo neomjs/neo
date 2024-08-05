@@ -21,11 +21,15 @@ class PageSectionsContainer extends Container {
          */
         items: [{
             ntype  : 'button',
-            bind   : {hidden: data => data.size === 'large'},
             cls    : ['sections-container-button'],
             handler: 'onPageSectionsToggleButtonClick',
             iconCls: 'fas fa-bars',
-            ui     : 'secondary'
+            ui     : 'secondary',
+
+            bind: {
+                disabled: data => data.countSections < 1,
+                hidden  : data => data.size === 'large'
+            }
         }, {
             vdom:
             {cn: [

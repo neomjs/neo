@@ -30,6 +30,10 @@ class MainContainerModel extends Component {
              */
             countPages: null,
             /**
+             * @member {Number|null} data.countPages=null
+             */
+            countSections: null,
+            /**
              * The record which gets shown as the content page
              * @member {Object} data.currentRecord=null
              */
