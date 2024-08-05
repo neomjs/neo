@@ -77,6 +77,14 @@ class MainContainerModel extends Component {
         let me = this;
 
         switch(key) {
+            case 'countSections': {
+                if (value < 1) {
+                    me.component.getReference('page-sections-container')?.toggleCls('neo-expanded', false)
+                }
+
+                break
+            }
+
             case 'currentPageRecord': {
                 let data               = me.data,
                     countPages         = data.countPages,
