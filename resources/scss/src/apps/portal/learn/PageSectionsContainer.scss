@@ -46,6 +46,11 @@
             left            : -42px;
             width           : 35px;
 
+            &.neo-disabled {
+                background-color: lightgray;
+                opacity         : .5;
+            }
+
             .neo-button-glyph {
                 font-size: 13px;
             }

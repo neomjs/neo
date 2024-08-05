@@ -63,9 +63,9 @@ class Colors extends BaseContainer {
             }]
         }, {
             ntype : 'container',
+            cls   : 'portal-content-wrapper',
             flex  : '2',
-            style : {background: 'lightgray', padding: '20px'},
-            layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
+            layout: 'fit',
             items : [{
                 module   : LivePreview,
                 cls      : ['page-live-preview'],

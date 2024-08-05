@@ -137,6 +137,13 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.text
         }, {
+            module    :  TextField,
+            clearable : true,
+            labelText : 'tooltip',
+            listeners : {change: me.onConfigChange.bind(me, 'tooltip')},
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.tooltip
+        }, {
             module        : ComboBox,
             forceSelection: true,
             labelText     : 'ui',

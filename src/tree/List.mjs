@@ -168,8 +168,8 @@ class Tree extends Base {
             }
         });
 
-        if (hasMatch) {
-            !silent && me.update()
+        if (hasMatch && !silent) {
+            me.update()
         }
     }
 
@@ -228,7 +228,7 @@ class Tree extends Base {
      * @returns {Object} vdomRoot
      * @protected
      */
-    createItems(parentId, vdomRoot, level, hidden=false) {
+    createItemLevel(parentId, vdomRoot, level, hidden=false) {
         let me    = this,
             items = me.store.find('parentId', parentId),
             tmpRoot;
@@ -259,11 +259,24 @@ class Tree extends Base {
 
                 tmpRoot.cn.push(me.createItem(record));
 
-                me.createItems(record.id, tmpRoot, level + 1, record.hidden || hidden)
+                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden)
             })
         }
 
         return vdomRoot
+    }
+
+    /**
+     * @protected
+     */
+    createItems() {
+        let me        = this,
+            itemsRoot = me.getListItemsRoot();
+
+        itemsRoot.cn = [];
+
+        me.createItemLevel(null, itemsRoot, 0);
+        me.update()
     }
 
     /**
@@ -286,8 +299,8 @@ class Tree extends Base {
             }
         });
 
-        if (hasMatch) {
-            !silent && me.update()
+        if (hasMatch && !silent) {
+            me.update()
         }
     }
 

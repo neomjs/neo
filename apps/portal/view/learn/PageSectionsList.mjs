@@ -75,6 +75,15 @@ class PageSectionsList extends List {
             me.isAnimating = false
         }
     }
+
+    /**
+     *
+     */
+    onStoreLoad() {
+        super.onStoreLoad();
+
+        this.getModel().data.countSections = this.store.getCount()
+    }
 }
 
 Neo.setupClass(PageSectionsList);

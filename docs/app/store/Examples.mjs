@@ -19,7 +19,11 @@ class Examples extends Store {
         /**
          * @member {Neo.data.Model} model=Example
          */
-        model: Example
+        model: Example,
+        /**
+         * @member {String} url='../../docs/examples.json'
+         */
+        url: '../../docs/examples.json'
     }
 }
 
