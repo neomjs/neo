@@ -31,4 +31,13 @@
             overflow-y     : auto;
         }
     }
+
+    .portal-content-wrapper {
+        background-color: lightgray;
+        padding         : 20px;
+
+        @media (max-width: 500px) {
+            padding: 5px;
+        }
+    }
 }

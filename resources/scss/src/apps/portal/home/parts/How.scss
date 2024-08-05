@@ -15,11 +15,6 @@
         padding         : 20px;
     }
 
-    .portal-content-wrapper {
-        background-color: lightgray;
-        padding         : 20px;
-    }
-
     @media (max-width: 840px) {
         &.neo-flex-container {
             flex-direction: column;
@@ -28,10 +23,6 @@
 
     @media (max-width: 500px) {
         .portal-content-container {
-            padding: 5px;
-        }
-
-        .portal-content-wrapper {
             padding: 5px;
         }
     }
