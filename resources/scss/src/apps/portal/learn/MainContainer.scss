@@ -29,14 +29,15 @@
             }
 
             .sidenav-button {
-                box-shadow: 0 5px 10px rgba(0,0,0,.3);
-                display   : flex;
-                height    : 35px;
-                min-width : 35px;
-                position  : absolute;
-                right     : -42px;
-                width     : 35px;
-                z-index   : 101;
+                background-color: #fff;
+                box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+                display         : flex;
+                height          : 35px;
+                min-width       : 35px;
+                position        : absolute;
+                right           : -42px;
+                width           : 35px;
+                z-index         : 101;
 
                 .neo-button-glyph {
                     font-size: 13px;

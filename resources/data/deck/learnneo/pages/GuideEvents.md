@@ -79,7 +79,7 @@ class MainView extends Container {
             }
         }]
     }
-    foo(data){
+    foo(data) {
         Neo.Main.log({value:data.value})
     }
 }
@@ -99,7 +99,7 @@ class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController'
     }
-    foo(data){
+    foo(data) {
         Neo.Main.log({value:data.value})
     }
 }
@@ -111,11 +111,9 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        controller: {
-            module: MainViewController
-        },
-        className: 'Example.view.MainView',
-        layout   : {ntype:'vbox', align:'start'},
+        className : 'Example.view.MainView',
+        controller: MainViewController,
+        layout    : {ntype:'vbox', align:'start'},
 
         items: [{
             module   : TextField,
@@ -143,10 +141,10 @@ class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController'
     }
-    foo(data){
+    foo(data) {
         Neo.Main.log({value:data.value})
     }
-    onComponentConstructed(){
+    onComponentConstructed() {
         debugger
     }
 }
@@ -158,11 +156,9 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        controller: {
-            module: MainViewController
-        },
         className: 'Example.view.MainView',
-        layout   : {ntype:'vbox', align:'start'},
+        controller: MainViewController,
+        layout    : {ntype:'vbox', align:'start'},
 
         items: [{
             module   : TextField,
@@ -185,12 +181,12 @@ class MainViewController extends Controller {
     static config = {
         className: 'Example.view.MainViewController'
     }
-    foo(data){
-        Neo.Main.log('foo' + {value:data.value}
+    foo(data) {
+        Neo.Main.log('foo' + {value:data.value})
     }
 
     // This is a controller lifecycle method run after the controller's view has been constructed
-    onComponentConstructed(){
+    onComponentConstructed() {
         // Note the use of this.getReference() -- that's used to get a component reference with the specified name
         this.getReference('nameTextfield').on('change', this.foo, this)
     }
@@ -203,11 +199,9 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        controller: {
-            module: MainViewController
-        },
         className: 'Example.view.MainView',
-        layout   : {ntype:'vbox', align:'start'},
+        controller: MainViewController,
+        layout    : {ntype:'vbox', align:'start'},
 
         items: [{
             module   : TextField,
@@ -219,7 +213,6 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 </pre>
 
-
 ## Events versus binding
 
 Events and binding are similar concepts &mdash; both are a way to detect, and react to, some kind of action or change.
@@ -228,9 +221,7 @@ Events are fired for user actions, such as a button click event, a component rec
 Non-visual classes can also fire an event; for example, a `Neo.data.Store` fires a `load` event, and other events
 relating to changes to the store. The event handler if a function run when the event fires.
 
-A binding detects a changed view model value, and assigns it to a property. 
-
-
+A binding detects a changed view model value, and assigns it to a property.
 
 ### When to use an event
 
@@ -239,7 +230,6 @@ might have a Save button, and in its click event handler you'd write logic to ma
 
 Events can be fired for a state change, such as an input field's value changing, or something like a user event,
 like a button click or component focus.
-
 
 ### When to use a binding
 
@@ -255,9 +245,9 @@ To contrast syntax, and to illustrate the simplicity of a binding, let's look at
 to reflect the value of a text field. THe first example uses events; the second uses bindings.
 
 <pre data-neo>
+import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
-import Component from '../component/Base.mjs';
 
 class MainView extends Container {    
     static config = {
@@ -268,24 +258,24 @@ class MainView extends Container {
             module   : TextField,
             labelText: 'Text',
             reference: 'textFieldOne',
-            value: 'Hello',
+            value    : 'Hello',
             listeners: {
-                change    : 'up.onTextChange'
+                change: 'up.onTextChange'
             }
         }, {
             module   : TextField,
             labelText: 'Text',
             reference: 'textFieldTwo',
-            value: 'world!',
+            value    : 'world!',
             listeners: {
-                change    : 'up.onTextChange'
+                change: 'up.onTextChange'
             }
         }, {
-            module: Component,
-            reference: 'foo',
+            module   : Component,
+            reference: 'foo'
         }]        
     }
-    onTextChange(data){
+    onTextChange(data) {
         this.getReference('foo').html = `${this.getReference('textFieldOne').value} ${this.getReference('textFieldTwo').value}`
     }
 }
@@ -293,9 +283,9 @@ Neo.setupClass(MainView);
 </pre>
 
 <pre data-neo>
+import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
-import Component from '../component/Base.mjs';
 
 class MainView extends Container {    
     static config = {
@@ -306,22 +296,22 @@ class MainView extends Container {
                 bar: 'world!'
             }
         },
-        layout   : {ntype:'vbox', align:'start'},
-        
-        items: [{
+
+        layout: {ntype:'vbox', align:'start'},
+        items : [{
             module   : TextField,
             labelText: 'Text',
-            bind: {value: {twoWay: true, value: data => data.foo}}
+            bind     : {value: {twoWay: true, value: data => data.foo}}
         }, {
             module   : TextField,
             labelText: 'Text',
-            bind: {value: {twoWay: true, value: data => data.bar}}
+            bind     : {value: {twoWay: true, value: data => data.bar}}
         }, {
             module: Component,
-            bind: {html: data => `${data.foo} ${data.bar}`}
+            bind  : {html: data => `${data.foo} ${data.bar}`}
         }]
     }
-    onTextChange(data){
+    onTextChange(data) {
         this.getReference('foo').html = data.value;
     }
 }

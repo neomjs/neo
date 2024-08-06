@@ -619,14 +619,15 @@ The feed looks like this. (For simplicity, some values are omitted.)
         "longitude": -21.949,
         "size": 0.6,
         "humanReadableLocation": "6,1 km SV af Helgafelli"
-        }, {
+    }, {
         "timestamp": "2017-10-13T09:50:50.000Z",
         "latitude": 65.124,
         "longitude": -16.288,
         "size": 0.9,
         "humanReadableLocation": "6,1 km NA af Her\u00F0ubrei\u00F0art\u00F6glum"
-        },
-    ...]
+    }, //...
+    ]
+}
 </pre>
 
 The store defines a `type` for the date field. There are a few pre-defined field types that convert 
