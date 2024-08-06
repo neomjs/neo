@@ -28,8 +28,9 @@ class MainContainer extends Container {
          */
         domListeners: [{
             intersect(data) {
-                this.activePartsId = data.targetId;
-                Neo.getComponent(data.targetId)?.activate?.()
+                let id = data.path[1].id;
+                this.activePartsId = id;
+                Neo.getComponent(id)?.activate?.()
             },
             scroll(event) {
                 if (event.target.cls.includes('portal-home-maincontainer')) {
@@ -78,7 +79,7 @@ class MainContainer extends Container {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
-                observe  : ['.portal-home-content-view'],
+                observe  : ['.portal-content-wrapper'],
                 root     : `#${id}`,
                 threshold: 1.0,
                 windowId
