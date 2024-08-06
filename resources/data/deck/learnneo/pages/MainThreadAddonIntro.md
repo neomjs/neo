@@ -35,7 +35,7 @@ certain things via the Google Maps API. Therefore, in Neo.mjs,
 Google Maps is implemented as a main thread addon which
 loads the libraries and exposes whatever methods we'll need
 to run from the other Neo.mjs threads. In addition, in a
-Neo.mjs application we want to use Google maps like any other
+Neo.mjs application we want to use Google Maps like any other
 component, so Neo.mjs also provides a component wrapper. In
 summary: 
 - The main-thread addon contains the code run in the main thread,
