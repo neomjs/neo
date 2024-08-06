@@ -4,4 +4,10 @@
             flex-direction: column;
         }
     }
+
+    @media (max-width: 600px) {
+        .portal-content-text {
+            min-height: 40em;
+        }
+    }
 }

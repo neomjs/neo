@@ -11,5 +11,10 @@
 
     @media (max-width: 700px) {
         grid-template-columns: repeat(6, 1fr);
+        min-height           : 50%;
+    }
+
+    @media (max-width: 500px) {
+        min-height: 60%;
     }
 }

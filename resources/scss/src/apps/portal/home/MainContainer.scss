@@ -1,7 +1,12 @@
 .portal-home-maincontainer {
-    overflow-x      : hidden!important;
+    overflow-x      : hidden !important;
     scroll-behavior : smooth;
     scroll-snap-type: y mandatory;
+
+    @media (max-width: 840px) {
+        scroll-behavior : unset;
+        scroll-snap-type: unset;
+    }
 
     /* Style and position the progress bar */
     .portal-home-progress {

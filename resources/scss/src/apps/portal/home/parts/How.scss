@@ -22,9 +22,23 @@
         padding         : 20px;
     }
 
+    @media (max-width: 500px) {
+        min-height: 100%;
+
+        .portal-content-text {
+            flex: 1.2 !important;
+        }
+    }
+
     @media (max-width: 840px) {
+        min-height: 100%;
+
         &.neo-flex-container {
             flex-direction: column;
+        }
+
+        .portal-content-text {
+            flex: 0.8 !important;
         }
     }
 
