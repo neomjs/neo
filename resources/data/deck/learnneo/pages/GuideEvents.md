@@ -186,7 +186,7 @@ class MainViewController extends Controller {
         className: 'Example.view.MainViewController'
     }
     foo(data){
-        Neo.Main.log('foo' + {value:data.value}
+        Neo.Main.log('foo' + {value:data.value})
     }
 
     // This is a controller lifecycle method run after the controller's view has been constructed
