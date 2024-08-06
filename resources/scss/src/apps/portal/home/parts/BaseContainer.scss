@@ -27,8 +27,9 @@
 
     .portal-content-text {
         @media (max-width: 600px) {
+            flex           : .5 !important;
             justify-content: start;
-            overflow-y     : auto;
+            padding        : 1rem;
         }
     }
 
@@ -36,8 +37,10 @@
         background-color: lightgray;
         padding         : 20px;
 
-        @media (max-width: 500px) {
-            padding: 5px;
+        @media (max-width: 600px) {
+            max-height: 35em;
+            min-height: 35em;
+            padding   : 5px;
         }
     }
 }

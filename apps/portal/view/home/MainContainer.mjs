@@ -39,6 +39,12 @@ class MainContainer extends Container {
             }
         }],
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            flex: 'none'
+        },
+        /**
          * @member {Object[]} items
          */
         items: [

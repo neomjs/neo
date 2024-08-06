@@ -48,7 +48,7 @@ class AfterMath extends BaseContainer {
             flex: 1
         }, {
             module: FooterContainer,
-            height: '35%'
+            flex  : 'none'
         }]
     }
 }
