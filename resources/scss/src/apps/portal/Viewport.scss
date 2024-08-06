@@ -1,3 +1,13 @@
+body {
+    > .neo-viewport {
+        // without the snap scrolling it is possible to scroll the viewport
+        // by the height of the header toolbar outside the visible area
+        // see: https://github.com/neomjs/neo/issues/5715
+        position: fixed;
+    }
+}
+
+
 .neo-viewport {
     // sometimes when transitioning between card & cube layouts, the flex value does get lost
     // see: https://github.com/neomjs/neo/issues/5637
