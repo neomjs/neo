@@ -225,7 +225,7 @@ class List extends BaseList {
             {basePath, store} = me,
             record            = store.get(parseInt(data.data.recordId)),
             i                 = store.indexOf(record),
-            len               = i + me.preloadImages,
+            len               = Math.min(i + me.preloadImages, store.getCount()),
             needsUpdate       = false,
             node;
 
