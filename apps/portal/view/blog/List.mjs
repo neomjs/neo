@@ -26,6 +26,11 @@ class List extends BaseList {
          */
         baseCls: ['portal-blog-list', 'neo-list'],
         /**
+         * Specify how many blog item images to preload when intersecting
+         * @member {Number} preloadImages=5
+         */
+        preloadImages: 5,
+        /**
          * @member {Neo.data.Store} store=BlogPosts
          */
         store: BlogPosts,
@@ -40,6 +45,61 @@ class List extends BaseList {
         {cn: [
             {tag: 'ul', cn: []}
         ]}
+    }
+
+    /**
+     * @member {String} basePath
+     */
+    get basePath() {
+        let basePath;
+
+        if (Neo.config.isGitHubPages) {
+            basePath = '../../../../resources_pub/website';
+
+            if (Neo.config.environment !== 'development') {
+                basePath = '../../' + basePath
+            }
+        } else {
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website'
+        }
+
+        return basePath
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            intersect: me.onIntersect,
+            scope    : me
+        })
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        value && me.timeout(50).then(() => {
+            Neo.main.addon.IntersectionObserver.register({
+                callback: 'isVisible',
+                id      : me.id,
+                observe : ['.content'],
+                root    : `#${me.parentId}`,
+                windowId: me.windowId
+            })
+        })
     }
 
     /**
@@ -59,23 +119,13 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let basePath;
-
-        if (Neo.config.isGitHubPages) {
-            basePath = '../../../../resources_pub/website';
-
-            if (Neo.config.environment !== 'development') {
-                basePath = '../../' + basePath
-            }
-        } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website'
-        }
+        let {basePath} = this;
 
         const vdomCn = [
-            {cls: ['content'], cn: [
+            {cls: ['content'], data: {recordId: record.id}, cn: [
                 {cls: ['neo-relative'], cn: [
-                    {cls: ['neo-full-size', 'preview-image'], style: {
-                        backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
+                    {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`
+                        //backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
                     },
                     {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                         {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
@@ -165,6 +215,33 @@ class List extends BaseList {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onIntersect(data) {
+        let me                = this,
+            {basePath, store} = me,
+            record            = store.get(parseInt(data.data.recordId)),
+            i                 = store.indexOf(record),
+            len               = i + me.preloadImages,
+            needsUpdate       = false,
+            node;
+
+        for (; i < len; i++) {
+            node = VDomUtil.getByFlag(me.vdom, `image-${record.id}`);
+
+            if (!node.style) {
+                needsUpdate = true;
+
+                node.style = {
+                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
+                }
+            }
+        }
+
+        needsUpdate && me.update()
     }
 }
 
