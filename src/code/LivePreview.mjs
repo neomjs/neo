@@ -49,10 +49,6 @@ class LivePreview extends Container {
          */
         enableFullscreen: true,
         /**
-         * @member {Number} height=400
-         */
-        height: 400,
-        /**
          * @member {Object|String} layout='fit'
          */
         layout: 'fit',
