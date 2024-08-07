@@ -102,11 +102,14 @@ class NeoIntersectionObserver extends Base {
      * @param {Boolean} [data.disconnect=false] true removes all currently observed targets
      * @param {String} data.id
      * @param {String|String[]} data.observe The querySelector to match elements
-     * @returns {Boolean} true in case the targets got observed, false in case they got cached prior to a register() call
+     * @returns {Object} opts
+     *     {Boolean} opts.cached      : true in case the observer is not registered yet
+     *     {Number}  opts.countTargets: amount of found target nodes inside the DOM
      */
     observe(data) {
         let me            = this,
             cache         = me.cache,
+            cached        = false,
             {id, observe} = data,
             observer      = me.map[data.id],
             targets       = [];
@@ -126,6 +129,8 @@ class NeoIntersectionObserver extends Base {
                 observer.observe(target)
             })
         } else {
+            cached = true;
+
             if (!cache[id]) {
                 cache[id] = []
             }
@@ -133,7 +138,10 @@ class NeoIntersectionObserver extends Base {
             cache[id].push(data);
         }
 
-        return !!observer
+        return {
+            cached,
+            countTargets: targets.length
+        }
     }
 
     /**
@@ -144,11 +152,15 @@ class NeoIntersectionObserver extends Base {
      * @param {String} data.root
      * @param {String} data.rootMargin='0px'
      * @param {Number|Number[]} data.threshold=0.0
+     * @returns {Boolean}
+     *     if data.observe is passed: true in case there is at least one found target node inside the DOM
+     *     if data.observe is not passed: true
      */
     register(data) {
         let me            = this,
             {cache}       = me,
             {id, observe} = data,
+            returnValue   = true,
             observer;
 
         me.map[id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
@@ -159,12 +171,16 @@ class NeoIntersectionObserver extends Base {
 
         observer.rootId = data.id; // storing the component id
 
-        observe && me.observe({id, observe});
+        if (observe) {
+            returnValue = me.observe({id, observe})
+        }
 
         if (cache[id]) {
             cache[id].forEach(item => me.observe(item));
             delete cache[id]
         }
+
+        return returnValue
     }
 
     /**
