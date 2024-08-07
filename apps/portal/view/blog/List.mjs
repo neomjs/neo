@@ -26,6 +26,12 @@ class List extends BaseList {
          */
         baseCls: ['portal-blog-list', 'neo-list'],
         /**
+         * Specify the amount of delayed observe() calls, in case the IntersectionObserver does not find targets.
+         * This can happen when moving the component inside the DOM (e.g. cube layout)
+         * @member {Number} intersectionObserverReconnects=5
+         */
+        intersectionObserverReconnects: 5,
+        /**
          * Specify how many blog item images to preload when intersecting
          * @member {Number} preloadImages=5
          */
@@ -88,18 +94,7 @@ class List extends BaseList {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        let me = this;
-
-        value && me.timeout(50).then(() => {
-            Neo.main.addon.IntersectionObserver.register({
-                callback: 'isVisible',
-                id      : me.id,
-                observe : ['.content'],
-                root    : `#${me.parentId}`,
-                windowId: me.windowId
-            })
-        })
+        value && this.registerIntersectionObserver()
     }
 
     /**
@@ -242,6 +237,37 @@ class List extends BaseList {
         }
 
         needsUpdate && me.update()
+    }
+
+    /**
+     *
+     */
+    async registerIntersectionObserver() {
+        let me   = this,
+            opts = {id: me.id, observe: ['.content'], windowId: me.windowId},
+            i    = 0,
+            len  = me.intersectionObserverReconnects,
+            data;
+
+        await me.timeout(50);
+
+        data = await Neo.main.addon.IntersectionObserver.register({
+            ...opts,
+            callback: 'isVisible',
+            root    : `#${me.parentId}`
+        });
+
+        if (data.countTargets < 1) {
+            for (; i < len; i++) {
+                await me.timeout(100);
+
+                data = await Neo.main.addon.IntersectionObserver.observe(opts);
+
+                if (data.countTargets > 0) {
+                    break
+                }
+            }
+        }
     }
 }
 
