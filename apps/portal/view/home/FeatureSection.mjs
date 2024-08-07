@@ -48,9 +48,9 @@ class FeatureSection extends Container {
         subHeadline_: null,
         /**
          * Valid values: 'start' or 'end'
-         * @member {String|null} textContainerPosition_=null
+         * @member {String} textContainerPosition_='start'
          */
-        textContainerPosition_: null,
+        textContainerPosition_: 'start',
         /**
          * @member {String} layout='base'
          */
@@ -164,13 +164,23 @@ class FeatureSection extends Container {
     }
 
     /**
+     * Triggered after the textContainerPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTextContainerPosition(value, oldValue) {
+        this.toggleCls('portal-text-container-position-end', value === 'end')
+    }
+
+    /**
      * Triggered before the textContainerPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @returns {String}
      * @protected
      */
-    beforeSetBadgePosition(value, oldValue) {
+    beforeSetTextContainerPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'textContainerPosition')
     }
 }

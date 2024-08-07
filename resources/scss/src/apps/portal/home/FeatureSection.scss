@@ -6,6 +6,10 @@
     min-height       : 100%;
     scroll-snap-align: center;
 
+    &.portal-text-container-position-end {
+        flex-direction: row-reverse;
+    }
+
     .neo-content {
         font-size: min(max(2.3vw, 16px), 30px);
     }
