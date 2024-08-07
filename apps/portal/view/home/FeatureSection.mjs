@@ -170,7 +170,7 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetTextContainerPosition(value, oldValue) {
-        this.toggleCls('portal-text-container-position-end', value === 'end')
+        this.toggleCls('portal-position-end', value === 'end')
     }
 
     /**
