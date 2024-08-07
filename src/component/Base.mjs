@@ -275,9 +275,9 @@ class Base extends CoreBase {
         parentComponent_: null,
         /**
          * The parent component id or document.body
-         * @member {String} parentId='document.body'
+         * @member {String} parentId_='document.body'
          */
-        parentId: 'document.body',
+        parentId_: 'document.body',
         /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
