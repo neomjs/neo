@@ -13,6 +13,13 @@
 
 # Harness the Power of Multi-Threading for Ultra-Fast Frontends
 
+## Content
+1. <a href="#introduction">Introduction</a>
+2. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+3. <a href="#architectures">Scalable frontend architectures</a>
+
+</br></br>
+<h2 id="introduction">1. Introduction</h2>
 Neo.mjs is **not** intended for rather simple & static websites.
 
 The Framework does not focus primarily on a fast first rendering experience for new users,
@@ -22,7 +29,7 @@ Neo.mjs drives the OMT (off the main thread) paradigm into perfection,
 which is intended to move expensive tasks into Workers.
 
 > So, what are the most expensive tasks we are dealing with?
- 
+
 The answer is simple: a Framework and the Apps which we build with it.
 
 Neo.mjs moves most parts of the framework and your App(s) including their Components
@@ -43,6 +50,13 @@ Potential Use-Cases:
 2. Data Science
 3. Web-based IDEs
 4. Multi-Window Data Visualisation
+
+</br></br>
+<h2 id="slack-channel">2. Slack Channel for questions, ideas & feedback</h2>
+Join our community:</br>
+<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
+
+
 
 </br></br>
 
