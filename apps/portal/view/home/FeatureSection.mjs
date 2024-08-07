@@ -52,16 +52,15 @@ class FeatureSection extends Container {
          */
         textContainerPosition_: null,
         /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch',pack:'center'}
+         * @member {String} layout='base'
          */
-        layout: {ntype: 'hbox', align: 'stretch', pack: 'center'},
+        layout: 'base',
         /**
          * @member {Object[]} items
          */
         items: [{
             module: Container,
             cls   : ['portal-content-text'],
-            flex  : '1',
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
 
             itemDefaults: {
@@ -91,7 +90,6 @@ class FeatureSection extends Container {
         }, {
             module: Container,
             cls   : 'portal-content-wrapper',
-            flex  : '2',
             layout: 'fit',
             items : [{
                 module   : LivePreview,

@@ -1,4 +1,8 @@
 .portal-home-feature-section {
+    align-items      : stretch;
+    display          : flex;
+    flex-wrap        : nowrap;
+    justify-content  : center;
     min-height       : 100%;
     scroll-snap-align: center;
 
@@ -27,6 +31,7 @@
     }
 
     .portal-content-text {
+        flex   : 1;
         padding: 2rem;
 
         @media (max-width: 600px) {
@@ -38,6 +43,7 @@
 
     .portal-content-wrapper {
         background-color: lightgray;
+        flex            : 2;
         padding         : 20px;
 
         @media (max-width: 600px) {
