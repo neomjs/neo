@@ -54,11 +54,15 @@ class FeatureSection extends Container {
          * @member {Object[]} items
          */
         items: [{
-            ntype : 'container',
+            module: Container,
             cls   : ['portal-content-text'],
             flex  : '1',
-            style : {padding: '2rem'},
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+
+            itemDefaults: {
+                flex: 'none'
+            },
+
             items : [{
                 cls      : 'neo-h1',
                 flex     : 'none',
@@ -75,14 +79,13 @@ class FeatureSection extends Container {
                 tag      : 'p'
             }]
         }, {
-            ntype : 'container',
+            module: Container,
             cls   : 'portal-content-wrapper',
             flex  : '2',
             layout: 'fit',
             items : [{
                 module   : LivePreview,
                 cls      : ['page-live-preview'],
-                height   : '100%',
                 reference: 'live-preview'
             }]
         }]
