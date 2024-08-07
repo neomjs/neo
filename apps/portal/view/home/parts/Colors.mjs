@@ -20,6 +20,10 @@ class Colors extends FeatureSection {
          */
         headline: 'Amazing Potential',
         /**
+         * @member {String} learnMoreRoute='#/learn/WhyNeo-Speed'
+         */
+        learnMoreRoute: '#/learn/WhyNeo-Speed',
+        /**
          * @member {String} livePreviewCode
          */
         livePreviewCode: [

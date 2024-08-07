@@ -1,3 +1,4 @@
+import Button      from '../../../../src/button/Base.mjs';
 import Container   from '../../../../src/container/Base.mjs';
 import LivePreview from '../../../../src/code/LivePreview.mjs';
 
@@ -29,6 +30,10 @@ class FeatureSection extends Container {
          * @member {String|null} headline_=null
          */
         headline_: null,
+        /**
+         * @member {String|null} learnMoreRoute_=null
+         */
+        learnMoreRoute_: null,
         /**
          * @member {String|null} livePreviewCode_=null
          */
@@ -77,6 +82,11 @@ class FeatureSection extends Container {
                 flex     : 'none',
                 reference: 'paragraph',
                 tag      : 'p'
+            }, {
+                module   : Button,
+                reference: 'learn-more-button',
+                text     : 'Learn more',
+                ui       : 'secondary'
             }]
         }, {
             module: Container,
@@ -103,6 +113,16 @@ class FeatureSection extends Container {
         if (parent.activePartsId === me.id && parent.mounted) {
             me.getReference('live-preview').activeView = 'preview'
         }
+    }
+
+    /**
+     * Triggered after the learnMoreRoute config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLearnMoreRoute(value, oldValue) {
+        this.getItem('learn-more-button').route = value
     }
 
     /**
