@@ -61,7 +61,7 @@ class FeatureSection extends Container {
         items: [{
             module: Container,
             cls   : ['portal-content-text'],
-            layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+            layout: 'base',
 
             itemDefaults: {
                 flex: 'none'
@@ -171,7 +171,7 @@ class FeatureSection extends Container {
      * @protected
      */
     beforeSetBadgePosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'textContainerPosition_')
+        return this.beforeSetEnumValue(value, oldValue, 'textContainerPosition')
     }
 }
 
