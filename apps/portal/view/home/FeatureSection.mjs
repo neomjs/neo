@@ -124,14 +124,12 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetContentItems(value, oldValue) {
-        if (!value) {
-            value = [{
-                module   : LivePreview,
-                cls      : ['page-live-preview'],
-                reference: 'live-preview',
-                value    : this.livePreviewCode
-            }]
-        }
+        value ??= [{
+            module   : LivePreview,
+            cls      : ['page-live-preview'],
+            reference: 'live-preview',
+            value    : this.livePreviewCode
+        }]
 
         this.getItem('portal-content-wrapper').items = value
     }
