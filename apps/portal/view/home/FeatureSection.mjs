@@ -68,11 +68,6 @@ class FeatureSection extends Container {
             module: Container,
             cls   : ['portal-content-text'],
             layout: 'base',
-
-            itemDefaults: {
-                flex: 'none'
-            },
-
             items : [{
                 cls      : 'neo-h1',
                 flex     : 'none',
