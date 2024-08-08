@@ -27,6 +27,12 @@ class FeatureSection extends Container {
          */
         baseCls: ['portal-home-feature-section', 'neo-container'],
         /**
+         * If you want to use the LivePreview, use the config livePreviewCode.
+         * For custom content, use this config instead.
+         * @member {Object[]|null} contentItems_=null
+         */
+        contentItems_: null,
+        /**
          * @member {String|null} headline_=null
          */
         headline_: null,
@@ -88,14 +94,10 @@ class FeatureSection extends Container {
                 ui       : 'secondary'
             }]
         }, {
-            module: Container,
-            cls   : 'portal-content-wrapper',
-            layout: 'fit',
-            items : [{
-                module   : LivePreview,
-                cls      : ['page-live-preview'],
-                reference: 'live-preview'
-            }]
+            module   : Container,
+            cls      : 'portal-content-wrapper',
+            layout   : 'fit',
+            reference: 'portal-content-wrapper'
         }]
     }
 
@@ -106,11 +108,32 @@ class FeatureSection extends Container {
         let me       = this,
             {parent} = me;
 
-        await me.timeout(1000);
+        if (me.livePreviewCode) {
+            await me.timeout(1000);
 
-        if (parent.activePartsId === me.id && parent.mounted) {
-            me.getReference('live-preview').activeView = 'preview'
+            if (parent.activePartsId === me.id && parent.mounted) {
+                me.getReference('live-preview').activeView = 'preview'
+            }
         }
+    }
+
+    /**
+     * Triggered after the contentItems config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetContentItems(value, oldValue) {
+        if (!value) {
+            value = [{
+                module   : LivePreview,
+                cls      : ['page-live-preview'],
+                reference: 'live-preview',
+                value    : this.livePreviewCode
+            }]
+        }
+
+        this.getItem('portal-content-wrapper').items = value
     }
 
     /**
@@ -140,7 +163,10 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetLivePreviewCode(value, oldValue) {
-        this.getItem('live-preview').value = value
+        // the initial value will get handled via afterSetContentItems()
+        if (oldValue) {
+            this.getItem('live-preview').value = value
+        }
     }
 
     /**
