@@ -62,6 +62,14 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        this.intervalId && clearInterval(this.intervalId);
+        super.destroy(...args)
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      * @param {Number} data.windowId
