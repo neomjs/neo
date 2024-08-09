@@ -276,10 +276,12 @@ class ViewportController extends Controller {
             amountColumns: model.getData('amountColumns'),
             amountRows   : model.getData('amountRows')
         }).then(response => {
-            let {data} = response;
+            if (!me.isDestroyed) {
+                let {data} = response;
 
-            me.updateTable(data.tableData);
-            me.updateCharts(data.summaryData)
+                me.updateTable(data.tableData);
+                me.updateCharts(data.summaryData)
+            }
         })
     }
 }
