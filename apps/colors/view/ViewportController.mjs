@@ -195,20 +195,6 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onStopButtonClick(data) {
-        let me = this;
-
-        me.getModel().setData({isUpdating: false});
-
-        if (me.intervalId) {
-            clearInterval(me.intervalId);
-            me.intervalId = null
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
     onStartButtonClick(data) {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS
@@ -219,6 +205,20 @@ class ViewportController extends Controller {
             me.intervalId = setInterval(() => {
                 me.updateWidgets()
             }, intervalTime)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStopButtonClick(data) {
+        let me = this;
+
+        me.getModel().setData({isUpdating: false});
+
+        if (me.intervalId) {
+            clearInterval(me.intervalId);
+            me.intervalId = null
         }
     }
 
