@@ -334,14 +334,18 @@ class LivePreview extends Container {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        let me     = this,
-            hidden = data.value !== 1;
+        let me        = this,
+            isPreview = data.value === 1;
 
         if (data.item.reference === 'preview') {
             me.doRunSource()
         }
+        // Navigating to the source view should destroy the app, in case the preview view is not popped out
+        else if (!isPreview && !me.previewContainer) {
+            me.getReference('preview').removeAll();
+        }
 
-        me.getReference('popout-window-button').hidden = hidden
+        me.getReference('popout-window-button').hidden = !isPreview
         me.disableRunSource = false;
     }
 
