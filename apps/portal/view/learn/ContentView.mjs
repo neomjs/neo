@@ -3,10 +3,11 @@ import LivePreview from '../../../../src/code/LivePreview.mjs';
 import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const
-    labCloseRegex = /<!--\s*\/lab\s*-->/g,
-    labOpenRegex  = /<!--\s*lab\s*-->/g,
-    preJsRegex    = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g,
-    preNeoRegex   = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g;
+    labCloseRegex        = /<!--\s*\/lab\s*-->/g,
+    labOpenRegex         = /<!--\s*lab\s*-->/g,
+    preJsRegex           = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g,
+    preNeoRegex          = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g,
+    preNeoComponentRegex = /<pre\s+data-neo-component\s*>([\s\S]*?)<\/pre>/g;
 
 /**
  * @class Portal.view.learn.ContentView
@@ -108,19 +109,25 @@ class ContentView extends Component {
     async doFetchContent(record) {
         let me   = this,
             path = me.getModel().getData('contentPath'),
-            content, data, html, modifiedHtml, neoDivs;
+            content, data, html, modifiedHtml, neoComponents, neoDivs;
 
         path += `/pages/${record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
-            data         = await fetch(path);
-            content      = await data.text();
-            content      = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
-            content      = `# ${record.name}\n${content}`;
-            modifiedHtml = await me.highlightPreContent(content);
-            neoDivs      = {};
+            data          = await fetch(path);
+            content       = await data.text();
+            content       = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
+            content       = `# ${record.name}\n${content}`;
+            modifiedHtml  = await me.highlightPreContent(content);
+            neoComponents = {};
+            neoDivs       = {}
 
-            // Replace <pre data-neo></neo> with <div id='neo-preview-1'/>
+            // Replace <pre neo-component></pre> with <div id='neo-component-x'/>
+            // and create a map keyed by ID, whose value is the javascript
+            // from the <pre>
+            modifiedHtml = me.extractNeoComponents(modifiedHtml, neoComponents);
+
+            // Replace <pre data-neo></pre> with <div id='neo-preview-1'/>
             // and create a map keyed by ID, whose value is the javascript
             // from the <pre>
             modifiedHtml = me.extractNeoContent(modifiedHtml, neoDivs);
@@ -133,6 +140,19 @@ class ContentView extends Component {
             me.html = html;
 
             await me.timeout(50);
+
+            Object.keys(neoComponents).forEach(key => {
+                Neo.create({
+                    appName        : me.appName,
+                    autoMount      : true,
+                    autoRender     : true,
+                    className      : 'Neo.component.Base',
+                    parentComponent: me,
+                    parentId       : key,
+                    windowId       : me.windowId,
+                    ...neoComponents[key]
+                })
+            });
 
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
@@ -154,6 +174,23 @@ class ContentView extends Component {
                 windowId  : me.windowId
             })
         }
+    }
+
+    /**
+     * @param {String} htmlString
+     * @param {Object} map
+     * @returns {String}
+     */
+    extractNeoComponents(htmlString, map) {
+        // 1. Replace <pre data-neo-component> with <div id='neo-component-x'/>
+        // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
+
+        // Replace the content with tokens, and create a promise to update the corresponding content
+        return htmlString.replace(preNeoComponentRegex, (match, preContent) => {
+            const key = Neo.core.IdGenerator.getId('learn-content-component');
+            map[key] = JSON.parse(preContent);
+            return `<div id="${key}"></div>`
+        })
     }
 
     /**
