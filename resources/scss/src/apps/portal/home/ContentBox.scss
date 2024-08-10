@@ -13,9 +13,16 @@
 
     .portal-content-box-content {
         padding-left: 1.3em;
+        margin-top: 0.75em;
     }
 
-    .portal-content-box-header {
-
+    .portal-content-box-headline {
+        border-bottom: 1px solid #ececec;
+        padding-bottom: 0.75em;
+        max-width: 85%;
+        margin: 1em auto 0 auto;
+        text-align: center;
+        letter-spacing: 1.5px!important;
+        word-spacing: 1.5px;
     }
 }

@@ -51,7 +51,7 @@ class Features extends BaseContainer {
                 'Moving Components across Windows while keeping the same JS instances'
             ]
         }, {
-            header: 'Modern JavaScript directly in your Browser',
+            header: 'Modern JS in your Browser',
             route : '#/learn/WhyNeo-Quick',
 
             content: [
