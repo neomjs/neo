@@ -35,7 +35,7 @@ class How extends FeatureSection {
         /**
          * @member {String} learnMoreRoute='#/learn/WhyNeo-Speed'
          */
-        learnMoreRoute: '#/learn/WhyNeo-Speed',
+        learnMoreRoute: '#/learn/benefits.Multi-Threading',
         /**
          * @member {String} paragraph
          */

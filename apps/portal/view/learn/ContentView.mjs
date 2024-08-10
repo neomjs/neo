@@ -110,7 +110,7 @@ class ContentView extends Component {
             path = me.getModel().getData('contentPath'),
             content, data, html, modifiedHtml, neoDivs;
 
-        path += `/pages/${record.id}.md`;
+        path += `/pages/${record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
             data         = await fetch(path);
