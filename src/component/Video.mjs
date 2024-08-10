@@ -89,10 +89,7 @@ class Video extends BaseComponent {
         let me = this;
 
         me.handleAutoplay();
-        me.addDomListeners(
-            {click: me.play, delegate: '.neo-video-ghost'},
-            {click: me.pause, delegate: '.neo-video-media'}
-        )
+        me.addDomListeners({click: me.play, delegate: '.neo-video-ghost'});
     }
 
     /**
