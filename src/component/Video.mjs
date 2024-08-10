@@ -165,7 +165,7 @@ class Video extends BaseComponent {
     }
 
     /**
-     * Clicked media
+     * Simulates `Clicked media` programmatically
      */
     pause() {
         this.playing = false
