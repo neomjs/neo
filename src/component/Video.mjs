@@ -38,8 +38,7 @@ class Video extends BaseComponent {
          */
         autoplay: false,
         /**
-         * In case the browser does not support the video source
-         * the component should show an error.
+         * In case the browser does not support the video source the component should show an error.
          * @member {Boolean} errorMsg='The browser does not support the video'
          */
         errorMsg: 'Your browser does not support the video tag.',
@@ -122,17 +121,24 @@ class Video extends BaseComponent {
     afterSetUrl(value, oldValue) {
         if (!value) return;
 
-        let {vdom} = this,
-            media = VDomUtil.getFlags(vdom, 'media')[0];
+        let {vdom}      = this,
+            media       = VDomUtil.getFlags(vdom, 'media')[0],
+            ua          = navigator.userAgent || navigator.vendor || window.opera,
+            isOperaMini = /Opera Mini/i.test(ua);
 
         media.cn = [{
             tag: 'source',
             src: value,
             type: this.type
-        }, {
-            tag: 'span',
-            html: this.errorMsg,
         }];
+
+        // Opera Mini might not support the video-source => check the user agent string
+        if (isOperaMini) {
+            media.cn.push({
+                tag: 'span',
+                html: this.errorMsg,
+            });
+        }
 
         this.update()
     }
