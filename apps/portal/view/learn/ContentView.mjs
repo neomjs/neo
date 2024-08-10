@@ -139,7 +139,7 @@ class ContentView extends Component {
 
             me.html = html;
 
-            await me.timeout(50);
+            await me.timeout(100);
 
             Object.keys(neoComponents).forEach(key => {
                 Neo.create({

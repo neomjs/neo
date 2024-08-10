@@ -57,7 +57,7 @@ Let the following quote really sink in:
 
 It leads to the question: "What is the most expensive task?"
 
-The answer is simple: "An UI Framework ob Library itself as well as the apps we build with it."
+The answer is simple: "An UI Framework or Library itself as well as the apps we build with it."
 
 This is leading to the idea: Let us move everything we can out of the main thread,
 so that this one can purely focus on what it is intended to do: manipulating the DOM.
