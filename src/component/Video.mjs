@@ -97,21 +97,6 @@ class Video extends BaseComponent {
     }
 
     /**
-     * beforeSetPlaying autgen by playing_
-     *
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @returns {Boolean}
-     */
-    beforeSetPlaying(value, oldValue) {
-        if (!Neo.isBoolean(value)) {
-            return oldValue
-        }
-
-        return value
-    }
-
-    /**
      * afterSetPlaying - run the event listeners
      * @param {Boolean} value
      * @param {Boolean} oldValue
