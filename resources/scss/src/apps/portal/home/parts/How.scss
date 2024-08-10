@@ -15,10 +15,6 @@
     @media (max-width: 840px) {
         min-height: 100%;
 
-        &.neo-flex-container {
-            flex-direction: column;
-        }
-
         .portal-content-text {
             flex: 0.8 !important;
         }

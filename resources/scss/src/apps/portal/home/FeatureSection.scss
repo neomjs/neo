@@ -6,6 +6,10 @@
     min-height       : 100%;
     scroll-snap-align: center;
 
+    @media (max-width: 840px) {
+        flex-direction: column;
+    }
+
     &.portal-position-end {
         flex-direction: row-reverse;
     }
