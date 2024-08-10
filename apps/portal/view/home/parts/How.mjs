@@ -40,10 +40,10 @@ class How extends FeatureSection {
          * @member {String} paragraph
          */
         paragraph: [
-            'When a Neo.mjs app launches three webworkers are spawned: one that holds app logic, one for tracking delta DOM updates, ',
-            'and one for backend calls. Each webworker runs in its own thread, and thus, in its own processor core. ',
-            'This means these processes run in parallel: your app logic isn\'t affected by DOM changes or ',
-            'by Ajax or socket calls. If you have processor-intensive tasks you can easily run them in their own threads.'
+            'When a Neo.mjs app launches 3+ webworkers are spawned: one that holds App logic, one for calculating delta DOM ',
+            'updates, and one for backend calls. Each webworker runs in its own thread, and thus, in its own processor core. ',
+            'This means these processes run in parallel: DOM updates and transitions are not affected by your App logic ',
+            'and always run smooth. Every processor-intensive task runs outside the Main Thread.'
         ].join(''),
         /**
          * @member {String} subHeadline='How does Neo.mjs do it?'
