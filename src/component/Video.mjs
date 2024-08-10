@@ -139,6 +139,13 @@ class Video extends BaseComponent {
 
     /**
      * autoplay - run the event listeners
+     * Only called in constructor and sets playing => calls update already
+     *
+     * Rationale: update() sends the vdom & vnode on a workers roundtrip to get the deltas. 
+     * While this is happening,  the component locks itself for future updates until the new vnode got back (async).
+     * After the delay the framework  would trigger a 2nd roundtrip to get the deltas for the visible node.
+     *
+     * @protected
      */
     handleAutoplay() {
         if (!this.autoplay) return;
@@ -151,7 +158,6 @@ class Video extends BaseComponent {
         // Allows inline playback on iOS devices
         media.playsInline = true;
 
-        this.update();
         this.playing = true;
     }
 
