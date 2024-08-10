@@ -89,24 +89,23 @@ class AmChart extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this,
-            {appName, id, windowId} = me;
+        let me                      = this,
+            {appName, id, windowId} = me,
+            opts                    = {appName, id, windowId};
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.AmCharts.destroy({appName, id, windowId})
+            Neo.main.addon.AmCharts.destroy(opts)
         }
 
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            let opts = {
-                appName,
+            opts = {
+                ...opts,
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
-                id,
                 package             : me.package,
-                type                : me.chartType,
-                windowId
+                type                : me.chartType
             };
 
             if (me.chartData) {
