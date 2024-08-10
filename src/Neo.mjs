@@ -633,7 +633,7 @@ function autoGenerateGetSet(proto, key) {
     }
 
     if (!Neo[getSetCache]) {
-        Neo[getSetCache] = {};
+        Neo[getSetCache] = {}
     }
 
     if (!Neo[getSetCache][key]) {
@@ -667,6 +667,10 @@ function autoGenerateGetSet(proto, key) {
             },
 
             set(value) {
+                if (value === undefined) {
+                    return
+                }
+
                 let me        = this,
                     _key      = '_' + key,
                     uKey      = key[0].toUpperCase() + key.slice(1),
