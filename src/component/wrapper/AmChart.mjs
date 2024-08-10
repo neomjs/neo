@@ -136,6 +136,14 @@ class AmChart extends Component {
         return value
     }
 
+    destroy(...args) {
+        let {appName, id, windowId} = this;
+
+        Neo.main.addon.AmCharts.destroy({appName, id, windowId})
+
+        super.destroy(...args)
+    }
+
     /**
      *
      */
