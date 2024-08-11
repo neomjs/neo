@@ -182,9 +182,8 @@ class ContentView extends Component {
      * @returns {String}
      */
     extractNeoComponents(htmlString, map) {
-        // 1. Replace <pre data-neo-component> with <div id='neo-component-x'/>
+        // 1. Replace <pre data-neo-component> with <div id='neo-learn-content-component-x'/>
         // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
-
         // Replace the content with tokens, and create a promise to update the corresponding content
         return htmlString.replace(preNeoComponentRegex, (match, preContent) => {
             const key = Neo.core.IdGenerator.getId('learn-content-component');
@@ -199,14 +198,11 @@ class ContentView extends Component {
      * @returns {String}
      */
     extractNeoContent(htmlString, map) {
-        // 1. Replace <pre data-neo> with <div id='neo-preview-2'/>
+        // 1. Replace <pre data-neo> with <div id='neo-pre-live-preview-x'/>
         // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
-
-        let count = 0;
-
         // Replace the content with tokens, and create a promise to update the corresponding content
         return htmlString.replace(preNeoRegex, (match, preContent) => {
-            const key = `pre-live-preview-${Neo.core.IdGenerator.getId()}-${count++}`;
+            const key = Neo.core.IdGenerator.getId('pre-live-preview');
             map[key] = preContent;
             return `<div id="${key}"></div>`
         })
