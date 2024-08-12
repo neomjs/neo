@@ -123,6 +123,7 @@ your main App.
 * Your App will import your used Components
 * Meaning: your Component instances live within the App-Worker
 * View Models & View Controllers also live here
+* Most parts of the Neo.mjs Framework live here
 * You can directly communicate with other Actors via remote method access (RPC)
 
 As a developer, you will probably spend 95% of your time working within this actor.
@@ -188,10 +189,17 @@ Here is an example Blog-Post to show you how powerful this concept can be:</br>
 
 In the future, we might create an own OffscreenCanvas charting library for Neo.mjs.
 
+### Task Worker
+
+In case you have specific expensive tasks, which don't really fit well into the other actors,
+you can  optionally move them into the Task-Worker.
+
+E.g. calculating Fibonacci numbers would be a good fitting example.
+
 ### Service Worker
 
 By design, <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API">Service-Workers</a>
-are responsible for caching assets (images, css, JS-bundles)
+are responsible for caching assets (Images, CSS, JS-bundles)
 
 > Service workers essentially act as proxy servers that sit between web applications, the browser,
 > and the network (when available). They are intended, among other things, to enable the creation of
