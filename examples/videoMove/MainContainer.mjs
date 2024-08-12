@@ -9,11 +9,12 @@ import Viewport from '../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static config = {
         className: 'Neo.examples.videoMove.MainContainer',
+        cls      : ['examples-videomove-maincontainer'],
         layout   : {ntype: 'vbox', align: 'stretch'},
-        style    : {padding: '50px'},
 
         items: [{
             ntype : 'container',
+            cls   : ['video-wrapper'],
             layout: {ntype: 'hbox', align: 'stretch'},
 
             itemDefaults: {
@@ -23,7 +24,6 @@ class MainContainer extends Viewport {
 
             items: [{
                 reference: 'container-1',
-                style    : {backgroundColor: 'rgb(139,166,255)', padding: '50px'},
 
                 items: [{
                     module : Video,
@@ -31,8 +31,7 @@ class MainContainer extends Viewport {
                     url    : 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
                 }]
             }, {
-                reference: 'container-2',
-                style    : {backgroundColor: 'rgb(139,166,255)', marginLeft: '50px', padding: '50px'}
+                reference: 'container-2'
             }]
         }, {
             ntype : 'container',
