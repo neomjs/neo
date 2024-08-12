@@ -1,6 +1,6 @@
 {"data": [
     {"name":  "Welcome!",                                   "parentId": null,                "isLeaf":  true, "id": "Welcome" },
-    {"name": "Benefits?",                                "parentId": null,                "isLeaf": false, "id": "WhyNeo"},
+    {"name": "Benefits",                                    "parentId": null,                "isLeaf": false, "id": "WhyNeo"},
         {"name": "Introduction ",                           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Intro"},
         {"name": "Multi-Threading",                         "parentId": "WhyNeo",            "isLeaf": true,  "id": "benefits.Multi-Threading"},
         {"name": "Multi-Threaded",                          "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Multi-Threaded"},
@@ -21,7 +21,6 @@
     {"name": "Tutorials",                                   "parentId": null,                "isLeaf": false, "expanded": false, "id": "Tutorials",  "collapsed":  true},
         {"name": "Rock Scissors Paper",                     "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "RSP", "hidden":  true},
         {"name": "Earthquakes",                             "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "Earthquakes", "collapsed":  true},
-
         {"name": "Todo List",                               "parentId": "Tutorials",         "isLeaf": true,  "expanded": false, "id": "TodoList"},
     {"name": "Guides",                                      "parentId": null,                "isLeaf": false, "expanded": false, "id": "InDepth",  "collapsed":  true},
         {"name": "Config",                                  "parentId": "InDepth",           "isLeaf": false, "id": "Config"},
