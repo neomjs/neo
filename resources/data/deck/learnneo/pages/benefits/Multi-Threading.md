@@ -165,3 +165,28 @@ the current update-cycle, but get used inside the next cycle.
 ### The Data Worker
 
 The main responsibility of the Data-Worker is to communicate with the Backend / Cloud.
+Mostly, but not limited to:
+1. Ajax Calls
+2. SocketConnection messages
+
+In case you are in need to apply expensive data-transformations before sending / after receiving data,
+these transformations should happen here. Think about the data reader / writer concept.
+
+### The Canvas Worker
+
+> Can a Worker really not access the DOM?
+
+There is one exception, which is called
+<a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas">OffscreenCanvas</a>.
+
+Meaning: We can transfer the ownership of a Canvas DOM node to a worker.
+
+This enables us to work with charting or maps libraries outside the App-Worker & outside the main thread.
+
+Here is an example Blog-Post to show you how powerful this concept can be:</br>
+<a target="_blank" href="https://itnext.io/rendering-3d-offscreen-getting-max-performance-using-canvas-workers-88c207cbcdc2?source=friends_link&sk=7ee0851ff6043c4a79248ff5a20a23fc">Rendering 3d offscreen: Getting max performance using canvas workers</a>
+
+In the future, we might create an own OffscreenCanvas charting library for Neo.mjs.
+
+### The Service Worker
+
