@@ -96,7 +96,7 @@ Probably the best solution for single page apps (SPAs) as well as multi-window a
 To prevent the app worker from handling too much logic, we can optionally spawn more workers.
 Each thread has its fixed scope. Let us take a quick look into each of them.
 
-### The Main Thread
+### Main Thread
 
 The `index.html` file of your Neo.mjs App will by default have an empty body tag and only import the
 `MicroLoader.mjs` file. The loader will fetch your `neo-config.json` and afterwards dynamically import the
@@ -115,7 +115,7 @@ This concept is called OMT (Off the Main Thread), and you can find quite a bunch
 
 Example-Overview: <a target="_blank" href="https://css-tricks.com/off-the-main-thread/">CSS-Tricks: Off the Main Thread</a>
 
-### The Application Worker
+### Application Worker
 
 The most important actor is the App-Worker. After construction, it will lazy-load (dynamically import)
 your main App.
@@ -142,7 +142,7 @@ virtual DOM is a bad thing. They are referring to the React implementation of it
 to the Neo.mjs approach. While the SOLIDJS concept to directly modify DOM nodes instead is charming in
 its own way, it does limit you for staying single-threaded. Their Components must live within the main thread.
 
-### The virtual DOM Worker
+### Virtual DOM Worker
 
 Like the main thread, the vdom-worker is not aware of your Apps or Components.
 
@@ -162,7 +162,7 @@ We can modify vdom trees multiple times before starting an update-cycle. Once we
 => immutable and sent to the VDom-Worker. We can immediately add new changes to the vdom, which will not interfere with
 the current update-cycle, but get used inside the next cycle.
 
-### The Data Worker
+### Data Worker
 
 The main responsibility of the Data-Worker is to communicate with the Backend / Cloud.
 Mostly, but not limited to:
@@ -172,7 +172,7 @@ Mostly, but not limited to:
 In case you are in need to apply expensive data-transformations before sending / after receiving data,
 these transformations should happen here. Think about the data reader / writer concept.
 
-### The Canvas Worker
+### Canvas Worker
 
 > Can a Worker really not access the DOM?
 
@@ -188,5 +188,26 @@ Here is an example Blog-Post to show you how powerful this concept can be:</br>
 
 In the future, we might create an own OffscreenCanvas charting library for Neo.mjs.
 
-### The Service Worker
+### Service Worker
 
+By design, <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API">Service-Workers</a>
+are responsible for caching assets (images, css, JS-bundles)
+
+> Service workers essentially act as proxy servers that sit between web applications, the browser,
+> and the network (when available). They are intended, among other things, to enable the creation of
+> effective offline experiences, intercept network requests, and take appropriate action based on whether
+> the network is available, and update assets residing on the server. They will also allow access to push
+> notifications and background sync APIs.
+
+While Neo.mjs is not purely focussing on making the very first page load as fast as possible,
+it can make all following page loads happen almost instantly.
+
+We can cache the JS bundles which generate the desired markup (HTML) directly on the client.
+There is no need to stream HTML again to the client (server side rendering => SSR),
+since we already have everything in place to recreate the fully hydrated version in the blink of an eye.
+
+Via remote method access, the App-Worker can directly communicate with the Service-Worker at run-time.
+This enables us to preload / pre-cache assets on the fly.
+
+More infos on this topic:</br>
+<a target="_blank" href="https://itnext.io/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3">Predictive offline support for assets you have not used yet</a>
