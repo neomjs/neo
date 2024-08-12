@@ -19,6 +19,14 @@
         padding      : 12px;
     }
 
+    blockquote {
+        background-color: var(--sem-color-bg-neutral-default);;
+        border-left     : 4px solid var(--sem-color-border-default);
+        font-style      : italic;
+        margin-left     : 0;
+        padding         : 5px 5px 5px 15px;
+    }
+
     p {
         margin: 0.5em 0 0.7em 0;
     }

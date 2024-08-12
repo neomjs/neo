@@ -49,10 +49,6 @@ class LivePreview extends Container {
          */
         enableFullscreen: true,
         /**
-         * @member {Number} height=400
-         */
-        height: 400,
-        /**
          * @member {Object|String} layout='fit'
          */
         layout: 'fit',
@@ -226,11 +222,14 @@ class LivePreview extends Container {
         }
 
         let me                = this,
+            container         = me.getPreviewContainer(),
             source            = me.editorValue || me.value,
             cleanLines        = [],
-            importModuleNames = [],
             moduleNameAndPath = [],
-            className         = me.findLastClassName(source);
+            className         = me.findLastClassName(source),
+            params            = [],
+            vars              = [],
+            codeString, promises;
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
@@ -239,18 +238,14 @@ class LivePreview extends Container {
                 let moduleName = importMatch[1],
                     path       = importMatch[2];
 
-                moduleNameAndPath.push({moduleName, path});
-
-                importModuleNames.push(moduleName);
+                moduleNameAndPath.push({moduleName, path})
             } else if (line.match(exportRegex)) {
                 // Skip export statements
             } else {
-                cleanLines.push(`    ${line}`);
+                cleanLines.push(`    ${line}`)
             }
         });
 
-        var params = [];
-        var vars   = [];
         // Figure out the parts of the source we'll be running.
         // o The promises/import() corresponding to the user's import statements
         // o The vars holding the name of the imported module based on the module name for each import
@@ -266,14 +261,13 @@ class LivePreview extends Container {
         //   });
         // Making the promise part of the eval seems weird, but it made it easier to
         // set up the import vars.
-
-        let promises = moduleNameAndPath.map(item => {
+        promises = moduleNameAndPath.map(item => {
             params.push(`${item.moduleName}Module`);
             vars.push(`    const ${item.moduleName} = ${item.moduleName}Module.default;`);
             return `import('${item.path}')`
         });
 
-        const codeString = [
+        codeString = [
             'Promise.all([',
             `    ${promises.join(',\n')}`,
             `]).then(([${params.join(', ')}]) => {`,
@@ -287,7 +281,6 @@ class LivePreview extends Container {
             '.catch(error => container.add({ntype:\'component\', html:error.message}));'
         ].join('\n')
 
-        const container = me.getPreviewContainer();
         container.removeAll();
 
         try {
@@ -338,14 +331,18 @@ class LivePreview extends Container {
      * @param {Number} data.value
      */
     onActiveIndexChange(data) {
-        let me     = this,
-            hidden = data.value !== 1;
+        let me        = this,
+            isPreview = data.value === 1;
 
         if (data.item.reference === 'preview') {
             me.doRunSource()
         }
+        // Navigating to the source view should destroy the app, in case the preview view is not popped out
+        else if (!isPreview && !me.previewContainer) {
+            me.getReference('preview').removeAll()
+        }
 
-        me.getReference('popout-window-button').hidden = hidden
+        me.getReference('popout-window-button').hidden = !isPreview
         me.disableRunSource = false;
     }
 

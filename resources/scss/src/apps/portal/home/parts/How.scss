@@ -1,25 +1,7 @@
 .portal-home-parts-how {
-    .neo-worker-setup {
-        align-items    : center;
-        display        : flex;
-        height         : 100%;
-        justify-content: center;
-        width          : 100%;
-
-        --fill-opacity  : 0.05;
-        --stroke-opacity: 0.05;
-
-        &:hover {
-            --fill-opacity  : 1;
-            --stroke-opacity: 1;
-        }
-    }
-
     .portal-content-container {
-        background-color: #17141c;
         border          : 1px solid #e6e6e6;
         border-radius   : 8px;
-        padding         : 20px;
     }
 
     @media (max-width: 500px) {
@@ -32,10 +14,6 @@
 
     @media (max-width: 840px) {
         min-height: 100%;
-
-        &.neo-flex-container {
-            flex-direction: column;
-        }
 
         .portal-content-text {
             flex: 0.8 !important;

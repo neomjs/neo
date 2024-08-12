@@ -181,7 +181,7 @@ class AmCharts extends Base {
      * @param {String} data.id
      */
     destroy(data) {
-        this.charts[data.id].dispose();
+        this.charts[data.id]?.dispose?.();
         delete this.charts[data.id]
     }
 

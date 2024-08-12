@@ -115,16 +115,16 @@ class Toast extends Base {
     }
 
     /**
+     * Timeout in ms after which the toast is removed
+     * @member {Number} removeDelay=3000
+     */
+    removeDelay = 3000
+    /**
      * Used by the ToastManager
      * @member {Boolean} running=false
      * @private
      */
     running = false
-    /**
-     * Timeout in ms after which the toast is removed
-     * @member {Number} timeout=3000
-     */
-    timeout = 3000 // todo: conflicting class field name => timeout()
 
     /**
      * @param {Object} config
@@ -206,9 +206,9 @@ class Toast extends Base {
         let me = this;
 
         if (!me.closable && value) {
-            setTimeout(() => {
-                this.destroy(true)
-            }, me.timeout)
+            me.timeout(me.removeDelay).then(() => {
+                me.destroy(true)
+            })
         }
     }
 

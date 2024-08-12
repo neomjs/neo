@@ -62,6 +62,14 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        this.intervalId && clearInterval(this.intervalId);
+        super.destroy(...args)
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.appName
      * @param {Number} data.windowId
@@ -187,20 +195,6 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onStopButtonClick(data) {
-        let me = this;
-
-        me.getModel().setData({isUpdating: false});
-
-        if (me.intervalId) {
-            clearInterval(me.intervalId);
-            me.intervalId = null
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
     onStartButtonClick(data) {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS
@@ -211,6 +205,20 @@ class ViewportController extends Controller {
             me.intervalId = setInterval(() => {
                 me.updateWidgets()
             }, intervalTime)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStopButtonClick(data) {
+        let me = this;
+
+        me.getModel().setData({isUpdating: false});
+
+        if (me.intervalId) {
+            clearInterval(me.intervalId);
+            me.intervalId = null
         }
     }
 
@@ -268,10 +276,12 @@ class ViewportController extends Controller {
             amountColumns: model.getData('amountColumns'),
             amountRows   : model.getData('amountRows')
         }).then(response => {
-            let {data} = response;
+            if (!me.isDestroyed) {
+                let {data} = response;
 
-            me.updateTable(data.tableData);
-            me.updateCharts(data.summaryData)
+                me.updateTable(data.tableData);
+                me.updateCharts(data.summaryData)
+            }
         })
     }
 }

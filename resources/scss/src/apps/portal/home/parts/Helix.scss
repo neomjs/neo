@@ -1,13 +1,7 @@
 .portal-home-parts-helix {
-    @media (max-width: 840px) {
-        &.neo-flex-container {
-            flex-direction: column;
-        }
-    }
-
     @media (max-width: 600px) {
         .portal-content-text {
-            min-height: 40em;
+            min-height: 23em;
         }
     }
 }

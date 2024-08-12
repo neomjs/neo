@@ -427,7 +427,7 @@ class DomEvent extends Base {
                 })
             });
 
-            if (component.mounted) {
+            if (component.mounted && domListeners?.length > 0) {
                 me.timeout(100).then(() => {
                     me.mountDomListeners(component)
                 })

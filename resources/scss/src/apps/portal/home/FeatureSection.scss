@@ -1,0 +1,68 @@
+.portal-home-feature-section {
+    align-items      : stretch;
+    display          : flex;
+    flex-wrap        : nowrap;
+    justify-content  : center;
+    min-height       : 100%;
+    scroll-snap-align: center;
+
+    @media (max-width: 840px) {
+        flex-direction: column;
+    }
+
+    &.portal-position-end {
+        flex-direction: row-reverse;
+    }
+
+    .neo-content {
+        font-size: min(max(2.3vw, 16px), 30px);
+    }
+
+    .neo-h1 {
+        font-size  : min(max(5.5vw, 30px), 64px);
+        line-height: 1em;
+        margin     : 0;
+        text-align : center;
+    }
+
+    .neo-h2 {
+        font-size  : min(max(3.5vw, 24px), 44px);
+        font-weight: 600;
+        line-height: 1em;
+        margin     : 0;
+        text-align : center;
+    }
+
+    .page-live-preview {
+        height: 100%;
+        margin: 0;
+    }
+
+    .portal-content-text {
+        align-items    : center;
+        display        : flex;
+        flex           : 1;
+        flex-direction : column;
+        flex-wrap      : nowrap;
+        justify-content: center;
+        padding        : 2rem;
+
+        @media (max-width: 600px) {
+            flex           : .5 !important;
+            justify-content: start;
+            padding        : 1rem;
+        }
+    }
+
+    .portal-content-wrapper {
+        background-color: lightgray;
+        flex            : 2;
+        padding         : 20px;
+
+        @media (max-width: 600px) {
+            max-height: 35em;
+            min-height: 35em;
+            padding   : 5px;
+        }
+    }
+}
