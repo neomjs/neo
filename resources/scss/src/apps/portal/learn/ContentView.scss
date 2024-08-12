@@ -12,13 +12,6 @@
         padding: 1rem 1rem 0;
     }
 
-    pre[data-javascript] {
-        border       : thin solid lightgray;
-        border-radius: 4px;
-        overflow-x   : scroll;
-        padding      : 12px;
-    }
-
     a {
         color: var(--purple-500);
     }
@@ -29,10 +22,6 @@
         font-style      : italic;
         margin-left     : 0;
         padding         : 5px 5px 5px 15px;
-    }
-
-    p {
-        margin: 0.5em 0 0.7em 0;
     }
 
     details {
@@ -84,11 +73,22 @@
         padding      : 2px 16px;
         font-size    : 1em;
         margin-bottom: 1em;
+
+        &:hover {
+            /* On mouse-over, add a deeper shadow */
+            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+        }
     }
 
-    /* On mouse-over, add a deeper shadow */
-    .lab:hover {
-        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    p {
+        margin: 0.5em 0 0.7em 0;
+    }
+
+    pre[data-javascript] {
+        border       : thin solid lightgray;
+        border-radius: 4px;
+        overflow-x   : scroll;
+        padding      : 12px;
     }
 }
 
