@@ -75,6 +75,12 @@ rendering / dynamically manipulating the DOM:
 The worst case that could happen now is that your app worker will slow down and this core runs at 100%. However,
 this will not affect your UI (rendering thread → main).
 
+<a target="_blank" href="https://github.com/surma">Surma</a> 
+wrote a very nice article on how the Actor Model can and should get applied to the web
+<a target="_blank" href="https://surma.dev/things/actormodel/">here</a>.
+
+> It struck me that the Actor Model could work on the web. The more I thought about it, the more it seems like a natural fit.
+
 Probably the best solution for single page apps (SPAs) looks like this:
 
 <pre data-neo-component>
@@ -84,3 +90,12 @@ Probably the best solution for single page apps (SPAs) looks like this:
     "vdom": {"src": "../../resources/images/workers-focus.svg"}
 }
 </pre>
+
+To prevent the app worker from handling too much logic, we can optionally spawn more workers.
+Each thread has its fixed scope. Let us take a quick look into each of them.
+
+### The Main Thread
+
+The `index.html` file of your Neo.mjs App will by default have an empty `body` tag and only import the
+`MicroLoader.mjs` file. The loader will fetch your `neo-config.json` file and afterwards dynamically import the
+main thread part of the framework.
