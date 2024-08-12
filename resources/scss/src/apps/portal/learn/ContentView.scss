@@ -19,6 +19,10 @@
         padding      : 12px;
     }
 
+    a {
+        color: var(--purple-500);
+    }
+
     blockquote {
         background-color: var(--gray-100);
         border-left     : 4px solid var(--sem-color-surface-primary-background);
