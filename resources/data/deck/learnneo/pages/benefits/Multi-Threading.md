@@ -23,7 +23,9 @@ On its own, a Browser will just use ***one*** core per tab / window.
 
 Meaning: your Angular or React apps look like this:
 
-![Current State of Apps](https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps-today.png)
+<p style="overflow-x: auto;">
+    <img alt="Current State of Apps" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps-today.png">
+</p>
 
 The more JavaScript tasks are running inside your app, the slower it will get.
 The worst scenario is a complete UI freeze where your one core is at 100%
@@ -79,7 +81,9 @@ In case you are not familiar with what an "actor" means, definitely read it firs
 To resolve this performance bottleneck, we want to get main threads as idle as possible, so that they can fully focus on
 rendering / dynamically manipulating the DOM:
 
-![App Worker Concept](https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/app-worker.png)
+<p style="overflow-x: auto;">
+    <img alt="App Worker Concept" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/app-worker.png">
+</p>
 
 The worst case that could happen now is that your app worker will slow down and this core runs at 100%. However,
 this will not affect your UI (rendering thread → main).

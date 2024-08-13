@@ -9,7 +9,8 @@
     width           : -webkit-fill-available;
 
     @media (max-width: 600px) {
-        padding: 1rem 1rem 0;
+        overflow-x: hidden;
+        padding   : 1rem 1rem 0;
     }
 
     a {
