@@ -24,6 +24,11 @@ class HighlightJS extends Base {
          */
         highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
         /**
+         * @member {Boolean} libraryLoaded_=true
+         * @protected
+         */
+        libraryLoaded_: false,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -47,16 +52,53 @@ class HighlightJS extends Base {
     }
 
     /**
+     * @member {Object[]} cache=[]
+     * @protected
+     */
+    cache = []
+
+    /**
+     * Triggered after the libraryLoaded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetLibraryLoaded(value, oldValue) {
+        if (value) {
+            let me = this,
+                returnValue;
+
+            me.cache.forEach(item => {
+                returnValue = me[item.fn](item.data);
+                item.resolve(returnValue)
+            });
+
+            me.cache = []
+        }
+    }
+
+    /**
+     * Internally caches call when the hljs namespace does not exist yet
+     * @param item
+     * @returns {Promise<unknown>}
+     */
+    cacheMethodCall(item) {
+        return new Promise((resolve, reject) => {
+            this.cache.push({...item, resolve})
+        })
+    }
+
+    /**
      * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
      * @param {Object} data
      * @param {String} data.html
      * @returns {Object} of the form {language, relevance, value, secondBest}
      */
     highlightAuto(data) {
-        if (hljs) {
+        if (window.hljs) {
             return hljs.highlightAuto(data.html)
         } else {
-            console.error('highlight.js is not included inside the main thread.')
+            return this.cacheMethodCall({fn: 'highlightAuto', data})
         }
     }
 
@@ -76,6 +118,8 @@ class HighlightJS extends Base {
         });
 
         Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
+
+        this.libraryLoaded = true;
 
         return true
     }
@@ -118,13 +162,15 @@ class HighlightJS extends Base {
      * @param {String} data.vnodeId
      */
     syntaxHighlight(data) {
-        if (hljs) {
+        if (window.hljs) {
             let node = document.getElementById(data.vnodeId);
 
-            hljs.highlightBlock(node);
-            hljs.lineNumbersBlock(node)
+            if (node) {
+                hljs.highlightBlock(node);
+                hljs.lineNumbersBlock(node)
+            }
         } else {
-            console.error('highlight.js is not included inside the main thread.')
+            return this.cacheMethodCall({fn: 'syntaxHighlight', data})
         }
     }
 
@@ -132,11 +178,11 @@ class HighlightJS extends Base {
      * @param {Object} data
      */
     syntaxHighlightInit(data) {
-        if (hljs) {
+        if (window.hljs) {
             let blocks = document.querySelectorAll('pre code:not(.hljs)');
             Array.prototype.forEach.call(blocks, hljs.highlightBlock)
         } else {
-            console.error('highlight.js is not included inside the main thread.')
+            return this.cacheMethodCall({fn: 'syntaxHighlightInit', data})
         }
     }
 
@@ -147,6 +193,10 @@ class HighlightJS extends Base {
      * @param {Number} data.removeLine
      */
     syntaxHighlightLine(data) {
+        if (!window.hljs) {
+            return this.cacheMethodCall({fn: 'syntaxHighlightLine', data})
+        }
+
         let parentEl = document.getElementById(data.vnodeId),
             cls      = 'neo-highlighted-line',
             el;
