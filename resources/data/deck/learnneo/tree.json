@@ -2,7 +2,7 @@
     {"name":  "Welcome!",                                   "parentId": null,                "isLeaf":  true, "id": "Welcome" },
     {"name": "Benefits",                                    "parentId": null,                "isLeaf": false, "id": "WhyNeo"},
         {"name": "Introduction ",                           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Intro"},
-        {"name": "Multi-Threading",                         "parentId": "WhyNeo",            "isLeaf": true,  "id": "benefits.Multi-Threading"},
+        {"name": "Off the Main Thread",                     "parentId": "WhyNeo",            "isLeaf": true,  "id": "benefits.Multi-Threading"},
         {"name": "Extreme Speed",                           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Speed"},
         {"name": "Multi-Window Applications",               "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Multi-Window"},
         {"name": "Quick Application Development",           "parentId": "WhyNeo",            "isLeaf": true,  "id": "WhyNeo-Quick"},

@@ -34,7 +34,11 @@ class ContentView extends Component {
         /**
          * @member {Object} record_=null
          */
-        record_: null
+        record_: null,
+        /**
+         * @member {String} tag='article'
+         */
+        tag: 'article'
     }
 
     /**

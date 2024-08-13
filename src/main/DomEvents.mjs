@@ -542,17 +542,19 @@ class DomEvents extends Base {
     onKeyDown(event) {
         let {target}  = event,
             {tagName} = target,
-            isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
+            isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA';
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
             event.preventDefault()
         } else {
             this.sendMessageToApp(this.getKeyboardEventData(event));
 
-            if (!isInput) { // see: https://github.com/neomjs/neo/issues/1729
-                if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
-                    event.preventDefault()
-                }
+            if (
+                !isInput &&
+                ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
+                this.testPathInclusion(event, ['neo-selection'], true)
+            ) {
+                event.preventDefault()
             }
         }
     }
@@ -832,9 +834,10 @@ event.preventDefault();
     /**
      * @param {Object} event
      * @param {Object} targetArray
+     * @param {Object} testSubstring=false
      * @returns {Object|Boolean} target cls & node if found, false otherwise
      */
-    testPathInclusion(event, targetArray) {
+    testPathInclusion(event, targetArray, testSubstring=false) {
         let countTargets = targetArray.length,
             path         = event.path || event.composedPath(),
             i            = 0,
@@ -845,7 +848,10 @@ event.preventDefault();
             node = path[i];
 
             for (j = 0; j < countTargets; j++) {
-                if (node.classList?.contains(targetArray[j])) {
+                if (
+                    testSubstring && node.classList?.value?.includes(targetArray[j]) ||
+                    node.classList?.contains(targetArray[j])
+                ) {
                     return {cls: targetArray[j], node}
                 }
             }
