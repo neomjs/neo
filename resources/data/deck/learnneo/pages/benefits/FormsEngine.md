@@ -202,34 +202,24 @@ class MainView extends FormContainer {
         }]
     }
 
-    async getMainFormValues(data) {
-        const formValues = await this.getValues();
+    async getFormValues(form) {
+        const formValues = await form.getValues();
         Neo.Main.log({value: formValues});
 
-        const isValid = await this.validate();
-        Neo.Main.log({value: `isValid: ${isValid}`});
+        const isValid = await form.validate();
+        Neo.Main.log({value: `isValid: ${isValid}`})
+    }
+
+    async getMainFormValues(data) {
+        await this.getFormValues(this)
     }
 
     async getProductFormValues(data) {
-        const
-            form       = this.getReference('product-form'),
-            formValues = await form.getValues();
-
-        Neo.Main.log({value: formValues});
-
-        const isValid = await form.validate();
-        Neo.Main.log({value: `isValid: ${isValid}`});
+        await this.getFormValues(this.getReference('product-form'))
     }
 
     async getUserFormValues(data) {
-        const
-            form       = this.getReference('user-form'),
-            formValues = await form.getValues();
-
-        Neo.Main.log({value: formValues});
-
-        const isValid = await form.validate();
-        Neo.Main.log({value: `isValid: ${isValid}`});
+        await this.getFormValues(this.getReference('user-form'))
     }
 }
 Neo.setupClass(MainView);
