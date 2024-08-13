@@ -95,6 +95,10 @@
         pointer-events: none;
         text-transform: var(--button-text-transform);
         z-index       : 2;
+
+        @media (max-width: 600px) {
+            font-size: 13px;
+        }
     }
 
     &:active {
