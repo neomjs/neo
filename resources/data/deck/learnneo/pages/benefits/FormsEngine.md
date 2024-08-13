@@ -90,3 +90,69 @@ class MainView extends Container {
 }
 Neo.setupClass(MainView);
 </pre>
+
+## Nested Forms
+
+<pre data-neo>
+import Button        from '../button/Base.mjs';
+import Container     from '../container/Base.mjs';
+import FormContainer from '../form/Container.mjs';
+import TabContainer  from '../tab/Container.mjs';
+import TextField     from '../form/field/Text.mjs';
+
+class MainView extends FormContainer {
+    static config = {
+        className: 'Example.view.MainView',
+        layout   : {ntype:'vbox', align:'stretch'},
+        
+        items: [{
+            module: TabContainer,
+
+            items: [{
+                module         : FormContainer,
+                itemDefaults   : {labelPosition: 'inline'},
+                layout         : {ntype:'vbox', align:'start'},
+                tabButtonConfig: {text: 'User'},
+                tag            : 'div',
+
+                items: [{
+                    module   : TextField,
+                    labelText: 'Firstname',
+                    name     : 'user.firstname',
+                    value    : 'John'
+                }, {
+                    module   : TextField,
+                    labelText: 'Lastname',
+                    name     : 'user.lastname',
+                    value    : 'Doe'
+                }]
+            }, {
+                module         : FormContainer,
+                itemDefaults   : {labelPosition: 'inline'},
+                layout         : {ntype:'vbox', align:'start'},
+                tabButtonConfig: {text: 'Product'},
+                tag            : 'div',
+
+                items: [{
+                    module   : TextField,
+                    labelText: 'Name',
+                    name     : 'product.name',
+                    value    : 'Car'
+                }, {
+                    module   : TextField,
+                    labelText: 'Brand',
+                    name     : 'product.brand',
+                    value    : 'Tesla'
+                }]
+            }]
+        }]
+    }
+
+    async getFormValues(data) {
+        const formValues = await this.getValues();
+        // Logs {user: {firstname: 'John', lastname: 'Doe'}}
+        Neo.Main.log({value: formValues})
+    }
+}
+Neo.setupClass(MainView);
+</pre>
