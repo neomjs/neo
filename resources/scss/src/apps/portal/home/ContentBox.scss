@@ -1,4 +1,5 @@
 .portal-content-box {
+    position: relative;
     border-radius  : 3px;
     box-shadow     : 0 3px 6px rgba(0, 0, 0, 0.3);
     cursor         : pointer;
@@ -9,6 +10,20 @@
 
     &:hover {
         background-color: var(--sem-color-surface-primary-background);
+
+        &:after{
+            content: attr(href) ' \2192';
+            position: absolute;
+            opacity: 0.7;
+            bottom: 10px;
+            right: -1px;
+            left: -1px;
+            background-color: var(--purple-200);
+            padding: 3px 20px;
+            border-radius: 2px;
+            font-size: 0.7em;
+            text-align: center;
+        }
     }
 
     .portal-content-box-content {
