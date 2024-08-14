@@ -1,25 +1,21 @@
 {
-  "appPath": "apps/portal/app.mjs",
-  "basePath": "../../",
-  "environment": "development",
-  "mainPath": "./Main.mjs",
-  "remotesApiUrl": "remotes-api.json",
-  "themes": [
-    "neo-theme-neo-light",
-    "neo-theme-light",
-    "neo-theme-dark"
-  ],
-  "useSharedWorkers": true,
-  "mainThreadAddons": [
-    "AmCharts",
-    "Browser",
-    "DragDrop",
-    "HighlightJS",
-    "IntersectionObserver",
-    "MonacoEditor",
-    "Navigator",
-    "ResizeObserver",
-    "Stylesheet",
-    "WebComponent"
-  ]
+    "appPath"         : "apps/portal/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "remotesApiUrl"   : "remotes-api.json",
+    "themes"          : ["neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
+    "useSharedWorkers": true,
+
+    "mainThreadAddons": [
+        "AmCharts",
+        "DragDrop",
+        "HighlightJS",
+        "IntersectionObserver",
+        "MonacoEditor",
+        "Navigator",
+        "ResizeObserver",
+        "Stylesheet",
+        "WebComponent"
+    ]
 }
