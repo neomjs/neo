@@ -120,8 +120,7 @@ class Video extends BaseComponent {
 
         let {vdom}      = this,
             media       = VDomUtil.getFlags(vdom, 'media')[0],
-            ua          = navigator.userAgent || navigator.vendor || window.opera,
-            isOperaMini = /Opera Mini/i.test(ua);
+            isOperaMini = Neo.main.addon.Browser && Neo.main.addon.Browser.checkBrowserName('Opera Mini');
 
         media.cn = [{
             tag: 'source',
