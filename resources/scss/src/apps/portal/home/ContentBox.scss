@@ -1,43 +1,67 @@
 .portal-content-box {
-    position: relative;
-    border-radius  : 3px;
-    box-shadow     : 0 3px 6px rgba(0, 0, 0, 0.3);
-    cursor         : pointer;
-    color          : #000;
-    min-width      : 300px;
-    padding        : 0 1em 1em 1em;
-    text-decoration: none;
+  position: relative;
+  border-radius: 3px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  color: #000;
+  min-width: 300px;
+  padding: 0 1em 1em 1em;
+  text-decoration: none;
 
-    &:hover {
-        background-color: var(--sem-color-surface-primary-background);
+  &:hover {
+    background-color: var(--sem-color-surface-primary-background);
 
-        &:after{
-            content: attr(href) ' \2192';
-            position: absolute;
-            opacity: 0.7;
-            bottom: 10px;
-            right: -1px;
-            left: -1px;
-            background-color: var(--purple-200);
-            padding: 3px 20px;
-            border-radius: 2px;
-            font-size: 0.7em;
-            text-align: center;
-        }
-    }
-
-    .portal-content-box-content {
-        padding-left: 1.3em;
-        margin-top: 0.75em;
+    &:after {
+      content: attr(href) ' \2192';
+      position: absolute;
+      opacity: 0.7;
+      bottom: 10px;
+      right: -1px;
+      left: -1px;
+      background-color: var(--purple-200);
+      padding: 3px 20px;
+      border-radius: 2px;
+      font-size: 0.7em;
+      text-align: center;
     }
 
     .portal-content-box-headline {
-        border-bottom: 1px solid #ececec;
-        padding-bottom: 0.75em;
-        max-width: 85%;
-        margin: 1em auto 0 auto;
-        text-align: center;
-        letter-spacing: 1.5px!important;
-        word-spacing: 1.5px;
+      border-bottom-color: #b7c0da;
     }
+  }
+
+  .portal-content-box-content {
+    padding-left: 1.3em;
+    margin-top: 0.75em;
+  }
+
+  .portal-content-box-headline {
+    border-bottom: 1px solid #ececec;
+    padding-bottom: 0.75em;
+    max-width: 85%;
+    margin: 1em auto 0 auto;
+    text-align: center;
+    letter-spacing: 1.5px !important;
+    word-spacing: 1.5px;
+  }
 }
+
+
+.neo-mobile {
+  .portal-content-box {
+    &:after {
+      content: attr(href) ' \2192';
+      position: absolute;
+      opacity: 0.7;
+      bottom: 10px;
+      right: -1px;
+      left: -1px;
+      background-color: var(--purple-200);
+      padding: 3px 20px;
+      border-radius: 2px;
+      font-size: 0.7em;
+      text-align: center;
+    }
+  }
+}
+
