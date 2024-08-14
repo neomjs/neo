@@ -1,5 +1,7 @@
 import BaseComponent from '../component/Base.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import VDomUtil      from '../util/VDom.mjs';
+
+let isOperaMini = null;
 
 /**
  * @class Neo.component.Video
@@ -39,7 +41,7 @@ class Video extends BaseComponent {
         autoplay: false,
         /**
          * In case the browser does not support the video source the component should show an error.
-         * @member {Boolean} errorMsg='The browser does not support the video'
+         * @member {String} errorMsg='The browser does not support the video'
          */
         errorMsg: 'Your browser does not support the video tag.',
         /**
@@ -109,31 +111,35 @@ class Video extends BaseComponent {
     }
 
     /**
-     * afterSetUrl
      * Add a source element into the video element containing the url
-     *
      * @param {String} value
      * @param {String|null} oldValue
      */
-    afterSetUrl(value, oldValue) {
+    async afterSetUrl(value, oldValue) {
         if (!value) return;
 
-        let {vdom}      = this,
-            media       = VDomUtil.getFlags(vdom, 'media')[0],
-            isOperaMini = Neo.main.addon.Browser && Neo.main.addon.Browser.checkBrowserName('Opera Mini');
+        let me     = this,
+            {vdom} = me,
+            media  = VDomUtil.getFlags(vdom, 'media')[0],
+            userAgent;
+
+        if (isOperaMini === null) {
+            userAgent   = await Neo.Main.getByPath({path: 'navigator.userAgent'});
+            isOperaMini = userAgent.includes('Opera Mini');
+        }
 
         media.cn = [{
-            tag: 'source',
-            src: value,
-            type: this.type
+            tag : 'source',
+            src : value,
+            type: me.type
         }];
 
         // Opera Mini might not support the video-source => check the user agent string
         if (isOperaMini) {
             media.cn.push({
-                tag: 'span',
-                html: this.errorMsg,
-            });
+                tag : 'span',
+                html: me.errorMsg
+            })
         }
 
         this.update()
@@ -143,7 +149,7 @@ class Video extends BaseComponent {
      * autoplay - run the event listeners
      * Only called in constructor and sets playing => calls update already
      *
-     * Rationale: update() sends the vdom & vnode on a workers roundtrip to get the deltas. 
+     * Rationale: update() sends the vdom & vnode on a workers roundtrip to get the deltas.
      * While this is happening,  the component locks itself for future updates until the new vnode got back (async).
      * After the delay the framework  would trigger a 2nd roundtrip to get the deltas for the visible node.
      *
