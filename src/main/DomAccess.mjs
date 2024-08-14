@@ -566,18 +566,21 @@ class DomAccess extends Base {
 
     /**
      * Include a script into the document.head
+     * You can add more attributes if needed. See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script
      * @param {String} src
-     * @param {Boolean} [async=true]
+     * @param {Object} opts=defer:true}
+     * @param {Boolean} [opts.async]
+     * @param {Boolean} [opts.defer]
      * @returns {Promise<unknown>}
      */
-    loadScript(src, async=true) {
+    loadScript(src, opts={defer:true}) {
         let script;
 
         return new Promise((resolve, reject) => {
             script = document.createElement('script');
 
             Object.assign(script, {
-                async,
+                ...opts,
                 onerror: reject,
                 onload : resolve,
                 src
