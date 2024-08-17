@@ -429,8 +429,21 @@ Neo = globalThis.Neo = Object.assign({
             ntypeChain = [],
             {ntypeMap} = Neo,
             proto      = cls.prototype || cls,
+            ns         = Neo.ns(proto.constructor.config.className, false),
             protos     = [],
-            cfg, config, ctor, ns, ntype;
+            cfg, config, ctor, ntype;
+
+        /*
+         * If the namespace already exists, directly return it.
+         * This can happen when using different versions of neo.mjs
+         * => Especially singletons (IdGenerator) must stay unique.
+         *
+         * This can also happen when using different environments of neo.mjs in parallel.
+         * Example: code.LivePreview running inside a dist/production app.
+         */
+        if (ns) {
+            return ns
+        }
 
         while (proto.__proto__) {
             ctor = proto.constructor;
@@ -531,19 +544,8 @@ Neo = globalThis.Neo = Object.assign({
         });
 
         if (proto.singleton) {
-            ns = Neo.ns(proto.className);
-
-            // Only create new singleton instances, in case the namespace is not in use. Using multiple neo versions
-            // will cause issues otherwise (e.g. combining dist/production & development). Example: code.LivePreview.
-            if (!ns) {
-                cls = Neo.create(cls);
-                Neo.applyToGlobalNs(cls)
-            }
-            // If the singleton already exists, just return this version instead.
-            // This enables us to still use it with default import statements.
-            else {
-                return ns
-            }
+            cls = Neo.create(cls);
+            Neo.applyToGlobalNs(cls)
         }
 
         return cls
