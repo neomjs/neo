@@ -26,10 +26,11 @@ class Base extends CoreBase {
         isReady_: false,
         /**
          * Amount in ms to delay the loading of library files, unless remote method access happens
-         * @member {Number} loadFilesDelay=5000
+         * Change the value to false in case you don't want an automated preloading
+         * @member {Boolean|Number} preloadFilesDelay=5000
          * @protected
          */
-        loadFilesDelay: 5000,
+        preloadFilesDelay: 5000,
     }
 
     /**
@@ -56,9 +57,13 @@ class Base extends CoreBase {
         let me = this;
 
         if (me.loadFiles) {
-            me.loadingTimeoutId = setTimeout(() => {
+            if (me.preloadFilesDelay === 0) {
                 me.loadFiles()
-            }, me.loadFilesDelay)
+            } else if (Neo.isNumber(me.preloadFilesDelay)) {
+                me.loadingTimeoutId = setTimeout(() => {
+                    me.loadFiles()
+                }, me.preloadFilesDelay)
+            }
         }
     }
 
@@ -92,7 +97,7 @@ class Base extends CoreBase {
         let me = this;
 
         if (!me.isLoading) {
-            clearTimeout(me.loadingTimeoutId);
+            me.loadingTimeoutId && clearTimeout(me.loadingTimeoutId);
             me.loadingTimeoutId = null;
             me.loadFiles()
         }
