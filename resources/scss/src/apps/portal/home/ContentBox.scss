@@ -49,17 +49,13 @@
 .neo-no-mouse {
     .portal-content-box {
         &:after {
-            background-color: var(--purple-200);
-            border-radius   : 2px;
-            bottom          : 10px;
-            content         : attr(href) ' \2192';
-            font-size       : 0.7em;
-            left            : -1px;
-            opacity         : 0.7;
-            padding         : 3px 20px;
-            position        : absolute;
-            right           : -1px;
-            text-align      : center;
+            bottom     : .5em;
+            color      : var(--purple-200);
+            content    : '\f08e';
+            font-family: var(--fa-style-family-classic);
+            font-weight: 600;
+            position   : absolute;
+            right      : .5em;
         }
     }
 }
