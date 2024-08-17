@@ -40,6 +40,10 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * @member {Object[]} cache=[]
+     */
+    cache = []
+    /**
      * Will get set to true once we start loading Monaco related files
      * @member {Boolean} isLoading=false
      */
@@ -69,8 +73,28 @@ class MonacoEditor extends Base {
         let me = this;
 
         me.loadingTimeoutId = setTimeout(() => {
-            this.loadFiles()
+            me.loadFiles()
         }, 5000)
+    }
+
+    /**
+     * Internally caches call when isReady===false
+     * Loads the library files in case this is not already happening
+     * @param item
+     * @returns {Promise<unknown>}
+     */
+    cacheMethodCall(item) {
+        let me = this;
+
+        if (!me.isLoading) {
+            clearTimeout(me.loadingTimeoutId);
+            me.loadingTimeoutId = null;
+            me.loadFiles()
+        }
+
+        return new Promise((resolve, reject) => {
+            me.cache.push({...item, resolve})
+        })
     }
 
     /**
@@ -83,12 +107,16 @@ class MonacoEditor extends Base {
             {id} = data,
             editor;
 
-        delete data.appName;
-        delete data.id;
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'createInstance', data})
+        } else {
+            delete data.appName;
+            delete data.id;
 
-        editor = me.map[id] = monaco.editor.create(DomAccess.getElement(id), data);
+            editor = me.map[id] = monaco.editor.create(DomAccess.getElement(id), data);
 
-        editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+            editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+        }
     }
 
     /**
@@ -96,8 +124,14 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     destroyInstance(data) {
-        // todo: destroy the editor instance if possible
-        delete this.map[data.id]
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'destroyInstance', data})
+        } else {
+            // todo: destroy the editor instance if possible
+            delete this.map[data.id]
+        }
     }
 
     /**
@@ -106,7 +140,13 @@ class MonacoEditor extends Base {
      * @returns {Object}
      */
     getValue(data) {
-        return this.map[data.id].getModel().getValue()
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'getValue', data})
+        } else {
+            return me.map[data.id].getModel().getValue()
+        }
     }
 
     /**
@@ -115,7 +155,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     layoutEditor(data) {
-        this.map[data.id].layout()
+        this.isReady && this.map[data.id].layout()
     }
 
     /**
@@ -162,7 +202,13 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setLanguage(data) {
-        this.map[data.id].getModel().setLanguage(data.value)
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'setLanguage', data})
+        } else {
+            me.map[data.id].getModel().setLanguage(data.value)
+        }
     }
 
     /**
@@ -171,7 +217,13 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setTheme(data) {
-        this.map[data.id]._themeService.setTheme(data.value)
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'setTheme', data})
+        } else {
+            me.map[data.id]._themeService.setTheme(data.value)
+        }
     }
 
     /**
@@ -180,7 +232,13 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setValue(data) {
-        this.map[data.id].getModel().setValue(data.value)
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'setValue', data})
+        } else {
+            me.map[data.id].getModel().setValue(data.value)
+        }
     }
 
     /**
@@ -189,7 +247,13 @@ class MonacoEditor extends Base {
      * @param {Object} data.options
      */
     updateOptions(data) {
-        this.map[data.id].updateOptions(data.options)
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'updateOptions', data})
+        } else {
+            me.map[data.id].updateOptions(data.options)
+        }
     }
 }
 
