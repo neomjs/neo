@@ -57,6 +57,4 @@ class EditUserDialog extends Dialog {
     }
 }
 
-Neo.setupClass(EditUserDialog);
-
-export default EditUserDialog;
+export default Neo.setupClass(EditUserDialog);

@@ -354,8 +354,8 @@ class MainContainer extends Viewport {
                     async: true,
                     defer: true,
                     src  : 'https://buttons.github.io/buttons.js'
-                });
-            });
+                })
+            })
         }
     }
 
@@ -363,17 +363,15 @@ class MainContainer extends Viewport {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        this.getStore().data = data;
+        this.getStore().data = data
     }
 
     /**
      * @returns {Neo.data.Store}
      */
     getStore() {
-        return this.items[0].items[0].store;
+        return this.items[0].items[0].store
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

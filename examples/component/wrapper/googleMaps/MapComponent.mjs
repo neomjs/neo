@@ -63,7 +63,7 @@ class MapComponent extends GoogleMapsComponent {
     construct(config) {
         super.construct(config);
 
-        this.fetchData();
+        this.fetchData()
     }
 
     /**
@@ -163,6 +163,4 @@ class MapComponent extends GoogleMapsComponent {
     }
 }
 
-Neo.setupClass(MapComponent);
-
-export default MapComponent;
+export default Neo.setupClass(MapComponent);

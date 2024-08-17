@@ -53,10 +53,8 @@ class List extends BaseList {
                     {cls: ['neo-is-online'], id: `${id}__isonline`, removeDom: !record.isOnline}
                 ]}
             ]}
-        ];
+        ]
     }
 }
 
-Neo.setupClass(List);
-
-export default List;
+export default Neo.setupClass(List);

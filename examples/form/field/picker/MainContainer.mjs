@@ -105,7 +105,7 @@ class MainContainer extends ConfigurationViewport {
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -115,10 +115,8 @@ class MainContainer extends ConfigurationViewport {
             labelText           : 'Label',
             labelWidth          : 70,
             width               : 200
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

@@ -104,14 +104,14 @@ class MainContainer extends ConfigurationViewport {
             handler: (() => {me.exampleComponent.flipCircle()}),
             text   : 'Flip',
             width  : 110
-        }];
+        }]
     }
 
     createExampleComponent() {
         return Neo.create(Circle, {
             height: 500,
             width : 500
-        });
+        })
     }
 
     onResetRotation() {
@@ -119,10 +119,8 @@ class MainContainer extends ConfigurationViewport {
 
         Neo.getComponent(pre + 'rotateX').value = 0;
         Neo.getComponent(pre + 'rotateY').value = 0;
-        Neo.getComponent(pre + 'rotateZ').value = 0;
+        Neo.getComponent(pre + 'rotateZ').value = 0
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

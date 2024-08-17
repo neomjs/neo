@@ -75,7 +75,7 @@ class MainContainer extends Viewport {
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
-        }];
+        }]
     }
 
     /**
@@ -147,11 +147,9 @@ class MainContainer extends Viewport {
         if (dialog) {
             cls = dialog.cls;
             NeoArray.removeAdd(cls, oldTheme, theme);
-            dialog.cls = cls;
+            dialog.cls = cls
         }
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

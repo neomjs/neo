@@ -54,7 +54,7 @@ class DemoDialog extends Dialog {
     construct(config) {
         super.construct(config);
 
-        const me = this;
+        let me = this;
 
         me.items = [{
             module    : ComboBox,
@@ -157,6 +157,4 @@ class DemoDialog extends Dialog {
     }
 }
 
-Neo.setupClass(DemoDialog);
-
-export default DemoDialog;
+export default Neo.setupClass(DemoDialog);

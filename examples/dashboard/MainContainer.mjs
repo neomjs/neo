@@ -19,7 +19,7 @@ class MainContainer extends Viewport {
                 module: Container
             },
 
-            items : [{
+            items: [{
                 style: {backgroundColor: 'blue'}
             }, {
                 style: {backgroundColor: 'darkgreen'}
@@ -34,6 +34,4 @@ class MainContainer extends Viewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

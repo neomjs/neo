@@ -39,7 +39,7 @@ class MainContainer extends ConfigurationViewport {
             stepSize  : 5,
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -47,10 +47,8 @@ class MainContainer extends ConfigurationViewport {
             module      : MenuList,
             displayField: 'text',
             store       : MainStore
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

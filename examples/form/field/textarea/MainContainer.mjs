@@ -175,7 +175,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'wrap', null)},
             name          : 'wrap',
             valueLabelText: 'null'
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -186,10 +186,8 @@ class MainContainer extends ConfigurationViewport {
             labelWidth: 70,
             value     : 'Hello World',
             width     : 400,
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.extendedClass.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.extendedClass.MainContainerController'
@@ -17,21 +17,21 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.updateButton1Text('Button 1');
+        this.updateButton1Text('Button 1')
     }
 
     /**
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.updateButton2Text('Button 2');
+        this.updateButton2Text('Button 2')
     }
 
     /**
      * @param {Object} data
      */
     onLogModelIntoConsoleButtonClick(data) {
-        console.log(this.getModel());
+        console.log(this.getModel())
     }
 
     /**
@@ -39,7 +39,7 @@ class MainContainerController extends Component {
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton1Text(data.value);
+            this.updateButton1Text(data.value)
         }
     }
 
@@ -48,7 +48,7 @@ class MainContainerController extends Component {
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton2Text(data.value);
+            this.updateButton2Text(data.value)
         }
     }
 
@@ -56,7 +56,7 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value || '';
+        this.getModel().data['button1Text'] = value || ''
     }
 
     /**
@@ -65,10 +65,8 @@ class MainContainerController extends Component {
     updateButton2Text(value) {
         this.getModel().setData({
             button2Text: value || ''
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

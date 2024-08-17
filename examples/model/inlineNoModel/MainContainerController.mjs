@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.inlineNoModel.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.inlineNoModel.MainContainerController'
@@ -29,7 +29,7 @@ class MainContainerController extends Component {
      */
     afterSetButton1Text(value, oldValue) {
         if (oldValue !== undefined) { // we can not use the initial state change, since the view is not parsed yet
-            this.updateReferences(value, 'button1', 'textfield1');
+            this.updateReferences(value, 'button1', 'textfield1')
         }
     }
 
@@ -41,7 +41,7 @@ class MainContainerController extends Component {
      */
     afterSetButton2Text(value, oldValue) {
         if (oldValue !== undefined) { // we can not use the initial state change, since the view is not parsed yet
-            this.updateReferences(value, 'button2', 'textfield2');
+            this.updateReferences(value, 'button2', 'textfield2')
         }
     }
 
@@ -49,28 +49,28 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.button1Text = 'Button 1';
+        this.button1Text = 'Button 1'
     }
 
     /**
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.button2Text = 'Button 2';
+        this.button2Text = 'Button 2'
     }
 
     /**
      * @param {Object} data
      */
     onTextField1Change(data) {
-        this.button1Text = data.value;
+        this.button1Text = data.value
     }
 
     /**
      * @param {Object} data
      */
     onTextField2Change(data) {
-        this.button2Text = data.value;
+        this.button2Text = data.value
     }
 
     /**
@@ -80,7 +80,7 @@ class MainContainerController extends Component {
         let me = this;
 
         me.updateReferences(me.button1Text, 'button1', 'textfield1');
-        me.updateReferences(me.button2Text, 'button2', 'textfield2');
+        me.updateReferences(me.button2Text, 'button2', 'textfield2')
     }
 
     /**
@@ -90,10 +90,8 @@ class MainContainerController extends Component {
      */
     updateReferences(value, buttonReference, textfieldReference) {
         this.getReference(buttonReference)   .text  = value;
-        this.getReference(textfieldReference).value = value;
+        this.getReference(textfieldReference).value = value
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

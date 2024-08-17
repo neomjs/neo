@@ -301,10 +301,8 @@ class Viewport extends BaseViewport {
      * @protected
      */
     afterSetShowGitHubStarButton(value, oldValue) {
-        this.getItem('github-button').hidden = !value;
+        this.getItem('github-button').hidden = !value
     }
 }
 
-Neo.setupClass(Viewport);
-
-export default Viewport;
+export default Neo.setupClass(Viewport);

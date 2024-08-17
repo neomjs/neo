@@ -40,7 +40,7 @@ class Util extends Base {
         let value = data.value;
 
         if (!Neo.isNumber(value)) {
-            return value || 'N/A';
+            return value || 'N/A'
         }
 
         value = Math.round(value / 100);
@@ -48,7 +48,7 @@ class Util extends Base {
 
         value = value.toFixed(2) + ' %';
 
-        return value.toLocaleString(Util.locales);
+        return value.toLocaleString(Util.locales)
     }
 
     /**
@@ -62,12 +62,12 @@ class Util extends Base {
         let value = data.value;
 
         if (!Neo.isNumber(value)) {
-            return value || 'N/A';
+            return value || 'N/A'
         }
 
         value = value.toLocaleString(Util.locales);
 
-        return typeof color !== 'string' ? value : `<span style="color:${color};">${value}</span>`;
+        return typeof color !== 'string' ? value : `<span style="color:${color};">${value}</span>`
     }
 
     /**
@@ -136,13 +136,13 @@ class Util extends Base {
             let path = `../../../../resources/images/flaticon/country_flags/png/${imageName}.png`;
 
             if (Neo.config.environment !== 'development') {
-                path = `../../${path}`;
+                path = `../../${path}`
             }
 
-            return path;
+            return path
         }
 
-        return `https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/${imageName}.png`;
+        return `https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/${imageName}.png`
     }
 
     /**
@@ -154,10 +154,8 @@ class Util extends Base {
         return {
             cls : ['neo-index-column', 'neo-grid-cell'],
             html: data.index + 1
-        };
+        }
     }
 }
 
-Neo.setupClass(Util);
-
-export default Util;
+export default Neo.setupClass(Util);

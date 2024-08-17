@@ -44,17 +44,15 @@ class MainContainer extends ConfigurationViewport {
             maxValue : '12:00',
             minValue : '00:00',
             value    : me.exampleComponent.time
-        }];
+        }]
     }
 
     createExampleComponent() {
         return Neo.create({
             module: Clock,
             time  : '10:20'
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

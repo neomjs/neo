@@ -1,5 +1,5 @@
-import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Accordion             from '../../../src/container/Accordion.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Container             from '../../../src/container/Base.mjs';
 
 /**
@@ -15,8 +15,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createConfigurationComponents() {
-        let me = this;
-
         return [{
             ntype: 'component',
             html : '<u><b>TOP ACCORDION</b></u>',
@@ -41,7 +39,7 @@ class MainContainer extends ConfigurationViewport {
             ntype: 'component',
             html : '<b>initialOpen:</b> [0]',
             style: {marginTop: '10px'},
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -114,10 +112,8 @@ class MainContainer extends ConfigurationViewport {
                     }]
                 }]
             }]
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

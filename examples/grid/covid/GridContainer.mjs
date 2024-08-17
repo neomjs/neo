@@ -108,6 +108,4 @@ class GridContainer extends BaseGridContainer {
     }
 }
 
-Neo.setupClass(GridContainer);
-
-export default GridContainer;
+export default Neo.setupClass(GridContainer);

@@ -31,7 +31,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onMapZoomChange(data) {
-        this.getReference('zoom-field').value = data.value;
+        this.getReference('zoom-field').value = data.value
     }
 
     /**
@@ -64,10 +64,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onZoomFieldChange(data) {
-        this.getReference('google-maps-component').zoom = data.value;
+        this.getReference('google-maps-component').zoom = data.value
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

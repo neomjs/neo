@@ -36,7 +36,7 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'gap (row column)',
             listeners: {
                 change: {
-                    fn   : function (data) {
+                    fn: function (data) {
                         const comp = this.exampleComponent;
 
                         comp.layout.gap = data.value;
@@ -122,10 +122,8 @@ class MainContainer extends ConfigurationViewport {
         const comp      = this.exampleComponent,
               textfield = comp.down({ntype: 'textfield', name: index});
 
-        textfield.labelText = data.value;
+        textfield.labelText = data.value
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

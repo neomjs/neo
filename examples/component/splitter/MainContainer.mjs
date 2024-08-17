@@ -44,7 +44,7 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -61,14 +61,14 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 ntype: 'component'
             }]
-        });
+        })
     }
 
     /**
      * @param {Object} data
      */
     logInstance(data) {
-        console.log(this.exampleComponent.down({module: Splitter}));
+        console.log(this.exampleComponent.down({module: Splitter}))
     }
 
     /**
@@ -80,10 +80,8 @@ class MainContainer extends ConfigurationViewport {
         this.exampleComponent.layout = {
             ntype: data.value ? 'vbox' : 'hbox',
             align: 'stretch'
-        };
+        }
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

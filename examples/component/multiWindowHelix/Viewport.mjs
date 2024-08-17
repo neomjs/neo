@@ -40,10 +40,8 @@ class Viewport extends BaseViewport {
                 handler: 'onMaximiseButtonClick',
                 iconCls: 'far fa-window-maximize'
             }]
-        }];
+        }]
     }
 }
 
-Neo.setupClass(Viewport);
-
-export default Viewport;
+export default Neo.setupClass(Viewport);

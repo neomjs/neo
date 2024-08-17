@@ -101,7 +101,7 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -111,15 +111,11 @@ class MainContainer extends ConfigurationViewport {
             showOnHover: true,
             labelText  : 'Label',
             labelWidth : 70,
-            triggers   : [
-                CopyToClipboardTrigger
-            ],
+            triggers   : [CopyToClipboardTrigger],
             value      : 'Hello World',
             width      : 200
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

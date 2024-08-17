@@ -21,10 +21,8 @@ class MainContainerController extends ComponentController {
             destination: [-122.4175, 37.655, 400],
             heading    : 0.0,
             pitch      : -15.0
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);
