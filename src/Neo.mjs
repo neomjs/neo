@@ -422,6 +422,7 @@ Neo = globalThis.Neo = Object.assign({
      * Internally used at the end of each class / module definition
      * @memberOf module:Neo
      * @param {Neo.core.Base} cls The Neo class to apply configs to
+     * @returns {Neo.core.Base}
      * @protected
      */
     setupClass(cls) {
