@@ -87,6 +87,4 @@ class ContentTreeList extends TreeList {
     }
 }
 
-Neo.setupClass(ContentTreeList);
-
-export default ContentTreeList;
+export default Neo.setupClass(ContentTreeList);

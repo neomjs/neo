@@ -27,7 +27,7 @@ class ContainerController extends ComponentController {
             layerId: layerId,
             key    : 'visibility',
             value  : visibility
-        });
+        })
     }
 
     /**
@@ -37,24 +37,22 @@ class ContainerController extends ComponentController {
         const visibility = data.value ? 'visible' : 'none';
 
         this.changeLayerVisibility('covid19-circle',      visibility);
-        this.changeLayerVisibility('covid19-circle-text', visibility);
+        this.changeLayerVisibility('covid19-circle-text', visibility)
     }
 
     /**
      * @param {Object} data
      */
     onHeatMapChange(data) {
-        this.changeLayerVisibility('covid19-heat', data.value ? 'visible' : 'none');
+        this.changeLayerVisibility('covid19-heat', data.value ? 'visible' : 'none')
     }
 
     /**
      * @param {Object} data
      */
     onTerrainChange(data) {
-        this.changeLayerVisibility('hillshading', data.value ? 'visible' : 'none');
+        this.changeLayerVisibility('hillshading', data.value ? 'visible' : 'none')
     }
 }
 
-Neo.setupClass(ContainerController);
-
-export default ContainerController;
+export default Neo.setupClass(ContainerController);

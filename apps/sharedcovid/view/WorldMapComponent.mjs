@@ -92,17 +92,15 @@ class WorldMapComponent extends AmChartComponent {
                 id       : item.countryInfo.iso2,
                 name     : item.country,
                 recovered: item.recovered,
-            });
+            })
         });
 
         Neo.main.addon.AmCharts.updateData({
             data    : chartData,
             dataPath: this.dataPath,
             id      : this.id
-        });
+        })
     }
 }
 
-Neo.setupClass(WorldMapComponent);
-
-export default WorldMapComponent;
+export default Neo.setupClass(WorldMapComponent);

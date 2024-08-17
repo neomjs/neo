@@ -115,6 +115,4 @@ class PageContainer extends Container {
     }
 }
 
-Neo.setupClass(PageContainer);
-
-export default PageContainer;
+export default Neo.setupClass(PageContainer);

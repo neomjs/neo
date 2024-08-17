@@ -38,6 +38,4 @@ class BlogPosts extends Store {
     }
 }
 
-Neo.setupClass(BlogPosts);
-
-export default BlogPosts;
+export default Neo.setupClass(BlogPosts);

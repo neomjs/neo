@@ -178,6 +178,4 @@ class HeaderContainer extends Container {
     }
 }
 
-Neo.setupClass(HeaderContainer);
-
-export default HeaderContainer;
+export default Neo.setupClass(HeaderContainer);

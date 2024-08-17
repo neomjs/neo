@@ -53,6 +53,4 @@ class Colors extends FeatureSection {
     }
 }
 
-Neo.setupClass(Colors);
-
-export default Colors;
+export default Neo.setupClass(Colors);

@@ -43,6 +43,4 @@ class TableCollection extends BaseCollection {
     }
 }
 
-Neo.setupClass(TableCollection);
-
-export default TableCollection;
+export default Neo.setupClass(TableCollection);;

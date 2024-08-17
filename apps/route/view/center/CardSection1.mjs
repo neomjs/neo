@@ -17,10 +17,8 @@ class CardSection1 extends Container {
         vdom: {
             tag: 'h1',
             innerHTML: 'This is section 1 of the example.'
-        }        
+        }
     }
 }
 
-Neo.setupClass(CardSection1);
-
-export default CardSection1;
+export default Neo.setupClass(CardSection1);

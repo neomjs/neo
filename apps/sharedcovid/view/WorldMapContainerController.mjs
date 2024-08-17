@@ -85,11 +85,9 @@ class WorldMapContainerController extends ComponentController {
 
             countryData.sort((a, b) => b[data.component.series] - a[data.component.series]);
 
-            me.getReference('heatRuleField').value = Math.ceil(countryData[9][data.component.series] / 100) * 100;
-        });
+            me.getReference('heatRuleField').value = Math.ceil(countryData[9][data.component.series] / 100) * 100
+        })
     }
 }
 
-Neo.setupClass(WorldMapContainerController);
-
-export default WorldMapContainerController;
+export default Neo.setupClass(WorldMapContainerController);

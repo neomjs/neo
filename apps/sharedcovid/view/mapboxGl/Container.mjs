@@ -140,6 +140,4 @@ class Container extends BaseContainer {
     }
 }
 
-Neo.setupClass(Container);
-
-export default Container;
+export default Neo.setupClass(Container);

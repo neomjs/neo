@@ -103,6 +103,4 @@ class WorldMapComponent extends AmChartComponent {
     }
 }
 
-Neo.setupClass(WorldMapComponent);
-
-export default WorldMapComponent;
+export default Neo.setupClass(WorldMapComponent);

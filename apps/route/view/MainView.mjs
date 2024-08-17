@@ -19,10 +19,6 @@ class MainContainer extends Panel {
         className: 'Route.view.MainView',
         baseCls: ['route'],
         /**
-         * @member {Boolean} autoMount=true
-         */
-        //        autoMount: true,
-        /**
          * @member {Neo.controller.Component} controller=MainViewController
          */
         controller: MainViewController,
@@ -37,8 +33,7 @@ class MainContainer extends Panel {
             {
                 module: ButtonBar,
                 dock: 'top',
-                reference: 'buttonbar',
-
+                reference: 'buttonbar'
             },
             {
                 module: FooterContainer,
@@ -47,20 +42,16 @@ class MainContainer extends Panel {
             {
                 module: MetaContainer,
                 dock: 'bottom',
-                reference: 'metabar',
+                reference: 'metabar'
             }
         ],
         items: [
             {
                 module: CenterContainer,
                 reference: 'center-container'
-
             }
-        ],
-
+        ]
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

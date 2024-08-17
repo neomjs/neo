@@ -1,7 +1,6 @@
-import Container from '../../../src/container/Base.mjs';
-import Label from '../../../src/component/Label.mjs';
-import Button from '../../../src/button/Base.mjs';
 import Component from '../../../src/component/Base.mjs';
+import Container from '../../../src/container/Base.mjs';
+import Label     from '../../../src/component/Label.mjs';
 
 /**
  * @class Route.view.HeaderContainer
@@ -35,13 +34,10 @@ class HeaderContainer extends Container {
                 module: Label,
                 text: 'neo.mjs routes showcase',
                 cls: ['headline-caption']
-            },
+            }
         ],
-        layout: { ntype: 'vbox', align: 'stretch' },
-
+        layout: { ntype: 'vbox', align: 'stretch' }
     }
 }
 
-Neo.setupClass(HeaderContainer);
-
-export default HeaderContainer;
+export default Neo.setupClass(HeaderContainer);

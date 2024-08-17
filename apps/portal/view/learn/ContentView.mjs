@@ -327,6 +327,4 @@ class ContentView extends Component {
     }
 }
 
-Neo.setupClass(ContentView);
-
-export default ContentView;
+export default Neo.setupClass(ContentView);

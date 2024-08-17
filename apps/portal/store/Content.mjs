@@ -19,6 +19,4 @@ class Content extends Store {
     }
 }
 
-Neo.setupClass(Content);
-
-export default Content;
+export default Neo.setupClass(Content);

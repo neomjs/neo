@@ -75,6 +75,4 @@ class ContentBox extends Base {
     }
 }
 
-Neo.setupClass(ContentBox);
-
-export default ContentBox;
+export default Neo.setupClass(ContentBox);

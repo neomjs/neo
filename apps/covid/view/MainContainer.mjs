@@ -92,6 +92,4 @@ class MainContainer extends Viewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

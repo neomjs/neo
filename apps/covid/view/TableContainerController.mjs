@@ -282,6 +282,4 @@ class TableContainerController extends ComponentController {
     }
 }
 
-Neo.setupClass(TableContainerController);
-
-export default TableContainerController;
+export default Neo.setupClass(TableContainerController);

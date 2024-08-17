@@ -52,6 +52,4 @@ class PreviewList extends List {
     }
 }
 
-Neo.setupClass(PreviewList);
-
-export default PreviewList;
+export default Neo.setupClass(PreviewList);

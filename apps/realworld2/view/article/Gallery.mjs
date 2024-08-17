@@ -102,6 +102,4 @@ class Gallery extends BaseGallery {
     }
 }
 
-Neo.setupClass(Gallery);
-
-export default Gallery;
+export default Neo.setupClass(Gallery);

@@ -261,6 +261,4 @@ class CreateComponent extends Component {
     }
 }
 
-Neo.setupClass(CreateComponent);
-
-export default CreateComponent;
+export default Neo.setupClass(CreateComponent);

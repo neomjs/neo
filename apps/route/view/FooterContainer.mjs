@@ -1,5 +1,5 @@
+import Button    from '../../../src/button/Base.mjs';
 import Container from '../../../src/container/Base.mjs';
-import Button from '../../../src/button/Base.mjs';
 
 /**
  * @class Route.view.FooterContainer
@@ -15,7 +15,7 @@ class FooterContainer extends Container {
 
         baseCls: ['route_footer', 'neo-container'],
 
-        height: 55, 
+        height: 55,
         /**
          * @member {Object[]} items
          */
@@ -33,15 +33,10 @@ class FooterContainer extends Container {
                         text: 'Contact'
                     }
                 ],
-                layout: { ntype: 'hbox', align: 'stretch'  },
-
+                layout: { ntype: 'hbox', align: 'stretch' }
             }
-
-        ],
-
+        ]
     }
 }
 
-Neo.setupClass(FooterContainer);
-
-export default FooterContainer;
+export default Neo.setupClass(FooterContainer);

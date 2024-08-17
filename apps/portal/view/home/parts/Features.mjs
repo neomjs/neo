@@ -95,6 +95,4 @@ class Features extends BaseContainer {
     }
 }
 
-Neo.setupClass(Features);
-
-export default Features;
+export default Neo.setupClass(Features);

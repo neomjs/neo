@@ -65,6 +65,4 @@ class HeaderToolbar extends Toolbar {
     }
 }
 
-Neo.setupClass(HeaderToolbar);
-
-export default HeaderToolbar;
+export default Neo.setupClass(HeaderToolbar);

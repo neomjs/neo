@@ -444,6 +444,4 @@ class MainContainerController extends ComponentController {
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

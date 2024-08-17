@@ -1,5 +1,5 @@
+import Button    from '../../../src/button/Base.mjs';
 import Container from '../../../src/container/Base.mjs';
-import Button from '../../../src/button/Base.mjs';
 
 /**
  * @class Route.view.MetaContainer
@@ -42,11 +42,9 @@ class MetaContainer extends Container {
                 text: 'Reset User'
             }
         ],
-        layout: { ntype: 'hbox', align: 'stretch'  },
+        layout: { ntype: 'hbox', align: 'stretch'  }
 
     }
 }
 
-Neo.setupClass(MetaContainer);
-
-export default MetaContainer;
+export default Neo.setupClass(MetaContainer);

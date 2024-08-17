@@ -85,6 +85,4 @@ class GalleryContainerController extends ComponentController {
     }
 }
 
-Neo.setupClass(GalleryContainerController);
-
-export default GalleryContainerController;
+export default Neo.setupClass(GalleryContainerController);

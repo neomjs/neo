@@ -217,6 +217,4 @@ class GalleryContainer extends Container {
     }
 }
 
-Neo.setupClass(GalleryContainer);
-
-export default GalleryContainer;
+export default Neo.setupClass(GalleryContainer);

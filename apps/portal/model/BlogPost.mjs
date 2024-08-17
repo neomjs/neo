@@ -54,6 +54,4 @@ class BlogPost extends Model {
     }
 }
 
-Neo.setupClass(BlogPost);
-
-export default BlogPost;
+export default Neo.setupClass(BlogPost);

@@ -286,6 +286,4 @@ class ViewportController extends Controller {
     }
 }
 
-Neo.setupClass(ViewportController);
-
-export default ViewportController;
+export default Neo.setupClass(ViewportController);

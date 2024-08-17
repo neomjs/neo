@@ -66,6 +66,4 @@ class PageSectionsContainer extends Container {
     }
 }
 
-Neo.setupClass(PageSectionsContainer);
-
-export default PageSectionsContainer;
+export default Neo.setupClass(PageSectionsContainer);

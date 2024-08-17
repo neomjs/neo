@@ -15,9 +15,6 @@ class CardAdministration extends Container {
         baseCls: ['route_card_simple_page', 'neo-container'],
 
         username_: '',
-        /**
-         * @member {Object[]} items
-         */
 
         vdom: {
             tag: 'h1',
@@ -26,11 +23,9 @@ class CardAdministration extends Container {
     }
 
 
-    afterSetUsername(value, oldValue){
+    afterSetUsername(value, oldValue) {
         this.vdom.innerHTML = `Access Granted to ${this.username}.`;
     }
 }
 
-Neo.setupClass(CardAdministration);
-
-export default CardAdministration;
+export default Neo.setupClass(CardAdministration);

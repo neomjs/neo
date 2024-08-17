@@ -53,6 +53,4 @@ class AfterMath extends BaseContainer {
     }
 }
 
-Neo.setupClass(AfterMath);
-
-export default AfterMath;
+export default Neo.setupClass(AfterMath);
