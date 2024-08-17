@@ -55,7 +55,7 @@ class ContentView extends Component {
             scope    : me
         });
 
-        Neo.main.addon.HighlightJS.loadLibrary({
+        Neo.main.addon.HighlightJS.loadFiles({
             appName        : me.appName,
             highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
             themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'

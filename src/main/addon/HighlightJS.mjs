@@ -24,11 +24,6 @@ class HighlightJS extends Base {
          */
         highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
         /**
-         * @member {Boolean} libraryLoaded_=true
-         * @protected
-         */
-        libraryLoaded_: false,
-        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -36,7 +31,7 @@ class HighlightJS extends Base {
         remote: {
             app: [
                 'highlightAuto',
-                'loadLibrary',
+                'loadFiles',
                 'scrollIntoView',
                 'syntaxHighlight',
                 'switchTheme',
@@ -52,74 +47,48 @@ class HighlightJS extends Base {
     }
 
     /**
-     * @member {Object[]} cache=[]
-     * @protected
-     */
-    cache = []
-
-    /**
-     * Triggered after the libraryLoaded config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetLibraryLoaded(value, oldValue) {
-        if (value) {
-            let me = this,
-                returnValue;
-
-            me.cache.forEach(item => {
-                returnValue = me[item.fn](item.data);
-                item.resolve(returnValue)
-            });
-
-            me.cache = []
-        }
-    }
-
-    /**
-     * Internally caches call when the hljs namespace does not exist yet
-     * @param item
-     * @returns {Promise<unknown>}
-     */
-    cacheMethodCall(item) {
-        return new Promise((resolve, reject) => {
-            this.cache.push({...item, resolve})
-        })
-    }
-
-    /**
      * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
      * @param {Object} data
      * @param {String} data.html
      * @returns {Object} of the form {language, relevance, value, secondBest}
      */
     highlightAuto(data) {
-        if (window.hljs) {
-            return hljs.highlightAuto(data.html)
-        } else {
+        if (!this.isReady) {
             return this.cacheMethodCall({fn: 'highlightAuto', data})
         }
+
+        return hljs.highlightAuto(data.html)
     }
 
     /**
      * @param {Object} data
      * @returns {Boolean}
      */
-    async loadLibrary(data) {
-        delete data.appName;
-
+    async loadFiles(data) {
         let me = this;
 
-        me.set(data);
+        if (me.isLoading || me.isReady) {
+            return true
+        }
 
-        await DomAccess.loadScript(me.highlightJsPath).then(() => {
-            DomAccess.addScript({src: me.highlightJsLineNumbersPath})
-        });
+        me.isLoading = true;
 
-        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
+        if (data) {
+            delete data.appName;
+            delete data.windowId;
 
-        this.libraryLoaded = true;
+            me.set(data);
+        }
+
+        await DomAccess.loadScript(me.highlightJsPath);
+
+        await Promise.all([
+            DomAccess.loadScript(me.highlightJsLineNumbersPath),
+            Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+        ]);
+
+        me.isLoading = false;
+        me.isReady   = true;
 
         return true
     }
@@ -131,6 +100,10 @@ class HighlightJS extends Base {
      * @protected
      */
     scrollIntoView(data) {
+        if (!this.isReady) {
+            return this.cacheMethodCall({fn: 'scrollIntoView', data})
+        }
+
         let parentEl = DomAccess.getElement(data.vnodeId),
             el       = parentEl.querySelector('[data-list-header="' + data.text + '"]');
 
@@ -162,15 +135,15 @@ class HighlightJS extends Base {
      * @param {String} data.vnodeId
      */
     syntaxHighlight(data) {
-        if (window.hljs) {
-            let node = document.getElementById(data.vnodeId);
-
-            if (node) {
-                hljs.highlightBlock(node);
-                hljs.lineNumbersBlock(node)
-            }
-        } else {
+        if (!this.isReady) {
             return this.cacheMethodCall({fn: 'syntaxHighlight', data})
+        }
+
+        let node = document.getElementById(data.vnodeId);
+
+        if (node) {
+            hljs.highlightBlock(node);
+            hljs.lineNumbersBlock(node)
         }
     }
 
@@ -178,12 +151,12 @@ class HighlightJS extends Base {
      * @param {Object} data
      */
     syntaxHighlightInit(data) {
-        if (window.hljs) {
-            let blocks = document.querySelectorAll('pre code:not(.hljs)');
-            Array.prototype.forEach.call(blocks, hljs.highlightBlock)
-        } else {
+        if (!this.isReady) {
             return this.cacheMethodCall({fn: 'syntaxHighlightInit', data})
         }
+
+        let blocks = document.querySelectorAll('pre code:not(.hljs)');
+        Array.prototype.forEach.call(blocks, hljs.highlightBlock)
     }
 
     /**
@@ -193,7 +166,7 @@ class HighlightJS extends Base {
      * @param {Number} data.removeLine
      */
     syntaxHighlightLine(data) {
-        if (!window.hljs) {
+        if (!this.isReady) {
             return this.cacheMethodCall({fn: 'syntaxHighlightLine', data})
         }
 
