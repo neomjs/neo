@@ -5,6 +5,10 @@
 
     .neo-button {
         margin: 0;
+
+        @media (max-width: 600px) {
+            padding: 0 5px;
+        }
     }
 
     &.neo-dock-left {
