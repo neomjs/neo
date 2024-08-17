@@ -24,7 +24,7 @@ On its own, a Browser will just use ***one*** core per tab / window.
 Meaning: your Angular or React apps look like this:
 
 <p style="overflow-x: auto;">
-    <img alt="Current State of Apps" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps-today.png">
+    <img style="height: 279px; width: 481px;" alt="Current State of Apps" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps-today.png">
 </p>
 
 The more JavaScript tasks are running inside your app, the slower it will get.
@@ -82,7 +82,7 @@ To resolve this performance bottleneck, we want to get main threads as idle as p
 rendering / dynamically manipulating the DOM:
 
 <p style="overflow-x: auto;">
-    <img alt="App Worker Concept" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/app-worker.png">
+    <img style="height: 481px; width: 442px;" alt="App Worker Concept" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/app-worker.png">
 </p>
 
 The worst case that could happen now is that your app worker will slow down and this core runs at 100%. However,
