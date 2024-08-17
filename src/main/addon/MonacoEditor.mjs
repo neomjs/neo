@@ -17,9 +17,21 @@ class MonacoEditor extends Base {
          */
         className: 'Neo.main.addon.MonacoEditor',
         /**
+         * Will get set to true once all Monaco related files got loaded
+         * @member {Boolean} isReady_=false
+         * @protected
+         */
+        isReady_: false,
+        /**
          * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
          */
         libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
+        /**
+         * Amount in ms to delay the loading of library files, unless remote method access happens
+         * @member {Number} loadFilesDelay=5000
+         * @protected
+         */
+        loadFilesDelay: 5000,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -49,11 +61,6 @@ class MonacoEditor extends Base {
      */
     isLoading = false
     /**
-     * Will get set to true once all Monaco related files got loaded
-     * @member {Boolean} isReady=false
-     */
-    isReady = false
-    /**
      * Internal flag to store the setTimeout() id for loading external files
      * @member {Number|null} loadingTimeoutId=null
      */
@@ -74,7 +81,27 @@ class MonacoEditor extends Base {
 
         me.loadingTimeoutId = setTimeout(() => {
             me.loadFiles()
-        }, 5000)
+        }, me.loadFilesDelay)
+    }
+
+    /**
+     * Triggered after the isReady config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsReady(value, oldValue) {
+        if (value) {
+            let me = this,
+                returnValue;
+
+            me.cache.forEach(item => {
+                returnValue = me[item.fn](item.data);
+                item.resolve(returnValue)
+            });
+
+            me.cache = []
+        }
     }
 
     /**
