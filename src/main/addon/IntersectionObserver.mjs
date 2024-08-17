@@ -195,6 +195,4 @@ class NeoIntersectionObserver extends Base {
     }
 }
 
-Neo.setupClass(NeoIntersectionObserver);
-
-export default NeoIntersectionObserver;
+export default Neo.setupClass(NeoIntersectionObserver);

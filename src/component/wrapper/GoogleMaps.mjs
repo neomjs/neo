@@ -367,6 +367,4 @@ class GoogleMaps extends Base {
     }
 }
 
-Neo.setupClass(GoogleMaps);
-
-export default GoogleMaps;
+export default Neo.setupClass(GoogleMaps);

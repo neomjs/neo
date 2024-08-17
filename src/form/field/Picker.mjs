@@ -328,6 +328,4 @@ class Picker extends Text {
     }
 }
 
-Neo.setupClass(Picker);
-
-export default Picker;
+export default Neo.setupClass(Picker);

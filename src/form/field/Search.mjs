@@ -33,6 +33,4 @@ class Search extends Text {
     }
 }
 
-Neo.setupClass(Search);
-
-export default Search;
+export default Neo.setupClass(Search);

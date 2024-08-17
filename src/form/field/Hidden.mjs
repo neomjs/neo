@@ -23,6 +23,4 @@ class Hidden extends Base {
     }
 }
 
-Neo.setupClass(Hidden);
-
-export default Hidden;
+export default Neo.setupClass(Hidden);

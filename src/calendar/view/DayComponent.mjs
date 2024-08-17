@@ -35,6 +35,4 @@ class DayComponent extends WeekComponent {
     }
 }
 
-Neo.setupClass(DayComponent);
-
-export default DayComponent;
+export default Neo.setupClass(DayComponent);

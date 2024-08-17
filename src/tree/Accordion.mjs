@@ -467,6 +467,4 @@ class AccordionTree extends TreeList {
     }
 }
 
-Neo.setupClass(AccordionTree);
-
-export default AccordionTree
+export default Neo.setupClass(AccordionTree)

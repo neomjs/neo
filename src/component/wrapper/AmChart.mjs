@@ -165,6 +165,4 @@ class AmChart extends Component {
     }
 }
 
-Neo.setupClass(AmChart);
-
-export default AmChart;
+export default Neo.setupClass(AmChart);

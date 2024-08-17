@@ -53,6 +53,4 @@ class Markdown extends Base {
     }
 }
 
-Neo.setupClass(Markdown);
-
-export default Markdown;
+export default Neo.setupClass(Markdown);

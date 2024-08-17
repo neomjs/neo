@@ -75,6 +75,4 @@ class Canvas extends Component {
     }
 }
 
-Neo.setupClass(Canvas);
-
-export default Canvas;
+export default Neo.setupClass(Canvas);

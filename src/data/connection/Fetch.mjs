@@ -122,6 +122,4 @@ class Fetch extends Base {
     }
 }
 
-Neo.setupClass(Fetch);
-
-export default Fetch;
+export default Neo.setupClass(Fetch);

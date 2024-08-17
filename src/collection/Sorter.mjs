@@ -147,6 +147,4 @@ class Sorter extends Base {
     }
 }
 
-Neo.setupClass(Sorter);
-
-export default Sorter;
+export default Neo.setupClass(Sorter);

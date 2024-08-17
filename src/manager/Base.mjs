@@ -44,6 +44,4 @@ class Base extends CollectionBase{
     }
 }
 
-Neo.setupClass(Base);
-
-export default Base;
+export default Neo.setupClass(Base);

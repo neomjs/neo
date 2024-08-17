@@ -195,6 +195,4 @@ class HighlightJS extends Base {
     }
 }
 
-Neo.setupClass(HighlightJS);
-
-export default HighlightJS;
+export default Neo.setupClass(HighlightJS);

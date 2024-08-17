@@ -39,6 +39,4 @@ class Css extends Base {
     }
 }
 
-Neo.setupClass(Css);
-
-export default Css;
+export default Neo.setupClass(Css);

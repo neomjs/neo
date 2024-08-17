@@ -57,6 +57,4 @@ class Currency extends Number {
     }
 }
 
-Neo.setupClass(Currency);
-
-export default Currency;
+export default Neo.setupClass(Currency);

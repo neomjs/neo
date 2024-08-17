@@ -44,6 +44,4 @@ class Display extends Text {
     }
 }
 
-Neo.setupClass(Display);
-
-export default Display;
+export default Neo.setupClass(Display);

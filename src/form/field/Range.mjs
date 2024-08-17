@@ -114,6 +114,4 @@ class Range extends Number {
     }
 }
 
-Neo.setupClass(Range);
-
-export default Range;
+export default Neo.setupClass(Range);

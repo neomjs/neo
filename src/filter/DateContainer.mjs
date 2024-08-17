@@ -24,6 +24,4 @@ class DateContainer extends NumberContainer {
     }
 }
 
-Neo.setupClass(DateContainer);
-
-export default DateContainer;
+export default Neo.setupClass(DateContainer);

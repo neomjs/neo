@@ -496,6 +496,4 @@ class Navigator extends Base {
     }
 }
 
-Neo.setupClass(Navigator);
-
-export default Navigator;
+export default Neo.setupClass(Navigator);

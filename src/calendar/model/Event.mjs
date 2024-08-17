@@ -43,6 +43,4 @@ class Event extends Model {
     }
 }
 
-Neo.setupClass(Event);
-
-export default Event;
+export default Neo.setupClass(Event);

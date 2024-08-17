@@ -442,6 +442,4 @@ class StatusBadge extends Base {
 
 }
 
-Neo.setupClass(StatusBadge);
-
-export default StatusBadge;
+export default Neo.setupClass(StatusBadge);

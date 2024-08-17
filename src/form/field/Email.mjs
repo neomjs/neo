@@ -57,6 +57,4 @@ class Email extends Text {
     }
 }
 
-Neo.setupClass(Email);
-
-export default Email;
+export default Neo.setupClass(Email);

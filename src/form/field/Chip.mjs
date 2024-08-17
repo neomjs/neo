@@ -25,6 +25,4 @@ class Chip extends ComboBox {
     }
 }
 
-Neo.setupClass(Chip);
-
-export default Chip;
+export default Neo.setupClass(Chip);

@@ -38,6 +38,4 @@ class Phone extends Text {
     }
 }
 
-Neo.setupClass(Phone);
-
-export default Phone;
+export default Neo.setupClass(Phone);

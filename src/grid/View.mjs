@@ -261,6 +261,4 @@ class View extends Component {
     }
 }
 
-Neo.setupClass(View);
-
-export default View;
+export default Neo.setupClass(View);

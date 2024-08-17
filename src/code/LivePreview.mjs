@@ -424,6 +424,4 @@ class LivePreview extends Container {
     }
 }
 
-Neo.setupClass(LivePreview);
-
-export default LivePreview;
+export default Neo.setupClass(LivePreview);

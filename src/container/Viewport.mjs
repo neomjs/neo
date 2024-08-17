@@ -78,6 +78,4 @@ class Viewport extends Container {
     }
 }
 
-Neo.setupClass(Viewport);
-
-export default Viewport;
+export default Neo.setupClass(Viewport);

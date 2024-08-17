@@ -350,6 +350,4 @@ class SelectorContainer extends Container {
     }
 }
 
-Neo.setupClass(SelectorContainer);
-
-export default SelectorContainer;
+export default Neo.setupClass(SelectorContainer);

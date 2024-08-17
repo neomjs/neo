@@ -87,6 +87,4 @@ class Panel extends BasePanel {
     }
 }
 
-Neo.setupClass(Panel);
-
-export default Panel;
+export default Neo.setupClass(Panel);

@@ -136,7 +136,7 @@ class Application extends Base {
     }
 }
 
-Neo.setupClass(Application);
+Application = Neo.setupClass(Application);
 
 // convenience shortcut
 Neo.app = config => Neo.create({

@@ -34,6 +34,4 @@ class Colors extends Store {
     }
 }
 
-Neo.setupClass(Colors);
-
-export default Colors;
+export default Neo.setupClass(Colors);

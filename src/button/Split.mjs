@@ -221,6 +221,4 @@ class Split extends Button {
     }
 }
 
-Neo.setupClass(Split);
-
-export default Split;
+export default Neo.setupClass(Split);

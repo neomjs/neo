@@ -291,6 +291,4 @@ class WindowPosition extends Base {
     }
 }
 
-Neo.setupClass(WindowPosition);
-
-export default WindowPosition;
+export default Neo.setupClass(WindowPosition);

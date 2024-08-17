@@ -247,6 +247,4 @@ class Socket extends Base {
     }
 }
 
-Neo.setupClass(Socket);
-
-export default Socket;
+export default Neo.setupClass(Socket);

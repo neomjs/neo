@@ -117,6 +117,4 @@ class Clock extends Component {
     }
 }
 
-Neo.setupClass(Clock);
-
-export default Clock;
+export default Neo.setupClass(Clock);

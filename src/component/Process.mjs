@@ -181,6 +181,4 @@ class Process extends Base {
     }
 }
 
-Neo.setupClass(Process);
-
-export default Process;
+export default Neo.setupClass(Process);

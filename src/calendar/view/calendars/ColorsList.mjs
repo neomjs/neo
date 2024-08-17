@@ -107,6 +107,4 @@ class ColorsList extends List {
     }
 }
 
-Neo.setupClass(ColorsList);
-
-export default ColorsList;
+export default Neo.setupClass(ColorsList);

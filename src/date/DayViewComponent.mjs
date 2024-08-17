@@ -246,6 +246,4 @@ class DayViewComponent extends Base {
     }
 }
 
-Neo.setupClass(DayViewComponent);
-
-export default DayViewComponent;
+export default Neo.setupClass(DayViewComponent);

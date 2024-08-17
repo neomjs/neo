@@ -28,6 +28,4 @@ class SelectorContainerModel extends Component {
     }
 }
 
-Neo.setupClass(SelectorContainerModel);
-
-export default SelectorContainerModel;
+export default Neo.setupClass(SelectorContainerModel);
