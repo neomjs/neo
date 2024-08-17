@@ -21,12 +21,6 @@ class AmCharts extends Base {
          */
         charts: {},
         /**
-         * Stores all chart config objects which arrived before the chart lib scripts got loaded
-         * @member {Object[]} chartsToCreate=[]
-         * @protected
-         */
-        chartsToCreate: [],
-        /**
          * Stores all chart data inside an object. key => chart id
          * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
          * @member {Object} dataMap={}
@@ -44,8 +38,20 @@ class AmCharts extends Base {
          */
         fallbackPath: 'https://neomjs.github.io/pages/resources_pub/amCharts/',
         /**
+         * Will get set to true once all AmCharts related files got loaded
+         * @member {Boolean} isReady_=false
+         * @protected
+         */
+        isReady_: false,
+        /**
+         * Amount in ms to delay the loading of library files, unless remote method access happens
+         * @member {Number} loadFilesDelay=5000
+         * @protected
+         */
+        loadFilesDelay: 5000,
+        /**
          * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
+         * @member {Object} remote
          * @protected
          */
         remote: {
@@ -57,13 +63,18 @@ class AmCharts extends Base {
                 'setProperty',
                 'updateData'
             ]
-        },
-        /**
-         * @member {Boolean} scriptsLoaded_=true
-         * @protected
-         */
-        scriptsLoaded_: false
+        }
     }
+
+    /**
+     * @member {Object[]} cache=[]
+     */
+    cache = []
+    /**
+     * Will get set to true once we start loading Monaco related files
+     * @member {Boolean} isLoading=false
+     */
+    isLoading = false
 
     /**
      * @param {Object} config
@@ -71,24 +82,30 @@ class AmCharts extends Base {
     construct(config) {
         super.construct(config);
 
-        this.insertAmChartsScripts()
+        let me = this;
+
+        me.loadingTimeoutId = setTimeout(() => {
+            me.loadFiles()
+        }, me.loadFilesDelay)
     }
 
     /**
-     * Triggered after the scriptsLoaded config got changed
+     * Triggered after the isReady config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetScriptsLoaded(value, oldValue) {
+    afterSetIsReady(value, oldValue) {
         if (value) {
-            let me = this;
+            let me = this,
+                returnValue;
 
-            me.chartsToCreate.forEach(config => {
-                me.create(config)
+            me.cache.forEach(item => {console.log(me, item);
+                returnValue = me[item.fn](item.data);
+                item.resolve(returnValue)
             });
 
-            me.chartsToCreate = [];
+            me.cache = [];
 
             me.timeout(1000).then(() => {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
@@ -101,21 +118,47 @@ class AmCharts extends Base {
     }
 
     /**
+     * Internally caches call when isReady===false
+     * Loads the library files in case this is not already happening
+     * @param item
+     * @returns {Promise<unknown>}
+     */
+    cacheMethodCall(item) {
+        let me = this;
+
+        if (!me.isLoading) {
+            clearTimeout(me.loadingTimeoutId);
+            me.loadingTimeoutId = null;
+            me.loadFiles()
+        }
+
+        return new Promise((resolve, reject) => {
+            me.cache.push({...item, resolve})
+        })
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.path
      * @param {Array} [data.params]
      */
     callMethod(data) {
-        if (this.hasChart(data.id)) {
-            let chart      = this.charts[data.id],
-                pathArray  = data.path.split('.'),
-                methodName = pathArray.pop(),
-                scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
+        let me = this;
 
-            scope[methodName].call(scope, ...data.params || [])
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'callMethod', data})
         } else {
-            // todo
+            if (me.hasChart(data.id)) {
+                let chart      = me.charts[data.id],
+                    pathArray  = data.path.split('.'),
+                    methodName = pathArray.pop(),
+                    scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
+
+                scope[methodName].call(scope, ...data.params || [])
+            } else {
+                // todo
+            }
         }
     }
 
@@ -149,11 +192,10 @@ class AmCharts extends Base {
     create(data) {
         let me = this;
 
-        if (!me.scriptsLoaded) {
-            me.chartsToCreate.push(data)
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'create', data})
         } else {
             // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
-
             am4core.useTheme(am4themes_dark);
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
@@ -181,8 +223,14 @@ class AmCharts extends Base {
      * @param {String} data.id
      */
     destroy(data) {
-        this.charts[data.id]?.dispose?.();
-        delete this.charts[data.id]
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'destroy', data})
+        } else {
+            me.charts[data.id]?.dispose?.();
+            delete me.charts[data.id]
+        }
     }
 
     /**
@@ -197,10 +245,13 @@ class AmCharts extends Base {
      * Async approach
      * core.js has to arrive first or the other scripts will cause JS errors since they rely on it
      * => fetching the other files after core.js is loaded
+     * @param {Boolean} useFallback=false
      */
-    insertAmChartsScripts(useFallback=false) {
+    loadFiles(useFallback=false) {
         let me       = this,
             basePath = useFallback ? me.fallbackPath : me.downloadPath;
+
+        me.isLoading = true;
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
@@ -209,11 +260,12 @@ class AmCharts extends Base {
                 DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
-                me.scriptsLoaded = true
-            });
+                me.isLoading = false;
+                me.isReady   = true
+            })
         }).catch(e => {
             console.log('Download from amcharts.com failed, switching to fallback', e);
-            me.insertAmChartsScripts(true)
+            me.loadFiles(true)
         })
     }
 
@@ -223,13 +275,19 @@ class AmCharts extends Base {
      * @param {Object} data.properties
      */
     setProperties(data) {
-        Object.entries(data.properties).forEach(([key, value]) => {
-            this.setProperty({
-                id   : data.id,
-                path : key,
-                value
+        let me = this;
+
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'setProperties', data})
+        } else {
+            Object.entries(data.properties).forEach(([key, value]) => {
+                me.setProperty({
+                    id   : data.id,
+                    path : key,
+                    value
+                })
             })
-        })
+        }
     }
 
     /**
@@ -240,15 +298,21 @@ class AmCharts extends Base {
      * @param {*} data.value
      */
     setProperty(data) {
-        if (this.hasChart(data.id)) {
-            let chart        = this.charts[data.id],
-                pathArray    = data.path.split('.'),
-                propertyName = pathArray.pop(),
-                scope        = Neo.ns(pathArray.join('.'), false, chart);
+        let me = this;
 
-            scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'setProperty', data})
         } else {
-            // todo
+            if (this.hasChart(data.id)) {
+                let chart        = this.charts[data.id],
+                    pathArray    = data.path.split('.'),
+                    propertyName = pathArray.pop(),
+                    scope        = Neo.ns(pathArray.join('.'), false, chart);
+
+                scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value
+            } else {
+                // todo
+            }
         }
     }
 
@@ -261,10 +325,12 @@ class AmCharts extends Base {
     updateData(data) {
         let me = this;
 
-        if (!me.scriptsLoaded || !me.hasChart(data.id)) {
+        if (!me.isReady) {
+            return me.cacheMethodCall({fn: 'updateData', data})
+        } else if (!me.hasChart(data.id)) {
             me.dataMap[data.id] = data
         } else {
-            const chart = me.charts[data.id];
+            let chart = me.charts[data.id];
 
             if (data.dataPath === '') {
                 chart.data = data.data
