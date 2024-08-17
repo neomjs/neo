@@ -38,18 +38,6 @@ class AmCharts extends Base {
          */
         fallbackPath: 'https://neomjs.github.io/pages/resources_pub/amCharts/',
         /**
-         * Will get set to true once all AmCharts related files got loaded
-         * @member {Boolean} isReady_=false
-         * @protected
-         */
-        isReady_: false,
-        /**
-         * Amount in ms to delay the loading of library files, unless remote method access happens
-         * @member {Number} loadFilesDelay=5000
-         * @protected
-         */
-        loadFilesDelay: 5000,
-        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -67,45 +55,16 @@ class AmCharts extends Base {
     }
 
     /**
-     * @member {Object[]} cache=[]
-     */
-    cache = []
-    /**
-     * Will get set to true once we start loading Monaco related files
-     * @member {Boolean} isLoading=false
-     */
-    isLoading = false
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.loadingTimeoutId = setTimeout(() => {
-            me.loadFiles()
-        }, me.loadFilesDelay)
-    }
-
-    /**
      * Triggered after the isReady config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
         if (value) {
-            let me = this,
-                returnValue;
-
-            me.cache.forEach(item => {console.log(me, item);
-                returnValue = me[item.fn](item.data);
-                item.resolve(returnValue)
-            });
-
-            me.cache = [];
+            let me = this;
 
             me.timeout(1000).then(() => {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
@@ -115,26 +74,6 @@ class AmCharts extends Base {
                 me.dataMap = {}
             })
         }
-    }
-
-    /**
-     * Internally caches call when isReady===false
-     * Loads the library files in case this is not already happening
-     * @param item
-     * @returns {Promise<unknown>}
-     */
-    cacheMethodCall(item) {
-        let me = this;
-
-        if (!me.isLoading) {
-            clearTimeout(me.loadingTimeoutId);
-            me.loadingTimeoutId = null;
-            me.loadFiles()
-        }
-
-        return new Promise((resolve, reject) => {
-            me.cache.push({...item, resolve})
-        })
     }
 
     /**

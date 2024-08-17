@@ -17,21 +17,9 @@ class MonacoEditor extends Base {
          */
         className: 'Neo.main.addon.MonacoEditor',
         /**
-         * Will get set to true once all Monaco related files got loaded
-         * @member {Boolean} isReady_=false
-         * @protected
-         */
-        isReady_: false,
-        /**
          * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
          */
         libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
-        /**
-         * Amount in ms to delay the loading of library files, unless remote method access happens
-         * @member {Number} loadFilesDelay=5000
-         * @protected
-         */
-        loadFilesDelay: 5000,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -52,77 +40,10 @@ class MonacoEditor extends Base {
     }
 
     /**
-     * @member {Object[]} cache=[]
-     */
-    cache = []
-    /**
-     * Will get set to true once we start loading Monaco related files
-     * @member {Boolean} isLoading=false
-     */
-    isLoading = false
-    /**
-     * Internal flag to store the setTimeout() id for loading external files
-     * @member {Number|null} loadingTimeoutId=null
-     */
-    loadingTimeoutId = null
-    /**
      * Stores component DOM ids as keys and editor instances as values
      * @member {Object} map={}
      */
     map = {}
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.loadingTimeoutId = setTimeout(() => {
-            me.loadFiles()
-        }, me.loadFilesDelay)
-    }
-
-    /**
-     * Triggered after the isReady config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetIsReady(value, oldValue) {
-        if (value) {
-            let me = this,
-                returnValue;
-
-            me.cache.forEach(item => {
-                returnValue = me[item.fn](item.data);
-                item.resolve(returnValue)
-            });
-
-            me.cache = []
-        }
-    }
-
-    /**
-     * Internally caches call when isReady===false
-     * Loads the library files in case this is not already happening
-     * @param item
-     * @returns {Promise<unknown>}
-     */
-    cacheMethodCall(item) {
-        let me = this;
-
-        if (!me.isLoading) {
-            clearTimeout(me.loadingTimeoutId);
-            me.loadingTimeoutId = null;
-            me.loadFiles()
-        }
-
-        return new Promise((resolve, reject) => {
-            me.cache.push({...item, resolve})
-        })
-    }
 
     /**
      * For a complete list of options see:
