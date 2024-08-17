@@ -196,10 +196,12 @@ class MonacoEditor extends Base {
 
         window.require = {paths: {vs: path}};
 
-        await DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'});
-        await DomAccess.loadScript(path + '/loader.js');
-        await DomAccess.loadScript(path + '/editor/editor.main.nls.js');
-        await DomAccess.loadScript(path + '/editor/editor.main.js');
+        await Promise.all([
+            DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
+            DomAccess.loadScript(path + '/loader.js'),
+            DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
+            DomAccess.loadScript(path + '/editor/editor.main.js')
+        ])
 
         me.isLoading = false;
         me.isReady   = true
