@@ -248,8 +248,8 @@ In a nutshell:
 {
     module: TabContainer,
     items : [
-        {module: () => import('./MyChildForm1')},
-        {module: () => import('./MyChildForm2')}
+        {module: () => import('./MyChildForm1.mjs')},
+        {module: () => import('./MyChildForm2.mjs')}
     ]
 }
 </pre>

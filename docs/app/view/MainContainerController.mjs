@@ -42,7 +42,7 @@ class MainContainerController extends Component {
             opts.themePath       = '../../docs/resources/highlightjs-custom-github-theme.css'
         }
 
-        Neo.main.addon.HighlightJS.loadLibrary(opts)
+        Neo.main.addon.HighlightJS.loadFiles(opts)
     }
 
     /**

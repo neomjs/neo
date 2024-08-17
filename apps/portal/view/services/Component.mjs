@@ -24,7 +24,7 @@ class Component extends BaseComponent {
             {cls: ['info-block'], cn: [
                 {tag: 'h2', html: 'Weekly Workshops'},
                 {tag: 'p',  html: [
-                    'We are doing weekly workshops on Thursdays 17:30 CEST (11:30am EST) for 60m free of charge.</br>',
+                    'We are doing weekly workshops on Thursdays 18:30 CEST (12:30am EST) for 60m free of charge.</br>',
                     'Ping us inside our ',
                     '<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel</a>, ',
                     'in case you would like to join us.'

@@ -231,6 +231,9 @@ class Manager extends Base {
         NeoConfig.hasMouseEvents = matchMedia('(pointer:fine)').matches;
         NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+        // Useful for styling
+        !NeoConfig.hasMouseEvents && document.body.classList.add('neo-no-mouse');
+
         if (window.Worker) {
             me.webWorkersEnabled = true
         } else {

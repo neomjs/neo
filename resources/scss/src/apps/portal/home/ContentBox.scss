@@ -1,28 +1,61 @@
 .portal-content-box {
     border-radius  : 3px;
     box-shadow     : 0 3px 6px rgba(0, 0, 0, 0.3);
-    cursor         : pointer;
     color          : #000;
+    cursor         : pointer;
     min-width      : 300px;
     padding        : 0 1em 1em 1em;
+    position       : relative;
     text-decoration: none;
 
     &:hover {
         background-color: var(--sem-color-surface-primary-background);
+
+        &:after {
+            background-color: var(--purple-200);
+            border-radius   : 2px;
+            bottom          : 10px;
+            content         : attr(href) ' \2192';
+            font-size       : 0.7em;
+            left            : -1px;
+            opacity         : 0.7;
+            padding         : 3px 20px;
+            position        : absolute;
+            right           : -1px;
+            text-align      : center;
+        }
+
+        .portal-content-box-headline {
+            border-bottom-color: #b7c0da;
+        }
     }
 
     .portal-content-box-content {
+        margin-top  : 0.75em;
         padding-left: 1.3em;
-        margin-top: 0.75em;
     }
 
     .portal-content-box-headline {
-        border-bottom: 1px solid #ececec;
+        border-bottom : 1px solid #ececec;
+        letter-spacing: 1.5px !important;
+        margin        : 1em auto 0 auto;
+        max-width     : 85%;
         padding-bottom: 0.75em;
-        max-width: 85%;
-        margin: 1em auto 0 auto;
-        text-align: center;
-        letter-spacing: 1.5px!important;
-        word-spacing: 1.5px;
+        text-align    : center;
+        word-spacing  : 1.5px;
+    }
+}
+
+.neo-no-mouse {
+    .portal-content-box {
+        &:after {
+            bottom     : .5em;
+            color      : var(--purple-200);
+            content    : '\f08e';
+            font-family: var(--fa-style-family-classic);
+            font-weight: 600;
+            position   : absolute;
+            right      : .5em;
+        }
     }
 }
