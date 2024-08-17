@@ -40,10 +40,20 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Will get set to true once we start loading Monaco related files
+     * @member {Boolean} isLoading=false
+     */
+    isLoading = false
+    /**
      * Will get set to true once all Monaco related files got loaded
      * @member {Boolean} isReady=false
      */
     isReady = false
+    /**
+     * Internal flag to store the setTimeout() id for loading external files
+     * @member {Number|null} loadingTimeoutId=null
+     */
+    loadingTimeoutId = null
     /**
      * Stores component DOM ids as keys and editor instances as values
      * @member {Object} map={}
@@ -55,7 +65,12 @@ class MonacoEditor extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.loadFiles()
+
+        let me = this;
+
+        me.loadingTimeoutId = setTimeout(() => {
+            this.loadFiles()
+        }, 5000)
     }
 
     /**
@@ -107,7 +122,10 @@ class MonacoEditor extends Base {
      *
      */
     async loadFiles() {
-        let path = this.libraryBasePath;
+        let me   = this,
+            path = me.libraryBasePath;
+
+        me.isLoading = true;
 
         window.require = {paths: {vs: path}};
 
@@ -116,7 +134,8 @@ class MonacoEditor extends Base {
         await DomAccess.loadScript(path + '/editor/editor.main.nls.js');
         await DomAccess.loadScript(path + '/editor/editor.main.js');
 
-        this.isReady = true
+        me.isLoading = false;
+        me.isReady   = true
     }
 
     /**
