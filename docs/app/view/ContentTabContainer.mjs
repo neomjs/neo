@@ -63,7 +63,7 @@ class ContentTabContainer extends Container {
             cls = me.cls;
 
         cls.unshift('docs-content-tabcontainer');
-        me.cls = cls;
+        me.cls = cls
     }
 
     /**
@@ -87,7 +87,7 @@ class ContentTabContainer extends Container {
                         let path = data.path.map(e => e.id);
 
                         if (path[0].indexOf('neo-tab-header-button-') === 0) {
-                            me.activeIndex = data.component.index;
+                            me.activeIndex = data.component.index
                         } else {
                             me.removeAt(Neo.getComponent(me.tabBarId).indexOf(path[1]))
                         }
@@ -96,10 +96,8 @@ class ContentTabContainer extends Container {
                 }]
             };
 
-        return {...defaultConfig, ...config};
+        return {...defaultConfig, ...config}
     }
 }
 
-Neo.setupClass(ContentTabContainer);
-
-export default ContentTabContainer;
+export default Neo.setupClass(ContentTabContainer);

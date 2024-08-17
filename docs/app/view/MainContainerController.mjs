@@ -78,7 +78,7 @@ class MainContainerController extends Component {
 
         while (tmpRecord.parentId !== null) {
             tmpRecord = store.get(tmpRecord.parentId);
-            name      = tmpRecord.name + '.' + name;
+            name      = tmpRecord.name + '.' + name
         }
 
         name = 'examples_' + name;
@@ -98,10 +98,10 @@ class MainContainerController extends Component {
                         tabButtonConfig
                     })
                 }
-            );
+            )
         } else {
             record.path.forEach(path => {
-                pathArray.push(import(/* webpackIgnore: true */ path));
+                pathArray.push(import(/* webpackIgnore: true */ path))
             });
 
             Promise.all(pathArray).then(function(modules) {
@@ -133,7 +133,7 @@ class MainContainerController extends Component {
 
         me.getReference('examples-treelist') .filter('name', value, null);
         me.getReference('api-treelist')      .filter('name', value, null);
-        me.getReference('tutorials-treelist').filter('name', value, null);
+        me.getReference('tutorials-treelist').filter('name', value, null)
     }
 
     /**
@@ -153,10 +153,10 @@ class MainContainerController extends Component {
 
         if (button.text === 'Source View Theme Light') {
             buttonText = 'Source View Theme Dark';
-            href       = './resources/highlightjs-custom-github-theme.css';
+            href       = './resources/highlightjs-custom-github-theme.css'
         } else {
             buttonText = 'Source View Theme Light';
-            href       = './resources/highlightjs-custom-dark-theme.css';
+            href       = './resources/highlightjs-custom-dark-theme.css'
         }
 
         Neo.main.addon.Stylesheet.swapStyleSheet({
@@ -164,7 +164,7 @@ class MainContainerController extends Component {
             href,
             id     : 'hljs-theme'
         }).then(data => {
-            button.text = buttonText;
+            button.text = buttonText
         })
     }
 
@@ -179,10 +179,10 @@ class MainContainerController extends Component {
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
-            theme      = 'neo-theme-light';
+            theme      = 'neo-theme-light'
         } else {
             buttonText = 'Theme Light';
-            theme      = 'neo-theme-dark';
+            theme      = 'neo-theme-dark'
         }
 
         cls = [...view.cls];
@@ -253,6 +253,4 @@ class MainContainerController extends Component {
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

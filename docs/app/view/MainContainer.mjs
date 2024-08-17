@@ -114,11 +114,11 @@ class MainContainer extends Viewport {
         if (!me.store) {
             me.store = Neo.create(Collection, {
                 keyProperty: 'id'
-            });
+            })
         }
 
         // Disable the examples Tab for dist versions until the webpack builds can handle this (see: #140)
-        me.items[1].items[0].items[1].tabButtonConfig.disabled = Neo.config.environment !== 'development';
+        me.items[1].items[0].items[1].tabButtonConfig.disabled = Neo.config.environment !== 'development'
     }
 
     /**
@@ -133,10 +133,8 @@ class MainContainer extends Viewport {
             url: '../../docs/output/all.json'
         }).then(data => {
             me.store.items = data.json;
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

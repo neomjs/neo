@@ -33,6 +33,4 @@ class ApiTreeList extends TreeList {
     }
 }
 
-Neo.setupClass(ApiTreeList);
-
-export default ApiTreeList;
+export default Neo.setupClass(ApiTreeList);

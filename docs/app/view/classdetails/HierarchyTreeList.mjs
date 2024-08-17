@@ -45,7 +45,7 @@ class HierarchyTreeList extends TreeList {
         let me = this;
 
         me.createStoreItems();
-        me.createItems(null, me.getListItemsRoot(), 0);
+        me.createItems(null, me.getListItemsRoot(), 0)
     }
 
     /**
@@ -73,7 +73,7 @@ class HierarchyTreeList extends TreeList {
                 neoClassName: item.augments[0]
             })[0];
 
-            tmpItems.unshift(item);
+            tmpItems.unshift(item)
         }
 
         tmpItems.forEach((key, index) => {
@@ -86,11 +86,11 @@ class HierarchyTreeList extends TreeList {
                     isLeaf  : true,
                     name    : key.neoClassName,
                     parentId: parentId
-                });
+                })
             }
         });
 
-        me.store.items = storeItems;
+        me.store.items = storeItems
     }
 
     /**
@@ -108,10 +108,8 @@ class HierarchyTreeList extends TreeList {
 
         me.update();
 
-        me.fire('refreshClassMembers');
+        me.fire('refreshClassMembers')
     }
 }
 
-Neo.setupClass(HierarchyTreeList);
-
-export default HierarchyTreeList;
+export default Neo.setupClass(HierarchyTreeList);
