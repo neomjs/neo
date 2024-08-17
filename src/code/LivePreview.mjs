@@ -236,7 +236,18 @@ class LivePreview extends Container {
 
             if (importMatch) {
                 let moduleName = importMatch[1],
-                    path       = importMatch[2];
+                    path       = importMatch[2],
+                    index;
+
+                if (Neo.config.environment !== 'development') {
+                    index = path.lastIndexOf('../');
+
+                    if (index === 0) {
+                        path = '../../../../src/' + path.slice(index+3);
+                    } else {
+                        path = path.slice(0, index) + '../../../' + path.slice(index+3);
+                    }
+                }
 
                 moduleNameAndPath.push({moduleName, path})
             } else if (line.match(exportRegex)) {
