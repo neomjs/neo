@@ -32,9 +32,9 @@ class BlogPosts extends Store {
             direction: 'DESC'
         }],
         /**
-         * @member {String} url='../../apps/portal/data/blog.json'
+         * @member {String} url='../../apps/portal/resources/data/blog.json'
          */
-        url: '../../apps/portal/data/blog.json'
+        url: '../../apps/portal/resources/data/blog.json'
     }
 }
 
