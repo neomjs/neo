@@ -17,7 +17,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'GS.references1.MainViewController'
     }
     onDisableButtonClick(data) {
         data.component.disabled = true;
@@ -54,7 +54,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'GS.references2.MainViewController'
     }
     onDisableButtonClick(data){
         data.component.disabled = true
