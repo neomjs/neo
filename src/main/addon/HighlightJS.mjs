@@ -24,6 +24,12 @@ class HighlightJS extends Base {
          */
         highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
         /**
+         * Disabling the auto-preload to honor custom paths.
+         * @member {Boolean|Number} preloadFilesDelay=false
+         * @protected
+         */
+        preloadFilesDelay: false,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
