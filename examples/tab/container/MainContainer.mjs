@@ -161,7 +161,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
             style    : {marginTop: '10px'},
             value    : me.getBadgeTabHeader().badgeText
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -194,7 +194,7 @@ class MainContainer extends ConfigurationViewport {
                 activeIndexChange: this.onUserActiveIndexChange,
                 scope            : this
             }
-        });
+        })
     }
 
     /**
@@ -206,7 +206,7 @@ class MainContainer extends ConfigurationViewport {
 
         for (item of tabHeaders) {
             if (item.text === 'Tab 3') {
-                return item;
+                return item
             }
         }
     }
@@ -220,7 +220,7 @@ class MainContainer extends ConfigurationViewport {
 
         for (item of tabHeaders) {
             if (item.flag === 'tab1') {
-                return item;
+                return item
             }
         }
     }
@@ -230,7 +230,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onBadgeConfigChange(config, opts) {
-        this.getBadgeTabHeader()[config] = opts.value;
+        this.getBadgeTabHeader()[config] = opts.value
     }
 
     /**
@@ -240,7 +240,7 @@ class MainContainer extends ConfigurationViewport {
      */
     onBadgeRadioChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.getBadgeTabHeader()[config] = value;
+            this.getBadgeTabHeader()[config] = value
         }
     }
 
@@ -249,7 +249,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onFirstTabHeaderConfigChange(config, opts) {
-        this.getFirstTabHeader()[config] = opts.value;
+        this.getFirstTabHeader()[config] = opts.value
     }
 
     /**
@@ -264,15 +264,15 @@ class MainContainer extends ConfigurationViewport {
 
         if (data.value === true) {
             if (!direction.includes('-reverse')) {
-                direction += '-reverse';
+                direction += '-reverse'
             }
         } else {
             if (direction.includes('-reverse')) {
-                direction = direction.substring(0, direction.indexOf('-reverse'));
+                direction = direction.substring(0, direction.indexOf('-reverse'))
             }
         }
 
-        layout.direction = direction;
+        layout.direction = direction
     }
 
     /**
@@ -282,7 +282,7 @@ class MainContainer extends ConfigurationViewport {
     onTabBarPositionChange(value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
             this.onRadioChange('tabBarPosition', value, opts);
-            Neo.getComponent('reverseLayoutDirection').checked = value === 'left';
+            Neo.getComponent('reverseLayoutDirection').checked = value === 'left'
         }
 
     }
@@ -291,10 +291,8 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onUserActiveIndexChange(opts) {
-        Neo.getComponent('activeIndexField').value = opts.value;
+        Neo.getComponent('activeIndexField').value = opts.value
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

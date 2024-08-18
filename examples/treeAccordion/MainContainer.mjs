@@ -1,13 +1,11 @@
+import AccordionTree         from '../../src/tree/Accordion.mjs';
+import CheckBox              from '../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
-
-import AccordionTree  from '../../src/tree/Accordion.mjs';
-import CheckBox       from "../../src/form/field/CheckBox.mjs";
-import NumberField    from '../../src/form/field/Number.mjs';
-import Panel          from '../../src/container/Panel.mjs';
-import Store          from '../../src/data/Store.mjs';
-// Do not remove the ViewController nor ViewModel
-import ViewController from '../../src/controller/Component.mjs';
-import ViewModel      from '../../src/model/Component.mjs';
+import NumberField           from '../../src/form/field/Number.mjs';
+import Panel                 from '../../src/container/Panel.mjs';
+import Store                 from '../../src/data/Store.mjs';
+import ViewController        from '../../src/controller/Component.mjs';
+import ViewModel             from '../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.treeAccordion.MainContainer
@@ -76,7 +74,7 @@ class MainContainer extends ConfigurationViewport {
             style  : {marginTop: '20px'},
             text   : 'Remove DOM',
             width  : 100
-        }];
+        }]
     }
 
     /**
@@ -169,7 +167,7 @@ class MainContainer extends ConfigurationViewport {
                     bind     : {html: data => data.selection[0].name}
                 }]
             }]
-        });
+        })
     }
 
     /**
@@ -177,7 +175,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
-        this.exampleComponent.items[0][config] = opts.value;
+        this.exampleComponent.items[0][config] = opts.value
     }
 
     /**
@@ -190,6 +188,4 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

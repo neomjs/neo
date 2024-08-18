@@ -142,6 +142,4 @@ class MainContainer2 extends Container {
     }
 }
 
-Neo.setupClass(MainContainer2);
-
-export default MainContainer2;
+export default Neo.setupClass(MainContainer2);

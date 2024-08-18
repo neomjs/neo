@@ -62,6 +62,4 @@ class AddUserDialog extends Dialog {
     }
 }
 
-Neo.setupClass(AddUserDialog);
-
-export default AddUserDialog;
+export default Neo.setupClass(AddUserDialog);

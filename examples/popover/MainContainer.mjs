@@ -1,8 +1,7 @@
+import Component             from '../../src/component/Base.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
-
-import Component     from '../../src/component/Base.mjs';
-import PopoverPlugin from '../../src/plugin/Popover.mjs';
-import Button        from '../../src/button/Base.mjs';
+import PopoverPlugin         from '../../src/plugin/Popover.mjs';
+import Button                from '../../src/button/Base.mjs';
 
 /**
  * @class Neo.examples.popover.MainContainer
@@ -52,6 +51,4 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

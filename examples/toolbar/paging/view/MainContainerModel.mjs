@@ -1,11 +1,11 @@
-import Component from '../../../../src/model/Component.mjs';
+import Model     from '../../../../src/model/Component.mjs';
 import UserStore from '../store/Users.mjs';
 
 /**
  * @class Neo.examples.toolbar.paging.view.MainContainerModel
  * @extends Neo.model.Component
  */
-class MainContainerModel extends Component {
+class MainContainerModel extends Model {
     static config = {
         /**
          * @member {String} className='Neo.examples.toolbar.paging.view.MainContainerModel'
@@ -24,6 +24,4 @@ class MainContainerModel extends Component {
     }
 }
 
-Neo.setupClass(MainContainerModel);
-
-export default MainContainerModel;
+export default Neo.setupClass(MainContainerModel);

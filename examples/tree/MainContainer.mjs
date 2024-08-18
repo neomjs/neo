@@ -72,7 +72,7 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : treeList.width
-        }];
+        }]
     }
 
     /**
@@ -114,7 +114,7 @@ class MainContainer extends ConfigurationViewport {
                     minWidth  : '15em'
                 }
             }]
-        });
+        })
     }
 
     /**
@@ -124,11 +124,9 @@ class MainContainer extends ConfigurationViewport {
         let dragZone = this.exampleComponent.down({module: ApiTreeList}).dragZone;
 
         if (dragZone) {
-            dragZone.leafNodesOnly = opts.value;
+            dragZone.leafNodesOnly = opts.value
         }
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

@@ -107,6 +107,4 @@ class TableContainer extends BaseTableContainer {
     }
 }
 
-Neo.setupClass(TableContainer);
-
-export default TableContainer;
+export default Neo.setupClass(TableContainer);

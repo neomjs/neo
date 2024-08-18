@@ -1,4 +1,4 @@
-import Model  from '../../src/data/Model.mjs';
+import Model from '../../src/data/Model.mjs';
 
 /**
  * @class Neo.examples.tableFiltering.MainModel
@@ -33,6 +33,4 @@ class MainModel extends Model {
     }
 }
 
-Neo.setupClass(MainModel);
-
-export default MainModel;
+export default Neo.setupClass(MainModel);

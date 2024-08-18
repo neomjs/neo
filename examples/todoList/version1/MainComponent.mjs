@@ -51,7 +51,7 @@ class MainComponent extends Component {
             {input: me.onInputFieldChange, delegate: 'todo-input'}
         ]);
 
-        me.createItems(me.items || []);
+        me.createItems(me.items || [])
     }
 
     createItems(items) {
@@ -62,9 +62,9 @@ class MainComponent extends Component {
             cls = ['todo-item'];
 
             if (item.done) {
-                cls.push('fa', 'fa-check');
+                cls.push('fa', 'fa-check')
             } else {
-                cls.push('far', 'fa-square');
+                cls.push('far', 'fa-square')
             }
 
             me.vdom.cn[0].cn.push({
@@ -77,10 +77,10 @@ class MainComponent extends Component {
                     vtype: 'text',
                     html : item.text
                 }]
-            });
+            })
         });
 
-        me.update();
+        me.update()
     }
 
     onAddButtonClick() {
@@ -91,7 +91,7 @@ class MainComponent extends Component {
                 id  : null,
                 done: false,
                 text: me.inputValue
-            }]);
+            }])
         }
     }
 
@@ -99,24 +99,22 @@ class MainComponent extends Component {
         let me     = this,
             cls    = ['far', 'fa-square'],
             oldCls = ['fa',  'fa-check'],
-            node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+            node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom
 
         if (data.path[0].cls.includes('fa-square')) {
             cls    = ['fa',  'fa-check'];
-            oldCls = ['far', 'fa-square'];
+            oldCls = ['far', 'fa-square']
         }
 
         NeoArray.remove(node.cls, oldCls);
         NeoArray.add(node.cls, cls);
 
-        me.update();
+        me.update()
     }
 
     onInputFieldChange(data) {
-        this.inputValue = data.value;
+        this.inputValue = data.value
     }
 }
 
-Neo.setupClass(MainComponent);
-
-export default MainComponent;
+export default Neo.setupClass(MainComponent);
