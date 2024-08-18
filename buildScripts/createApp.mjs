@@ -266,9 +266,7 @@ if (programOpts.info) {
                 "    }",
                 "}",
                 "",
-                "Neo.setupClass(MainContainer);",
-                "",
-                "export default MainContainer;"
+                "export default Neo.setupClass(MainContainer);"
             ].join(os.EOL);
 
             fs.writeFileSync(path.join(folder + '/view/MainContainer.mjs'), mainContainerContent);

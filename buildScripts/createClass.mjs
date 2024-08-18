@@ -691,24 +691,8 @@ if (programOpts.info) {
         classContent.push(
             "    }",
             "}",
-            ""
-        );
-
-        if (isSingleton) {
-            classContent.push(
-                `let instance = Neo.setupClass(${file});`,
-                "",
-                "export default instance;"
-            );
-        } else {
-            classContent.push(
-                `Neo.setupClass(${file});`,
-                "",
-                `export default ${file};`
-            );
-        }
-
-        classContent.push(
+            "",
+            `export default Neo.setupClass(${file});`,
             ""
         );
 
