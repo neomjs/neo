@@ -219,10 +219,12 @@ const DefaultConfig = {
     /**
      * True will add the ServiceWorker main thread addon to support caching of assets (PWA)
      * See: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+     *
+     * You can also use a string to specify the target environment => 'dist/production'
      * @default false
      * @memberOf! module:Neo
      * @name config.useServiceWorker
-     * @type Boolean
+     * @type Boolean|String
      */
     useServiceWorker: false,
     /**
