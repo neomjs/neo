@@ -1,8 +1,10 @@
-import fs      from 'fs-extra';
-import path    from 'path';
-import webpack from 'webpack';
+import fs          from 'fs-extra';
+import path        from 'path';
+import {spawnSync} from 'child_process';
+import webpack     from 'webpack';
 
 const cwd                   = process.cwd(),
+      cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
       requireJson           = path => JSON.parse(fs.readFileSync((path))),
       packageJson           = requireJson(path.resolve(cwd, 'package.json')),
       neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -35,6 +37,17 @@ export default env => {
     content = fs.readFileSync(inputPath).toString().replace(/\s/gm, '');
     fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
     fs.writeFileSync(outputPath, content);
+
+    const copyResources = resourcesPath => {
+        let inputPath  = path.resolve(cwd, resourcesPath),
+            outputPath = path.resolve(cwd, buildTarget.folder, resourcesPath),
+            childProcess;
+
+        if (fs.existsSync(inputPath)) {
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess.status && process.exit(childProcess.status);
+        }
+    };
 
     const createStartingPoint = (key, folder) => {
         let basePath       = '',
@@ -105,6 +118,7 @@ export default env => {
     parseFolder(apps, path.join(cwd, 'apps'), 0, '');
 
     apps.forEach(key => {
+        copyResources(path.join('apps', key, '/resources'));
         createStartingPoint(key.substr(1), 'apps');
     });
 
@@ -118,6 +132,7 @@ export default env => {
         parseFolder(examples, examplesPath, 0, '');
 
         examples.forEach(key => {
+            copyResources(path.join('examples', key, '/resources'));
             createStartingPoint(key.substr(1), 'examples');
         });
     }
