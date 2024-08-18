@@ -56,9 +56,7 @@ class ContentView extends Component {
         });
 
         Neo.main.addon.HighlightJS.loadFiles({
-            appName        : me.appName,
-            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
-            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
+            appName: me.appName
         })
     }
 
@@ -221,7 +219,7 @@ class ContentView extends Component {
     getHighlightPromise(preContent, token, id) {
         // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
         return Neo.main.addon.HighlightJS.highlightAuto({html: preContent, windowId: this.windowId})
-            .then(highlight => ({after: `<pre data-javascript id="${id}">${highlight.value}</pre>`, token}))
+            .then(value => ({after: `<pre data-javascript id="${id}">${value}</pre>`, token}))
     }
 
     /**
