@@ -20,6 +20,7 @@ const
     twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
+ * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
  * @extends Neo.core.Base
  */
