@@ -31,7 +31,7 @@ class Features extends BaseContainer {
          */
         items: [{
             header: 'Multi-threading',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/benefits.Multi-Threading',
 
             content: [
                 'Following the OMT (Off the Main-Thread) paradigm',
