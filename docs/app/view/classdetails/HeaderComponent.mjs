@@ -60,7 +60,7 @@ class HeaderComponent extends Component {
         for (; i < len; i++) {
             if (record.tags[i].title === 'singleton') {
                 singleton = true;
-                break;
+                break
             }
         }
 
@@ -70,13 +70,11 @@ class HeaderComponent extends Component {
             me.vdom.cn.push({
                 cls      : ['neo-docs-header-description'],
                 innerHTML: record.description
-            });
+            })
         }
 
-        me.update();
+        me.update()
     }
 }
 
-Neo.setupClass(HeaderComponent);
-
-export default HeaderComponent;
+export default Neo.setupClass(HeaderComponent);

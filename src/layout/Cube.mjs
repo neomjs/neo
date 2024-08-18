@@ -425,6 +425,4 @@ class Cube extends Card {
     }
 }
 
-Neo.setupClass(Cube);
-
-export default Cube;
+export default Neo.setupClass(Cube);

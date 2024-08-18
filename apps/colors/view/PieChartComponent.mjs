@@ -53,6 +53,4 @@ class PieChartComponent extends AmChartComponent {
     }
 }
 
-Neo.setupClass(PieChartComponent);
-
-export default PieChartComponent;
+export default Neo.setupClass(PieChartComponent);

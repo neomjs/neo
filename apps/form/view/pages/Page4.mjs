@@ -57,6 +57,4 @@ class Page4 extends FormPageContainer {
     }
 }
 
-Neo.setupClass(Page4);
-
-export default Page4;
+export default Neo.setupClass(Page4);

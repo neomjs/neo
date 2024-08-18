@@ -61,14 +61,14 @@ class MainContainer extends Container {
                 style       : {height: '27px'},
                 text        : 'Add Item'
             }]
-        }];
+        }]
     }
 
     onAddButtonClick() {
         let me    = this,
             field = me.down({reference: 'addItemField'}),
             data;
-console.log(field.value);
+
         if (field.value) {
             me.idCounter++;
 
@@ -80,14 +80,9 @@ console.log(field.value);
                 text: field.value
             });
 
-            me.store.data = data;
-
-            console.log('onAddButtonClick', data);
-            console.log(me.store.items);
+            me.store.data = data
         }
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

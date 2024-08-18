@@ -30,6 +30,4 @@ class ContentSection extends Model {
     }
 }
 
-Neo.setupClass(ContentSection);
-
-export default ContentSection;
+export default Neo.setupClass(ContentSection);

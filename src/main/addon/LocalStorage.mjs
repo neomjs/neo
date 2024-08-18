@@ -70,6 +70,4 @@ class LocalStorage extends Base {
     }
 }
 
-Neo.setupClass(LocalStorage);
-
-export default LocalStorage;
+export default Neo.setupClass(LocalStorage);

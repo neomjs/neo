@@ -39,10 +39,6 @@ class List extends BaseList {
          */
         hideOnLeafItemClick: true,
         /**
-         * @member {Boolean} itemsFocusable=true
-         */
-        itemsFocusable: true,
-        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -424,6 +420,4 @@ class List extends BaseList {
     }
 }
 
-Neo.setupClass(List);
-
-export default List;
+export default Neo.setupClass(List);

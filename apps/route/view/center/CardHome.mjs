@@ -21,6 +21,4 @@ class CardHome extends Container {
     }
 }
 
-Neo.setupClass(CardHome);
-
-export default CardHome;
+export default Neo.setupClass(CardHome);

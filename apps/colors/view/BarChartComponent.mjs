@@ -59,6 +59,4 @@ class BarChartComponent extends AmChartComponent {
     }
 }
 
-Neo.setupClass(BarChartComponent);
-
-export default BarChartComponent;
+export default Neo.setupClass(BarChartComponent);

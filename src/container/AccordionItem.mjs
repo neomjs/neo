@@ -178,6 +178,4 @@ class AccordionContainer extends Base {
     }
 }
 
-Neo.setupClass(AccordionContainer);
-
-export default AccordionContainer;
+export default Neo.setupClass(AccordionContainer);

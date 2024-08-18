@@ -112,7 +112,7 @@ class MainContainer extends ConfigurationViewport {
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -122,10 +122,8 @@ class MainContainer extends ConfigurationViewport {
             labelWidth          : 70,
             value               : DateUtil.convertToyyyymmdd(new Date()),
             width               : 270
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

@@ -44,6 +44,4 @@ class Label extends Component {
     }
 }
 
-Neo.setupClass(Label);
-
-export default Label;
+export default Neo.setupClass(Label);

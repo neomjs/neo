@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.advanced.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.advanced.MainContainerController'
@@ -54,42 +54,42 @@ class MainContainerController extends Component {
             bind: {
                 text: data => `${data.button3Text}`
             }
-        });
+        })
     }
 
     /**
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.updateButton1Text('Button 1');
+        this.updateButton1Text('Button 1')
     }
 
     /**
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.updateButton2Text('Button 2');
+        this.updateButton2Text('Button 2')
     }
 
     /**
      * @param {Object} data
      */
     onButton3Click(data) {
-        this.updateButton3Text('Button 3');
+        this.updateButton3Text('Button 3')
     }
 
     /**
      * @param {Object} data
      */
     onLogChildModelIntoConsoleButtonClick(data) {
-        console.log(this.getReference('panel').model);
+        console.log(this.getReference('panel').model)
     }
 
     /**
      * @param {Object} data
      */
     onLogMainModelIntoConsoleButtonClick(data) {
-        console.log(this.getModel());
+        console.log(this.getModel())
     }
 
     /**
@@ -97,7 +97,7 @@ class MainContainerController extends Component {
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton1Text(data.value || '');
+            this.updateButton1Text(data.value || '')
         }
     }
 
@@ -106,7 +106,7 @@ class MainContainerController extends Component {
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton2Text(data.value || '');
+            this.updateButton2Text(data.value || '')
         }
     }
 
@@ -115,7 +115,7 @@ class MainContainerController extends Component {
      */
     onTextField3Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton3Text(data.value || '');
+            this.updateButton3Text(data.value || '')
         }
     }
 
@@ -124,7 +124,7 @@ class MainContainerController extends Component {
      */
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
-        this.getReference('panel').getModel().setData('button1Text', value);
+        this.getReference('panel').getModel().setData('button1Text', value)
     }
 
     /**
@@ -133,17 +133,15 @@ class MainContainerController extends Component {
     updateButton2Text(value) {
         this.getReference('panel').getModel().setData({
             button2Text: value
-        });
+        })
     }
 
     /**
      * @param {String} value
      */
     updateButton3Text(value) {
-        this.getModel().data['button3Text'] = value;
+        this.getModel().data['button3Text'] = value
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

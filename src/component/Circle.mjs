@@ -858,6 +858,4 @@ class Circle extends Component {
     }
 }
 
-Neo.setupClass(Circle);
-
-export default Circle;
+export default Neo.setupClass(Circle);

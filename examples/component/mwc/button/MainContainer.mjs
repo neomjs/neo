@@ -62,7 +62,7 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'unelevated',
             listeners: {change: me.onConfigChange.bind(me, 'unelevated')},
             style    : {marginTop: '.5em'}
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -71,10 +71,8 @@ class MainContainer extends ConfigurationViewport {
             icon    : 'event',
             label   : 'Hello World',
             outlined: true
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

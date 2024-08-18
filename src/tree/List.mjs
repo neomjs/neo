@@ -481,6 +481,4 @@ class Tree extends Base {
     }
 }
 
-Neo.setupClass(Tree);
-
-export default Tree;
+export default Neo.setupClass(Tree);

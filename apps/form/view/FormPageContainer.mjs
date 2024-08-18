@@ -33,6 +33,4 @@ class FormPageContainer extends FormContainer {
     }
 }
 
-Neo.setupClass(FormPageContainer);
-
-export default FormPageContainer;
+export default Neo.setupClass(FormPageContainer);

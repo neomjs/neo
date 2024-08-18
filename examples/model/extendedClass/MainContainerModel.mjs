@@ -1,10 +1,10 @@
-import Component from '../../../src/model/Component.mjs';
+import Model from '../../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.model.extendedClass.MainContainerModel
  * @extends Neo.model.Component
  */
-class MainContainerModel extends Component {
+class MainContainerModel extends Model {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.extendedClass.MainContainerModel'
@@ -21,6 +21,4 @@ class MainContainerModel extends Component {
     }
 }
 
-Neo.setupClass(MainContainerModel);
-
-export default MainContainerModel;
+export default Neo.setupClass(MainContainerModel);

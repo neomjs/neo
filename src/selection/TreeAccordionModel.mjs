@@ -282,6 +282,4 @@ class TreeAccordionModel extends TreeModel {
     }
 }
 
-Neo.setupClass(TreeAccordionModel);
-
-export default TreeAccordionModel;
+export default Neo.setupClass(TreeAccordionModel);

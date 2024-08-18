@@ -214,7 +214,7 @@ class GalleryContainer extends Container {
             ...me.galleryConfig
         });
 
-        me.items[0].items.push(me.gallery);
+        me.items[0].items.push(me.gallery)
     }
 
     /**
@@ -222,10 +222,8 @@ class GalleryContainer extends Container {
      */
     destroy(...args) {
         this.gallery = null;
-        super.destroy(...args);
+        super.destroy(...args)
     }
 }
 
-Neo.setupClass(GalleryContainer);
-
-export default GalleryContainer;
+export default Neo.setupClass(GalleryContainer);

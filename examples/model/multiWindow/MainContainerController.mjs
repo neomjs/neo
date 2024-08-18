@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.multiWindow.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     /**
      * @member {Neo.examples.dialog.EditUserDialog|null} dialog=null
      */
@@ -22,7 +22,7 @@ class MainContainerController extends Component {
      * @param {Boolean} enable
      */
     enableEditUserButton(enable) {
-        this.getReference('edit-user-button').disabled = !enable;
+        this.getReference('edit-user-button').disabled = !enable
     }
 
     /**
@@ -48,14 +48,12 @@ class MainContainerController extends Component {
                     model: {
                         parent: me.getModel()
                     }
-                });
-            });
+                })
+            })
         } else {
-            me.dialog.show();
+            me.dialog.show()
         }
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

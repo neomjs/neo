@@ -83,6 +83,4 @@ class References extends BaseContainer {
     }
 }
 
-Neo.setupClass(References);
-
-export default References;
+export default Neo.setupClass(References);

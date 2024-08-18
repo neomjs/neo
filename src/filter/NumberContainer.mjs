@@ -118,6 +118,4 @@ class NumberContainer extends Container {
     }
 }
 
-Neo.setupClass(NumberContainer);
-
-export default NumberContainer;
+export default Neo.setupClass(NumberContainer);

@@ -151,6 +151,4 @@ class ListModel extends Model {
     }
 }
 
-Neo.setupClass(ListModel);
-
-export default ListModel;
+export default Neo.setupClass(ListModel);

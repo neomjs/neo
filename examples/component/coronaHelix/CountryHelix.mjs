@@ -126,7 +126,7 @@ class CountryHelix extends Helix {
         table.cn[1].cn[4].html = record.todayDeaths;
         table.cn[2].cn[4].html = record.critical;
 
-        return vdomItem;
+        return vdomItem
     }
 
     /**
@@ -202,7 +202,7 @@ class CountryHelix extends Helix {
             translateY = (me.offsetHeight - 2700) / 6,
             translateZ = 100400 + me.perspective / 1.5;
 
-        return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,'+translateX+','+translateY+','+translateZ+',1)';
+        return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,'+translateX+','+translateY+','+translateZ+',1)'
     }
 
     /**
@@ -210,10 +210,8 @@ class CountryHelix extends Helix {
      * @returns {String}
      */
     getItemId(vnodeId) {
-        return vnodeId.split('__')[1];
+        return vnodeId.split('__')[1]
     }
 }
 
-Neo.setupClass(CountryHelix);
-
-export default CountryHelix;
+export default Neo.setupClass(CountryHelix);

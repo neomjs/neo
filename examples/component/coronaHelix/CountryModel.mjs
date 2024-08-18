@@ -33,6 +33,4 @@ class CountryModel extends Model {
     }
 }
 
-Neo.setupClass(CountryModel);
-
-export default CountryModel;
+export default Neo.setupClass(CountryModel);

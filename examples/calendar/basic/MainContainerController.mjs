@@ -28,19 +28,19 @@ class MainContainerController extends ComponentController {
             buttonText  = 'Theme Dark';
             headerColor = '#f2f2f2';
             iconCls     = 'fa fa-moon';
-            theme       = 'neo-theme-light';
+            theme       = 'neo-theme-light'
         } else {
             buttonText  = 'Theme Light';
             headerColor = '#33343d';
             iconCls     = 'fa fa-sun';
-            theme       = 'neo-theme-dark';
+            theme       = 'neo-theme-dark'
         }
 
         cls = [...component.cls];
 
         component.cls.forEach(item => {
             if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item);
+                NeoArray.remove(cls, item)
             }
         });
 
@@ -54,10 +54,8 @@ class MainContainerController extends ComponentController {
 
         style = headerToolbar.style || {};
         style.backgroundColor = headerColor;
-        headerToolbar.style = style;
+        headerToolbar.style = style
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

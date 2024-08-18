@@ -316,6 +316,4 @@ class Carousel extends Component {
     }
 }
 
-Neo.setupClass(Carousel);
-
-export default Carousel;
+export default Neo.setupClass(Carousel);

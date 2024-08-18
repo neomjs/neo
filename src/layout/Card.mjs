@@ -282,6 +282,4 @@ class Card extends Base {
     }
 }
 
-Neo.setupClass(Card);
-
-export default Card;
+export default Neo.setupClass(Card);

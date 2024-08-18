@@ -24,6 +24,4 @@ class DateTrigger extends Picker {
     }
 }
 
-Neo.setupClass(DateTrigger);
-
-export default DateTrigger;
+export default Neo.setupClass(DateTrigger);

@@ -323,6 +323,4 @@ class ProfileComponent extends Component {
     }
 }
 
-Neo.setupClass(ProfileComponent);
-
-export default ProfileComponent;
+export default Neo.setupClass(ProfileComponent);

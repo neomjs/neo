@@ -252,6 +252,4 @@ class Base extends CoreBase {
 Base.initialTokenRequestSent = false;
 Base.token                   = null;
 
-Neo.setupClass(Base);
-
-export default Base;
+export default Neo.setupClass(Base);

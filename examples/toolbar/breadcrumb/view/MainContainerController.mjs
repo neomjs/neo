@@ -17,10 +17,8 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onActiveKeyButtonClick(data) {
-        this.getReference('breadcrumb-toolbar').activeKey = data.component.activeKey;
+        this.getReference('breadcrumb-toolbar').activeKey = data.component.activeKey
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

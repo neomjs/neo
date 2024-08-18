@@ -75,7 +75,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -93,10 +93,8 @@ class MainContainer extends ConfigurationViewport {
                 {field: 'githubId',  text: 'Github Id'},
                 {field: 'country',   text: 'Country'}
             ]
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

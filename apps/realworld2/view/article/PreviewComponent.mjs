@@ -271,6 +271,4 @@ class PreviewComponent extends Component {
     }
 }
 
-Neo.setupClass(PreviewComponent);
-
-export default PreviewComponent;
+export default Neo.setupClass(PreviewComponent);

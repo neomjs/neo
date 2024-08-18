@@ -1,8 +1,8 @@
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import Timer               from '../../../src/component/Timer.mjs';
 import Container             from '../../../src/container/Base.mjs';
-import TextField              from "../../../src/form/field/Text.mjs";
-import ColorField             from "../../../src/form/field/Color.mjs"
+import ColorField            from '../../../src/form/field/Color.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
+import Timer                 from '../../../src/component/Timer.mjs';
 
 /**
  * @class Neo.examples.component.timer.MainContainer
@@ -10,7 +10,7 @@ import ColorField             from "../../../src/form/field/Color.mjs"
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.component.timer.MainContainer',
+        className: 'Neo.examples.component.timer.MainContainer',
     }
 
     createConfigurationComponents() {
@@ -19,28 +19,28 @@ class MainContainer extends ConfigurationViewport {
         return [{
             module   : TextField,
             labelText: 'dimensions',
-            value    : '8rem',
-            listeners: {change: me.onConfigChange.bind(me, 'dimensions')}
+            listeners: {change: me.onConfigChange.bind(me, 'dimensions')},
+            value    : '8rem'
         }, {
             module   : ColorField,
-            clearable : false,
+            clearable: false,
             labelText: 'colorStart',
-            value: '#8a9b0f',
-            listeners: {change: me.onConfigChange.bind(me, 'colorStart')}
+            listeners: {change: me.onConfigChange.bind(me, 'colorStart')},
+            value    : '#8a9b0f'
         }, {
             module   : ColorField,
-            clearable : false,
+            clearable: false,
             labelText: 'colorEnd',
-            value: '#940a3d',
-            listeners: {change: me.onConfigChange.bind(me, 'colorEnd')}
-        }];
+            listeners: {change: me.onConfigChange.bind(me, 'colorEnd')},
+            value    : '#940a3d'
+        }]
     }
 
     createExampleComponent() {
         return Neo.create({
             module: Container,
-            style: {
-                overflow: 'auto',
+            style : {
+                overflow : 'auto',
                 maxHeight: '100%'
             },
             items : [{
@@ -50,9 +50,9 @@ class MainContainer extends ConfigurationViewport {
                 module    : Timer,
                 duration  : '20s',
                 flag      : 'timer-component',
-                dimensions: '8rem',
+                dimensions: '8rem'
             }]
-        });
+        })
     }
 
     /**
@@ -62,10 +62,8 @@ class MainContainer extends ConfigurationViewport {
     onConfigChange(config, opts) {
         const timer = this.down({flag: 'timer-component'});
 
-        timer[config] = opts.value;
+        timer[config] = opts.value
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

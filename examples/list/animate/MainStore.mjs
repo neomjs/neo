@@ -28,10 +28,10 @@ class MainStore extends Store {
                     return !(
                         record.firstname.toLowerCase().includes(value) ||
                         record.lastname .toLowerCase().includes(value)
-                    );
+                    )
                 }
 
-                return false;
+                return false
             }
         }],
 
@@ -42,6 +42,4 @@ class MainStore extends Store {
     }
 }
 
-Neo.setupClass(MainStore);
-
-export default MainStore;
+export default Neo.setupClass(MainStore);

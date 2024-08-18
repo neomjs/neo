@@ -1,6 +1,6 @@
-import TabContainer  from '../../src/tab/Container.mjs';
 import NumberField   from '../../src/form/field/Number.mjs';
 import PasswordField from '../../src/form/field/Password.mjs';
+import TabContainer  from '../../src/tab/Container.mjs';
 
 /**
  * @class Neo.examples.tabs.MainContainer
@@ -166,6 +166,4 @@ class MainContainer extends TabContainer {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

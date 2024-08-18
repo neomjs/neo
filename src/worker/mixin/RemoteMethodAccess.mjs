@@ -143,6 +143,4 @@ class RemoteMethodAccess extends Base {
     }
 }
 
-Neo.setupClass(RemoteMethodAccess);
-
-export default RemoteMethodAccess;
+export default Neo.setupClass(RemoteMethodAccess);

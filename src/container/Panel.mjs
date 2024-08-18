@@ -190,6 +190,4 @@ class Panel extends Container {
     }
 }
 
-Neo.setupClass(Panel);
-
-export default Panel;
+export default Neo.setupClass(Panel);

@@ -86,6 +86,4 @@ class HelixContainer extends Viewport {
     }
 }
 
-Neo.setupClass(HelixContainer);
-
-export default HelixContainer;
+export default Neo.setupClass(HelixContainer);

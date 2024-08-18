@@ -34,6 +34,4 @@ class TreeModel extends ListModel {
     }
 }
 
-Neo.setupClass(TreeModel);
-
-export default TreeModel;
+export default Neo.setupClass(TreeModel);

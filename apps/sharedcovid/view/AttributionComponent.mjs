@@ -37,6 +37,4 @@ class AttributionComponent extends Component {
     }
 }
 
-Neo.setupClass(AttributionComponent);
-
-export default AttributionComponent;
+export default Neo.setupClass(AttributionComponent);

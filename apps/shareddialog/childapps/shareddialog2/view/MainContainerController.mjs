@@ -17,10 +17,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        Neo.apps['SharedDialog']?.mainView.controller.createDialog(data, this.component.appName);
+        Neo.apps['SharedDialog']?.mainView.controller.createDialog(data, this.component.appName)
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

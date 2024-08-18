@@ -25,6 +25,4 @@ class Color extends Model {
     }
 }
 
-Neo.setupClass(Color);
-
-export default Color;
+export default Neo.setupClass(Color);

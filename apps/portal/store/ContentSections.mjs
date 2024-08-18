@@ -19,6 +19,4 @@ class ContentSections extends Store {
     }
 }
 
-Neo.setupClass(ContentSections);
-
-export default ContentSections;
+export default Neo.setupClass(ContentSections);

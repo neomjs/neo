@@ -93,6 +93,4 @@ class StringUtil extends Base {
     }
 }
 
-Neo.setupClass(StringUtil);
-
-export default StringUtil;
+export default Neo.setupClass(StringUtil);

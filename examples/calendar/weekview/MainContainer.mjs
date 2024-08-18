@@ -66,10 +66,8 @@ class MainContainer extends Viewport {
      */
     construct(config) {
         super.construct(config);
-        Neo.worker.App.insertThemeFiles(this.appName, null, 'Neo.calendar.view.MainContainer');
+        Neo.worker.App.insertThemeFiles(this.appName, null, 'Neo.calendar.view.MainContainer')
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

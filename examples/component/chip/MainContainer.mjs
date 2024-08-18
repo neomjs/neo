@@ -56,7 +56,7 @@ class MainContainer extends ConfigurationViewport {
             minValue  : 100,
             stepSize  : 5,
             value     : me.exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -65,10 +65,8 @@ class MainContainer extends ConfigurationViewport {
             iconCls: 'fa fa-home',
             height : 30,
             text   : 'Hello World'
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

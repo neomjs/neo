@@ -53,7 +53,7 @@ class MonacoEditor extends Base {
     createInstance(data) {
         let me   = this,
             {id} = data,
-            editor;
+            editor, node;
 
         if (!me.isReady) {
             return me.cacheMethodCall({fn: 'createInstance', data})
@@ -61,9 +61,15 @@ class MonacoEditor extends Base {
             delete data.appName;
             delete data.id;
 
-            editor = me.map[id] = monaco.editor.create(DomAccess.getElement(id), data);
+            node = DomAccess.getElement(id);
 
-            editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+            if (node) {
+                editor = me.map[id] = monaco.editor.create(node, data);
+
+                editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+            } else {
+                console.warn(`addon.MonacoEditor: node ${id} not found`)
+            }
         }
     }
 
@@ -117,12 +123,13 @@ class MonacoEditor extends Base {
 
         window.require = {paths: {vs: path}};
 
+        await DomAccess.loadScript(path + '/loader.js');
+
         await Promise.all([
             DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
-            DomAccess.loadScript(path + '/loader.js'),
             DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
             DomAccess.loadScript(path + '/editor/editor.main.js')
-        ])
+        ]);
 
         me.isLoading = false;
         me.isReady   = true
@@ -207,6 +214,4 @@ class MonacoEditor extends Base {
     }
 }
 
-Neo.setupClass(MonacoEditor);
-
-export default MonacoEditor;
+export default Neo.setupClass(MonacoEditor);

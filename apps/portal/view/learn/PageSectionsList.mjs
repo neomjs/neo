@@ -86,6 +86,4 @@ class PageSectionsList extends List {
     }
 }
 
-Neo.setupClass(PageSectionsList);
-
-export default PageSectionsList;
+export default Neo.setupClass(PageSectionsList);

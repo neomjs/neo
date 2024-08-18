@@ -56,16 +56,17 @@ class MarkerDialog extends DialogBase {
         value.visualDate = me.calcVisualDate(value.timestamp);
 
         me.title = `${value.humanReadableLocation} | ${value.size}`;
-        vdom.cn  = me.itemTpl(value);
+        vdom.cn  = me.itemTpl(value)
     }
 
     calcVisualDate(dateString) {
-        const date = new Date(dateString),
-            day = date.toLocaleDateString('en-US', { day: 'numeric' }),
-            month = date.toLocaleDateString('en-US', { month: 'short' }),
-            year = date.toLocaleDateString('en-US', { year: 'numeric' }),
-            hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: false }),
-            minute = date.toLocaleTimeString('en-US', { minute: 'numeric' });
+        const
+            date   = new Date(dateString),
+            day    = date.toLocaleDateString('en-US', {day: 'numeric'}),
+            month  = date.toLocaleDateString('en-US', {month: 'short'}),
+            year   = date.toLocaleDateString('en-US', {year: 'numeric'}),
+            hour   = date.toLocaleTimeString('en-US', {hour: 'numeric', hour12: false}),
+            minute = date.toLocaleTimeString('en-US', {minute: 'numeric'});
 
         return `${day}. ${month} <b>${year}</b> ${hour}:${minute}`
     }
@@ -76,31 +77,15 @@ class MarkerDialog extends DialogBase {
         let me = this;
 
         /**
-         * Center on Map
-         */
-        // let futureParent = Neo.getComponent(me.boundaryContainerId),
-        //     futureParentRect = await futureParent.getDomRect(),
-        //     rect = await me.getDomRect();
-        //
-        // me.wrapperStyle = {
-        //     top: (futureParentRect.top + (futureParentRect.height - rect.height) / 2) + 'px',
-        //     left: (futureParentRect.left + (futureParentRect.width - rect.width) / 2) + 'px',
-        //     height: me.height,
-        //     width: me.width
-        // }
-
-        /**
          * Add to click position
          */
         me.wrapperStyle = {
-            top: me.domEvent.clientY + me.offsetConfig.y + 'px',
-            left: me.domEvent.clientX + me.offsetConfig.x + 'px',
+            top   : me.domEvent.clientY + me.offsetConfig.y + 'px',
+            left  : me.domEvent.clientX + me.offsetConfig.x + 'px',
             height: me.height,
-            width: me.width
+            width : me.width
         }
     }
 }
 
-Neo.setupClass(MarkerDialog);
-
-export default MarkerDialog;
+export default Neo.setupClass(MarkerDialog);

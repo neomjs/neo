@@ -52,6 +52,4 @@ class How extends FeatureSection {
     }
 }
 
-Neo.setupClass(How);
-
-export default How;
+export default Neo.setupClass(How);

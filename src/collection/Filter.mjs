@@ -256,6 +256,4 @@ class Filter extends Base {
     }
 }
 
-Neo.setupClass(Filter);
-
-export default Filter;
+export default Neo.setupClass(Filter);

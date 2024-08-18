@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.multiWindow.EditUserDialogController
  * @extends Neo.controller.Component
  */
-class EditUserDialogController extends Component {
+class EditUserDialogController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.EditUserDialogController'
@@ -19,7 +19,7 @@ class EditUserDialogController extends Component {
     onFirstnameTextFieldChange(data) {
         this.getModel().setData({
             'user.firstname': data.value || ''
-        });
+        })
     }
 
     /**
@@ -28,10 +28,8 @@ class EditUserDialogController extends Component {
     onLastnameTextFieldChange(data) {
         this.getModel().setData({
             'user.lastname': data.value || ''
-        });
+        })
     }
 }
 
-Neo.setupClass(EditUserDialogController);
-
-export default EditUserDialogController;
+export default Neo.setupClass(EditUserDialogController);

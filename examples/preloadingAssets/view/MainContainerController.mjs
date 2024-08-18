@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.preloadingAssets.view.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.preloadingAssets.view.MainContainerController'
@@ -36,6 +36,4 @@ class MainContainerController extends Component {
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

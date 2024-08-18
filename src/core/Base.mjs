@@ -27,6 +27,12 @@ class Base {
      */
     static delayable = {}
     /**
+     * Flag which will get set to true once manager.Instance got created
+     * @member {Boolean} instanceManagerAvailable=false
+     * @static
+     */
+    static instanceManagerAvailable = false
+    /**
      * Regex to grab the MethodName from an error
      * which is a second generation function
      * @member {RegExp} methodNameRegex
@@ -639,8 +645,4 @@ class Base {
     }
 }
 
-Neo.setupClass(Base);
-
-Base.instanceManagerAvailable = false;
-
-export default Base;
+export default Neo.setupClass(Base);

@@ -30,6 +30,4 @@ class Store extends BaseStore {
     }
 }
 
-Neo.setupClass(Store);
-
-export default Store;
+export default Neo.setupClass(Store);

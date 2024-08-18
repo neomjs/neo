@@ -204,6 +204,4 @@ class FeatureSection extends Container {
     }
 }
 
-Neo.setupClass(FeatureSection);
-
-export default FeatureSection;
+export default Neo.setupClass(FeatureSection);

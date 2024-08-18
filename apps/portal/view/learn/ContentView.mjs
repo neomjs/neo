@@ -56,9 +56,7 @@ class ContentView extends Component {
         });
 
         Neo.main.addon.HighlightJS.loadFiles({
-            appName        : me.appName,
-            highlightJsPath: '../../docs/resources/highlight/highlight.pack.js',
-            themePath      : '../../docs/resources/highlightjs-custom-github-theme.css'
+            appName: me.appName
         })
     }
 
@@ -143,7 +141,7 @@ class ContentView extends Component {
 
             me.html = html;
 
-            await me.timeout(100);
+            await me.timeout(Neo.config.environment === 'development' ? 100 : 150);
 
             Object.keys(neoComponents).forEach(key => {
                 Neo.create({
@@ -160,7 +158,8 @@ class ContentView extends Component {
 
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
-                Neo.create(LivePreview, {
+                Neo.create({
+                    module         : LivePreview,
                     appName        : me.appName,
                     autoMount      : true,
                     autoRender     : true,
@@ -221,7 +220,7 @@ class ContentView extends Component {
     getHighlightPromise(preContent, token, id) {
         // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
         return Neo.main.addon.HighlightJS.highlightAuto({html: preContent, windowId: this.windowId})
-            .then(highlight => ({after: `<pre data-javascript id="${id}">${highlight.value}</pre>`, token}))
+            .then(value => ({after: `<pre data-javascript id="${id}">${value}</pre>`, token}))
     }
 
     /**
@@ -327,6 +326,4 @@ class ContentView extends Component {
     }
 }
 
-Neo.setupClass(ContentView);
-
-export default ContentView;
+export default Neo.setupClass(ContentView);

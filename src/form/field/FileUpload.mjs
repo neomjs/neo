@@ -861,6 +861,4 @@ class FileUpload extends Base {
     }
 }
 
-Neo.setupClass(FileUpload);
-
-export default FileUpload;
+export default Neo.setupClass(FileUpload);

@@ -94,7 +94,7 @@ class CountryGallery extends Gallery {
                     ]}
                 ]}
             ]}
-        ]};
+        ]}
     }
 
     /**
@@ -159,7 +159,7 @@ class CountryGallery extends Gallery {
 
         imageName = map[imageName] || imageName;
 
-        return `https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/${imageName}.png`;
+        return `https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/${imageName}.png`
     }
 
     /**
@@ -167,7 +167,7 @@ class CountryGallery extends Gallery {
      * @returns {String} itemId
      */
     getItemId(vnodeId) {
-        return vnodeId.split('__')[1];
+        return vnodeId.split('__')[1]
     }
 
     /**
@@ -185,6 +185,4 @@ class CountryGallery extends Gallery {
     }
 }
 
-Neo.setupClass(CountryGallery);
-
-export default CountryGallery;
+export default Neo.setupClass(CountryGallery);

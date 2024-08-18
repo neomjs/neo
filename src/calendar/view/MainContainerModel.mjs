@@ -168,6 +168,4 @@ class MainContainerModel extends Component {
     }
 }
 
-Neo.setupClass(MainContainerModel);
-
-export default MainContainerModel;
+export default Neo.setupClass(MainContainerModel);

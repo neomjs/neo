@@ -52,6 +52,4 @@ class ButtonBar extends Base {
     }
 }
 
-Neo.setupClass(ButtonBar);
-
-export default ButtonBar;
+export default Neo.setupClass(ButtonBar);

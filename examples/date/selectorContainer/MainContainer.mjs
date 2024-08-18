@@ -183,7 +183,7 @@ class MainContainer extends ConfigurationViewport {
             stepSize  : 10,
             style     : {marginTop: '10px'},
             value     : exampleComponent.width
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -197,7 +197,7 @@ class MainContainer extends ConfigurationViewport {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
             let date = this.exampleComponent.currentDate;
             date?.setMonth(value);
-            this.exampleComponent.currentDate = date;
+            this.exampleComponent.currentDate = date
         }
     }
 
@@ -205,11 +205,9 @@ class MainContainer extends ConfigurationViewport {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
             let date = this.exampleComponent.currentDate;
             date?.setFullYear(value);
-            this.exampleComponent.currentDate = date;
+            this.exampleComponent.currentDate = date
         }
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

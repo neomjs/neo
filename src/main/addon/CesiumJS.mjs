@@ -111,6 +111,4 @@ class CesiumJS extends Base {
     }
 }
 
-Neo.setupClass(CesiumJS);
-
-export default CesiumJS;
+export default Neo.setupClass(CesiumJS);

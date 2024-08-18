@@ -231,6 +231,4 @@ class Xhr extends Base {
     }
 }
 
-Neo.setupClass(Xhr);
-
-export default Xhr;
+export default Neo.setupClass(Xhr);

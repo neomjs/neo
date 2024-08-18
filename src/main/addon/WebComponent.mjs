@@ -45,6 +45,4 @@ class WebComponent extends Base {
     }
 }
 
-Neo.setupClass(WebComponent);
-
-export default WebComponent;
+export default Neo.setupClass(WebComponent);

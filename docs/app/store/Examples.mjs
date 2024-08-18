@@ -27,6 +27,4 @@ class Examples extends Store {
     }
 }
 
-Neo.setupClass(Examples);
-
-export default Examples;
+export default Neo.setupClass(Examples);

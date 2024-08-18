@@ -103,8 +103,8 @@ class MainContainer extends ConfigurationViewport {
                     me.exampleComponent.update();
                 }
             },
-            style    : {marginTop: '10px'}
-        }];
+            style: {marginTop: '10px'}
+        }]
     }
 
     /**
@@ -135,7 +135,7 @@ class MainContainer extends ConfigurationViewport {
                                 text    : 'Edit'
                             }));
 
-                        return button.vdom;
+                        return button.vdom
                     }
                 },
                 {
@@ -161,11 +161,11 @@ class MainContainer extends ConfigurationViewport {
                                 }
                             }));
 
-                            return button.vdom;
+                            return button.vdom
                     }
                 }
             ]
-        });
+        })
     }
 
     /**
@@ -176,6 +176,4 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

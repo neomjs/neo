@@ -169,6 +169,4 @@ class Table extends Container {
     }
 }
 
-Neo.setupClass(Table);
-
-export default Table;
+export default Neo.setupClass(Table);

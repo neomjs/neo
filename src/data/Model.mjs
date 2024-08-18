@@ -65,6 +65,4 @@ class Model extends Base {
     }
 }
 
-Neo.setupClass(Model);
-
-export default Model;
+export default Neo.setupClass(Model);

@@ -26,6 +26,4 @@ class BaseContainer extends Container {
     activate() {}
 }
 
-Neo.setupClass(BaseContainer);
-
-export default BaseContainer;
+export default Neo.setupClass(BaseContainer);

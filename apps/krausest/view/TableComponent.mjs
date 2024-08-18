@@ -149,6 +149,4 @@ class TableComponent extends Base {
     }
 }
 
-Neo.setupClass(TableComponent);
-
-export default TableComponent;
+export default Neo.setupClass(TableComponent);

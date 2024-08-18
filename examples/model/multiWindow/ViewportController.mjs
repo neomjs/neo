@@ -36,7 +36,7 @@ class MainContainerController extends ComponentController {
             connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
             scope     : me
-        });
+        })
     }
 
     /**
@@ -74,9 +74,9 @@ class MainContainerController extends ComponentController {
             });
 
             if (!me.mainModel) {
-                me.mainModel = view.model;
+                me.mainModel = view.model
             }
-        });
+        })
     }
 
     /**
@@ -89,10 +89,8 @@ class MainContainerController extends ComponentController {
 
         NeoArray.remove(me.connectedApps, name);
 
-        console.log('onAppDisconnect', data);
+        console.log('onAppDisconnect', data)
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

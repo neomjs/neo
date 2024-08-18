@@ -78,6 +78,4 @@ class Form extends Base {
     }
 }
 
-Neo.setupClass(Form);
-
-export default Form;
+export default Neo.setupClass(Form);

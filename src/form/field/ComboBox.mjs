@@ -775,6 +775,4 @@ class ComboBox extends Picker {
  * @returns {Object}
  */
 
-Neo.setupClass(ComboBox);
-
-export default ComboBox;
+export default Neo.setupClass(ComboBox);

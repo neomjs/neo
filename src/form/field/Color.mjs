@@ -132,6 +132,4 @@ class Color extends ComboBox {
     }
 }
 
-Neo.setupClass(Color);
-
-export default Color;
+export default Neo.setupClass(Color);

@@ -51,7 +51,7 @@ class TutorialComponent extends Component {
             url
         }).then(data => {
             me.timeout(100).then(() => { // ensure we are not mounting
-                me.applySourceCode(isJson ? data.json : data.response);
+                me.applySourceCode(isJson ? data.json : data.response)
             })
         })
     }
@@ -80,10 +80,8 @@ class TutorialComponent extends Component {
      *
      */
     static syntaxHighlight() {
-        Neo.main.addon.HighlightJS.syntaxHighlightInit();
+        Neo.main.addon.HighlightJS.syntaxHighlightInit()
     }
 }
 
-Neo.setupClass(TutorialComponent);
-
-export default TutorialComponent;
+export default Neo.setupClass(TutorialComponent);

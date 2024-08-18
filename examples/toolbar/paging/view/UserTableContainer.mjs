@@ -34,6 +34,4 @@ class UserTableContainer extends TableContainer {
     }
 }
 
-Neo.setupClass(UserTableContainer);
-
-export default UserTableContainer;
+export default Neo.setupClass(UserTableContainer);

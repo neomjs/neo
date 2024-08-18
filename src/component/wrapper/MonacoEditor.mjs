@@ -415,6 +415,4 @@ class MonacoEditor extends Base {
     }
 }
 
-Neo.setupClass(MonacoEditor);
-
-export default MonacoEditor;
+export default Neo.setupClass(MonacoEditor);

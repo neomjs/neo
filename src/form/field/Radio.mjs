@@ -84,6 +84,4 @@ class Radio extends CheckBox {
     }
 }
 
-Neo.setupClass(Radio);
-
-export default Radio;
+export default Neo.setupClass(Radio);

@@ -30,10 +30,10 @@ class MainContainerController extends ComponentController {
                     animateTargetId: data.component.id,
                     appName        : me.component.appName,
                     closeAction    : 'hide'
-                });
-            });
+                })
+            })
         } else {
-            me.addUserDialog.show();
+            me.addUserDialog.show()
         }
     }
 
@@ -43,7 +43,7 @@ class MainContainerController extends ComponentController {
     onShowFiltersButtonClick(data) {
         let userTable = this.getReference('user-table');
 
-        userTable.showHeaderFilters = !userTable.showHeaderFilters;
+        userTable.showHeaderFilters = !userTable.showHeaderFilters
     }
 
     /**
@@ -52,11 +52,9 @@ class MainContainerController extends ComponentController {
      */
     onUserServiceReadButtonClick(data) {
         MyApp.backend.UserService.read().then(response => {
-            console.log(response);
+            console.log(response)
         })
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

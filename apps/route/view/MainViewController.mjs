@@ -12,7 +12,6 @@ class MainContainerController extends Component {
        */
       className: 'Route.view.MainContainerController',
 
-
       routes: {
          '/home': 'handleHomeRoute',
          '/section1': 'handleSection1Route',
@@ -75,7 +74,6 @@ class MainContainerController extends Component {
       Neo.Main.redirectTo({ url: `#/users/${this.data.activeUser}` });
       this.#removeFromButtonSelection();
       this.#addButtonSelection(data);
-
    }
 
    /**
@@ -85,7 +83,6 @@ class MainContainerController extends Component {
       Neo.Main.redirectTo({ url: '#/section1' });
       this.#removeFromButtonSelection();
       this.#addButtonSelection(data);
-
    }
 
    /**
@@ -172,7 +169,6 @@ class MainContainerController extends Component {
       footer.items.forEach(element => {
          element.removeCls('route_button_selected');
       });
-
    }
 
    #addButtonSelection(data) {
@@ -190,7 +186,6 @@ class MainContainerController extends Component {
       }
       this.#addButtonSelection(data);
       Neo.Main.redirectTo({ url: '#/home' });
-
    }
 
    #setUsername() {
@@ -199,11 +194,7 @@ class MainContainerController extends Component {
       const centerContainer = this.getReference('center-container');
       const adminPage = centerContainer.items[1];
       adminPage.username = user ? user.name : '';
-
    }
-
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

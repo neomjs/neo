@@ -66,8 +66,8 @@ class SourceViewComponent extends Component {
         Neo.Xhr.promiseRequest({
             url
         }).then(data => {
-            me.applySourceCode(data.response);
-        });
+            me.applySourceCode(data.response)
+        })
     }
 
     /**
@@ -115,7 +115,7 @@ class SourceViewComponent extends Component {
         let me = this;
 
         if (oldValue) {
-            me.previousLine = oldValue;
+            me.previousLine = oldValue
         }
 
         if (me.isHighlighted) {
@@ -148,14 +148,12 @@ class SourceViewComponent extends Component {
             vnodeId: me.vdom.cn[0].cn[0].id
         }).then(() => {
             if (!me.isHighlighted) {
-                me.isHighlighted = true;
+                me.isHighlighted = true
             } else {
-                me.afterSetIsHighlighted(true, false);
+                me.afterSetIsHighlighted(true, false)
             }
         })
     }
 }
 
-Neo.setupClass(SourceViewComponent);
-
-export default SourceViewComponent;
+export default Neo.setupClass(SourceViewComponent);

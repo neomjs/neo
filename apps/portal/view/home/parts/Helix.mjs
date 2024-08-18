@@ -55,6 +55,4 @@ class Helix extends FeatureSection {
     }
 }
 
-Neo.setupClass(Helix);
-
-export default Helix;
+export default Neo.setupClass(Helix);

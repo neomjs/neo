@@ -1,5 +1,5 @@
-import Store from '../../src/data/Store.mjs';
 import Model from './MainModel.mjs';
+import Store from '../../src/data/Store.mjs';
 
 /**
  * @class Neo.examples.tableFiltering.MainStore
@@ -26,6 +26,4 @@ class MainStore extends Store {
     }
 }
 
-Neo.setupClass(MainStore);
-
-export default MainStore;
+export default Neo.setupClass(MainStore);

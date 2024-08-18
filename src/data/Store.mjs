@@ -468,6 +468,4 @@ class Store extends Base {
     }
 }
 
-Neo.setupClass(Store);
-
-export default Store;
+export default Neo.setupClass(Store);

@@ -75,7 +75,7 @@ class MainContainer extends ConfigurationViewport {
             text   : 'check validity',
             handler: data => {exampleComponent.checkValidity().then(value => console.log(value))},
             style  : {marginTop: '.5em'}
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -94,14 +94,12 @@ class MainContainer extends ConfigurationViewport {
             listeners: {
                 change: data => {
                     if (data.oldValue) {
-                        Neo.getComponent(`${me.id}__value`).value = data.value;
+                        Neo.getComponent(`${me.id}__value`).value = data.value
                     }
                 }
             }
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

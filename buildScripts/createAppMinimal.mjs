@@ -234,8 +234,8 @@ class ${className} extends Base {
         items:      [{module:MainView}],
     }
 }
-Neo.setupClass(${className});
-export default ${className};
+
+export default Neo.setupClass(${className});
 `;
             fs.writeFileSync(path.join(`${folder}/view/${className}.mjs`), content);
 
@@ -262,14 +262,9 @@ class ${className} extends Base {
     }
 }
 
-Neo.setupClass(${className});
-
-export default ${className};
-            `;
+export default Neo.setupClass(${className});
+`;
             fs.writeFileSync(path.join(`${folder}/view/${className}.mjs`), content);
-
-
-
 
 
             // -------------------------------------------------------------------------
@@ -284,15 +279,9 @@ class ${className} extends Base {
     }
 }
 
-Neo.setupClass(${className});
-
-export default ${className};
-            `;
+export default Neo.setupClass(${className});
+`;
             fs.writeFileSync(path.join(`${folder}/view/${className}.mjs`), content);
-
-
-
-
 
             // -------------------------------------------------------------------------
 
@@ -308,15 +297,9 @@ class ${className} extends Base {
     }
 }
 
-Neo.setupClass(${className});
-
-export default ${className};
-            `;
+export default Neo.setupClass(${className});
+`;
             fs.writeFileSync(path.join(`${folder}/view/${className}.mjs`), content);
-
-
-
-
 
             // -------------------------------------------------------------------------
 

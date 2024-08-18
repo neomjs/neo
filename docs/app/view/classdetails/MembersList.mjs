@@ -73,7 +73,7 @@ class MembersList extends Base {
             sourceId  : mainStore.id
         });
 
-        me.onRefreshClassMembers();
+        me.onRefreshClassMembers()
     }
 
     /**
@@ -83,7 +83,7 @@ class MembersList extends Base {
      * @protected
      */
     afterSetFilterMembersQuery(value, oldValue) {
-        oldValue !== undefined && this.onRefreshClassMembers();
+        oldValue !== undefined && this.onRefreshClassMembers()
     }
 
     /**
@@ -93,7 +93,7 @@ class MembersList extends Base {
      * @protected
      */
     afterSetShowProtectedMembers(value, oldValue) {
-        oldValue !== undefined && this.onRefreshClassMembers();
+        oldValue !== undefined && this.onRefreshClassMembers()
     }
 
     /**
@@ -103,7 +103,7 @@ class MembersList extends Base {
      * @protected
      */
     afterSetShowPrivateMembers(value, oldValue) {
-        oldValue !== undefined && this.onRefreshClassMembers();
+        oldValue !== undefined && this.onRefreshClassMembers()
     }
 
     /**
@@ -113,7 +113,7 @@ class MembersList extends Base {
      * @protected
      */
     afterSetShowStaticMembers(value, oldValue) {
-        oldValue !== undefined && this.onRefreshClassMembers();
+        oldValue !== undefined && this.onRefreshClassMembers()
     }
 
     /**
@@ -130,10 +130,10 @@ class MembersList extends Base {
                 cls      : ['neo-docs-memberlist-group-header'],
                 innerHTML: 'Configs',
                 'data-list-header': 'Configs'
-            });
+            })
         }
 
-        return vdom;
+        return vdom
     }
 
     /**
@@ -156,10 +156,10 @@ class MembersList extends Base {
                 innerHTML: 'Events',
                 style    : {zIndex: 3},
                 'data-list-header': 'Events'
-            });
+            })
         }
 
-        return vdom;
+        return vdom
     }
 
     /**
@@ -186,10 +186,10 @@ class MembersList extends Base {
                 innerHTML: 'Methods',
                 style    : {zIndex: 2},
                 'data-list-header': 'Methods'
-            });
+            })
         }
 
-        return vdom;
+        return vdom
     }
 
     /**
@@ -214,34 +214,34 @@ class MembersList extends Base {
 
             if (item.name.substr(-1) === '_') {
                 item.name = item.name.slice(0, -1) ;
-                itemAttributes.push('GS');
+                itemAttributes.push('GS')
             }
 
             if (item.neoClassName !== targetClassName) {
-                itemAttributes.push('inherited');
+                itemAttributes.push('inherited')
             }
 
             if (item.access === 'private' || item.access === 'protected') {
-                itemAttributes.push(item.access);
+                itemAttributes.push(item.access)
             }
 
             if (item.scope === 'static') {
-                itemAttributes.push('static');
+                itemAttributes.push('static')
             }
 
             headerText = item.name;
 
             if (me.filterMembersQuery !== '' && me.filterMembersQuery !== null) {
-                headerText = headerText.replace(filterMembersRegEx, match => `<span class="neo-highlight-search">${match}</span>`);
+                headerText = headerText.replace(filterMembersRegEx, match => `<span class="neo-highlight-search">${match}</span>`)
             }
 
             // configs
             if (item.type?.names) {
-                headerText += (': {' + MembersList.escapeHtml(item.type.names.join('|')) + '}');
+                headerText += (': {' + MembersList.escapeHtml(item.type.names.join('|')) + '}')
             }
 
             if (item.hasOwnProperty('defaultvalue')) {
-                headerText += (' = ' + item.defaultvalue);
+                headerText += (' = ' + item.defaultvalue)
             }
 
             // methods
@@ -253,27 +253,27 @@ class MembersList extends Base {
                 headerText += ('(' + item.params.reduce((result, param) => {
                     if (param.name.indexOf('.') < 0) {
                         if (param.optional) {
-                            result.push('[' + param.name + ']');
+                            result.push('[' + param.name + ']')
                         } else {
-                            result.push(param.name);
+                            result.push(param.name)
                         }
                     }
-                    return result;
-                }, []).join(', ') + ')');
+                    return result
+                }, []).join(', ') + ')')
             }
 
             if (item.returns?.[0].type) {
-                headerText += (' → {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '}'));
+                headerText += (' → {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '}'))
             }
 
             path = item.meta.path;
 
             if (path.includes('/neo.mjs/')) {
-                path = path.substr(path.indexOf('/neo.mjs/') + 9);
+                path = path.substr(path.indexOf('/neo.mjs/') + 9)
             } else if (path.includes('/neomjs/')) {
-                path = path.substr(path.indexOf('/neomjs/')  + 8);
+                path = path.substr(path.indexOf('/neomjs/')  + 8)
             } else if (path.includes('/neo/')) {
-                path = path.substr(path.indexOf('/neo/')     + 5);
+                path = path.substr(path.indexOf('/neo/')     + 5)
             }
 
             itemConfig = {
@@ -351,11 +351,11 @@ class MembersList extends Base {
 
         params.forEach(param => {
             if (param.hasOwnProperty('defaultvalue')) {
-                hasDefaultValues = true;
+                hasDefaultValues = true
             }
 
             if (param.hasOwnProperty('optional')) {
-                hasOptionalParams = true;
+                hasOptionalParams = true
             }
         });
 
@@ -381,14 +381,14 @@ class MembersList extends Base {
             paramTable.cn[0].cn.splice(2, 0, {
                 tag      : 'th',
                 innerHTML: 'Default'
-            });
+            })
         }
 
         if (hasOptionalParams) {
             paramTable.cn[0].cn.splice(2, 0, {
                 tag      : 'th',
                 innerHTML: 'Optional'
-            });
+            })
         }
 
         params.forEach(param => {
@@ -437,19 +437,19 @@ class MembersList extends Base {
                     paramTable.cn[paramTable.cn.length - 1].cn.splice(2, 0, {
                         tag      : 'td',
                         innerHTML: param.defaultvalue === undefined ? '' : (param.defaultvalue + '')
-                    });
+                    })
                 }
 
                 if (hasOptionalParams) {
                     paramTable.cn[paramTable.cn.length - 1].cn.splice(2, 0, {
                         tag      : 'td',
                         innerHTML: param.optional
-                    });
+                    })
                 }
             }
         });
 
-        return paramTable;
+        return paramTable
     }
 
     /**
@@ -458,7 +458,7 @@ class MembersList extends Base {
      * @returns {String}
      */
     static escapeHtml(value) {
-        return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return value.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
 
     /**
@@ -475,14 +475,14 @@ class MembersList extends Base {
 
         hierarchyItems.forEach(cls => {
             if (cls.checked === true) {
-                tmpItems.push(cls.name);
+                tmpItems.push(cls.name)
             }
         });
 
         tmpItemsLen = tmpItems.length;
 
         for (; i < tmpItemsLen; i++) {
-            hierarchyMap[tmpItems[i]] = i;
+            hierarchyMap[tmpItems[i]] = i
         }
 
         me.targetClassName = hierarchyItems[hierarchyItems.length -1].name;
@@ -513,7 +513,7 @@ class MembersList extends Base {
                 operator: '!==',
                 property: 'access',
                 value   : 'private'
-            });
+            })
         }
 
         if (!me.showProtectedMembers) {
@@ -521,7 +521,7 @@ class MembersList extends Base {
                 operator: '!==',
                 property: 'access',
                 value   : 'protected'
-            });
+            })
         }
 
         if (!me.showStaticMembers) {
@@ -529,7 +529,7 @@ class MembersList extends Base {
                 operator: '!==',
                 property: 'scope',
                 value   : 'static'
-            });
+            })
         }
 
         if (me.filterMembersQuery !== '' && me.filterMembersQuery !== null) {
@@ -537,7 +537,7 @@ class MembersList extends Base {
                 operator: 'like',
                 property: 'name',
                 value   : me.filterMembersQuery
-            });
+            })
         }
 
         filters.push({
@@ -552,7 +552,7 @@ class MembersList extends Base {
                 // always exclude inherited className & ntype configs
                 if (item.name === 'ntype' && item.neoClassName !== targetClassName
                 ) {
-                    return true;
+                    return true
                 }
 
                 if (item.neoClassName !== targetClassName) {
@@ -568,13 +568,13 @@ class MembersList extends Base {
                                 item.scope === filteredItem.scope && // static VS instance members
                                 hierarchyMap[item.neoClassName] < hierarchyMap[filteredItem.neoClassName]
                             ) {
-                                return true;
+                                return true
                             }
                         }
                     }
                 }
 
-                return false;
+                return false
             }
         });
 
@@ -586,14 +586,14 @@ class MembersList extends Base {
                 a = a.kind === 'member' ? 0 : a.kind === 'function' ? 1 : 2;
                 b = b.kind === 'member' ? 0 : b.kind === 'function' ? 1 : 2;
 
-                return a > b ? 1 : a < b ? -1 : 0;
+                return a > b ? 1 : a < b ? -1 : 0
             }
         }, {
             direction: 'ASC',
             property : 'name'
         }];
 
-        me.fire('mutateItems', me.store);
+        me.fire('mutateItems', me.store)
     }
 
     /**
@@ -606,10 +606,8 @@ class MembersList extends Base {
      */
     onRefreshClassMembers() {
         this.filterAndSortItems();
-        this.createItems();
+        this.createItems()
     }
 }
 
-Neo.setupClass(MembersList);
-
-export default MembersList;
+export default Neo.setupClass(MembersList);

@@ -20,7 +20,7 @@ class MainContainerController extends ComponentController {
     construct(config) {
         super.construct(config);
         Neo.main.addon.HighlightJS.switchTheme('dark');
-        Neo.main.addon.HighlightJS.loadLibrary({});
+        Neo.main.addon.HighlightJS.loadLibrary({})
     }
 
     /**
@@ -68,12 +68,12 @@ class MainContainerController extends ComponentController {
         // use the defaults from toast if not set
         clear.forEach(item => {
             if (values[item] === null) {
-                delete values[item];
+                delete values[item]
             }
         })
 
         values.appName = me.component.appName;
-        Neo.toast(values);
+        Neo.toast(values)
     }
 
     /**
@@ -87,10 +87,8 @@ class MainContainerController extends ComponentController {
         Neo.main.addon.HighlightJS.syntaxHighlight({
             appName: me.component.appName,
             vnodeId: oVdom.cn[0].id
-        });
+        })
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

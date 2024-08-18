@@ -1,5 +1,5 @@
-import Store from '../../../src/data/Store.mjs';
 import Model from './MainModel.mjs';
+import Store from '../../../src/data/Store.mjs';
 
 /**
  * @class Neo.examples.grid.container.MainStore
@@ -16,32 +16,27 @@ class MainStore extends Store {
             firstname: 'Tobias',
             githubId : 'tobiu',
             lastname : 'Uhlig'
-        },
-        {
+        }, {
             country  : 'USA',
             firstname: 'Rich',
             githubId : 'rwaters',
             lastname : 'Waters'
-        },
-        {
+        }, {
             country  : 'Germany',
             firstname: 'Nils',
             githubId : 'mrsunshine',
             lastname : 'Dehl'
-        },
-        {
+        }, {
             country  : 'USA',
             firstname: 'Gerard',
             githubId : 'camtnbikerrwc',
             lastname : 'Horan'
-        },
-        {
+        }, {
             country  : 'Slovakia',
             firstname: 'Jozef',
             githubId : 'jsakalos',
             lastname : 'Sakalos'
-        },
-        {
+        }, {
             country  : 'Germany',
             firstname: 'Bastian',
             githubId : 'bhaustein',
@@ -50,6 +45,4 @@ class MainStore extends Store {
     }
 }
 
-Neo.setupClass(MainStore);
-
-export default MainStore;
+export default Neo.setupClass(MainStore);

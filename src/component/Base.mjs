@@ -20,6 +20,7 @@ const
     twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
+ * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
  * @extends Neo.core.Base
  */
@@ -2596,6 +2597,4 @@ class Base extends CoreBase {
  * @param {Object[]} data.oldPath dom element ids upwards
  */
 
-Neo.setupClass(Base);
-
-export default Base;
+export default Neo.setupClass(Base);

@@ -426,6 +426,4 @@ class MapboxGL extends Component {
     }
 }
 
-Neo.setupClass(MapboxGL);
-
-export default MapboxGL;
+export default Neo.setupClass(MapboxGL);

@@ -21,14 +21,12 @@ class Viewport extends BaseViewport {
             module: MainContainer
         }, {
             module: MainContainer2,
-            style: {marginTop: '20px'}
+            style : {marginTop: '20px'}
         }, {
             module: MainContainer3,
-            style: {marginTop: '20px'}
+            style : {marginTop: '20px'}
         }]
     }
 }
 
-Neo.setupClass(Viewport);
-
-export default Viewport;
+export default Neo.setupClass(Viewport);

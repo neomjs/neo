@@ -30,6 +30,4 @@ class Calendars extends Store {
     }
 }
 
-Neo.setupClass(Calendars);
-
-export default Calendars;
+export default Neo.setupClass(Calendars);

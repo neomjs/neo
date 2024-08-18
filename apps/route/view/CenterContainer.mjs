@@ -29,9 +29,7 @@ class CenterContainer extends Base {
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {ntype: 'card', align: 'stretch', activeIndex: 4},
-        }
+    }
 }
 
-Neo.setupClass(CenterContainer);
-
-export default CenterContainer;
+export default Neo.setupClass(CenterContainer);

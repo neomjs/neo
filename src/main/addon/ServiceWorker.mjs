@@ -64,6 +64,4 @@ class ServiceWorker extends Base {
     }
 }
 
-Neo.setupClass(ServiceWorker);
-
-export default ServiceWorker;
+export default Neo.setupClass(ServiceWorker);

@@ -996,6 +996,4 @@ class DateSelector extends Component {
     }
 }
 
-Neo.setupClass(DateSelector);
-
-export default DateSelector;
+export default Neo.setupClass(DateSelector);

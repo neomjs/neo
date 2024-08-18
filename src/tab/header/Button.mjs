@@ -92,6 +92,4 @@ class Button extends BaseButton {
     }
 }
 
-Neo.setupClass(Button);
-
-export default Button;
+export default Neo.setupClass(Button);

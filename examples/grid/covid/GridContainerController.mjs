@@ -53,10 +53,8 @@ class GridContainerController extends Controller {
         fetch(me.apiUrl)
             .then(response => response.json())
             .catch(err => console.log('Can’t access ' + me.apiUrl, err))
-            .then(data => me.addStoreItems(data));
+            .then(data => me.addStoreItems(data))
     }
 }
 
-Neo.setupClass(GridContainerController);
-
-export default GridContainerController;
+export default Neo.setupClass(GridContainerController);

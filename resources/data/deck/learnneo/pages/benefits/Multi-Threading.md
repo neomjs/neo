@@ -93,7 +93,7 @@ Probably the best solution for single page apps (SPAs) as well as multi-window a
 {
     "cls" : "neo-worker-setup",
     "tag" : "element-loader",
-    "vdom": {"src": "../../resources/images/workers-focus.svg"}
+    "vdom": {"src": "./resources/images/workers-focus.svg"}
 }
 </pre>
 

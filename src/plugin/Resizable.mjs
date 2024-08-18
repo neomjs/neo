@@ -570,6 +570,4 @@ class Resizable extends Base {
     }
 }
 
-Neo.setupClass(Resizable);
-
-export default Resizable;
+export default Neo.setupClass(Resizable);

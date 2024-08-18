@@ -170,6 +170,4 @@ class Responsive extends BasePlugin {
     }
 }
 
-Neo.setupClass(Responsive);
-
-export default Responsive;
+export default Neo.setupClass(Responsive);

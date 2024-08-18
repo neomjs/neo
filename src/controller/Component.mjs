@@ -269,6 +269,4 @@ class Component extends Base {
     }
 }
 
-Neo.setupClass(Component);
-
-export default Component;
+export default Neo.setupClass(Component);

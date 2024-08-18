@@ -51,6 +51,4 @@ class Fit extends Base {
     }
 }
 
-Neo.setupClass(Fit);
-
-export default Fit;
+export default Neo.setupClass(Fit);

@@ -108,6 +108,4 @@ class Progress extends Base {
     }
 }
 
-Neo.setupClass(Progress);
-
-export default Progress;
+export default Neo.setupClass(Progress);

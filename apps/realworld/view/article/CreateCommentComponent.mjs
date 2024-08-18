@@ -134,6 +134,4 @@ class CreateCommentComponent extends Component {
     }
 }
 
-Neo.setupClass(CreateCommentComponent);
-
-export default CreateCommentComponent;
+export default Neo.setupClass(CreateCommentComponent);

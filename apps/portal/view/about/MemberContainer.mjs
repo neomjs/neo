@@ -186,6 +186,4 @@ class MemberContainer extends Container {
     }
 }
 
-Neo.setupClass(MemberContainer);
-
-export default MemberContainer;
+export default Neo.setupClass(MemberContainer);

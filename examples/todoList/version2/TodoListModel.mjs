@@ -1,4 +1,4 @@
-import Model  from '../../../src/data/Model.mjs';
+import Model from '../../../src/data/Model.mjs';
 
 /**
  * @class Neo.examples.todoList.version2.TodoListModel
@@ -22,6 +22,4 @@ class TodoListModel extends Model {
     }
 }
 
-Neo.setupClass(TodoListModel);
-
-export default TodoListModel;
+export default Neo.setupClass(TodoListModel);

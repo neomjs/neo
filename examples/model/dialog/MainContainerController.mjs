@@ -1,10 +1,10 @@
-import Component from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.dialog.MainContainerController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.examples.model.dialog.MainContainerController'
@@ -34,14 +34,12 @@ class MainContainerController extends Component {
                     model: {
                         parent: me.getModel()
                     }
-                });
-            });
+                })
+            })
         } else {
-            me.dialog.show();
+            me.dialog.show()
         }
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

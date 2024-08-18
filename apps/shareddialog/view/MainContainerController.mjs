@@ -307,14 +307,14 @@ class MainContainerController extends ComponentController {
         NeoArray.add(me.connectedApps, name);
 
         if (name !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
-            me.switchThemeForApp(name, me.currentTheme);
+            me.switchThemeForApp(name, me.currentTheme)
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getOpenDockedWindowButton().disabled = true;
+            me.getOpenDockedWindowButton().disabled = true
         }
 
-        me.enableOpenDialogButtons(!me.dialog);
+        me.enableOpenDialogButtons(!me.dialog)
     }
 
     /**
@@ -330,18 +330,18 @@ class MainContainerController extends ComponentController {
             NeoArray.remove(me.connectedApps, 'SharedDialog');
 
             Neo.Main.windowClose({
-                names: me.connectedApps,
-            });
+                names: me.connectedApps
+            })
         } else {
             NeoArray.remove(me.connectedApps, name);
 
             Neo.main.addon.WindowPosition.unregisterWindow({
                 name: name
-            });
+            })
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getOpenDockedWindowButton().disabled = false;
+            me.getOpenDockedWindowButton().disabled = false
         }
     }
 
@@ -349,14 +349,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        this.createDialog(data, this.component.appName);
+        this.createDialog(data, this.component.appName)
     }
 
     /**
      *
      */
     onDialogClose() {
-        this.enableOpenDialogButtons(true);
+        this.enableOpenDialogButtons(true)
     }
 
     /**
@@ -364,7 +364,7 @@ class MainContainerController extends ComponentController {
      */
     onDockedPositionChange(data) {
         if (data.value === true) {
-            this.dockedWindowSide = data.component.value;
+            this.dockedWindowSide = data.component.value
         }
     }
 
@@ -380,16 +380,16 @@ class MainContainerController extends ComponentController {
                 side                = me.dockedWindowSide;
 
             if (dialog.appName === me.dockedWindowAppName) {
-                side = me.getOppositeSide(me.dockedWindowSide);
+                side = me.getOppositeSide(me.dockedWindowSide)
             }
 
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
                     me.mountDialogInOtherWindow({
                         proxyRect: proxyRect
-                    });
+                    })
                 } else {
-                    me.dropDialogBetweenWindows(proxyRect);
+                    me.dropDialogBetweenWindows(proxyRect)
                 }
             }
         }
@@ -441,15 +441,15 @@ class MainContainerController extends ComponentController {
 
                     // The other window has most likely not loaded The dialog JS module yet,
                     // but the drag proxy is using some CSS rules of it.
-                    Neo.currentWorker.insertThemeFiles(dockedWindowAppName, Neo.dialog.Base.prototype);
+                    Neo.currentWorker.insertThemeFiles(dockedWindowAppName, Neo.dialog.Base.prototype)
                 } else {
                     me.updateDockedWindowProxyStyle({
                         ...proxyPosition,
                         visibility: null
-                    });
+                    })
                 }
             } else {
-                me.updateDockedWindowProxyStyle({visibility: 'hidden'});
+                me.updateDockedWindowProxyStyle({visibility: 'hidden'})
             }
         }
     }
@@ -468,7 +468,7 @@ class MainContainerController extends ComponentController {
             for (let item of data.eventData.path) {
                 if (item.tagName === 'body') {
                     me.dragStartWindowRect = item.rect;
-                    break;
+                    break
                 }
             }
 
@@ -476,8 +476,8 @@ class MainContainerController extends ComponentController {
                 Neo.Main.getWindowData({
                     appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
                 }).then(data => {
-                    me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight;
-                });
+                    me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight
+                })
             }
         }
     }
@@ -513,25 +513,25 @@ class MainContainerController extends ComponentController {
                     left   = data.screenLeft;
                     top    = data.outerHeight + data.screenTop - 52;
                     width  = data.outerWidth;
-                    break;
+                    break
                 case 'left':
                     height = data.outerHeight - 78;
                     left   = data.screenLeft  - size;
                     top    = data.screenTop   + 28;
                     width  = size;
-                    break;
+                    break
                 case 'right':
                     height = data.outerHeight - 78;
                     left   = data.outerWidth  + data.screenLeft;
                     top    = data.screenTop   + 28;
                     width  = size;
-                    break;
+                    break
                 case 'top':
                     height = size;
                     left   = data.screenLeft;
                     top    = data.screenTop - size + 28;
                     width  = data.outerWidth;
-                    break;
+                    break
             }
 
             Neo.Main.windowOpen({
@@ -544,8 +544,8 @@ class MainContainerController extends ComponentController {
                 dock: dock,
                 name: me.dockedWindowAppName,
                 size: size
-            });
-        });
+            })
+        })
     }
 
     /**
@@ -568,7 +568,7 @@ class MainContainerController extends ComponentController {
         }
 
         me.connectedApps.forEach(appName => {
-            me.switchThemeForApp(appName, theme);
+            me.switchThemeForApp(appName, theme)
         });
 
         button.set({
@@ -581,10 +581,10 @@ class MainContainerController extends ComponentController {
 
             NeoArray.removeAdd(cls, me.currentTheme, theme);
 
-            dialog.cls = cls;
+            dialog.cls = cls
         }
 
-        me.currentTheme = theme;
+        me.currentTheme = theme
     }
 
     /**
@@ -596,7 +596,7 @@ class MainContainerController extends ComponentController {
             appName: appName,
             add    : [theme],
             remove : [this.currentTheme]
-        });
+        })
     }
 
     /**
@@ -606,11 +606,9 @@ class MainContainerController extends ComponentController {
         let dockedWindowProxy = this.dockedWindowProxy;
 
         if (dockedWindowProxy) {
-            dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, style);
+            dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, style)
         }
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

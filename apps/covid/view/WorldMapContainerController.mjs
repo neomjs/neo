@@ -90,6 +90,4 @@ class WorldMapContainerController extends ComponentController {
     }
 }
 
-Neo.setupClass(WorldMapContainerController);
-
-export default WorldMapContainerController;
+export default Neo.setupClass(WorldMapContainerController);

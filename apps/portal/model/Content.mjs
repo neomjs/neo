@@ -39,6 +39,4 @@ class Content extends Model {
     }
 }
 
-Neo.setupClass(Content);
-
-export default Content;
+export default Neo.setupClass(Content);

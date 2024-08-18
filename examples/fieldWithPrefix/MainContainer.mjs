@@ -22,10 +22,10 @@ class MainContainer extends ConfigurationViewport {
               plugin    = textfield.getPlugin('prefixfield');
 
         if (config === 'accept') {
-            plugin.accept = opts.record.value;
+            plugin.accept = opts.record.value
         } else {
             plugin[config] = opts.value;
-            textfield.value = '';
+            textfield.value = ''
         }
     }
 
@@ -70,7 +70,7 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'accept',
             listeners: {change: me.onPluginConfigChange.bind(me, 'accept')},
             style    : {marginTop: '10px'}
-        }];
+        }]
     }
 
     /**
@@ -140,6 +140,4 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);

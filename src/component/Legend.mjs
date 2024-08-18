@@ -78,6 +78,4 @@ class Legend extends Component {
     }
 }
 
-Neo.setupClass(Legend);
-
-export default Legend;
+export default Neo.setupClass(Legend);

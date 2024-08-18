@@ -147,6 +147,4 @@ class List extends ComponentList {
     }
 }
 
-Neo.setupClass(List);
-
-export default List;
+export default Neo.setupClass(List);

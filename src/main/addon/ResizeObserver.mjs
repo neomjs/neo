@@ -122,6 +122,4 @@ class NeoResizeObserver extends Base {
     }
 }
 
-Neo.setupClass(NeoResizeObserver);
-
-export default NeoResizeObserver;
+export default Neo.setupClass(NeoResizeObserver);

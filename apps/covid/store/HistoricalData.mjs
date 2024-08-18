@@ -19,6 +19,4 @@ class HistoricalData extends Store {
     }
 }
 
-Neo.setupClass(HistoricalData);
-
-export default HistoricalData;
+export default Neo.setupClass(HistoricalData);

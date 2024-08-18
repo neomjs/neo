@@ -23,6 +23,4 @@ class Search extends Picker {
     }
 }
 
-Neo.setupClass(Search);
-
-export default Search;
+export default Neo.setupClass(Search);

@@ -1,8 +1,8 @@
 import Button       from '../src/button/Base.mjs';
 import Container    from '../src/container/Base.mjs';
-import {bindAppend} from '../src/util/Function.mjs';
 import Panel        from '../src/container/Panel.mjs';
 import Viewport     from '../src/container/Viewport.mjs';
+import {bindAppend} from '../src/util/Function.mjs';
 
 // add custom themes here
 const themes = [
@@ -68,7 +68,7 @@ class ConfigurationViewport extends Viewport {
             theme;
 
         if (style) {
-            delete me.exampleContainerConfig.style;
+            delete me.exampleContainerConfig.style
         }
 
         me.exampleComponent        = me.createExampleComponent();
@@ -132,7 +132,7 @@ class ConfigurationViewport extends Viewport {
             }]
         }];
 
-        super.onConstructed();
+        super.onConstructed()
     }
 
     /**
@@ -140,7 +140,7 @@ class ConfigurationViewport extends Viewport {
      * @returns {Object[]|null}
      */
     createConfigurationComponents() {
-        return null;
+        return null
     }
 
     /**
@@ -148,14 +148,14 @@ class ConfigurationViewport extends Viewport {
      * @returns {Neo.component.Base|null}
      */
     createExampleComponent() {
-        return null;
+        return null
     }
 
     /**
      * @param {Object} data
      */
     logInstance(data) {
-        console.log(this.exampleComponent);
+        console.log(this.exampleComponent)
     }
 
     /**
@@ -163,7 +163,7 @@ class ConfigurationViewport extends Viewport {
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
-        this.exampleComponent[config] = opts.value;
+        this.exampleComponent[config] = opts.value
     }
 
     /**
@@ -173,7 +173,7 @@ class ConfigurationViewport extends Viewport {
      */
     onRadioChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.exampleComponent[config] = value;
+            this.exampleComponent[config] = value
         }
     }
 
@@ -198,11 +198,10 @@ class ConfigurationViewport extends Viewport {
         oldIndex    = (themeIndex + countThemes -1) % countThemes;
         oldTheme    = themes[oldIndex].name;
 
-
         button.text = themes[futureIndex].label;
 
         if (target === 'cmp') {
-            me.exampleComponent.theme = newTheme;
+            me.exampleComponent.theme = newTheme
         } else {
             Neo.applyDeltas(me.appName, {
                 id : me.id, // the viewport can get imported into other apps, so an id makes sense for scoping
@@ -215,6 +214,4 @@ class ConfigurationViewport extends Viewport {
     }
 }
 
-Neo.setupClass(ConfigurationViewport);
-
-export default ConfigurationViewport;
+export default Neo.setupClass(ConfigurationViewport);

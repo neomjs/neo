@@ -22,14 +22,14 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     changeIsOnlineFilter(data) {
-        this.getReference('list').store.getFilter('isOnline').disabled = !data.value;
+        this.getReference('list').store.getFilter('isOnline').disabled = !data.value
     }
 
     /**
      * @param {Object} data
      */
     changeNameFilter(data) {
-        this.getReference('list').store.getFilter('name').value = data.value;
+        this.getReference('list').store.getFilter('name').value = data.value
     }
 
     /**
@@ -58,17 +58,15 @@ class MainContainerController extends Component {
 
         sorter.set({direction, property});
 
-        me.sortBy = property;
+        me.sortBy = property
     }
 
     /**
      * @param {Object} data
      */
     changeTransitionDuration(data) {
-        this.getReference('list').getPlugin('list-animate').transitionDuration = data.value;
+        this.getReference('list').getPlugin('list-animate').transitionDuration = data.value
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

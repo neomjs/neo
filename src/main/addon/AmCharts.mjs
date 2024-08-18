@@ -280,6 +280,4 @@ class AmCharts extends Base {
     }
 }
 
-Neo.setupClass(AmCharts);
-
-export default AmCharts;
+export default Neo.setupClass(AmCharts);

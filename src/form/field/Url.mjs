@@ -38,6 +38,4 @@ class Url extends Text {
     }
 }
 
-Neo.setupClass(Url);
-
-export default Url;
+export default Neo.setupClass(Url);

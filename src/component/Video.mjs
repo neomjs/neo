@@ -184,6 +184,4 @@ class Video extends BaseComponent {
     }
 }
 
-Neo.setupClass(Video);
-
-export default Video;
+export default Neo.setupClass(Video);

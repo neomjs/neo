@@ -428,6 +428,4 @@ class Number extends Text {
     }
 }
 
-Neo.setupClass(Number);
-
-export default Number;
+export default Neo.setupClass(Number);

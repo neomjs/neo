@@ -14,24 +14,23 @@ class MainContainerController extends ComponentController {
         className: 'Neo.examples.component.toast.MainContainerController'
     }
 
-    theme = 'light';
+    theme = 'light'
 
     /**
      * @param {Object} config
      */
     onToggleTheme(config) {
-        const add = (this.theme === 'light') ? 'dark' : 'light',
-              remove = add === 'light' ? 'dark' : 'light',
-              themeButton = this.getReference('theme-button'),
-              buttonIcon = add === 'light' ? 'sun' : 'moon';
+        const
+            add         = (this.theme === 'light') ? 'dark' : 'light',
+            remove      = add === 'light' ? 'dark' : 'light',
+            themeButton = this.getReference('theme-button'),
+            buttonIcon  = add === 'light' ? 'sun' : 'moon';
 
         this.theme = add;
 
         Neo.main.DomAccess.setBodyCls({remove: ['neo-theme-' + remove] , add: ['neo-theme-' + add]});
-        themeButton.iconCls = 'fa fa-' + buttonIcon;
+        themeButton.iconCls = 'fa fa-' + buttonIcon
     }
 }
 
-Neo.setupClass(MainContainerController);
-
-export default MainContainerController;
+export default Neo.setupClass(MainContainerController);

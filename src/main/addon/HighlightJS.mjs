@@ -17,12 +17,18 @@ class HighlightJS extends Base {
          * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
          * @protected
          */
-        highlightJsPath: './resources/highlight/highlight.pack.js',
+        highlightJsPath: './resources/lib/highlight/highlight.pack.js',
         /**
          * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
          * @protected
          */
         highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
+        /**
+         * Disabling the auto-preload to honor custom paths.
+         * @member {Boolean|Number} preloadFilesDelay=false
+         * @protected
+         */
+        preloadFilesDelay: false,
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -43,21 +49,21 @@ class HighlightJS extends Base {
          * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
          * @protected
          */
-        themePath: './resources/highlightjs-custom-github-theme.css'
+        themePath: './resources/lib/highlightjs-custom-github-theme.css'
     }
 
     /**
      * See: https://highlightjs.readthedocs.io/en/latest/api.html#highlightauto
      * @param {Object} data
      * @param {String} data.html
-     * @returns {Object} of the form {language, relevance, value, secondBest}
+     * @returns {Object} value
      */
     highlightAuto(data) {
         if (!this.isReady) {
             return this.cacheMethodCall({fn: 'highlightAuto', data})
         }
 
-        return hljs.highlightAuto(data.html)
+        return hljs.highlightAuto(data.html).value
     }
 
     /**
@@ -195,6 +201,4 @@ class HighlightJS extends Base {
     }
 }
 
-Neo.setupClass(HighlightJS);
-
-export default HighlightJS;
+export default Neo.setupClass(HighlightJS);

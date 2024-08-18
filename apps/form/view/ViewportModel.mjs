@@ -90,6 +90,4 @@ class ViewportModel extends Component {
     }
 }
 
-Neo.setupClass(ViewportModel);
-
-export default ViewportModel;
+export default Neo.setupClass(ViewportModel);

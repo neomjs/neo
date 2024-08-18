@@ -94,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
             handler: (() => {me.exampleComponent.reset()}),
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
-        }];
+        }]
     }
 
     createExampleComponent() {
@@ -106,6 +106,4 @@ class MainContainer extends ConfigurationViewport {
     }
 }
 
-Neo.setupClass(MainContainer);
-
-export default MainContainer;
+export default Neo.setupClass(MainContainer);
