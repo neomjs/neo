@@ -10,7 +10,7 @@ import TextField from  '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.data1.MainView',
 
         model: {
             data: {
@@ -81,7 +81,7 @@ Neo.setupClass(MyPanel);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.data2.MainView',
 
         model: {
             data: {

@@ -19,7 +19,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.events1.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         itemDefaults: {
@@ -72,9 +72,8 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-
+        className : 'GS.events2.MainView',
         controller: MainViewController,
-        className: 'Example.view.MainView',
 
         layout   : {ntype:'vbox', align:'start'},
         items: [{
@@ -142,7 +141,7 @@ Neo.setupClass(ToggleButton);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.events3.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             module   : ToggleButton,

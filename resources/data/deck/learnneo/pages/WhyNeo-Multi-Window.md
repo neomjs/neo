@@ -20,7 +20,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Benefits.multiwindow.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             module : Button,

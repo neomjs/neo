@@ -188,7 +188,6 @@ Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`
 following class definition: 
 
 <pre data-javascript>
-
 import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller from './MainViewController.mjs';
 import ViewModel  from './MainViewModel.mjs';

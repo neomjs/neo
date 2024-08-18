@@ -22,7 +22,7 @@ import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.vm1.MainView',
         model: {
             data: {
                 hello: 'Hello',
@@ -70,7 +70,7 @@ import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.vm2.MainView',
         model: {
             data: {
                 hello: 'Hello',
@@ -137,7 +137,7 @@ import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.vm3.MainView',
         model: {
             data: {
                 hello: 'Hello'
@@ -212,7 +212,7 @@ import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.vm4.MainView',
         model: {
             data: {
                 user: {
@@ -340,7 +340,7 @@ Neo.setupClass(MainContainerController);
 
 class MainView extends Viewport {
     static config = {
-        className : 'Neo.examples.model.dialog.MainContainer',
+        className : 'Guides.vm5.MainView',
         controller: MainContainerController,
         model: {
             data: {
@@ -413,7 +413,7 @@ class MainViewModel extends ViewModel {
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.vm6.MainView',
         model    : MainViewModel, // directly assign the imported module
 
         itemDefaults: {

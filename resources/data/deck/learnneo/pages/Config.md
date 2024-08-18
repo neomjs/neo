@@ -36,7 +36,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config1.MainView',
 
         items: [{
             module: Simple,
@@ -87,7 +87,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config2.MainView',
 
         items: [{
             module: Simple,
@@ -135,7 +135,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config3.MainView',
 
         items: [{
             module: Simple,

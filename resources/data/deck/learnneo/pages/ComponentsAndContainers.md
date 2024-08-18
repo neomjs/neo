@@ -30,7 +30,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components1.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             ntype : 'component', // Or module:Component
@@ -52,7 +52,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components2.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             ntype : 'component', // Or module:Component
@@ -82,7 +82,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components3.MainView',
         layout   : 'fit', // If no configs are needed, simply use the ntype of the layout
         items    : [{
             ntype: 'component',
@@ -104,7 +104,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components4.MainView',
         layout   : {ntype:'vbox', align:'start'}, // Change the ntype to 'hbox'
         items    : [{
             module : Button,
@@ -131,7 +131,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components5.MainView',
         layout   : 'vbox',
         items    : [{
             ntype: 'toolbar',
@@ -195,7 +195,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.components6.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             module : Button,

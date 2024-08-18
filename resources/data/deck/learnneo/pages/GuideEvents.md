@@ -7,7 +7,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events1.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         itemDefaults: {
@@ -41,7 +41,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events2.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -68,7 +68,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events3.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -111,7 +111,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className : 'Guides.events4.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -156,7 +156,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events5.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -199,7 +199,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events6.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -251,7 +251,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {    
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events7.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -289,7 +289,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {    
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events8.MainView',
         model: {
             data: {
                 foo: 'Hello',
