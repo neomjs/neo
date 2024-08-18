@@ -141,7 +141,7 @@ class ContentView extends Component {
 
             me.html = html;
 
-            await me.timeout(100);
+            await me.timeout(Neo.config.environment === 'development' ? 100 : 150);
 
             Object.keys(neoComponents).forEach(key => {
                 Neo.create({
@@ -158,7 +158,8 @@ class ContentView extends Component {
 
             Object.keys(neoDivs).forEach(key => {
                 // Create LivePreview for each iteration, set value to neoDivs[key]
-                Neo.create(LivePreview, {
+                Neo.create({
+                    module         : LivePreview,
                     appName        : me.appName,
                     autoMount      : true,
                     autoRender     : true,
