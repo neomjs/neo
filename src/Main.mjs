@@ -254,7 +254,12 @@ class Main extends core.Base {
             mainThreadAddons.push('AnalyticsByGoogle')
         }
 
-        if (config.useServiceWorker && !mainThreadAddons.includes('ServiceWorker')) {
+        if ((
+                config.useServiceWorker === true ||
+                config.useServiceWorker === config.environment
+            ) &&
+            !mainThreadAddons.includes('ServiceWorker')
+        ) {
             mainThreadAddons.push('ServiceWorker')
         }
 

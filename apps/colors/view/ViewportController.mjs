@@ -34,12 +34,19 @@ class ViewportController extends Controller {
      * @param {String} name The name of the reference
      */
     async createBrowserWindow(name) {
-        let me              = this,
-            {windowId}      = me,
-            {windowConfigs} = Neo,
-            firstWindowId   = parseInt(Object.keys(windowConfigs)[0]),
-            {basePath}      = windowConfigs[firstWindowId],
-            url             = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+        let me                      = this,
+            {windowId}              = me,
+            {config, windowConfigs} = Neo,
+            {environment}           = config,
+            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}              = windowConfigs[firstWindowId],
+            url;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
+        }
+
+        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
 
         if (me.getModel().getData('openWidgetsAsPopups')) {
             let widget                     = me.getReference(name),

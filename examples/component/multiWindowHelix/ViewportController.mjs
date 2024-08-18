@@ -22,15 +22,20 @@ class ViewportController extends Controller {
      *
      */
     async createPopupWindow() {
-        let me              = this,
-            {windowId}      = me,
-            {windowConfigs} = Neo,
-            firstWindowId   = parseInt(Object.keys(windowConfigs)[0]),
-            {basePath}      = windowConfigs[firstWindowId],
-            widget          = me.getReference('controls-panel'),
-            winData         = await Neo.Main.getWindowData({windowId}),
-            rect            = await me.component.getDomRect(widget.id),
+        let me                         = this,
+            {windowId}                 = me,
+            {config, windowConfigs}    = Neo,
+            {environment}              = config,
+            firstWindowId              = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}                 = windowConfigs[firstWindowId],
+            widget                     = me.getReference('controls-panel'),
+            winData                    = await Neo.Main.getWindowData({windowId}),
+            rect                       = await me.component.getDomRect(widget.id),
             {height, left, top, width} = rect;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
+        }
 
         height -= 62; // popup header in Chrome
         left   += (width + winData.screenLeft);
