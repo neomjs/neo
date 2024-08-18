@@ -16,7 +16,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.describing1.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             module : Button,
@@ -52,7 +52,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.describing2.MainView',
         layout   : {ntype:'vbox', align:'start'}, // Change the ntype to 'hbox'
         items    : [{
             module : Button,

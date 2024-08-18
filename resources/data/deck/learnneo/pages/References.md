@@ -17,7 +17,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'GS.references1.MainViewController'
     }
     onDisableButtonClick(data) {
         data.component.disabled = true;
@@ -28,7 +28,7 @@ Neo.setupClass(MainViewController);
 
 class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className : 'GS.references1.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
         items     : [{
@@ -54,7 +54,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'GS.references2.MainViewController'
     }
     onDisableButtonClick(data){
         data.component.disabled = true
@@ -68,7 +68,7 @@ Neo.setupClass(MainViewController);
 
 class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className : 'GS.references2.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
         items     : [{
@@ -108,7 +108,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.references3.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
             module : Button,

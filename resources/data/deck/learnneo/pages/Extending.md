@@ -12,7 +12,7 @@ import Table  from '../table/Container.mjs';
 
 class MainView extends Panel {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.extending1.MainView',
         headers  : [{
             dock : 'top',
             items: [{
@@ -91,7 +91,7 @@ Neo.setupClass(BeatlesTable);
 
 class MainView extends Panel {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.extending2.MainView',
         headers  : [{
             dock : 'top',
             items: [BeatlesButton]

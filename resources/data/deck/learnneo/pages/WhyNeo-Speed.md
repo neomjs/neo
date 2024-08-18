@@ -25,10 +25,10 @@ import Base from '../container/Base.mjs';
 import Helix from '../component/Helix.mjs';
 class Foo extends Base {
     static config = {
-        className: 'Foo',
-        layout: 'fit',
-        items: [{
-            module: Helix,
+        className: 'Benefits.speed.MainView',
+        layout   : 'fit',
+        items    : [{
+            module     : Helix,
             imageField : 'image',
             imageSource: '../../../../resources/examples/',
             store: {

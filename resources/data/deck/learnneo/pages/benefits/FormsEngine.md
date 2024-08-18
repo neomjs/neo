@@ -10,7 +10,7 @@ import TextField     from '../form/field/Text.mjs';
 
 class MainView extends FormContainer {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Benefits.forms1.MainView',
         layout   : {ntype:'vbox', align:'start'},
         
         items: [{
@@ -72,7 +72,7 @@ const myForm = Neo.create({
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Benefits.forms2.MainView',
         layout   : {ntype:'vbox', align:'start'},
         
         items: [{
@@ -134,7 +134,7 @@ import TextField     from '../form/field/Text.mjs';
 
 class MainView extends FormContainer {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Benefits.forms3.MainView',
         layout   : {ntype:'vbox', align:'stretch'},
         
         items: [{

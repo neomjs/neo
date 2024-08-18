@@ -7,7 +7,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events1.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         itemDefaults: {
@@ -41,7 +41,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events2.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -68,7 +68,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events3.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -97,7 +97,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'Guides.events4.MainViewController'
     }
     foo(data) {
         Neo.Main.log({value:data.value})
@@ -111,7 +111,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className : 'Example.view.MainView',
+        className : 'Guides.events4.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -129,7 +129,7 @@ Neo.setupClass(MainView);
 
 ## Adding listeners procedurally
 
-Event listeners are normally specified declaratively, via the `listeners: {}` config. But occasionally you need to add
+Event listeners are normally specified declarative, via the `listeners: {}` config. But occasionally you need to add
 a listener procedurally.
 
 Any observable class has an `addListener` method, along with an easier-to-type version called `on`.
@@ -139,13 +139,10 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'Guides.events5.MainViewController'
     }
     foo(data) {
         Neo.Main.log({value:data.value})
-    }
-    onComponentConstructed() {
-        debugger
     }
 }
 Neo.setupClass(MainViewController);
@@ -156,7 +153,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events5.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -179,7 +176,7 @@ import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
     static config = {
-        className: 'Example.view.MainViewController'
+        className: 'Guides.events6.MainViewController'
     }
     foo(data) {
         Neo.Main.log('foo' + {value:data.value})
@@ -199,7 +196,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events6.MainView',
         controller: MainViewController,
         layout    : {ntype:'vbox', align:'start'},
 
@@ -251,7 +248,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {    
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events7.MainView',
         layout   : {ntype:'vbox', align:'start'},
 
         items: [{
@@ -289,7 +286,7 @@ import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {    
     static config = {
-        className: 'Example.view.MainView',
+        className: 'Guides.events8.MainView',
         model: {
             data: {
                 foo: 'Hello',

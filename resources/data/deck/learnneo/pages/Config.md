@@ -23,7 +23,7 @@ import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
-        className: 'Example.view.Simple',
+        className: 'GS.config1.Simple',
 
         foo: 1,        // An instance field and its initial (default) value
         bar_: ''       // Another instance field -- note the underscore at the end
@@ -36,7 +36,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config1.MainView',
 
         items: [{
             module: Simple,
@@ -64,7 +64,7 @@ import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
-        className: 'Example.view.Simple',
+        className: 'GS.config2.Simple',
 
         foo: 1,        // An instance field and its initial (default) value
         bar_: null     // Another instance field -- note the underscore at the end
@@ -87,7 +87,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config2.MainView',
 
         items: [{
             module: Simple,
@@ -118,7 +118,7 @@ import Container from '../container/Base.mjs';
 
 class Simple extends Component {
     static config = {
-        className: 'Example.view.Simple',
+        className: 'GS.config3.Simple',
 
         foo: 1,        // An instance field and its initial (default) value
         bar_: null     // Another instance field -- note the underscore at the end
@@ -135,7 +135,7 @@ Neo.setupClass(Simple);
 
 class MainView extends Container {
     static config = {
-        className: 'Example.view.MainView',
+        className: 'GS.config3.MainView',
 
         items: [{
             module: Simple,
