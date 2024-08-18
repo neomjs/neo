@@ -25,7 +25,7 @@ class How extends FeatureSection {
             items : [{
                 cls : 'neo-worker-setup',
                 tag : 'element-loader',
-                vdom: {src: '../../resources/images/workers-focus.svg'}
+                vdom: {src: './resources/images/workers-focus.svg'}
             }]
         }],
         /**
