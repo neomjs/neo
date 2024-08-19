@@ -55,9 +55,8 @@
     }
 
     .portal-content-wrapper {
-        background-color: lightgray;
-        flex            : 2;
-        padding         : 20px;
+        flex   : 2;
+        padding: 20px;
 
         @media (max-width: 600px) {
             max-height: 35em;
