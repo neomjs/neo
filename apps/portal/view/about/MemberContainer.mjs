@@ -116,7 +116,7 @@ class MemberContainer extends Container {
         if (value) {
             let item = this.items[1];
 
-            item.vdom.cn[0].src = '../../../resources/images/team/' + value;
+            item.vdom.cn[0].src = './resources/images/team/' + value;
             item.update?.()
         }
     }
