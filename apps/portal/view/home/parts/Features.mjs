@@ -42,7 +42,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Apps',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/WhyNeo-Multi-Window',
 
             content: [
                 'No need for a Native Shell (e.g. Electron)',
