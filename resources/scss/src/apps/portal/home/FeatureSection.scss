@@ -10,8 +10,10 @@
         flex-direction: column;
     }
 
-    &.portal-position-end {
-        flex-direction: row-reverse;
+    @media (min-width: 841px) {
+        &.portal-position-end {
+            flex-direction: row-reverse;
+        }
     }
 
     .neo-content {
