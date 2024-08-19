@@ -67,7 +67,7 @@ class MonacoEditor extends Base {
                 editor = me.map[id] = monaco.editor.create(node, data);
 
                 editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
-            } else {
+            } else if (Neo.config.environment === 'development') {
                 console.warn(`addon.MonacoEditor: node ${id} not found`)
             }
         }
