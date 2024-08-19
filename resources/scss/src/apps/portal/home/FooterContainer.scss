@@ -25,6 +25,18 @@
         color: white;
     }
 
+    .neo-version {
+        align-items: center;
+        display    : flex;
+        padding    : var(--button-padding);
+    }
+
+    .neo-version,
+    .portal-home-footer-spacer {
+        height: var(--button-height);
+        margin: var(--button-margin);
+    }
+
     .portal-home-footer-section {
         background-color: transparent;
         color           : white;
@@ -39,7 +51,8 @@
             font-size: 1.2rem;
         }
 
-        .neo-button {
+        .neo-button,
+        .neo-version {
             padding: 0 3px;
         }
     }
@@ -47,14 +60,5 @@
     @media (max-width: 500px) {
         max-height: 15em;
         min-height: 15em;
-        padding   : 1em;
-
-        h2.neo-h2 {
-            font-size: 1.2rem;
-        }
-
-        .neo-button {
-            padding: 0 3px;
-        }
     }
 }
