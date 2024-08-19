@@ -10,27 +10,28 @@
         flex-direction: column;
     }
 
-    &.portal-position-end {
-        flex-direction: row-reverse;
+    @media (min-width: 841px) {
+        &.portal-position-end {
+            flex-direction: row-reverse;
+        }
     }
 
     .neo-content {
         font-size: min(max(2.3vw, 16px), 30px);
     }
 
-    .neo-h1 {
-        font-size  : min(max(5.5vw, 30px), 64px);
+    h1.neo-h1 {
+        color      : var(--purple-400);
+        font-size  : min(max(4.5vw, 30px), 44px);
         line-height: 1em;
         margin     : 0;
-        text-align : center;
     }
 
-    .neo-h2 {
-        font-size  : min(max(3.5vw, 24px), 44px);
+    h2.neo-h2 {
+        font-size  : min(max(3.5vw, 24px), 35px);
         font-weight: 600;
         line-height: 1em;
         margin     : 0;
-        text-align : center;
     }
 
     .page-live-preview {
@@ -39,7 +40,7 @@
     }
 
     .portal-content-text {
-        align-items    : center;
+        align-items    : start;
         display        : flex;
         flex           : 1;
         flex-direction : column;
@@ -55,9 +56,8 @@
     }
 
     .portal-content-wrapper {
-        background-color: lightgray;
-        flex            : 2;
-        padding         : 20px;
+        flex   : 2;
+        padding: 20px;
 
         @media (max-width: 600px) {
             max-height: 35em;
