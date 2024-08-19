@@ -19,7 +19,7 @@ class HelixModel extends Model {
          */
         ntype: 'selection-helixmodel',
         /**
-         * @member {String} cls='selection-helixmodel'
+         * @member {String} cls='neo-selection-helixmodel'
          * @protected
          */
         cls: 'neo-selection-helixmodel',

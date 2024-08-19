@@ -19,6 +19,11 @@ class GalleryModel extends Model {
          */
         ntype: 'selection-gallerymodel',
         /**
+         * @member {String} cls='neo-selection-gallerymodel'
+         * @protected
+         */
+        cls: 'neo-selection-gallerymodel',
+        /**
          * True to stay in the same column when navigating with the up and down keys,
          * otherwise you will navigate to the next / prev column when moving out
          * @member {Boolean} stayInRow=false
