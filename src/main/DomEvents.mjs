@@ -442,7 +442,7 @@ class DomEvents extends Base {
 
             data = {
                 ...me.getEventData(event),
-                valid: target.checkValidity(),
+                valid: target.checkValidity?.(),
                 value: target.value
             };
 
