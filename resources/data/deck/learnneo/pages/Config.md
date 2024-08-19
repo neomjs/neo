@@ -29,9 +29,8 @@ class Simple extends Component {
         bar_: ''       // Another instance field -- note the underscore at the end
 
     }
-
 }
-Neo.setupClass(Simple);
+Simple = Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -48,7 +47,7 @@ class MainView extends Container {
 
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Detecting when a value changes
@@ -80,9 +79,8 @@ class Simple extends Component {
     afterSetBar(value, oldValue){
         this.html = value;
     }
-
 }
-Neo.setupClass(Simple);
+Simple = Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -99,7 +97,7 @@ class MainView extends Container {
 
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 This time if you run the code you'll see "hi there" in the view. That's because the Simple instance is
@@ -128,9 +126,8 @@ class Simple extends Component {
         this.html = value;
         this.fire('barChange', {component: this, value, oldValue});
     }
-
 }
-Neo.setupClass(Simple);
+Simple = Neo.setupClass(Simple);
 
 
 class MainView extends Container {
@@ -151,6 +148,6 @@ class MainView extends Container {
 
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 

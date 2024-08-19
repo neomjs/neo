@@ -37,7 +37,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 If you run the example, and open the browser's debugger, you'll see the console being logged as you type or give
@@ -64,7 +64,7 @@ class MainViewController extends Base {
     }
 
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 import Container from '../container/Base.mjs';
@@ -85,7 +85,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 
@@ -136,7 +136,7 @@ class ToggleButton extends Button {
         this.checked = !this.checked
     }
 }
-Neo.setupClass(ToggleButton);
+ToggleButton = Neo.setupClass(ToggleButton);
 
 
 class MainView extends Container {
@@ -153,5 +153,5 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>

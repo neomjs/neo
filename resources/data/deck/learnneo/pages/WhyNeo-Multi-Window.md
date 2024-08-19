@@ -30,7 +30,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 </details>

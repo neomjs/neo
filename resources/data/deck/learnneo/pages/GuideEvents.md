@@ -25,7 +25,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Event listeners
@@ -53,7 +53,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ### As a view method
@@ -83,7 +83,7 @@ class MainView extends Container {
         Neo.Main.log({value:data.value})
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ### As a controller method
@@ -103,7 +103,7 @@ class MainViewController extends Controller {
         Neo.Main.log({value:data.value})
     }
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 import Container from '../container/Base.mjs';
@@ -124,7 +124,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Adding listeners procedurally
@@ -145,7 +145,7 @@ class MainViewController extends Controller {
         Neo.Main.log({value:data.value})
     }
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 import Container from '../container/Base.mjs';
@@ -166,7 +166,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 The method specified in `on()` doesn't have to be an arrow function; you can use a controller function.
@@ -188,7 +188,7 @@ class MainViewController extends Controller {
         this.getReference('nameTextfield').on('change', this.foo, this)
     }
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 import Container from '../container/Base.mjs';
@@ -207,7 +207,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Events versus binding
@@ -276,7 +276,7 @@ class MainView extends Container {
         this.getReference('foo').html = `${this.getReference('textFieldOne').value} ${this.getReference('textFieldTwo').value}`
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 <pre data-neo>
@@ -312,7 +312,7 @@ class MainView extends Container {
         this.getReference('foo').html = data.value;
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ##How are events set up?

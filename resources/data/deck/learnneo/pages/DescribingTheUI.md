@@ -26,7 +26,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 
@@ -66,7 +66,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 If you run the example you'll see two buttons, arranged according to the `layout`. If you'd like, 

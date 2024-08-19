@@ -36,7 +36,7 @@ class Colors extends FeatureSection {
             "    }",
             "}",
             "",
-            "Neo.setupClass(MainView);"
+            "MainView = Neo.setupClass(MainView);"
         ].join('\n'),
         /**
          * @member {String} paragraph

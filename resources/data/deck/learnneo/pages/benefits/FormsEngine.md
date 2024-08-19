@@ -37,7 +37,7 @@ class MainView extends FormContainer {
         Neo.Main.log({value: formValues})
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Forms can get validated without being mounted
@@ -88,7 +88,7 @@ class MainView extends Container {
         Neo.Main.log({value: formValues})
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Nested Forms
@@ -222,7 +222,7 @@ class MainView extends FormContainer {
         await this.getFormValues(this.getReference('user-form'))
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 Bonus: Inspect the DOM Inside the `TabContainer`.
