@@ -49,7 +49,7 @@ class Colors extends FeatureSection {
         /**
          * @member {String} subHeadline='Socket Data'
          */
-        subHeadline: 'Socket Data',
+        subHeadline: 'Shared Socket Data',
         /**
          * @member {String} textContainerPosition='end'
          */
