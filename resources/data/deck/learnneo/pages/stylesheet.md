@@ -34,7 +34,7 @@ class Mammal extends Base {
 
 For short in-line statements of code use &lt;code> or backticks.
 
-When definining variables avoid `var` &mdash; use `let` or `const` instead.
+When defining variables avoid `var` &mdash; use `let` or `const` instead.
 
 <br>
 

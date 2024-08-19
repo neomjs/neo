@@ -41,7 +41,7 @@ class Foo extends Base {
         }]
     }
 }
-Neo.setupClass(Foo);
+Foo = Neo.setupClass(Foo);
 </pre>
 
 

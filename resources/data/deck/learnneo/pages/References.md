@@ -23,7 +23,7 @@ class MainViewController extends Controller {
         data.component.disabled = true;
     }
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 class MainView extends Container {
@@ -38,7 +38,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Using getReference() 
@@ -63,7 +63,7 @@ class MainViewController extends Controller {
         this.getReference('myButton').disabled = false
     }
 }
-Neo.setupClass(MainViewController);
+MainViewController = Neo.setupClass(MainViewController);
 
 
 class MainView extends Container {
@@ -83,7 +83,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Getting a reference when debugging
@@ -127,5 +127,5 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>

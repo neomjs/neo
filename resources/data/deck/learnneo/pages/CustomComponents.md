@@ -20,7 +20,7 @@ class MySpecialButton extends Button {
     }
 }
 
-Neo.setupClass(MySpecialButton);
+MySpecialButton = Neo.setupClass(MySpecialButton);
 
 
 import Container from '../container/Base.mjs';

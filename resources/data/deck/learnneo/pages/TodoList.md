@@ -109,7 +109,7 @@ class MainComponent extends Component {
     }
 }
 
-Neo.setupClass(MainComponent);
+MainComponent = Neo.setupClass(MainComponent);
 </pre>
 
 ## Neo Style
@@ -142,7 +142,7 @@ class TodoListModel extends Model {
     }
 }
 
-Neo.setupClass(TodoListModel);
+TodoListModel = Neo.setupClass(TodoListModel);
 
 
 class TodoListStore extends Store {
@@ -167,7 +167,7 @@ class TodoListStore extends Store {
     }
 }
 
-Neo.setupClass(TodoListStore);
+TodoListStore = Neo.setupClass(TodoListStore);
 
 
 class MainContainer extends Container {
@@ -237,5 +237,5 @@ class MainContainer extends Container {
     }
 }
 
-Neo.setupClass(MainContainer);
+MainContainer = Neo.setupClass(MainContainer);
 </pre>

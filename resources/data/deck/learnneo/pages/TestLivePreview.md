@@ -28,5 +28,5 @@ class Bar extends Base {
         }]
     }
 }
-Neo.setupClass(Bar);
+Bar = Neo.setupClass(Bar);
 </pre>

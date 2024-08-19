@@ -41,7 +41,7 @@ class MainView extends Panel {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 If you wanted, any of the configs can be refactored into their own class. Here, the button, store, and table
@@ -61,7 +61,7 @@ class BeatlesButton extends Button {
         handler  : () => Neo.Main.alert({message: 'Yeah, yeah yeah!'})
     }
 }
-Neo.setupClass(BeatlesButton);
+BeatlesButton = Neo.setupClass(BeatlesButton);
 
 class BeatlesStore extends Store {
     static config = {
@@ -73,7 +73,7 @@ class BeatlesStore extends Store {
         }
     }
 }
-Neo.setupClass(BeatlesStore);
+BeatlesStore = Neo.setupClass(BeatlesStore);
 
 class BeatlesTable extends Table {
     static config = {
@@ -87,7 +87,7 @@ class BeatlesTable extends Table {
         }]
    }
 }
-Neo.setupClass(BeatlesTable);
+BeatlesTable = Neo.setupClass(BeatlesTable);
 
 class MainView extends Panel {
     static config = {
@@ -102,7 +102,7 @@ class MainView extends Panel {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 There are several use-cases for creating your own classes:

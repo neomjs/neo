@@ -41,7 +41,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 Components also have an `html`. The `html` property is rarely used, and goes against the abstract philosophy of Neo.mjs, but
@@ -64,7 +64,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 
@@ -91,7 +91,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ### Vbox and hbox
@@ -118,7 +118,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ### Card
@@ -166,7 +166,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 
@@ -188,7 +188,7 @@ class MySpecialButton extends Button {
     }
 }
 
-Neo.setupClass(MySpecialButton);
+MySpecialButton = Neo.setupClass(MySpecialButton);
 
 
 import Container from '../container/Base.mjs';
@@ -208,6 +208,6 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 

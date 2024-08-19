@@ -53,7 +53,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 We use a Container with a VM containing the data props `hello` and `world`.
@@ -108,7 +108,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 We use a Container with a VM containing the data props `hello` and `world`.
@@ -183,7 +183,7 @@ class MainView extends Container {
         }]
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 The output of this demo is supposed to exactly look the same like the previous demo.
@@ -245,7 +245,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 Data props inside VMs can be nested. Our VM contains a `user` data prop as an object,
 which contains the nested props `firstname` and `lastname`.
@@ -288,7 +288,7 @@ class EditUserDialogController extends Controller {
         })
     }
 }
-Neo.setupClass(EditUserDialogController);
+EditUserDialogController = Neo.setupClass(EditUserDialogController);
 
 class EditUserDialog extends Dialog {
     static config = {
@@ -309,7 +309,7 @@ class EditUserDialog extends Dialog {
         wrapperStyle: {height: '300px', width : '400px'}
     }
 }
-Neo.setupClass(EditUserDialog);
+EditUserDialog = Neo.setupClass(EditUserDialog);
 
 class MainContainerController extends Controller {
     static config = {
@@ -336,7 +336,7 @@ class MainContainerController extends Controller {
         }
     }
 }
-Neo.setupClass(MainContainerController);
+MainContainerController = Neo.setupClass(MainContainerController);
 
 class MainView extends Viewport {
     static config = {
@@ -383,7 +383,7 @@ class MainView extends Viewport {
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 ## Class based Models
@@ -398,7 +398,7 @@ import ViewModel from '../model/Component.mjs';
 
 class MainViewModel extends ViewModel {
     static config = {
-        className: 'Example.view.MainViewModel',
+        className: 'Guides.vm6.MainViewModel',
         data: {
             hello: 'Hello',
             world: 'world!'
@@ -410,6 +410,7 @@ class MainViewModel extends ViewModel {
         Neo.Main.log({value: `onDataPropertyChange: key: ${key}, value: ${value}, oldValue: ${oldValue}`})
     }
 }
+MainViewModel = Neo.setupClass(MainViewModel);
 
 class MainView extends Container {
     static config = {
@@ -440,5 +441,5 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 </pre>
