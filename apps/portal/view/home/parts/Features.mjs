@@ -31,7 +31,7 @@ class Features extends BaseContainer {
          */
         items: [{
             header: 'Multi-threading',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/benefits.Multi-Threading',
 
             content: [
                 'Following the OMT (Off the Main-Thread) paradigm',
@@ -42,7 +42,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Apps',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/WhyNeo-Multi-Window',
 
             content: [
                 'No need for a Native Shell (e.g. Electron)',

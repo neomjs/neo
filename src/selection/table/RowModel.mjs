@@ -18,7 +18,7 @@ class RowModel extends Model {
          */
         ntype: 'selection-table-rowmodel',
         /**
-         * @member {String} cls='selection-rowmodel'
+         * @member {String} cls='neo-selection-rowmodel'
          * @protected
          */
         cls: 'neo-selection-rowmodel'

@@ -19,6 +19,11 @@ class HelixModel extends Model {
          */
         ntype: 'selection-helixmodel',
         /**
+         * @member {String} cls='neo-selection-helixmodel'
+         * @protected
+         */
+        cls: 'neo-selection-helixmodel',
+        /**
          * True to stay in the same column when navigating with the up and down keys,
          * otherwise you will navigate to the next / prev column when moving out
          * @member {boolean} stayInColumn=false

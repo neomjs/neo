@@ -60,6 +60,28 @@ serviceWorkerFolders.forEach(folder => {
     fs.writeFileSync(serviceWorkerPath, serviceContentArray.join(os.EOL));
 });
 
+// Update the version inside the Portal App Footer
+if (insideNeo) {
+    const footerPath = path.join(__dirname, 'apps/portal/view/home/FooterContainer.mjs');
+
+    if (fs.existsSync(footerPath)) {
+        const footerContentArray = fs.readFileSync(footerPath).toString().split(os.EOL);
+
+        i   = 0;
+        len = footerContentArray.length;
+
+        for (; i < len; i++) {
+            if (footerContentArray[i].includes('neo-version')) {
+                // we want to update the comment inside ServiceWorker.mjs as well
+                footerContentArray[i + 1] = footerContentArray[i + 1].replace(/'\w.+'/, `'v${packageJson.version}'`);
+                break;
+            }
+        }
+
+        fs.writeFileSync(footerPath, footerContentArray.join(os.EOL));
+    }
+}
+
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);
 

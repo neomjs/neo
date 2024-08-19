@@ -105,6 +105,13 @@ class FooterContainer extends Container {
                 iconCls: 'fa-brands fa-x-twitter',
                 text   : 'X',
                 url    : 'https://x.com/neomjs1'
+            }, {
+                module: Component,
+                cls   : ['portal-home-footer-spacer']
+            }, {
+                module: Component,
+                cls   : ['neo-version'],
+                html  : 'v6.46.0'
             }]
         }],
         /**
