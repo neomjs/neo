@@ -1,3 +1,12 @@
 .portal-home-parts-colors {
+    .colors-header-toolbar {
+        .neo-button {
+            height : 27px;
+            padding: var(--button-padding);
 
+            .neo-button-text {
+                font-size: var(--button-text-font-size);
+            }
+        }
+    }
 }
