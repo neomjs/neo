@@ -1,7 +1,8 @@
-import BaseViewport   from '../../../src/container/Viewport.mjs';
-import CountryGallery from './CountryGallery.mjs';
-import Panel          from '../../../src/container/Panel.mjs';
-import RangeField     from '../../../src/form/field/Range.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import CountryGallery     from './CountryGallery.mjs';
+import Panel              from '../../../src/container/Panel.mjs';
+import RangeField         from '../../../src/form/field/Range.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.coronaGallery.Viewport
@@ -18,6 +19,10 @@ class Viewport extends BaseViewport {
          * @member {String[]} baseCls=['neo-gallery-viewport','neo-viewport']
          */
         baseCls: ['neo-gallery-viewport', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController,
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
@@ -94,87 +99,59 @@ class Viewport extends BaseViewport {
             }],
 
             itemDefaults: {
-                ntype        : 'rangefield',
                 flex         : '0 1 auto',
                 labelWidth   : '110px',
                 style        : {padding: '10px'},
-                useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (this.name === 'opacity') {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    }
-                }
+                useInputEvent: true
             },
 
             items: [{
+                module   : RangeField,
                 labelText: 'Translate X',
                 maxValue : 5000,
                 minValue : 0,
                 name     : 'translateX',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-gallery-1').on('changeTranslateX', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    change : 'onRangefieldChange',
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
+                module   : RangeField,
                 labelText: 'Translate Y',
                 maxValue : 1500,
                 minValue : -1500,
                 name     : 'translateY',
-                value    : 0
+                value    : 0,
+                listeners: {
+                    change: 'onRangefieldChange'
+                }
             }, {
+                module   : RangeField,
                 labelText: 'Translate Z',
                 maxValue : 550,
                 minValue : -4500,
                 name     : 'translateZ',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-gallery-1').on('changeTranslateZ', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    change : 'onRangefieldChange',
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
+                module   : RangeField,
                 labelText: 'Amount Rows',
                 maxValue : 15,
                 minValue : 1,
                 name     : 'amountRows',
-                value    : 3
-            }, {
-                ntype       : 'button',
-                text        : 'Order by Row',
-                listeners   : {},
-                style       : {margin: '20px'},
-                domListeners: {
-                    click: function() {
-                        const gallery    = Neo.get('neo-gallery-1'),
-                              orderByRow = !gallery.orderByRow;
-
-                        this.text = orderByRow === true ? 'Order By Column' : 'Order by Row';
-
-                        gallery.orderByRow = orderByRow;
-                    }
+                value    : 3,
+                listeners: {
+                    change: 'onRangefieldChange'
                 }
+            }, {
+                ntype  : 'button',
+                handler: 'onOrderButtonClick',
+                text   : 'Order by Row',
+                style  : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
@@ -186,108 +163,50 @@ class Viewport extends BaseViewport {
                 items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'cases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'cases',
+                        text : 'Cases',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'deaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'deaths',
+                        text : 'Deaths',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Country',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'country',
-                                    direction: 'ASC'
-                                }];
-                            }
-                        }
+                        field: 'country',
+                        text : 'Country',
+                        style: {margin: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Recovered',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'recovered',
-                                    direction: 'ASC'
-                                }];
-                            }
-                        }
+                        field: 'recovered',
+                        text : 'Recovered',
+                        style: {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases today',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'todayCases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'todayCases',
+                        text : 'Cases today',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths today',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'todayDeaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'todayDeaths',
+                        text : 'Deaths today',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Critical',
-                        listeners: {},
-                        style: {margin: '10px', marginBottom: '43px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'critical',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'critical',
+                        text : 'Critical',
+                        style: {margin: '10px', marginBottom: '43px', marginTop: 0}
                     }]
                 }]
             }, {
@@ -337,8 +256,10 @@ class Viewport extends BaseViewport {
             url = 'https://disease.sh/v3/covid-19/countries';
 
         me.gallery = Neo.create({
-            module: CountryGallery,
-            id    : 'neo-gallery-1',
+            module   : CountryGallery,
+            appName  : me.appName,
+            parentId : me.id,
+            reference: 'gallery',
             ...me.galleryConfig
         });
 

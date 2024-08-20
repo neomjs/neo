@@ -1,8 +1,8 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller from '../coronaGallery/ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowCoronaGallery.ViewportController
- * @extends Neo.controller.Component
+ * @extends Neo.examples.component.coronaGallery.ViewportController
  */
 class ViewportController extends Controller {
     static config = {
