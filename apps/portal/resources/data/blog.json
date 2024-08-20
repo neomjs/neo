@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 20, 2024",
+        "id"          : 60,
+        "image"       : "frontend-performance.png",
+        "name"        : "Frontend Performance Love Story",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/frontend-performance-love-story-ce92302fea5f?source=friends_link&sk=ec69e9461cee5b80adb06214ebbf36b4"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jul 12, 2024",
         "id"          : 59,
         "image"       : "transform_dom_tree.png",
