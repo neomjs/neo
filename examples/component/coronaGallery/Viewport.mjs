@@ -36,9 +36,9 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
+         * @member {Boolean} showGitHubStarButton_=true
          */
-        showGitHubStarButton: true,
+        showGitHubStarButton_: true,
         /**
          * @member {Object[]} items
          */
@@ -59,8 +59,10 @@ class Viewport extends BaseViewport {
                     zIndex  : 1
                 }
             }, {
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                ntype    : 'component',
+                html     : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                reference: 'github-button',
+
                 style: {
                     position: 'absolute',
                     right   : '20px',
@@ -270,6 +272,12 @@ class Viewport extends BaseViewport {
             .catch(err => console.log('Can’t access ' + url, err))
             .then(data => me.addStoreItems(data));
 
+        Neo.Main.setNeoConfig({
+            key     : 'renderCountDeltas',
+            value   : true,
+            windowId: me.windowId
+        });
+
         if (me.showGitHubStarButton) {
             me.on('mounted', () => {
                 Neo.main.DomAccess.addScript({
@@ -293,6 +301,16 @@ class Viewport extends BaseViewport {
      */
     getStore() {
         return this.items[0].items[0].store
+    }
+
+    /**
+     * Triggered after the showGitHubStarButton config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowGitHubStarButton(value, oldValue) {
+        this.getItem('github-button').hidden = !value
     }
 }
 
