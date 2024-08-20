@@ -1,9 +1,9 @@
-import BaseViewport       from '../coronaGallery/MainContainer.mjs';
+import BaseViewport       from '../coronaGallery/Viewport.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.multiWindowCoronaGallery.Viewport
- * @extends Neo.examples.component.coronaGallery.MainContainer
+ * @extends Neo.examples.component.coronaGallery.Viewport
  */
 class Viewport extends BaseViewport {
     static config = {

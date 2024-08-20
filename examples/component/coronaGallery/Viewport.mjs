@@ -1,23 +1,23 @@
+import BaseViewport   from '../../../src/container/Viewport.mjs';
 import CountryGallery from './CountryGallery.mjs';
 import Panel          from '../../../src/container/Panel.mjs';
 import RangeField     from '../../../src/form/field/Range.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Neo.examples.component.coronaGallery.MainContainer
+ * @class Neo.examples.component.coronaGallery.Viewport
  * @extends Neo.container.Viewport
  */
-class MainContainer extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         /**
-         * @member {String} className='Neo.examples.component.coronaGallery.MainContainer'
+         * @member {String} className='Neo.examples.component.coronaGallery.Viewport'
          * @protected
          */
-        className: 'Neo.examples.component.coronaGallery.MainContainer',
+        className: 'Neo.examples.component.coronaGallery.Viewport',
         /**
-         * @member {String[]} baseCls=['neo-gallery-maincontainer','neo-viewport']
+         * @member {String[]} baseCls=['neo-gallery-viewport','neo-viewport']
          */
-        baseCls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        baseCls: ['neo-gallery-viewport', 'neo-viewport'],
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
@@ -375,4 +375,4 @@ class MainContainer extends Viewport {
     }
 }
 
-export default Neo.setupClass(MainContainer);
+export default Neo.setupClass(Viewport);

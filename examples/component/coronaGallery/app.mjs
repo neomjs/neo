@@ -1,6 +1,6 @@
-import MainContainer from './MainContainer.mjs';
+import Viewport from './Viewport.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: MainContainer,
+    mainView: Viewport,
     name    : 'Neo.examples.component.coronaGallery'
 });
