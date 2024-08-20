@@ -52,7 +52,7 @@ class ViewportController extends Controller {
             url           : basePath + 'examples/component/multiWindowCoronaGallery/childapp/',
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
             windowId      : firstWindowId,
-            windowName    : 'HelixControls'
+            windowName    : 'GalleryControls'
         })
     }
 
@@ -98,7 +98,7 @@ class ViewportController extends Controller {
             me.component.add(controlsPanel)
         }
         // Close popup windows when closing or reloading the main window
-        else if (appName === 'Neo.examples.component.multiWindowCoronaGallery') {
+        else if (appName === 'Neo.examples.component.multiWindowCoronaGallery') {console.log('close', me.connectedApps);
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
     }
