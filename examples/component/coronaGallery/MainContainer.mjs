@@ -64,11 +64,12 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            ntype : 'panel',
-            cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
-            layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
-            width : 260,
+            ntype    : 'panel',
+            cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'controls-panel',
+            style    : {backgroundColor: '#2b2b2b'},
+            width    : 260,
 
             containerConfig: {
                 style: {overflowY: 'scroll'}

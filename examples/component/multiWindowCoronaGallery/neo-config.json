@@ -1,0 +1,8 @@
+{
+    "appPath"          : "examples/component/multiWindowCoronaGallery/app.mjs",
+    "basePath"         : "../../../",
+    "environment"      : "development",
+    "mainPath"         : "./Main.mjs",
+    "themes"           : ["neo-theme-dark"],
+    "useSharedWorkers" : true
+}
