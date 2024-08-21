@@ -8,7 +8,7 @@ import VDomUtil      from '../util/VDom.mjs';
  * @example
  *     ntype   : 'video',
  *     url     : 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
- *     autoplay: true
+ *     autoPlay: true
  *
  * @methods
  *      play
@@ -34,9 +34,9 @@ class Video extends BaseComponent {
          * Automatically start the video
          * Initial setting, which does not make sense to change later
          * !!Most browsers only support muted autostart
-         * @member {Boolean} autoplay=false
+         * @member {Boolean} autoPlay=false
          */
-        autoplay: false,
+        autoPlay: false,
         /**
          * Current state of the video
          * @member {Boolean} playing_=false
@@ -135,7 +135,7 @@ class Video extends BaseComponent {
      * @protected
      */
     handleAutoplay() {
-        if (!this.autoplay) return;
+        if (!this.autoPlay) return;
 
         let {vdom} = this,
             media  = VDomUtil.getFlags(vdom, 'media')[0];
