@@ -128,7 +128,7 @@ class Base extends Container {
         super.afterSetWindowId(value, oldValue);
 
         if (this.sortZone) {
-            this.sortZone.appName = value
+            this.sortZone.windowId = value
         }
     }
 
