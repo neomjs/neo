@@ -112,6 +112,7 @@ class Base extends Container {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
+                    windowId           : me.windowId,
                     ...me.sortZoneConfig
                 })
             })
