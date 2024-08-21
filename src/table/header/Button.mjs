@@ -464,9 +464,11 @@ class Button extends BaseButton {
 
     /**
      * @param {Object} data
+     * @param {Neo.button.Base} data.column
      * @param {String} data.dataField
      * @param {Number} data.index
      * @param {Object} data.record
+     * @param {Neo.table.Container} data.tableContainer
      * @param {Number|String} data.value
      * @returns {*}
      */
