@@ -901,6 +901,8 @@ class Text extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
         value && this.triggers?.forEach(item => {
             item.windowId = value
         })

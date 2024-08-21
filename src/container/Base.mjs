@@ -222,7 +222,8 @@ class Base extends Component {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        let me = this;
+        let me       = this,
+            {layout} = me;
 
         value && me.items?.forEach(item => {
             if (!Neo.isString(item)) {
@@ -230,8 +231,8 @@ class Base extends Component {
             }
         })
 
-        if (value && me.layout) {
-            me.layout.windowId = value
+        if (value && layout && !Neo.isString(layout)) {
+            layout.windowId = value
         }
     }
 

@@ -144,7 +144,11 @@ class DragZone extends Base {
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
          */
-        useProxyWrapper: true
+        useProxyWrapper: true,
+        /**
+         * @member {Number|null} windowId_=null
+         */
+        windowId_: null
     }
 
     /**
@@ -159,15 +163,13 @@ class DragZone extends Base {
     }
 
     /**
-     * Triggered after the appName config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
-    afterSetAppName(value, oldValue) {
-        if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.owner.windowId, this.__proto__)
-        }
+    afterSetWindowId(value, oldValue) {
+        value && Neo.currentWorker.insertThemeFiles(this.appName, value, this.__proto__)
     }
 
     /**

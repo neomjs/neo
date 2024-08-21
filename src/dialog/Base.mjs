@@ -327,6 +327,27 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me        = this,
+            resizable = me.getPlugin('resizable');
+
+        if (me.dragZone) {
+            me.dragZone.windowId = value
+        }
+
+        if (resizable) {
+            resizable.windowId = value
+        }
+
+        super.afterSetWindowId(value, oldValue)
+    }
+
+    /**
      *
      */
     async animateHide() {

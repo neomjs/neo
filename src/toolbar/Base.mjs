@@ -119,6 +119,20 @@ class Base extends Container {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (this.sortZone) {
+            this.sortZone.appName = value
+        }
+    }
+
+    /**
      * Checks if the new dock position matches a value of the static dockPositions config
      * @param {String} value
      * @param {String} oldValue

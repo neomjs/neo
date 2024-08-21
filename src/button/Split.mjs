@@ -190,6 +190,22 @@ class Split extends Button {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.appName = value;
+        }
+
+        super.afterSetWindowId(value, oldValue)
+    }
+
+    /**
      * @param {Boolean} [updateParentVdom=false]
      * @param {Boolean} [silent=false]
      */
