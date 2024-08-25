@@ -169,7 +169,7 @@ class DragZone extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(this.appName, value, this.__proto__)
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**

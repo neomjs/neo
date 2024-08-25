@@ -1040,7 +1040,7 @@ class Base extends CoreBase {
             controller = me.controller;
 
         if (value) {
-            Neo.currentWorker.insertThemeFiles(me.appName, value, me.__proto__);
+            Neo.currentWorker.insertThemeFiles(value, me.__proto__);
 
             if (controller) {
                 controller.windowId = value
