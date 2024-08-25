@@ -148,6 +148,7 @@ class MainContainer extends ConfigurationViewport {
                                 ntype   : 'button',
                                 appName : this.appName,
                                 text    : '\u22ee',
+                                windowId: this.windowId,
                                 menu    : {
                                     items : [{
                                         text : 'Menu option 1'
