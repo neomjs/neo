@@ -25,12 +25,11 @@ where the framework is included as a node module, but needs to deploy to a top-l
 ## Content
 1. <a href="#build-all">build-all</a>
 2. <a href="#build-all-questions">build-all-questions</a>
-3. <a href="#build-my-apps">build-my-apps</a>
-4. <a href="#build-themes">build-themes</a>
-5. <a href="#build-threads">build-threads</a>
-6. <a href="#create-app">create-app</a>
-7. <a href="#generate-docs-json">generate-docs-json</a>
-8. <a href="#server-start">server-start</a>
+3. <a href="#build-themes">build-themes</a>
+4. <a href="#build-threads">build-threads</a>
+5. <a href="#create-app">create-app</a>
+6. <a href="#generate-docs-json">generate-docs-json</a>
+7. <a href="#server-start">server-start</a>
 
 ## build-all
 > node ./buildScripts/buildAll.js -f -n
@@ -129,62 +128,6 @@ neo.mjs buildAll
 ```
 
 Source code: <a href="./buildAll.js">build-all</a>
-
-## build-my-apps
-> node ./buildScripts/webpack/buildMyApps.js -f
-
-```bash
-Options:
-  -V, --version       output the version number
-  -i, --info          print environment debug info
-  -a, --apps <value>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
-                      "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
-  -e, --env <value>   "all", "dev", "prod"
-  -f, --framework    
-  -n, --noquestions  
-  -h, --help          display help for command
-```
-
-build-my-apps is very similar to build-threads => App.
-
-In both cases we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
-which will dynamically import all Apps inside the src/app folder and the Docs App and create split chunks
-for all combinations. This enables you to add multiple Apps on one Page with close to zero overhead
-in dist/development & dist/production.
-
-The only difference to build-threads => App is that you can limit the generation of the App related index.html files,
-so it is a little faster.
-
-Let us take a look at the different inquirer steps:
-1. Pick the -e (env) option:
-```bash
-neo % npm run build-my-apps
-
-> neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
-> node ./buildScripts/webpack/buildMyApps.js -f
-
-neo.mjs buildMyApps
-? Please choose the environment: (Use arrow keys)
-❯ all 
-  dev 
-  prod 
-```
-2. Pick the -a (apps) option:
-```bash
-neo.mjs buildMyApps
-? Please choose the environment: all
-? Please choose which apps you want to build: (Press <space> to select, <a> to toggle all, <i> to invert selection)
-❯◯ Covid
- ◯ RealWorld
- ◯ RealWorld2
- ◯ SharedCovid
- ◯ SharedCovidChart
- ◯ SharedCovidGallery
- ◯ SharedCovidHelix
-(Move up and down to reveal more choices)
-```
-
-Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
 ## build-themes
 > node ./buildScripts/webpack/buildThemes.js -f
