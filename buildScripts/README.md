@@ -237,7 +237,7 @@ Please take a look at the <a href="https://github.com/neomjs/create-app">create-
 If you want to create a new Demo App inside the framework repo,
 using the create-app program makes sense, since you can work on the app & framework code in parallel.
 
-Using the default options, this will generate the following 3 files:
+Using the default options, this will generate the following 4 files:
 ```
 neo
  | - apps
