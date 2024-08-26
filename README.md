@@ -17,6 +17,7 @@
 1. <a href="#introduction">Introduction</a>
 2. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 3. <a href="#architectures">Scalable frontend architectures</a>
+4. <a href="#cli">Command-Line Interface</a>
 
 </br></br>
 <h2 id="introduction">1. Introduction</h2>
@@ -56,7 +57,10 @@ Potential Use-Cases:
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
-
+</br></br>
+<h2 id="cli">4. Command-Line Interface</h2>
+The Neo.mjs CLI is described in depth here:</br>
+<a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
 </br></br>
 
