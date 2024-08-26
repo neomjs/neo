@@ -61,8 +61,8 @@ Join our community:</br>
 
 </br></br>
 <h2 id="getting-started">4. Getting Started</h2>
-Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a></br>
-
+Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
+</br></br>
 There are 2 options:</br>
 In case you want to create a Neo.mjs App (workspace), use:
 > npx neo-app@latest
