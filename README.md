@@ -64,6 +64,7 @@ Join our community:</br>
 Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
 </br></br>
 There are 2 options:
+
 1. In case you want to create a Neo.mjs App (workspace), use
    > npx neo-app@latest
  
