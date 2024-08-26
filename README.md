@@ -63,20 +63,20 @@ Join our community:</br>
 <h2 id="getting-started">4. Getting Started</h2>
 Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
 </br></br>
-There are 2 options:</br>
-In case you want to create a Neo.mjs App (workspace), use:
-> npx neo-app@latest
+There are 2 options:
+1. In case you want to create a Neo.mjs App (workspace), use
+   > npx neo-app@latest
  
-In case you want to work on the Framework and your App in parallel,
-you can fork this repository and use
-> npm run create-app
+2. In case you want to work on the Framework and your App in parallel, you can fork this repository and use
+   > npm run create-app
 
-inside of it.
+   inside of it.
 
-1. You can easily move your app from the framework to a workspace or vice versa.
-2. The CLI inside the framework and inside a workspace works the same.
 
-Also take a look into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
+* You can easily move your app from the framework to a workspace or vice versa.
+* The CLI inside the framework and inside a workspace works the same.
+
+Make sure to take a look into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
 
 The most advanced tutorial to help you with getting up to speed is this one:</br>
 <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
