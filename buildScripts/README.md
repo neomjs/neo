@@ -11,8 +11,8 @@ You can run each script inside your terminal. E.g.:
 
 Make sure to call them on the top-level folder (the one containing the package.json).
 
-In case you want to pass program options, please use the node based calls instead. E.g.:
-> node ./buildScripts/buildAll.js -h
+In case you want to pass program options, use -- before adding options. E.g.:
+> npm run build-all -- -h
 
 All programs which are using options also have the visual inquirer interface in place.</br>
 So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),</br>
@@ -32,7 +32,7 @@ where the framework is included as a node module, but needs to deploy to a top-l
 7. <a href="#server-start">server-start</a>
 
 ## build-all
-> node ./buildScripts/buildAll.js -f -n
+> npm run build-all
 
 It is strongly recommended to run this program after each git pull on this repo.
 
@@ -69,7 +69,7 @@ or dist/production.
 Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-all-questions
-> node ./buildScripts/buildAll.js -f
+> npm run build-all-questions
 
 This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
@@ -130,7 +130,7 @@ neo.mjs buildAll
 Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-themes
-> node ./buildScripts/webpack/buildThemes.js -f
+> npm run build-themes
 
 ```bash
 Options:
@@ -181,7 +181,7 @@ neo.mjs buildThemes
 Source code: <a href="./webpack/buildThemes.js">build-themes</a>
 
 ## build-threads
-> node ./buildScripts/webpack/buildThreads.js -f
+> npm run build-threads
 
 Since the default neo.mjs setup is using 3 workers, we have the following 4 threads to build:</br>
 "app", "data", "main", "vdom"
@@ -229,7 +229,7 @@ neo.mjs buildThreads
 Source code: <a href="./webpack/buildThreads.js">build-threads</a>
 
 ## create-app
-> node ./buildScripts/createApp.js
+> npm run create-app
 
 Again: In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
 Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
@@ -243,8 +243,8 @@ neo
  | - apps
  |    | - myapp
  |    |    | - app.mjs
- |    |    | - config.json
  |    |    | - index.html
+ |    |    | - neo-config.json
  |    |    | - MainContainer.mjs
 ```
 
@@ -342,7 +342,7 @@ Using SharedWorkers, you need to open a separate Window to inspect them:</br>
 Source code: <a href="./buildScripts/createApp.js">create-app</a>
 
 ## generate-docs-json
-> node ./buildScripts/docs/jsdocx.js
+> npm run generate-docs-json
 
 neo.mjs is using jsdoc
 > https://github.com/jsdoc/jsdoc
@@ -357,7 +357,7 @@ There are several enhancements around it to polish it for our class system impro
 Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
-> webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open
+> npm run server-start
 
 To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
 otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.
