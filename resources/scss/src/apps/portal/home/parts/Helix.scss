@@ -4,4 +4,8 @@
             min-height: 23em;
         }
     }
+
+    @media (min-width: 841px) {
+        max-height: 100%;
+    }
 }
