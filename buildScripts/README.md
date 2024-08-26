@@ -320,14 +320,15 @@ neo.mjs create-app
 No worries, you can easily change the options after you created your App shell.
 
 E.g. in case you want to add the MapboxGL main thread addon later on,
-you can add it inside your index.html file:
-```js
-Object.assign(Neo.config, {
-    appPath         : 'apps/myapp/app.mjs',
-    basePath        : '../../',
-    environment     : 'development',
-    mainThreadAddons: ['MapboxGL', 'Stylesheet']
-});
+you can add it inside your neo-config.json file:
+```json
+{
+    "appPath"         : "apps/myapp/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MapboxGL", "Navigator", "Stylesheet"]
+}
 ```
 
 Regarding the -u (SharedWorkers) option:</br>
