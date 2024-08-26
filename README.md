@@ -11,7 +11,7 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Harness the Power of Multi-Threading for Ultra-Fast Frontends
+# Modern Enterprise-Ready JavaScript Framework
 
 ## Content
 1. <a href="#introduction">Introduction</a>
