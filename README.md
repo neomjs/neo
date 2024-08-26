@@ -62,15 +62,5 @@ Join our community:</br>
 You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
 </br></br>
-
-[Spoiler] We are in the middle of wrapping up the new Framework Website,
-which will include the first version of a self-study based Learning Section.
-
-We are aiming to release it on August 1st, 2024.
-
-The current development state is already inside the dev branch.
-
-
-</br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
