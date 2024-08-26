@@ -59,8 +59,7 @@ Join our community:</br>
 
 </br></br>
 <h2 id="cli">4. Command-Line Interface</h2>
-The Neo.mjs CLI is described in depth here:</br>
-<a href="./buildScripts/README.md">Neo.mjs CLI</a>
+You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
 </br></br>
 
