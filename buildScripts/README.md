@@ -242,10 +242,11 @@ Using the default options, this will generate the following 4 files:
 neo
  | - apps
  |    | - myapp
+ |    |    | - view
+ |    |    |    | - MainContainer.mjs
  |    |    | - app.mjs
  |    |    | - index.html
  |    |    | - neo-config.json
- |    |    | - MainContainer.mjs
 ```
 
 The program will also add the App config into buildScripts/webpack/json/myApps.json.
