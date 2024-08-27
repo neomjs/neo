@@ -346,7 +346,6 @@ class ComboBox extends Picker {
             role          : 'listbox',
             selectionModel: {stayInList: false},
             store         : me.store,
-            windowId      : me.windowId,
             ...me.listConfig
         });
 
