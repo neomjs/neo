@@ -306,7 +306,7 @@ class Base extends Component {
      * @protected
      */
     afterSetRoute(value, oldValue) {
-        this.updateTag()
+        !this.editRoute && this.updateTag()
     }
 
     /**
@@ -460,14 +460,7 @@ class Base extends Component {
      * @protected
      */
     changeRoute() {
-        let me         = this,
-            {windowId} = me;
-
-        if (me.editRoute) {
-            Neo.Main.editRoute(me.route)
-        } else {
-            Neo.Main.setRoute({value: me.route, windowId})
-        }
+        this.editRoute && Neo.Main.editRoute(this.route)
     }
 
     /**
@@ -512,7 +505,7 @@ class Base extends Component {
         me.callback(me.handler, me.handlerScope || me, [data]);
 
         me.menu            && me.toggleMenu();
-        me.route           && me.changeRoute();
+        me.route           && me.changeRoute(); // only relevant for editRoute=true
         me.useRippleEffect && me.showRipple(data)
     }
 
@@ -574,10 +567,14 @@ class Base extends Component {
      *
      */
     updateTag() {
-        let me           = this,
-            {route, url} = me,
-            link         = route || url,
-            vdomRoot     = me.getVdomRoot();
+        let me                      = this,
+            {editRoute, route, url} = me,
+            link                    = !editRoute && route || url,
+            vdomRoot                = me.getVdomRoot();
+
+        if (!editRoute && route?.startsWith('#') === false) {
+            link = '#' + link
+        }
 
         if (link) {
             vdomRoot.href = link;
