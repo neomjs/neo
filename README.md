@@ -29,8 +29,7 @@ you have found the right spot.
 5. <a href="#cli">Command-Line Interface</a>
 6. <a href="#blog">Blog</a>
 
-</br></br>
-<h2 id="introduction">1. Introduction</h2>
+</br><h2 id="introduction">1. Introduction</h2>
 Neo.mjs is **not** intended for rather simple & static websites.
 
 The Framework does not focus primarily on a fast first rendering experience for new users,
@@ -56,8 +55,7 @@ without the need for a native shell.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/workers-setup-v4.png">
 
-</br></br>
-<h2 id="use-cases">2. Potential Use-Cases</h2>
+</br><h2 id="use-cases">2. Potential Use-Cases</h2>
 1. Finance (Banking & Trading Apps)
 2. Data Science
 3. Web-based IDEs
@@ -66,13 +64,11 @@ without the need for a native shell.
 6. "Desktop-like" Apps
 7. Enterprise Apps in general (e.g. Admin Dashboards)
 
-</br></br>
-<h2 id="slack-channel">2. Slack Channel for questions, ideas & feedback</h2>
+</br><h2 id="slack-channel">2. Slack Channel for questions, ideas & feedback</h2>
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
-</br></br>
-<h2 id="getting-started">4. Getting Started</h2>
+</br><h2 id="getting-started">4. Getting Started</h2>
 Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
 </br></br>
 There are 2 options:
@@ -94,12 +90,10 @@ Make sure to take a look into the <a href="https://neomjs.com/dist/production/ap
 The most advanced tutorial to help you with getting up to speed is this one:</br>
 <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
 
-</br></br>
-<h2 id="cli">5. Command-Line Interface</h2>
+</br><h2 id="cli">5. Command-Line Interface</h2>
 You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
-</br></br>
-<h2 id="blog">6. Blog</h2>
+</br><h2 id="blog">6. Blog</h2>
 All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 
 </br></br>
