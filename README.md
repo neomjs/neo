@@ -53,8 +53,6 @@ Neo.mjs also provides sharing state across multiple Browser-Windows.
 So far, it is the only Framework which enables us to build complex multi-Window Apps
 without the need for a native shell.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/workers-setup-v4.png">
-
 <img src="./resources/images/workers-focus.svg">
 
 </br><h2 id="use-cases">2. Potential Use-Cases</h2>
