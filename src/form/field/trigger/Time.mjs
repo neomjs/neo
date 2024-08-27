@@ -94,6 +94,20 @@ class Time extends Picker {
             this.clock.time = value
         }
     }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            this.clock.windowId = value
+        }
+    }
 }
 
 export default Neo.setupClass(Time);

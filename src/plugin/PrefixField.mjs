@@ -136,7 +136,7 @@ class PrefixField extends Base {
         ]);
 
         me.owner.on('mounted', () => {
-            Neo.currentWorker.insertThemeFiles(owner.appName, owner.windowId, me.__proto__)
+            Neo.currentWorker.insertThemeFiles(owner.windowId, me.__proto__)
         }, me, {once: true})
     }
 

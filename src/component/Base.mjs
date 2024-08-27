@@ -515,7 +515,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.windowId, this.__proto__)
+
     }
 
     /**
@@ -1036,16 +1036,21 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let controller = this.controller;
+        let me         = this,
+            controller = me.controller;
 
-        if (controller && value) {
-            controller.windowId = value
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, me.__proto__);
+
+            if (controller) {
+                controller.windowId = value
+            }
         }
 
         // If a component gets moved into a different window, an update cycle might still be running.
         // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
         if (oldValue) {
-            this.isVdomUpdating = false
+            me.isVdomUpdating = false
         }
     }
 

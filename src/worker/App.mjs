@@ -275,12 +275,11 @@ class App extends Base {
 
     /**
      * In case you don't want to include prototype based CSS files, use the className param instead
-     * @param {String} appName
      * @param {Number} windowId
      * @param {Neo.core.Base} [proto]
      * @param {String} [className]
      */
-    insertThemeFiles(appName, windowId, proto, className) {
+    insertThemeFiles(windowId, proto, className) {
         if (Neo.config.themes.length > 0) {
             className = className || proto.className;
             //console.log(windowId, className);
@@ -290,7 +289,7 @@ class App extends Base {
                 classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
-                me.themeFilesCache.push([appName, windowId, proto])
+                me.themeFilesCache.push([windowId, proto])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
@@ -306,7 +305,7 @@ class App extends Base {
 
                 if (parent && parent !== Neo.core.Base.prototype) {
                     if (!Neo.ns(`${windowId}.${parent.className}`, false, cssMap)) {
-                        me.insertThemeFiles(appName, windowId, parent)
+                        me.insertThemeFiles(windowId, parent)
                     }
                 }
 
@@ -321,7 +320,6 @@ class App extends Base {
                     ns[fileName] = true;
 
                     Neo.main.addon.Stylesheet.addThemeFiles({
-                        appName,
                         className: mapClassName || className,
                         folders  : themeFolders,
                         windowId

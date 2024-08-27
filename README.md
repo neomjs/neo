@@ -11,12 +11,15 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Harness the Power of Multi-Threading for Ultra-Fast Frontends
+# Modern Enterprise-Ready JavaScript Framework
 
 ## Content
 1. <a href="#introduction">Introduction</a>
 2. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 3. <a href="#architectures">Scalable frontend architectures</a>
+4. <a href="#getting-started">Getting Started</a>
+5. <a href="#cli">Command-Line Interface</a>
+6. <a href="#blog">Blog</a>
 
 </br></br>
 <h2 id="introduction">1. Introduction</h2>
@@ -56,17 +59,36 @@ Potential Use-Cases:
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
+</br></br>
+<h2 id="getting-started">4. Getting Started</h2>
+Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
+</br></br>
+There are 2 options:
 
+1. In case you want to create a Neo.mjs App (workspace), use
+   > npx neo-app@latest
+ 
+2. In case you want to work on the Framework and your App in parallel, you can fork this repository and use
+   > npm run create-app
+
+   inside of it.
+
+
+* You can easily move your app from the framework to a workspace or vice versa.
+* The CLI inside the framework and inside a workspace works the same.
+
+Make sure to take a look into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
+
+The most advanced tutorial to help you with getting up to speed is this one:</br>
+<a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
 
 </br></br>
+<h2 id="cli">5. Command-Line Interface</h2>
+You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
-[Spoiler] We are in the middle of wrapping up the new Framework Website,
-which will include the first version of a self-study based Learning Section.
-
-We are aiming to release it on August 1st, 2024.
-
-The current development state is already inside the dev branch.
-
+</br></br>
+<h2 id="blog">6. Blog</h2>
+All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>

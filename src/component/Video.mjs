@@ -1,8 +1,6 @@
 import BaseComponent from '../component/Base.mjs';
 import VDomUtil      from '../util/VDom.mjs';
 
-let isOperaMini = null;
-
 /**
  * @class Neo.component.Video
  * @extends Neo.component.Base
@@ -10,7 +8,7 @@ let isOperaMini = null;
  * @example
  *     ntype   : 'video',
  *     url     : 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
- *     autoplay: true
+ *     autoPlay: true
  *
  * @methods
  *      play
@@ -36,14 +34,9 @@ class Video extends BaseComponent {
          * Automatically start the video
          * Initial setting, which does not make sense to change later
          * !!Most browsers only support muted autostart
-         * @member {Boolean} autoplay=false
+         * @member {Boolean} autoPlay=false
          */
-        autoplay: false,
-        /**
-         * In case the browser does not support the video source the component should show an error.
-         * @member {String} errorMsg='The browser does not support the video'
-         */
-        errorMsg: 'Your browser does not support the video tag.',
+        autoPlay: false,
         /**
          * Current state of the video
          * @member {Boolean} playing_=false
@@ -115,32 +108,18 @@ class Video extends BaseComponent {
      * @param {String} value
      * @param {String|null} oldValue
      */
-    async afterSetUrl(value, oldValue) {
+    afterSetUrl(value, oldValue) {
         if (!value) return;
 
         let me     = this,
             {vdom} = me,
-            media  = VDomUtil.getFlags(vdom, 'media')[0],
-            userAgent;
-
-        if (isOperaMini === null) {
-            userAgent   = await Neo.Main.getByPath({path: 'navigator.userAgent'});
-            isOperaMini = userAgent.includes('Opera Mini');
-        }
+            media  = VDomUtil.getFlags(vdom, 'media')[0];
 
         media.cn = [{
             tag : 'source',
             src : value,
             type: me.type
         }];
-
-        // Opera Mini might not support the video-source => check the user agent string
-        if (isOperaMini) {
-            media.cn.push({
-                tag : 'span',
-                html: me.errorMsg
-            })
-        }
 
         this.update()
     }
@@ -156,17 +135,17 @@ class Video extends BaseComponent {
      * @protected
      */
     handleAutoplay() {
-        if (!this.autoplay) return;
+        if (!this.autoPlay) return;
 
         let {vdom} = this,
-            media = VDomUtil.getFlags(vdom, 'media')[0];
+            media  = VDomUtil.getFlags(vdom, 'media')[0];
 
         // Most browsers require videos to be muted for autoplay to work.
         media.muted = true;
         // Allows inline playback on iOS devices
         media.playsInline = true;
 
-        this.playing = true;
+        this.playing = true
     }
 
     /**

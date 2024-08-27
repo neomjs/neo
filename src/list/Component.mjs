@@ -38,6 +38,20 @@ class Component extends Base {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        value && this.items?.forEach(item => {
+            item.windowId = value
+        })
+    }
+
+    /**
      *
      */
     destroy(...args) {

@@ -25,7 +25,7 @@ class Base extends CoreBase {
          */
         appName_: null,
         /**
-         * The Id of the Container instance this layout is bound to
+         * The id of the Container instance this layout is bound to
          * @member {?String} containerId=null
          * @protected
          */
@@ -43,9 +43,9 @@ class Base extends CoreBase {
          */
         isLayout: true,
         /**
-         * @member {Number|null} windowId=null
+         * @member {Number|null} windowId_=null
          */
-        windowId: null
+        windowId_: null
     }
 
     /**
@@ -59,13 +59,13 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the appName config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
      * @protected
      */
-    afterSetAppName(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.container.windowId, this.__proto__)
+    afterSetWindowId(value, oldValue) {
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**

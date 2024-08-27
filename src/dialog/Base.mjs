@@ -286,14 +286,15 @@ class Base extends Panel {
     afterSetResizable(value, oldValue) {
         if (value && !this.getPlugin('resizable')) {
             import('../plugin/Resizable.mjs').then(module => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+                let me                  = this,
+                    {appName, windowId} = me,
+                    plugins             = me.plugins || [];
 
                 plugins.push({
                     module       : module.default,
                     appName,
                     delegationCls: 'neo-dialog',
+                    windowId,
                     ...me.resizablePluginConfig
                 });
 
@@ -324,6 +325,27 @@ class Base extends Panel {
      */
     afterSetTrapFocus(value, oldValue) {
         this.syncTrapFocus()
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me        = this,
+            resizable = me.getPlugin('resizable');
+
+        if (me.dragZone) {
+            me.dragZone.windowId = value
+        }
+
+        if (resizable) {
+            resizable.windowId = value
+        }
+
+        super.afterSetWindowId(value, oldValue)
     }
 
     /**
@@ -480,9 +502,10 @@ class Base extends Panel {
      *
      */
     createHeader() {
-        let me      = this,
-            cls     = ['neo-header-toolbar', 'neo-toolbar'],
-            headers = me.headers || [];
+        let me         = this,
+            {windowId} = me,
+            cls        = ['neo-header-toolbar', 'neo-toolbar'],
+            headers    = me.headers || [];
 
         me.draggable && cls.push('neo-draggable');
 
@@ -495,6 +518,7 @@ class Base extends Panel {
             id       : me.getHeaderToolbarId(),
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
+            windowId,
             ...me.headerConfig
         });
 
@@ -661,8 +685,9 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me    = this,
-            style = me.style || {};
+        let me         = this,
+            {windowId} = me,
+            style      = me.style || {};
 
         if (!me.maximized) {
             me.isDragging = true;
@@ -679,6 +704,7 @@ class Base extends Panel {
                     dragProxyConfig    : {vdom: me.getProxyVdom()},
                     owner              : me,
                     useProxyWrapper    : false,
+                    windowId,
                     ...me.dragZoneConfig
                 });
 

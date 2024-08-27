@@ -129,12 +129,12 @@ class Base extends CoreBase {
     }
 
     /**
-     * Adds one or more items to the end of the collection and returns the new length of the collection.
+     * Adds one or more items to the end of the collection
      * @param {Array|Object} item The item(s) to add
      * @returns {Object[]} an array containing all added items
      */
     add(item) {
-        return this.splice(0, null, item).addedItems
+        return this.splice(null, null, item).addedItems
     }
 
     /**

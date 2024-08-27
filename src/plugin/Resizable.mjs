@@ -164,7 +164,11 @@ class Resizable extends Base {
          * @member {Object} targetNode=null
          * @protected
          */
-        targetNode: null
+        targetNode: null,
+        /**
+         * @member {Number|null} windowId_=null
+         */
+        windowId_: null
     }
 
     /**
@@ -228,14 +232,24 @@ class Resizable extends Base {
      * @protected
      */
     afterSetAppName(value, oldValue) {
+        if (this.dragZone) {
+            this.dragZone.appName = value
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
         let me = this;
 
-        if (value) {
-            Neo.currentWorker.insertThemeFiles(value, me.owner.windowId, me.__proto__)
-        }
+        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__)
 
         if (me.dragZone) {
-            me.dragZone.appName = value
+            me.dragZone.windowId = value
         }
     }
 

@@ -112,9 +112,24 @@ class Base extends Container {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
+                    windowId           : me.windowId,
                     ...me.sortZoneConfig
                 })
             })
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (this.sortZone) {
+            this.sortZone.windowId = value
         }
     }
 

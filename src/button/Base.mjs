@@ -257,16 +257,18 @@ class Base extends Component {
                     items      = isArray ? value : value.items,
                     menuConfig = isArray ? {} : value,
                     model      = me.getModel(),
+                    {appName, theme, windowId} = me,
 
                 config = Neo.merge({
                     module         : module.default,
                     align          : {edgeAlign : 't0-b0', target: me.id},
-                    appName        : me.appName,
+                    appName,
                     displayField   : 'text',
                     floating       : true,
                     hidden         : true,
                     parentComponent: me,
-                    theme          : me.theme
+                    theme,
+                    windowId
                 }, menuConfig);
 
                 if (items) {
@@ -383,6 +385,22 @@ class Base extends Component {
         }
 
         me.update()
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let {menuList} = this;
+
+        if (menuList) {
+            menuList.windowId = value
+        }
     }
 
     /**

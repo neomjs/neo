@@ -11,8 +11,8 @@ You can run each script inside your terminal. E.g.:
 
 Make sure to call them on the top-level folder (the one containing the package.json).
 
-In case you want to pass program options, please use the node based calls instead. E.g.:
-> node ./buildScripts/buildAll.js -h
+In case you want to pass program options, use -- before adding options. E.g.:
+> npm run build-all -- -h
 
 All programs which are using options also have the visual inquirer interface in place.</br>
 So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),</br>
@@ -25,15 +25,14 @@ where the framework is included as a node module, but needs to deploy to a top-l
 ## Content
 1. <a href="#build-all">build-all</a>
 2. <a href="#build-all-questions">build-all-questions</a>
-3. <a href="#build-my-apps">build-my-apps</a>
-4. <a href="#build-themes">build-themes</a>
-5. <a href="#build-threads">build-threads</a>
-6. <a href="#create-app">create-app</a>
-7. <a href="#generate-docs-json">generate-docs-json</a>
-8. <a href="#server-start">server-start</a>
+3. <a href="#build-themes">build-themes</a>
+4. <a href="#build-threads">build-threads</a>
+5. <a href="#create-app">create-app</a>
+6. <a href="#generate-docs-json">generate-docs-json</a>
+7. <a href="#server-start">server-start</a>
 
 ## build-all
-> node ./buildScripts/buildAll.js -f -n
+> npm run build-all
 
 It is strongly recommended to run this program after each git pull on this repo.
 
@@ -70,7 +69,7 @@ or dist/production.
 Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-all-questions
-> node ./buildScripts/buildAll.js -f
+> npm run build-all-questions
 
 This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
@@ -130,64 +129,8 @@ neo.mjs buildAll
 
 Source code: <a href="./buildAll.js">build-all</a>
 
-## build-my-apps
-> node ./buildScripts/webpack/buildMyApps.js -f
-
-```bash
-Options:
-  -V, --version       output the version number
-  -i, --info          print environment debug info
-  -a, --apps <value>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
-                      "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
-  -e, --env <value>   "all", "dev", "prod"
-  -f, --framework    
-  -n, --noquestions  
-  -h, --help          display help for command
-```
-
-build-my-apps is very similar to build-threads => App.
-
-In both cases we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
-which will dynamically import all Apps inside the src/app folder and the Docs App and create split chunks
-for all combinations. This enables you to add multiple Apps on one Page with close to zero overhead
-in dist/development & dist/production.
-
-The only difference to build-threads => App is that you can limit the generation of the App related index.html files,
-so it is a little faster.
-
-Let us take a look at the different inquirer steps:
-1. Pick the -e (env) option:
-```bash
-neo % npm run build-my-apps
-
-> neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
-> node ./buildScripts/webpack/buildMyApps.js -f
-
-neo.mjs buildMyApps
-? Please choose the environment: (Use arrow keys)
-❯ all 
-  dev 
-  prod 
-```
-2. Pick the -a (apps) option:
-```bash
-neo.mjs buildMyApps
-? Please choose the environment: all
-? Please choose which apps you want to build: (Press <space> to select, <a> to toggle all, <i> to invert selection)
-❯◯ Covid
- ◯ RealWorld
- ◯ RealWorld2
- ◯ SharedCovid
- ◯ SharedCovidChart
- ◯ SharedCovidGallery
- ◯ SharedCovidHelix
-(Move up and down to reveal more choices)
-```
-
-Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
-
 ## build-themes
-> node ./buildScripts/webpack/buildThemes.js -f
+> npm run build-themes
 
 ```bash
 Options:
@@ -238,7 +181,7 @@ neo.mjs buildThemes
 Source code: <a href="./webpack/buildThemes.js">build-themes</a>
 
 ## build-threads
-> node ./buildScripts/webpack/buildThreads.js -f
+> npm run build-threads
 
 Since the default neo.mjs setup is using 3 workers, we have the following 4 threads to build:</br>
 "app", "data", "main", "vdom"
@@ -286,7 +229,7 @@ neo.mjs buildThreads
 Source code: <a href="./webpack/buildThreads.js">build-threads</a>
 
 ## create-app
-> node ./buildScripts/createApp.js
+> npm run create-app
 
 Again: In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
 Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
@@ -294,14 +237,14 @@ Please take a look at the <a href="https://github.com/neomjs/create-app">create-
 If you want to create a new Demo App inside the framework repo,
 using the create-app program makes sense, since you can work on the app & framework code in parallel.
 
-Using the default options, this will generate the following 3 files:
+Using the default options, this will generate the following 4 files:
 ```
 neo
  | - apps
  |    | - myapp
  |    |    | - app.mjs
- |    |    | - config.json
  |    |    | - index.html
+ |    |    | - neo-config.json
  |    |    | - MainContainer.mjs
 ```
 
@@ -377,14 +320,15 @@ neo.mjs create-app
 No worries, you can easily change the options after you created your App shell.
 
 E.g. in case you want to add the MapboxGL main thread addon later on,
-you can add it inside your index.html file:
-```js
-Object.assign(Neo.config, {
-    appPath         : 'apps/myapp/app.mjs',
-    basePath        : '../../',
-    environment     : 'development',
-    mainThreadAddons: ['MapboxGL', 'Stylesheet']
-});
+you can add it inside your neo-config.json file:
+```json
+{
+    "appPath"         : "apps/myapp/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MapboxGL", "Navigator", "Stylesheet"]
+}
 ```
 
 Regarding the -u (SharedWorkers) option:</br>
@@ -399,7 +343,7 @@ Using SharedWorkers, you need to open a separate Window to inspect them:</br>
 Source code: <a href="./buildScripts/createApp.js">create-app</a>
 
 ## generate-docs-json
-> node ./buildScripts/docs/jsdocx.js
+> npm run generate-docs-json
 
 neo.mjs is using jsdoc
 > https://github.com/jsdoc/jsdoc
@@ -414,7 +358,7 @@ There are several enhancements around it to polish it for our class system impro
 Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
-> webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open
+> npm run server-start
 
 To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
 otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.

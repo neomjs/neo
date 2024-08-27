@@ -55,13 +55,6 @@ Neo = globalThis.Neo = Object.assign({
     insideWorker: typeof DedicatedWorkerGlobalScope !== 'undefined' || typeof WorkerGlobalScope !== 'undefined',
 
     /**
-     * @deprecated in neo.mjs v7.0
-     */
-    applyClassConfig(cls) {
-        return Neo.setupClass(cls)
-    },
-
-    /**
      * Maps methods from one namespace to another one
      * @example
      * // aliases
