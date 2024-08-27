@@ -55,7 +55,7 @@ without the need for a native shell.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/workers-setup-v4.png">
 
-<img src="./apps/portal/resources/images/workers-focus.svg">
+<img src="./resources/images/workers-focus.svg">
 
 </br><h2 id="use-cases">2. Potential Use-Cases</h2>
 1. Finance (Banking & Trading Apps)
