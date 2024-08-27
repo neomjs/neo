@@ -20,9 +20,9 @@ class Colors extends FeatureSection {
          */
         headline: 'Amazing Potential',
         /**
-         * @member {String} learnMoreRoute='#/learn/WhyNeo-Speed'
+         * @member {String} learnMoreRoute='https://itnext.io/sharing-real-time-websocket-data-across-multiple-browser-windows-4e0538dd7563?source=friends_link&sk=9efb3e4f38c82fb3e04899c61bb5fcb8'
          */
-        learnMoreRoute: '#/learn/WhyNeo-Speed',
+        learnMoreRoute: 'https://itnext.io/sharing-real-time-websocket-data-across-multiple-browser-windows-4e0538dd7563?source=friends_link&sk=9efb3e4f38c82fb3e04899c61bb5fcb8',
         /**
          * @member {String} livePreviewCode
          */

@@ -37,6 +37,7 @@ class FeatureSection extends Container {
          */
         headline_: null,
         /**
+         * Can either contain a route or a URL
          * @member {String|null} learnMoreRoute_=null
          */
         learnMoreRoute_: null,
@@ -136,7 +137,8 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetLearnMoreRoute(value, oldValue) {
-        this.getItem('learn-more-button').route = value
+        let targetConfig = value.startsWith('http') ? 'url' : 'route';
+        this.getItem('learn-more-button')[targetConfig] = value
     }
 
     /**
