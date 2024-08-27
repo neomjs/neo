@@ -30,11 +30,6 @@ you have found the right spot.
 6. <a href="#blog">Blog</a>
 
 </br><h2 id="introduction">1. Introduction</h2>
-Neo.mjs is **not** intended for rather simple & static websites.
-
-The Framework does not focus primarily on a fast first rendering experience for new users,
-but instead on a super-fast update & navigation experience for returning users.
-
 Neo.mjs drives the OMT (off the main thread) paradigm into perfection,
 which is intended to move expensive tasks into Workers.
 
@@ -54,6 +49,13 @@ So far, it is the only Framework which enables us to build complex multi-Window 
 without the need for a native shell.
 
 <img src="./resources/images/workers-focus.svg">
+
+
+Neo.mjs is **not** intended for rather simple & static websites.
+
+The Framework does not focus primarily on a fast first rendering experience for new users,
+but instead on a super-fast update & navigation experience for returning users.
+
 
 </br><h2 id="use-cases">2. Potential Use-Cases</h2>
 1. Finance (Banking & Trading Apps)
