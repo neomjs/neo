@@ -23,8 +23,8 @@ you have found the right spot.
 
 ## Content
 1. <a href="#introduction">Introduction</a>
-2. <a href="#slack-channel">Slack Channel for questions & feedback</a>
-3. <a href="#architectures">Scalable frontend architectures</a>
+2. <a href="#use-cases">Potential Use Cases</a>
+3. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 4. <a href="#getting-started">Getting Started</a>
 5. <a href="#cli">Command-Line Interface</a>
 6. <a href="#blog">Blog</a>
@@ -56,11 +56,15 @@ without the need for a native shell.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/workers-setup-v4.png">
 
-Potential Use-Cases:
+</br></br>
+<h2 id="use-cases">2. Potential Use-Cases</h2>
 1. Finance (Banking & Trading Apps)
 2. Data Science
 3. Web-based IDEs
 4. Multi-Window Data Visualisation
+5. Complex dynamic Forms
+6. "Desktop-like" Apps
+7. Enterprise Apps in general (e.g. Admin Dashboards)
 
 </br></br>
 <h2 id="slack-channel">2. Slack Channel for questions, ideas & feedback</h2>
