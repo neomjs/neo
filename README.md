@@ -12,6 +12,14 @@
 </p>
 
 # Modern Enterprise-Ready JavaScript Framework
+Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging a vast
+component library and harness the power of multi-threading for extreme real-time performance.
+
+Neo.mjs is the first frontend framework which can run a JavaScript module based dev mode
+without compilations. This makes debugging easier and reduces development costs.
+
+In case you care about scalability, extensibility or solid architectures, congratulations,
+you have found the right spot.
 
 ## Content
 1. <a href="#introduction">Introduction</a>
