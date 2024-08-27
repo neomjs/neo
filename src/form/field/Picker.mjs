@@ -154,6 +154,7 @@ class Picker extends Text {
             maxHeight: me.pickerMaxHeight,
             theme    : me.theme,
             width    : pickerWidth,
+            windowId : me.windowId,
             ...me.pickerConfig,
 
             // scoped to the field instance

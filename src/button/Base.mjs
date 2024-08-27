@@ -92,7 +92,9 @@ class Base extends Component {
          */
         pressed_: false,
         /**
-         * Change the browser hash value on click
+         * Change the browser hash value on click.
+         * Use route for internal navigation and url for external links. Do not use both on the same instance.
+         * Transforms the button tag into an a tag [optional]
          * @member {String|null} route_=null
          */
         route_: null,
@@ -298,6 +300,16 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the route config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRoute(value, oldValue) {
+        !this.editRoute && this.updateTag()
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -338,22 +350,12 @@ class Base extends Component {
 
     /**
      * Triggered after the url config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetUrl(value, oldValue) {
-        let vdomRoot = this.getVdomRoot();
-
-        if (value) {
-            vdomRoot.href = value;
-            vdomRoot.tag  = 'a'
-        } else {
-            delete vdomRoot.href;
-            vdomRoot.tag = 'button'
-        }
-
-        this.update()
+        this.updateTag()
     }
 
     /**
@@ -458,14 +460,7 @@ class Base extends Component {
      * @protected
      */
     changeRoute() {
-        let me         = this,
-            {windowId} = me;
-
-        if (me.editRoute) {
-            Neo.Main.editRoute(me.route)
-        } else {
-            Neo.Main.setRoute({value: me.route, windowId})
-        }
+        this.editRoute && Neo.Main.editRoute(this.route)
     }
 
     /**
@@ -510,7 +505,7 @@ class Base extends Component {
         me.callback(me.handler, me.handlerScope || me, [data]);
 
         me.menu            && me.toggleMenu();
-        me.route           && me.changeRoute();
+        me.route           && me.changeRoute(); // only relevant for editRoute=true
         me.useRippleEffect && me.showRipple(data)
     }
 
@@ -566,6 +561,30 @@ class Base extends Component {
         if (!hidden) {
             await this.timeout(50)
         }
+    }
+
+    /**
+     *
+     */
+    updateTag() {
+        let me                      = this,
+            {editRoute, route, url} = me,
+            link                    = !editRoute && route || url,
+            vdomRoot                = me.getVdomRoot();
+
+        if (!editRoute && route?.startsWith('#') === false) {
+            link = '#' + link
+        }
+
+        if (link) {
+            vdomRoot.href = link;
+            vdomRoot.tag  = 'a'
+        } else {
+            delete vdomRoot.href;
+            vdomRoot.tag = 'button'
+        }
+
+        me.update()
     }
 }
 
