@@ -64,31 +64,15 @@ without the need for a native shell.
 6. "Desktop-like" Apps
 7. Enterprise Apps in general (e.g. Admin Dashboards)
 
-</br><h2 id="slack-channel">2. Slack Channel for questions, ideas & feedback</h2>
+</br><h2 id="slack-channel">3. Slack Channel for questions, ideas & feedback</h2>
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
 </br><h2 id="getting-started">4. Getting Started</h2>
-Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
-</br></br>
-There are 2 options:
-
-1. In case you want to create a Neo.mjs App (workspace), use
-   > npx neo-app@latest
- 
-2. In case you want to work on the Framework and your App in parallel, you can fork this repository and use
-   > npm run create-app
-
-   inside of it.
-
-
-* You can easily move your app from the framework to a workspace or vice versa.
-* The CLI inside the framework and inside a workspace works the same.
-
-Make sure to take a look into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
-
-The most advanced tutorial to help you with getting up to speed is this one:</br>
-<a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
+* Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
+* Make sure to dive into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
+* The most advanced tutorial to help you with getting up to speed is this one:</br>
+   <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
 
 </br><h2 id="cli">5. Command-Line Interface</h2>
 You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
