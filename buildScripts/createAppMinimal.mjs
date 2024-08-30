@@ -172,8 +172,6 @@ if (programOpts.info) {
 `;
             fs.writeFileSync(path.join(folder, 'index.html'), indexContent);
 
-
-
             let neoConfig = {
                 appPath:      `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
                 basePath:     '../../',

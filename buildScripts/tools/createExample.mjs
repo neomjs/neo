@@ -97,9 +97,9 @@ function createMainContainer(classFolder, componentPath, componentChunk, name) {
     const template = [];
 
     template.push(
-        "import ConfigurationViewport   from '../../ConfigurationViewport.mjs';",
-        "import NumberField             from '../../../src/form/field/Number.mjs';",
-        `import ${name}                 from '../../../src/${componentPath}.mjs';`,
+        "import ConfigurationViewport from '../../ConfigurationViewport.mjs';",
+        "import NumberField           from '../../../src/form/field/Number.mjs';",
+        `import ${name}               from '../../../src/${componentPath}.mjs';`,
         "",
         "/**",
         ` * @class Neo.examples.${componentChunk.toLowerCase()}.MainContainer`,
@@ -150,9 +150,7 @@ function createMainContainer(classFolder, componentPath, componentChunk, name) {
         "   }",
         "}",
         "",
-        "Neo.setupClass(MainContainer);",
-        "",
-        "export default MainContainer;"
+        "export default Neo.setupClass(MainContainer);"
     );
     const file = `${classFolder}/MainContainer.mjs`;
     fs.writeFileSync(file, `${template.join(os.EOL)}${os.EOL}`);
