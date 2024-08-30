@@ -609,9 +609,10 @@ class Base extends CoreBase {
         if (value && !me.dropZone) {
             import('../draggable/DropZone.mjs').then(module => {
                 me.dropZone = Neo.create({
-                    module : module.default,
-                    appName: me.appName,
-                    owner  : me,
+                    module  : module.default,
+                    appName : me.appName,
+                    owner   : me,
+                    windowId: me.windowId,
                     ...me.dropZoneConfig
                 })
             })

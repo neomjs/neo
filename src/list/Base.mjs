@@ -201,8 +201,9 @@ class Base extends Component {
                     plugins = me.plugins || [];
 
                 plugins.push({
-                    module : module.default,
-                    appName: me.appName,
+                    module  : module.default,
+                    appName : me.appName,
+                    windowId: me.windowId,
                     ...me.pluginAnimateConfig
                 });
 
@@ -233,9 +234,10 @@ class Base extends Component {
         if (value && !me.dragZone) {
             import('../draggable/list/DragZone.mjs').then(module => {
                 me.dragZone = Neo.create({
-                    module : module.default,
-                    appName: me.appName,
-                    owner  : me,
+                    module  : module.default,
+                    appName : me.appName,
+                    owner   : me,
+                    windowId: me.windowId,
                     ...me.dragZoneConfig
                 })
             })

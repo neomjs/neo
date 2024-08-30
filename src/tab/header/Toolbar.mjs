@@ -37,11 +37,14 @@ class Toolbar extends BaseToolbar {
 
         if (value && !me.sortZone) {
             import('../../draggable/tab/header/toolbar/SortZone.mjs').then(module => {
+                let {appName, id, windowId} = me;
+
                 me.sortZone = Neo.create({
                     module             : module.default,
-                    appName            : me.appName,
-                    boundaryContainerId: me.id,
+                    appName,
+                    boundaryContainerId: id,
                     owner              : me,
+                    windowId,
                     ...me.sortZoneConfig
                 })
             })

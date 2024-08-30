@@ -81,9 +81,10 @@ class Tree extends Base {
             } else if (!me.dragZone) {
                 import('../draggable/tree/DragZone.mjs').then(module => {
                     me.dragZone = Neo.create({
-                        module : module.default,
-                        appName: me.appName,
-                        owner  : me,
+                        module  : module.default,
+                        appName : me.appName,
+                        owner   : me,
+                        windowId: me.windowId,
                         ...me.dragZoneConfig
                     })
                 })
@@ -110,6 +111,7 @@ class Tree extends Base {
                         appName            : me.appName,
                         boundaryContainerId: me.id,
                         owner              : me,
+                        windowId           : me.windowId,
                         ...me.sortZoneConfig
                     })
                 })

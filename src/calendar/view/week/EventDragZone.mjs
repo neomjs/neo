@@ -170,6 +170,7 @@ class EventDragZone extends DragZone {
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
+            windowId        : me.windowId,
 
             ...me.dragProxyConfig,
 

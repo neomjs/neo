@@ -663,6 +663,7 @@ class Circle extends Component {
                 dragProxyConfig: {vdom: me.getProxyVdom()},
                 owner          : me,
                 useProxyWrapper: false,
+                windowId       : me.windowId,
                 ...me.dragZoneConfig
             })
         }

@@ -502,16 +502,16 @@ class Base extends Panel {
      *
      */
     createHeader() {
-        let me         = this,
-            {windowId} = me,
-            cls        = ['neo-header-toolbar', 'neo-toolbar'],
-            headers    = me.headers || [];
+        let me                  = this,
+            {appName, windowId} = me,
+            cls                 = ['neo-header-toolbar', 'neo-toolbar'],
+            headers             = me.headers || [];
 
         me.draggable && cls.push('neo-draggable');
 
         me.headerToolbar = Neo.create({
             module   : Toolbar,
-            appName  : me.appName,
+            appName,
             cls,
             dock     : 'top',
             flex     : 'none',
@@ -685,9 +685,9 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me         = this,
-            {windowId} = me,
-            style      = me.style || {};
+        let me                      = this,
+            {appName, id, windowId} = me,
+            style                   = me.style || {};
 
         if (!me.maximized) {
             me.isDragging = true;
@@ -697,7 +697,7 @@ class Base extends Panel {
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
                     module             : DragZone,
-                    appName            : me.appName,
+                    appName,
                     bodyCursorStyle    : 'move !important',
                     boundaryContainerId: me.boundaryContainerId,
                     dragElement        : me.vdom,
@@ -708,10 +708,7 @@ class Base extends Panel {
                     ...me.dragZoneConfig
                 });
 
-                me.fire('dragZoneCreated', {
-                    dragZone: me.dragZone,
-                    id      : me.id
-                })
+                me.fire('dragZoneCreated', {dragZone: me.dragZone, id})
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
