@@ -20,7 +20,7 @@ class MainViewController extends Controller {
         className: 'GS.references1.MainViewController'
     }
     onDisableButtonClick(data) {
-        data.component.disabled = true;
+        data.component.disabled = true
     }
 }
 MainViewController = Neo.setupClass(MainViewController);
