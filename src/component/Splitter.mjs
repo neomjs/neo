@@ -118,6 +118,22 @@ class Splitter extends Component {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let {dragZone} = this;
+
+        if (dragZone) {
+            dragZone.windowId = value
+        }
+    }
+
+    /**
      * Triggered before the direction config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -198,16 +214,17 @@ class Splitter extends Component {
      * @param data
      */
     onDragStart(data) {
-        let me       = this,
-            style    = me.style || {},
-            vertical = me.direction === 'vertical';
+        let me                  = this,
+            style               = me.style || {},
+            vertical            = me.direction === 'vertical',
+            {appName, windowId} = me;
 
         me.parent.disabled = true;
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module             : DragZone,
-                appName            : me.appName,
+                appName,
                 bodyCursorStyle    : vertical ? 'ew-resize !important' : 'ns-resize !important',
                 boundaryContainerId: me.parentId,
                 dragElement        : me.vdom,
@@ -215,6 +232,7 @@ class Splitter extends Component {
                 moveVertical       : !vertical,
                 owner              : me,
                 useProxyWrapper    : false,
+                windowId,
                 ...me.dragZoneConfig
             })
         } else {

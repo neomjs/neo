@@ -1,5 +1,8 @@
 :root .neo-theme-dark { // .neo-splitter
-    --splitter-background-color: #3c3f41;
-    --splitter-border          : 1px solid #323232;
-    --splitter-hover-color     : #64B5F6;
+    --splitter-background-color : #3c3f41;
+    --splitter-border           : 1px solid #323232;
+    --splitter-border-radius    : 0;
+    --splitter-hover-color      : #64B5F6;
+    --splitter-margin-horizontal: 0;
+    --splitter-margin-vertical  : 0;
 }

@@ -305,16 +305,17 @@ class DragZone extends Base {
      * @param {Object} data
      */
     dragStart(data) {
-        let me      = this,
-            {owner} = me,
-            {cls}   = owner,
-            rect    = me.getDragElementRect(data),
+        let me                         = this,
+            {appName, owner, windowId} = me,
+            {cls}                      = owner,
+            rect                       = me.getDragElementRect(data),
             offsetX, offsetY;
 
         me.setData();
 
         Neo.main.addon.DragDrop.setConfigs({
-            appName: me.appName,
+            appName,
+            windowId,
             ...me.getMainThreadConfigs()
         });
 
