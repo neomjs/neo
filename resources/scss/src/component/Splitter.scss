@@ -1,9 +1,10 @@
 .neo-splitter {
     background-color: var(--splitter-background-color);
     border          : var(--splitter-border);
+    border-radius   : var(--splitter-border-radius);
     transition      : background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
 
-    &:hover {
+    &:active, &:hover {
         background-color: var(--splitter-hover-color);
         border-color    : var(--splitter-hover-color);
     }
@@ -12,12 +13,14 @@
         border-left : none;
         border-right: none;
         cursor      : ns-resize;
+        margin      : var(--splitter-margin-horizontal);
     }
 
     &.neo-vertical {
         border-bottom: none;
         border-top   : none;
         cursor       : ew-resize;
+        margin      : var(--splitter-margin-vertical);
     }
 }
 
@@ -25,5 +28,11 @@
     &.neo-splitter {
         background-color: var(--splitter-hover-color);
         border-color    : var(--splitter-hover-color);
+
+        &.neo-horizontal, &.neo-vertical {
+            // getBoundingClientRect() already adds margins to positions,
+            // so it would get added twice unless we nullify it.
+            margin: 0;
+        }
     }
 }

@@ -1,22 +1,8 @@
 :root .neo-theme-neo-light { // .neo-splitter
-    --splitter-background-color: #f2f2f2;
-    --splitter-border          : 1px solid #ddd;
-    --splitter-hover-color     : #5d83a7;
-
-    .neo-splitter {
-        opacity: 1;
-        margin: 8px 2px;
-        border-radius: 100px;
-        border: unset !important;
-
-        &:hover, &:active {
-            background-color: #5595F5 !important;
-        }
-    }
-
-    .neo-dragproxy {
-        &.neo-splitter {
-            background-color: #5595F5 !important;
-        }
-    }
+    --splitter-background-color : #f2f2f2;
+    --splitter-border           : none;
+    --splitter-border-radius    : 5px;
+    --splitter-hover-color      : #5595F5;
+    --splitter-margin-horizontal: 2px 8px;
+    --splitter-margin-vertical  : 8px 2px;
 }
