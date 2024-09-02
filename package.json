@@ -57,7 +57,7 @@
         "monaco-editor": "0.50.0",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
-        "postcss": "^8.4.42",
+        "postcss": "^8.4.44",
         "sass": "^1.77.8",
         "siesta-lite": "5.5.2",
         "url": "^0.11.4",
