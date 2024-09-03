@@ -11,7 +11,7 @@ class TodoListModel extends Model {
 
         fields: [{
             name: 'id',
-            type: 'Number'
+            type: 'Int'
         }, {
             name: 'done',
             type: 'Boolean'
