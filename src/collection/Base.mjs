@@ -60,7 +60,6 @@ class Base extends CoreBase {
         filters_: [],
         /**
          * @member {Object[]|null} items_=null
-         * @protected
          */
         items_: null,
         /**
