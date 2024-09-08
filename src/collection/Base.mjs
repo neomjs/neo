@@ -60,6 +60,7 @@ class Base extends CoreBase {
         filters_: [],
         /**
          * @member {Object[]|null} items_=null
+         * @protected
          */
         items_: null,
         /**
@@ -76,6 +77,7 @@ class Base extends CoreBase {
         /**
          * A map containing the key & reference of each collection item for faster access
          * @member {Map} map_=null
+         * @protected
          */
         map_: null,
         /**
