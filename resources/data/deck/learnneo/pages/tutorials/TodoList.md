@@ -175,64 +175,54 @@ class MainContainer extends Container {
         className: 'Neo.examples.todoList.version2.MainContainer',
         style    : {padding: '20px'},
 
-        // custom configs
-        idCounter: 3,
-        store    : null
-    }
-
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.store = Neo.create({
-            module: TodoListStore
-        });
-
-        me.items = [{
+        items: [{
             module       : List,
             displayField : 'text',
             flex         : 1,
-            store        : me.store,
+            reference    : 'todo-list',
+            store        : TodoListStore,
             style        : {padding: '5px'},
             useCheckBoxes: true
         }, {
             module: Toolbar,
-            flex  : 'none',
             dock  : 'bottom',
+            flex  : 'none',
             items : [{
                 module       : TextField,
                 flex         : 1,
                 labelPosition: 'inline',
                 labelText    : 'Item Text',
-                reference    : 'addItemField'
+                reference    : 'add-item-field'
             }, '->', {
-                handler     : me.onAddButtonClick,
-                handlerScope: me,
-                scope       : me,
-                style       : {height: '27px', marginLeft: '1em'},
-                text        : 'Add Item'
+                handler: 'up.onAddButtonClick',
+                style  : {height: '27px', marginLeft: '1em'},
+                text   : 'Add Item'
             }]
-        }];
+        }]
     }
 
-    onAddButtonClick() {
+    idCounter = 0
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.idCounter = this.getReference('todo-list').store.getCount()
+    }
+
+    onAddButtonClick(data) {
         let me    = this,
-            field = me.down({reference: 'addItemField'}),
-            data;
+            field = me.getReference('add-item-field');
 
         if (field.value) {
             me.idCounter++;
 
-            data = me.store.data;
-
-            data.push({
+            me.getReference('todo-list').store.add({
                 id  : me.idCounter,
                 done: false,
                 text: field.value
-            });
-
-            me.store.data = data
+            })
         }
     }
 }
