@@ -1,9 +1,8 @@
-import Button        from '../../../src/button/Base.mjs';
-import Container     from '../../../src/container/Base.mjs';
-import TextField     from '../../../src/form/field/Text.mjs';
-import TodoList      from './TodoList.mjs';
-import TodoListStore from './TodoListStore.mjs';
-import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Button    from '../../../src/button/Base.mjs';
+import Container from '../../../src/container/Base.mjs';
+import TextField from '../../../src/form/field/Text.mjs';
+import TodoList  from './TodoList.mjs';
+import Toolbar   from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Neo.examples.todoList.version2.MainContainer
@@ -15,72 +14,63 @@ class MainContainer extends Container {
         autoMount: true,
         height   : 300,
         margin   : 20,
-        layout   : {ntype: 'vbox', align: 'stretch'},
         style    : {margin: '20px'},
         width    : 300,
 
-        /**
-         * @member {Number} idCounter=3
-         */
-        idCounter: 3,
-
-        /**
-         * @member {Neo.data.Store|null} store=null
-         */
-        store: null
-    }
-
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.store = Neo.create({
-            module: TodoListStore
-        });
-
-        me.items = [{
-            module: TodoList,
-            flex  : 1,
-            store : me.store
+        items: [{
+            module   : TodoList,
+            flex     : 1,
+            reference: 'todo-list'
         }, {
             module: Toolbar,
-            flex  : 'none',
             dock  : 'bottom',
+            flex  : 'none',
             items : [{
                 module       : TextField,
                 flex         : 1,
                 labelPosition: 'inline',
                 labelText    : 'Item Text',
-                reference    : 'addItemField'
+                reference    : 'add-item-field'
             }, '->', {
                 module      : Button,
-                handler     : me.onAddButtonClick,
-                handlerScope: me,
-                scope       : me,
+                handler     : 'up.onAddButtonClick',
                 style       : {height: '27px'},
                 text        : 'Add Item'
             }]
         }]
     }
 
-    onAddButtonClick() {
+    /**
+     * @member {Number} idCounter=0
+     */
+    idCounter = 0
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        // Assuming the store is already loaded.
+        // For remote stores, add a load listener instead
+        this.idCounter = this.getReference('todo-list').store.getCount()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onAddButtonClick(data) {
         let me    = this,
-            field = me.down({reference: 'addItemField'}),
-            data;
+            field = me.getReference('add-item-field');
 
         if (field.value) {
             me.idCounter++;
 
-            data = me.store.data;
-
-            data.push({
+            me.getReference('todo-list').store.add({
                 id  : me.idCounter,
                 done: false,
                 text: field.value
-            });
-
-            me.store.data = data
+            })
         }
     }
 }
