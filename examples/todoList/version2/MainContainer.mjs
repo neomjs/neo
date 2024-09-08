@@ -32,10 +32,10 @@ class MainContainer extends Container {
                 labelText    : 'Item Text',
                 reference    : 'add-item-field'
             }, '->', {
-                module      : Button,
-                handler     : 'up.onAddButtonClick',
-                style       : {height: '27px'},
-                text        : 'Add Item'
+                module : Button,
+                handler: 'up.onAddButtonClick',
+                style  : {height: '27px'},
+                text   : 'Add Item'
             }]
         }]
     }
