@@ -19,10 +19,6 @@ Hands-on tutorials where you'll code a few simple Neo.mjs applications.
 
 These are in-depth discussions of various topics.
 
-### Appendix
-
-You can ignore this! It just holds a site style sheet and other miscellanea.
-
 ## Using these topics
 
 ### Layout 
