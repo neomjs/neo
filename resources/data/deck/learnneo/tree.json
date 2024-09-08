@@ -20,7 +20,7 @@
         {"name": "Shared Bindable Data",                    "parentId": "GettingStarted",                     "id": "ComponentModels"},
     {"name": "Tutorials",                                   "parentId": null,                "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                     "parentId": "Tutorials",                          "id": "RSP", "hidden": true},
-        {"name": "Earthquakes",                             "parentId": "Tutorials",                          "id": "Earthquakes", "collapsed": true},
+        {"name": "Earthquakes",                             "parentId": "Tutorials",                          "id": "Earthquakes"},
         {"name": "Todo List",                               "parentId": "Tutorials",                          "id": "TodoList"},
     {"name": "Guides",                                      "parentId": null,                "isLeaf": false, "id": "InDepth",  "collapsed": true},
         {"name": "Config",                                  "parentId": "InDepth",                            "id": "guides.Config"},
@@ -44,8 +44,5 @@
         {"name": "Overriding Methods",                      "parentId": "JavaScriptClasses",                  "id": "2023-10-08T20-20-07-934Z"},
         {"name": "Other JavaScript Class Features",         "parentId": "JavaScriptClasses",                  "id": "2023-10-08T20-20-37-336Z"},
         {"name": "Super",                                   "parentId": "JavaScriptClasses",                  "id": "2023-10-08T21-58-25-809Z"},
-        {"name": "New Node",                                "parentId": "JavaScriptClasses",                  "id": "2023-10-31T13-59-37-550Z"},
-    {"name": "Appendix",                                    "parentId": null,                "isLeaf": false, "id": "appendix",  "hidden": true, "collapsed": true},
-        {"name": "Stylesheet",                              "parentId": "appendix",                           "id": "stylesheet"},
-        {"name": "Test",                                    "parentId": "appendix",                           "id": "TestLivePreview"}
+        {"name": "New Node",                                "parentId": "JavaScriptClasses",                  "id": "2023-10-31T13-59-37-550Z"}
 ]}
