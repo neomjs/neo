@@ -74,7 +74,7 @@ Join our community:</br>
 * Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
 * Make sure to dive into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Setup">Learning Section</a>
 * The most advanced tutorial to help you with getting up to speed is this one:</br>
-   <a href="https://neomjs.com/dist/production/apps/portal/#/learn/Earthquakes">Earthquakes Tutorial</a>
+   <a href="https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes">Earthquakes Tutorial</a>
 
 </br><h2 id="cli">5. Command-Line Interface</h2>
 You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
