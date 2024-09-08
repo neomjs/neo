@@ -38,10 +38,10 @@
             {"name": "Introduction",                        "parentId": "MainThreadAddons",                   "id": "guides.MainThreadAddonIntro"},
             {"name": "Example",                             "parentId": "MainThreadAddons",                   "id": "guides.MainThreadAddonExample"},
         {"name": "Mixins",                                  "parentId": "InDepth",                            "id": "guides.Mixins", "hidden": true},
-    {"name": "JavaScript Classes",                          "parentId": null,                "isLeaf": false, "id": "JavaScriptClasses", "hidden": true},
-        {"name": "Classes, Properties, and Methods",        "parentId": "JavaScriptClasses",                  "id": "2023-10-07T19-18-28-517Z"},
-        {"name": "Overriding Methods",                      "parentId": "JavaScriptClasses",                  "id": "2023-10-08T20-20-07-934Z"},
-        {"name": "Other JavaScript Class Features",         "parentId": "JavaScriptClasses",                  "id": "2023-10-08T20-20-37-336Z"},
-        {"name": "Super",                                   "parentId": "JavaScriptClasses",                  "id": "2023-10-08T21-58-25-809Z"},
-        {"name": "New Node",                                "parentId": "JavaScriptClasses",                  "id": "2023-10-31T13-59-37-550Z"}
+    {"name": "JavaScript Classes",                          "parentId": null,                "isLeaf": false, "id": "JavaScript", "hidden": true},
+        {"name": "Classes, Properties, and Methods",        "parentId": "JavaScript",                         "id": "javascript.Classes"},
+        {"name": "Overriding Methods",                      "parentId": "JavaScript",                         "id": "javascript.Overrides"},
+        {"name": "Other JavaScript Class Features",         "parentId": "JavaScript",                         "id": "javascript.ClassFeatures"},
+        {"name": "Super",                                   "parentId": "JavaScript",                         "id": "javascript.Super"},
+        {"name": "New Node",                                "parentId": "JavaScript",                         "id": "javascript.NewNode"}
 ]}
