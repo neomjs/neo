@@ -410,6 +410,22 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let {navigator} = this;
+
+        if (navigator) {
+            navigator.windowId = value
+        }
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
