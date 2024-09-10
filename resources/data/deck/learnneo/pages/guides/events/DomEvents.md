@@ -66,6 +66,12 @@ MainView = Neo.setupClass(MainView);
 
 ### Handler inside the Component Tree
 
+When creating new Components, it can make sense to add the handler methods into the class.
+A good example would be `tab.header.Toolbar`, where clicking on a Button will change the active Card.
+
+You can use string based listeners. In case the handler method lives within the parent tree (any level),
+we need to prefix there listeners with `up.`.
+
 <pre data-neo>
 import Container from '../container/Base.mjs';
 
