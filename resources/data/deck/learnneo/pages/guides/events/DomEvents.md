@@ -189,7 +189,7 @@ import Container from '../container/Base.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Guides.domevents4.MainView',
+        className: 'Guides.domevents5.MainView',
         layout   : {ntype:'vbox', align:'start'},
         style    : {padding: '1em'},
 
@@ -227,3 +227,37 @@ Clicking on the inner (white) div will only trigger the inner listener and you w
 
 Try it: In case you remove `bubble: false` inside the source view,
 we will get 2 logs when clicking on the inner div.
+
+### priority
+
+The priority option defaults to 1. A higher value will get executed first.
+
+It can be important to control the order in which handlers get executed.
+While we could just manually order the array inside the following example,
+there can be use cases where multiple subscribers get added at run-time and developers
+can not be sure about the adding order.
+
+<pre data-neo>
+import Container from '../container/Base.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Guides.domevents6.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        style    : {padding: '1em'},
+
+        items: [{
+            vdom : {tag: 'button', innerHTML: 'Button 1'},
+
+            domListeners: [
+                {click: data => Neo.Main.log({value: 'Listener 1'})},
+                {click: data => Neo.Main.log({value: 'Listener 2'}), priority: 2}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+</pre>
+
+Try it: In case you remove `priority: 2` inside the source view,
+the order of the logs will change.
