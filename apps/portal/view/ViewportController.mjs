@@ -43,13 +43,15 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
-            '/about-us'      : 'onAboutUsRoute',
-            '/blog'          : 'onBlogRoute',
-            '/docs'          : 'onDocsRoute',
-            '/home'          : 'onHomeRoute',
-            '/learn'         : 'onLearnRoute',
-            '/learn/{itemId}': 'onLearnRoute',
-            '/services'      : 'onServicesRoute',
+            '/about-us'         : 'onAboutUsRoute',
+            '/blog'             : 'onBlogRoute',
+            '/docs'             : 'onDocsRoute',
+            '/examples'         : 'onExamplesRoute',
+            '/examples/{itemId}': 'onExamplesRoute',
+            '/home'             : 'onHomeRoute',
+            '/learn'            : 'onLearnRoute',
+            '/learn/{itemId}'   : 'onLearnRoute',
+            '/services'         : 'onServicesRoute'
         },
         /**
          * Values are: large, medium, small, xSmall
@@ -122,7 +124,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onAboutUsRoute(params, value, oldValue) {
-        this.setMainContentIndex(5)
+        this.setMainContentIndex(6) // todo
     }
 
     /**
@@ -231,6 +233,15 @@ class ViewportController extends Controller {
      */
     onDocsRoute(params, value, oldValue) {
         this.setMainContentIndex(3)
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onExamplesRoute(params, value, oldValue) {
+        this.setMainContentIndex(5)
     }
 
     /**

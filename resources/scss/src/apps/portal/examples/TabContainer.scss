@@ -1,0 +1,24 @@
+.portal-examples-tab-container.neo-tab-container {
+    margin   : 0 auto;
+    max-width: 830px;
+
+    .neo-tab-header-button.neo-button {
+        .neo-button-glyph {
+            color: #fff;
+        }
+
+        .neo-button-text {
+            color: #fff;
+        }
+
+        &.pressed {
+            .neo-button-glyph {
+                color: #3E63DD;
+            }
+        }
+    }
+
+    .neo-tab-header-toolbar {
+        background-color: #8BA6FF;
+    }
+}

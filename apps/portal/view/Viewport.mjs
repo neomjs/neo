@@ -51,6 +51,7 @@ class Viewport extends BaseViewport {
                 {module: () => import('./blog/Container.mjs')},
                 {module: () => import('../../../docs/app/view/MainContainer.mjs')},
                 {module: () => import('./services/Component.mjs')},
+                {module: () => import('./examples/TabContainer.mjs')},
                 {module: () => import('./about/Container.mjs')}
             ]
         }],
