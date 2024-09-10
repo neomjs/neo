@@ -1,6 +1,6 @@
 [
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 19,
         "image"       : "devmode/model-component-example.png",
@@ -9,7 +9,7 @@
         "url"         : "https://neomjs.com/examples/model/advanced/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 18,
         "image"       : "devmode/sharedcovid.png",
@@ -18,7 +18,7 @@
         "url"         : "https://neomjs.com/apps/sharedcovid/index.html#mainview=table"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 17,
         "image"       : "devmode/calendar-preview.png",
@@ -27,7 +27,7 @@
         "url"         : "https://neomjs.com/examples/calendar/basic/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 16,
         "image"       : "devmode/covidDashboard.png",
@@ -36,7 +36,7 @@
         "url"         : "https://neomjs.com/apps/covid/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 15,
         "image"       : "devmode/multi_window_dd.png",
@@ -45,7 +45,7 @@
         "url"         : "https://neomjs.com/apps/shareddialog/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 14,
         "image"       : "devmode/realworldApp.png",
@@ -54,7 +54,7 @@
         "url"         : "https://neomjs.com/apps/realworld/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 13,
         "image"       : "devmode/coronaGallery.png",
@@ -63,7 +63,7 @@
         "url"         : "https://neomjs.com/examples/component/coronaGallery/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 12,
         "image"       : "devmode/coronaHelix.png",
@@ -72,7 +72,7 @@
         "url"         : "https://neomjs.com/examples/component/coronaHelix/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 11,
         "image"       : "devmode/website.png",
@@ -81,7 +81,7 @@
         "url"         : "https://neomjs.com/apps/website/index.html#mainview=blog"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 10,
         "image"       : "devmode/tableFiltering.png",
@@ -90,7 +90,7 @@
         "url"         : "https://neomjs.com/examples/tableFiltering/"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 9,
         "image"       : "devmode/dragdrop.png",
@@ -99,7 +99,7 @@
         "url"         : "https://neomjs.com/examples/dialog/"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 8,
         "image"       : "devmode/realworldApp2.png",
@@ -108,7 +108,7 @@
         "url"         : "https://neomjs.com/apps/realworld2/index.html#/gallery"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 7,
         "image"       : "devmode/dateSelector.png",
@@ -117,7 +117,7 @@
         "url"         : "https://neomjs.com/examples/component/dateSelector/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 6,
         "image"       : "devmode/gallery.png",
@@ -126,7 +126,7 @@
         "url"         : "https://neomjs.com/examples/component/gallery/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 5,
         "image"       : "devmode/helix.png",
@@ -135,7 +135,7 @@
         "url"         : "https://neomjs.com/examples/component/helix/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 4,
         "image"       : "devmode/dateField.png",
@@ -144,7 +144,7 @@
         "url"         : "https://neomjs.com/examples/form/field/date/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 3,
         "image"       : "devmode/selectField.png",
@@ -153,7 +153,7 @@
         "url"         : "https://neomjs.com/examples/form/field/select/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 2,
         "image"       : "devmode/tabContainer.png",
@@ -162,7 +162,7 @@
         "url"         : "https://neomjs.com/examples/tab/container/index.html"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 1,
         "image"       : "devmode/siesta.png",
