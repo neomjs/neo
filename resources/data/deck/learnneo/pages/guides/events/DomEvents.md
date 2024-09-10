@@ -82,7 +82,7 @@ class MainView extends Container {
         style    : {padding: '1em'},
 
         items: [{
-            vdom: {tag: 'button', innerHTML: 'Click me!'},
+            vdom: {tag: 'button', innerHTML: 'Button 1'},
 
             domListeners: [{
                 click: 'up.onButtonClick'
@@ -96,3 +96,86 @@ class MainView extends Container {
 }
 MainView = Neo.setupClass(MainView);
 </pre>
+
+### Handler inside a ViewController
+
+When creating Apps it often makes the most sense to move handler methods inside a ViewController.
+This ensures a strict separation of your view definitions and business logic.
+
+You can define the handlers as strings and the framework will check the ViewController hierarchy
+to find the closest match.
+
+A good use case would be a form submit Button, where a click will trigger a communication to the backend.
+
+<pre data-neo>
+import Container  from '../container/Base.mjs';
+import Controller from '../controller/Component.mjs';
+
+class MainViewController extends Controller {
+    static config = {
+        className: 'Guides.domevents3.MainViewController'
+    }
+    onButtonClick(data) {
+        Neo.Main.log({value: `Clicked on ${data.component.id}`})
+    }
+}
+MainViewController = Neo.setupClass(MainViewController);
+
+class MainView extends Container {
+    static config = {
+        className : 'Guides.domevents3.MainView',
+        controller: MainViewController,
+        layout    : {ntype:'vbox', align:'start'},
+        style     : {padding: '1em'},
+
+        items: [{
+            vdom: {tag: 'button', innerHTML: 'Button 1'},
+
+            domListeners: [{
+                click: 'onButtonClick'
+            }]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+</pre>
+
+## Listener Options
+
+### delegate
+
+We can further delegate listeners to specific DOM nodes within our Component:
+
+<pre data-neo>
+import Container from '../container/Base.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Guides.domevents4.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        style    : {padding: '1em'},
+
+        items: [{
+
+            style: {backgroundColor: '#3E63DD', padding: '3em'},
+            vdom :{cn: [{cls: 'inner-div', style: {backgroundColor: '#FFF', width: '5em', height: '3em'}}]},
+
+            domListeners: [{
+                click   : 'up.onInnerDivClick',
+                delegate: '.inner-div'
+            }]
+        }]
+    }
+
+    onInnerDivClick(data) {
+        Neo.Main.log({value: `Clicked on ${data.component.id}`})
+    }
+}
+MainView = Neo.setupClass(MainView);
+</pre>
+
+In case you click on the blue div, no console logs will appear.
+They do, when clicking on the white inner div.
+
+Try it: In case you remove the `delegate` inside the source view,
+we will get logs when clicking on the blue div too.
