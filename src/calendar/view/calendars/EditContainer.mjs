@@ -118,7 +118,6 @@ class EditContainer extends FormContainer {
         if (record) {
             me.colorsList = Neo.create({
                 module      : ColorsList,
-                appName     : me.appName,
                 listeners   : {change: me.onColorChange, scope: me},
                 parentId    : me.parentId,
                 value       : record.color,
