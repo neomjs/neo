@@ -1,9 +1,10 @@
-import Base             from '../core/Base.mjs';
-import ComponentManager from './Component.mjs';
-import FocusManager     from './Focus.mjs';
-import Logger           from '../util/Logger.mjs';
-import NeoArray         from '../util/Array.mjs';
-import VDomUtil         from '../util/VDom.mjs';
+import Base              from '../core/Base.mjs';
+import ComponentManager  from './Component.mjs';
+import FocusManager      from './Focus.mjs';
+import Logger            from '../util/Logger.mjs';
+import NeoArray          from '../util/Array.mjs';
+import {resolveCallback} from '../util/Function.mjs';
+import VDomUtil          from '../util/VDom.mjs';
 
 const eventConfigKeys = [
     'bubble',
@@ -192,10 +193,12 @@ class DomEvent extends Base {
      */
     generateListenerConfig(config, scope) {
         return {
+            bubble   : config.bubble,
             delegate : config.delegate,
             eventName: config.eventName,
             id       : scope.id,
             opts     : config,
+            priority : config.priority,
             scope    : config.scope   || scope,
             vnodeId  : config.vnodeId || scope.id
         };
@@ -217,6 +220,7 @@ class DomEvent extends Base {
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.delegate
      * @param {String} config.eventName
      * @param {String} config.id
@@ -264,9 +268,10 @@ class DomEvent extends Base {
 
             if (localEvents.length > 0) {
                 Neo.worker.App.promiseMessage('main', {
-                    action : 'addDomListener',
-                    appName: component.appName,
-                    events : localEvents
+                    action  : 'addDomListener',
+                    appName : component.appName,
+                    events  : localEvents,
+                    windowId: component.windowId
                 }).then(data => {
                     // console.log('added domListener', data);
                 }).catch(err => {
@@ -278,6 +283,7 @@ class DomEvent extends Base {
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.delegate
      * @param {String} config.eventName
      * @param {String} config.id
@@ -285,20 +291,23 @@ class DomEvent extends Base {
      * @param {Number} config.opts
      * @param {Number} config.originalConfig
      * @param {String} config.ownerId
-     * @param {Number} config.priority
+     * @param {Number} config.priority=1
      * @param {Object} config.scope
      * @param {String} config.vnodeId
      * @returns {Boolean} true if the listener got registered successfully (false in case it was already there)
      */
     register(config) {
-        let alreadyRegistered            = false,
+        let me                           = this,
+            alreadyRegistered            = false,
             {eventName, id, opts, scope} = config,
-            listeners                    = this.items,
+            listeners                    = me.items,
             fnType                       = typeof opts,
             fn, listener, listenerConfig, listenerId;
 
-        if (fnType === 'function' || fnType === 'string') {
+        if (fnType === 'function') {
             fn = opts
+        } else if (fnType === 'string') {
+            fn = resolveCallback(opts, scope).fn
         } else {
             fn    = opts.fn;
             scope = opts.scope || scope
@@ -343,22 +352,23 @@ class DomEvent extends Base {
             mounted       : !config.local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
-            priority      : config.priority || 1,
+            priority      : config.priority || opts.priority || 1,
             scope,
             vnodeId       : config.vnodeId
         };
 
-        this.map[listenerId] = listenerConfig;
+        me.map[listenerId] = listenerConfig;
 
         listeners[id][eventName].push(listenerConfig);
 
-        listeners[id][eventName].sort((a, b) => a.priority > b.priority);
+        listeners[id][eventName].sort((a, b) => b.priority - a.priority);
 
         return true
     }
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.eventName
      * @param {String} config.id
      * @param {Object} config.opts
@@ -414,14 +424,16 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
+                            bubble        : domListener.bubble   || value.bubble,
                             delegate      : domListener.delegate || value.delegate || '#' + component.id,
                             eventName     : key,
                             id            : component.id,
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
-                            scope         : domListener.scope || component,
-                            vnodeId       : domListener.vnodeId || value.vnodeId || component.id
+                            priority      : domListener.priority || value.priority || 1,
+                            scope         : domListener.scope    || component,
+                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.id
                         })
                     }
                 })

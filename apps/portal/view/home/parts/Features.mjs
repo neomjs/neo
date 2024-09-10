@@ -42,7 +42,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Apps',
-            route : '#/learn/WhyNeo-Multi-Window',
+            route : '#/learn/benefits.Multi-Window',
 
             content: [
                 'No need for a Native Shell (e.g. Electron)',
@@ -52,7 +52,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Modern JS in your Browser',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/benefits.Quick',
 
             content: [
                 'The Dev-Mode runs without the need for Transpilations or Compilations',
@@ -62,7 +62,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Powerful Component-Library',
-            route : '#/learn/WhyNeo-Quick',
+            route : '#/learn/benefits.Quick',
 
             content: [
                 'Declarative Component-Trees',
@@ -72,7 +72,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Elegant State Management',
-            route : '#/learn/WhyNeo-Speed',
+            route : '#/learn/benefits.Speed',
 
             content: [
                 'Multiple communicating State-Providers',
@@ -81,7 +81,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Core Features',
-            route : '#/learn/WhyNeo-Speed',
+            route : '#/learn/benefits.Speed',
 
             content: [
                 'RPC Layer (cross-realm, including Backends)',

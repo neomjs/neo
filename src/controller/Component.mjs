@@ -1,5 +1,6 @@
-import Base   from './Base.mjs';
-import Logger from '../util/Logger.mjs';
+import Base              from './Base.mjs';
+import {resolveCallback} from '../util/Function.mjs';
+import Logger            from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -71,7 +72,7 @@ class Component extends Base {
 
     /**
      * @param {String} handlerName
-     * @param {Neo.component.Base} component
+     * @param {Neo.component.Base} [component]
      * @returns {Neo.controller.Component|Boolean|null}
      */
     getHandlerScope(handlerName, component) {
@@ -81,7 +82,7 @@ class Component extends Base {
         if (component) {
             // Look for ths function *name* first in the Component itself.
             // If we find it, return true so calling code knows not to continue to search.
-            const handlerCb = component.resolveCallback(handlerName, component);
+            const handlerCb = resolveCallback(handlerName, component);
 
             // Handler fn is resolved in the Component or its own parent chain.
             // Return a status indicating that we do not need an early binding
@@ -91,8 +92,7 @@ class Component extends Base {
         }
 
         return Neo.isFunction(me[handlerName]) ?
-            me : parent ?
-            parent.getHandlerScope(handlerName) : null
+            me : parent?.getHandlerScope(handlerName) || null
     }
 
     /**
@@ -114,7 +114,7 @@ class Component extends Base {
             {parent} = me;
 
         if (parent) {
-            return parent;
+            return parent
         }
 
         return me.component.parent?.getController() || null
@@ -238,9 +238,9 @@ class Component extends Base {
                     if (eventHandler) {
                         scope = me.getHandlerScope(eventHandler);
 
-                        if (!scope) {
-                            Logger.logError('Unknown domEvent handler for', eventHandler, component)
-                        } else {
+                        // There can be string based listeners like 'up.onClick', which will resolved inside manager.DomEvents
+                        // => Do nothing in case there is no match inside the controller hierarchy.
+                        if (scope) {
                             domListener[key] = scope[eventHandler].bind(scope)
                         }
                     }

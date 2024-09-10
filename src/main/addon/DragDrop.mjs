@@ -153,8 +153,8 @@ class DragDrop extends Base {
 
         Promise.all(imports).then(modules => {
             // create the Mouse- and / or TouchSensor
-            Neo.create({
-                module: modules[0].default
+            modules.forEach(module => {
+                Neo.create({module: module.default})
             })
         })
     }
@@ -461,6 +461,7 @@ class DragDrop extends Base {
             node;
 
         delete data.appName;
+        delete data.windowId;
 
         if (data.boundaryContainerId) {
             node = DomAccess.getElementOrBody(data.boundaryContainerId);

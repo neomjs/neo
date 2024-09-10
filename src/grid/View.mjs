@@ -24,6 +24,27 @@ class View extends Component {
     }
 
     /**
+     * @param config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners([{
+            click   : me.onCellClick,
+            dblclick: me.onCellDoubleClick,
+            delegate: '.neo-grid-cell',
+            scope   : me
+        }, {
+            click   : me.onRowClick,
+            dblclick: me.onRowDoubleClick,
+            delegate: '.neo-grid-row',
+            scope   : me
+        }])
+    }
+
+    /**
      * @param {Array} inputData
      */
     createViewData(inputData) {
@@ -170,6 +191,39 @@ class View extends Component {
     }
 
     /**
+     * @param {Object} data
+     * @param {String} eventName
+     */
+    fireCellEvent(data, eventName) {
+        let me        = this,
+            {id}      = data.target,
+            dataField = me.getCellDataField(id),
+            record    = me.getRecord(id);
+
+        me.parent.fire(eventName, {id: me, data, dataField, record})
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} eventName
+     */
+    fireRowEvent(data, eventName) {
+        let me     = this,
+            {id}   = data.target,
+            record = me.getRecord(id);
+
+        me.parent.fire(eventName, {id: me, data, record})
+    }
+
+    /**
+     * @param {String} cellId
+     * @returns {String}
+     */
+    getCellDataField(cellId) {
+        return cellId.split('__')[2]
+    }
+
+    /**
      * @param {Object} record
      * @param {String} field
      * @returns {String}
@@ -230,6 +284,34 @@ class View extends Component {
      */
     getTrClass(record, rowIndex) {
         return ['neo-grid-row']
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onCellClick(data) {
+        this.fireCellEvent(data, 'cellClick')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onCellDoubleClick(data) {
+        this.fireCellEvent(data, 'cellDoubleClick')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRowClick(data) {
+        this.fireRowEvent(data, 'rowClick')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRowDoubleClick(data) {
+        this.fireRowEvent(data, 'rowDoubleClick')
     }
 
     /**

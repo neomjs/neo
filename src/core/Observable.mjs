@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base              from './Base.mjs';
+import {resolveCallback} from '../util/Function.mjs';
 
 /**
  * @class Neo.core.Observable
@@ -136,7 +137,7 @@ class Observable extends Base {
      */
     callback(fn, scope=this, args) {
         if (fn) {
-            const handler = this.resolveCallback(fn, scope);
+            const handler = resolveCallback(fn, scope);
             handler.fn.apply(handler.scope, args)
         }
     }
@@ -172,7 +173,7 @@ class Observable extends Base {
 
                 // Resolve function name on the scope (or me), or, if it starts with 'up.'
                 // look in the ownership hierarchy from me.
-                const cb = me.resolveCallback(handler.fn, handler.scope || me);
+                const cb = resolveCallback(handler.fn, handler.scope || me);
 
                 // remove the listener if the scope no longer exists
                 if (cb.scope && !cb.scope.id) {
@@ -337,30 +338,6 @@ class Observable extends Base {
     // resumeListeners: function() {
 
     // }
-
-    /**
-     * Locate a callable function by name in the passed scope.
-     *
-     * If the name starts with 'up.', the parent Component chain is searched.
-     *
-     * This is used by Observable.fire and by 'handler' function calls to resolve
-     * string function names in the Component's own hierarchy.
-     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
-     * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @returns {Object}
-     */
-    resolveCallback(fn, scope=this) {
-        if (typeof fn === 'string') {
-            if (!scope[fn] && fn.startsWith('up.')) {
-                fn = fn.slice(3);
-                while (!scope[fn] && (scope = scope.parent));
-            }
-
-            fn = scope[fn]
-        }
-
-        return {fn, scope}
-    }
 
     /**
      * Alias for removeListener
