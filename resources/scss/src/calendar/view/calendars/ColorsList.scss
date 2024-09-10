@@ -16,5 +16,9 @@
         &.neo-selected {
             box-shadow: 0 0 0 0.25em currentColor;
         }
+
+        &[aria-selected="true"] {
+            outline: none !important;
+        }
     }
 }
