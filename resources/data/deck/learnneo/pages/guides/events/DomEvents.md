@@ -158,7 +158,7 @@ class MainView extends Container {
         items: [{
 
             style: {backgroundColor: '#3E63DD', padding: '3em'},
-            vdom :{cn: [{cls: 'inner-div', style: {backgroundColor: '#FFF', width: '5em', height: '3em'}}]},
+            vdom : {cn: [{cls: 'inner-div', style: {backgroundColor: '#FFF', width: '5em', height: '3em'}}]},
 
             domListeners: [{
                 click   : 'up.onInnerDivClick',
