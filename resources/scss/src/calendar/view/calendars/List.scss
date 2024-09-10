@@ -1,4 +1,4 @@
-.neo-calendars-list.neo-list {
+.neo-calendars-list {
     .neo-checkboxfield {
         align-items: center;
         display    : flex;
@@ -64,6 +64,7 @@
 
         .neo-edit-icon {
             color       : var(--calendars-list-edit-icon-color);
+            cursor      : pointer;
             font-size   : 16px;
             font-weight : 600;
             height      : 1em;
