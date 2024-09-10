@@ -69,9 +69,9 @@
         }
 
         &[aria-selected="true"] {
-            background-color: var(--list-item-background-color-selected) !important;
-            color           : var(--list-item-color-selected) !important;
-            cursor          : default !important;
+            background-color: var(--list-item-background-color-selected);
+            color           : var(--list-item-color-selected);
+            cursor          : default;
         }
 
         .neo-highlight-search {
