@@ -297,7 +297,7 @@ class LivePreview extends Container {
 
         // We must ensure that classes inside the editor won't get cached, since this disables run-time changes
         // See: https://github.com/neomjs/neo/issues/5863
-        me.findsClassNames(codeString).forEach(item => {
+        me.findClassNames(codeString).forEach(item => {
             let nsArray   = item.split('.'),
                 className = nsArray.pop(),
                 ns        = Neo.ns(nsArray);
@@ -321,7 +321,7 @@ class LivePreview extends Container {
      * @param {String} sourceCode
      * @returns {String[]}
      */
-    findsClassNames(sourceCode) {
+    findClassNames(sourceCode) {
         let classNames = [],
             match;
 
