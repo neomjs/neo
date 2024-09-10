@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "7.0.6",
+    "version": "7.1.0",
     "description": "The webworkers driven UI framework",
     "type": "module",
     "repository": {
@@ -53,7 +53,7 @@
         "fs-extra": "^11.2.0",
         "highlightjs-line-numbers.js": "^2.8.0",
         "inquirer": "^10.2.2",
-        "marked": "^14.1.1",
+        "marked": "^14.1.2",
         "monaco-editor": "0.50.0",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
