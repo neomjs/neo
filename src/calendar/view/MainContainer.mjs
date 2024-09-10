@@ -323,11 +323,12 @@ class MainContainer extends Container {
             let me = this;
 
             me._editCalendarContainer = value = Neo.create({
-                module : EditCalendarContainer,
-                appName: me.appName,
-                model  : {parent: me.getModel()},
-                owner  : me,
-                width  : 250,
+                module  : EditCalendarContainer,
+                appName : me.appName,
+                model   : {parent: me.getModel()},
+                owner   : me,
+                width   : 250,
+                windowId: me.windowId,
                 ...me.editCalendarContainerConfig
             })
         }
