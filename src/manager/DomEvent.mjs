@@ -193,6 +193,7 @@ class DomEvent extends Base {
      */
     generateListenerConfig(config, scope) {
         return {
+            bubble   : config.bubble,
             delegate : config.delegate,
             eventName: config.eventName,
             id       : scope.id,
@@ -218,6 +219,7 @@ class DomEvent extends Base {
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.delegate
      * @param {String} config.eventName
      * @param {String} config.id
@@ -265,9 +267,10 @@ class DomEvent extends Base {
 
             if (localEvents.length > 0) {
                 Neo.worker.App.promiseMessage('main', {
-                    action : 'addDomListener',
-                    appName: component.appName,
-                    events : localEvents
+                    action  : 'addDomListener',
+                    appName : component.appName,
+                    events  : localEvents,
+                    windowId: component.windowId
                 }).then(data => {
                     // console.log('added domListener', data);
                 }).catch(err => {
@@ -279,6 +282,7 @@ class DomEvent extends Base {
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.delegate
      * @param {String} config.eventName
      * @param {String} config.id
@@ -363,6 +367,7 @@ class DomEvent extends Base {
 
     /**
      * @param {Object} config
+     * @param {Boolean} config.bubble
      * @param {String} config.eventName
      * @param {String} config.id
      * @param {Object} config.opts
@@ -418,13 +423,14 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
+                            bubble        : domListener.bubble   || value.bubble,
                             delegate      : domListener.delegate || value.delegate || '#' + component.id,
                             eventName     : key,
                             id            : component.id,
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
-                            scope         : domListener.scope || component,
+                            scope         : domListener.scope   || component,
                             vnodeId       : domListener.vnodeId || value.vnodeId || component.id
                         })
                     }
