@@ -238,9 +238,9 @@ class Component extends Base {
                     if (eventHandler) {
                         scope = me.getHandlerScope(eventHandler);
 
-                        if (!scope) {
-                            Logger.logError('Unknown domEvent handler for', eventHandler, component)
-                        } else {
+                        // There can be string based listeners like 'up.onClick', which will resolved inside manager.DomEvents
+                        // => Do nothing in case there is no match inside the controller hierarchy.
+                        if (scope) {
                             domListener[key] = scope[eventHandler].bind(scope)
                         }
                     }

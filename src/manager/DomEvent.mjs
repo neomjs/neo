@@ -291,14 +291,17 @@ class DomEvent extends Base {
      * @returns {Boolean} true if the listener got registered successfully (false in case it was already there)
      */
     register(config) {
-        let alreadyRegistered            = false,
+        let me                           = this,
+            alreadyRegistered            = false,
             {eventName, id, opts, scope} = config,
-            listeners                    = this.items,
+            listeners                    = me.items,
             fnType                       = typeof opts,
             fn, listener, listenerConfig, listenerId;
 
-        if (fnType === 'function' || fnType === 'string') {
+        if (fnType === 'function') {
             fn = opts
+        } else if (fnType === 'string') {
+            fn = me.resolveCallback(opts, scope).fn
         } else {
             fn    = opts.fn;
             scope = opts.scope || scope
@@ -348,13 +351,37 @@ class DomEvent extends Base {
             vnodeId       : config.vnodeId
         };
 
-        this.map[listenerId] = listenerConfig;
+        me.map[listenerId] = listenerConfig;
 
         listeners[id][eventName].push(listenerConfig);
 
         listeners[id][eventName].sort((a, b) => a.priority > b.priority);
 
         return true
+    }
+
+    /**
+     * Locate a callable function by name in the passed scope.
+     *
+     * If the name starts with 'up.', the parent Component chain is searched.
+     *
+     * This is used by Observable.fire and by 'handler' function calls to resolve
+     * string function names in the Component's own hierarchy.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+     * @param {Object} scope The scope to find the function in if it is specified as a string.
+     * @returns {Object}
+     */
+    resolveCallback(fn, scope=this) {
+        if (typeof fn === 'string') {
+            if (!scope[fn] && fn.startsWith('up.')) {
+                fn = fn.slice(3);
+                while (!scope[fn] && (scope = scope.parent));
+            }
+
+            fn = scope[fn]
+        }
+
+        return {fn, scope}
     }
 
     /**
