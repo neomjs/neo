@@ -179,3 +179,51 @@ They do, when clicking on the white inner div.
 
 Try it: In case you remove the `delegate` inside the source view,
 we will get logs when clicking on the blue div too.
+
+### bubble
+
+We can prevent listeners from bubbling upwards:
+
+<pre data-neo>
+import Container from '../container/Base.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Guides.domevents4.MainView',
+        layout   : {ntype:'vbox', align:'start'},
+        style    : {padding: '1em'},
+
+        items: [{
+            module: Container,
+            style : {backgroundColor: '#3E63DD', padding: '3em'},
+
+            domListeners: [
+                {click: 'up.onDivClick'}
+            ],
+
+            items: [{
+                cls  : 'inner-div',
+                style: {backgroundColor: '#FFF', width: '5em', height: '3em'},
+
+                domListeners: [
+                    {click: 'up.onInnerDivClick', bubble: false}
+                ]
+            }]
+        }]
+    }
+
+    onDivClick(data) {
+        Neo.Main.log({value: `Outer Div Click ${data.component.id}`})
+    }
+
+    onInnerDivClick(data) {
+        Neo.Main.log({value: `Inner Div Click ${data.component.id}`})
+    }
+}
+MainView = Neo.setupClass(MainView);
+</pre>
+
+Clicking on the inner (white) div will only trigger the inner listener and you will get one log.
+
+Try it: In case you remove `bubble: false` inside the source view,
+we will get 2 logs when clicking on the inner div.
