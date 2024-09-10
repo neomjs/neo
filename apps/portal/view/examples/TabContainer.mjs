@@ -14,9 +14,9 @@ class TabContainer extends Container {
          */
         className: 'Portal.view.examples.TabContainer',
         /**
-         * @member {Number} activeIndex=2
+         * @member {Number|null} activeIndex=null
          */
-        activeIndex: 2,
+        activeIndex: null,
         /**
          * @member {String[]} baseCls=['portal-examples-tab-container','neo-tab-container']
          */
@@ -25,6 +25,12 @@ class TabContainer extends Container {
          * @member {Neo.controller.Component} controller=TabContainerController
          */
         controller: TabContainerController,
+        /**
+         * @member {Object} headerToolbarDefaults
+         */
+        headerToolbarDefaults: {
+            cls: ['portal-examples-tab-header-toolbar']
+        },
         /**
          * @member {Object} itemDefaults
          */
@@ -66,7 +72,7 @@ class TabContainer extends Container {
         /**
          * @member {String} tabBarPosition='left'
          */
-        tabBarPosition: 'left'
+        tabBarPosition: 'left',
     }
 }
 

@@ -1,6 +1,10 @@
 .portal-examples-tab-container.neo-tab-container {
     margin   : 0 auto;
     max-width: 830px;
+}
+
+.portal-examples-tab-header-toolbar.neo-tab-header-toolbar {
+    background-color: #8BA6FF;
 
     .neo-tab-header-button.neo-button {
         .neo-button-glyph {
@@ -8,7 +12,11 @@
         }
 
         .neo-button-ripple {
-            background-color: #3E63DD;;
+            background-color: #3E63DD;
+        }
+
+        &.neo-button.pressed .neo-tab-button-indicator {
+            background-color: #3E63DD;
         }
 
         .neo-button-text {
@@ -22,7 +30,7 @@
         }
     }
 
-    .neo-tab-header-toolbar {
-        background-color: #8BA6FF;
+    .neo-tab-strip .neo-active-tab-indicator {
+        background-color: #3E63DD;
     }
 }

@@ -33,6 +33,8 @@ class TabContainerController extends Component {
         if (store?.getCount() < 1) {
             store.load()
         }
+
+        me.component.activeIndex = itemId === 'dist_prod' ? 2 : itemId === 'dist_dev' ? 1 : 0
     }
 }
 
