@@ -1,9 +1,10 @@
-import Base             from '../core/Base.mjs';
-import ComponentManager from './Component.mjs';
-import FocusManager     from './Focus.mjs';
-import Logger           from '../util/Logger.mjs';
-import NeoArray         from '../util/Array.mjs';
-import VDomUtil         from '../util/VDom.mjs';
+import Base              from '../core/Base.mjs';
+import ComponentManager  from './Component.mjs';
+import FocusManager      from './Focus.mjs';
+import Logger            from '../util/Logger.mjs';
+import NeoArray          from '../util/Array.mjs';
+import {resolveCallback} from '../util/Function.mjs';
+import VDomUtil          from '../util/VDom.mjs';
 
 const eventConfigKeys = [
     'bubble',
@@ -301,7 +302,7 @@ class DomEvent extends Base {
         if (fnType === 'function') {
             fn = opts
         } else if (fnType === 'string') {
-            fn = me.resolveCallback(opts, scope).fn
+            fn = resolveCallback(opts, scope).fn
         } else {
             fn    = opts.fn;
             scope = opts.scope || scope
@@ -358,30 +359,6 @@ class DomEvent extends Base {
         listeners[id][eventName].sort((a, b) => a.priority > b.priority);
 
         return true
-    }
-
-    /**
-     * Locate a callable function by name in the passed scope.
-     *
-     * If the name starts with 'up.', the parent Component chain is searched.
-     *
-     * This is used by Observable.fire and by 'handler' function calls to resolve
-     * string function names in the Component's own hierarchy.
-     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
-     * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @returns {Object}
-     */
-    resolveCallback(fn, scope=this) {
-        if (typeof fn === 'string') {
-            if (!scope[fn] && fn.startsWith('up.')) {
-                fn = fn.slice(3);
-                while (!scope[fn] && (scope = scope.parent));
-            }
-
-            fn = scope[fn]
-        }
-
-        return {fn, scope}
     }
 
     /**

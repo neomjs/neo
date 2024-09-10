@@ -124,6 +124,30 @@ export function intercept(target, targetMethodName, interceptFunction, scope, pr
 }
 
 /**
+ * Locate a callable function by name in the passed scope.
+ *
+ * If the name starts with 'up.', the parent Component chain is searched.
+ *
+ * This is used by manager.DomEvents & core.Observable.fire and by 'handler' function calls to resolve
+ * string function names in the Component's own hierarchy.
+ * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
+ * @param {Object} scope=this The scope to find the function in if it is specified as a string.
+ * @returns {Object}
+ */
+export function resolveCallback(fn, scope=this) {
+    if (typeof fn === 'string') {
+        if (!scope[fn] && fn.startsWith('up.')) {
+            fn = fn.slice(3);
+            while (!scope[fn] && (scope = scope.parent));
+        }
+
+        fn = scope[fn]
+    }
+
+    return {fn, scope}
+}
+
+/**
  * @param {Function} callback
  * @param {Neo.core.Base} scope
  * @param {Number} delay=300
