@@ -198,6 +198,7 @@ class DomEvent extends Base {
             eventName: config.eventName,
             id       : scope.id,
             opts     : config,
+            priority : config.priority,
             scope    : config.scope   || scope,
             vnodeId  : config.vnodeId || scope.id
         };
@@ -290,7 +291,7 @@ class DomEvent extends Base {
      * @param {Number} config.opts
      * @param {Number} config.originalConfig
      * @param {String} config.ownerId
-     * @param {Number} config.priority
+     * @param {Number} config.priority=1
      * @param {Object} config.scope
      * @param {String} config.vnodeId
      * @returns {Boolean} true if the listener got registered successfully (false in case it was already there)
@@ -351,7 +352,7 @@ class DomEvent extends Base {
             mounted       : !config.local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
-            priority      : config.priority || 1,
+            priority      : config.priority || opts.priority || 1,
             scope,
             vnodeId       : config.vnodeId
         };
@@ -360,7 +361,7 @@ class DomEvent extends Base {
 
         listeners[id][eventName].push(listenerConfig);
 
-        listeners[id][eventName].sort((a, b) => a.priority > b.priority);
+        listeners[id][eventName].sort((a, b) => b.priority - a.priority);
 
         return true
     }
@@ -430,8 +431,9 @@ class DomEvent extends Base {
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
-                            scope         : domListener.scope   || component,
-                            vnodeId       : domListener.vnodeId || value.vnodeId || component.id
+                            priority      : domListener.priority || value.priority || 1,
+                            scope         : domListener.scope    || component,
+                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.id
                         })
                     }
                 })
