@@ -4,6 +4,7 @@ import TabContainer from '../tab/Container.mjs';
 
 const
     classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
+    classNameRegex        = /className\s*:\s*['"]([^'"]+)['"]/g,
     exportRegex           = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
     importRegex           = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
 
@@ -294,6 +295,18 @@ class LivePreview extends Container {
 
         container.removeAll();
 
+        // We must ensure that classes inside the editor won't get cached, since this disables run-time changes
+        // See: https://github.com/neomjs/neo/issues/5863
+        me.findsClassNames(codeString).forEach(item => {
+            let nsArray   = item.split('.'),
+                className = nsArray.pop(),
+                ns        = Neo.ns(nsArray);
+
+            if (ns) {
+                delete ns[className]
+            }
+        });
+
         try {
             new Function('container', codeString)(container);
         } catch (error) {
@@ -306,13 +319,27 @@ class LivePreview extends Container {
 
     /**
      * @param {String} sourceCode
+     * @returns {String[]}
+     */
+    findsClassNames(sourceCode) {
+        let classNames = [],
+            match;
+
+        while ((match = classNameRegex.exec(sourceCode)) !== null) {
+            classNames.push(match[1])
+        }
+
+        return classNames
+    }
+
+    /**
+     * @param {String} sourceCode
      * @returns {String|null}
      */
     findLastClassName(sourceCode) {
         let lastClassName = null,
             match;
 
-        // Iterate through all matches of the regular expression
         while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
             // Update the last class name found
             lastClassName = match[1]
