@@ -23,8 +23,9 @@ class Example extends Model {
             type        : 'Array',
             defaultValue: ['Chrome', 'Edge', 'Firefox', 'Safari']
         }, {
-            name: 'environments',
-            type: 'Array'
+            name        : 'environments',
+            type        : 'Array',
+            defaultValue: ['Desktop']
         }, {
             name: 'id',
             type: 'Integer'

@@ -1,138 +1,121 @@
 [
     {
-        "environments": ["Desktop"],
-        "id"          : 17,
-        "image"       : "devmode/model-component-example.png",
-        "name"        : "View Models Example",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/model/advanced",
-        "url"         : "https://neomjs.com/dist/development/examples/model/advanced/index.html"
+        "id"       : 17,
+        "image"    : "devmode/model-component-example.png",
+        "name"     : "View Models Example",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/model/advanced",
+        "url"      : "https://neomjs.com/dist/development/examples/model/advanced/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 16,
-        "image"       : "devmode/sharedcovid.png",
-        "name"        : "Multi Window Covid App",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/sharedcovid",
-        "url"         : "https://neomjs.com/dist/development/apps/sharedcovid/index.html#mainview=table"
+        "id"       : 16,
+        "image"    : "devmode/sharedcovid.png",
+        "name"     : "Multi Window Covid App",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/apps/sharedcovid",
+        "url"      : "https://neomjs.com/dist/development/apps/sharedcovid/index.html#mainview=table"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 15,
-        "image"       : "devmode/calendar-preview.png",
-        "name"        : "Calendar",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/src/calendar",
-        "url"         : "https://neomjs.com/dist/development/examples/calendar/basic/index.html"
+        "id"       : 15,
+        "image"    : "devmode/calendar-preview.png",
+        "name"     : "Calendar",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/src/calendar",
+        "url"      : "https://neomjs.com/dist/development/examples/calendar/basic/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 14,
-        "image"       : "devmode/covidDashboard.png",
-        "name"        : "Covid Dashboard",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/covid",
-        "url"         : "https://neomjs.com/dist/development/apps/covid/index.html#mainview=table"
+        "id"       : 14,
+        "image"    : "devmode/covidDashboard.png",
+        "name"     : "Covid Dashboard",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/apps/covid",
+        "url"      : "https://neomjs.com/dist/development/apps/covid/index.html#mainview=table"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 13,
-        "image"       : "devmode/multi_window_dd.png",
-        "name"        : "Multi Window Drag&Drop",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/shareddialog",
-        "url"         : "https://neomjs.com/dist/development/apps/shareddialog/index.html"
+        "id"       : 13,
+        "image"    : "devmode/multi_window_dd.png",
+        "name"     : "Multi Window Drag&Drop",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/apps/shareddialog",
+        "url"      : "https://neomjs.com/dist/development/apps/shareddialog/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 12,
-        "image"       : "devmode/realworldApp.png",
-        "name"        : "RealWorld App",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/realworld",
-        "url"         : "https://neomjs.com/dist/development/apps/realworld/index.html"
+        "id"       : 12,
+        "image"    : "devmode/realworldApp.png",
+        "name"     : "RealWorld App",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/apps/realworld",
+        "url"      : "https://neomjs.com/dist/development/apps/realworld/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 11,
-        "image"       : "devmode/coronaGallery.png",
-        "name"        : "COVID-19 Gallery",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaGallery",
-        "url"         : "https://neomjs.com/dist/development/examples/component/coronaGallery/index.html"
+        "id"       : 11,
+        "image"    : "devmode/coronaGallery.png",
+        "name"     : "COVID-19 Gallery",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaGallery",
+        "url"      : "https://neomjs.com/dist/development/examples/component/coronaGallery/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 10,
-        "image"       : "devmode/coronaHelix.png",
-        "name"        : "COVID-19 Helix",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaHelix",
-        "url"         : "https://neomjs.com/dist/development/examples/component/coronaHelix/index.html"
+        "id"       : 10,
+        "image"    : "devmode/coronaHelix.png",
+        "name"     : "COVID-19 Helix",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaHelix",
+        "url"      : "https://neomjs.com/dist/development/examples/component/coronaHelix/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 9,
-        "image"       : "devmode/tableFiltering.png",
-        "name"        : "Table Filtering",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/tableFiltering",
-        "url"         : "https://neomjs.com/dist/development/examples/tableFiltering/"
+        "id"       : 9,
+        "image"    : "devmode/tableFiltering.png",
+        "name"     : "Table Filtering",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/tableFiltering",
+        "url"      : "https://neomjs.com/dist/development/examples/tableFiltering/"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 8,
-        "image"       : "devmode/dragdrop.png",
-        "name"        : "Dialog drag&drop",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/dialog",
-        "url"         : "https://neomjs.com/dist/development/examples/dialog/"
+        "id"       : 8,
+        "image"    : "devmode/dragdrop.png",
+        "name"     : "Dialog drag&drop",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/dialog",
+        "url"      : "https://neomjs.com/dist/development/examples/dialog/"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 7,
-        "image"       : "devmode/realworldApp2.png",
-        "name"        : "RealWorld App v2</br>(in progress)",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/realworld2",
-        "url"         : "https://neomjs.com/dist/development/apps/realworld2/index.html#/gallery"
+        "id"       : 7,
+        "image"    : "devmode/realworldApp2.png",
+        "name"     : "RealWorld App v2</br>(in progress)",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/apps/realworld2",
+        "url"      : "https://neomjs.com/dist/development/apps/realworld2/index.html#/gallery"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 6,
-        "image"       : "devmode/dateSelector.png",
-        "name"        : "component.DateSelector",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/dateSelector",
-        "url"         : "https://neomjs.com/dist/development/examples/component/dateSelector/index.html"
+        "id"       : 6,
+        "image"    : "devmode/dateSelector.png",
+        "name"     : "component.DateSelector",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/component/dateSelector",
+        "url"      : "https://neomjs.com/dist/development/examples/component/dateSelector/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 5,
-        "image"       : "devmode/gallery.png",
-        "name"        : "component.Gallery",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/gallery",
-        "url"         : "https://neomjs.com/dist/development/examples/component/gallery/index.html"
+        "id"       : 5,
+        "image"    : "devmode/gallery.png",
+        "name"     : "component.Gallery",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/component/gallery",
+        "url"      : "https://neomjs.com/dist/development/examples/component/gallery/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 4,
-        "image"       : "devmode/helix.png",
-        "name"        : "component.Helix",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/helix",
-        "url"         : "https://neomjs.com/dist/development/examples/component/helix/index.html"
+        "id"       : 4,
+        "image"    : "devmode/helix.png",
+        "name"     : "component.Helix",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/component/helix",
+        "url"      : "https://neomjs.com/dist/development/examples/component/helix/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 3,
-        "image"       : "devmode/dateField.png",
-        "name"        : "form.field.Date",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/form/field/date",
-        "url"         : "https://neomjs.com/dist/development/examples/form/field/date/index.html"
+        "id"       : 3,
+        "image"    : "devmode/dateField.png",
+        "name"     : "form.field.Date",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/form/field/date",
+        "url"      : "https://neomjs.com/dist/development/examples/form/field/date/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 2,
-        "image"       : "devmode/selectField.png",
-        "name"        : "form.field.Select",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/form/field/select",
-        "url"         : "https://neomjs.com/dist/development/examples/form/field/select/index.html"
+        "id"       : 2,
+        "image"    : "devmode/selectField.png",
+        "name"     : "form.field.Select",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/form/field/select",
+        "url"      : "https://neomjs.com/dist/development/examples/form/field/select/index.html"
     },
     {
-        "environments": ["Desktop"],
-        "id"          : 1,
-        "image"       : "devmode/tabContainer.png",
-        "name"        : "tab.Container",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/tab/container",
-        "url"         : "https://neomjs.com/dist/development/examples/tab/container/index.html"
+        "id"       : 1,
+        "image"    : "devmode/tabContainer.png",
+        "name"     : "tab.Container",
+        "sourceUrl": "https://github.com/neo.mjs/neo/tree/dev/examples/tab/container",
+        "url"      : "https://neomjs.com/dist/development/examples/tab/container/index.html"
     }
 ]
