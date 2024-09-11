@@ -130,7 +130,7 @@ class Cube extends Card {
      * @protected
      */
     async afterSetActiveIndex(value, oldValue) {
-        if (Neo.isNumber(value)) {
+        if (Neo.isNumber(value) && value < 6) {
             let me          = this,
                 {container} = me,
                 item        = container.items[value];
@@ -254,24 +254,26 @@ class Cube extends Card {
     applyChildAttributes(item, index) {
         let {wrapperCls} = item;
 
-        wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Object.keys(Cube.faces)[index]);
+        if (index < 6) {
+            wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Object.keys(Cube.faces)[index]);
 
-        switch(index) {
-            case 0:
-            case 1:
-                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-z');
-                break;
-            case 2:
-            case 3:
-                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-x');
-                break;
-            case 4:
-            case 5:
-                wrapperCls = NeoArray.union(wrapperCls, 'neo-face-y');
-                break;
+            switch(index) {
+                case 0:
+                case 1:
+                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-z');
+                    break;
+                case 2:
+                case 3:
+                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-x');
+                    break;
+                case 4:
+                case 5:
+                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-y');
+                    break;
+            }
+
+            item.wrapperCls = wrapperCls
         }
-
-        item.wrapperCls = wrapperCls
     }
 
     /**
@@ -298,7 +300,7 @@ class Cube extends Card {
 
         if (me.hideInactiveCardsOnDestroy) {
             vdom.cn.forEach((item, index) => {
-                if (index !== me.activeIndex) {
+                if (index < 6 && index !== me.activeIndex) {
                     item.removeDom = true
                 }
             })
@@ -334,8 +336,10 @@ class Cube extends Card {
 
         me.timeout(50).then(() => {
             // Important when switching from a card layout to this one
-            container.vdom.cn[0].cn[0].cn.forEach(node => {
-                delete node.removeDom
+            container.vdom.cn[0].cn[0].cn.forEach((node, index) => {
+                if (index < 6) {
+                    delete node.removeDom
+                }
             });
 
             container.update()
@@ -352,24 +356,26 @@ class Cube extends Card {
     removeChildAttributes(item, index) {
         let {wrapperCls} = item;
 
-        NeoArray.remove(wrapperCls, ['neo-face', Object.keys(Cube.faces)[index]]);
+        if (index < 6) {
+            NeoArray.remove(wrapperCls, ['neo-face', Object.keys(Cube.faces)[index]]);
 
-        switch(index) {
-            case 0:
-            case 1:
-                NeoArray.remove(wrapperCls, 'neo-face-z');
-                break;
-            case 2:
-            case 3:
-                NeoArray.remove(wrapperCls, 'neo-face-x');
-                break;
-            case 4:
-            case 5:
-                NeoArray.remove(wrapperCls, 'neo-face-y');
-                break;
+            switch(index) {
+                case 0:
+                case 1:
+                    NeoArray.remove(wrapperCls, 'neo-face-z');
+                    break;
+                case 2:
+                case 3:
+                    NeoArray.remove(wrapperCls, 'neo-face-x');
+                    break;
+                case 4:
+                case 5:
+                    NeoArray.remove(wrapperCls, 'neo-face-y');
+                    break;
+            }
+
+            item.wrapperCls = wrapperCls
         }
-
-        item.wrapperCls = wrapperCls
     }
 
     /**
