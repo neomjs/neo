@@ -19,8 +19,9 @@ class Example extends Model {
             name: 'backgroundColor',
             type: 'String'
         }, {
-            name: 'browsers',
-            type: 'Array'
+            name        : 'browsers',
+            type        : 'Array',
+            defaultValue: ['Chrome', 'Edge', 'Firefox', 'Safari']
         }, {
             name: 'environments',
             type: 'Array'
