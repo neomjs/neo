@@ -3,6 +3,7 @@ import Base from './Base.mjs';
 /**
  * @class RealWorld.api.Tag
  * @extends RealWorld.api.Base
+ * @singleton
  */
 class Tag extends Base {
     static config = {
@@ -14,7 +15,12 @@ class Tag extends Base {
         /**
          * @member {String} resource='/tags'
          */
-        resource: '/tags'
+        resource: '/tags',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 }
 

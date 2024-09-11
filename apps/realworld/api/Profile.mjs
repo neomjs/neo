@@ -3,6 +3,7 @@ import Base from './Base.mjs';
 /**
  * @class RealWorld.api.Profile
  * @extends RealWorld.api.Base
+ * @singleton
  */
 class Profile extends Base {
     static config = {
@@ -14,7 +15,12 @@ class Profile extends Base {
         /**
          * @member {String} resource='/profiles'
          */
-        resource: '/profiles'
+        resource: '/profiles',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**
