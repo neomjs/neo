@@ -124,7 +124,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onAboutUsRoute(params, value, oldValue) {
-        this.setMainContentIndex(6) // todo
+        this.setMainContentIndex(5)
     }
 
     /**
@@ -232,7 +232,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onDocsRoute(params, value, oldValue) {
-        this.setMainContentIndex(3)
+        this.setMainContentIndex(6)
     }
 
     /**
@@ -241,7 +241,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onExamplesRoute(params, value, oldValue) {
-        this.setMainContentIndex(5)
+        this.setMainContentIndex(4)
     }
 
     /**
@@ -268,7 +268,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onServicesRoute(params, value, oldValue) {
-        this.setMainContentIndex(4)
+        this.setMainContentIndex(3)
     }
 
     /**
@@ -283,12 +283,19 @@ class ViewportController extends Controller {
 
         if (index !== activeIndex) {
             me.activeIndex = index;
-            me.#transitionId++;
 
-            transitionId = me.#transitionId;
+            if (
+                mainContentLayout === 'mixed' &&
+                // skip the initial layout-switch, since we do not need a transition
+                Neo.isNumber(activeIndex) &&
+                // also skip the layout switch in case the index >= 6, since a cube only has 6 faces
+                index < 6 &&
+                // also skip the layout switch in case we navigate back from a non-cube item
+                activeIndex < 6
+            ) {
+                me.#transitionId++;
 
-            // skip the initial layout-switch, since we do not need a transition
-            if (mainContentLayout === 'mixed' && Neo.isNumber(activeIndex)) {
+                transitionId = me.#transitionId;
                 updateLayout = false;
 
                 // enable "fast clicking" on main nav items => do not replace a cube layout with a new instance of cube
