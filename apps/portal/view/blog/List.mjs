@@ -28,9 +28,9 @@ class List extends BaseList {
         /**
          * Specify the amount of delayed observe() calls, in case the IntersectionObserver does not find targets.
          * This can happen when moving the component inside the DOM (e.g. cube layout)
-         * @member {Number} intersectionObserverReconnects=5
+         * @member {Number} intersectionObserverReconnects=10
          */
-        intersectionObserverReconnects: 5,
+        intersectionObserverReconnects: 10,
         /**
          * Specify how many blog item images to preload when intersecting
          * @member {Number} preloadImages=5
