@@ -107,6 +107,6 @@
 
 // A focusable, but zero-sized element used to grab and redirect focus in focus-trapped modals
 .neo-focus-trap {
-    position : absolute;
-    clip     : rect(0, 0, 0, 0);
+    clip    : rect(0, 0, 0, 0);
+    position: absolute;
 }
