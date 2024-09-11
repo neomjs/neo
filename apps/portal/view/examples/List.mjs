@@ -33,6 +33,10 @@ class List extends BaseList {
          */
         storeUrl_: null,
         /**
+         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
+         */
+        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
+        /**
          * @member {Boolean} useWrapperNode=true
          */
         useWrapperNode: true,
@@ -93,7 +97,7 @@ class List extends BaseList {
                         {html: record.name.replace(List.nameRegEx, "$1")}
                     ]},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: record.sourceUrl, target: '_blank'},
+                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
