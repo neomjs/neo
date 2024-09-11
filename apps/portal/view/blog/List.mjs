@@ -249,7 +249,7 @@ class List extends BaseList {
             len  = me.intersectionObserverReconnects,
             data;
 
-        await me.timeout(50);
+        await me.timeout(150);
 
         data = await Neo.main.addon.IntersectionObserver.register({
             ...opts,
