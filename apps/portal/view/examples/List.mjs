@@ -25,6 +25,10 @@ class List extends BaseList {
          */
         baseCls: ['portal-examples-list', 'neo-list'],
         /**
+         * @member {String} baseUrl='https://neomjs.com/'
+         */
+        baseUrl: 'https://neomjs.com/',
+        /**
          * @member {Neo.data.Store} store=Examples
          */
         store: Examples,
@@ -93,7 +97,7 @@ class List extends BaseList {
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
                 },
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
+                    {tag: 'a', cls: ['neo-title'], href: this.baseUrl + record.url, target: '_blank', cn: [
                         {html: record.name.replace(List.nameRegEx, "$1")}
                     ]},
                     {cls: ['neo-top-20'], cn: [

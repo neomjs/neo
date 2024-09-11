@@ -3,101 +3,101 @@
     "image"    : "devmode/model-component-example.png",
     "name"     : "View Models Example",
     "sourceUrl": "examples/model/advanced",
-    "url"      : "https://neomjs.com/dist/production/examples/model/advanced/index.html"
+    "url"      : "dist/production/examples/model/advanced/index.html"
 }, {
     "id"       : 16,
     "image"    : "devmode/sharedcovid.png",
     "name"     : "Multi Window Covid App",
     "sourceUrl": "apps/sharedcovid",
-    "url"      : "https://neomjs.com/dist/production/apps/sharedcovid/index.html#mainview=table"
+    "url"      : "dist/production/apps/sharedcovid/index.html#mainview=table"
 }, {
     "id"       : 15,
     "image"    : "devmode/calendar-preview.png",
     "name"     : "Calendar",
     "sourceUrl": "src/calendar",
-    "url"      : "https://neomjs.com/dist/production/examples/calendar/basic/index.html"
+    "url"      : "dist/production/examples/calendar/basic/index.html"
 }, {
     "id"       : 14,
     "image"    : "devmode/covidDashboard.png",
     "name"     : "Covid Dashboard",
     "sourceUrl": "apps/covid",
-    "url"      : "https://neomjs.com/dist/production/apps/covid/index.html#mainview=table"
+    "url"      : "dist/production/apps/covid/index.html#mainview=table"
 }, {
     "id"       : 13,
     "image"    : "devmode/multi_window_dd.png",
     "name"     : "Multi Window Drag&Drop",
     "sourceUrl": "apps/shareddialog",
-    "url"      : "https://neomjs.com/dist/production/apps/shareddialog/index.html"
+    "url"      : "dist/production/apps/shareddialog/index.html"
 }, {
     "id"       : 12,
     "image"    : "devmode/realworldApp.png",
     "name"     : "RealWorld App",
     "sourceUrl": "apps/realworld",
-    "url"      : "https://neomjs.com/dist/production/apps/realworld/index.html"
+    "url"      : "dist/production/apps/realworld/index.html"
 }, {
     "id"       : 11,
     "image"    : "devmode/coronaGallery.png",
     "name"     : "COVID-19 Gallery",
     "sourceUrl": "examples/component/coronaGallery",
-    "url"      : "https://neomjs.com/dist/production/examples/component/coronaGallery/index.html"
+    "url"      : "dist/production/examples/component/coronaGallery/index.html"
 }, {
     "id"       : 10,
     "image"    : "devmode/coronaHelix.png",
     "name"     : "COVID-19 Helix",
     "sourceUrl": "examples/component/coronaHelix",
-    "url"      : "https://neomjs.com/dist/production/examples/component/coronaHelix/index.html"
+    "url"      : "dist/production/examples/component/coronaHelix/index.html"
 }, {
     "id"       : 9,
     "image"    : "devmode/tableFiltering.png",
     "name"     : "Table Filtering",
     "sourceUrl": "examples/tableFiltering",
-    "url"      : "https://neomjs.com/dist/production/examples/tableFiltering/"
+    "url"      : "dist/production/examples/tableFiltering/"
 }, {
     "id"       : 8,
     "image"    : "devmode/dragdrop.png",
     "name"     : "Dialog drag&drop",
     "sourceUrl": "examples/dialog",
-    "url"      : "https://neomjs.com/dist/production/examples/dialog/"
+    "url"      : "dist/production/examples/dialog/"
 }, {
     "id"       : 7,
     "image"    : "devmode/realworldApp2.png",
     "name"     : "RealWorld App v2</br>(in progress)",
     "sourceUrl": "apps/realworld2",
-    "url"      : "https://neomjs.com/dist/production/apps/realworld2/index.html#/gallery"
+    "url"      : "dist/production/apps/realworld2/index.html#/gallery"
 }, {
     "id"       : 6,
     "image"    : "devmode/dateSelector.png",
     "name"     : "component.DateSelector",
     "sourceUrl": "examples/component/dateSelector",
-    "url"      : "https://neomjs.com/dist/production/examples/component/dateSelector/index.html"
+    "url"      : "dist/production/examples/component/dateSelector/index.html"
 }, {
     "id"       : 5,
     "image"    : "devmode/gallery.png",
     "name"     : "component.Gallery",
     "sourceUrl": "examples/component/gallery",
-    "url"      : "https://neomjs.com/dist/production/examples/component/gallery/index.html"
+    "url"      : "dist/production/examples/component/gallery/index.html"
 }, {
     "id"       : 4,
     "image"    : "devmode/helix.png",
     "name"     : "component.Helix",
     "sourceUrl": "examples/component/helix",
-    "url"      : "https://neomjs.com/dist/production/examples/component/helix/index.html"
+    "url"      : "dist/production/examples/component/helix/index.html"
 }, {
     "id"       : 3,
     "image"    : "devmode/dateField.png",
     "name"     : "form.field.Date",
     "sourceUrl": "examples/form/field/date",
-    "url"      : "https://neomjs.com/dist/production/examples/form/field/date/index.html"
+    "url"      : "dist/production/examples/form/field/date/index.html"
 }, {
     "id"       : 2,
     "image"    : "devmode/selectField.png",
     "name"     : "form.field.Select",
     "sourceUrl": "examples/form/field/select",
-    "url"      : "https://neomjs.com/dist/production/examples/form/field/select/index.html"
+    "url"      : "dist/production/examples/form/field/select/index.html"
 }, {
     "id"       : 1,
     "image"    : "devmode/tabContainer.png",
     "name"     : "tab.Container",
     "sourceUrl": "examples/tab/container",
-    "url"      : "https://neomjs.com/dist/production/examples/tab/container/index.html"
+    "url"      : "dist/production/examples/tab/container/index.html"
 }]
