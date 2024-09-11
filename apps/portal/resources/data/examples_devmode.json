@@ -2,7 +2,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 19,
+        "id"          : 18,
         "image"       : "devmode/model-component-example.png",
         "name"        : "View Models Example",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/model/advanced",
@@ -11,7 +11,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 18,
+        "id"          : 17,
         "image"       : "devmode/sharedcovid.png",
         "name"        : "Multi Window Covid App",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/sharedcovid",
@@ -20,7 +20,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 17,
+        "id"          : 16,
         "image"       : "devmode/calendar-preview.png",
         "name"        : "Calendar",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/src/calendar",
@@ -29,7 +29,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 16,
+        "id"          : 15,
         "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/covid",
@@ -38,7 +38,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 15,
+        "id"          : 14,
         "image"       : "devmode/multi_window_dd.png",
         "name"        : "Multi Window Drag&Drop",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/shareddialog",
@@ -47,7 +47,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 14,
+        "id"          : 13,
         "image"       : "devmode/realworldApp.png",
         "name"        : "RealWorld App",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/realworld",
@@ -56,7 +56,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 13,
+        "id"          : 12,
         "image"       : "devmode/coronaGallery.png",
         "name"        : "COVID-19 Gallery",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaGallery",
@@ -65,20 +65,11 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 12,
+        "id"          : 11,
         "image"       : "devmode/coronaHelix.png",
         "name"        : "COVID-19 Helix",
         "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/examples/component/coronaHelix",
         "url"         : "https://neomjs.com/examples/component/coronaHelix/index.html"
-    },
-    {
-        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
-        "environments": ["Desktop"],
-        "id"          : 11,
-        "image"       : "devmode/website.png",
-        "name"        : "Neo Website App",
-        "sourceUrl"   : "https://github.com/neo.mjs/neo/tree/dev/apps/website",
-        "url"         : "https://neomjs.com/apps/website/index.html#mainview=blog"
     },
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
