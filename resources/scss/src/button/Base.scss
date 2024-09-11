@@ -73,16 +73,20 @@
     .neo-button-ripple {
         background-color: var(--button-ripple-background-color);
         border-radius   : 50%;
+        padding         : var(--button-padding);
         opacity         : 0;
         position        : absolute;
         transform       : scale(4);
     }
 
     .neo-button-ripple-wrapper {
+        border-radius : var(--button-border-radius);
         height        : 100%;
+        left          : 0;
         overflow      : hidden;
         pointer-events: none;
         position      : absolute;
+        top           : 0;
         width         : 100%;
     }
 

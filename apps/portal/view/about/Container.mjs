@@ -58,9 +58,9 @@ class Container extends Base {
             teamRole       : 'Training'
         }],
         /**
-         * @member {Object} layout={ntype:'vbox',align:'start'}
+         * @member {Object} layout={ntype:'vbox',align:'center'}
          */
-        layout: {ntype: 'vbox', align: 'start'}
+        layout: {ntype: 'vbox', align: 'center'}
     }
 }
 

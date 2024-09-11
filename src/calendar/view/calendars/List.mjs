@@ -66,6 +66,7 @@ class List extends ComponentList {
                 appName  : me.appName,
                 listeners: {change: me.onCheckboxChange, scope: me},
                 parentId : me.id,
+                windowId : me.windowId,
                 ...me.itemDefaults,
                 ...config
             })

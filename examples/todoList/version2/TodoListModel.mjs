@@ -6,7 +6,7 @@ import Model from '../../../src/data/Model.mjs';
  */
 class TodoListModel extends Model {
     static config = {
-        className  : 'Neo.examples.todoList.version2.MainModel',
+        className  : 'Neo.examples.todoList.version2.TodoListModel',
         keyProperty: 'id',
 
         fields: [{

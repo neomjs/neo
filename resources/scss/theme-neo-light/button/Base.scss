@@ -45,7 +45,7 @@
     --button-background-gradient-start          : #434749;
     --button-opacity-disabled                   : inherit;
     --button-outline-active                     : none;
-    --button-ripple-background-color            : transparent;
+    --button-ripple-background-color            : #8BA6FF;
     --button-use-gradients                      : false;
 
     // {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -78,7 +78,7 @@
     --button-secondary-badge-background-color   : transparent;
     --button-secondary-badge-color              : transparent;
     --button-secondary-opacity-disabled         : none;
-    --button-secondary-ripple-background-color  : inherit;
+    --button-secondary-ripple-background-color  : #8BA6FF;
 
 
     // {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
@@ -111,7 +111,7 @@
     --button-ghost-badge-background-color       : transparent;
     --button-ghost-badge-color                  : transparent;
     --button-ghost-opacity-disabled             : inherit;
-    --button-ghost-ripple-background-color      : inherit;
+    --button-ghost-ripple-background-color      : #8BA6FF;
 
 
     // {module: Button; ui: --tertiary}  –––––––––––––––––––––––––––––––––––––––––––––––––––

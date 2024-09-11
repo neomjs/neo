@@ -359,19 +359,21 @@ class Component extends BaseComponent {
                 import('./plugin/DragDrop.mjs'),
                 import('./plugin/EventResizable.mjs')
             ]).then(modules => {
-                let me        = this,
-                    {appName} = me,
-                    plugins   = me.plugins || [];
+                let me                  = this,
+                    {appName, windowId} = me,
+                    plugins             = me.plugins || [];
 
                 plugins.push({
                     module : modules[0].default,
                     appName,
+                    windowId,
                     ...me.pluginDragDropConfig
                 }, {
                     module       : modules[1].default,
                     appName,
                     delegationCls: 'neo-event',
                     directions   : ['b', 't'],
+                    windowId,
                     ...me.pluginEventResizableConfig
                 });
 

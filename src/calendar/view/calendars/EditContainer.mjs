@@ -64,7 +64,9 @@ class EditContainer extends FormContainer {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && this.getField('name').focus();
+        value && this.getField('name').then(field => {
+            field.focus()
+        })
     }
 
     /**
@@ -116,7 +118,6 @@ class EditContainer extends FormContainer {
         if (record) {
             me.colorsList = Neo.create({
                 module      : ColorsList,
-                appName     : me.appName,
                 listeners   : {change: me.onColorChange, scope: me},
                 parentId    : me.parentId,
                 value       : record.color,

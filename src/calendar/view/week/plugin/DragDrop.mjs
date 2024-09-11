@@ -74,9 +74,9 @@ class DragDrop extends Base {
      * @returns {Neo.calendar.view.week.EventDragZone}
      */
     getEventDragZone(opts) {
-        let me                        = this,
-            {appName, owner}          = me,
-            {eventDragZone, timeAxis} = owner,
+        let me                         = this,
+            {appName, owner, windowId} = me,
+            {eventDragZone, timeAxis}  = owner,
 
             config = {
                 axisEndTime                     : timeAxis.getTime(owner.endTime),
@@ -93,6 +93,7 @@ class DragDrop extends Base {
                 appName,
                 owner,
                 scrollContainerId: owner.getScrollContainer().id,
+                windowId,
                 ...config,
 
                 dragProxyConfig: {

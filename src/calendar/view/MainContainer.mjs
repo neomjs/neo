@@ -323,11 +323,12 @@ class MainContainer extends Container {
             let me = this;
 
             me._editCalendarContainer = value = Neo.create({
-                module : EditCalendarContainer,
-                appName: me.appName,
-                model  : {parent: me.getModel()},
-                owner  : me,
-                width  : 250,
+                module  : EditCalendarContainer,
+                appName : me.appName,
+                model   : {parent: me.getModel()},
+                owner   : me,
+                width   : 250,
+                windowId: me.windowId,
                 ...me.editCalendarContainerConfig
             })
         }
@@ -499,6 +500,7 @@ class MainContainer extends Container {
             me.items[1].add({
                 module             : module.default,
                 collapsed,
+                minWidth           : me.settingsContainerWidth,
                 removeInactiveCards: me.removeInactiveCards,
                 style              : {marginRight: !collapsed ? '0' : `-${me.settingsContainerWidth}px`},
                 width              : me.settingsContainerWidth,
