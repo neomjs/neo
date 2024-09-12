@@ -79,7 +79,8 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let basePath;
+        let me = this,
+            basePath;
 
         if (Neo.config.isGitHubPages) {
             basePath = '../../../../resources_pub/website/examples';
@@ -92,16 +93,16 @@ class List extends BaseList {
         }
 
         return [
-            {cls: ['content', 'neo-relative'], cn: [
+            {cls: ['content', 'neo-relative'], removeDom: record.hidden, cn: [
                 {cls: ['neo-full-size', 'preview-image'], style: {
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
                 },
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {tag: 'a', cls: ['neo-title'], href: this.baseUrl + record.url, target: '_blank', cn: [
+                    {tag: 'a', cls: ['neo-title'], href: me.baseUrl + record.url, target: '_blank', cn: [
                         {html: record.name.replace(List.nameRegEx, "$1")}
                     ]},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
+                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: me.sourceBaseUrl + record.sourceUrl, target: '_blank'},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}

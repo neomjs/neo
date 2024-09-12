@@ -27,6 +27,10 @@ class Example extends Model {
             type        : 'Array',
             defaultValue: ['Desktop']
         }, {
+            name        : 'hidden',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name: 'id',
             type: 'Integer'
         }, {

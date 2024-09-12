@@ -24,12 +24,14 @@
     "url"      : "apps/covid/index.html"
 }, {
     "id"       : 14,
+    "hidden"   : true,
     "image"    : "devmode/multi_window_dd.png",
     "name"     : "Multi Window Drag&Drop",
     "sourceUrl": "apps/shareddialog",
     "url"      : "apps/shareddialog/index.html"
 }, {
     "id"       : 13,
+    "hidden"   : true,
     "image"    : "devmode/realworldApp.png",
     "name"     : "RealWorld App",
     "sourceUrl": "apps/realworld",
