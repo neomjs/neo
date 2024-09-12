@@ -91,9 +91,9 @@
 }, {
     "id"       : 2,
     "image"    : "devmode/selectField.png",
-    "name"     : "form.field.Select",
-    "sourceUrl": "examples/form/field/select",
-    "url"      : "dist/development/examples/form/field/select/index.html"
+    "name"     : "form.field.ComboBox",
+    "sourceUrl": "examples/form/field/combobox",
+    "url"      : "dist/development/examples/form/field/combobox/index.html"
 }, {
     "id"       : 1,
     "image"    : "devmode/tabContainer.png",
