@@ -5,6 +5,7 @@
         cursor      : default;
         display     : flex;
         max-width   : 800px;
+        margin      : 0 auto;
         overflow    : hidden;
         padding     : 0;
         transition  : height var(--portal-transition-duration) ease-out, margin-bottom var(--portal-transition-duration) ease-out;

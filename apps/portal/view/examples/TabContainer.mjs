@@ -49,6 +49,7 @@ class TabContainer extends Container {
                 text   : 'DevMode'
             }
         }, {
+            environment    : 'dist/development',
             reference      : 'examples-dist-dev-list',
             storeUrl       : '../../apps/portal/resources/data/examples_dist_dev.json',
             tabButtonConfig: {
@@ -57,6 +58,7 @@ class TabContainer extends Container {
                 text   : 'dist/dev'
             }
         }, {
+            environment    : 'dist/production',
             reference      : 'examples-dist-prod-list',
             storeUrl       : '../../apps/portal/resources/data/examples_dist_prod.json',
             tabButtonConfig: {

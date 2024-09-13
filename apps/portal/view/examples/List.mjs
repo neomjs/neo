@@ -25,6 +25,16 @@ class List extends BaseList {
          */
         baseCls: ['portal-examples-list', 'neo-list'],
         /**
+         * @member {String} baseUrl='https://neomjs.com/'
+         */
+        baseUrl: 'https://neomjs.com/',
+        /**
+         * The env of the example links.
+         * Valid values are 'development', 'dist/development', 'dist/production'
+         * @member {String} environment='development'
+         */
+        environment: 'development',
+        /**
          * @member {Neo.data.Store} store=Examples
          */
         store: Examples,
@@ -32,6 +42,10 @@ class List extends BaseList {
          * @member {String|null} storeUrl_=null
          */
         storeUrl_: null,
+        /**
+         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
+         */
+        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
         /**
          * @member {Boolean} useWrapperNode=true
          */
@@ -84,16 +98,14 @@ class List extends BaseList {
         }
 
         return [
-            {cls: ['content', 'neo-relative'], cn: [
+            {cls: ['content', 'neo-relative'], removeDom: record.hidden, cn: [
                 {cls: ['neo-full-size', 'preview-image'], style: {
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
                 },
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
-                        {html: record.name.replace(List.nameRegEx, "$1")}
-                    ]},
+                    {...this.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: record.sourceUrl, target: '_blank'},
+                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
@@ -102,6 +114,28 @@ class List extends BaseList {
                 ]}
             ]}
         ]
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createLink(record) {
+        let vdom = {
+            tag : 'a',
+            cls : ['neo-title'],
+            cn  : [{html: record.name.replace(List.nameRegEx, "$1")}],
+            href: this.baseUrl + record.url
+        };
+
+        // Do not open multi-window examples inside a new browser window, in case the environment is the same.
+        // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
+        if (!record.sharedWorkers || this.environment !== Neo.config.environment) {
+            vdom.target = '_blank'
+        }
+
+        return vdom
     }
 
     /**

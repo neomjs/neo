@@ -19,14 +19,7 @@ class Examples extends Store {
         /**
          * @member {Neo.data.Model} model=Example
          */
-        model: Example,
-        /**
-         * @member {Object[]} sorters=[{property: 'id', direction: 'ASC'}]
-         */
-        sorters: [{
-            property : 'id',
-            direction: 'DESC'
-        }]
+        model: Example
     }
 }
 

@@ -19,11 +19,17 @@ class Example extends Model {
             name: 'backgroundColor',
             type: 'String'
         }, {
-            name: 'browsers',
-            type: 'Array'
+            name        : 'browsers',
+            type        : 'Array',
+            defaultValue: ['Chrome', 'Edge', 'Firefox', 'Safari']
         }, {
-            name: 'environments',
-            type: 'Array'
+            name        : 'environments',
+            type        : 'Array',
+            defaultValue: ['Desktop']
+        }, {
+            name        : 'hidden',
+            type        : 'Boolean',
+            defaultValue: false
         }, {
             name: 'id',
             type: 'Integer'
@@ -33,6 +39,10 @@ class Example extends Model {
         }, {
             name: 'name',
             type: 'String'
+        }, {
+            name        : 'sharedWorkers',
+            type        : 'Boolean',
+            defaultValue: false
         }, {
             name: 'sourceUrl',
             type: 'String'

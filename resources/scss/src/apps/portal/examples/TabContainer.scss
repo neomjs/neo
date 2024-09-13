@@ -1,8 +1,8 @@
 .portal-examples-tab-container.neo-tab-container {
-    margin   : 0 auto;
-    max-width: 830px;
+
 }
 
+// must not be inside the root class to honor the styling for tab button drag&drop
 .portal-examples-tab-header-toolbar.neo-tab-header-toolbar {
     background-color: #8BA6FF;
 

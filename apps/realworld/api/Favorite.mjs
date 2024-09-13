@@ -3,6 +3,7 @@ import Base from './Base.mjs';
 /**
  * @class RealWorld.api.Favorite
  * @extends RealWorld.api.Base
+ * @singleton
  */
 class Favorite extends Base {
     static config = {
@@ -10,7 +11,12 @@ class Favorite extends Base {
          * @member {String} className='RealWorld.api.Favorite'
          * @protected
          */
-        className: 'RealWorld.api.Favorite'
+        className: 'RealWorld.api.Favorite',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**
