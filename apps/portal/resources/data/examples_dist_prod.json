@@ -5,11 +5,12 @@
     "sourceUrl": "examples/model/advanced",
     "url"      : "dist/production/examples/model/advanced/index.html"
 }, {
-    "id"       : 16,
-    "image"    : "devmode/sharedcovid.png",
-    "name"     : "Multi Window Covid App",
-    "sourceUrl": "apps/sharedcovid",
-    "url"      : "dist/production/apps/sharedcovid/index.html#mainview=table"
+    "id"           : 16,
+    "image"        : "devmode/sharedcovid.png",
+    "name"         : "Multi Window Covid App",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/sharedcovid",
+    "url"          : "dist/production/apps/sharedcovid/index.html#mainview=table"
 }, {
     "id"       : 15,
     "image"    : "devmode/calendar-preview.png",
@@ -23,12 +24,13 @@
     "sourceUrl": "apps/covid",
     "url"      : "dist/production/apps/covid/index.html#mainview=table"
 }, {
-    "id"       : 13,
-    "hidden"   : true,
-    "image"    : "devmode/multi_window_dd.png",
-    "name"     : "Multi Window Drag&Drop",
-    "sourceUrl": "apps/shareddialog",
-    "url"      : "dist/production/apps/shareddialog/index.html"
+    "id"           : 13,
+    "hidden"       : true,
+    "image"        : "devmode/multi_window_dd.png",
+    "name"         : "Multi Window Drag&Drop",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/shareddialog",
+    "url"          : "dist/production/apps/shareddialog/index.html"
 }, {
     "id"       : 12,
     "hidden"   : true,

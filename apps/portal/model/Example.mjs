@@ -40,6 +40,10 @@ class Example extends Model {
             name: 'name',
             type: 'String'
         }, {
+            name        : 'sharedWorkers',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name: 'sourceUrl',
             type: 'String'
         }, {
