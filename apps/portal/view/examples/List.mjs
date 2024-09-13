@@ -29,6 +29,12 @@ class List extends BaseList {
          */
         baseUrl: 'https://neomjs.com/',
         /**
+         * The env of the example links.
+         * Valid values are 'development', 'dist/development', 'dist/production'
+         * @member {String} environment='development'
+         */
+        environment: 'development',
+        /**
          * @member {Neo.data.Store} store=Examples
          */
         store: Examples,
@@ -79,8 +85,7 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let me = this,
-            basePath;
+        let basePath;
 
         if (Neo.config.isGitHubPages) {
             basePath = '../../../../resources_pub/website/examples';
@@ -98,11 +103,9 @@ class List extends BaseList {
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
                 },
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {tag: 'a', cls: ['neo-title'], href: me.baseUrl + record.url, target: '_blank', cn: [
-                        {html: record.name.replace(List.nameRegEx, "$1")}
-                    ]},
+                    {...this.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: me.sourceBaseUrl + record.sourceUrl, target: '_blank'},
+                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
@@ -111,6 +114,28 @@ class List extends BaseList {
                 ]}
             ]}
         ]
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createLink(record) {
+        let vdom = {
+            tag : 'a',
+            cls : ['neo-title'],
+            cn  : [{html: record.name.replace(List.nameRegEx, "$1")}],
+            href: this.baseUrl + record.url
+        };
+
+        // Do not open multi-window examples inside a new browser window, in case the environment is the same.
+        // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
+        if (!record.sharedWorkers || this.environment !== Neo.config.environment) {
+            vdom.target = '_blank'
+        }
+
+        return vdom
     }
 
     /**
