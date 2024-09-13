@@ -460,9 +460,12 @@ class DomEvents extends Base {
     onClick(event) {
         let me = this;
 
-        me.sendMessageToApp(me.getMouseEventData(event));
+        // Only fire for "single clicks". Clicking multiple times in a row will increase the detail counter.
+        if (event.detail < 2) {
+            me.sendMessageToApp(me.getMouseEventData(event));
 
-        me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
+            me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
+        }
     }
 
     /**
