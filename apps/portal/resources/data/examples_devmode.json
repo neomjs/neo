@@ -24,16 +24,16 @@
     "sourceUrl": "apps/covid",
     "url"      : "apps/covid/index.html"
 }, {
-    "id"           : 14,
     "hidden"       : true,
+    "id"           : 14,
     "image"        : "devmode/multi_window_dd.png",
     "name"         : "Multi Window Drag&Drop",
     "sharedWorkers": true,
     "sourceUrl"    : "apps/shareddialog",
     "url"          : "apps/shareddialog/index.html"
 }, {
-    "id"       : 13,
     "hidden"   : true,
+    "id"       : 13,
     "image"    : "devmode/realworldApp.png",
     "name"     : "RealWorld App",
     "sourceUrl": "apps/realworld",
@@ -63,6 +63,7 @@
     "sourceUrl": "examples/dialog",
     "url"      : "examples/dialog/"
 }, {
+    "hidden"   : true,
     "id"       : 8,
     "image"    : "devmode/realworldApp2.png",
     "name"     : "RealWorld App v2</br>(in progress)",
