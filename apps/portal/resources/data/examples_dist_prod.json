@@ -1,74 +1,70 @@
 [{
-    "id"       : 17,
-    "image"    : "devmode/model-component-example.png",
-    "name"     : "View Models Example",
-    "sourceUrl": "examples/model/advanced",
-    "url"      : "dist/production/examples/model/advanced/index.html"
-}, {
-    "id"           : 16,
+    "id"           : 17,
     "image"        : "devmode/sharedcovid.png",
     "name"         : "Multi Window Covid App",
     "sharedWorkers": true,
     "sourceUrl"    : "apps/sharedcovid",
     "url"          : "dist/production/apps/sharedcovid/index.html#mainview=table"
 }, {
-    "id"       : 15,
+    "id"       : 16,
     "image"    : "devmode/calendar-preview.png",
     "name"     : "Calendar",
     "sourceUrl": "src/calendar",
     "url"      : "dist/production/examples/calendar/basic/index.html"
 }, {
+    "id"       : 15,
+    "image"    : "devmode/helix.png",
+    "name"     : "component.Helix",
+    "sourceUrl": "examples/component/helix",
+    "url"      : "dist/production/examples/component/helix/index.html"
+}, {
     "id"       : 14,
-    "image"    : "devmode/covidDashboard.png",
-    "name"     : "Covid Dashboard",
-    "sourceUrl": "apps/covid",
-    "url"      : "dist/production/apps/covid/index.html#mainview=table"
-}, {
-    "hidden"       : true,
-    "id"           : 13,
-    "image"        : "devmode/multi_window_dd.png",
-    "name"         : "Multi Window Drag&Drop",
-    "sharedWorkers": true,
-    "sourceUrl"    : "apps/shareddialog",
-    "url"          : "dist/production/apps/shareddialog/index.html"
-}, {
-    "hidden"   : true,
-    "id"       : 12,
-    "image"    : "devmode/realworldApp.png",
-    "name"     : "RealWorld App",
-    "sourceUrl": "apps/realworld",
-    "url"      : "dist/production/apps/realworld/index.html"
-}, {
-    "id"       : 11,
     "image"    : "devmode/coronaGallery.png",
     "name"     : "COVID-19 Gallery",
     "sourceUrl": "examples/component/coronaGallery",
     "url"      : "dist/production/examples/component/coronaGallery/index.html"
 }, {
-    "id"       : 10,
-    "image"    : "devmode/coronaHelix.png",
-    "name"     : "COVID-19 Helix",
-    "sourceUrl": "examples/component/coronaHelix",
-    "url"      : "dist/production/examples/component/coronaHelix/index.html"
+    "id"       : 13,
+    "image"    : "devmode/tabContainer.png",
+    "name"     : "tab.Container",
+    "sourceUrl": "examples/tab/container",
+    "url"      : "dist/production/examples/tab/container/index.html"
 }, {
-    "id"       : 9,
-    "image"    : "devmode/tableFiltering.png",
-    "name"     : "Table Filtering",
-    "sourceUrl": "examples/tableFiltering",
-    "url"      : "dist/production/examples/tableFiltering/"
+    "id"       : 12,
+    "image"    : "devmode/model-component-example.png",
+    "name"     : "View Models Example",
+    "sourceUrl": "examples/model/advanced",
+    "url"      : "dist/production/examples/model/advanced/index.html"
 }, {
-    "id"       : 8,
+    "id"       : 11,
     "image"    : "devmode/dragdrop.png",
     "name"     : "Dialog drag&drop",
     "sourceUrl": "examples/dialog",
     "url"      : "dist/production/examples/dialog/"
 }, {
-    "hidden"   : true,
+    "id"       : 10,
+    "image"    : "devmode/covidDashboard.png",
+    "name"     : "Covid Dashboard",
+    "sourceUrl": "apps/covid",
+    "url"      : "dist/production/apps/covid/index.html#mainview=table"
+}, {
+    "id"       : 9,
+    "image"    : "devmode/coronaHelix.png",
+    "name"     : "COVID-19 Helix",
+    "sourceUrl": "examples/component/coronaHelix",
+    "url"      : "dist/production/examples/component/coronaHelix/index.html"
+}, {
+    "id"       : 8,
+    "image"    : "devmode/gallery.png",
+    "name"     : "component.Gallery",
+    "sourceUrl": "examples/component/gallery",
+    "url"      : "dist/production/examples/component/gallery/index.html"
+}, {
     "id"       : 7,
-    "image"    : "devmode/realworldApp2.png",
-    "name"     : "RealWorld App v2</br>(in progress)",
-    "sourceUrl": "apps/realworld2",
-    "url"      : "dist/production/apps/realworld2/index.html#/gallery"
+    "image"    : "devmode/tableFiltering.png",
+    "name"     : "Table Filtering",
+    "sourceUrl": "examples/tableFiltering",
+    "url"      : "dist/production/examples/tableFiltering/"
 }, {
     "id"       : 6,
     "image"    : "devmode/dateSelector.png",
@@ -77,32 +73,36 @@
     "url"      : "dist/production/examples/component/dateSelector/index.html"
 }, {
     "id"       : 5,
-    "image"    : "devmode/gallery.png",
-    "name"     : "component.Gallery",
-    "sourceUrl": "examples/component/gallery",
-    "url"      : "dist/production/examples/component/gallery/index.html"
-}, {
-    "id"       : 4,
-    "image"    : "devmode/helix.png",
-    "name"     : "component.Helix",
-    "sourceUrl": "examples/component/helix",
-    "url"      : "dist/production/examples/component/helix/index.html"
-}, {
-    "id"       : 3,
     "image"    : "devmode/dateField.png",
     "name"     : "form.field.Date",
     "sourceUrl": "examples/form/field/date",
     "url"      : "dist/production/examples/form/field/date/index.html"
 }, {
-    "id"       : 2,
+    "id"       : 4,
     "image"    : "devmode/selectField.png",
     "name"     : "form.field.ComboBox",
     "sourceUrl": "examples/form/field/combobox",
     "url"      : "dist/production/examples/form/field/combobox/index.html"
 }, {
+    "hidden"       : true,
+    "id"           : 3,
+    "image"        : "devmode/multi_window_dd.png",
+    "name"         : "Multi Window Drag&Drop",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/shareddialog",
+    "url"          : "dist/production/apps/shareddialog/index.html"
+}, {
+    "hidden"   : true,
+    "id"       : 2,
+    "image"    : "devmode/realworldApp.png",
+    "name"     : "RealWorld App",
+    "sourceUrl": "apps/realworld",
+    "url"      : "dist/production/apps/realworld/index.html"
+}, {
+    "hidden"   : true,
     "id"       : 1,
-    "image"    : "devmode/tabContainer.png",
-    "name"     : "tab.Container",
-    "sourceUrl": "examples/tab/container",
-    "url"      : "dist/production/examples/tab/container/index.html"
+    "image"    : "devmode/realworldApp2.png",
+    "name"     : "RealWorld App v2</br>(in progress)",
+    "sourceUrl": "apps/realworld2",
+    "url"      : "dist/production/apps/realworld2/index.html#/gallery"
 }]
