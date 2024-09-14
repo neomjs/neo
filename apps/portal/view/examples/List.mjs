@@ -105,7 +105,7 @@ class List extends BaseList {
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...this.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
+                        {...this.createSourceLink(record)},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
@@ -122,17 +122,45 @@ class List extends BaseList {
      * @returns {Object}
      */
     createLink(record) {
-        let vdom = {
+        let externalLink = record.url.startsWith('http'),
+
+        vdom = {
             tag : 'a',
             cls : ['neo-title'],
             cn  : [{html: record.name.replace(List.nameRegEx, "$1")}],
-            href: this.baseUrl + record.url
+            href: record.url
         };
+
+        // We can use a shorter syntax for pointing examples to neomjs.com, but not all examples have to be there.
+        if (!externalLink) {
+            vdom.href = this.baseUrl + record.url
+        }
 
         // Do not open multi-window examples inside a new browser window, in case the environment is the same.
         // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
-        if (!record.sharedWorkers || this.environment !== Neo.config.environment) {
+        if (!record.sharedWorkers || this.environment !== Neo.config.environment || externalLink) {
             vdom.target = '_blank'
+        }
+
+        return vdom
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createSourceLink(record) {
+        let vdom = {
+            tag   : 'a',
+            cls   : ['fab fa-github', 'neo-github-image'],
+            href  : record.sourceUrl,
+            target: '_blank'
+        };
+
+        // We can use a shorter syntax for pointing examples to neomjs/neo repo, but not all examples have to be there.
+        if (!record.sourceUrl.startsWith('http')) {
+            vdom.href = this.sourceBaseUrl + record.sourceUrl
         }
 
         return vdom
