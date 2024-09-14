@@ -668,7 +668,9 @@ class Base extends Panel {
 
                 // we need a reset, otherwise we do not get a change event for the next onDragStart() call
                 me.dragZone.boundaryContainerId = null;
-                me.isDragging                   = false
+                me.isDragging                   = false;
+
+                Neo.main.DomAccess.focus({id: me.id, children: true, windowId: me.windowId})
             })
         }
     }
