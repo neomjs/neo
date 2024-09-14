@@ -392,15 +392,17 @@ class DomAccess extends Base {
     /**
      * Calls focus() on a node for a given dom node id
      * @param {Object} data
+     * @param {Boolean} data.children
+     * @param {String} data.id
      * @returns {Object} obj.id => the passed id
      */
-    focus(data) {
-        let node = this.getElement(data.id);
+    focus({children, id}) {
+        let node = this.getElement(id);
 
         if (node) {
             // The children property means focus inner elements if possible.
-            if (!DomUtils.isFocusable(node) && data.children) {
-                // query for the first focusable decendent
+            if (!DomUtils.isFocusable(node) && children) {
+                // query for the first focusable descendent
                 node = DomUtils.query(node, DomUtils.isFocusable)
             }
 
@@ -413,7 +415,7 @@ class DomAccess extends Base {
             }
         }
 
-        return {id: data.id}
+        return {id}
     }
 
     /**
