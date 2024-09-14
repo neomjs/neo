@@ -31,6 +31,8 @@
         "javascript",
         "frontend",
         "framework",
+        "offscreencanvas",
+        "sharedworker",
         "webworker",
         "ecmascript",
         "css",
