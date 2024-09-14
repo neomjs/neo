@@ -1,5 +1,4 @@
 import BaseList from '../../../../src/list/Base.mjs';
-import Examples from '../../store/Examples.mjs';
 import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
@@ -44,14 +43,6 @@ class List extends BaseList {
          * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
          */
         sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
-        /**
-         * @member {Neo.data.Store} store=Examples
-         */
-        store: Examples,
-        /**
-         * @member {String|null} storeUrl_=null
-         */
-        storeUrl_: null,
         /**
          * @member {Boolean} useWrapperNode=true
          */
@@ -107,28 +98,6 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
         value && this.registerIntersectionObserver()
-    }
-
-    /**
-     * Triggered before the store config gets changed.
-     * @param {Object|Neo.data.Store} value
-     * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
-     * @protected
-     */
-    beforeSetStore(value, oldValue) {
-        if (value) {
-            if (value.isClass) {
-                value = {
-                    module: value,
-                    url   : this.storeUrl
-                };
-            } else if (Neo.isObject(value)) {
-                value.url = this.storeUrl;
-            }
-        }
-
-        return super.beforeSetStore(value, oldValue);
     }
 
     /**

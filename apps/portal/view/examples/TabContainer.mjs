@@ -1,4 +1,5 @@
 import Container              from '../../../../src/tab/Container.mjs';
+import ExampleStore           from '../../store/Examples.mjs';
 import List                   from './List.mjs';
 import TabContainerController from './TabContainerController.mjs';
 
@@ -42,7 +43,7 @@ class TabContainer extends Container {
          */
         items: [{
             reference      : 'examples-devmode-list',
-            storeUrl       : '../../apps/portal/resources/data/examples_devmode.json',
+            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_devmode.json'},
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-knight',
                 route  : '/examples/devmode',
@@ -51,7 +52,7 @@ class TabContainer extends Container {
         }, {
             environment    : 'dist/development',
             reference      : 'examples-dist-dev-list',
-            storeUrl       : '../../apps/portal/resources/data/examples_dist_dev.json',
+            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-queen',
                 route  : '/examples/dist_dev',
@@ -60,7 +61,7 @@ class TabContainer extends Container {
         }, {
             environment    : 'dist/production',
             reference      : 'examples-dist-prod-list',
-            storeUrl       : '../../apps/portal/resources/data/examples_dist_prod.json',
+            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_prod.json'},
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-king',
                 route  : '/examples/dist_prod',
