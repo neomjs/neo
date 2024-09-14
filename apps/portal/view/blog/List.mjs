@@ -119,9 +119,7 @@ class List extends BaseList {
         const vdomCn = [
             {cls: ['content'], data: {recordId: record.id}, cn: [
                 {cls: ['neo-relative'], cn: [
-                    {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`
-                        //backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
-                    },
+                    {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                     {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                         {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
                             {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
@@ -216,12 +214,12 @@ class List extends BaseList {
      * @param {Object} data
      */
     onIntersect(data) {
-        let me                = this,
-            {basePath, store} = me,
-            record            = store.get(parseInt(data.data.recordId)),
-            i                 = store.indexOf(record),
-            len               = Math.min(i + me.preloadImages, store.getCount()),
-            needsUpdate       = false,
+        let me                     = this,
+            {imageBasePath, store} = me,
+            record                 = store.get(parseInt(data.data.recordId)),
+            i                      = store.indexOf(record),
+            len                    = Math.min(i + me.preloadImages, store.getCount()),
+            needsUpdate            = false,
             node;
 
         for (; i < len; i++) {
@@ -231,7 +229,7 @@ class List extends BaseList {
                 needsUpdate = true;
 
                 node.style = {
-                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
+                    backgroundImage: `url('${imageBasePath}/blog/${record.image}'), linear-gradient(#777, #333)`
                 }
             }
         }

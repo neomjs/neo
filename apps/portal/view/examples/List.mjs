@@ -1,5 +1,6 @@
 import BaseList from '../../../../src/list/Base.mjs';
 import Examples from '../../store/Examples.mjs';
+import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Portal.view.examples.List
@@ -35,6 +36,15 @@ class List extends BaseList {
          */
         environment: 'development',
         /**
+         * Specify how many example item images to preload when intersecting
+         * @member {Number} preloadImages=5
+         */
+        preloadImages: 5,
+        /**
+         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
+         */
+        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
+        /**
          * @member {Neo.data.Store} store=Examples
          */
         store: Examples,
@@ -42,10 +52,6 @@ class List extends BaseList {
          * @member {String|null} storeUrl_=null
          */
         storeUrl_: null,
-        /**
-         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
-         */
-        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
         /**
          * @member {Boolean} useWrapperNode=true
          */
@@ -79,6 +85,31 @@ class List extends BaseList {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            intersect: me.onIntersect,
+            scope    : me
+        })
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        value && this.registerIntersectionObserver()
+    }
+
+    /**
      * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
@@ -104,13 +135,9 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let {imageBasePath} = this;
-
         return [
-            {cls: ['content', 'neo-relative'], removeDom: record.hidden, cn: [
-                {cls: ['neo-full-size', 'preview-image'], style: {
-                    backgroundImage: `url('${imageBasePath}/${record.image}'), linear-gradient(#777, #333)`}
-                },
+            {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: record.hidden, cn: [
+                {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...this.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
@@ -187,6 +214,64 @@ class List extends BaseList {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onIntersect(data) {
+        let me                     = this,
+            {imageBasePath, store} = me,
+            record                 = store.get(parseInt(data.data.recordId)),
+            i                      = store.indexOf(record),
+            len                    = Math.min(i + me.preloadImages, store.getCount()),
+            needsUpdate            = false,
+            node;
+
+        for (; i < len; i++) {
+            node = VDomUtil.getByFlag(me.vdom, `image-${record.id}`);
+
+            if (!node.style) {
+                needsUpdate = true;
+
+                node.style = {
+                    backgroundImage: `url('${imageBasePath}/${record.image}'), linear-gradient(#777, #333)`
+                }
+            }
+        }
+
+        needsUpdate && me.update()
+    }
+
+    /**
+     *
+     */
+    async registerIntersectionObserver() {
+        let me   = this,
+            opts = {id: me.id, observe: ['.content'], windowId: me.windowId},
+            i    = 0,
+            len  = me.intersectionObserverReconnects,
+            data;
+
+        await me.timeout(150);
+
+        data = await Neo.main.addon.IntersectionObserver.register({
+            ...opts,
+            callback: 'isVisible',
+            root    : `#${me.parentId}`
+        });
+
+        if (data.countTargets < 1) {
+            for (; i < len; i++) {
+                await me.timeout(100);
+
+                data = await Neo.main.addon.IntersectionObserver.observe(opts);
+
+                if (data.countTargets > 0) {
+                    break
+                }
+            }
+        }
     }
 }
 
