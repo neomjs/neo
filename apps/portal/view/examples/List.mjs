@@ -60,6 +60,25 @@ class List extends BaseList {
     }
 
     /**
+     * @member {String} imageBasePath
+     */
+    get imageBasePath() {
+        let basePath;
+
+        if (Neo.config.isGitHubPages) {
+            basePath = '../../../../resources_pub/website/examples';
+
+            if (Neo.config.environment !== 'development') {
+                basePath = '../../' + basePath
+            }
+        } else {
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
+        }
+
+        return basePath
+    }
+
+    /**
      * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
@@ -85,22 +104,12 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let basePath;
-
-        if (Neo.config.isGitHubPages) {
-            basePath = '../../../../resources_pub/website/examples';
-
-            if (Neo.config.environment !== 'development') {
-                basePath = '../../' + basePath
-            }
-        } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
-        }
+        let {imageBasePath} = this;
 
         return [
             {cls: ['content', 'neo-relative'], removeDom: record.hidden, cn: [
                 {cls: ['neo-full-size', 'preview-image'], style: {
-                    backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
+                    backgroundImage: `url('${imageBasePath}/${record.image}'), linear-gradient(#777, #333)`}
                 },
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...this.createLink(record)},

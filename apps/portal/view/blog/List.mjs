@@ -54,9 +54,9 @@ class List extends BaseList {
     }
 
     /**
-     * @member {String} basePath
+     * @member {String} imageBasePath
      */
-    get basePath() {
+    get imageBasePath() {
         let basePath;
 
         if (Neo.config.isGitHubPages) {
@@ -114,7 +114,7 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let {basePath} = this;
+        let {imageBasePath} = this;
 
         const vdomCn = [
             {cls: ['content'], data: {recordId: record.id}, cn: [
@@ -127,7 +127,7 @@ class List extends BaseList {
                             {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
                         ]},
                         {cls: ['neo-top-20'], cn: [
-                            {tag: 'img', cls: ['neo-user-image'], src: `${basePath}/blogAuthor/${record.authorImage}`},
+                            {tag: 'img', cls: ['neo-user-image'], src: `${imageBasePath}/blogAuthor/${record.authorImage}`},
                             {cls: ['neo-inner-content'], cn: [
                                 {cls: ['neo-inner-details'], flag: 'author', cn: [
                                     {tag: 'span', cls: ['neo-bold'], html: record.author}
