@@ -670,7 +670,7 @@ class Base extends Panel {
                 me.dragZone.boundaryContainerId = null;
                 me.isDragging                   = false;
 
-                Neo.main.DomAccess.focus({id: me.id, children: true, windowId: me.windowId})
+                me.focus(me.id, true)
             })
         }
     }

@@ -294,8 +294,9 @@ class Time extends Picker {
         let me = this;
 
         Neo.main.DomAccess.focus({
-            appName: me.appName,
-            id     : me.getInputElId()
+            appName : me.appName,
+            id      : me.getInputElId(),
+            windowId: me.windowId
         }).then(() => {
             callback?.apply(me)
         })

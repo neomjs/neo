@@ -166,7 +166,8 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        let me = this,
+        let me             = this,
+            {id, windowId} = me,
             dayIncrement, method, methodParams,  monthIncrement, yearIncrement;
 
         if (me.mounted) {
@@ -181,14 +182,12 @@ class DateSelector extends Component {
                 method       = 'changeYear';
                 methodParams = [yearIncrement]
             } else if (dayIncrement !== 0) {
-                me.selectionModel.select(me.id + '__' + DateUtil.convertToyyyymmdd(value))
+                me.selectionModel.select(id + '__' + DateUtil.convertToyyyymmdd(value))
             }
 
             if (method) {
                 if (me.containsFocus) {
-                    Neo.main.DomAccess.focus({
-                        id: me.id
-                    }).then(data => {
+                    Neo.main.DomAccess.focus({id, windowId}).then(data => {
                         me[method](...methodParams)
                     })
                 } else {
