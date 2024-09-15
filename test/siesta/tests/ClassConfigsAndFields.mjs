@@ -20,7 +20,7 @@ class TestClass extends core.Base {
     }
 }
 
-Neo.applyClassConfig(TestClass);
+Neo.setupClass(TestClass);
 
 StartTest(t => {
     t.it('Default class fields inside constructors', t => {
@@ -73,7 +73,7 @@ StartTest(t => {
             }
         }
 
-        Neo.applyClassConfig(NeoCtorTest);
+        Neo.setupClass(NeoCtorTest);
 
         Neo.create(NeoCtorTest);
 
@@ -243,9 +243,10 @@ StartTest(t => {
             fieldB = 1;
 
             static config = {
-                configA_: 0,
-                configB_: 0,
-                configC_: 0
+                className: 'AdvancedClass',
+                configA_ : 0,
+                configB_ : 0,
+                configC_ : 0
             }
 
             afterSetConfigA(value, oldValue) {
@@ -280,7 +281,7 @@ StartTest(t => {
             }
         }
 
-        Neo.applyClassConfig(AdvancedClass);
+        AdvancedClass = Neo.setupClass(AdvancedClass);
 
         let instance = Neo.create(AdvancedClass);
 
