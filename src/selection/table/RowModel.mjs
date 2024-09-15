@@ -39,7 +39,7 @@ class RowModel extends Model {
     destroy(...args) {
         let me = this;
 
-        me.view.un('rowClick', me.onRowClick, me)
+        me.view.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args);
     }

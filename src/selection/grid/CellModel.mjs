@@ -17,7 +17,7 @@ class CellModel extends Model {
          */
         ntype: 'selection-grid-cellmodel',
         /**
-         * @member {String} cls='selection-cellmodel'
+         * @member {String} cls='neo-selection-cellmodel'
          * @protected
          */
         cls: 'neo-selection-cellmodel'
@@ -27,34 +27,27 @@ class CellModel extends Model {
      *
      */
     addDomListener() {
-        let me     = this,
-            {view} = me;
+        let me = this;
 
-        view.addDomListeners({
-            click   : me.onCellClick,
-            delegate: '.neo-grid-cell',
-            scope   : me
-        })
+        me.view.on('cellClick', me.onCellClick, me)
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.view.un('cellClick', me.onCellClick, me);
+
+        super.destroy(...args);
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me     = this,
-            {path} = data,
-            i      = 0,
-            len    = path.length,
-            id;
-
-        for (; i < len; i++) {
-            if (path[i].cls.includes('neo-grid-cell')) {
-                id = path[i].id;
-                break
-            }
-        }
-
-        id && me.toggleSelection(id)
+        this.toggleSelection(data.data.currentTarget)
     }
 
     /**

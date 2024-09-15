@@ -38,7 +38,7 @@ class CellModel extends Model {
     destroy(...args) {
         let me = this;
 
-        me.view.un('cellClick', me.onCellClick, me)
+        me.view.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args);
     }
