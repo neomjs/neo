@@ -17,7 +17,7 @@ class CellModel extends Model {
          */
         ntype: 'selection-table-cellmodel',
         /**
-         * @member {String} cls='selection-cellmodel'
+         * @member {String} cls='neo-selection-cellmodel'
          * @protected
          */
         cls: 'neo-selection-cellmodel'
@@ -27,36 +27,16 @@ class CellModel extends Model {
      *
      */
     addDomListener() {
-        let me     = this,
-            {view} = me;
+        let me = this;
 
-        view.addDomListeners({
-            click   : me.onCellClick,
-            delegate: '.neo-table-cell',
-            scope   : me
-        })
+        me.view.on('cellClick', me.onCellClick, me)
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me     = this,
-            id     = null,
-            {path} = data,
-            i      = 0,
-            len    = path.length;
-
-        for (; i < len; i++) {
-            if (path[i].tagName === 'td') {
-                id = path[i].id;
-                break
-            }
-        }
-
-        if (id) {
-            me.toggleSelection(id)
-        }
+        this.toggleSelection(data.data.currentTarget)
     }
 
     /**
