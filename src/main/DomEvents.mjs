@@ -319,7 +319,7 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getMouseEventData(event) {
-        let {altKey, clientX, clientY, ctrlKey, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
+        let {altKey, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
@@ -327,6 +327,7 @@ class DomEvents extends Base {
             clientX,
             clientY,
             ctrlKey,
+            detail,
             metaKey,
             offsetX,
             offsetY,
@@ -460,12 +461,9 @@ class DomEvents extends Base {
     onClick(event) {
         let me = this;
 
-        // Only fire for "single clicks". Clicking multiple times in a row will increase the detail counter.
-        if (event.detail < 2) {
-            me.sendMessageToApp(me.getMouseEventData(event));
+        me.sendMessageToApp(me.getMouseEventData(event));
 
-            me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
-        }
+        me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
     }
 
     /**
