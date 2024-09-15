@@ -106,6 +106,9 @@ class List extends BaseList {
     createItemContent(record) {
         return [
             {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: record.hidden, cn: [
+                {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
+                    {cls: ['far', 'fa-window-restore']}
+                ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...this.createLink(record)},

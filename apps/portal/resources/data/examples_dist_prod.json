@@ -30,11 +30,12 @@
     "sourceUrl": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
     "url"      : "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
 }, {
-    "id"       : 15,
-    "image"    : "devmode/sharedOffscreenCanvas.png",
-    "name"     : "Multi-Window OffscreenCanvas",
-    "sourceUrl": "https://github.com/neomjs/shared-offscreen",
-    "url"      : "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/production/apps/mainapp/index.html"
+    "id"           : 15,
+    "image"        : "devmode/sharedOffscreenCanvas.png",
+    "name"         : "Multi-Window OffscreenCanvas",
+    "sharedWorkers": true,
+    "sourceUrl"    : "https://github.com/neomjs/shared-offscreen",
+    "url"          : "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/production/apps/mainapp/index.html"
 }, {
     "id"       : 14,
     "image"    : "devmode/tabContainer.png",
