@@ -20,7 +20,7 @@ class TestClass extends core.Base {
     }
 }
 
-Neo.setupClass(TestClass);
+TestClass = Neo.setupClass(TestClass);
 
 StartTest(t => {
     t.it('Default class fields inside constructors', t => {
