@@ -34,6 +34,17 @@ class RowModel extends Model {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.view.un('rowClick', me.onRowClick, me)
+
+        super.destroy(...args);
+    }
+
+    /**
      * Finds the matching table row for a given row index
      * @param {Number} index row index
      * @returns {String|null} The table row node id

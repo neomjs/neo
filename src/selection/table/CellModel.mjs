@@ -33,6 +33,17 @@ class CellModel extends Model {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.view.un('cellClick', me.onCellClick, me)
+
+        super.destroy(...args);
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
