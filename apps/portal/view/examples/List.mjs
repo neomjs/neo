@@ -104,16 +104,18 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
+        let me = this;
+
         return [
-            {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: record.hidden, cn: [
+            {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
                     {cls: ['far', 'fa-window-restore']}
                 ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {...this.createLink(record)},
+                    {...me.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
-                        {...this.createSourceLink(record)},
+                        {...me.createSourceLink(record)},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
@@ -186,6 +188,20 @@ class List extends BaseList {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {Boolean}
+     */
+    isHiddenItem(record) {
+        if (record.hidden) {
+            return true
+        }
+
+        // We only want to show the portal app for the non-current environment.
+        // => A link to itself feels pointless
+        return record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment
     }
 
     /**
