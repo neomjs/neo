@@ -40,9 +40,9 @@ class List extends BaseList {
          */
         preloadImages: 5,
         /**
-         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
+         * @member {String} sourceBaseUrl='https://github.com/neomjs/neo/tree/dev/'
          */
-        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
+        sourceBaseUrl: 'https://github.com/neomjs/neo/tree/dev/',
         /**
          * @member {Boolean} useWrapperNode=true
          */
