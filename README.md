@@ -25,9 +25,10 @@ you have found the right spot.
 1. <a href="#introduction">Introduction</a>
 2. <a href="#use-cases">Potential Use Cases</a>
 3. <a href="#slack-channel">Slack Channel for questions & feedback</a>
-4. <a href="#getting-started">Getting Started</a>
-5. <a href="#cli">Command-Line Interface</a>
-6. <a href="#blog">Blog</a>
+4. <a href="#examples">Examples</a>
+5. <a href="#getting-started">Getting Started</a>
+6. <a href="#cli">Command-Line Interface</a>
+7. <a href="#blog">Blog</a>
 
 </br><h2 id="introduction">1. Introduction</h2>
 Neo.mjs drives the OMT (off the main thread) paradigm into perfection,
@@ -70,16 +71,21 @@ but instead on a super-fast update & navigation experience for returning users.
 Join our community:</br>
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA"><img src="https://img.shields.io/badge/Slack-neo.mjs-brightgreen.svg?logo=slack&style=for-the-badge" alt="Join the Slack channel"></a>
 
-</br><h2 id="getting-started">4. Getting Started</h2>
+</br><h2 id="examples">4. Examples</h2>
+Some exciting Examples are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
+
+Many more are included inside the repos `src/apps` & `src/examples` folders.
+
+</br><h2 id="getting-started">5. Getting Started</h2>
 * Take a look at the <a href="./.github/GETTING_STARTED.md">Getting Started Guide</a>
 * Make sure to dive into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup">Learning Section</a>
 * The most advanced tutorial to help you with getting up to speed is this one:</br>
    <a href="https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes">Earthquakes Tutorial</a>
 
-</br><h2 id="cli">5. Command-Line Interface</h2>
+</br><h2 id="cli">6. Command-Line Interface</h2>
 You can find an in-depth description here: <a href="./buildScripts/README.md">Neo.mjs CLI</a>
 
-</br><h2 id="blog">6. Blog</h2>
+</br><h2 id="blog">7. Blog</h2>
 All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 
 </br></br>
