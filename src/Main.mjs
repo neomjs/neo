@@ -53,6 +53,7 @@ class Main extends core.Base {
                 'importAddon',
                 'log',
                 'redirectTo',
+                'reloadWindow',
                 'setNeoConfig',
                 'setRoute',
                 'windowClose',
@@ -408,6 +409,13 @@ class Main extends core.Base {
         }
 
         this.addon[addon.constructor.name] = addon
+    }
+
+    /**
+     * @param {Object} data
+     */
+    reloadWindow(data) {
+        location.reload()
     }
 
     /**
