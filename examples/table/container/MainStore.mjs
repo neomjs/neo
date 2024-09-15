@@ -41,12 +41,6 @@ class MainStore extends Store {
             firstname: 'Bastian',
             githubId : 'bhaustein',
             lastname : 'Haustein'
-        }, {
-            colspan  : {firstname: 3},
-            country  : 'Germany',
-            firstname: 'Colspan 3',
-            githubId : 'random',
-            lastname : ''
         }]
     }
 }
