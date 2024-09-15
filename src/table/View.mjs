@@ -273,7 +273,7 @@ class View extends Component {
      */
     fireCellEvent(data, eventName) {
         let me        = this,
-            {id}      = data.target,
+            id        = data.currentTarget,
             dataField = me.getCellDataField(id),
             record    = me.getRecord(id);
 
@@ -286,7 +286,7 @@ class View extends Component {
      */
     fireRowEvent(data, eventName) {
         let me     = this,
-            {id}   = data.target,
+            id     = data.currentTarget,
             record = me.getRecord(id);
 
         me.parent.fire(eventName, {id: me, data, record})

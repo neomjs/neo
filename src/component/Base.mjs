@@ -829,7 +829,7 @@ class Base extends CoreBase {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    Neo.main.DomAccess.focus({id, children: true, windowId})
+                    me.focus(id, true)
                 }
 
                 me.fire('mounted', me.id)
@@ -1516,9 +1516,10 @@ class Base extends CoreBase {
     /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
      * @param {String} id=this.id
+     * @param {Boolean} children=false
      */
-    focus(id=this.id) {
-        Neo.main.DomAccess.focus({id, windowId: this.windowId})
+    focus(id=this.id, children=false) {
+        Neo.main.DomAccess.focus({children, id, windowId: this.windowId})
     }
 
     /**

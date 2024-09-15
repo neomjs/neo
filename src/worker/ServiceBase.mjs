@@ -250,16 +250,25 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     async onRegisterNeoConfig(msg, event) {
-        let me = this;
+        let me        = this,
+            {version} = me;
 
         Neo.config = Neo.config || {};
         Object.assign(Neo.config, msg.data);
 
-        if (me.version !== Neo.config.version) {
-            await me.clearCaches()
-        }
+        if (version !== Neo.config.version) {
+            await me.clearCaches();
 
-        me.onConnect(event.source)
+            me.version = Neo.config.version;
+
+            me.sendMessage('app', {
+                action    : 'newVersion',
+                newVersion: Neo.config.version,
+                oldVersion: version
+            })
+        } else {
+            me.onConnect(event.source)
+        }
     }
 
     /**

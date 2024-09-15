@@ -64,7 +64,7 @@ class CellColumnModel extends CellModel {
      */
     onCellClick(data) {
         let me = this,
-            id = ColumnModel.getCellId(data.path),
+            id = data.data.currentTarget,
             columnNodeIds, index, tbodyNode;
 
         if (id) {

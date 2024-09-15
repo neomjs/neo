@@ -1,5 +1,5 @@
 import BaseList from '../../../../src/list/Base.mjs';
-import Examples from '../../store/Examples.mjs';
+import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Portal.view.examples.List
@@ -35,17 +35,14 @@ class List extends BaseList {
          */
         environment: 'development',
         /**
-         * @member {Neo.data.Store} store=Examples
+         * Specify how many example item images to preload when intersecting
+         * @member {Number} preloadImages=5
          */
-        store: Examples,
+        preloadImages: 5,
         /**
-         * @member {String|null} storeUrl_=null
+         * @member {String} sourceBaseUrl='https://github.com/neomjs/neo/tree/dev/'
          */
-        storeUrl_: null,
-        /**
-         * @member {String} sourceBaseUrl='https://github.com/neo.mjs/neo/tree/dev/'
-         */
-        sourceBaseUrl: 'https://github.com/neo.mjs/neo/tree/dev/',
+        sourceBaseUrl: 'https://github.com/neomjs/neo/tree/dev/',
         /**
          * @member {Boolean} useWrapperNode=true
          */
@@ -60,31 +57,9 @@ class List extends BaseList {
     }
 
     /**
-     * Triggered before the store config gets changed.
-     * @param {Object|Neo.data.Store} value
-     * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
-     * @protected
+     * @member {String} imageBasePath
      */
-    beforeSetStore(value, oldValue) {
-        if (value) {
-            if (value.isClass) {
-                value = {
-                    module: value,
-                    url   : this.storeUrl
-                };
-            } else if (Neo.isObject(value)) {
-                value.url = this.storeUrl;
-            }
-        }
-
-        return super.beforeSetStore(value, oldValue);
-    }
-
-    /**
-     * @param {Object} record
-     */
-    createItemContent(record) {
+    get imageBasePath() {
         let basePath;
 
         if (Neo.config.isGitHubPages) {
@@ -97,15 +72,50 @@ class List extends BaseList {
             basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
         }
 
+        return basePath
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            intersect: me.onIntersect,
+            scope    : me
+        })
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        value && this.registerIntersectionObserver()
+    }
+
+    /**
+     * @param {Object} record
+     */
+    createItemContent(record) {
+        let me = this;
+
         return [
-            {cls: ['content', 'neo-relative'], removeDom: record.hidden, cn: [
-                {cls: ['neo-full-size', 'preview-image'], style: {
-                    backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
-                },
+            {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
+                {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
+                    {cls: ['far', 'fa-window-restore']}
+                ]},
+                {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {...this.createLink(record)},
+                    {...me.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
-                        {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: this.sourceBaseUrl + record.sourceUrl, target: '_blank'},
+                        {...me.createSourceLink(record)},
                         {cls: ['neo-inner-content'], cn: [
                             {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
                             {cls: ['neo-inner-details'], html: record.environments.join(', ')}
@@ -122,17 +132,45 @@ class List extends BaseList {
      * @returns {Object}
      */
     createLink(record) {
-        let vdom = {
+        let externalLink = record.url.startsWith('http'),
+
+        vdom = {
             tag : 'a',
             cls : ['neo-title'],
             cn  : [{html: record.name.replace(List.nameRegEx, "$1")}],
-            href: this.baseUrl + record.url
+            href: record.url
         };
+
+        // We can use a shorter syntax for pointing examples to neomjs.com, but not all examples have to be there.
+        if (!externalLink) {
+            vdom.href = this.baseUrl + record.url
+        }
 
         // Do not open multi-window examples inside a new browser window, in case the environment is the same.
         // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
-        if (!record.sharedWorkers || this.environment !== Neo.config.environment) {
+        if (!record.sharedWorkers || this.environment !== Neo.config.environment || externalLink) {
             vdom.target = '_blank'
+        }
+
+        return vdom
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @returns {Object}
+     */
+    createSourceLink(record) {
+        let vdom = {
+            tag   : 'a',
+            cls   : ['fab fa-github', 'neo-github-image'],
+            href  : record.sourceUrl,
+            target: '_blank'
+        };
+
+        // We can use a shorter syntax for pointing examples to neomjs/neo repo, but not all examples have to be there.
+        if (!record.sourceUrl.startsWith('http')) {
+            vdom.href = this.sourceBaseUrl + record.sourceUrl
         }
 
         return vdom
@@ -150,6 +188,78 @@ class List extends BaseList {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {Boolean}
+     */
+    isHiddenItem(record) {
+        if (record.hidden) {
+            return true
+        }
+
+        // We only want to show the portal app for the non-current environment.
+        // => A link to itself feels pointless
+        return record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onIntersect(data) {
+        let me                     = this,
+            {imageBasePath, store} = me,
+            record                 = store.get(parseInt(data.data.recordId)),
+            i                      = store.indexOf(record),
+            len                    = Math.min(i + me.preloadImages, store.getCount()),
+            needsUpdate            = false,
+            node;
+
+        for (; i < len; i++) {
+            node = VDomUtil.getByFlag(me.vdom, `image-${record.id}`);
+
+            if (!node.style) {
+                needsUpdate = true;
+
+                node.style = {
+                    backgroundImage: `url('${imageBasePath}/${record.image}'), linear-gradient(#777, #333)`
+                }
+            }
+        }
+
+        needsUpdate && me.update()
+    }
+
+    /**
+     *
+     */
+    async registerIntersectionObserver() {
+        let me   = this,
+            opts = {id: me.id, observe: ['.content'], windowId: me.windowId},
+            i    = 0,
+            len  = me.intersectionObserverReconnects,
+            data;
+
+        await me.timeout(150);
+
+        data = await Neo.main.addon.IntersectionObserver.register({
+            ...opts,
+            callback: 'isVisible',
+            root    : `#${me.parentId}`
+        });
+
+        if (data.countTargets < 1) {
+            for (; i < len; i++) {
+                await me.timeout(100);
+
+                data = await Neo.main.addon.IntersectionObserver.observe(opts);
+
+                if (data.countTargets > 0) {
+                    break
+                }
+            }
+        }
     }
 }
 

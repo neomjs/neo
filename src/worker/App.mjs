@@ -376,6 +376,17 @@ class App extends Base {
             })
         })
     }
+    /**
+     * Triggered in case a connected ServiceWorker receives a new version.
+     * Especially inside dist envs, a reload of the connecting window is required,
+     * since the SW will clear its caches and the app can receive conflicting bundle versions.
+     * @param {Object} data
+     * @param {String} data.newVersion
+     * @param {String} data.oldVersion
+     */
+    onNewVersion(data) {
+        Neo.Main.reloadWindow({});
+    }
 
     /**
      * Fire event on all apps

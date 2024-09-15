@@ -63,8 +63,8 @@ class CellColumnRowModel extends CellRowModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            id   = ColumnModel.getCellId(data.path),
+        let me = this,
+            id = ColumnModel.getCellId(data.data.path),
             columnNodeIds, index, tbodyNode;
 
         if (id) {

@@ -465,7 +465,7 @@ class Base extends Component {
             itemId           = me.getItemId(record[me.getKeyProperty()]),
             {selectionModel} = me,
             isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
-            item;
+            item, removeDom;
 
         isHeader && cls.push('neo-list-header');
 
@@ -492,7 +492,7 @@ class Base extends Component {
             item.tabIndex = -1
         }
 
-        if (record.hidden) {
+        if (record.hidden || itemContent.removeDom) {
             item.removeDom = true
         }
 
@@ -507,6 +507,19 @@ class Base extends Component {
 
             case 'Array': {
                 item.cn = itemContent;
+
+                removeDom = true;
+
+                itemContent.forEach(item => {
+                    if (!item.removeDom) {
+                        removeDom = false
+                    }
+                })
+
+                if (removeDom) {
+                    item.removeDom = true
+                }
+
                 break
             }
 

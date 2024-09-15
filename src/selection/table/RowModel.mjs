@@ -28,14 +28,20 @@ class RowModel extends Model {
      *
      */
     addDomListener() {
-        let me     = this,
-            {view} = me;
+        let me = this;
 
-        view.addDomListeners({
-            click   : me.onRowClick,
-            delegate: '.neo-table-row',
-            scope   : me
-        })
+        me.view.on('rowClick', me.onRowClick, me)
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.view.un('rowClick', me.onRowClick, me);
+
+        super.destroy(...args);
     }
 
     /**
@@ -120,8 +126,7 @@ class RowModel extends Model {
      */
     onRowClick(data) {
         let me     = this,
-            node   = RowModel.getRowNode(data.path),
-            id     = node?.id,
+            id     = data.data.currentTarget,
             {view} = me,
             isSelected, record;
 
