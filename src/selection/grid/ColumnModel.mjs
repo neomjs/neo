@@ -28,14 +28,20 @@ class ColumnModel extends Model {
      *
      */
     addDomListener() {
-        let me     = this,
-            {view} = me;
+        let me = this;
 
-        view.addDomListeners({
-            click   : me.onCellClick,
-            delegate: '.neo-grid-cell',
-            scope   : me
-        })
+        me.view.on('cellClick', me.onCellClick, me)
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.view.un('cellClick', me.onCellClick, me);
+
+        super.destroy(...args);
     }
 
     /**
@@ -76,7 +82,7 @@ class ColumnModel extends Model {
      */
     onCellClick(data) {
         let me = this,
-            id = ColumnModel.getCellId(data.path),
+            id = data.data.currentTarget,
             columnNodeIds, index, tbodyNode;
 
         if (id) {
