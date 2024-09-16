@@ -27,6 +27,9 @@ class TabContainerController extends Component {
      */
     tabItems = ['devmode', 'dist_dev', 'dist_prod']
 
+    /**
+     *
+     */
     onComponentConstructed() {
         let me = this;
 
