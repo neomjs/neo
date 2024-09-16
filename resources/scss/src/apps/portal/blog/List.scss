@@ -1,4 +1,12 @@
+@property --portal-blog-list-gradient-start {
+    syntax       : "<color>";
+    initial-value: #777;
+    inherits     : false;
+}
+
 .portal-blog-list.neo-list {
+    --portal-blog-list-gradient-end: #333;
+
     transition: padding var(--portal-transition-duration) ease-out;
 
     .neo-list-item {
@@ -12,6 +20,20 @@
         transition  : height var(--portal-transition-duration) ease-out, margin-bottom var(--portal-transition-duration) ease-out;
         white-space : normal;
         width       : 100%;
+
+        &:focus {
+            outline: none;
+
+            .preview-image {
+                --portal-blog-list-gradient-start: darkgreen;
+            }
+        }
+
+        &:hover {
+            .preview-image {
+                --portal-blog-list-gradient-start: #3E63DD;
+            }
+        }
 
         .content {
             flex: 1;
@@ -75,7 +97,7 @@
             transition     : color 250ms ease-out;
 
             &:hover {
-                color: #5d83a7
+                color: #8BA6FF
             }
         }
 
@@ -96,6 +118,7 @@
             background-position  : 50% 50%;
             background-size      : cover;
             height               : 100%;
+            transition           : --portal-blog-list-gradient-start var(--portal-transition-duration) ease-out;
         }
     }
 
