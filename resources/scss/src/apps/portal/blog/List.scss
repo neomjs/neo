@@ -1,3 +1,9 @@
+@property --portal-blog-list-gradient-end {
+    syntax       : "<color>";
+    initial-value: #333;
+    inherits     : false;
+}
+
 @property --portal-blog-list-gradient-start {
     syntax       : "<color>";
     initial-value: #777;
@@ -5,8 +11,6 @@
 }
 
 .portal-blog-list.neo-list {
-    --portal-blog-list-gradient-end: #333;
-
     transition: padding var(--portal-transition-duration) ease-out;
 
     .neo-list-item {
@@ -32,6 +36,12 @@
         &:hover {
             .preview-image {
                 --portal-blog-list-gradient-start: #3E63DD;
+            }
+
+            &:focus {
+                .preview-image {
+                    --portal-blog-list-gradient-end: darkgreen;
+                }
             }
         }
 
@@ -118,7 +128,10 @@
             background-position  : 50% 50%;
             background-size      : cover;
             height               : 100%;
-            transition           : --portal-blog-list-gradient-start var(--portal-transition-duration) ease-out;
+
+            transition:
+                --portal-blog-list-gradient-end   var(--portal-transition-duration) ease-out,
+                --portal-blog-list-gradient-start var(--portal-transition-duration) ease-out;
         }
     }
 

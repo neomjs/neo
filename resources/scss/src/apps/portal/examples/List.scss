@@ -1,3 +1,9 @@
+@property --portal-examples-list-gradient-end {
+    syntax       : "<color>";
+    initial-value: #333;
+    inherits     : false;
+}
+
 @property --portal-examples-list-gradient-start {
     syntax       : "<color>";
     initial-value: #777;
@@ -5,8 +11,6 @@
 }
 
 .portal-examples-list.neo-list {
-    --portal-examples-list-gradient-end: #333;
-
     transition: padding var(--portal-transition-duration) ease-out;
 
     .neo-list-item {
@@ -31,6 +35,12 @@
         &:hover {
             .preview-image {
                 --portal-examples-list-gradient-start: #3E63DD;
+            }
+
+            &:focus {
+                .preview-image {
+                    --portal-examples-list-gradient-end: darkgreen;
+                }
             }
         }
 
@@ -121,7 +131,10 @@
             background-blend-mode: overlay;
             background-size      : cover;
             height               : 100%;
-            transition           : --portal-examples-list-gradient-start var(--portal-transition-duration) ease-out;
+
+            transition:
+                --portal-examples-list-gradient-end   var(--portal-transition-duration) ease-out,
+                --portal-examples-list-gradient-start var(--portal-transition-duration) ease-out;
         }
     }
 
