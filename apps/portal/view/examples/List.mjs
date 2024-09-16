@@ -223,7 +223,13 @@ class List extends BaseList {
                 needsUpdate = true;
 
                 node.style = {
-                    backgroundImage: `url('${imageBasePath}/${record.image}'), linear-gradient(#777, #333)`
+                    backgroundImage: [
+                        `url('${imageBasePath}/${record.image}'),`,
+                        'linear-gradient(',
+                            'var(--portal-examples-list-gradient-start),',
+                            'var(--portal-examples-list-gradient-end)',
+                        ')'
+                    ].join('')
                 }
             }
         }
