@@ -1,4 +1,12 @@
+@property --portal-examples-list-gradient-start {
+    syntax       : "<color>";
+    initial-value: #777;
+    inherits     : false;
+}
+
 .portal-examples-list.neo-list {
+    --portal-examples-list-gradient-end: #333;
+
     transition: padding var(--portal-transition-duration) ease-out;
 
     .neo-list-item {
@@ -11,6 +19,20 @@
         transition  : height var(--portal-transition-duration) ease-out, margin-bottom var(--portal-transition-duration) ease-out;
         white-space : normal;
         width       : 100%;
+
+        &:focus {
+            outline: none;
+
+            .preview-image {
+                --portal-examples-list-gradient-start: darkgreen;
+            }
+        }
+
+        &:hover {
+            .preview-image {
+                --portal-examples-list-gradient-start: #3E63DD;
+            }
+        }
 
         .content {
             flex: 1;
@@ -29,8 +51,12 @@
             color                     : #ddd;
             text-decoration           : none;
             transition-duration       : var(--portal-transition-duration);
-            transition-property       : font-size, height, width;
+            transition-property       : color, font-size, height, width;
             transition-timing-function: ease-out;
+
+            &:hover {
+                color: #8BA6FF
+            }
         }
 
         .neo-inner-content {
@@ -72,14 +98,16 @@
 
         .neo-title {
             color          : #fff;
+            display        : flex;
             font-weight    : 600;
             line-height    : 1;
             text-decoration: none;
             text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
             transition     : color 250ms ease-out;
+            width          : fit-content;
 
             &:hover {
-                color: #5d83a7
+                color: #8BA6FF
             }
         }
 
@@ -93,6 +121,7 @@
             background-blend-mode: overlay;
             background-size      : cover;
             height               : 100%;
+            transition           : --portal-examples-list-gradient-start var(--portal-transition-duration) ease-out;
         }
     }
 

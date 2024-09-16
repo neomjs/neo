@@ -46,7 +46,7 @@ StartTest(t => {
             }
         }
 
-        Neo.applyClassConfig(TestClass);
+        Neo.setupClass(TestClass);
 
         instance = Neo.create(TestClass);
 
