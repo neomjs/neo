@@ -1,4 +1,5 @@
 import Component from '../../../../src/controller/Component.mjs';
+import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
  * @class Portal.view.examples.TabContainerController
@@ -21,6 +22,18 @@ class TabContainerController extends Component {
     }
 
     /**
+     * We need to store the current positions, since drag&drop resorting of tabs is enabled
+     * @member {String[]} tabItems
+     */
+    tabItems = ['devmode', 'dist_dev', 'dist_prod']
+
+    onComponentConstructed() {
+        let me = this;
+
+        me.component.on('moveTo', me.onMoveTab, me)
+    }
+
+    /**
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue
@@ -28,13 +41,23 @@ class TabContainerController extends Component {
     onExamplesRoute(params, value, oldValue) {
         let me     = this,
             itemId = params?.itemId || 'dist_prod',
+            index  = me.tabItems.indexOf(itemId),
             store  = me.getReference(`examples-${itemId.replace('_', '-')}-list`).store;
 
         if (store?.getCount() < 1) {
             store.load()
         }
 
-        me.component.activeIndex = itemId === 'dist_prod' ? 2 : itemId === 'dist_dev' ? 1 : 0
+        me.component.activeIndex = index
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Number} data.fromIndex
+     * @param {Number} data.toIndex
+     */
+    onMoveTab({fromIndex, toIndex}) {
+        NeoArray.move(this.tabItems, fromIndex, toIndex)
     }
 }
 
