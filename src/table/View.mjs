@@ -277,7 +277,7 @@ class View extends Component {
             dataField = me.getCellDataField(id),
             record    = me.getRecord(id);
 
-        me.parent.fire(eventName, {id: me, data, dataField, record})
+        me.parent.fire(eventName, {data, dataField, record, view: me})
     }
 
     /**
@@ -289,7 +289,7 @@ class View extends Component {
             id     = data.currentTarget,
             record = me.getRecord(id);
 
-        me.parent.fire(eventName, {id: me, data, record})
+        me.parent.fire(eventName, {data, record, view: me})
     }
 
     /**
