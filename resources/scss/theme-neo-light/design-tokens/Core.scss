@@ -1,3 +1,5 @@
+@use "sass:color";
+
 :root .neo-theme-neo-light {
     --black                        : #000000;
     --borderradius-0               : 0px;
@@ -28,16 +30,16 @@
     --gray-700                     : #454B42;
     --gray-800                     : #292D28;
     --gray-900                     : #0E0F0D;
-    --green-100                    : #{lighten(#29F5AA, 70%)};
-    --green-200                    : #{lighten(#29F5AA, 50%)};
-    --green-300                    : #{lighten(#29F5AA, 20%)};
-    --green-400                    : #{lighten(#29F5AA, 10%)};
-    --green-50                     : #{lighten(#29F5AA, 85%)};
+    --green-100                    : #{color.adjust(#29F5AA, $lightness: 70%)};
+    --green-200                    : #{color.adjust(#29F5AA, $lightness: 50%)};
+    --green-300                    : #{color.adjust(#29F5AA, $lightness: 20%)};
+    --green-400                    : #{color.adjust(#29F5AA, $lightness: 10%)};
+    --green-50                     : #{color.adjust(#29F5AA, $lightness: 85%)};
     --green-500                    : #29F5AA;
-    --green-600                    : #{darken(#29F5AA, 10%)};
-    --green-700                    : #{darken(#29F5AA, 20%)};
-    --green-800                    : #{darken(#29F5AA, 40%)};
-    --green-900                    : #{darken(#29F5AA, 60%)};
+    --green-600                    : #{color.adjust(#29F5AA, $lightness: -10%)};
+    --green-700                    : #{color.adjust(#29F5AA, $lightness: -20%)};
+    --green-800                    : #{color.adjust(#29F5AA, $lightness: -40%)};
+    --green-900                    : #{color.adjust(#29F5AA, $lightness: -60%)};
     --height-16                    : 16px;
     --height-2                     : 2px;
     --height-24                    : 24px;

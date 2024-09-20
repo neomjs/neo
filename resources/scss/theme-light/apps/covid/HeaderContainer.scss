@@ -1,10 +1,12 @@
+@use "sass:color";
+
 :root .neo-theme-light { // .covid-header-container
     --covid-header-active-background-color   : rgba(100, 181, 246, .65);
-    --covid-header-active-color              : #{darken(#64b5f6, 20%)};
+    --covid-header-active-color              : #{color.adjust(#64b5f6, $lightness: -20%)};
     --covid-header-cases-background-color    : rgba(187, 187, 187, .65);
-    --covid-header-cases-color               : #{darken(#bbb, 30%)};
+    --covid-header-cases-color               : #{color.adjust(#bbb, $lightness: -30%)};
     --covid-header-deaths-background-color   : rgba(251, 103, 103, .65);
-    --covid-header-deaths-color              : #{darken(#fb6767, 20%)};
+    --covid-header-deaths-color              : #{color.adjust(#fb6767, $lightness: -20%)};
     --covid-header-recovered-background-color: rgba( 40, 218, 111, .65);
-    --covid-header-recovered-color           : #{darken(#28ca68, 20%)};
+    --covid-header-recovered-color           : #{color.adjust(#28ca68, $lightness: -20%)};
 }

@@ -1,3 +1,5 @@
+@use "sass:color";
+
 $background-color: #3c3f41;
 $border-color    : #2b2b2b;
 $border-style    : solid;
@@ -32,7 +34,7 @@ $text-color      : #bbb;
     --button-opacity-disabled                   : var(--neo-disabled-opacity);
     --button-outline-active                     : none;
     --button-padding                            : 5px 12px 5px 12px;
-    --button-ripple-background-color            : #{darken(#5d83a7, 10%)};
+    --button-ripple-background-color            : #{color.adjust(#5d83a7, $lightness: -10%)};
     --button-text-color                         : #{$text-color};
     --button-text-color-active                  : #{$text-color};
     --button-text-color-disabled                : #{$text-color};

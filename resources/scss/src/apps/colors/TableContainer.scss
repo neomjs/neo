@@ -1,3 +1,5 @@
+@use "sass:color";
+
 $base-color: #1c60a0;
 
 .colors-table-container.neo-table-container {
@@ -8,39 +10,39 @@ $base-color: #1c60a0;
     }
 
     .color-2 {
-        background-color: lighten($base-color, 5%);
+        background-color: color.adjust($base-color, $lightness: 5%);
     }
 
     .color-3 {
-        background-color: lighten($base-color, 10%);
+        background-color: color.adjust($base-color, $lightness: 10%);
     }
 
     .color-4 {
-        background-color: lighten($base-color, 15%);
+        background-color: color.adjust($base-color, $lightness: 15%);
     }
 
     .color-5 {
-        background-color: lighten($base-color, 20%);
+        background-color: color.adjust($base-color, $lightness: 20%);
     }
 
     .color-6 {
-        background-color: lighten($base-color, 25%);
+        background-color: color.adjust($base-color, $lightness: 25%);
     }
 
     .color-7 {
-        background-color: lighten($base-color, 30%);
+        background-color: color.adjust($base-color, $lightness: 30%);
     }
 
     .color-8 {
-        background-color: lighten($base-color, 35%);
+        background-color: color.adjust($base-color, $lightness: 35%);
     }
 
     .color-9 {
-        background-color: lighten($base-color, 40%);
+        background-color: color.adjust($base-color, $lightness: 40%);
     }
 
     .color-10 {
-        background-color: lighten($base-color, 45%);
+        background-color: color.adjust($base-color, $lightness: 45%);
     }
 
     .neo-index-column {

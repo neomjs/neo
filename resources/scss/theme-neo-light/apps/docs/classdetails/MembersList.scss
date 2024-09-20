@@ -1,3 +1,5 @@
+@use "sass:color";
+
 :root .neo-theme-neo-light { // .docs-classhierarchy-memberslist
     --docs-classhierarchy-memberslist-background-color : #bbb;
     --docs-memberlist-group-header-background-color    : steelblue;
@@ -8,7 +10,7 @@
     --docs-param-table-list-item-header-text-shadow    : none;
     --docs-param-table-list-item-highlight-search-color: red;
     --docs-param-table-source-link-color               : #bbb;
-    --docs-param-table-source-link-color-hover         : #{darken(#1c60a0, 10%)};
+    --docs-param-table-source-link-color-hover         : #{color.adjust(#1c60a0, $lightness: -10%)};
     --docs-param-table-thead-background-color          : slategray;
     --docs-param-table-thead-background-image          : none;
     --docs-param-table-tr-background-clip              : none;
