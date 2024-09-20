@@ -246,7 +246,7 @@ class Resizable extends Base {
     afterSetWindowId(value, oldValue) {
         let me = this;
 
-        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__)
+        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__);
 
         if (me.dragZone) {
             me.dragZone.windowId = value
@@ -279,8 +279,9 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me    = this,
-            style = me.owner.wrapperStyle; // todo: delegation target
+        let me      = this,
+            {owner} = me,
+            style   = owner.wrapperStyle; // todo: delegation target
 
         Object.assign(me, {
             boundaryContainerRect: null,
@@ -294,12 +295,14 @@ class Resizable extends Base {
             ...me.dragZone.dragProxy.wrapperStyle
         });
 
-        me.owner.wrapperStyle = style;
+        owner.wrapperStyle = style;
 
         me.removeBodyCursorCls();
 
         me.dragZone.dragEnd();
-        me.removeAllNodes()
+        me.removeAllNodes();
+
+        owner.focus(owner.id, true)
     }
 
     /**

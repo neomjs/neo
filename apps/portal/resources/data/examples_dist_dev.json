@@ -37,87 +37,86 @@
     "sourceUrl"    : "https://github.com/neomjs/shared-offscreen",
     "url"          : "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/development/apps/mainapp/index.html"
 }, {
-    "id"       : 15,
+    "id"           : 15,
+    "image"        : "devmode/multi_window_dd.png",
+    "name"         : "Multi-Window Drag&Drop",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/shareddialog",
+    "url"          : "dist/development/apps/shareddialog/index.html"
+}, {
+    "id"       : 14,
     "image"    : "devmode/tabContainer.png",
     "name"     : "tab.Container",
     "sourceUrl": "examples/tab/container",
     "url"      : "dist/development/examples/tab/container/index.html"
 }, {
-    "id"       : 14,
+    "id"       : 13,
     "image"    : "devmode/model-component-example.png",
     "name"     : "View Models Example",
     "sourceUrl": "examples/model/advanced",
     "url"      : "dist/development/examples/model/advanced/index.html"
 }, {
-    "id"       : 13,
+    "id"       : 12,
     "image"    : "devmode/dragdrop.png",
     "name"     : "Dialog drag&drop",
     "sourceUrl": "examples/dialog",
     "url"      : "dist/development/examples/dialog/"
 }, {
-    "id"           : 12,
+    "id"           : 11,
     "image"        : "dist_prod/colorsApp.png",
     "name"         : "Colors Dashboard",
     "sharedWorkers": true,
     "sourceUrl"    : "apps/colors",
     "url"          : "dist/development/apps/colors/index.html"
 }, {
-    "id"       : 11,
+    "id"       : 10,
     "image"    : "devmode/covidDashboard.png",
     "name"     : "Covid Dashboard",
     "sourceUrl": "apps/covid",
     "url"      : "dist/development/apps/covid/index.html#mainview=table"
 }, {
-    "id"       : 10,
+    "id"       : 9,
     "image"    : "devmode/coronaHelix.png",
     "name"     : "COVID-19 Helix",
     "sourceUrl": "examples/component/coronaHelix",
     "url"      : "dist/development/examples/component/coronaHelix/index.html"
 }, {
-    "id"       : 9,
+    "id"       : 8,
     "image"    : "devmode/gallery.png",
     "name"     : "component.Gallery",
     "sourceUrl": "examples/component/gallery",
     "url"      : "dist/development/examples/component/gallery/index.html"
 }, {
-    "id"       : 8,
+    "id"       : 7,
     "image"    : "devmode/tableFiltering.png",
     "name"     : "Table Filtering",
     "sourceUrl": "examples/tableFiltering",
     "url"      : "dist/development/examples/tableFiltering/"
 }, {
-    "id"       : 7,
+    "id"       : 6,
     "image"    : "devmode/dateSelector.png",
     "name"     : "component.DateSelector",
     "sourceUrl": "examples/component/dateSelector",
     "url"      : "dist/development/examples/component/dateSelector/index.html"
 }, {
-    "id"       : 6,
+    "id"       : 5,
     "image"    : "devmode/dateField.png",
     "name"     : "form.field.Date",
     "sourceUrl": "examples/form/field/date",
     "url"      : "dist/development/examples/form/field/date/index.html"
 }, {
-    "id"       : 5,
+    "id"       : 4,
     "image"    : "devmode/selectField.png",
     "name"     : "form.field.ComboBox",
     "sourceUrl": "examples/form/field/combobox",
     "url"      : "dist/development/examples/form/field/combobox/index.html"
 }, {
-    "id"           : 4,
+    "id"           : 3,
     "image"        : "dist_prod/portalApp.png",
     "name"         : "Portal App",
     "sharedWorkers": true,
     "sourceUrl"    : "apps/portal",
     "url"          : "dist/development/apps/portal/index.html"
-}, {
-    "hidden"       : true,
-    "id"           : 3,
-    "image"        : "devmode/multi_window_dd.png",
-    "name"         : "Multi Window Drag&Drop",
-    "sharedWorkers": true,
-    "sourceUrl"    : "apps/shareddialog",
-    "url"          : "dist/development/apps/shareddialog/index.html"
 }, {
     "hidden"   : true,
     "id"       : 2,

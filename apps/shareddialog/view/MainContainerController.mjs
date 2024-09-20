@@ -104,6 +104,8 @@ class MainContainerController extends ComponentController {
             appName,
             boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
+            height             : 200,
+            width              : 300,
             windowId,
 
             dragZoneConfig: {
@@ -169,7 +171,7 @@ class MainContainerController extends ComponentController {
         } else { // drop the dialog fully into the dragEnd window
             me.mountDialogInOtherWindow({
                 fullyIncludeIntoWindow: true,
-                proxyRect             : proxyRect
+                proxyRect
             })
         }
     }
@@ -260,14 +262,16 @@ class MainContainerController extends ComponentController {
      */
     mountDialogInOtherWindow(data) {
         let me                   = this,
-            appName              = me.component.appName,
+            {appName, windowId}  = me.component,
             dialog               = me.dialog,
             dragEndWindowAppName = me.dockedWindowAppName,
+            dragEndWindowId      = me.dockedWindowId,
             side                 = me.dockedWindowSide,
-            proxyPosition, wrapperStyle;
+            needsSwitch, proxyPosition, wrapperStyle;
 
         if (dialog.appName === dragEndWindowAppName) {
-            dragEndWindowAppName = me.component.appName;
+            dragEndWindowAppName = appName;
+            dragEndWindowId      = windowId;
             side                 = me.getOppositeSide(me.dockedWindowSide)
         }
 
@@ -278,9 +282,10 @@ class MainContainerController extends ComponentController {
         // we need a delay to ensure dialog.Base: onDragEnd() is done.
         // we could use the dragEnd event of the dragZone instead.
         me.timeout(70).then(() => {
-            dialog.appName = dialog.appName === dragEndWindowAppName ? appName : dragEndWindowAppName;
+            needsSwitch = dialog.appName === dragEndWindowAppName;
 
-            // todo: windowI
+            dialog.appName  = needsSwitch ? appName  : dragEndWindowAppName;
+            dialog.windowId = needsSwitch ? windowId : dragEndWindowId;
 
             me.getOpenDialogButtons().forEach(button => {
                 if (button.appName === dialog.appName) {
@@ -370,9 +375,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDockedPositionChange(data) {
-        if (data.value === true) {
-            this.dockedWindowSide = data.component.value
-        }
+        this.dockedWindowSide = data.value
     }
 
     /**
@@ -392,7 +395,6 @@ class MainContainerController extends ComponentController {
 
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
-                    console.log('mountDialogInOtherWindow');
                     me.mountDialogInOtherWindow({proxyRect})
                 } else {
                     me.dropDialogBetweenWindows(proxyRect)
@@ -439,15 +441,18 @@ class MainContainerController extends ComponentController {
                         appName   : dockedWindowAppName,
                         autoMount : true,
                         autoRender: true,
-                        cls       : ['neo-dialog', 'neo-dragproxy'],
+                        cls       : ['neo-dialog', 'neo-panel', 'neo-dragproxy'],
                         parentId  : 'document.body',
                         vdom      : vdom,
                         windowId  : dockedWindowId
                     });
-console.log(me.windowId, dockedWindowId);
+
                     // The other window has most likely not loaded The dialog JS module yet,
                     // but the drag proxy is using some CSS rules of it.
+                    // todo: a new helper method to parse an existing instance based on its cmp tree for theme files
                     Neo.currentWorker.insertThemeFiles(dockedWindowId, Neo.dialog.Base.prototype);
+                    Neo.currentWorker.insertThemeFiles(dockedWindowId, Neo.form.field.Text.prototype);
+                    Neo.currentWorker.insertThemeFiles(dockedWindowId, Neo.form.field.trigger.Clear.prototype);
                     Neo.currentWorker.insertThemeFiles(dockedWindowId, Neo.draggable.DragProxyComponent.prototype)
                 } else {
                     me.updateDockedWindowProxyStyle({
@@ -508,35 +513,37 @@ console.log(me.windowId, dockedWindowId);
      * @param {Object} handlerData
      */
     openDockedWindow(handlerData) {
-        Neo.Main.getWindowData().then(data => {
+        let {windowId} = this;
+
+        Neo.Main.getWindowData({windowId}).then(data => {
             let me     = this,
                 dock   = me.dockedWindowSide,
                 size   = me.dockedWindowSize,
                 height, left, top, width;
 
-            switch (dock) {
+            switch(dock) {
                 case 'bottom':
                     height = size;
                     left   = data.screenLeft;
-                    top    = data.outerHeight + data.screenTop - 52;
+                    top    = data.outerHeight + data.screenTop - 62;
                     width  = data.outerWidth;
                     break
                 case 'left':
-                    height = data.outerHeight - 78;
+                    height = data.outerHeight - 86;
                     left   = data.screenLeft  - size;
-                    top    = data.screenTop   + 28;
+                    top    = data.screenTop   + 24;
                     width  = size;
                     break
                 case 'right':
-                    height = data.outerHeight - 78;
+                    height = data.outerHeight - 86;
                     left   = data.outerWidth  + data.screenLeft;
-                    top    = data.screenTop   + 28;
+                    top    = data.screenTop   + 24;
                     width  = size;
                     break
                 case 'top':
                     height = size;
                     left   = data.screenLeft;
-                    top    = data.screenTop - size + 28;
+                    top    = data.screenTop - size + 24;
                     width  = data.outerWidth;
                     break
             }
@@ -544,13 +551,15 @@ console.log(me.windowId, dockedWindowId);
             Neo.Main.windowOpen({
                 url           : 'childapps/shareddialog2/index.html',
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowId,
                 windowName    : me.dockedWindowAppName
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
-                dock: dock,
+                dock,
                 name: me.dockedWindowAppName,
-                size: size
+                size,
+                windowId
             })
         })
     }

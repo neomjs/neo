@@ -1,7 +1,9 @@
+@use "sass:color";
+
 :root .neo-theme-dark { // .neo-table-header
     --table-header-button-background-color       : #323232;
     --table-header-button-background-image       : linear-gradient(#3c3f41, #323232);
     --table-header-button-color                  : #bbb;
     --table-header-button-glyph-color            : #bbb;
-    --table-header-button-ripple-background-color: #{darken(#5d83a7, 10%)};
+    --table-header-button-ripple-background-color: #{color.adjust(#5d83a7, $lightness: -10%)};
 }
