@@ -246,7 +246,7 @@ class Resizable extends Base {
     afterSetWindowId(value, oldValue) {
         let me = this;
 
-        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__)
+        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__);
 
         if (me.dragZone) {
             me.dragZone.windowId = value
