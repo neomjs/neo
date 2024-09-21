@@ -123,6 +123,8 @@ class ContentComponent extends Component {
         if (value) {
             let me = this;
 
+            oldValue && me.destroyChildInstances();
+
             await me.doFetchContent(value);
 
             if (oldValue) {
@@ -142,15 +144,27 @@ class ContentComponent extends Component {
      * @param args
      */
     destroy(...args) {
-        this.customComponents.forEach(component => {
+        this.destroyChildInstances();
+        super.destroy(...args)
+    }
+
+    /**
+     *
+     */
+    destroyChildInstances() {
+        let me = this;
+
+        me.customComponents.forEach(component => {
             component.destroy()
         });
 
-        this.livePreviews.forEach(livePreview => {
+        me.customComponents = [];
+
+        me.livePreviews.forEach(livePreview => {
             livePreview.destroy()
         });
 
-        super.destroy(...args)
+        me.livePreviews = []
     }
 
     /**
