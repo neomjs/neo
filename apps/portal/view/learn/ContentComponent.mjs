@@ -10,16 +10,16 @@ const
     preNeoComponentRegex = /<pre\s+data-neo-component\s*>([\s\S]*?)<\/pre>/g;
 
 /**
- * @class Portal.view.learn.ContentView
+ * @class Portal.view.learn.ContentComponent
  * @extends Neo.component.Base
  */
-class ContentView extends Component {
+class ContentComponent extends Component {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.ContentView'
+         * @member {String} className='Portal.view.learn.ContentComponent'
          * @protected
          */
-        className: 'Portal.view.learn.ContentView',
+        className: 'Portal.view.learn.ContentComponent',
         /**
          * @member {String[]} baseCls=['learn-content']
          * @protected
@@ -326,4 +326,4 @@ class ContentView extends Component {
     }
 }
 
-export default Neo.setupClass(ContentView);
+export default Neo.setupClass(ContentComponent);
