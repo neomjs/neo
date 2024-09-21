@@ -21,10 +21,6 @@ class MainContainerController extends ComponentController {
          */
         connectedApps: [],
         /**
-         * @member {String} currentTheme='neo-theme-light'
-         */
-        currentTheme: 'neo-theme-light',
-        /**
          * @member {String} dockedWindowAppName='SharedDialog2'
          */
         dockedWindowAppName: 'SharedDialog2',
@@ -60,6 +56,15 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @member {String} currentTheme='neo-theme-light'
+     */
+    currentTheme = 'neo-theme-light'
+    /**
+     * @member {String|null} previousTheme=null
+     */
+    previousTheme = null
+
+    /**
      * Triggered after the dockedWindowSide config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -88,7 +93,7 @@ class MainContainerController extends ComponentController {
             animateTargetId    : data.component.id,
             appName,
             boundaryContainerId: null,
-            cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
+            cls                : [me.currentTheme],
             height             : 200,
             width              : 300,
             windowId,
@@ -297,16 +302,16 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.windowId
      */
     onAppConnect(data) {
-        let me   = this,
-            name = data.appName;
+        let me                  = this,
+            {appName, windowId} = data;
 
-        NeoArray.add(me.connectedApps, name);
+        NeoArray.add(me.connectedApps, appName);
 
-        if (name !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
-            me.switchThemeForApp(name, me.currentTheme)
+        if (appName !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
+            me.switchThemeForApp(windowId)
         }
 
-        if (name === me.dockedWindowAppName) {
+        if (appName === me.dockedWindowAppName) {
             me.dockedWindowId = data.windowId;
             me.getOpenDockedWindowButton().disabled = true
         }
@@ -585,35 +590,34 @@ class MainContainerController extends ComponentController {
             theme      = 'neo-theme-light';
         }
 
+        me.previousTheme = me.currentTheme;
+        me.currentTheme  = theme;
+
         me.connectedApps.forEach(appName => {
-            me.switchThemeForApp(appName, theme)
+            me.switchThemeForApp(Neo.apps[appName].windowId)
         });
 
-        button.set({
-            iconCls: iconCls,
-            text   : buttonText
-        });
+        button.set({iconCls, text: buttonText});
 
         if (dialog) {
             cls = dialog.cls;
 
-            NeoArray.removeAdd(cls, me.currentTheme, theme);
+            NeoArray.removeAdd(cls, me.previousTheme, me.currentTheme);
 
             dialog.cls = cls
         }
-
-        me.currentTheme = theme
     }
 
     /**
-     * @param {String} appName
-     * @param {String} theme
+     * @param {Number} windowId
      */
-    switchThemeForApp(appName, theme) {
+    switchThemeForApp(windowId) {
+        let {currentTheme, previousTheme} = this;
+
         Neo.main.DomAccess.setBodyCls({
-            appName: appName,
-            add    : [theme],
-            remove : [this.currentTheme]
+            add    : [currentTheme],
+            remove : previousTheme ? [previousTheme]: [],
+            windowId
         })
     }
 
