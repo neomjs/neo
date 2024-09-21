@@ -17,52 +17,52 @@ class MainContainerController extends ComponentController {
          */
         className: 'SharedDialog.view.MainContainerController',
         /**
-         * @member {String[]} connectedApps=[]
-         */
-        connectedApps: [],
-        /**
-         * @member {String} dockedWindowAppName='SharedDialog2'
-         */
-        dockedWindowAppName: 'SharedDialog2',
-        /**
-         * @member {Number|null} dockedWindowId=null
-         */
-        dockedWindowId: null,
-        /**
-         * @member {Neo.component.Base|null} dockedWindowProxy=null
-         */
-        dockedWindowProxy: null,
-        /**
          * Valid values: bottom, left, right, top
          * @member {String} dockedWindowSide_='right'
          */
         dockedWindowSide_: 'right',
-        /**
-         * @member {Number} dockedWindowSize=500
-         */
-        dockedWindowSize: 620,
-        /**
-         * @member {Object} dialogRect=null
-         */
-        dialogRect: null,
-        /**
-         * @member {Object} dragStartWindowRect=null
-         */
-        dragStartWindowRect: null,
-        /**
-         * @member {Number|null} targetWindowSize=0
-         */
-        targetWindowSize: 0
     }
 
+    /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
     /**
      * @member {String} currentTheme='neo-theme-light'
      */
     currentTheme = 'neo-theme-light'
     /**
+     * @member {String} dockedWindowAppName='SharedDialog2'
+     */
+    dockedWindowAppName = 'SharedDialog2'
+    /**
+     * @member {Number|null} dockedWindowId=null
+     */
+    dockedWindowId = null
+    /**
+     * @member {Neo.component.Base|null} dockedWindowProxy=null
+     */
+    dockedWindowProxy = null
+    /**
+     * @member {Number} dockedWindowSize=500
+     */
+    dockedWindowSize = 620
+    /**
+     * @member {Object} dialogRect=null
+     */
+    dialogRect = null
+    /**
+     * @member {Object} dragStartWindowRect=null
+     */
+    dragStartWindowRect = null
+    /**
      * @member {String|null} previousTheme=null
      */
     previousTheme = null
+    /**
+     * @member {Number|null} targetWindowSize=0
+     */
+    targetWindowSize = 0
 
     /**
      * Triggered after the dockedWindowSide config got changed
