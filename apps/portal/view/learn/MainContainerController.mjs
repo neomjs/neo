@@ -141,7 +141,7 @@ class MainContainerController extends Controller {
      */
     onRouteDefault(data) {
         if (!this.getModel().data.currentPageRecord) {
-            this.onRouteLearnItem({itemId: 'WhyNeo-Intro'})
+            this.onRouteLearnItem({itemId: 'benefits.Introduction'})
         }
     }
 
