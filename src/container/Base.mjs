@@ -150,9 +150,9 @@ class Base extends Component {
                 oldValue?.removeChildAttributes(item, index);
                 value.applyChildAttributes(item, index)
             });
-
-            oldValue?.destroy()
         }
+
+        oldValue?.destroy()
     }
 
     /**
