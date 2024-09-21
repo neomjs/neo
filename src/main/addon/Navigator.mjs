@@ -440,40 +440,42 @@ class Navigator extends Base {
             subject     = data.subject = DomAccess.getElement(data.id),
             eventSource = data.eventSource = data.eventSource ? DomAccess.getElement(data.eventSource) : subject;
 
-        subject.$navigator = data;
+        if (subject) {
+            subject.$navigator = data;
 
-        if (!data.activeCls) {
-            data.activeCls = 'neo-navigator-active-item'
+            if (!data.activeCls) {
+                data.activeCls = 'neo-navigator-active-item'
+            }
+
+            // Ensure that only *one* of the child focusables is actually tabbable.
+            // We use arrow keys for internal navigation. TAB must move out.
+            me.fixItemFocusability(data);
+
+            // Finds a focusable item starting from a descendant el within one of our selector items
+            data.findFocusable = el => DomUtils.closest(el, el =>
+                // We're looking for an element that is focusable
+                DomUtils.isFocusable(el) &&
+                // And within our subject element
+                (subject.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_CONTAINED_BY) &&
+                // And within an element that matches our selector
+                el.closest(data.selector)
+            );
+
+            // TreeWalker so that we can easily move between navigable elements within the target.
+            data.treeWalker = document.createTreeWalker(subject, NodeFilter.SHOW_ELEMENT, node => me.navigateNodeFilter(node, data));
+
+            // We have to know when the DOM mutates in case the active item is removed.
+            (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(subject, {
+                childList : true,
+                subtree   : true
+            });
+
+            eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
+            subject.addEventListener('mousedown',   data.l2 = e => me.navigateMouseDownHandler(e, data));
+            subject.addEventListener('click',       data.l3 = e => me.navigateClickHandler(e, data));
+            subject.addEventListener('focusin',     data.l4 = e => me.navigateFocusInHandler(e, data));
+            subject.addEventListener('focusout',    data.l5 = e => me.navigateFocusOutHandler(e, data))
         }
-
-        // Ensure that only *one* of the child focusables is actually tabbable.
-        // We use arrow keys for internal navigation. TAB must move out.
-        me.fixItemFocusability(data);
-
-        // Finds a focusable item starting from a descendant el within one of our selector items
-        data.findFocusable = el => DomUtils.closest(el, el =>
-            // We're looking for an element that is focusable
-            DomUtils.isFocusable(el) &&
-            // And within our subject element
-            (subject.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_CONTAINED_BY) &&
-            // And within an element that matches our selector
-            el.closest(data.selector)
-        );
-
-        // TreeWalker so that we can easily move between navigable elements within the target.
-        data.treeWalker = document.createTreeWalker(subject, NodeFilter.SHOW_ELEMENT, node => me.navigateNodeFilter(node, data));
-
-        // We have to know when the DOM mutates in case the active item is removed.
-        (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(subject, {
-            childList : true,
-            subtree   : true
-        });
-
-        eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
-        subject.addEventListener('mousedown',   data.l2 = e => me.navigateMouseDownHandler(e, data));
-        subject.addEventListener('click',       data.l3 = e => me.navigateClickHandler(e, data));
-        subject.addEventListener('focusin',     data.l4 = e => me.navigateFocusInHandler(e, data));
-        subject.addEventListener('focusout',    data.l5 = e => me.navigateFocusOutHandler(e, data));
     }
 
     /**
