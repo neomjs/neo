@@ -60,21 +60,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * The App worker will receive connect & disconnect events inside the SharedWorkers context
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        Neo.currentWorker.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
-        })
-    }
-
-    /**
      * Triggered after the dockedWindowSide config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -177,9 +162,9 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Boolean} enable
+     * @param {Boolean} enable=true
      */
-    enableOpenDialogButtons(enable) {
+    enableOpenDialogButtons(enable=true) {
         this.getOpenDialogButtons().forEach(button => {
             button.disabled = !enable
         })
@@ -334,27 +319,46 @@ class MainContainerController extends ComponentController {
      * @param {String} data.appName
      */
     onAppDisconnect(data) {
-        let me   = this,
-            name = data.appName;
+        let me         = this,
+            {windowId} = me,
+            name       = data.appName;
 
         if (name === 'SharedDialog') {
             // we want to close all popup windows, which equals to all connected apps minus the main app
             NeoArray.remove(me.connectedApps, 'SharedDialog');
 
             Neo.Main.windowClose({
-                names: me.connectedApps
+                names: me.connectedApps,
+                windowId
             })
         } else {
             NeoArray.remove(me.connectedApps, name);
 
-            Neo.main.addon.WindowPosition.unregisterWindow({
-                name: name
-            })
+            Neo.main.addon.WindowPosition.unregisterWindow({name, windowId})
         }
 
         if (name === me.dockedWindowAppName) {
+            if (me.dialog && me.dialog.windowId !== windowId) {
+                me.enableOpenDialogButtons()
+            }
+
             me.getOpenDockedWindowButton().disabled = false
         }
+    }
+
+    /**
+     * The App worker will receive connect & disconnect events inside the SharedWorkers context
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        })
     }
 
     /**
