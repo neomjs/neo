@@ -52,11 +52,7 @@ class DragProxyComponent extends Base {
         if (this.moveInMainThread) {
             let {appName, id, windowId} = this;
 
-            Neo.main.addon.DragDrop.setDragProxyElement({
-                appName,
-                id,
-                windowId
-            })
+            Neo.main.addon.DragDrop.setDragProxyElement({appName, id, windowId})
         }
     }
 }
