@@ -42,6 +42,17 @@ class ContentComponent extends Component {
     }
 
     /**
+     *
+     * @member {Neo.component.Base[]} customComponents=[]
+     */
+    customComponents = []
+    /**
+     *
+     * @member {Neo.code.LivePreview[]} livePreviews=[]
+     */
+    livePreviews = []
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -105,13 +116,29 @@ class ContentComponent extends Component {
     }
 
     /**
+     * Destroy all created child instances
+     * @param args
+     */
+    destroy(...args) {
+        this.customComponents.forEach(component => {
+            component.destroy()
+        });
+
+        this.livePreviews.forEach(livePreview => {
+            livePreview.destroy()
+        });
+
+        super.destroy(...args)
+    }
+
+    /**
      * @param {Object} record
      * @returns {Promise<void>}
      */
     async doFetchContent(record) {
         let me   = this,
             path = me.getModel().getData('contentPath'),
-            content, data, html, modifiedHtml, neoComponents, neoDivs;
+            content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
 
         path += `/pages/${record.id.replaceAll('.', '/')}.md`;
 
@@ -122,7 +149,7 @@ class ContentComponent extends Component {
             content       = `# ${record.name}\n${content}`;
             modifiedHtml  = await me.highlightPreContent(content);
             neoComponents = {};
-            neoDivs       = {}
+            neoDivs       = {};
 
             // Replace <pre neo-component></pre> with <div id='neo-component-x'/>
             // and create a map keyed by ID, whose value is the javascript
@@ -144,7 +171,7 @@ class ContentComponent extends Component {
             await me.timeout(Neo.config.environment === 'development' ? 100 : 150);
 
             Object.keys(neoComponents).forEach(key => {
-                Neo.create({
+                instance = Neo.create({
                     appName        : me.appName,
                     autoMount      : true,
                     autoRender     : true,
@@ -153,12 +180,13 @@ class ContentComponent extends Component {
                     parentId       : key,
                     windowId       : me.windowId,
                     ...neoComponents[key]
-                })
+                });
+
+                me.customComponents.push(instance)
             });
 
             Object.keys(neoDivs).forEach(key => {
-                // Create LivePreview for each iteration, set value to neoDivs[key]
-                Neo.create({
+                instance = Neo.create({
                     module         : LivePreview,
                     appName        : me.appName,
                     autoMount      : true,
@@ -167,7 +195,9 @@ class ContentComponent extends Component {
                     parentId       : key,
                     value          : neoDivs[key],
                     windowId       : me.windowId
-                })
+                });
+
+                me.livePreviews.push(instance)
             });
 
             Neo.main.addon.IntersectionObserver.observe({
