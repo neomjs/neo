@@ -118,7 +118,7 @@ class MainContainerController extends ComponentController {
 
         if (me.dockedWindowProxy) {
             me.dockedWindowProxy.destroy(true);
-            me.dockedWindowProxy = null;
+            me.dockedWindowProxy = null
         }
     }
 
@@ -186,9 +186,7 @@ class MainContainerController extends ComponentController {
      *
      */
     getOpenDialogButtons() {
-        return ComponentManager.find({
-            flag: 'open-dialog-button'
-        })
+        return ComponentManager.find({flag: 'open-dialog-button'})
     }
 
     /**
@@ -211,9 +209,8 @@ class MainContainerController extends ComponentController {
      * @return {{left: String, top: String}}
      */
     getProxyPosition(proxyRect, side, fullyIncludeIntoWindow=false) {
-        let me                  = this,
-            dragStartWindowRect = me.dragStartWindowRect,
-            targetWindowSize    = me.targetWindowSize,
+        let me                                      = this,
+            {dragStartWindowRect, targetWindowSize} = me,
             left, top;
 
         switch(side) {
