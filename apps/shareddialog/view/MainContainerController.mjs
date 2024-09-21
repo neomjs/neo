@@ -319,24 +319,24 @@ class MainContainerController extends ComponentController {
      * @param {String} data.appName
      */
     onAppDisconnect(data) {
-        let me         = this,
-            {windowId} = me,
-            name       = data.appName;
+        let me                                = this,
+            {connectedApps, dialog, windowId} = me,
+            name                              = data.appName;
 
         if (name === 'SharedDialog') {
             // we want to close all popup windows, which equals to all connected apps minus the main app
-            NeoArray.remove(me.connectedApps, 'SharedDialog');
+            NeoArray.remove(connectedApps, 'SharedDialog');
 
             Neo.Main.windowClose({
-                names: me.connectedApps,
+                names: connectedApps,
                 windowId
             })
         } if (name === me.dockedWindowAppName) {
-            NeoArray.remove(me.connectedApps, name);
+            NeoArray.remove(connectedApps, name);
 
             Neo.main.addon.WindowPosition.unregisterWindow({name, windowId});
 
-            if (me.dialog && me.dialog.windowId !== windowId) {
+            if (dialog && dialog.windowId !== windowId) {
                 me.enableOpenDialogButtons()
             }
 
@@ -386,11 +386,10 @@ class MainContainerController extends ComponentController {
      */
     onDragEnd(data) {
         if (this.hasDockedWindow()) {
-            let me                  = this,
-                dialog              = me.dialog,
-                dragStartWindowRect = me.dragStartWindowRect,
-                proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-                side                = me.dockedWindowSide;
+            let me        = this,
+                {dialog, dragStartWindowRect} = me,
+                proxyRect = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+                side      = me.dockedWindowSide;
 
             if (dialog.appName === me.dockedWindowAppName) {
                 side = me.getOppositeSide(me.dockedWindowSide)
@@ -412,7 +411,7 @@ class MainContainerController extends ComponentController {
     onDragMove(data) {
         if (this.hasDockedWindow()) {
             let me        = this,
-                 {dialogRect, dragStartWindowRect, dockedWindowAppName, dockedWindowId} = me,
+                {dialogRect, dragStartWindowRect, dockedWindowAppName, dockedWindowId} = me,
                 proxyRect = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side      = me.dockedWindowSide,
                 proxyPosition, vdom;
@@ -475,7 +474,7 @@ class MainContainerController extends ComponentController {
     onDragStart(data) {
         if (this.hasDockedWindow()) {
             let me               = this,
-                appName          = me.component.appName,
+                {appName}        = me.component,
                 dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
             me.dialogRect = data.dragElementRect;
