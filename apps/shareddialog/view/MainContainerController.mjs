@@ -372,7 +372,8 @@ class MainContainerController extends ComponentController {
      *
      */
     onDialogClose() {
-        this.enableOpenDialogButtons(true)
+        this.enableOpenDialogButtons(true);
+        this.dialog = null
     }
 
     /**
