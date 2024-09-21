@@ -82,14 +82,36 @@ class ContentComponent extends Component {
 
         let me = this;
 
-        value && me.timeout(50).then(() => {
-            Neo.main.addon.IntersectionObserver.register({
-                callback: 'findTopmostItem',
-                id      : me.id,
-                root    : `#${me.parentId}`,
-                windowId: me.windowId
+        if (value) {
+            me.timeout(50).then(() => {
+                me.customComponents.forEach(component => {
+                    if (!component.mounted && !component.rendering) {
+                        component.render(true)
+                    }
+                });
+
+                me.livePreviews.forEach(livePreview => {
+                    if (!livePreview.mounted && !livePreview.rendering) {
+                        livePreview.render(true)
+                    }
+                });
+
+                Neo.main.addon.IntersectionObserver.register({
+                    callback: 'findTopmostItem',
+                    id      : me.id,
+                    root    : `#${me.parentId}`,
+                    windowId: me.windowId
+                })
             })
-        })
+        } else if (oldValue !== undefined) {
+            me.customComponents.forEach(component => {
+                component.mounted = false
+            });
+
+            me.livePreviews.forEach(livePreview => {
+                livePreview.mounted = false
+            });
+        }
     }
 
     /**
@@ -136,13 +158,15 @@ class ContentComponent extends Component {
      * @returns {Promise<void>}
      */
     async doFetchContent(record) {
-        let me   = this,
-            path = me.getModel().getData('contentPath'),
-            content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
+        let me                  = this,
+            {appName, windowId} = me,
+            path                = me.getModel().getData('contentPath'),
+            baseConfigs, content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
 
         path += `/pages/${record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
+            baseConfigs   = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};
             data          = await fetch(path);
             content       = await data.text();
             content       = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
@@ -172,13 +196,9 @@ class ContentComponent extends Component {
 
             Object.keys(neoComponents).forEach(key => {
                 instance = Neo.create({
-                    appName        : me.appName,
-                    autoMount      : true,
-                    autoRender     : true,
-                    className      : 'Neo.component.Base',
-                    parentComponent: me,
-                    parentId       : key,
-                    windowId       : me.windowId,
+                    ...baseConfigs,
+                    className: 'Neo.component.Base',
+                    parentId : key,
                     ...neoComponents[key]
                 });
 
@@ -187,14 +207,10 @@ class ContentComponent extends Component {
 
             Object.keys(neoDivs).forEach(key => {
                 instance = Neo.create({
-                    module         : LivePreview,
-                    appName        : me.appName,
-                    autoMount      : true,
-                    autoRender     : true,
-                    parentComponent: me,
-                    parentId       : key,
-                    value          : neoDivs[key],
-                    windowId       : me.windowId
+                    ...baseConfigs,
+                    module  : LivePreview,
+                    parentId: key,
+                    value   : neoDivs[key]
                 });
 
                 me.livePreviews.push(instance)
@@ -308,11 +324,11 @@ class ContentComponent extends Component {
             record = me.record;
 
         if (data.altKey && data.shiftKey && !data.metaKey) {
-            me.fire('edit', { component: me, record })
+            me.fire('edit', {component: me, record})
         }
         // Command/windows shift click = refresh
         else if (!data.altKey && data.shiftKey && data.metaKey) {
-            me.fire('refresh', { component: me, record })
+            me.fire('refresh', {component: me, record})
         }
     }
 
