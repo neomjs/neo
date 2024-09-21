@@ -331,13 +331,11 @@ class MainContainerController extends ComponentController {
                 names: me.connectedApps,
                 windowId
             })
-        } else {
+        } if (name === me.dockedWindowAppName) {
             NeoArray.remove(me.connectedApps, name);
 
-            Neo.main.addon.WindowPosition.unregisterWindow({name, windowId})
-        }
+            Neo.main.addon.WindowPosition.unregisterWindow({name, windowId});
 
-        if (name === me.dockedWindowAppName) {
             if (me.dialog && me.dialog.windowId !== windowId) {
                 me.enableOpenDialogButtons()
             }
