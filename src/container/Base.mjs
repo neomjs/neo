@@ -152,7 +152,7 @@ class Base extends Component {
             });
         }
 
-        oldValue?.destroy()
+        oldValue?.destroy?.()
     }
 
     /**
