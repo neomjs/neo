@@ -28,6 +28,7 @@ class DemoDialog extends Dialog {
          * @member {Object} itemDefaults={labelWidth:70}
          */
         itemDefaults: {
+            flex      : 'none',
             labelWidth: 70
         },
         /**
@@ -35,11 +36,9 @@ class DemoDialog extends Dialog {
          */
         items: [{
             module   : TextField,
-            flex     : 'none',
             labelText: 'Field 1'
         }, {
             module   : TextField,
-            flex     : 'none',
             labelText: 'Field 2'
         }]
     }
