@@ -35,21 +35,15 @@ class DragProxyComponent extends Base {
     }
 
     /**
-     * @param {Object} config
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
 
-        let me = this;
-
-        me.on('mounted', me.onMounted, me)
-    }
-
-    /**
-     * @param {String} id
-     */
-    onMounted(id) {
-        if (this.moveInMainThread) {
+        if (value && this.moveInMainThread) {
             let {appName, id, windowId} = this;
 
             Neo.main.addon.DragDrop.setDragProxyElement({appName, id, windowId})
