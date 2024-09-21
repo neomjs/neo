@@ -2,6 +2,7 @@ import Component           from '../../../src/component/Base.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
 import ComponentManager    from '../../../src/manager/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
+import DragProxyComponent  from '../../../src/draggable/DragProxyComponent.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
 import Rectangle           from '../../../src/util/Rectangle.mjs';
 
@@ -441,14 +442,12 @@ class MainContainerController extends ComponentController {
                     });
 
                     me.dockedWindowProxy = Neo.create({
-                        module    : Component,
-                        appName   : dockedWindowAppName,
-                        autoMount : true,
-                        autoRender: true,
-                        cls       : ['neo-dialog', 'neo-panel', 'neo-dragproxy'],
-                        parentId  : 'document.body',
-                        vdom      : vdom,
-                        windowId  : dockedWindowId
+                        module          : DragProxyComponent,
+                        appName         : dockedWindowAppName,
+                        cls             : ['neo-dialog', 'neo-panel', 'neo-container'],
+                        moveInMainThread: false,
+                        vdom            : vdom,
+                        windowId        : dockedWindowId
                     });
 
                     // The other window has most likely not loaded The dialog JS module yet,

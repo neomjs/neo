@@ -25,9 +25,9 @@ class DragProxyComponent extends Base {
          */
         autoRender: true,
         /**
-         * @member {String[]} cls=['neo-dragproxy']
+         * @member {String[]} baseCls=['neo-dragproxy']
          */
-        cls: ['neo-dragproxy'],
+        baseCls: ['neo-dragproxy'],
         /**
          * @member {Boolean} moveInMainThread=true
          */
