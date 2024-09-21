@@ -3,7 +3,7 @@ Welcome to Neo.mjs! This set of topics contains information to help you use Neo.
 
 ## Topics
 
-### Why Neo?
+### Benefits
 
 Describes technical and business reasons for using Neo.mjs
 

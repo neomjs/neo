@@ -36,9 +36,9 @@ class ViewportController extends Controller {
          */
         defaultHash: '/home',
         /**
-         * @member {String} mainContentLayout_='mixed'
+         * @member {String} mainContentLayout_='card'
          */
-        mainContentLayout_: 'mixed',
+        mainContentLayout_: 'card',
         /**
          * @member {Object} routes
          */
@@ -88,14 +88,30 @@ class ViewportController extends Controller {
      * @protected
      */
     afterSetMainContentLayout(value, oldValue) {
-        let {activeIndex} = this,
-            container     = this.component.getItem('main-content'); // happens before instantiation
+        let me                      = this,
+            {activeIndex, windowId} = me,
+            container               = me.component.getItem('main-content'); // happens before instantiation
+
+        if (oldValue === undefined) {
+            // We can not turn this method itself into async and await the addon response,
+            // since the container needs its layout right away
+            Neo.main.addon.LocalStorage.readLocalStorageItem({
+                key: 'mainContentLayout',
+                windowId
+            }).then(data => {
+                if (data.value !== 'card') {
+                    me.mainContentLayout = data.value
+                }
+            })
+        }
 
         if (value === 'cube') {
             container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true}
         } else {
             container.layout = {ntype: 'card', activeIndex}
         }
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({key: 'mainContentLayout', value, windowId})
     }
 
     /**

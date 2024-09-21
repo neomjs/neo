@@ -87,7 +87,10 @@ class Base extends Component {
          */
         items_: [],
         /**
-         * @member {Object} layout_={ntype: 'vbox', align: 'stretch'}
+         * It is crucial to define a layout before the container does get rendered.
+         * Meaning: onConstructed() is the latest life-cycle point.
+         * You can use layout: 'base', in case you do not need a layout at all.
+         * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
          */
         layout_: {
             ntype: 'vbox',
@@ -135,7 +138,7 @@ class Base extends Component {
     }
 
     /**
-     * @param {Neo.layout.Base} value
+     * @param {Neo.layout.Base|null} value
      * @param {Neo.layout.Base|null} oldValue
      * @protected
      */
@@ -144,15 +147,15 @@ class Base extends Component {
 
         if (me.rendered) {
             oldValue?.removeRenderAttributes();
-            value.applyRenderAttributes();
+            value?.applyRenderAttributes();
 
             me.items.forEach((item, index) => {
                 oldValue?.removeChildAttributes(item, index);
-                value.applyChildAttributes(item, index)
-            });
-
-            oldValue?.destroy()
+                value?.applyChildAttributes(item, index)
+            })
         }
+
+        oldValue?.destroy?.()
     }
 
     /**
@@ -419,6 +422,8 @@ class Base extends Component {
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
      */
     destroy(updateParentVdom=false, silent=false) {
+        this.layout?.destroy();
+
         this.items?.forEach(item => {
             item.destroy?.(false, true)
         });

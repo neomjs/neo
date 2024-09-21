@@ -13,6 +13,7 @@
         "DragDrop",
         "HighlightJS",
         "IntersectionObserver",
+        "LocalStorage",
         "MonacoEditor",
         "Navigator",
         "ResizeObserver",

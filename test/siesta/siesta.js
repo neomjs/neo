@@ -20,6 +20,7 @@ project.plan(
     'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
     'tests/CollectionBase.mjs',
+    'tests/ManagerInstance.mjs',
     'tests/Rectangle.mjs',
     'tests/VdomHelper.mjs',
     'tests/VdomCalendar.mjs',

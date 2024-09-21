@@ -2,6 +2,7 @@ import Component           from '../../../src/component/Base.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
 import ComponentManager    from '../../../src/manager/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
+import DragProxyComponent  from '../../../src/draggable/DragProxyComponent.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
 import Rectangle           from '../../../src/util/Rectangle.mjs';
 
@@ -17,62 +18,52 @@ class MainContainerController extends ComponentController {
          */
         className: 'SharedDialog.view.MainContainerController',
         /**
-         * @member {String[]} connectedApps=[]
-         */
-        connectedApps: [],
-        /**
-         * @member {String} currentTheme='neo-theme-light'
-         */
-        currentTheme: 'neo-theme-light',
-        /**
-         * @member {String} dockedWindowAppName='SharedDialog2'
-         */
-        dockedWindowAppName: 'SharedDialog2',
-        /**
-         * @member {Number|null} dockedWindowId=null
-         */
-        dockedWindowId: null,
-        /**
-         * @member {Neo.component.Base|null} dockedWindowProxy=null
-         */
-        dockedWindowProxy: null,
-        /**
          * Valid values: bottom, left, right, top
          * @member {String} dockedWindowSide_='right'
          */
         dockedWindowSide_: 'right',
-        /**
-         * @member {Number} dockedWindowSize=500
-         */
-        dockedWindowSize: 620,
-        /**
-         * @member {Object} dialogRect=null
-         */
-        dialogRect: null,
-        /**
-         * @member {Object} dragStartWindowRect=null
-         */
-        dragStartWindowRect: null,
-        /**
-         * @member {Number|null} targetWindowSize=0
-         */
-        targetWindowSize: 0
     }
 
     /**
-     * The App worker will receive connect & disconnect events inside the SharedWorkers context
+     * @member {String[]} connectedApps=[]
      */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        Neo.currentWorker.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
-        })
-    }
+    connectedApps = []
+    /**
+     * @member {String} currentTheme='neo-theme-light'
+     */
+    currentTheme = 'neo-theme-light'
+    /**
+     * @member {String} dockedWindowAppName='SharedDialog2'
+     */
+    dockedWindowAppName = 'SharedDialog2'
+    /**
+     * @member {Number|null} dockedWindowId=null
+     */
+    dockedWindowId = null
+    /**
+     * @member {Neo.component.Base|null} dockedWindowProxy=null
+     */
+    dockedWindowProxy = null
+    /**
+     * @member {Number} dockedWindowSize=500
+     */
+    dockedWindowSize = 620
+    /**
+     * @member {Object} dialogRect=null
+     */
+    dialogRect = null
+    /**
+     * @member {Object} dragStartWindowRect=null
+     */
+    dragStartWindowRect = null
+    /**
+     * @member {String|null} previousTheme=null
+     */
+    previousTheme = null
+    /**
+     * @member {Number|null} targetWindowSize=0
+     */
+    targetWindowSize = 0
 
     /**
      * Triggered after the dockedWindowSide config got changed
@@ -103,7 +94,7 @@ class MainContainerController extends ComponentController {
             animateTargetId    : data.component.id,
             appName,
             boundaryContainerId: null,
-            cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
+            cls                : [me.currentTheme],
             height             : 200,
             width              : 300,
             windowId,
@@ -128,7 +119,7 @@ class MainContainerController extends ComponentController {
 
         if (me.dockedWindowProxy) {
             me.dockedWindowProxy.destroy(true);
-            me.dockedWindowProxy = null;
+            me.dockedWindowProxy = null
         }
     }
 
@@ -177,9 +168,9 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Boolean} enable
+     * @param {Boolean} enable=true
      */
-    enableOpenDialogButtons(enable) {
+    enableOpenDialogButtons(enable=true) {
         this.getOpenDialogButtons().forEach(button => {
             button.disabled = !enable
         })
@@ -196,9 +187,7 @@ class MainContainerController extends ComponentController {
      *
      */
     getOpenDialogButtons() {
-        return ComponentManager.find({
-            flag: 'open-dialog-button'
-        })
+        return ComponentManager.find({flag: 'open-dialog-button'})
     }
 
     /**
@@ -221,9 +210,8 @@ class MainContainerController extends ComponentController {
      * @return {{left: String, top: String}}
      */
     getProxyPosition(proxyRect, side, fullyIncludeIntoWindow=false) {
-        let me                  = this,
-            dragStartWindowRect = me.dragStartWindowRect,
-            targetWindowSize    = me.targetWindowSize,
+        let me                                      = this,
+            {dragStartWindowRect, targetWindowSize} = me,
             left, top;
 
         switch(side) {
@@ -312,16 +300,16 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.windowId
      */
     onAppConnect(data) {
-        let me   = this,
-            name = data.appName;
+        let me                  = this,
+            {appName, windowId} = data;
 
-        NeoArray.add(me.connectedApps, name);
+        NeoArray.add(me.connectedApps, appName);
 
-        if (name !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
-            me.switchThemeForApp(name, me.currentTheme)
+        if (appName !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
+            me.switchThemeForApp(windowId)
         }
 
-        if (name === me.dockedWindowAppName) {
+        if (appName === me.dockedWindowAppName) {
             me.dockedWindowId = data.windowId;
             me.getOpenDockedWindowButton().disabled = true
         }
@@ -334,27 +322,44 @@ class MainContainerController extends ComponentController {
      * @param {String} data.appName
      */
     onAppDisconnect(data) {
-        let me   = this,
-            name = data.appName;
+        let me                                = this,
+            {connectedApps, dialog, windowId} = me,
+            name                              = data.appName;
 
         if (name === 'SharedDialog') {
             // we want to close all popup windows, which equals to all connected apps minus the main app
-            NeoArray.remove(me.connectedApps, 'SharedDialog');
+            NeoArray.remove(connectedApps, 'SharedDialog');
 
             Neo.Main.windowClose({
-                names: me.connectedApps
+                names: connectedApps,
+                windowId
             })
-        } else {
-            NeoArray.remove(me.connectedApps, name);
+        } if (name === me.dockedWindowAppName) {
+            NeoArray.remove(connectedApps, name);
 
-            Neo.main.addon.WindowPosition.unregisterWindow({
-                name: name
-            })
-        }
+            Neo.main.addon.WindowPosition.unregisterWindow({name, windowId});
 
-        if (name === me.dockedWindowAppName) {
+            if (dialog && dialog.windowId !== windowId) {
+                me.enableOpenDialogButtons()
+            }
+
             me.getOpenDockedWindowButton().disabled = false
         }
+    }
+
+    /**
+     * The App worker will receive connect & disconnect events inside the SharedWorkers context
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        })
     }
 
     /**
@@ -368,7 +373,8 @@ class MainContainerController extends ComponentController {
      *
      */
     onDialogClose() {
-        this.enableOpenDialogButtons(true)
+        this.enableOpenDialogButtons(true);
+        this.dialog = null
     }
 
     /**
@@ -383,11 +389,10 @@ class MainContainerController extends ComponentController {
      */
     onDragEnd(data) {
         if (this.hasDockedWindow()) {
-            let me                  = this,
-                dialog              = me.dialog,
-                dragStartWindowRect = me.dragStartWindowRect,
-                proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-                side                = me.dockedWindowSide;
+            let me        = this,
+                {dialog, dragStartWindowRect} = me,
+                proxyRect = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+                side      = me.dockedWindowSide;
 
             if (dialog.appName === me.dockedWindowAppName) {
                 side = me.getOppositeSide(me.dockedWindowSide)
@@ -409,7 +414,7 @@ class MainContainerController extends ComponentController {
     onDragMove(data) {
         if (this.hasDockedWindow()) {
             let me        = this,
-                 {dialogRect, dragStartWindowRect, dockedWindowAppName, dockedWindowId} = me,
+                {dialogRect, dragStartWindowRect, dockedWindowAppName, dockedWindowId} = me,
                 proxyRect = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side      = me.dockedWindowSide,
                 proxyPosition, vdom;
@@ -437,14 +442,12 @@ class MainContainerController extends ComponentController {
                     });
 
                     me.dockedWindowProxy = Neo.create({
-                        module    : Component,
-                        appName   : dockedWindowAppName,
-                        autoMount : true,
-                        autoRender: true,
-                        cls       : ['neo-dialog', 'neo-panel', 'neo-dragproxy'],
-                        parentId  : 'document.body',
-                        vdom      : vdom,
-                        windowId  : dockedWindowId
+                        module          : DragProxyComponent,
+                        appName         : dockedWindowAppName,
+                        cls             : ['neo-dialog', 'neo-panel', 'neo-container'],
+                        moveInMainThread: false,
+                        vdom            : vdom,
+                        windowId        : dockedWindowId
                     });
 
                     // The other window has most likely not loaded The dialog JS module yet,
@@ -472,7 +475,7 @@ class MainContainerController extends ComponentController {
     onDragStart(data) {
         if (this.hasDockedWindow()) {
             let me               = this,
-                appName          = me.component.appName,
+                {appName}        = me.component,
                 dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
             me.dialogRect = data.dragElementRect;
@@ -583,35 +586,34 @@ class MainContainerController extends ComponentController {
             theme      = 'neo-theme-light';
         }
 
+        me.previousTheme = me.currentTheme;
+        me.currentTheme  = theme;
+
         me.connectedApps.forEach(appName => {
-            me.switchThemeForApp(appName, theme)
+            me.switchThemeForApp(Neo.apps[appName].windowId)
         });
 
-        button.set({
-            iconCls: iconCls,
-            text   : buttonText
-        });
+        button.set({iconCls, text: buttonText});
 
         if (dialog) {
             cls = dialog.cls;
 
-            NeoArray.removeAdd(cls, me.currentTheme, theme);
+            NeoArray.removeAdd(cls, me.previousTheme, me.currentTheme);
 
             dialog.cls = cls
         }
-
-        me.currentTheme = theme
     }
 
     /**
-     * @param {String} appName
-     * @param {String} theme
+     * @param {Number} windowId
      */
-    switchThemeForApp(appName, theme) {
+    switchThemeForApp(windowId) {
+        let {currentTheme, previousTheme} = this;
+
         Neo.main.DomAccess.setBodyCls({
-            appName: appName,
-            add    : [theme],
-            remove : [this.currentTheme]
+            add    : [currentTheme],
+            remove : previousTheme ? [previousTheme]: [],
+            windowId
         })
     }
 

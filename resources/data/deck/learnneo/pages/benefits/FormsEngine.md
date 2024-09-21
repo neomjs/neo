@@ -1,7 +1,7 @@
 ## Forms include a State-Provider
 
 You do not need to define a state tree on your own.
-It if sufficient to just use namespaces inside the `name` attribute of each field.
+It is sufficient to just use namespaces inside the `name` attribute of each field.
 
 <pre data-neo>
 import Button        from '../button/Base.mjs';

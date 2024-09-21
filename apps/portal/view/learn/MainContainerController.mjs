@@ -1,4 +1,5 @@
 import Controller        from '../../../../src/controller/Component.mjs';
+import CubeLayoutButton  from './CubeLayoutButton.mjs'; // required for the Portal App .md file
 import {getSearchParams} from '../../Util.mjs';
 
 /**

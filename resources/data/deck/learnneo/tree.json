@@ -32,6 +32,7 @@
         {"name": "Events",                                  "parentId": "InDepth",           "isLeaf": false, "id": "GuideEvents"},
             {"name": "Custom Events",                       "parentId": "GuideEvents",                        "id": "guides.events.CustomEvents"},
             {"name": "DOM Events",                          "parentId": "GuideEvents",                        "id": "guides.events.DomEvents"},
+        {"name": "Portal App",                              "parentId": "InDepth",                            "id": "guides.PortalApp"},
         {"name": "Tables (Stores)",                         "parentId": "InDepth",                            "id": "guides.Tables", "hidden": true},
         {"name": "Multi-Window Applications",               "parentId": "InDepth",                            "id": "guides.MultiWindow", "hidden":  true},
         {"name": "Main Thread Addons",                      "parentId": "InDepth",           "isLeaf": false, "id": "MainThreadAddons", "hidden": true},

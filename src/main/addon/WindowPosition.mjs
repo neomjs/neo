@@ -67,13 +67,13 @@ class WindowPosition extends Base {
     construct(config) {
         super.construct(config);
 
-        let me  = this,
-            win = window;
+        let me                      = this,
+            {screenLeft, screenTop} = window;
 
-        me.screenLeft = win.screenLeft;
-        me.screenTop  = win.screenTop;
+        me.screenLeft = screenLeft;
+        me.screenTop  = screenTop;
 
-        win.addEventListener('mouseout', me.onMouseOut.bind(me))
+        window.addEventListener('mouseout', me.onMouseOut.bind(me))
     }
 
     /**
@@ -96,15 +96,13 @@ class WindowPosition extends Base {
      *
      */
     adjustPositions() {
-        let position;
-
         Object.entries(this.windows).forEach(([key, value]) => {
-            position = this.getPosition(value);
+            let {left, top} = this.getPosition(value);
 
             Neo.Main.windowMoveTo({
                 windowName: key,
-                x         : position.left,
-                y         : position.top
+                x         : left,
+                y         : top
             })
         })
     }
@@ -199,7 +197,7 @@ class WindowPosition extends Base {
     /**
      * @param {Object} event
      */
-    onResize(event) { console.log('onResize');
+    onResize(event) {
         let me  = this,
             win = window,
             height, width;

@@ -1,6 +1,6 @@
-import Container   from '../../../../src/container/Base.mjs';
-import ContentView from './ContentView.mjs';
-import Toolbar     from '../../../../src/toolbar/Base.mjs';
+import Container        from '../../../../src/container/Base.mjs';
+import ContentComponent from './ContentComponent.mjs';
+import Toolbar          from '../../../../src/toolbar/Base.mjs';
 
 /**
  * @class Portal.view.learn.PageContainer
@@ -29,7 +29,7 @@ class PageContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module   : ContentView,
+            module   : ContentComponent,
             reference: 'content',
             listeners: {
                 edit   : 'onContentEdit',

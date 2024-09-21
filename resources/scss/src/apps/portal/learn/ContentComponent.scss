@@ -1,0 +1,100 @@
+.learn-content {
+    background-color: white;
+    border-radius   : 8px;
+    letter-spacing  : 1px;
+    margin          : 0 auto;
+    max-width       : 1200px;
+    overflow        : unset;
+    padding         : 0 3rem;
+    width           : -webkit-fill-available;
+
+    @media (max-width: 600px) {
+        overflow-x: hidden;
+        padding   : 1rem 1rem 0;
+    }
+
+    a {
+        color: #3E63DD;;
+    }
+
+    blockquote {
+        background-color: var(--gray-100);
+        border-left     : 4px solid var(--sem-color-surface-primary-background);
+        font-style      : italic;
+        margin-left     : 0;
+        padding         : 5px 5px 5px 15px;
+    }
+
+    details {
+        margin: 1em 0 1em 0;
+    }
+
+    details summary {
+        cursor    : pointer;
+        transition: margin 300ms ease-out;
+    }
+
+    details[open] {
+        margin-bottom: 2em;
+    }
+
+    details summary {
+        align-items: center;
+        color      : #555;
+        display    : flex;
+        font-weight: bold;
+        list-style : none;
+    }
+
+    details summary::before {
+        content: "\f055";
+    }
+
+    details[open] summary::before {
+        content: "\f056";
+    }
+
+    details summary::before {
+        color      : #c4c4c4;
+        font-family: var(--fa-style-family, "Font Awesome 6 Free");
+        font-size  : 1em;
+        font-weight: var(--fa-style, 900);
+        margin     : 0.4em 0.4em 0.4em 0;
+    }
+
+    summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .lab {
+        /* Add shadows to create the "card" effect */
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        transition: 0.3s;
+        /* Add some padding inside the card container */
+        padding      : 2px 16px;
+        font-size    : 1em;
+        margin-bottom: 1em;
+
+        &:hover {
+            /* On mouse-over, add a deeper shadow */
+            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    p {
+        margin: 0.5em 0 0.7em 0;
+    }
+
+    pre[data-javascript] {
+        border       : thin solid lightgray;
+        border-radius: 4px;
+        overflow-x   : scroll;
+        padding      : 12px;
+    }
+}
+
+.portal-size-large {
+    .learn-content {
+        padding: 0 250px 0 3rem;
+    }
+}
