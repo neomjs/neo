@@ -8,6 +8,7 @@
         {"name": "Quick Application Development",           "parentId": "Benefits",                           "id": "benefits.Quick"},
         {"name": "Complexity and Effort",                   "parentId": "Benefits",                           "id": "benefits.Effort"},
         {"name": "Forms Engine",                            "parentId": "Benefits",                           "id": "benefits.FormsEngine"},
+        {"name": "Portal App",                              "parentId": "Benefits",                           "id": "benefits.PortalApp"},
         {"name": "Features and Benefits Summary",           "parentId": "Benefits",                           "id": "benefits.Features"},
     {"name": "Getting Started",                             "parentId": null,                "isLeaf": false, "id": "GettingStarted", "collapsed": true},
         {"name": "Setup",                                   "parentId": "GettingStarted",                     "id": "gettingstarted.Setup"},

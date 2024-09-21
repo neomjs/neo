@@ -36,9 +36,9 @@ class ViewportController extends Controller {
          */
         defaultHash: '/home',
         /**
-         * @member {String} mainContentLayout_='mixed'
+         * @member {String} mainContentLayout_='card'
          */
-        mainContentLayout_: 'mixed',
+        mainContentLayout_: 'card',
         /**
          * @member {Object} routes
          */
