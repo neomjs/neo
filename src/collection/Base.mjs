@@ -990,12 +990,13 @@ class Base extends CoreBase {
     }
 
     /**
-     * Helper method to check if a given value is either an object or a neo data record
+     * Helper method to check if a given input is either object-like or a key
      * @param {*} value
-     * @returns {Boolean}
+     * @returns {Boolean} returns true for object-like values
      */
     isItem(value) {
-        return Neo.isObject(value) || Neo.isRecord(value)
+        // We can not use Neo.isObject() || Neo.isRecord(), since collections can store neo instances too.
+        return typeof value === 'object'
     }
 
     /**
