@@ -389,12 +389,12 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me               = this,
-            containerId      = me.boundaryContainerId,
-            i                = 0,
-            len              = data.path.length,
-            {appName, owner} = me,
-            style            = owner.wrapperStyle, // todo: delegation target
+        let me                         = this,
+            containerId                = me.boundaryContainerId,
+            i                          = 0,
+            len                        = data.path.length,
+            {appName, owner, windowId} = me,
+            style                      = owner.wrapperStyle, // todo: delegation target
             target, vdom, vdomStyle;
 
         me.isDragging = true;
@@ -429,10 +429,15 @@ class Resizable extends Base {
             vdom      = Neo.clone(owner.vdom, true);
             vdomStyle = vdom.style;
 
+            delete vdom.height;
+            delete vdom.width;
+
             delete vdomStyle.height;
             delete vdomStyle.left;
             delete vdomStyle.top;
             delete vdomStyle.width;
+
+            vdomStyle.opacity = 0.7;
 
             me.dragZone = Neo.create({
                 module             : DragZone,
@@ -441,6 +446,7 @@ class Resizable extends Base {
                 dragElement        : vdom,
                 moveInMainThread   : false,
                 owner,
+                windowId,
                 ...me.dragZoneConfig
             })
         } else {
