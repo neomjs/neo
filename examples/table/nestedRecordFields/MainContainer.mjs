@@ -23,17 +23,20 @@ class MainContainer extends Viewport {
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'country',        text: 'Country'},
                 {
-                    dataField: 'edit',
-                    text     : 'Edit Action',
-                    renderer: ({ column, index }) => {
-                        const
+                    dataField    : 'edit',
+                    rendererScope: 'this',
+                    text         : 'Edit Action',
+
+                    renderer: ({column, index, tableContainer}) => {
+                        let me       = this,
                             widgetId = `${column.id}-widget-${index}`,
                             button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                                 module  : Button,
-                                appName : this.appName,
-                                handler : this.editButtonHandler,
-                                parentId: 'myTableStoreContainer',
-                                text    : 'Edit'
+                                appName : me.appName,
+                                handler : me.editButtonHandler,
+                                parentId: tableContainer.id,
+                                text    : 'Edit',
+                                windowId: me.windowId
                             }));
 
                         return button.vdom
