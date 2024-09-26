@@ -1,6 +1,7 @@
-import BaseButton from '../../button/Base.mjs';
-import NeoArray   from '../../util/Array.mjs';
-import TextField  from '../../form/field/Text.mjs';
+import BaseButton        from '../../button/Base.mjs';
+import NeoArray          from '../../util/Array.mjs';
+import TextField         from '../../form/field/Text.mjs';
+import {resolveCallback} from '../../util/Function.mjs';
 
 /**
  * @class Neo.table.header.Button
@@ -75,6 +76,10 @@ class Button extends BaseButton {
          * @protected
          */
         isSorted_: null,
+        /**
+         * @member {Function|String|null} renderer_='cellRenderer'
+         */
+        renderer_: 'cellRenderer',
         /**
          * Scope to execute the column renderer.
          * Defaults to the matching table.Container
@@ -261,7 +266,31 @@ class Button extends BaseButton {
      * @protected
      */
     beforeSetCellAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues');
+        return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues')
+    }
+
+    /**
+     * Triggered before the renderer config gets changed
+     * @param {Function|String|null} value
+     * @param {Function|String|null} oldValue
+     * @protected
+     */
+    beforeSetRenderer(value, oldValue) {
+        return resolveCallback(value, this).fn
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Neo.button.Base} data.column
+     * @param {String} data.dataField
+     * @param {Number} data.index
+     * @param {Object} data.record
+     * @param {Neo.table.Container} data.tableContainer
+     * @param {Number|String} data.value
+     * @returns {*}
+     */
+    cellRenderer(data) {
+        return data.value
     }
 
     /**
@@ -460,20 +489,6 @@ class Button extends BaseButton {
 
         me.cls       = cls;
         me._isSorted = null
-    }
-
-    /**
-     * @param {Object} data
-     * @param {Neo.button.Base} data.column
-     * @param {String} data.dataField
-     * @param {Number} data.index
-     * @param {Object} data.record
-     * @param {Neo.table.Container} data.tableContainer
-     * @param {Number|String} data.value
-     * @returns {*}
-     */
-    renderer(data) {
-        return data.value
     }
 }
 
