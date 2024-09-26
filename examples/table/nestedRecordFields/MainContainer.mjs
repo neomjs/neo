@@ -18,10 +18,10 @@ class MainContainer extends Viewport {
             store : MainStore,
 
             columns: [
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id'},
-                {dataField: 'country',   text: 'Country'},
+                {dataField: 'user.firstname', text: 'Firstname'},
+                {dataField: 'user.lastname',  text: 'Lastname'},
+                {dataField: 'githubId',       text: 'Github Id'},
+                {dataField: 'country',        text: 'Country'},
                 {
                     dataField: 'edit',
                     text     : 'Edit Action',

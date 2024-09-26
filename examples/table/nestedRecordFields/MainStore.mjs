@@ -12,35 +12,37 @@ class MainStore extends Store {
         model      : Model,
 
         data: [{
-            country  : 'Germany',
-            firstname: 'Tobias',
-            githubId : 'tobiu',
-            lastname : 'Uhlig'
+            country : 'Germany',
+            githubId: 'tobiu',
+
+            user: {
+                firstname: 'Tobias',
+                lastname : 'Uhlig'
+            }
         }, {
-            country  : 'USA',
-            firstname: 'Rich',
-            githubId : 'rwaters',
-            lastname : 'Waters'
+            country : 'USA',
+            githubId: 'rwaters',
+
+            user: {
+                firstname: 'Rich',
+                lastname : 'Waters'
+            }
         }, {
-            country  : 'Germany',
-            firstname: 'Nils',
-            githubId : 'mrsunshine',
-            lastname : 'Dehl'
+            country : 'Germany',
+            githubId: 'mrsunshine',
+
+            user: {
+                firstname: 'Nils',
+                lastname : 'Dehl'
+            }
         }, {
-            country  : 'USA',
-            firstname: 'Gerard',
-            githubId : 'camtnbikerrwc',
-            lastname : 'Horan'
-        }, {
-            country  : 'Slovakia',
-            firstname: 'Jozef',
-            githubId : 'jsakalos',
-            lastname : 'Sakalos'
-        }, {
-            country  : 'Germany',
-            firstname: 'Bastian',
-            githubId : 'bhaustein',
-            lastname : 'Haustein'
+            country : 'USA',
+            githubId: 'camtnbikerrwc',
+
+            user: {
+                firstname: 'Gerard',
+                lastname : 'Horan'
+            }
         }]
     }
 }
