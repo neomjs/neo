@@ -22,35 +22,41 @@ class MainContainer extends Viewport {
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'country',        text: 'Country'},
-                {
-                    dataField    : 'edit',
-                    rendererScope: 'this',
-                    text         : 'Edit Action',
-
-                    renderer: ({column, index, tableContainer}) => {
-                        let me       = this,
-                            widgetId = `${column.id}-widget-${index}`,
-                            button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
-                                module  : Button,
-                                appName : me.appName,
-                                handler : me.editButtonHandler,
-                                parentId: tableContainer.id,
-                                text    : 'Edit',
-                                windowId: me.windowId
-                            }));
-
-                        return button.vdom
-                    }
-                }
+                {dataField: 'edit',           text: 'Edit Action', renderer: 'up.editRenderer'}
             ]
         }]
     }
 
     /**
+     * @member {Neo.dialog.Base|null} dialog=null
+     */
+    dialog = null
+
+    /**
      * @param {Object} data
      */
     editButtonHandler(data) {
-        console.log(data)
+        console.log(data.component.record);
+        data.component.record.user.firstname = 'foo'
+    }
+
+    /**
+     * @param {Object} data
+     */
+    editRenderer({column, index, record, tableContainer}) {
+        let me       = this,
+            widgetId = `${column.id}-widget-${index}`,
+            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
+                module  : Button,
+                appName : me.appName,
+                handler : 'up.editButtonHandler',
+                parentId: tableContainer.id,
+                record,
+                text    : 'Edit',
+                windowId: me.windowId
+            }));
+
+        return button.vdom
     }
 }
 
