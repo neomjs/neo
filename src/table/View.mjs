@@ -86,7 +86,7 @@ class View extends Component {
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
-            fieldValue  = record[dataField],
+            fieldValue  = Neo.ns(dataField, false, record),
             hasStore    = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
             cellConfig, rendererOutput;
