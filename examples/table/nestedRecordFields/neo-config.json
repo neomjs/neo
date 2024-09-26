@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/table/nestedRecordFields/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
