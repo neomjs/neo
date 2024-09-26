@@ -17,11 +17,6 @@ class RecordFactory extends Base {
          */
         className: 'Neo.data.RecordFactory',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * The internal record prefix for original field values.
          * Only used in case the model has trackModifiedFields set to true.
          * @member {String} ovPrefix='ov_'
@@ -30,7 +25,12 @@ class RecordFactory extends Base {
         /**
          * @member {String} recordNamespace='Neo.data.record'
          */
-        recordNamespace: 'Neo.data.record'
+        recordNamespace: 'Neo.data.record',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**
@@ -44,66 +44,65 @@ class RecordFactory extends Base {
     createField({config, field, me, model, path=''}) {
         let value     = Neo.ns(field.mapping || field.name, false, config),
             fieldName = field.name.split('.').pop(),
-            symbol    = Symbol.for(field.name),
+            symbol    = Symbol.for(fieldName),
             fieldPath, parsedValue, properties;
 
-        if (value !== undefined && Object.hasOwn(field, 'defaultValue')) {
-            value = field.defaultValue
-        }
+        if (field.fields) {
+            field.fields.forEach(childField => {
+                fieldPath = path.split('.');
+                fieldPath = fieldPath.filter(Boolean);
+                fieldPath.push(field.name);
 
-        parsedValue = instance.parseRecordValue(me, field, value, config);
-
-        Object.defineProperties(me, {
-            [symbol]: {
-                value   : parsedValue,
-                writable: true
+                this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
+            })
+        } else {
+            if (value !== undefined && Object.hasOwn(field, 'defaultValue')) {
+                value = field.defaultValue
             }
-        });
 
-        properties = {
-            [fieldName]: {
-                configurable: true,
-                enumerable  : true,
-                get() {
-                    return Neo.ns([symbol], false, me)
+            parsedValue = instance.parseRecordValue(me, field, value, config);
+
+            properties = {
+                [symbol]: {
+                    value   : Neo.clone(parsedValue, true),
+                    writable: true
                 },
-                set(value) {
-                    let oldValue = me[symbol];
+                [fieldName]: {
+                    configurable: true,
+                    enumerable  : true,
+                    get() {
+                        return this[symbol]
+                    },
+                    set(value) {
+                        let oldValue = this[symbol];
 
-                    value = instance.parseRecordValue(me, field, value);
+                        value = instance.parseRecordValue(me, field, value);
 
-                    if (!Neo.isEqual(value, oldValue)) {
-                        me[symbol] = value;
+                        if (!Neo.isEqual(value, oldValue)) {
+                            this[symbol] = value;
 
-                        me._isModified = true;
-                        me._isModified = instance.isModified(me, model.trackModifiedFields);
+                            me._isModified = true;
+                            me._isModified = instance.isModified(me, model.trackModifiedFields);
 
-                        instance.onRecordChange({
-                            fields: [{name: field.name, oldValue, value}],
-                            model,
-                            record: me
-                        })
+                            instance.onRecordChange({
+                                fields: [{name: field.name, oldValue, value}],
+                                model,
+                                record: me
+                            })
+                        }
                     }
                 }
-            }
-        };
+            };
 
-        // adding the original value of each field
-        if (model.trackModifiedFields) {
-            properties[instance.ovPrefix + field.name] = {
-                value: parsedValue
+            // adding the original value of each field
+            if (model.trackModifiedFields) {
+                properties[instance.ovPrefix + field.name] = {
+                    value: parsedValue
+                }
             }
+
+            Object.defineProperties(path ? Neo.ns(path, true, me) : me, properties)
         }
-
-        Object.defineProperties(path ? Neo.ns(path, true, me) : me, properties);
-
-        field.fields?.forEach(childField => {
-            fieldPath = path.split('.');
-            fieldPath = fieldPath.filter(Boolean);
-            fieldPath.push(field.name);
-
-            this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
-        })
     }
 
     /**
