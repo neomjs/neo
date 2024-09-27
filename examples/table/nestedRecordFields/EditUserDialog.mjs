@@ -1,3 +1,4 @@
+import CheckBox  from '../../../src/form/field/CheckBox.mjs';
 import Dialog    from '../../../src/dialog/Base.mjs';
 import TextField from '../../../src/form/field/Text.mjs';
 
@@ -44,15 +45,22 @@ class EditUserDialog extends Dialog {
             flex      : 'none',
             labelText : 'Firstname:',
             labelWidth: 110,
-            listeners : {change: 'up.onFirstnameTextFieldChange'},
+            listeners : {change: 'up.onFirstnameFieldChange'},
             reference : 'firstname-field'
         }, {
             module    : TextField,
             flex      : 'none',
             labelText : 'Lastname:',
             labelWidth: 110,
-            listeners : {change: 'up.onLastnameTextFieldChange'},
+            listeners : {change: 'up.onLastnameFieldChange'},
             reference : 'lastname-field'
+        }, {
+            module    : CheckBox,
+            labelText : 'Selected:',
+            labelWidth: 110,
+            listeners : {change: 'up.onSelectedFieldChange'},
+            reference : 'selected-field',
+            style     : {marginTop: '1em'}
         }]
     }
 
@@ -64,25 +72,34 @@ class EditUserDialog extends Dialog {
      */
     afterSetRecord(value, oldValue) {
         if (value) {
-            let me = this;
+            let me       = this,
+                {record} = me;
 
-            me.getItem('firstname-field').value = me.record.user.firstname;
-            me.getItem('lastname-field') .value = me.record.user.lastname
+            me.getItem('firstname-field').value   = record.user.firstname;
+            me.getItem('lastname-field') .value   = record.user.lastname;
+            me.getItem('selected-field') .checked = record.annotations.selected
         }
     }
 
     /**
      * @param {Object} data
      */
-    onFirstnameTextFieldChange(data) {
+    onFirstnameFieldChange(data) {
         this.record.user.firstname = data.value
     }
 
     /**
      * @param {Object} data
      */
-    onLastnameTextFieldChange(data) {
+    onLastnameFieldChange(data) {
         this.record.user.lastname = data.value
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSelectedFieldChange(data) {
+        this.record.annotations.selected = data.value
     }
 }
 
