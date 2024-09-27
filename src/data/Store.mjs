@@ -310,6 +310,13 @@ class Store extends Base {
     }
 
     /**
+     * @returns {String}
+     */
+    getKeyProperty() {
+        return this.keyProperty || this.model.keyProperty
+    }
+
+    /**
      * @param {Object} opts={}
      * @param {Object} opts.data
      * @param {Object} opts.headers
