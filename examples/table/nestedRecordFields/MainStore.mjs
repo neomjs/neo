@@ -12,7 +12,7 @@ class MainStore extends Store {
         model      : Model,
 
         data: [{
-            country : 'Germany',
+            country : 'DE',
             githubId: 'tobiu',
 
             user: {
@@ -24,7 +24,7 @@ class MainStore extends Store {
                 selected: true
             },
 
-            country : 'USA',
+            country : 'US',
             githubId: 'rwaters',
 
             user: {
@@ -32,7 +32,7 @@ class MainStore extends Store {
                 lastname : 'Waters'
             }
         }, {
-            country : 'Germany',
+            country : 'DE',
             githubId: 'mrsunshine',
 
             user: {
@@ -40,7 +40,7 @@ class MainStore extends Store {
                 lastname : 'Dehl'
             }
         }, {
-            country : 'USA',
+            country : 'US',
             githubId: 'camtnbikerrwc',
 
             user: {
