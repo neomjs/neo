@@ -456,14 +456,19 @@ class CheckBox extends Base {
      */
     getGroupValue() {
         let form   = this.getClosestForm(),
-            fields = ComponentManager.find({path: this.getPath()}),
-            value  = [];
+            path   = this.getPath(),
+            value  = [],
+            fields;
 
-        fields.forEach(field => {
-            if (field.checked && field.getClosestForm() === form) {
-                NeoArray.add(value, field.value)
-            }
-        });
+        if (path) {
+            fields = ComponentManager.find({path});
+
+            fields.forEach(field => {
+                if (field.checked && field.getClosestForm() === form) {
+                    NeoArray.add(value, field.value)
+                }
+            })
+        }
 
         return value
     }
