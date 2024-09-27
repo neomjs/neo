@@ -689,7 +689,7 @@ class Base extends Component {
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
             {model}  = this.store,
-            keyField = model?.getField(model.keyProperty),
+            keyField = model?.getField(this.getKeyProperty()),
             keyType  = keyField?.type?.toLowerCase();
 
         if (keyType === 'int' || keyType === 'integer') {
