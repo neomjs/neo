@@ -20,6 +20,10 @@ class MainStore extends Store {
                 lastname : 'Uhlig'
             }
         }, {
+            annotations: {
+                selected: true
+            },
+
             country : 'USA',
             githubId: 'rwaters',
 

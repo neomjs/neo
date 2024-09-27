@@ -56,7 +56,7 @@ class RecordFactory extends Base {
                 this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
             })
         } else {
-            if (value !== undefined && Object.hasOwn(field, 'defaultValue')) {
+            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
                 value = field.defaultValue
             }
 

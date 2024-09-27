@@ -9,6 +9,15 @@ class MainModel extends Model {
         className: 'Neo.examples.table.container.MainModel',
 
         fields: [{
+            name: 'annotations',
+            type: 'Object',
+
+            fields: [{
+                name        : 'annotations.selected',
+                type        : 'Boolean',
+                defaultValue: false
+            }]
+        }, {
             name: 'country',
             type: 'String'
         }, {
