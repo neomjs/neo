@@ -25,6 +25,10 @@ class EditUserDialog extends Dialog {
             }
         },
         /**
+         * @member {Boolean} modal=true
+         */
+        modal: true,
+        /**
          * @member {Record|null} record_=null
          */
         record_: null,
