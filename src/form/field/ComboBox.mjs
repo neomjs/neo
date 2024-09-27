@@ -346,6 +346,7 @@ class ComboBox extends Picker {
             role          : 'listbox',
             selectionModel: {stayInList: false},
             store         : me.store,
+            windowId      : me.windowId,
             ...me.listConfig
         });
 
@@ -580,18 +581,18 @@ class ComboBox extends Picker {
     }
 
     /**
-     * @param {Object} record
+     * @param {Object} data
      * @protected
      */
-    onListItemNavigate(record) {
-        let {activeIndex} = record;
+    onListItemNavigate(data) {
+        let {activeIndex} = data;
 
         if (activeIndex >= 0) {
             let me      = this,
                 {store} = me;
 
-            me.activeRecord   = store.getAt(activeIndex);
-            me.activeRecordId = me.activeRecord[store.keyProperty || model.keyProperty];
+            me.activeRecord   = data.record || store.getAt(activeIndex);
+            me.activeRecordId = me.activeRecord[store.getKeyProperty()];
 
             // Update typeahead hint (which updates DOM), or update DOM
             me.typeAhead ? me.updateTypeAheadValue(me.lastManualInput) : me.update()
@@ -737,7 +738,7 @@ class ComboBox extends Picker {
                 if (match && inputHintEl) {
                     inputHintEl.value = value + match[displayField].substr(value.length);
                     me.activeRecord   = match;
-                    me.activeRecordId = match[store.keyProperty || store.model.keyProperty]
+                    me.activeRecordId = match[store.getKeyProperty()]
                 }
             }
 
@@ -771,7 +772,7 @@ class ComboBox extends Picker {
  * The select event fires when a list item gets selected
  * @event select
  * @param {Object} record
- * @param {value} record[store.keyProperty]
+ * @param {value} record[store.getKeyProperty()]
  * @returns {Object}
  */
 

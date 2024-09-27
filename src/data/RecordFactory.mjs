@@ -17,11 +17,6 @@ class RecordFactory extends Base {
          */
         className: 'Neo.data.RecordFactory',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * The internal record prefix for original field values.
          * Only used in case the model has trackModifiedFields set to true.
          * @member {String} ovPrefix='ov_'
@@ -30,7 +25,84 @@ class RecordFactory extends Base {
         /**
          * @member {String} recordNamespace='Neo.data.record'
          */
-        recordNamespace: 'Neo.data.record'
+        recordNamespace: 'Neo.data.record',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object} data.config
+     * @param {Object} data.field
+     * @param {Neo.data.RecordFactory} data.me
+     * @param {Neo.data.Model} data.model
+     * @param {String} data.path=''
+     */
+    createField({config, field, me, model, path=''}) {
+        let value     = Neo.ns(field.mapping || field.name, false, config),
+            fieldName = field.name.split('.').pop(),
+            symbol    = Symbol.for(fieldName),
+            fieldPath, parsedValue, properties;
+
+        if (field.fields) {
+            field.fields.forEach(childField => {
+                fieldPath = path.split('.');
+                fieldPath = fieldPath.filter(Boolean);
+                fieldPath.push(field.name);
+
+                this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
+            })
+        } else {
+            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
+                value = field.defaultValue
+            }
+
+            parsedValue = instance.parseRecordValue(me, field, value, config);
+
+            properties = {
+                [symbol]: {
+                    value   : Neo.clone(parsedValue, true),
+                    writable: true
+                },
+                [fieldName]: {
+                    configurable: true,
+                    enumerable  : true,
+                    get() {
+                        return this[symbol]
+                    },
+                    set(value) {
+                        let oldValue = this[symbol];
+
+                        value = instance.parseRecordValue(me, field, value);
+
+                        if (!Neo.isEqual(value, oldValue)) {
+                            this[symbol] = value;
+
+                            me._isModified = true;
+                            me._isModified = instance.isModified(me, model.trackModifiedFields);
+
+                            instance.onRecordChange({
+                                fields: [{name: field.name, oldValue, value}],
+                                model,
+                                record: me
+                            })
+                        }
+                    }
+                }
+            };
+
+            // adding the original value of each field
+            if (model.trackModifiedFields) {
+                properties[instance.ovPrefix + field.name] = {
+                    value: parsedValue
+                }
+            }
+
+            Object.defineProperties(path ? Neo.ns(path, true, me) : me, properties)
+        }
     }
 
     /**
@@ -67,8 +139,7 @@ class RecordFactory extends Base {
                     static name = 'Record'
 
                     constructor(config) {
-                        let me = this,
-                            properties;
+                        let me = this;
 
                         Object.defineProperties(me, {
                             _isModified: {
@@ -79,57 +150,7 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let value  = config[field.mapping || field.name],
-                                    symbol = Symbol.for(field.name),
-                                    parsedValue;
-
-                                if (!Object.hasOwn(config, field.name) && Object.hasOwn(field, 'defaultValue')) {
-                                    value = field.defaultValue
-                                }
-
-                                parsedValue = instance.parseRecordValue(me, field, value, config);
-
-                                properties = {
-                                    [symbol]: {
-                                        value   : parsedValue,
-                                        writable: true
-                                    },
-                                    [field.name]: {
-                                        configurable: true,
-                                        enumerable  : true,
-                                        get() {
-                                            return this[symbol]
-                                        },
-                                        set(value) {
-                                            let me       = this,
-                                                oldValue = me[symbol];
-
-                                            value = instance.parseRecordValue(me, field, value);
-
-                                            if (!Neo.isEqual(value, oldValue)) {
-                                                me[symbol] = value;
-
-                                                me._isModified = true;
-                                                me._isModified = instance.isModified(me, model.trackModifiedFields);
-
-                                                instance.onRecordChange({
-                                                    fields: [{name: field.name, oldValue, value}],
-                                                    model,
-                                                    record: me
-                                                })
-                                            }
-                                        }
-                                    }
-                                };
-
-                                // adding the original value of each field
-                                if (model.trackModifiedFields) {
-                                    properties[instance.ovPrefix + field.name] = {
-                                        value: parsedValue
-                                    }
-                                }
-
-                                Object.defineProperties(me, properties)
+                                instance.createField({config, field, me, model})
                             })
                         }
                     }
@@ -151,8 +172,8 @@ class RecordFactory extends Base {
                     }
                 };
 
-                Object.defineProperty(cls.prototype, 'isRecord', { value : true });
-                Object.defineProperty(cls, 'isClass', { vale : true });
+                Object.defineProperty(cls.prototype, 'isRecord', {value: true});
+                Object.defineProperty(cls, 'isClass', {value: true});
 
                 return ns[key]
             }

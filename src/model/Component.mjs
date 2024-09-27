@@ -155,10 +155,19 @@ class Component extends Base {
      */
     beforeSetStores(value, oldValue) {
         if (value) {
-            let controller = this.component.getController();
+            let me         = this,
+                controller = me.getController();
 
             Object.entries(value).forEach(([key, storeValue]) => {
                 controller?.parseConfig(storeValue);
+
+                // support mapping string based listeners into the model instance
+                Object.entries(storeValue.listeners || {}).forEach(([listenerKey,listener]) => {
+                    if (Neo.isString(listener) && Neo.isFunction(me[listener])) {
+                        storeValue.listeners[listenerKey] = me[listener].bind(me)
+                    }
+                })
+
                 value[key] = ClassSystemUtil.beforeSetInstance(storeValue)
             })
         }

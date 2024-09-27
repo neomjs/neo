@@ -95,9 +95,9 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererValue  = record[column.field];
+                rendererValue  = Neo.ns(column.field, false, record);
 
-                if (rendererValue === undefined) {
+                if (rendererValue === null || rendererValue === undefined) {
                     rendererValue = ''
                 }
 
