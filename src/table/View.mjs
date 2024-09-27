@@ -1,4 +1,5 @@
 import Component from '../component/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 import VDomUtil  from '../util/VDom.mjs';
 
 /**
@@ -35,6 +36,10 @@ class View extends Component {
          * @member {Object} recordVnodeMap={}
          */
         recordVnodeMap: {},
+        /**
+         * @member {String} selectedRecordField='annotations.selected'
+         */
+        selectedRecordField: 'annotations.selected',
         /**
          * @member {Neo.data.Store|null} store=null
          */
@@ -188,6 +193,10 @@ class View extends Component {
             me.recordVnodeMap[id] = i;
 
             trCls = me.getTrClass(record, i);
+
+            if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
+                NeoArray.add(selectedRows, id)
+            }
 
             if (selectedRows?.includes(id)) {
                 trCls.push('neo-selected');
@@ -432,11 +441,12 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange(opts) {
-        let me             = this,
-            fieldNames     = opts.fields.map(field => field.name),
-            needsUpdate    = false,
-            tableContainer = me.parent,
-            {vdom}         = me,
+        let me               = this,
+            fieldNames       = opts.fields.map(field => field.name),
+            needsUpdate      = false,
+            tableContainer   = me.parent,
+            {selectionModel} = tableContainer,
+            {vdom}           = me,
             cellId, cellNode, column, index, scope;
 
         if (fieldNames.includes(me.colspanField)) {
@@ -444,17 +454,23 @@ class View extends Component {
             me.createViewData(me.store.items)
         } else {
             opts.fields.forEach(field => {
-                cellId   = me.getCellId(opts.record, field.name);
-                cellNode = VDomUtil.findVdomChild(vdom, cellId);
+                if (field.name === me.selectedRecordField) {
+                    if (selectionModel.ntype === 'selection-table-rowmodel') {
+                        selectionModel[!field.value && selectionModel.singleSelect ? 'deselect' : 'select'](me.getRowId(opts.record))
+                    }
+                } else {
+                    cellId   = me.getCellId(opts.record, field.name);
+                    cellNode = VDomUtil.findVdomChild(vdom, cellId);
 
-                // the vdom might not exist yet => nothing to do in this case
-                if (cellNode?.vdom) {
-                    column      = me.getColumn(field.name);
-                    index       = cellNode.index;
-                    needsUpdate = true;
-                    scope       = column.rendererScope || tableContainer;
+                    // the vdom might not exist yet => nothing to do in this case
+                    if (cellNode?.vdom) {
+                        column      = me.getColumn(field.name);
+                        index       = cellNode.index;
+                        needsUpdate = true;
+                        scope       = column.rendererScope || tableContainer;
 
-                    cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record: opts.record, index, tableContainer})
+                        cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record: opts.record, index, tableContainer})
+                    }
                 }
             })
         }
