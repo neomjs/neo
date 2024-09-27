@@ -1,7 +1,8 @@
-import Button         from '../../../src/button/Base.mjs';
-import MainStore      from './MainStore.mjs';
-import TableContainer from '../../../src/table/Container.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import Button             from '../../../src/button/Base.mjs';
+import MainContainerModel from './MainContainerModel.mjs';
+import MainStore          from './MainStore.mjs';
+import TableContainer     from '../../../src/table/Container.mjs';
+import Viewport           from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.table.nestedRecordFields.MainContainer
@@ -9,10 +10,26 @@ import Viewport       from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.table.nestedRecordFields.MainContainer'
+         * @protected
+         */
         className: 'Neo.examples.table.nestedRecordFields.MainContainer',
-        layout   : 'fit',
-        style    : {padding: '20px'},
-
+        /**
+         * @member {Object|String} layout='fit'
+         */
+        layout: 'fit',
+        /**
+         * @member {Neo.model.Component} model=MainContainerModel
+         */
+        model: MainContainerModel,
+        /**
+         * @member {Object} style={padding:'20px'}
+         */
+        style: {padding: '20px'},
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module: TableContainer,
             store : MainStore,
@@ -47,6 +64,7 @@ class MainContainer extends Viewport {
                     module         : module.default,
                     animateTargetId: button.id,
                     appName,
+                    model          : {parent: me.getModel()},
                     record,
                     windowId
                 })

@@ -1,6 +1,7 @@
-import CheckBox  from '../../../src/form/field/CheckBox.mjs';
-import Dialog    from '../../../src/dialog/Base.mjs';
-import TextField from '../../../src/form/field/Text.mjs';
+import CheckBox     from '../../../src/form/field/CheckBox.mjs';
+import CountryField from '../../../src/form/field/Country.mjs';
+import Dialog       from '../../../src/dialog/Base.mjs';
+import TextField    from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.table.nestedRecordFields.EditUserDialog
@@ -38,29 +39,37 @@ class EditUserDialog extends Dialog {
          */
         title: 'Edit User',
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            flex      : 'none',
+            labelWidth: 110
+        },
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module    : TextField,
-            flex      : 'none',
-            labelText : 'Firstname:',
-            labelWidth: 110,
-            listeners : {change: 'up.onFirstnameFieldChange'},
-            reference : 'firstname-field'
+            module   : TextField,
+            labelText: 'Firstname:',
+            listeners: {change: 'up.onFirstnameFieldChange'},
+            reference: 'firstname-field'
         }, {
-            module    : TextField,
-            flex      : 'none',
-            labelText : 'Lastname:',
-            labelWidth: 110,
-            listeners : {change: 'up.onLastnameFieldChange'},
-            reference : 'lastname-field'
+            module   : TextField,
+            labelText: 'Lastname:',
+            listeners: {change: 'up.onLastnameFieldChange'},
+            reference: 'lastname-field'
         }, {
-            module    : CheckBox,
-            labelText : 'Selected:',
-            labelWidth: 110,
-            listeners : {change: 'up.onSelectedFieldChange'},
-            reference : 'selected-field',
-            style     : {marginTop: '1em'}
+            module   : CountryField,
+            bind     : {store: 'stores.countries'},
+            labelText: 'Country:',
+            listeners: {change: 'up.onCountryFieldChange'},
+            reference: 'country-field'
+        }, {
+            module   : CheckBox,
+            labelText: 'Selected:',
+            listeners: {change: 'up.onSelectedFieldChange'},
+            reference: 'selected-field',
+            style    : {marginTop: '1em'}
         }]
     }
 
@@ -84,7 +93,14 @@ class EditUserDialog extends Dialog {
     /**
      * @param {Object} data
      */
-    onFirstnameFieldChange(data) {
+    onCountryFieldChange(data) {
+       console.log('onCountryFieldChange', data);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onFirstnameFieldChange(data) {console.log(this.getItem('country-field'));
         this.record.user.firstname = data.value
     }
 
