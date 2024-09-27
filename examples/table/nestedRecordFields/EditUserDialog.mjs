@@ -13,6 +13,10 @@ class EditUserDialog extends Dialog {
          */
         className: 'Neo.examples.model.dialog.EditUserDialog',
         /**
+         * @member {String} closeAction='hide'
+         */
+        closeAction: 'hide',
+        /**
          * @member {Object} containerConfig={style:{padding:'1em'}}
          */
         containerConfig: {

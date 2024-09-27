@@ -36,20 +36,19 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     editButtonHandler(data) {
-        let me       = this,
-            button   = data.component,
-            {dialog} = me,
-            {record} = button;
+        let me                          = this,
+            button                      = data.component,
+            {appName, dialog, windowId} = me,
+            {record}                    = button;
 
         if (!dialog) {
             import('./EditUserDialog.mjs').then(module => {
                 me.dialog = Neo.create({
                     module         : module.default,
                     animateTargetId: button.id,
-                    appName        : me.appName,
-                    closeAction    : 'hide',
+                    appName,
                     record,
-                    windowId       : me.windowId
+                    windowId
                 })
             })
         } else {
@@ -64,16 +63,17 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     editRenderer({column, index, record, tableContainer}) {
-        let me       = this,
-            widgetId = `${column.id}-widget-${index}`,
-            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
+        let me                  = this,
+            {appName, windowId} = me,
+            widgetId            = `${column.id}-widget-${index}`,
+            button              = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                 module  : Button,
-                appName : me.appName,
+                appName,
                 handler : 'up.editButtonHandler',
                 parentId: tableContainer.id,
                 record,
                 text    : 'Edit',
-                windowId: me.windowId
+                windowId
             }));
 
         return button.vdom
