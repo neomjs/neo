@@ -1,6 +1,5 @@
 import Button             from '../../../src/button/Base.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
-import MainStore          from './MainStore.mjs';
 import TableContainer     from '../../../src/table/Container.mjs';
 import Viewport           from '../../../src/container/Viewport.mjs';
 
@@ -32,13 +31,13 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: TableContainer,
-            store : MainStore,
+            bind  : {store : 'stores.mainStore'},
 
             columns: [
                 {dataField: 'user.firstname', text: 'Firstname'},
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
-                {dataField: 'country',        text: 'Country'},
+                {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', renderer: 'up.editRenderer'}
             ]
         }]
@@ -48,6 +47,19 @@ class MainContainer extends Viewport {
      * @member {Neo.dialog.Base|null} dialog=null
      */
     dialog = null
+
+    /**
+     * @param {Object} data
+     */
+    countryRenderer({record}) {
+        let countryStore = this.getModel().getStore('countries');
+
+        if (countryStore.getCount() > 0) {
+            return countryStore.get(record.country).name
+        }
+
+        return ''
+    }
 
     /**
      * @param {Object} data
