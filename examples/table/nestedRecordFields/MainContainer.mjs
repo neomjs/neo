@@ -36,8 +36,28 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     editButtonHandler(data) {
-        console.log(data.component.record);
-        data.component.record.user.firstname = 'foo'
+        let me       = this,
+            button   = data.component,
+            {dialog} = me,
+            {record} = button;
+
+        if (!dialog) {
+            import('./EditUserDialog.mjs').then(module => {
+                me.dialog = Neo.create({
+                    module         : module.default,
+                    animateTargetId: button.id,
+                    appName        : me.appName,
+                    closeAction    : 'hide',
+                    record,
+                    windowId       : me.windowId
+                })
+            })
+        } else {
+            dialog.animateTargetId = button.id;
+            dialog.record          = record;
+
+            dialog.show()
+        }
     }
 
     /**
