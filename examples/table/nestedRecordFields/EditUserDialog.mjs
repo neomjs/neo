@@ -50,23 +50,24 @@ class EditUserDialog extends Dialog {
          */
         items: [{
             module   : TextField,
-            labelText: 'Firstname:',
+            labelText: 'Firstname',
             listeners: {change: 'up.onFirstnameFieldChange'},
             reference: 'firstname-field'
         }, {
             module   : TextField,
-            labelText: 'Lastname:',
+            labelText: 'Lastname',
             listeners: {change: 'up.onLastnameFieldChange'},
             reference: 'lastname-field'
         }, {
-            module   : CountryField,
-            bind     : {store: 'stores.countries'},
-            labelText: 'Country:',
-            listeners: {change: 'up.onCountryFieldChange'},
-            reference: 'country-field'
+            module    : CountryField,
+            bind      : {store: 'stores.countries'},
+            labelText : 'Country',
+            listeners : {change: 'up.onCountryFieldChange'},
+            reference : 'country-field',
+            valueField: 'code'
         }, {
             module   : CheckBox,
-            labelText: 'Selected:',
+            labelText: 'Selected',
             listeners: {change: 'up.onSelectedFieldChange'},
             reference: 'selected-field',
             style    : {marginTop: '1em'}
@@ -79,11 +80,15 @@ class EditUserDialog extends Dialog {
      * @param {Record|null} oldValue
      * @protected
      */
-    afterSetRecord(value, oldValue) {
+    async afterSetRecord(value, oldValue) {
         if (value) {
             let me       = this,
                 {record} = me;
 
+            // ensure the store has its data
+            await me.timeout(20);
+
+            me.getItem('country-field')  .value   = record.country;
             me.getItem('firstname-field').value   = record.user.firstname;
             me.getItem('lastname-field') .value   = record.user.lastname;
             me.getItem('selected-field') .checked = record.annotations.selected
@@ -94,13 +99,13 @@ class EditUserDialog extends Dialog {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-       console.log('onCountryFieldChange', data);
+        this.record.country = data.value.code
     }
 
     /**
      * @param {Object} data
      */
-    onFirstnameFieldChange(data) {console.log(this.getItem('country-field'));
+    onFirstnameFieldChange(data) {
         this.record.user.firstname = data.value
     }
 
