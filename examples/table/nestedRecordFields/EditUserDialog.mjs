@@ -120,7 +120,17 @@ class EditUserDialog extends Dialog {
      * @param {Object} data
      */
     onSelectedFieldChange(data) {
-        this.record.annotations.selected = data.value
+        let me    = this,
+            store = me.getModel().getStore('mainStore');
+
+        if (data.value === false) {
+            me.record.annotations.selected = false
+        } else {
+            // Assuming we want to support a single row selection
+            store.items.forEach(record => {
+                record.annotations.selected = record === me.record ? data.value : false
+            })
+        }
     }
 }
 
