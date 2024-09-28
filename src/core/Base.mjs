@@ -53,14 +53,6 @@ class Base {
      */
     static overwrittenMethods = {}
     /**
-     * Set this one to false in case you don't want to stick
-     * to the "anti-pattern" to apply classes to the global Neo or App namespace
-     * @member {Boolean} registerToGlobalNs=true
-     * @protected
-     * @static
-     */
-    static registerToGlobalNs = true
-    /**
      * Configs will get merged throughout the class hierarchy
      * @returns {Object} config
      * @tutorial 02_ClassSystem
