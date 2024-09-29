@@ -523,16 +523,16 @@ class MainView extends Base {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation",
+                        name: "location",
                     }, {
-                        name: "size",
+                        name: "magnitude",
                     }, {
                         name: "timestamp",
                         type: "Date",
                     }],
                 },
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "results",
+                responseRoot: "data",
                 autoLoad: true,
             },
             style: {width: '100%'},
@@ -543,10 +543,10 @@ class MainView extends Base {
                     {weekday: "long", year: "numeric", month: "long", day: "numeric"}
                 )
             }, {
-                dataField: "humanReadableLocation",
+                dataField: "location",
                 text: "Location"
             }, {
-                dataField: "size",
+                dataField: "magnitude",
                 text: "Magnitude",
                 align: "right",
                 renderer: (data) => data.value.toLocaleString()
@@ -595,36 +595,38 @@ Here's the config for the store.
     module: Store,
     model: {
         fields: [{
-            name: "humanReadableLocation",
+            name: "location",
         }, {
-            name: "size",
+            name: "magnitude",
         }, {
             name: "timestamp",
             type: "Date",
         }],
     },
     url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-    responseRoot: "results",
+    responseRoot: "data",
     autoLoad: true,
 }
 </pre>
 
-The feed looks like this. (For simplicity, some values are omitted.)
+The feed looks like this.
 <pre data-javascript>
 {
-    "results": [{
-        "timestamp": "2017-10-13T12:07:24.000Z",
-        "latitude": 63.976,
-        "longitude": -21.949,
-        "size": 0.6,
-        "humanReadableLocation": "6,1 km SV af Helgafelli"
+  "data": [{
+      "timestamp": "2024-09-29T16:45:14.000Z",
+      "lat": "64.012",
+      "lng": "-16.659",
+      "location": "1.2 km ESE  of Hvannadalshnjúkur",
+      "magnitude": "0.32964",
+      "depth": "1.2"
     }, {
-        "timestamp": "2017-10-13T09:50:50.000Z",
-        "latitude": 65.124,
-        "longitude": -16.288,
-        "size": 0.9,
-        "humanReadableLocation": "6,1 km NA af Her\u00F0ubrei\u00F0art\u00F6glum"
-    }, //...
+      "timestamp": "2024-09-29T16:16:25.000Z",
+      "lat": "63.929",
+      "lng": "-21.447",
+      "location": "2.8 km WSW of Raufarhólshellir",
+      "magnitude": "0.80979",
+      "depth": "10.2"
+    }, ... 
     ]
 }
 </pre>
@@ -644,10 +646,10 @@ columns: [{
     text: "Date",
     renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}),
 }, {
-    dataField: "humanReadableLocation",
+    dataField: "location",
     text: "Location",
 }, {
-    dataField: "size",
+    dataField: "magnitude",
     text: "Magnitude",
     align: "right",
     renderer: (data) => data.value.toLocaleString(),
@@ -692,10 +694,10 @@ class Table extends Base {
             text: "Date",
             renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}),
         }, {
-            dataField: "humanReadableLocation",
+            dataField: "location",
             text: "Location",
         }, {
-            dataField: "size",
+            dataField: "magnitude",
             text: "Magnitude",
             align: "right",
             renderer: (data) => data.value.toLocaleString(),
@@ -765,16 +767,16 @@ static config = {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation",
+                        name: "location",
                     }, {
-                        name: "size",
+                        name: "magnitude",
                     }, {
                         name: "timestamp",
                         type: "Date",
                     }],
                 },
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "results",
+                responseRoot: "data",
                 autoLoad: true,
             },
             style: {width: '100%'},
@@ -888,16 +890,16 @@ class MainView extends Base {
                     module: Store,
                     model: {
                         fields: [{
-                            name: "humanReadableLocation"
+                            name: "location"
                         }, {
-                            name: "size"
+                            name: "magnitude"
                         }, {
                             name: "timestamp",
                             type: "Date"
                         }]
                     },
                     url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                    responseRoot: "results",
+                    responseRoot: "data",
                     autoLoad: true
                 },    
             }
@@ -912,16 +914,16 @@ class MainView extends Base {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation"
+                        name: "location"
                     }, {
-                        name: "size"
+                        name: "magnitude"
                     }, {
                         name: "timestamp",
                         type: "Date"
                     }]
                 },
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "results",
+                responseRoot: "data",
                 autoLoad: true
             },
             style: {width: '100%'}
@@ -931,16 +933,16 @@ class MainView extends Base {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation"
+                        name: "location"
                     }, {
-                        name: "size"
+                        name: "magnitude"
                     }, {
                         name: "timestamp",
                         type: "Date"
                     }]
                 },
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "results",
+                responseRoot: "data",
                 autoLoad: true
             },
             style: {width: '100%'}
@@ -1004,16 +1006,16 @@ class MainView extends Base {
                     module: Store,
                     model: {
                         fields: [{
-                            name: "humanReadableLocation"
+                            name: "location"
                         }, {
-                            name: "size"
+                            name: "magnitude"
                         }, {
                             name: "timestamp",
                             type: "Date"
                         }]
                     },
                     url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                    responseRoot: "results",
+                    responseRoot: "data",
                     autoLoad: true
                 },    
             }
@@ -1084,16 +1086,16 @@ class MainViewModel extends Model {
                 module: Store,
                 model: {
                     fields: [{
-                        name: "humanReadableLocation"
+                        name: "location"
                     }, {
-                        name: "size"
+                        name: "magnitude"
                     }, {
                         name: "timestamp",
                         type: "Date"
                     }]
                 },
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "results",
+                responseRoot: "data",
                 autoLoad: true
             },    
         }
@@ -1247,22 +1249,22 @@ Edit `apps/earthquakes/view/MainViewModel.mjs` and modify `fields` as follows.
 
 <pre data-javascript>
 fields: [{
-    name: "humanReadableLocation",
+    name: "location",
 }, {
-    name: "size",
+    name: "magnitude",
 }, {
     name: "timestamp",
     type: "Date",
 }, {
     name: 'title',
-    mapping: "humanReadableLocation"
+    mapping: "location"
 }, {
     name: "position",
     calculate: (data, field, item)=>({lat: item.latitude, lng: item.longitude})
 }],
 </pre>
 
-As you can see, _title_ is mapped to the existing feed value _humanReadableLocation_, and _position_ is 
+As you can see, _title_ is mapped to the existing feed value _location_, and _position_ is 
 calculated by returning an object with _lat_ and _lng_ set to the corresponding values from the feed.
 
 Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
@@ -1391,9 +1393,9 @@ Add this table config:
 
 Save and refresh, then click on a table row. If you look at the debugger console you'll see the record being logged.
 
-Just for fun, expand the logged value and look for the size property. If you recall, that's a value from the feed, and one of the things we configured in the store's fields:[].
+Just for fun, expand the logged value and look for the `magnitude` property. If you recall, that's a value from the feed, and one of the things we configured in the store's fields:[].
 
-In the console, click on the ellipses by size and enter a new value, like 2.5. (Don't enter a larger value, or you may destroy that part of Iceland.)
+In the console, click on the ellipses by `magnitude` and enter a new value, like 2.5. (Don't enter a larger value, or you may destroy that part of Iceland.)
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/LogTableClick.png"></img>
 
