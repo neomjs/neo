@@ -739,7 +739,7 @@ class Base extends Panel {
         if (animate) {
             me.animateShow()
         } else {
-            if (!me.rendered) {
+            if (!me.mounted) {
                 me.render(true)
             }
 
