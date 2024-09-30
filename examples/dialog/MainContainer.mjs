@@ -94,7 +94,8 @@ class MainContainer extends Viewport {
             modal                  : me.down({valueLabelText: 'Modal'}).checked,
             trapFocus              : true,
             optionalAnimateTargetId: data.component.id,
-            title                  : 'Dialog 1'
+            title                  : 'Dialog 1',
+            windowId               : me.windowId
         })
     }
 
