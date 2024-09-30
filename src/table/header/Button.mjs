@@ -204,6 +204,7 @@ class Button extends BaseButton {
                     flag     : 'filter-field',
                     hideLabel: true,
                     parentId : me.id,
+                    windowId : me.windowId,
 
                     listeners: {
                         change        : me.changeFilterValue,
