@@ -11,20 +11,20 @@ import Viewport   from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.dialog.MainContainer'
+         * @protected
+         */
         className: 'Neo.examples.dialog.MainContainer',
-        layout   : 'base',
-        style    : {padding: '20px'},
         /**
-         * Custom config which gets passed to the dialog
-         * Either a dom node id, 'document.body' or null
-         * @member {String|null} boundaryContainerId='document.body'
+         * We are not using a container layout here
+         * @member {String} layout='base'
          */
-        boundaryContainerId: 'document.body',
+        layout: 'base',
         /**
-         * Custom config
-         * @member {Neo.dialog.Base|null} dialog=null
+         * @member {Object} style={padding:'20px'}
          */
-        dialog: null,
+        style: {padding: '20px'},
         /**
          * @member {Object[]} items
          */
@@ -75,6 +75,17 @@ class MainContainer extends Viewport {
             }]
         }]
     }
+
+    /**
+     * Custom class field which gets passed to the dialog. Either a dom node id, 'document.body' or null
+     * @member {String|null} boundaryContainerId='document.body'
+     */
+    boundaryContainerId = 'document.body'
+    /**
+     * Custom class field to store the created dialog.Base instance
+     * @member {Neo.dialog.Base|null} dialog=null
+     */
+    dialog = null
 
     /**
      * @param {Object} data
