@@ -274,7 +274,7 @@ class Base extends Panel {
         super.afterSetMounted(value, oldValue);
 
         // Ensure focus trapping is up-to-date, enabled or disabled.
-        this.syncTrapFocus()
+        oldValue !== undefined && this.syncTrapFocus()
     }
 
     /**
