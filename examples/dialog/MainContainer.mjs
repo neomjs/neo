@@ -50,7 +50,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'boundaryContainerId')},
+                listeners     : {change: me.onBoundaryContainerIdChange.bind(me)},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, {
@@ -58,6 +58,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Animated'
             }, {
@@ -65,6 +66,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
+                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
                 style         : {marginLeft: '1em'},
                 valueLabelText: 'Modal'
             }, '->', {
@@ -100,17 +102,27 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @param {String} config
      * @param {Object} opts
      */
-    onConfigChange(config, opts) {
+    onBoundaryContainerIdChange(opts) {
         let me                  = this,
+            {dialog}            = me,
             boundaryContainerId = opts.value ? 'document.body' : null;
 
         me.boundaryContainerId = boundaryContainerId
 
-        if (me.dialog) {
-            me.dialog[config] = boundaryContainerId
+        if (dialog) {
+            dialog.boundaryContainerId = boundaryContainerId
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigChange(config, opts) {
+        if (this.dialog) {
+            this.dialog[config] = opts.value
         }
     }
 
