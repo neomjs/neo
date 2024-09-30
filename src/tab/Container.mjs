@@ -322,43 +322,32 @@ class Container extends BaseContainer {
      * @protected
      */
     getLayoutConfig() {
-        let me           = this,
-            layoutConfig = null;
+        const layoutMap = {
+            'bottom': {
+                ntype: 'vbox',
+                align: 'stretch',
+                direction: 'column-reverse',
+                pack: 'start'
+            },
+            'left': {
+                ntype: 'hbox',
+                align: 'stretch',
+                direction: 'row',
+                pack: 'start'
+            },
+            'right': {
+                ntype: 'hbox',
+                align: 'stretch',
+                direction: 'row-reverse',
+                pack: 'start'
+            },
+            'top': {
+                ntype: 'vbox',
+                align: 'stretch'
+            }
+        };
 
-        switch(me.tabBarPosition) {
-            case 'bottom':
-                layoutConfig = {
-                    ntype    : 'vbox',
-                    align    : 'stretch',
-                    direction: 'column-reverse',
-                    pack     : 'start'
-                };
-                break
-            case 'left':
-                layoutConfig = {
-                    ntype    : 'hbox',
-                    align    : 'stretch',
-                    direction: 'row',
-                    pack     : 'start'
-                };
-                break
-            case 'right':
-                layoutConfig = {
-                    ntype    : 'hbox',
-                    align    : 'stretch',
-                    direction: 'row-reverse',
-                    pack     : 'start'
-                };
-                break
-            case 'top':
-                layoutConfig = {
-                    ntype: 'vbox',
-                    align: 'stretch'
-                };
-                break
-        }
-
-        return layoutConfig
+        return layoutMap[this.tabBarPosition] || null;
     }
 
     /**
