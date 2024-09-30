@@ -78,17 +78,6 @@ class Logger extends Base {
     }
 
     /**
-     * Ctrl-Right-Click will show the current component
-     * @param {Neo.component.Base} view
-     */
-    addContextMenuListener(view) {
-        view.addDomListeners({
-            contextmenu: this.onContextMenu,
-            scope      : this
-        })
-    }
-
-    /**
      * Set level to number based on position in logLevels
      * @param {String} value
      * @param {String|Number} oldValue
@@ -169,11 +158,7 @@ class Logger extends Base {
     onContextMenu(data) {
         let {config} = Neo;
 
-        if (
-            data.ctrlKey
-            && config.enableComponentLogger
-            && !(config.env === 'dist/production' && config.enableLogsInProduction)
-        ) {
+        if (config.enableComponentLogger && !(config.env === 'dist/production' && config.enableLogsInProduction)) {
             let isGroupSet = false,
                 component;
 

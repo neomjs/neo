@@ -1,6 +1,5 @@
 import Base            from './Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Logger          from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Application
@@ -100,8 +99,6 @@ class Application extends Base {
 
             // short delay to ensure changes from onHashChange() got applied
             await me.timeout(Neo.config.hash ? 200 : 10);
-
-            Logger.addContextMenuListener(me.mainView);
 
             await value.render(true)
         }
