@@ -24,24 +24,20 @@ class MainContainer extends Viewport {
          * Custom config
          * @member {Neo.dialog.Base|null} dialog=null
          */
-        dialog: null
-    }
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.items = [{
-            html : '<h3>The dialog is invoked from the "Create Dialog" button</h3><h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
+        dialog: null,
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            html : [
+                '<h3>The dialog is invoked from the "Create Dialog" button</h3>',
+                '<h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
+            ].join('')
         }, {
             module: Toolbar,
-            items :[{
+            items : [{
                 module   : Button,
-                handler  : me.createDialog.bind(me),
+                handler  : 'up.createDialog',
                 iconCls  : 'fa fa-window-maximize',
                 reference: 'create-dialog-button',
                 text     : 'Create Dialog',
@@ -50,7 +46,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onBoundaryContainerIdChange.bind(me)},
+                listeners     : {change: 'up.onBoundaryContainerIdChange'},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, {
@@ -58,20 +54,22 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
+                listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '3em'},
+                targetConfig  : 'animated',
                 valueLabelText: 'Animated'
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
+                listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '1em'},
+                targetConfig  : 'modal',
                 valueLabelText: 'Modal'
             }, '->', {
                 module : Button,
-                handler: me.switchTheme.bind(me),
+                handler: 'up.switchTheme',
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
@@ -117,12 +115,11 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @param {String} config
      * @param {Object} opts
      */
-    onConfigChange(config, opts) {
+    onConfigChange(opts) {
         if (this.dialog) {
-            this.dialog[config] = opts.value
+            this.dialog[opts.component.targetConfig] = opts.value
         }
     }
 
