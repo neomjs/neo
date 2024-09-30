@@ -172,7 +172,9 @@ class DomEvent extends Base {
             }
         }
 
-        if (eventName.startsWith('drop')) {
+        if (eventName === 'contextmenu' && data.ctrlKey) {
+            Neo.util?.Logger?.onContextMenu(data)
+        } else if (eventName.startsWith('drop')) {
             let dragZone = data.dragZoneId && Neo.get(data.dragZoneId);
 
             if (dragZone) {
