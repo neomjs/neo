@@ -37,9 +37,9 @@ class ViewportController extends Controller {
             basePath = `${basePath + environment}/`
         }
 
-        height -= 62; // popup header in Chrome
+        height += 1; // popup header in Chrome => height + 1, top -63
         left   += (width + winData.screenLeft);
-        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop - 63);
 
         /*
          * For this demo, the url './childapp/' would be sufficient.
