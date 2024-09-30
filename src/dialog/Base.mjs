@@ -731,6 +731,30 @@ class Base extends Panel {
     }
 
     /**
+     * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     */
+    async render(mount) {
+        let me             = this,
+            {wrapperStyle} = me;
+
+        // If there is no animation target, we need to ensure that the initial offscreen positioning
+        // from .neo-floating gets reverted
+        if (!me.animateTargetId) {
+            if (!wrapperStyle.left) {
+                wrapperStyle.left = 'initial'
+            }
+
+            if (!wrapperStyle.top) {
+                wrapperStyle.top = 'initial'
+            }
+
+            me.wrapperStyle = wrapperStyle
+        }
+
+        await super.render(mount)
+    }
+
+    /**
      * @param {Boolean} animate=!!this.animateTargetId
      */
     show(animate=!!this.animateTargetId) {
