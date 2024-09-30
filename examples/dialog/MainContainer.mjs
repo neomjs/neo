@@ -29,7 +29,7 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            html : [
+            html: [
                 '<h3>The dialog is invoked from the "Create Dialog" button</h3>',
                 '<h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
             ].join('')
