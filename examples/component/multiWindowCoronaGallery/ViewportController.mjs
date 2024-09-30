@@ -41,6 +41,13 @@ class ViewportController extends Controller {
         left   += (width + winData.screenLeft);
         top    += (winData.outerHeight - winData.innerHeight + winData.screenTop - 63);
 
+        // Mounted inside a code.LivePreview, the popup header should be within the content (height-wise)
+        // See: https://github.com/neomjs/neo/issues/5991
+        if (me.component.up('live-preview')) {
+            height -= 63;
+            top    += 63;
+        }
+
         /*
          * For this demo, the url './childapp/' would be sufficient.
          * However, we also want to open it from within apps/portal.

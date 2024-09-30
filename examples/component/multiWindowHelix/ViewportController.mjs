@@ -43,7 +43,7 @@ class ViewportController extends Controller {
 
         // Mounted inside a code.LivePreview, the popup header should be within the content (height-wise)
         // See: https://github.com/neomjs/neo/issues/5991
-        if (me.component.appName === 'Portal') {
+        if (me.component.up('live-preview')) {
             height -= 63;
             top    += 63;
         }
