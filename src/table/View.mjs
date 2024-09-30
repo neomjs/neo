@@ -201,7 +201,7 @@ class View extends Component {
             if (selectedRows?.includes(id)) {
                 trCls.push('neo-selected');
 
-                Neo.getComponent(me.containerId).fire('select', {
+                me.parent.fire('select', {
                     record
                 })
             }
@@ -326,7 +326,7 @@ class View extends Component {
      */
     getColumn(field, returnIndex=false) {
         let container = this.parent,
-            columns   = container.items[0].items, // todo: we need a shortcut for accessing the header toolbar
+            columns   = container.headerToolbar.items,
             i         = 0,
             len       = columns.length,
             column;

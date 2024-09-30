@@ -1,8 +1,8 @@
 import Button     from '../../src/button/Base.mjs';
 import CheckBox   from '../../src/form/field/CheckBox.mjs';
+import DemoDialog from './DemoDialog.mjs';
 import NeoArray   from '../../src/util/Array.mjs';
 import Toolbar    from '../../src/toolbar/Base.mjs';
-import DemoDialog from './DemoDialog.mjs';
 import Viewport   from '../../src/container/Viewport.mjs';
 
 /**
@@ -11,37 +11,33 @@ import Viewport   from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.dialog.MainContainer'
+         * @protected
+         */
         className: 'Neo.examples.dialog.MainContainer',
-        layout   : 'base',
-        style    : {padding: '20px'},
         /**
-         * Custom config which gets passed to the dialog
-         * Either a dom node id, 'document.body' or null
-         * @member {String|null} boundaryContainerId='document.body'
+         * We are not using a container layout here
+         * @member {String} layout='base'
          */
-        boundaryContainerId: 'document.body',
+        layout: 'base',
         /**
-         * Custom config
-         * @member {Neo.dialog.Base|null} dialog=null
+         * @member {Object} style={padding:'20px'}
          */
-        dialog: null
-    }
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.items = [{
-            html : '<h3>The dialog is invoked from the "Create Dialog" button</h3><h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
+        style: {padding: '20px'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            html: [
+                '<h3>The dialog is invoked from the "Create Dialog" button</h3>',
+                '<h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
+            ].join('')
         }, {
             module: Toolbar,
-            items :[{
+            items : [{
                 module   : Button,
-                handler  : me.createDialog.bind(me),
+                handler  : 'up.createDialog',
                 iconCls  : 'fa fa-window-maximize',
                 reference: 'create-dialog-button',
                 text     : 'Create Dialog',
@@ -50,7 +46,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onBoundaryContainerIdChange.bind(me)},
+                listeners     : {change: 'up.onBoundaryContainerIdChange'},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, {
@@ -58,25 +54,38 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
+                listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '3em'},
+                targetConfig  : 'animated',
                 valueLabelText: 'Animated'
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
+                listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '1em'},
+                targetConfig  : 'modal',
                 valueLabelText: 'Modal'
             }, '->', {
                 module : Button,
-                handler: me.switchTheme.bind(me),
+                handler: 'up.switchTheme',
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
         }]
     }
+
+    /**
+     * Custom class field which gets passed to the dialog. Either a dom node id, 'document.body' or null
+     * @member {String|null} boundaryContainerId='document.body'
+     */
+    boundaryContainerId = 'document.body'
+    /**
+     * Custom class field to store the created dialog.Base instance
+     * @member {Neo.dialog.Base|null} dialog=null
+     */
+    dialog = null
 
     /**
      * @param {Object} data
@@ -117,12 +126,11 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @param {String} config
      * @param {Object} opts
      */
-    onConfigChange(config, opts) {
+    onConfigChange(opts) {
         if (this.dialog) {
-            this.dialog[config] = opts.value
+            this.dialog[opts.component.targetConfig] = opts.value
         }
     }
 

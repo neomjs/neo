@@ -27,6 +27,27 @@ class Viewport extends BaseViewport {
             style : {marginTop: '20px'}
         }]
     }
+
+    /**
+     * @param {Number} amountColumns
+     * @param {Number} amountRows
+     */
+    createRandomData(amountColumns, amountRows) {
+        let data = [],
+            i    = 0,
+            j;
+
+        for (; i < amountRows; i++) {
+            data.push({});
+
+            for (j=0; j < amountColumns; j++) {
+                data[i]['column' + j] = 'Column' + (j + 1) + ' - ' + Math.round(Math.random() / 1.5);
+                data[i]['column' + j + 'style'] = Math.round(Math.random() / 1.7) > 0 ? 'brown' : i%2 ? '#3c3f41' : '#323232'
+            }
+        }
+
+        return data
+    }
 }
 
 export default Neo.setupClass(Viewport);

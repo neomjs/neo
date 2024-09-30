@@ -24,11 +24,6 @@ class Container extends BaseContainer {
          */
         ntype: 'table-container',
         /**
-         * todo: testing config, remove when Stores are ready
-         * @member {Number} amountRows=20
-         */
-        amountRows: 20,
-        /**
          * @member {String[]} baseCls=['neo-table-container']
          */
         baseCls: ['neo-table-container'],
@@ -37,11 +32,6 @@ class Container extends BaseContainer {
          * @member {Object} columnDefaults=null
          */
         columnDefaults: null,
-        /**
-         * todo: testing config, remove when Stores are ready
-         * @member {Boolean} createRandomData=false
-         */
-        createRandomData: false,
         /**
          * @member {Object[]} columns_=[]
          */
@@ -148,11 +138,10 @@ class Container extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module         : View,
-            containerId    : me.id,
-            id             : me.viewId,
-            store          : me.store,
-            useRowRecordIds: !me.createRandomData,
+            module     : View,
+            containerId: me.id,
+            id         : me.viewId,
+            store      : me.store,
             ...me.viewConfig
         }];
 
@@ -400,26 +389,16 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Number} countRows
-     */
-    createRandomViewData(countRows) {
-        this.loadData(countRows)
-    }
-
-    /**
      * @param {Array} inputData
      */
     createViewData(inputData) {
-        let me      = this,
-            {items} = me;
+        let me = this;
 
-        items[1].createViewData(inputData); // todo: save a reference to the view & headerContainer
+        me.view.createViewData(inputData);
 
         if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
-            me.applyCustomScrollbarsCss();
+            me.applyCustomScrollbarsCss()
         }
-
-        me.items = items
     }
 
     /**
@@ -453,34 +432,11 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Number} countRows
-     */
-    loadData(countRows) {
-        let me           = this,
-            columns      = me.items[0].items,
-            countColumns = columns.length;
-
-        Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
-            me.createViewData(data)
-        })
-    }
-
-    /**
      *
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        me.selectionModel?.register(me);
-
-        if (me.createRandomData) {
-            // todo: if mounting apply after mount
-            me.timeout(50).then(() => {
-                me.createRandomViewData(me.amountRows)
-            })
-        }
+        this.selectionModel?.register(this)
     }
 
     /**
@@ -545,7 +501,7 @@ class Container extends BaseContainer {
      * @protected
      */
     removeSortingCss(dataField) {
-        this.items[0].items.forEach(column => {
+        this.headerToolbar.items.forEach(column => {
             if (column.dataField !== dataField) {
                 column.removeSortingCss()
             }

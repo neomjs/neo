@@ -43,57 +43,41 @@ class MainContainer2 extends Container {
             }, {
                 ntype     : 'numberfield',
                 clearable : false,
-                id        : 'amountRows2',
                 labelText : 'Rows:',
                 labelWidth: 50,
                 maxValue  : 1500,
                 minValue  : 1,
+                reference : 'amount-rows-field',
                 value     : 50,
                 width     : 120
             }, {
                 ntype     : 'numberfield',
                 clearable : false,
-                id        : 'interval2',
                 labelText : 'Interval:',
                 labelWidth: 62,
                 maxValue  : 5000,
                 minValue  : 10,
+                reference : 'interval-field',
                 value     : 30,
                 width     : 130
             }, {
+                handler: 'up.updateTableViewData',
                 iconCls: 'fa fa-sync-alt',
-                text   : 'Refresh Data',
-                handler: function () {
-                    let rows = Neo.getComponent('amountRows2').value;
-                    Neo.getComponent('myTableContainer2').createRandomViewData(rows);
-                }
+                text   : 'Refresh Data'
             }, {
+                handler: 'up.updateTableViewData100x',
                 iconCls: 'fa fa-sync-alt',
                 style  : {margin: 0},
-                text   : 'Refresh 100x',
-                handler: function () {
-                    let interval     = Neo.getComponent('interval2').value,
-                        rows         = Neo.getComponent('amountRows2').value,
-                        maxRefreshes = 100,
-                        intervalId   = setInterval(function(){
-                            if (maxRefreshes < 1) {
-                                clearInterval(intervalId);
-                            }
-
-                            Neo.getComponent('myTableContainer2').createRandomViewData(rows);
-                            maxRefreshes--;
-                        }, interval);
-                }
+                text   : 'Refresh 100x'
             }]
         }, {
-            ntype           : 'table-container',
-            id              : 'myTableContainer2',
-            amountRows      : 50, // testing var
-            createRandomData: true,
-            width           : '100%',
+            module    : TableContainer,
+            reference : 'table',
+            viewConfig: {useRowRecordIds: false},
+            width     : '100%',
 
             columnDefaults: {
-                renderer: function(data) {
+                renderer(data) {
                     return {
                         html : data.value,
                         style: {
@@ -139,6 +123,43 @@ class MainContainer2 extends Container {
                 dataField: 'column9'
             }]
         }]
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.updateTableViewData()
+    }
+
+    /**
+     *
+     */
+    updateTableViewData() {
+        let me        = this,
+            table     = me.getReference('table'),
+            columns   = table.headerToolbar.items.length,
+            rows      = me.getReference('amount-rows-field').value,
+            inputData = me.up('viewport').createRandomData(columns, rows);
+
+        table.createViewData(inputData)
+    }
+
+    /**
+     *
+     */
+    updateTableViewData100x() {
+        let interval     = this.getReference('interval-field').value,
+            maxRefreshes = 100,
+            intervalId   = setInterval(() => {
+                if (maxRefreshes < 1) {
+                    clearInterval(intervalId);
+                }
+
+                this.updateTableViewData();
+                maxRefreshes--
+            }, interval)
     }
 }
 
