@@ -1,8 +1,8 @@
 import Button     from '../../src/button/Base.mjs';
 import CheckBox   from '../../src/form/field/CheckBox.mjs';
+import DemoDialog from './DemoDialog.mjs';
 import NeoArray   from '../../src/util/Array.mjs';
 import Toolbar    from '../../src/toolbar/Base.mjs';
-import DemoDialog from './DemoDialog.mjs';
 import Viewport   from '../../src/container/Viewport.mjs';
 
 /**
