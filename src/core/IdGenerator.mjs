@@ -5,15 +5,6 @@
  * @singleton
  */
 class IdGenerator {
-    /**
-     * Set this one to false in case you don't want to stick
-     * to the "anti-pattern" to apply classes to the global Neo or App namespace
-     * @member {Boolean} registerToGlobalNs=true
-     * @protected
-     * @static
-     */
-    static registerToGlobalNs = true
-
     static config = {
         /**
          * @member {String} className='Neo.core.IdGenerator'

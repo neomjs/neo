@@ -92,17 +92,13 @@ Neo = globalThis.Neo = Object.assign({
      * @param {Neo.core.Base} cls
      */
     applyToGlobalNs(cls) {
-        let proto = typeof cls === 'function' ? cls.prototype: cls,
-            className, nsArray, key, ns;
+        let proto     = typeof cls === 'function' ? cls.prototype : cls,
+            className = proto.isClass ? proto.config.className : proto.className,
+            nsArray   = className.split('.'),
+            key       = nsArray.pop(),
+            ns        = Neo.ns(nsArray, true);
 
-        if (proto.constructor.registerToGlobalNs === true) {
-            className = proto.isClass ? proto.config.className : proto.className;
-
-            nsArray = className.split('.');
-            key     = nsArray.pop();
-            ns      = Neo.ns(nsArray, true);
-            ns[key] = cls
-        }
+        ns[key] = cls
     },
 
     /**
@@ -571,8 +567,7 @@ const ignoreMixin = [
     'isClass',
     'mixin',
     'ntype',
-    'observable',
-    'registerToGlobalNs'
+    'observable'
 ],
 
     charsRegex         = /\d+/g,

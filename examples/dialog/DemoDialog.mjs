@@ -135,7 +135,8 @@ class DemoDialog extends Dialog {
             trapFocus              : true,
             optionalAnimateTargetId: button.id,
             style                  : {left: me.getOffset(), top: me.getOffset()},
-            title                  : 'Dialog ' + nextIndex
+            title                  : 'Dialog ' + nextIndex,
+            windowId               : me.windowId
         })
     }
 

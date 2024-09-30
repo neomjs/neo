@@ -58,7 +58,6 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'animated')},
                 style         : {marginLeft: '3em'},
                 valueLabelText: 'Animated'
             }, {
@@ -66,7 +65,6 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                listeners     : {change: me.onConfigChange.bind(me, 'modal')},
                 style         : {marginLeft: '1em'},
                 valueLabelText: 'Modal'
             }, '->', {
@@ -82,19 +80,22 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     createDialog(data) {
-        let me = this;
+        let me                                       = this,
+            button                                   = data.component,
+            {appName, boundaryContainerId, windowId} = me;
 
-        data.component.disabled = true;
+        button.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
             animated               : me.down({valueLabelText: 'Animated'}).checked,
-            appName                : me.appName,
-            boundaryContainerId    : me.boundaryContainerId,
+            appName,
+            boundaryContainerId,
             listeners              : {close: me.onWindowClose, scope: me},
             modal                  : me.down({valueLabelText: 'Modal'}).checked,
             trapFocus              : true,
-            optionalAnimateTargetId: data.component.id,
-            title                  : 'Dialog 1'
+            optionalAnimateTargetId: button.id,
+            title                  : 'Dialog 1',
+            windowId
         })
     }
 
@@ -103,8 +104,13 @@ class MainContainer extends Viewport {
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
-        if (this.dialog) {
-            this.dialog[config] = opts.value ? 'document.body' : null
+        let me                  = this,
+            boundaryContainerId = opts.value ? 'document.body' : null;
+
+        me.boundaryContainerId = boundaryContainerId
+
+        if (me.dialog) {
+            me.dialog[config] = boundaryContainerId
         }
     }
 
