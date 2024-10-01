@@ -1,6 +1,6 @@
 .portal-home-features {
     display        : flex;
-    flex-wrap      : wrap !important;
+    flex-wrap      : wrap;
     gap            : 1.5em;
     justify-content: center;
     overflow-x     : hidden;
@@ -29,9 +29,9 @@
     }
 
     @media (max-width : 900px) {
-        flex-wrap      : nowrap !important;
-        justify-content: flex-start !important;
-        margin-bottom  : 5em !important;
+        flex-wrap      : nowrap;
+        justify-content: flex-start;
+        margin-bottom  : 5em;
         min-height     : 200px;
         overflow-x     : auto;
 
@@ -41,8 +41,8 @@
     }
 
     @media (max-width : 660px) {
-        flex-wrap      : nowrap !important;
-        justify-content: flex-start !important;
-        margin-bottom  : 5em !important;
+        flex-wrap      : nowrap;
+        justify-content: flex-start;
+        margin-bottom  : 5em;
     }
 }

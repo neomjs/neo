@@ -30,21 +30,21 @@
     }
 
     .portal-content-box-content li {
-        border-radius: 4px !important;
+        border-radius: 4px;
         list-style   : none;
-        margin-top   : 10px !important;
-        padding      : 8px !important;
-        transition   : all 0.2s ease-in !important;
+        margin-top   : 10px;
+        padding      : 8px;
+        transition   : all 0.2s ease-in;
     }
 
     .portal-content-box-content li:hover {
-        background-color: rgba(62, 99, 221, 0.1) !important;
-        color           : #3e63dd !important;
+        background-color: rgba(62, 99, 221, 0.1);
+        color           : #3e63dd;
     }
 
     .portal-content-box-headline {
         border-bottom : 2px solid #3e63dd;
-        color         : #3e63dd !important;
+        color         : #3e63dd;
         font-size     : 1.18em;
         font-weight   : 500;
         letter-spacing: 1.5px;
@@ -87,7 +87,6 @@
 
     .neo-no-mouse {
         &:after {
-            bottom     : 0.5em;
             bottom     : 20px;
             color      : #3e63dd;
             content    : "\f08e";
