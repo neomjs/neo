@@ -17,9 +17,9 @@ class Features extends BaseContainer {
          */
         cls: ['portal-home-features'],
         /**
-         * @member {Object|String} layout='grid'
+         * @member {Object|String} layout='base'
          */
-        layout: 'grid',
+        layout: 'base',
         /**
          * @member {Object} itemDefaults
          */
