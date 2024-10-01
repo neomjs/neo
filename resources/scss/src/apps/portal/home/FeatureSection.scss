@@ -1,9 +1,9 @@
 .portal-home-feature-section {
-    align-items      : stretch;
-    display          : flex;
-    flex-wrap        : nowrap;
-    justify-content  : center;
-    min-height       : 100%;
+    align-items: stretch;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    min-height: 100%;
     scroll-snap-align: center;
 
     @media (max-width: 840px) {
@@ -21,17 +21,17 @@
     }
 
     h1.neo-h1 {
-        color      : var(--purple-400);
-        font-size  : min(max(4.5vw, 30px), 44px);
+        color: var(--purple-400);
+        font-size: min(max(4.5vw, 30px), 44px);
         line-height: 1em;
-        margin     : 0;
+        margin: 0;
     }
 
     h2.neo-h2 {
-        font-size  : min(max(3.5vw, 24px), 35px);
+        font-size: min(max(3.5vw, 24px), 35px);
         font-weight: 600;
         line-height: 1em;
-        margin     : 0;
+        margin: 0;
     }
 
     .page-live-preview {
@@ -40,18 +40,18 @@
     }
 
     .portal-content-text {
-        align-items    : start;
-        display        : flex;
-        flex           : 1;
-        flex-direction : column;
-        flex-wrap      : nowrap;
+        align-items: start;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        flex-wrap: nowrap;
         justify-content: center;
-        padding        : 2rem;
+        padding: 2rem;
 
         @media (max-width: 600px) {
-            flex           : .5 !important;
+            flex: .5 !important;
             justify-content: start;
-            padding        : 1rem;
+            padding: 1rem;
         }
 
         .neo-button {
@@ -60,13 +60,13 @@
     }
 
     .portal-content-wrapper {
-        flex   : 2;
+        flex: 2;
         padding: 20px;
 
         @media (max-width: 600px) {
             max-height: 35em;
             min-height: 35em;
-            padding   : 5px;
+            padding: 5px;
         }
     }
 }
