@@ -1,54 +1,48 @@
 .portal-home-features {
-    display: flex !important; // Default to flex for wider screens
-    flex-wrap: wrap !important; // Allow wrapping on larger screens
-    overflow-x: hidden; // No horizontal scroll for wider screens
-    justify-content: center;
-    padding: 2em;
-    gap: 1.5em; // Space between cards
-    scrollbar-width: thin; // For Firefox: thin scrollbar
-    scrollbar-color: #3e63dd #f0f0f0; 
+  display        : flex !important;
+  flex-wrap      : wrap !important;
+  overflow-x     : hidden;
+  justify-content: center;
+  padding        : 2em;
+  gap            : 1.5em;
+  scrollbar-width: thin;
+  scrollbar-color: #3e63dd #f0f0f0;
 
-    &::-webkit-scrollbar {
-        height: 8px; // Height of the scrollbar
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background   : #f0f0f0;
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: #3e63dd;
+    border-radius   : 10px;
+  }
+
+  @media (max-width: 1200px) {
+    .portal-content-box {
+      flex: 0 0 calc(50% - 1.5em);
     }
+  }
 
-    &::-webkit-scrollbar-track {
-        background: #f0f0f0; // Track color
-        border-radius: 10px; // Rounded track corners
+  @media (max-width: 900px) {
+    flex-wrap      : nowrap !important;
+    overflow-x     : auto;
+    min-height     : 200px;
+    justify-content: flex-start !important;
+    margin-bottom  : 5em !important;
+
+    .portal-content-box {
+      flex: 0 0 280px;
     }
+  }
 
-    &::-webkit-scrollbar-thumb {
-        background-color: #3e63dd; // Scrollbar color
-        border-radius: 10px; // Rounded thumb corners
-    }
-
-    @media (max-width: 1200px) {
-        .portal-content-box {
-            flex: 0 0 calc(50% - 1.5em); // 2 cards per row on medium screens
-        }
-    }
-
-    @media (max-width: 900px) {
-        flex-wrap: nowrap !important; // Prevent wrapping to keep cards in a single line
-        overflow-x: auto; // Allow horizontal scrolling
-        min-height: 200px; // Set a minimum height for the container
-        justify-content: flex-start !important;
-        // margin-bottom: 5em !important;
-
-        .portal-content-box {
-            flex: 0 0 280px; // Fixed width for smaller screens
-        }
-    }
-
-    @media (max-width: 660px) {
-        flex-wrap: nowrap !important; // Prevent wrapping on smaller screens
-        justify-content: flex-start !important;
-        // margin-bottom: 5em !important;
-    }
-
-    // @media (max-width: 600px) {
-    //     .portal-content-box {
-    //         flex: 0 0 calc(100% - 1.5em); // Full width on small screens
-    //     }
-    // }
+  @media (max-width: 660px) {
+    flex-wrap      : nowrap !important;
+    justify-content: flex-start !important;
+    margin-bottom  : 5em !important;
+  }
 }
