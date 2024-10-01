@@ -1,115 +1,114 @@
 .portal-content-box {
-    border-radius: 12px;
-    background: #ffffff;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    color: #3e63dd;
-    cursor: pointer;
-    min-width: 280px;
-    max-width: 350px;
-    padding: 1em;
-    position: relative;
-    text-decoration: none;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    flex: 0 0 calc(33.33% - 1.5em);
-  
+  border-radius  : 12px;
+  background     : #ffffff;
+  box-shadow     : 0 4px 16px rgba(0, 0, 0, 0.1);
+  color          : #3e63dd;
+  cursor         : pointer;
+  min-width      : 280px;
+  max-width      : 350px;
+  padding        : 1em;
+  position       : relative;
+  text-decoration: none;
+  font-family    : "Segoe UI",          Tahoma, Geneva, Verdana, sans-serif;
+  transition     : transform 0.3s ease, box-shadow 0.3s ease;
+  flex           : 0 0 calc(33.33% - 1.5em);
+
+  &:hover {
+    transform : translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .portal-content-box-content {
+    margin-top  : 0.5em;
+    padding-left: 0;
+    color       : #555;
+    font-size   : 0.95em;
+    list-style  : none;
+    padding     : 8px;
+  }
+
+  .portal-content-box-content li {
+    list-style   : none;
+    padding      : 8px !important;
+    border-radius: 4px !important;
+    margin-top   : 10px !important;
+    transition   : all 0.2s ease-in !important;
+  }
+
+  .portal-content-box-content li:hover {
+    background-color: rgba(62, 99, 221, 0.1) !important;
+    color           : #3e63dd !important;
+  }
+
+  .portal-content-box-headline {
+    border-bottom : 2px solid #3e63dd;
+    letter-spacing: 1.5px;
+    margin        : 0 auto 0.75em auto;
+    max-width     : 90%;
+    padding-bottom: 0.4em;
+    text-align    : center;
+    font-size     : 1.18em;
+    font-weight   : 500;
+    color         : #3e63dd !important;
+  }
+
+  &:after {
+    content         : "\2192";
+    position        : absolute;
+    bottom          : 10px;
+    right           : 10px;
+    font-size       : 1.2em;
+    color           : #3e63dd;
+    opacity         : 0.8;
+    padding         : 5px 8px;
+    background-color: rgba(62, 99, 221, 0.05);
+    border-radius   : 5px;
+    transition      : background-color 0.3s ease;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+  }
+
+  &:after:hover:after {
+    background-color: rgba(62, 99, 221, 0.25);
+  }
+
+  .neo-mouse {
     &:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-    }
-  
-    &:active {
-      transform: scale(0.98);
-    }
-  
-    .portal-content-box-content {
-      margin-top: 0.5em;
-      padding-left: 0;
-      color: #555;
-      font-size: 0.95em;
-      list-style: none;
-      padding: 8px;
-    }
-  
-    .portal-content-box-content li {
-      list-style: none;
-      padding: 8px !important;
-      border-radius: 4px !important;
-      margin-top: 10px !important;
-      transition: all 0.2s ease-in !important;
-    }
-  
-    .portal-content-box-content li:hover {
-      background-color: rgba(62, 99, 221, 0.1) !important;
-      color: #3e63dd !important;
-    }
-  
-    .portal-content-box-headline {
-      border-bottom: 2px solid #3e63dd;
-      letter-spacing: 1.5px;
-      margin: 0 auto 0.75em auto;
-      max-width: 90%;
-      padding-bottom: 0.4em;
-      text-align: center;
-      font-size: 1.18em;
-      font-weight: 500;
-      color: #3e63dd !important;
-    }
-  
-    &:after {
-      content: '\2192';
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      font-size: 1.2em;
-      color: #3e63dd;
-      opacity: 0.8;
-      padding: 5px 8px;
       background-color: rgba(62, 99, 221, 0.05);
-      border-radius: 5px;
-      transition: background-color 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-  
-    &:after:hover:after {
-      background-color: rgba(62, 99, 221, 0.25);
-    }
-  
-    .neo-mouse {
-      &:hover {
-        background-color: rgba(62, 99, 221, 0.05);
-  
-        .portal-content-box-headline {
-          border-bottom-color: #1a47b8;
-        }
-      }
-    }
-  
-    .neo-no-mouse {
-      &:after {
-        bottom: 0.5em;
-        color: #3e63dd;
-        content: "\f08e";
-        font-weight: 600;
-        position: absolute;
-        right: 0.5em;
-        bottom: 20px;
+
+      .portal-content-box-headline {
+        border-bottom-color: #1a47b8;
       }
     }
   }
-  
-  .portal-content-box-lists {
-    list-style: none;
-    padding: 8px;
-    border-radius: 4px;
-    margin-top: 10px;
-    transition: all 0.3s ease-in;
-  
-    &:hover {
-      background-color: rgba(62, 99, 221, 0.1);
-      color: #3e63dd;
+
+  .neo-no-mouse {
+    &:after {
+      bottom     : 0.5em;
+      color      : #3e63dd;
+      content    : "\f08e";
+      font-weight: 600;
+      position   : absolute;
+      right      : 0.5em;
+      bottom     : 20px;
     }
   }
-  
+}
+
+.portal-content-box-lists {
+  list-style   : none;
+  padding      : 8px;
+  border-radius: 4px;
+  margin-top   : 10px;
+  transition   : all 0.3s ease-in;
+
+  &:hover {
+    background-color: rgba(62, 99, 221, 0.1);
+    color           : #3e63dd;
+  }
+}
