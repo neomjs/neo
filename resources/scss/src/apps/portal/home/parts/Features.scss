@@ -1,48 +1,48 @@
 .portal-home-features {
-  display        : flex !important;
-  flex-wrap      : wrap !important;
-  overflow-x     : hidden;
-  justify-content: center;
-  padding        : 2em;
-  gap            : 1.5em;
-  scrollbar-width: thin;
-  scrollbar-color: #3e63dd #f0f0f0;
+    display        : flex !important;
+    flex-wrap      : wrap !important;
+    gap            : 1.5em;
+    justify-content: center;
+    overflow-x     : hidden;
+    padding        : 2em;
+    scrollbar-color: #3e63dd #f0f0f0;
+    scrollbar-width: thin;
 
-  &::-webkit-scrollbar {
-    height: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background   : #f0f0f0;
-    border-radius: 10px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: #3e63dd;
-    border-radius   : 10px;
-  }
-
-  @media (max-width: 1200px) {
-    .portal-content-box {
-      flex: 0 0 calc(50% - 1.5em);
+    &::-webkit-scrollbar {
+        height: 8px;
     }
-  }
 
-  @media (max-width: 900px) {
-    flex-wrap      : nowrap !important;
-    overflow-x     : auto;
-    min-height     : 200px;
-    justify-content: flex-start !important;
-    margin-bottom  : 5em !important;
-
-    .portal-content-box {
-      flex: 0 0 280px;
+    &::-webkit-scrollbar-track {
+        background   : #f0f0f0;
+        border-radius: 10px;
     }
-  }
 
-  @media (max-width: 660px) {
-    flex-wrap      : nowrap !important;
-    justify-content: flex-start !important;
-    margin-bottom  : 5em !important;
-  }
+    &::-webkit-scrollbar-thumb {
+        background-color: #3e63dd;
+        border-radius   : 10px;
+    }
+
+    @media (max-width : 1200px) {
+        .portal-content-box {
+            flex: 0 0 calc(50% - 1.5em);
+        }
+    }
+
+    @media (max-width : 900px) {
+        flex-wrap      : nowrap !important;
+        justify-content: flex-start !important;
+        margin-bottom  : 5em !important;
+        min-height     : 200px;
+        overflow-x     : auto;
+
+        .portal-content-box {
+            flex: 0 0 280px;
+        }
+    }
+
+    @media (max-width : 660px) {
+        flex-wrap      : nowrap !important;
+        justify-content: flex-start !important;
+        margin-bottom  : 5em !important;
+    }
 }
