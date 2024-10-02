@@ -1,7 +1,21 @@
 .portal-home-aftermath {
     height: 60em;
 
-    p {
-        text-align: center;
+    a {
+        color: #3E63DD;
+    }
+
+    li {
+        font-size: var(--core-fontsize-body);
+        font-weight: var(--core-fontweight-regular);
+        line-height: var(--core-lineheight-paragraph);
+
+        &::marker {
+            color: #3E63DD;
+        }
+    }
+
+    ul {
+        align-self: center;
     }
 }
