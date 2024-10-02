@@ -1,9 +1,10 @@
 .portal-about-member-container {
-    border    : 1px solid var(--sem-color-border-default);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-    min-width : 600px;
-    padding   : 1em 1em 4em;
-    position  : relative;
+    border       : 1px solid var(--sem-color-border-default);
+    border-radius: .7em;
+    box-shadow   : 0 3px 6px rgba(0, 0, 0, 0.3);
+    min-width    : 600px;
+    padding      : 1em 1em 4em;
+    position     : relative;
 
     &:not(:nth-child(2)) {
         margin-top: 1em;
@@ -13,6 +14,7 @@
         display: flex;
 
         h2.portal-profile-name {
+            color : #3E63DD;
             margin: .3em 0;
         }
 
