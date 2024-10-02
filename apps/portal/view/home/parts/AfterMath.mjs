@@ -33,17 +33,14 @@ class AfterMath extends BaseContainer {
         }, {
             cls : ['neo-content'],
             flex: 'none',
+            tag : 'ul',
+
             html: `
-            <p>
-            To learn more about Neo.mjs please read <a href="#/learn">the Learning Section</a> or browse <a href="#/blog">the blog</a>.
-            </p>
-            <p>
-            To arrange a demo or to talk to an engineer email <a href="mailto:info@neomjs.com">info@neomjs.com</a>. 
-            <br>For help starting a project email <a href="mailto:services@neomjs.com">services@neomjs.com</a>. 
-            <br>For questions about private training email <a href="mailto:training@neomjs.com">training@neomjs.com</a>.
-            </p>
-            `,
-            tag : 'div'
+                <li>To learn more about Neo.mjs please read the <a href="#/learn">Learning Section</a> or browse the <a href="#/blog">Blog</a></li>
+                <li>To arrange a demo or to talk to an engineer email <a href="mailto:info@neomjs.com">info@neomjs.com</a></li>
+                <li>For help starting a project email <a href="mailto:services@neomjs.com">services@neomjs.com</a></li>
+                <li>For questions about private training email <a href="mailto:training@neomjs.com">training@neomjs.com</a></li>
+            `
         }, {
             flex: 1
         }, {

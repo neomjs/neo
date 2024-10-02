@@ -1,65 +1,98 @@
 .portal-content-box {
-    border-radius  : 3px;
-    box-shadow     : 0 3px 6px rgba(0, 0, 0, 0.3);
-    color          : #000;
+    background     : #ffffff;
+    border-radius  : 12px;
+    box-shadow     : 0 4px 16px rgba(0, 0, 0, 0.1);
+    color          : #3e63dd;
     cursor         : pointer;
-    min-width      : 300px;
-    padding        : 0 1em 1em 1em;
+    flex           : 0 0 calc(33.33% - 1.5em);
+    max-width      : 350px;
+    min-width      : 280px;
+    padding        : 1em;
     position       : relative;
     text-decoration: none;
+    transition     : transform 0.3s ease-out, box-shadow 0.3s ease-out;
+
+    &:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        transform : translateY(-8px) scale(1.02);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
 
     .portal-content-box-content {
-        margin-top  : 0.75em;
-        padding-left: 1.3em;
+        color       : #555;
+        font-size   : 0.95em;
+        list-style  : none;
+        margin-top  : 0.5em;
+        padding     : 8px 8px 8px 0;
     }
 
-    .portal-content-box-headline {
-        border-bottom : 1px solid #ececec;
-        letter-spacing: 1.5px !important;
-        margin        : 1em auto 0 auto;
-        max-width     : 85%;
-        padding-bottom: 0.75em;
-        text-align    : center;
-        word-spacing  : 1.5px;
-    }
-}
+    .portal-content-box-content li {
+        border-radius: 4px;
+        list-style   : none;
+        margin-top   : .4em;
+        padding      : 8px;
+        transition   : background-color 0.2s ease-out, color 0.2s ease-out;
 
-.neo-mouse {
-    .portal-content-box {
         &:hover {
-            background-color: var(--sem-color-surface-primary-background);
+            background-color: rgba(62, 99, 221, 0.1);
+            color           : #3e63dd;
+        }
+    }
 
-            &:after {
-                background-color: var(--purple-200);
-                border-radius   : 2px;
-                bottom          : 10px;
-                content         : attr(href) ' \2192';
-                font-size       : 0.7em;
-                left            : -1px;
-                opacity         : 0.7;
-                padding         : 3px 20px;
-                position        : absolute;
-                right           : -1px;
-                text-align      : center;
-            }
+    h3.portal-content-box-headline {
+        border-bottom : 2px solid #3e63dd;
+        color         : #3e63dd;
+        font-size     : 1.18em;
+        font-weight   : 500;
+        letter-spacing: 1.5px;
+        margin        : 0 auto;
+        max-width     : 90%;
+        padding-bottom: 0.4em;
+        text-align    : center;
+    }
+
+    &:after {
+        align-items     : center;
+        background-color: rgba(62, 99, 221, 0.05);
+        border-radius   : 5px;
+        bottom          : 10px;
+        color           : #3e63dd;
+        content         : "\2192";
+        display         : flex;
+        font-size       : 1.2em;
+        justify-content : center;
+        opacity         : 0.8;
+        padding         : 5px 8px;
+        position        : absolute;
+        right           : 10px;
+        transition      : background-color 0.3s ease;
+    }
+
+    &:after:hover:after {
+        background-color: rgba(62, 99, 221, 0.25);
+    }
+
+    .neo-mouse {
+        &:hover {
+            background-color: rgba(62, 99, 221, 0.05);
 
             .portal-content-box-headline {
-                border-bottom-color: #b7c0da;
+                border-bottom-color: #1a47b8;
             }
         }
     }
-}
 
-.neo-no-mouse {
-    .portal-content-box {
+    .neo-no-mouse {
         &:after {
-            bottom     : .5em;
-            color      : var(--purple-200);
-            content    : '\f08e';
-            font-family: var(--fa-style-family-classic);
+            bottom     : 20px;
+            color      : #3e63dd;
+            content    : "\f08e";
             font-weight: 600;
             position   : absolute;
-            right      : .5em;
+            right      : 0.5em;
         }
     }
 }

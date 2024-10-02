@@ -20,9 +20,9 @@ class Component extends BaseComponent {
          */
         vdom:
         {cn: [
-            {tag: 'h1', html: 'Services'},
+            {tag: 'h1', cls: ['neo-h1'], html: 'Services'},
             {cls: ['info-block'], cn: [
-                {tag: 'h2', html: 'Weekly Workshops'},
+                {tag: 'h2', cls: ['neo-h2'], html: 'Weekly Workshops'},
                 {tag: 'p',  html: [
                     'We are doing weekly workshops on Thursdays 18:30 CEST (12:30am EST) for 60m free of charge.</br>',
                     'Ping us inside our ',
@@ -31,7 +31,7 @@ class Component extends BaseComponent {
                 ].join('')},
             ]},
             {cls: ['info-block'], cn: [
-                {tag: 'h2', html: 'Professional Trainings'},
+                {tag: 'h2', cls: ['neo-h2'], html: 'Professional Trainings'},
                 {tag: 'p',  html: [
                     'While we do have a self-study based Learning Section online, you can also hire us ',
                     'in case you prefer an Instructor-led Training for bringing your team up to speed.'
@@ -47,7 +47,7 @@ class Component extends BaseComponent {
                 ].join('')},
             ]},
             {cls: ['info-block'], cn: [
-                {tag: 'h2', html: 'Professional Services'},
+                {tag: 'h2', cls: ['neo-h2'], html: 'Professional Services'},
                 {tag: 'p',  html: [
                     'We can help you to ensure your Neo.mjs based projects run successfully.',
                 ].join('')},

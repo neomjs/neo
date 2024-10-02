@@ -1,17 +1,39 @@
 .portal-home-features {
-    gap                  : 2em;
+    align-self           : center;
+    gap                  : 1.5em;
     grid-template-columns: repeat(3, 1fr);
-    overflow-x           : auto;
-    padding              : 2em;
+    justify-content      : center;
+    max-width            : 1200px;
+    padding              : 1.5em;
     place-content        : start;
+    scrollbar-color      : #3e63dd #f0f0f0;
+    scrollbar-width      : thin;
+
+    &::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background   : #f0f0f0;
+        border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: #3e63dd;
+        border-radius   : 10px;
+    }
 
     @media (max-width: 1000px) {
         grid-template-columns: repeat(2, 1fr);
     }
 
     @media (max-width: 700px) {
+        align-self           : start;
         grid-template-columns: repeat(6, 1fr);
+        margin-bottom        : 5em;
+        max-width            : fill-available; // prefixed by postCSS
         min-height           : 50%;
+        overflow-x           : scroll;
     }
 
     @media (max-width: 500px) {

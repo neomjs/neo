@@ -262,12 +262,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '7.11.0'
+     * @default '7.12.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '7.11.0'
+    version: '7.12.0'
 };
 
 Object.assign(DefaultConfig, {

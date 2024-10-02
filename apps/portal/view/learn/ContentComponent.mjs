@@ -184,7 +184,7 @@ class ContentComponent extends Component {
             data          = await fetch(path);
             content       = await data.text();
             content       = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
-            content       = `# ${record.name}\n${content}`;
+            content       = `<h1 class='neo-h1'>${record.name}</h1>\n${content}`;
             modifiedHtml  = await me.highlightPreContent(content);
             neoComponents = {};
             neoDivs       = {};

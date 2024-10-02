@@ -49,6 +49,12 @@ class DemoDialog extends Dialog {
     }
 
     /**
+     * Custom class field to store the created dialog.Base instance
+     * @member {Neo.dialog.Base|null} dialog=null
+     */
+    dialog = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -154,6 +160,7 @@ class DemoDialog extends Dialog {
      *
      */
     onWindowClose() {
+        this.dialog = null;
         this.getReference('create-dialog-button').disabled = false
     }
 }

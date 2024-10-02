@@ -71,6 +71,7 @@ class Circle extends Component {
                 parentId   : me.id,
                 tabIndex   : -1,
                 width      : me.itemWidth,
+                windowId   : me.windowId,
                 ...me.itemDefaults,
                 ...config
             })

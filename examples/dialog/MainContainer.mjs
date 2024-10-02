@@ -138,6 +138,7 @@ class MainContainer extends Viewport {
      *
      */
     onWindowClose() {
+        this.dialog = null;
         this.getReference('create-dialog-button').disabled = false
     }
 
