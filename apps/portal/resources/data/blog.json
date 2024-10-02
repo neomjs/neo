@@ -1,5 +1,18 @@
 [
     {
+        "author"      : "Nikhilesh Joshi",
+        "authorImage" : "author_hashnj.jpeg",
+        "date"        : "Oct 01, 2024",
+        "id"          : 61,
+        "image"       : ".png",
+        "name"        : "Neo.mjs: A novel framework for high-performance web applications.",
+        "provider"    : "Dev.to",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://dev.to/hashnj/neomjs-a-novel-framework-for-high-performance-web-applications-ia"
+    },
+    {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Aug 20, 2024",
