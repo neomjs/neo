@@ -1,12 +1,13 @@
 .portal-home-features {
-    display        : flex;
-    flex-wrap      : wrap;
-    gap            : 1.5em;
-    justify-content: center;
-    overflow-x     : hidden;
-    padding        : 2em;
-    scrollbar-color: #3e63dd #f0f0f0;
-    scrollbar-width: thin;
+    align-self           : center;
+    gap                  : 1.5em;
+    grid-template-columns: repeat(3, 1fr);
+    justify-content      : center;
+    max-width            : 1200px;
+    padding              : 1.5em;
+    place-content        : start;
+    scrollbar-color      : #3e63dd #f0f0f0;
+    scrollbar-width      : thin;
 
     &::-webkit-scrollbar {
         height: 8px;
@@ -22,27 +23,20 @@
         border-radius   : 10px;
     }
 
-    @media (max-width : 1200px) {
-        .portal-content-box {
-            flex: 0 0 calc(50% - 1.5em);
-        }
+    @media (max-width: 1000px) {
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width : 900px) {
-        flex-wrap      : nowrap;
-        justify-content: flex-start;
-        margin-bottom  : 5em;
-        min-height     : 200px;
-        overflow-x     : auto;
-
-        .portal-content-box {
-            flex: 0 0 280px;
-        }
+    @media (max-width: 700px) {
+        align-self           : start;
+        grid-template-columns: repeat(6, 1fr);
+        margin-bottom        : 5em;
+        max-width            : fill-available; // prefixed by postCSS
+        min-height           : 50%;
+        overflow-x           : scroll;
     }
 
-    @media (max-width : 660px) {
-        flex-wrap      : nowrap;
-        justify-content: flex-start;
-        margin-bottom  : 5em;
+    @media (max-width: 500px) {
+        min-height: 60%;
     }
 }

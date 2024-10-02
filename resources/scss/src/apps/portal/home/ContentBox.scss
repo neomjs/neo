@@ -13,7 +13,7 @@
     transition     : transform 0.3s ease-out, box-shadow 0.3s ease-out;
 
     &:hover {
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         transform : translateY(-8px) scale(1.02);
     }
 
@@ -32,9 +32,9 @@
     .portal-content-box-content li {
         border-radius: 4px;
         list-style   : none;
-        margin-top   : 10px;
+        margin-top   : .4em;
         padding      : 8px;
-        transition   : all 0.2s ease-out;
+        transition   : background-color 0.2s ease-out, color 0.2s ease-out;
 
         &:hover {
             background-color: rgba(62, 99, 221, 0.1);
@@ -48,7 +48,7 @@
         font-size     : 1.18em;
         font-weight   : 500;
         letter-spacing: 1.5px;
-        margin        : 0 auto 0.75em auto;
+        margin        : 0 auto;
         max-width     : 90%;
         padding-bottom: 0.4em;
         text-align    : center;
