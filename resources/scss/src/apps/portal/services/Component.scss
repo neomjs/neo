@@ -3,20 +3,35 @@
     overflow-y      : auto;
     padding         : 0.1em 6em 1em 6em;
 
-    .info-block {
-        border      : 1px solid var(--sem-color-border-default);
-        box-shadow  : 0 3px 6px rgba(0, 0, 0, 0.3);
-        margin-left : auto;
-        margin-right: auto;
-        margin-top  : 2em;
-        max-width   : 800px;
-        padding     : 0.5em 3em 1em 3em;
+    a {
+        color: #3E63DD;
     }
 
-    h1 {
+    li {
+        &::marker {
+            color: #3E63DD;
+        }
+    }
+
+    .info-block {
+        border       : 1px solid var(--sem-color-border-default);
+        border-radius: .7em;
+        box-shadow   : 0 3px 6px rgba(0, 0, 0, 0.3);
+        margin-left  : auto;
+        margin-right : auto;
+        margin-top   : 2em;
+        max-width    : 800px;
+        padding      : 0.5em 3em 1em 3em;
+    }
+
+    h1.neo-h1 {
         margin-left : auto;
         margin-right: auto;
         width       : fit-content;
+    }
+
+    h2.neo-h2 {
+        color: #3e63dd;
     }
 
     @media (max-width: 600px) {
