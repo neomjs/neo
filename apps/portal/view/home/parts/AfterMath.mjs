@@ -36,7 +36,7 @@ class AfterMath extends BaseContainer {
             tag : 'ul',
 
             html: `
-                <li>To learn more about Neo.mjs please read the <a href="#/learn">Learning Section</a> or browse <a href="#/blog">the Blog</a></li>
+                <li>To learn more about Neo.mjs please read the <a href="#/learn">Learning Section</a> or browse the <a href="#/blog">Blog</a></li>
                 <li>To arrange a demo or to talk to an engineer email <a href="mailto:info@neomjs.com">info@neomjs.com</a></li>
                 <li>For help starting a project email <a href="mailto:services@neomjs.com">services@neomjs.com</a></li>
                 <li>For questions about private training email <a href="mailto:training@neomjs.com">training@neomjs.com</a></li>
