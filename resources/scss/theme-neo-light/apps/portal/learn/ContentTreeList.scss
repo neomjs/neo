@@ -1,0 +1,23 @@
+:root .neo-theme-neo-light { // .covid-header-container
+    .topics-tree {
+        &.neo-tree-list {
+            .neo-list-container {
+                .neo-list-item {
+                    .neo-list-item-content:before {
+                        content: unset !important;
+                    }
+
+                    &.neo-list-folder {
+                        .neo-list-item-content:before {
+                            content: unset !important;
+                        }
+
+                        &.neo-folder-open .neo-list-item-content:before {
+                            content: unset !important;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

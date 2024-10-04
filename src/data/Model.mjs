@@ -39,6 +39,13 @@ class Model extends Base {
     }
 
     /**
+     * A property set in all data records so that they are easily identifiable.
+     * @property {Boolean} isRecord=true
+     * @readonly
+     */
+    isRecord = true
+
+    /**
      * Finds a field config by a given field name
      * @param {String} name
      * @returns {Object|null} The field config object or null if no match was found
