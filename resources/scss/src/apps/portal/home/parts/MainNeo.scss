@@ -1,104 +1,112 @@
 @font-face {
-    font-family: "GT-Planar";
-    src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+  font-family: "GT-Planar";
+  src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf")
+    format("opentype");
 }
 .portal-home-main-neo.portal-home-content-view {
-    padding: 3em;
+  padding: 3em;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
+  // background-image: url("data:image/svg+xml,%3Csvg width='50' height='50' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23504e54' fill-opacity='0.18'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  // background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Ccircle cx='23' cy='23' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E");
+
+  .logo-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    min-width: 240px;
+    min-height: 130px;
+    background-color: transparent;
+  }
+
+  .button-group {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 8px;
+    margin: 2rem 0;
+  }
+
+  .neo-h1 {
+    font-size: 60px;
+    font-family: "GT-Planar";
+  }
+
+  .neo-h2 {
+    margin: 1.25rem;
+    font-weight: 800;
+    // max-width: 23ch;
+    font-size: 2.5rem;
+  }
+
+  .neo-h3 {
+    margin: 1rem 14rem;
+    max-width: 900px;
+    text-align: center;
+  }
+
+  .vector {
+    background-image: url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    height: 80px;
+    width: 80px;
+    background-color: transparent;
+  }
+
+  @media (max-width: 1000px) {
+    .neo-h3 {
+      margin: 1rem 7rem;
+    }
+  }
+
+  @media (max-width: 645px) {
+    padding: 1.5em 0.5em;
 
     .logo-container {
-        display        : flex;
-        flex-direction : row;
-        flex-wrap      : wrap;
-        gap            : 20px;
-        min-width      : 240px;
-        min-height     : 130px;
-    }
-
-    .button-group {
-        display       : flex;
-        flex-direction: row-reverse;
-        gap           : 8px;
-        margin        : 2rem 0;
-    }
-
-    .neo-h1 {
-        font-size  : 110px;
-        font-family: "GT-Planar";
-        line-height: 1;
+      gap: 10px;
     }
 
     .neo-h2 {
-        margin: 2rem;
+      margin: 0.5rem 0.5rem;
     }
 
     .neo-h3 {
-        margin   : 1rem 14rem;
-        max-width: 900px;
+      margin: 1rem 2rem;
     }
 
     .vector {
-        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
-        background-position: center center;
-        background-repeat  : no-repeat;
-        background-size    : contain;
-        height             : 10VW;
-        max-height         : 130px;
-        min-height         : 120px;
-        min-width          : 140px;
+      height: 17vw;
     }
 
-    @media (max-width: 1000px) {
-        .neo-h3 {
-            margin: 1rem 10rem;
-        }
+    .button-group {
+      margin: 0.5rem 0;
+    }
+  }
+
+  @media (max-width: 500px) {
+    .logo-container {
+      gap: 10px;
     }
 
-    @media (max-width: 900px) {
-        .neo-h3 {
-            margin: 1rem 7rem;
-        }
+    .neo-h1 {
+      font-size: 40px;
     }
 
-    @media (max-width: 645px) {
-        padding: 1.5em 0.5em;
-
-        .logo-container {
-            gap: 10px;
-        }
-
-        .neo-h1 {
-            line-height: 1.2;
-        }
-
-        .neo-h2 {
-            margin: 0.5rem 0;
-        }
-
-        .neo-h3 {
-            margin: 1rem 2rem;
-        }
-
-        .vector {
-            height: 17VW;
-        }
-
-        .button-group {
-            margin: 0.5rem 0;
-        }
+    .neo-h2 {
+      margin: 0.5rem 2rem;
+      font-size: 2rem;
     }
 
-    @media (max-width: 500px) {
-        .logo-container {
-            gap: 10px;
-        }
-
-        .neo-h1 {
-            font-size  : 100px;
-            line-height: 1.2;
-        }
-
-        .neo-h2 {
-            margin: 0.5rem 2rem;
-        }
+    .neo-h3 {
+      font-size: 1.15rem;
     }
+
+    .vector {
+      height: 70px;
+      width: 70px;
+    }
+  }
 }
