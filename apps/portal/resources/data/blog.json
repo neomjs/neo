@@ -1,4 +1,16 @@
 [{
+    "author"      : "Henrique Sagara",
+    "authorImage" : "author_htsagara.png",
+    "date"        : "Oct 04, 2024",
+    "id"          : 62,
+    "image"       : "neo-website-logo.png",
+    "name"        : "Neo.mjs: A high-performance open-source JavaScript framework.",
+    "provider"    : "Dev.to",
+    "publisher"   : "",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://dev.to/htsagara/neomjs-a-high-performance-open-source-javascript-framework-739"
+},{
     "author"      : "Nikhilesh Joshi",
     "authorImage" : "author_hashnj.jpg",
     "date"        : "Oct 01, 2024",
