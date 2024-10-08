@@ -18,13 +18,13 @@ import Base from './Base.mjs';
  * Note:  method parameters (the opts below) are identical to the method parameters in
  * https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker
  *
- * @class Neo.main.addon.FileSystemAccessAPI
+ * @class Neo.main.addon.FileSystemAccess
  * @extends Neo.main.addon.Base
  */
-class FileSystemAccessAPI extends Base {
+class FileSystemAccess extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.main.addon.FileSystemAccessAPI'
+         * @member {String} className='Neo.main.addon.FileSystemAccess'
          * @protected
          */
         className: 'Neo.main.addon.FileSystemAccessAPI',
@@ -81,4 +81,4 @@ class FileSystemAccessAPI extends Base {
     }
 }
 
-export default Neo.setupClass(FileSystemAccessAPI);
+export default Neo.setupClass(FileSystemAccess);
