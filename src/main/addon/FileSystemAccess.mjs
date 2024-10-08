@@ -27,7 +27,7 @@ class FileSystemAccess extends Base {
          * @member {String} className='Neo.main.addon.FileSystemAccess'
          * @protected
          */
-        className: 'Neo.main.addon.FileSystemAccessAPI',
+        className: 'Neo.main.addon.FileSystemAccess',
         /**
          * Remote method access for other workers
          * @member {Object} remote
