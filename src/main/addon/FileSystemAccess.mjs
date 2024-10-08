@@ -78,7 +78,7 @@ class FileSystemAccess extends Base {
 
     /**
      * Tests if the browser supports the File System Access API.
-     * Returns true if it does, false if it does not.
+     * @returns {Boolean}
      **/
     supported() {
         return 'showOpenFilePicker' in window
