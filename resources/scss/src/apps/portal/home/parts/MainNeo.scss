@@ -1,110 +1,110 @@
 @font-face {
-  font-family: "GT-Planar";
-  src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf")
-      format("opentype");
+    font-family: "GT-Planar";
+    src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf")
+        format("opentype");
 }
 
 .portal-home-main-neo.portal-home-content-view {
-  padding           : 3em;
-  background-color  : #ffffff;
-  background-image  : url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
+    padding: 3em;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
 
-  .logo-container {
-      display        : flex;
-      flex-direction : row;
-      flex-wrap      : wrap;
-      align-items    : center;
-      gap            : 20px;
-      min-width      : 240px;
-      min-height     : 130px;
-      background-color: transparent;
-  }
+    .logo-container {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 20px;
+        min-width: 240px;
+        min-height: 130px;
+        background-color: transparent;
+    }
 
-  .button-group {
-      display        : flex;
-      flex-direction : row-reverse;
-      gap            : 8px;
-      margin         : 2rem 0;
-  }
+    .button-group {
+        display: flex;
+        flex-direction: row-reverse;
+        gap: 8px;
+        margin: 2rem 0;
+    }
 
-  .neo-h1 {
-      font-size     : 60px;
-      font-family   : "GT-Planar";
-  }
+    .neo-h1 {
+        font-size: 60px;
+        font-family: "GT-Planar";
+    }
 
-  .neo-h2 {
-      margin        : 1.25rem;
-      font-weight   : 800;
-      font-size     : 2.5rem;
-  }
+    .neo-h2 {
+        margin: 1.25rem;
+        font-weight: 800;
+        font-size: 2.5rem;
+    }
 
-  .neo-h3 {
-      margin        : 1rem 14rem;
-      max-width     : 900px;
-      text-align    : center;
-  }
+    .neo-h3 {
+        margin: 1rem 14rem;
+        max-width: 900px;
+        text-align: center;
+    }
 
-  .vector {
-      background-image : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
-      background-position : center center;
-      background-repeat   : no-repeat;
-      background-size     : contain;
-      height              : 80px;
-      width               : 80px;
-      background-color    : transparent;
-  }
+    .vector {
+        background-image: url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-size: contain;
+        height: 80px;
+        width: 80px;
+        background-color: transparent;
+    }
 
-  @media (max-width: 1000px) {
-      .neo-h3 {
-          margin : 1rem 7rem;
-      }
-  }
+    @media (max-width: 1000px) {
+        .neo-h3 {
+            margin: 1rem 7rem;
+        }
+    }
 
-  @media (max-width: 645px) {
-      padding : 1.5em 0.5em;
+    @media (max-width: 645px) {
+        padding: 1.5em 0.5em;
 
-      .logo-container {
-          gap : 10px;
-      }
+        .logo-container {
+            gap: 10px;
+        }
 
-      .neo-h2 {
-          margin : 0.5rem 0.5rem;
-      }
+        .neo-h2 {
+            margin: 0.5rem 0.5rem;
+        }
 
-      .neo-h3 {
-          margin : 1rem 2rem;
-      }
+        .neo-h3 {
+            margin: 1rem 2rem;
+        }
 
-      .vector {
-          height : 17vw;
-      }
+        .vector {
+            height: 17vw;
+        }
 
-      .button-group {
-          margin : 0.5rem 0;
-      }
-  }
+        .button-group {
+            margin: 0.5rem 0;
+        }
+    }
 
-  @media (max-width: 500px) {
-      .logo-container {
-          gap : 10px;
-      }
+    @media (max-width: 500px) {
+        .logo-container {
+            gap: 10px;
+        }
 
-      .neo-h1 {
-          font-size : 40px;
-      }
+        .neo-h1 {
+            font-size: 40px;
+        }
 
-      .neo-h2 {
-          margin    : 0.5rem 2rem;
-          font-size : 2rem;
-      }
+        .neo-h2 {
+            margin: 0.5rem 2rem;
+            font-size: 2rem;
+        }
 
-      .neo-h3 {
-          font-size : 1.15rem;
-      }
+        .neo-h3 {
+            font-size: 1.15rem;
+        }
 
-      .vector {
-          height : 70px;
-          width  : 70px;
-      }
-  }
+        .vector {
+            height: 70px;
+            width: 70px;
+        }
+    }
 }
