@@ -46,30 +46,34 @@ class FileSystemAccess extends Base {
     /**
      * Shows a directory picker which allows the user to select a directory.
      * returns a promise fulfilled by a directory handle object.
-     * @param {Object} opts (optional)
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Window/showDirectoryPicker
+     * @param {Object} [opts]
+     * @returns {Promise<FileSystemDirectoryHandle>}
      */
-    showDirectoryPicker(opts) {
-       return window.showDirectoryPicker(opts)
+    async showDirectoryPicker(opts) {
+       return await window.showDirectoryPicker(opts)
     }
 
     /**
      * Shows a file picker which allows a user to select a file or files.
      * returns a promise fulfilled an array of 1 or more filehandle objects.
-     * @param {Object} opts  (optional)
-     * https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Window/showOpenFilePicker
+     * @param {Object} [opts]
+     * @returns {Promise<FileSystemFileHandle[]>}
      */
-    showOpenFilePicker(opts) {
-       return window.showOpenFilePicker(opts)
+    async showOpenFilePicker(opts) {
+       return await window.showOpenFilePicker(opts)
     }
 
     /**
      * Shows a file picker that allows a user to save a file.
      * returns a promise fulfilled by a filehandle object fulfillment.
-     * @param {Object} opts  (optional)
-     * https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker
+     * @param {Object} [opts]
+     * @returns {Promise<FileSystemFileHandle>}
      */
-    showSaveFilePicker(opts) {
-       return window.showSaveFilePicker(opts)
+    async showSaveFilePicker(opts) {
+       return await window.showSaveFilePicker(opts)
     }
 
     /**
