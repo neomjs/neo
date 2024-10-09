@@ -42,7 +42,7 @@ class ServiceWorker extends Base {
                              * or in case of a force refresh.
                              * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
                              */
-                            WorkerManager.serviceWorker = registration.active;
+                            WorkerManager.serviceWorker = registration.active
                         }
 
                         WorkerManager.sendMessage('service', {
@@ -60,7 +60,7 @@ class ServiceWorker extends Base {
     onBeforeUnload() {
         WorkerManager.sendMessage('service', {
             action: 'unregisterPort'
-        });
+        })
     }
 }
 
