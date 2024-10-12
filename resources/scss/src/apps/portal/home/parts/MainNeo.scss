@@ -1,17 +1,22 @@
 @font-face {
     font-family: "GT-Planar";
-    src: url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+    src        : url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
 }
+
 .portal-home-main-neo.portal-home-content-view {
-    padding: 3em;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
+    padding         : 3em;
 
     .logo-container {
-        display        : flex;
-        flex-direction : row;
-        flex-wrap      : wrap;
-        gap            : 20px;
-        min-width      : 240px;
-        min-height     : 130px;
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row;
+        flex-wrap       : wrap;
+        gap             : 20px;
+        min-height      : 130px;
+        min-width       : 240px;
     }
 
     .button-group {
@@ -22,56 +27,47 @@
     }
 
     .neo-h1 {
-        font-size  : 110px;
         font-family: "GT-Planar";
-        line-height: 1;
+        font-size  : 60px;
     }
 
     .neo-h2 {
-        margin: 2rem;
+        font-size  : 2.5rem;
+        font-weight: 800;
+        margin     : 1.25rem;
     }
 
     .neo-h3 {
-        margin   : 1rem 14rem;
-        max-width: 900px;
+        margin    : 1rem 14rem;
+        max-width : 900px;
+        text-align: center;
     }
 
     .vector {
+        background-color   : transparent;
         background-image   : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
         background-position: center center;
         background-repeat  : no-repeat;
         background-size    : contain;
-        height             : 10VW;
-        max-height         : 130px;
-        min-height         : 120px;
-        min-width          : 140px;
+        height             : 80px;
+        width              : 80px;
     }
 
-    @media (max-width: 1000px) {
-        .neo-h3 {
-            margin: 1rem 10rem;
-        }
-    }
-
-    @media (max-width: 900px) {
+    @media (max-width : 1000px) {
         .neo-h3 {
             margin: 1rem 7rem;
         }
     }
 
-    @media (max-width: 645px) {
+    @media (max-width : 645px) {
         padding: 1.5em 0.5em;
 
         .logo-container {
             gap: 10px;
         }
 
-        .neo-h1 {
-            line-height: 1.2;
-        }
-
         .neo-h2 {
-            margin: 0.5rem 0;
+            margin: 0.5rem 0.5rem;
         }
 
         .neo-h3 {
@@ -79,7 +75,7 @@
         }
 
         .vector {
-            height: 17VW;
+            height: 17vw;
         }
 
         .button-group {
@@ -87,18 +83,27 @@
         }
     }
 
-    @media (max-width: 500px) {
+    @media (max-width : 500px) {
         .logo-container {
             gap: 10px;
         }
 
         .neo-h1 {
-            font-size  : 100px;
-            line-height: 1.2;
+            font-size: 40px;
         }
 
         .neo-h2 {
-            margin: 0.5rem 2rem;
+            font-size: 2rem;
+            margin   : 0.5rem 2rem;
+        }
+
+        .neo-h3 {
+            font-size: 1.15rem;
+        }
+
+        .vector {
+            height: 70px;
+            width : 70px;
         }
     }
 }

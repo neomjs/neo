@@ -96,7 +96,7 @@ class ServiceBase extends Base {
 
     /**
      * @param {String} name=this.cacheName
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
     async clearCache(name=this.cacheName) {
         await caches.delete(name);
@@ -104,7 +104,7 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
     async clearCaches() {
         let keys = await caches.keys();
@@ -289,6 +289,7 @@ class ServiceBase extends Base {
      * @param {String} [data.cacheName=this.cacheName]
      * @param {String[]|String} data.files
      * @param {Boolean} [data.foreReload=false]
+     * @returns {Promise<Object>}
      */
     async preloadAssets(data) {
         let cacheName = data.cacheName || this.cacheName,
@@ -348,7 +349,7 @@ class ServiceBase extends Base {
      * @param {Boolean} data.options.ignoreMethod=false
      * @param {Boolean} data.options.ignoreSearch=false
      * @param {Boolean} data.options.ignoreVary=false
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
     async removeAssets(data) {
         if (!Neo.isObject(data)) {
@@ -356,9 +357,9 @@ class ServiceBase extends Base {
         }
 
         let {assets, options={}} = data,
-            cacheName              = data.cacheName || this.cacheName,
-            cache                  = await caches.open(cacheName),
-            promises               = [];
+            cacheName            = data.cacheName || this.cacheName,
+            cache                = await caches.open(cacheName),
+            promises             = [];
 
         if (!Array.isArray(assets)) {
             assets = [assets]
