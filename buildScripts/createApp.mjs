@@ -7,18 +7,19 @@ import inquirer      from 'inquirer';
 import os            from 'os';
 import path          from 'path';
 
-const __dirname    = path.resolve(),
-      cwd          = process.cwd(),
-      requireJson  = path => JSON.parse(fs.readFileSync((path))),
-      packageJson  = requireJson(path.join(__dirname, 'package.json')),
-      insideNeo    = packageJson.name === 'neo.mjs',
-      neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
-      addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-      program      = new Command(),
-      programName  = `${packageJson.name} create-app`,
-      questions    = [],
-      scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
-      themeFolders = [];
+const
+    __dirname    = path.resolve(),
+    cwd          = process.cwd(),
+    requireJson  = path => JSON.parse(fs.readFileSync((path))),
+    packageJson  = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo    = packageJson.name === 'neo.mjs',
+    neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program      = new Command(),
+    programName  = `${packageJson.name} create-app`,
+    questions    = [],
+    scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
+    themeFolders = [];
 
 scssFolders.forEach(folder => {
     if (folder.includes('theme')) {
@@ -86,16 +87,6 @@ if (programOpts.info) {
         });
     }
 
-    if (!programOpts.mainThreadAddons) {
-        questions.push({
-            type   : 'checkbox',
-            name   : 'mainThreadAddons',
-            message: 'Please choose your main thread addons:',
-            choices: addonChoices,
-            default: ['DragDrop', 'Stylesheet']
-        });
-    }
-
     if (!programOpts.useSharedWorkers) {
         questions.push({
             type   : 'list',
@@ -106,22 +97,12 @@ if (programOpts.info) {
         });
     }
 
-    if (!programOpts.useServiceWorker) {
-        questions.push({
-            type   : 'list',
-            name   : 'useServiceWorker',
-            message: 'Do you want to use a ServiceWorker for caching assets?',
-            choices: ['yes', 'no'],
-            default: 'no'
-        });
-    }
-
     inquirer.prompt(questions).then(answers => {
         let appName          = programOpts.appName          || answers.appName,
-            mainThreadAddons = programOpts.mainThreadAddons || answers.mainThreadAddons,
+            mainThreadAddons = programOpts.mainThreadAddons || ['DragDrop', 'Navigator', 'Stylesheet'],
             themes           = programOpts.themes           || answers.themes,
             useSharedWorkers = programOpts.useSharedWorkers || answers.useSharedWorkers,
-            useServiceWorker = programOpts.useServiceWorker || answers.useServiceWorker,
+            useServiceWorker = programOpts.useServiceWorker || 'no',
             lAppName         = appName.toLowerCase(),
             appPath          = 'apps/' + lAppName + '/',
             dir              = 'apps/' + lAppName,
@@ -177,7 +158,12 @@ if (programOpts.info) {
                 mainPath   : `${insideNeo ? './' : '../node_modules/neo.mjs/src/'}Main.mjs`
             };
 
-            if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
+            if (!(
+                mainThreadAddons.includes('DragDrop')   &&
+                mainThreadAddons.includes('Navigator')  &&
+                mainThreadAddons.includes('Stylesheet') &&
+                mainThreadAddons.length === 3)
+            ) {
                 neoConfig.mainThreadAddons = mainThreadAddons;
             }
 
