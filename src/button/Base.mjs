@@ -482,12 +482,11 @@ class Base extends Component {
     }
 
     /**
-     * @param {Boolean} updateParentVdom
-     * @param {Boolean} silent
+     * @param args
      */
-    destroy(updateParentVdom=false, silent=false) {
-        this.menuList && this.menuList.destroy(true, false);
-        super.destroy(updateParentVdom, silent)
+    destroy(...args) {
+        this.menuList?.destroy(true, false);
+        super.destroy(...args)
     }
 
     /**
