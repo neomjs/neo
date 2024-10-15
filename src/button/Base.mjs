@@ -263,7 +263,7 @@ class Base extends Component {
 
                 config = Neo.merge({
                     module         : module.default,
-                    align          : {edgeAlign : 't0-b0', target: me.id},
+                    align          : {edgeAlign: 't0-b0', target: me.id},
                     appName,
                     displayField   : 'text',
                     floating       : true,
