@@ -45,7 +45,7 @@ class List extends BaseList {
         items_: null,
         /**
          * Internal flag.
-         * Sub-menus will bubble of focus changes to the top level.
+         * Sub-menus will bubble focus changes to the top level.
          * @member {Boolean} menuFocus_=false
          * @protected
          */

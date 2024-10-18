@@ -43,11 +43,7 @@ class ListModel extends BaseListModel {
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        let activeSubMenu = this.view.activeSubMenu;
-
-        if (activeSubMenu) {
-            activeSubMenu.selectionModel.selectAt(0)
-        }
+        this.view.activeSubMenu?.selectionModel.selectAt(0)
     }
 }
 

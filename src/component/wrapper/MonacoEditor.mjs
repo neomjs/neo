@@ -358,6 +358,11 @@ class MonacoEditor extends Base {
             scrollBeyondLastLine: me.scrollBeyondLastLine,
             theme               : me.editorTheme,
             value               : me.stringifyValue(me.value),
+
+            scrollbar: {
+                alwaysConsumeMouseWheel: false // enables page scrolling when over-scrolling the content box
+            },
+
             ...me.options
         }
     }

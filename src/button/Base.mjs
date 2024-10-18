@@ -122,16 +122,28 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'button', type: 'button', cn: [
-            {tag: 'span', cls: ['neo-button-glyph']},
-            {tag: 'span', cls: ['neo-button-text']},
-            {cls: ['neo-button-badge']},
-            {cls: ['neo-button-ripple-wrapper'], cn: [
-                {cls: ['neo-button-ripple']}
-            ]}
-        ]}
+            {tag: 'button', type: 'button', cn: [
+                    {tag: 'span', cls: ['neo-button-glyph']},
+                    {tag: 'span', cls: ['neo-button-text']},
+                    {cls: ['neo-button-badge']},
+                    {cls: ['neo-button-ripple-wrapper'], cn: [
+                            {cls: ['neo-button-ripple']}
+                        ]}
+                ]}
     }
 
+    /**
+     * @member {Object} rippleWrapper
+     */
+    get badgeNode() {
+        return this.getVdomRoot().cn[2]
+    }
+    /**
+     * @member {Object} rippleWrapper
+     */
+    get iconNode() {
+        return this.getVdomRoot().cn[0]
+    }
     /**
      * Time in ms for the ripple effect when clicking on the button.
      * Only active if useRippleEffect is set to true.
@@ -144,6 +156,12 @@ class Base extends Component {
      * @private
      */
     #rippleTimeoutId = null
+    /**
+     * @member {Object} rippleWrapper
+     */
+    get rippleWrapper() {
+        return this.getVdomRoot().cn[3]
+    }
 
     /**
      * @param {Object} config
@@ -166,9 +184,9 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgePosition(value, oldValue) {
-        let me        = this,
-            badgeNode = me.getBadgeNode(),
-            cls       = badgeNode.cls || [];
+        let me          = this,
+            {badgeNode} = me,
+            cls         = badgeNode.cls || [];
 
         NeoArray.remove(cls, 'neo-' + oldValue);
         NeoArray.add(cls, 'neo-' + value);
@@ -185,7 +203,7 @@ class Base extends Component {
      * @protected
      */
     afterSetBadgeText(value, oldValue) {
-        let badgeNode = this.getBadgeNode();
+        let {badgeNode} = this;
 
         badgeNode.html      = value;
         badgeNode.removeDom = !Boolean(value);
@@ -200,7 +218,7 @@ class Base extends Component {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        let iconNode = this.getIconNode();
+        let {iconNode} = this;
 
         NeoArray.remove(iconNode.cls, oldValue);
         NeoArray.add(   iconNode.cls, value);
@@ -216,7 +234,7 @@ class Base extends Component {
      * @protected
      */
     afterSetIconColor(value, oldValue) {
-        let iconNode = this.getIconNode();
+        let {iconNode} = this;
 
         if (!iconNode.style) {
             iconNode.style = {};
@@ -261,17 +279,17 @@ class Base extends Component {
                     model      = me.getModel(),
                     {appName, theme, windowId} = me,
 
-                config = Neo.merge({
-                    module         : module.default,
-                    align          : {edgeAlign : 't0-b0', target: me.id},
-                    appName,
-                    displayField   : 'text',
-                    floating       : true,
-                    hidden         : true,
-                    parentComponent: me,
-                    theme,
-                    windowId
-                }, menuConfig);
+                    config = Neo.merge({
+                        module         : module.default,
+                        align          : {edgeAlign: 't0-b0', target: me.id},
+                        appName,
+                        displayField   : 'text',
+                        floating       : true,
+                        hidden         : true,
+                        parentComponent: me,
+                        theme,
+                        windowId
+                    }, menuConfig);
 
                 if (items) {
                     config.items = items
@@ -366,7 +384,7 @@ class Base extends Component {
      */
     afterSetUseRippleEffect(value, oldValue) {
         // setting the config to false ends running ripple animations
-        this.getRippleWrapper().removeDom = true;
+        this.rippleWrapper.removeDom = true;
         this.update()
     }
 
@@ -464,36 +482,11 @@ class Base extends Component {
     }
 
     /**
-     * @param {Boolean} updateParentVdom
-     * @param {Boolean} silent
+     * @param args
      */
-    destroy(updateParentVdom=false, silent=false) {
-        this.menuList && this.menuList.destroy(true, false);
-        super.destroy(updateParentVdom, silent)
-    }
-
-    /**
-     * Convenience shortcut
-     * @returns {Object}
-     */
-    getBadgeNode() {
-        return this.getVdomRoot().cn[2]
-    }
-
-    /**
-     * Convenience shortcut
-     * @returns {Object}
-     */
-    getIconNode() {
-        return this.getVdomRoot().cn[0]
-    }
-
-    /**
-     * Convenience shortcut
-     * @returns {Object}
-     */
-    getRippleWrapper() {
-        return this.getVdomRoot().cn[3]
+    destroy(...args) {
+        this.menuList?.destroy(true, false);
+        super.destroy(...args)
     }
 
     /**
@@ -518,7 +511,7 @@ class Base extends Component {
             diameter             = Math.max(buttonRect.height, buttonRect.width),
             radius               = diameter / 2,
             rippleEffectDuration = me.rippleEffectDuration,
-            rippleWrapper        = me.getRippleWrapper(),
+            {rippleWrapper}      = me,
             rippleEl             = rippleWrapper.cn[0],
             rippleTimeoutId;
 
