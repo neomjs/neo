@@ -47,7 +47,7 @@ class Container extends Base {
             picture        : 'torsten.png',
             profileGitHub  : 'https://github.com/Dinkh',
             profileLinkedIn: 'https://www.linkedin.com/in/dinkheller/',
-            teamRole       : 'Co-Founder & Core Team Member'
+            teamRole       : 'Contributor'
         },{
             module         : MemberContainer,
             location       : 'Madison, Wisconsin',
@@ -55,7 +55,7 @@ class Container extends Base {
             picture        : 'Max.jpeg',
             profileGitHub  : 'https://github.com/maxrahder/',
             profileLinkedIn: 'https://www.linkedin.com/in/maxrahder/',
-            teamRole       : 'Training'
+            teamRole       : 'Contributor'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'center'}
