@@ -8,6 +8,14 @@
     background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
     padding         : 3em;
 
+    .button-group {
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row-reverse;
+        gap             : 8px;
+        margin          : 2rem 0;
+    }
+
     .logo-container {
         align-items     : center;
         background-color: transparent;
@@ -17,14 +25,6 @@
         gap             : 20px;
         min-height      : 130px;
         min-width       : 240px;
-    }
-
-    .button-group {
-        background-color: transparent;
-        display         : flex;
-        flex-direction  : row-reverse;
-        gap             : 8px;
-        margin          : 2rem 0;
     }
 
     .neo-github {
