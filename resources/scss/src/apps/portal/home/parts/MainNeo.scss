@@ -20,10 +20,15 @@
     }
 
     .button-group {
-        display       : flex;
-        flex-direction: row-reverse;
-        gap           : 8px;
-        margin        : 2rem 0;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row-reverse;
+        gap             : 8px;
+        margin          : 2rem 0;
+    }
+
+    .neo-github {
+        background-color: #fff;
     }
 
     .neo-h1 {
