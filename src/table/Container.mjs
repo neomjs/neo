@@ -231,6 +231,7 @@ class Container extends BaseContainer {
         if (me.dockRightMargin) {
             cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}')
         }
+
         if (cssRules.length > 0) {
             CssUtil.insertRules(me.appName, cssRules)
         }
