@@ -107,7 +107,7 @@ class View extends Component {
             fieldValue  = Neo.ns(dataField, false, record),
             hasStore    = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
-            cellConfig, rendererOutput;
+            cellConfig, rendererOutput, rendererType;
 
         if (fieldValue === null || fieldValue === undefined) {
             fieldValue = ''
@@ -122,7 +122,9 @@ class View extends Component {
             value: fieldValue
         });
 
-        switch (Neo.typeOf(rendererOutput)) {
+        rendererType = Neo.typeOf(rendererOutput);
+
+        switch (rendererType) {
             case 'Object': {
                 if (rendererOutput.html) {
                     rendererOutput.cls && cellCls.push(...rendererOutput.cls);
@@ -170,7 +172,7 @@ class View extends Component {
             cellConfig.colspan = colspan[dataField]
         }
 
-        if (Neo.typeOf(rendererOutput) === 'Object') {
+        if (rendererType === 'Object') {
             cellConfig.innerHTML = rendererOutput.html  || ''
         } else {
             cellConfig.cn = rendererOutput
