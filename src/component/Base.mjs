@@ -1808,39 +1808,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Checks for vdom updates inside the parent chain and if found.
-     * Registers the component for a vdom update once done.
-     * @param {String} parentId=this.parentId
-     * @param {Function} [resolve] gets passed by updateVdom()
-     * @returns {Boolean}
-     */
-    isParentVdomUpdating(parentId=this.parentId, resolve) {
-        if (parentId !== 'document.body') {
-            let me     = this,
-                parent = Neo.getComponent(parentId);
-
-            if (parent) {
-                if (parent.isVdomUpdating) {
-                    if (Neo.config.logVdomUpdateCollisions) {
-                        console.warn('vdom parent update conflict with:', parent, 'for:', me)
-                    }
-
-                    NeoArray.add(parent.childUpdateCache, me.id);
-
-                    // Adding the resolve fn to its own cache, since the parent will trigger
-                    // a new update() directly on this cmp
-                    resolve && me.resolveUpdateCache.push(resolve)
-                    return true
-                } else {
-                    return me.isParentVdomUpdating(parent.parentId, resolve)
-                }
-            }
-        }
-
-        return false
-    }
-
-    /**
      * @param {Number|String} value
      * @returns {Promise<number>}
      */
@@ -2518,7 +2485,6 @@ class Base extends CoreBase {
 
                 if (
                     !me.needsParentUpdate(parentId, resolve)
-                    && !me.isParentVdomUpdating(parentId, resolve)
                     && mounted
                     && vnode
                 ) {
