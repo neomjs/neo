@@ -207,12 +207,6 @@ class Base extends CoreBase {
          */
         isLoading_: false,
         /**
-         * Internal flag which will get set to true while an update request (worker messages) is in progress
-         * @member {Boolean} isVdomUpdating=false
-         * @protected
-         */
-        isVdomUpdating: false,
-        /**
          * Using the keys config will create an instance of Neo.util.KeyNavigation.
          * @see {@link Neo.util.KeyNavigation KeyNavigation}
          * @member {Object} keys_=null
@@ -542,7 +536,7 @@ class Base extends CoreBase {
             vdom.cls = cls
         }
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
+        if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else if (me.mounted && me.vnode) {
             me.updateCls(value, oldValue, vdomRoot.id)
@@ -1047,12 +1041,6 @@ class Base extends CoreBase {
                 controller.windowId = value
             }
         }
-
-        // If a component gets moved into a different window, an update cycle might still be running.
-        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
-        if (oldValue) {
-            me.isVdomUpdating = false
-        }
     }
 
     /**
@@ -1087,7 +1075,7 @@ class Base extends CoreBase {
             }
         }
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
+        if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else if (me.mounted) {
             me.updateCls(value, oldValue)
@@ -2171,8 +2159,6 @@ class Base extends CoreBase {
         }
 
         if (me.vdom) {
-            me.isVdomUpdating = true;
-
             delete me.vdom.removeDom;
 
             me._needsVdomUpdate = false;
@@ -2188,7 +2174,6 @@ class Base extends CoreBase {
             });
 
             me.onRender(data, autoMount);
-            me.isVdomUpdating = false;
 
             me.resolveVdomUpdate()
         }
@@ -2513,11 +2498,7 @@ class Base extends CoreBase {
             vdom = Object.assign(me._vdom, vdom)
         }
 
-        if (resolve && me.isVdomUpdating) {
-            me.resolveUpdateCache.push(resolve)
-        }
-
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
+        if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true
         } else {
             if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
