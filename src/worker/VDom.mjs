@@ -1,7 +1,7 @@
-import Neo       from '../Neo.mjs';
-import Base      from './Base.mjs';
-import * as core from '../core/_export.mjs';
-import Helper    from '../vdom/Helper.mjs';
+import Neo          from '../Neo.mjs';
+import Base         from './Base.mjs';
+import * as core    from '../core/_export.mjs';
+import RenderHelper from '../vdom/RenderHelper.mjs';
 
 /**
  * The Vdom worker converts vdom templates into vnodes, as well as creating delta-updates.

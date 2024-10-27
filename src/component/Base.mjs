@@ -2200,7 +2200,7 @@ class Base extends CoreBase {
             me._needsVdomUpdate = false;
             me.afterSetNeedsVdomUpdate?.(false, true);
 
-            const data = await Neo.vdom.Helper.create({
+            const data = await Neo.vdom.RenderHelper.create({
                 appName    : me.appName,
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,

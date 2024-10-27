@@ -5,6 +5,7 @@ import Application     from '../controller/Application.mjs';
 import Instance        from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
+import UpdateHelper    from '../vdom/UpdateHelper.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
