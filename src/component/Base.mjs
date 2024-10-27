@@ -386,10 +386,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * @member {String[]} childUpdateCache=[]
-     */
-    childUpdateCache = []
-    /**
      * @member {Function[]} resolveUpdateCache=[]
      */
     resolveUpdateCache = []
@@ -804,8 +800,8 @@ class Base extends CoreBase {
      */
     afterSetMounted(value, oldValue) {
         if (oldValue !== undefined) {
-            let me             = this,
-                {id, windowId} = me;
+            let me   = this,
+                {id} = me;
 
             if (value) {
                 me.hasBeenMounted = true;
@@ -826,7 +822,7 @@ class Base extends CoreBase {
                     me.focus(id, true)
                 }
 
-                me.fire('mounted', me.id)
+                me.fire('mounted', id)
             } else {
                 me.revertFocus()
             }
@@ -2133,15 +2129,7 @@ class Base extends CoreBase {
         resolve?.();
 
         if (me.needsVdomUpdate) {
-            // if a new update is scheduled, we can clear the cache => these updates are included
-            me.childUpdateCache = [];
-
             me.update()
-        } else if (me.childUpdateCache) {
-            [...me.childUpdateCache].forEach(id => {
-                Neo.getComponent(id)?.update();
-                NeoArray.remove(me.childUpdateCache, id)
-            })
         }
     }
 
