@@ -1473,44 +1473,23 @@ class Base extends CoreBase {
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
         let me   = this,
-            opts = {vdom, vnode},
+            data = Neo.vdom.UpdateHelper.update({vdom, vnode}),
             deltas;
 
-        if (Neo.currentWorker.isSharedWorker) {
-            opts.appName  = me.appName;
-            opts.windowId = me.windowId
-        }
+        // checking if the component got destroyed before the update cycle is done
+        if (me.id) {
+            me.vnode = data.vnode;
 
-        me.isVdomUpdating = true;
+            deltas = data.deltas;
 
-        // we can not set the config directly => it could already be false,
-        // and we still want to pass it further into subtrees
-        me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true);
-
-        Neo.vdom.Helper.update(opts).catch(err => {
-            me.isVdomUpdating = false;
-            console.log('Error attempting to update component dom', err, me);
-
-            reject?.()
-        }).then(data => {
-            me.isVdomUpdating = false;
-            // checking if the component got destroyed before the update cycle is done
-            if (me.id) {
-                // console.log('Component vnode updated', data);
-                me.vnode = data.vnode;
-
-                deltas = data.deltas;
-
-                if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                    Neo.applyDeltas(me.appName, deltas).then(() => {
-                        me.resolveVdomUpdate(resolve)
-                    })
-                } else {
+            if (deltas.length > 0) {
+                Neo.applyDeltas(me.appName, deltas).then(() => {
                     me.resolveVdomUpdate(resolve)
-                }
+                })
+            } else {
+                me.resolveVdomUpdate(resolve)
             }
-        })
+        }
     }
 
     /**

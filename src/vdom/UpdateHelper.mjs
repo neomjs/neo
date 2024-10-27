@@ -387,7 +387,7 @@ class UpdateHelper extends BaseRenderHelper {
         // so we need to execute the removeNode OPs last.
         deltas = deltas.default.concat(deltas.remove);
 
-        return {deltas, updateVdom: true, vnode}
+        return {deltas, vnode}
     }
 }
 
