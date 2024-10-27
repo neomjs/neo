@@ -432,8 +432,7 @@ class App extends Base {
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
 
-        config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load());
-        !config.useVdomWorker && import('../vdom/Helper.mjs')
+        config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load())
     }
 
     /**

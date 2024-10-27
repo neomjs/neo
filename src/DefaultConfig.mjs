@@ -253,14 +253,6 @@ const DefaultConfig = {
      */
     useTouchEvents: true,
     /**
-     * False will create the vdom.Helper within the App worker (experimental!)
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useVdomWorker
-     * @type Boolean
-     */
-    useVdomWorker: true,
-    /**
      * buildScripts/injectPackageVersion.mjs will update this value
      * @default '7.16.0'
      * @memberOf! module:Neo

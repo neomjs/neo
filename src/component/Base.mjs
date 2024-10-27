@@ -2160,10 +2160,9 @@ class Base extends CoreBase {
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
     async render(mount) {
-        let me            = this,
-            autoMount     = mount || me.autoMount,
-            app           = me.app,
-            useVdomWorker = Neo.config.useVdomWorker;
+        let me        = this,
+            autoMount = mount || me.autoMount,
+            app       = me.app;
 
         me.rendering = true;
 
@@ -2188,10 +2187,8 @@ class Base extends CoreBase {
                 ...me.vdom
             });
 
-            me.onRender(data, useVdomWorker ? autoMount : false);
+            me.onRender(data, autoMount);
             me.isVdomUpdating = false;
-
-            autoMount && !useVdomWorker && me.mount();
 
             me.resolveVdomUpdate()
         }

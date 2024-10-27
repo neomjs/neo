@@ -83,14 +83,14 @@ class BaseRenderHelper extends Base {
         if (autoMount) {
             Object.assign(node, {
                 appName,
-                autoMount: true,
+                autoMount,
                 parentId,
                 parentIndex,
                 windowId
             })
         }
 
-        return Neo.config.useVdomWorker ? node : Promise.resolve(node)
+        return node
     }
 
     /**

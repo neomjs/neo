@@ -143,12 +143,11 @@ class Manager extends Base {
         Object.keys(this.workers).forEach(name => {
             if (!(
                 name === 'canvas' && !NeoConfig.useCanvasWorker ||
-                name === 'task'   && !NeoConfig.useTaskWorker   ||
-                name === 'vdom'   && !NeoConfig.useVdomWorker
+                name === 'task'   && !NeoConfig.useTaskWorker
             )) {
                 this.sendMessage(name, msg)
             }
-        });
+        })
     }
 
     /**
@@ -201,8 +200,7 @@ class Manager extends Base {
 
         for ([key, value] of Object.entries(me.workers)) {
             if (key === 'canvas' && !config.useCanvasWorker ||
-                key === 'task'   && !config.useTaskWorker   ||
-                key === 'vdom'   && !config.useVdomWorker
+                key === 'task'   && !config.useTaskWorker
             ) {
                 continue
             }
