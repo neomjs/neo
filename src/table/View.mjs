@@ -461,7 +461,7 @@ class View extends Component {
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange({fields, model, record}) {
+    onStoreRecordChange({fields, model, record}) {console.log('onStoreRecordChange', fields);
         let me               = this,
             fieldNames       = fields.map(field => field.name),
             needsUpdate      = false,
@@ -478,7 +478,7 @@ class View extends Component {
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-table-rowmodel') {
-                        selectionModel[!field.value && selectionModel.singleSelect ? 'deselect' : 'select'](me.getRowId(record))
+                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
                     }
                 } else {
                     cellId   = me.getCellId(record, field.name);
