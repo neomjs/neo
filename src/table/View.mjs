@@ -461,7 +461,7 @@ class View extends Component {
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange({fields, model, record}) {console.log('onStoreRecordChange', fields);
+    onStoreRecordChange({fields, model, record}) {
         let me               = this,
             fieldNames       = fields.map(field => field.name),
             needsUpdate      = false,
