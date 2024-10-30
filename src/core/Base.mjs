@@ -131,7 +131,7 @@ class Base {
         delete config.id;
 
         if (me.constructor.config) {
-            delete me.constructor.config.id;
+            delete me.constructor.config.id
         }
 
         me.getStaticConfig('observable') && me.initObservable(config);
@@ -275,8 +275,7 @@ class Base {
      */
     callOverwritten(...args) {
         let stack      = new Error().stack,
-            regex      = Base.methodNameRegex,
-            methodName = stack.match(regex)[1];
+            methodName = stack.match(Base.methodNameRegex)[1];
 
         this.__proto__.constructor.overwrittenMethods[methodName].call(this, ...args)
     }
@@ -370,7 +369,7 @@ class Base {
 
         me.isConfiguring = true;
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
-        me.processConfigs()
+        me.processConfigs();
         me.isConfiguring = false;
     }
 
