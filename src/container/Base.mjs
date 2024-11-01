@@ -631,7 +631,7 @@ class Base extends Component {
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent)
             }
         }
     }
