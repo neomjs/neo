@@ -314,6 +314,10 @@ class VDom extends Base {
      * @returns {Boolean} true in case the node was found and replaced
      */
     static replaceVdomChild(vdom, id, newChildNode) {
+        if (vdom.componentId) {
+            vdom = ComponentManager.get(vdom.componentId).vdom
+        }
+
         let cn  = vdom.cn || [],
             i   = 0,
             len = cn.length,
