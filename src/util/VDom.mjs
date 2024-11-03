@@ -218,9 +218,7 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getParentNodes(vdom, id, topLevel=true) {
-        if (vdom.componentId) {
-            vdom = ComponentManager.get(vdom.componentId).vdom
-        }
+        vdom = VDom.getVdom(vdom);
 
         let parents = null,
             i       = 0,
@@ -244,6 +242,19 @@ class VDom extends Base {
         }
 
         return parents
+    }
+
+    /**
+     * Convenience shortcut using manager.Component to replace vdom references if needed
+     * @param {Object} vdom
+     * @returns {Object}
+     */
+    static getVdom(vdom) {
+        if (vdom.componentId) {
+            vdom = ComponentManager.get(vdom.componentId).vdom
+        }
+
+        return vdom
     }
 
     /**
@@ -318,9 +329,7 @@ class VDom extends Base {
      * @returns {Boolean} true in case the node was found and replaced
      */
     static replaceVdomChild(vdom, id, newChildNode) {
-        if (vdom.componentId) {
-            vdom = ComponentManager.get(vdom.componentId).vdom
-        }
+        vdom = VDom.getVdom(vdom);
 
         let cn  = vdom.cn || [],
             i   = 0,
@@ -356,9 +365,7 @@ class VDom extends Base {
      */
     static syncVdomIds(vnode, vdom, force=false) {
         if (vnode && vdom) {
-            if (vdom.componentId) {
-                vdom = ComponentManager.get(vdom.componentId).vdom
-            }
+            vdom = VDom.getVdom(vdom);
 
             let childNodes = vdom.cn,
                 cn, i, len;
