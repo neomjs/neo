@@ -377,7 +377,8 @@ class Base extends Component {
         let me        = this,
             items     = me._items,
             itemsRoot = me.getVdomItemsRoot(),
-            {layout}  = me;
+            {layout}  = me,
+            vdom;
 
         itemsRoot.cn = [];
 
@@ -385,10 +386,17 @@ class Base extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                layout?.applyChildAttributes(item, index)
+                layout?.applyChildAttributes(item, index);
+                vdom = {componentId: item.id};
+
+                if (item.vdom.removeDom) {
+                    vdom.removeDom = true
+                }
+            } else {
+                vdom = item.vdom
             }
 
-            itemsRoot.cn.push(item.vdom)
+            itemsRoot.cn.push(vdom)
         });
 
         me.update()
