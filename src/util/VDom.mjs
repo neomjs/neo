@@ -49,6 +49,7 @@ class VDom extends Base {
     static findVdomChild(vdom, opts, index, parentNode) {
         index = index || 0;
         opts  = !Neo.isString(opts) ? opts : {id: opts};
+        vdom  = VDom.getVdom(vdom);
 
         let child      = null,
             matchArray = [],
@@ -146,6 +147,8 @@ class VDom extends Base {
      * @returns {Array} childIds
      */
     static getChildIds(vdom, childIds=[]) {
+        vdom = VDom.getVdom(vdom);
+
         let childNodes = vdom?.cn || [];
 
         childNodes.forEach(childNode => {
@@ -165,6 +168,8 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getColumnNodes(vdom, index) {
+        vdom = VDom.getVdom(vdom);
+
         let columnNodes = [];
 
         vdom.cn?.forEach(row => {
@@ -192,6 +197,8 @@ class VDom extends Base {
      * @returns {Array} an array of vdom nodes which match the flag
      */
     static getFlags(vdom, flag, matchArray) {
+        vdom = VDom.getVdom(vdom);
+
         if (!matchArray) {
             matchArray = [];
 
