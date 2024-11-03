@@ -2206,7 +2206,7 @@ class Base extends CoreBase {
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 windowId   : me.windowId,
-                ...me.vdom
+                ...ComponentManager.getVdomRenderTree(me.vdom)
             });
 
             me.onRender(data, useVdomWorker ? autoMount : false);

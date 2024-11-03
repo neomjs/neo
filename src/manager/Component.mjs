@@ -319,6 +319,29 @@ class Component extends Base {
     }
 
     /**
+     * Copies a given vdom tree and replaces child component references with the vdom of their matching components
+     * @param {Object} vdom
+     * @returns {Object}
+     */
+    getVdomRenderTree(vdom) {
+        let output = Neo.clone(vdom);
+
+        if (vdom.cn) {
+            output.cn = [];
+
+            vdom.cn.forEach(item => {
+                if (item.componentId) {
+                    item = this.get(item.componentId).vdom
+                }
+
+                output.cn.push(this.getVdomRenderTree(item))
+            })
+        }
+
+        return output
+    }
+
+    /**
      * Check if the component had a property of any value somewhere in the Prototype chain
      *
      * @param {Neo.component.Base} component
