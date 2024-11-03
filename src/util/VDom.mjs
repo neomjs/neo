@@ -218,6 +218,10 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getParentNodes(vdom, id, topLevel=true) {
+        if (vdom.componentId) {
+            vdom = ComponentManager.get(vdom.componentId).vdom
+        }
+
         let parents = null,
             i       = 0,
             len     = vdom.cn?.length || 0;
