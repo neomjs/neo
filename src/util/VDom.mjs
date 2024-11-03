@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
 
 /**
  * @class Neo.util.VDom
@@ -347,6 +348,10 @@ class VDom extends Base {
      */
     static syncVdomIds(vnode, vdom, force=false) {
         if (vnode && vdom) {
+            if (vdom.componentId) {
+                vdom = ComponentManager.get(vdom.componentId).vdom
+            }
+
             let childNodes = vdom.cn,
                 cn, i, len;
 
