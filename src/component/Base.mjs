@@ -1487,7 +1487,7 @@ class Base extends CoreBase {
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
-
+console.log('update', me.id, vdom);
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
             console.log('Error attempting to update component dom', err, me);
@@ -2296,7 +2296,7 @@ class Base extends CoreBase {
      * hideMode: 'visibility' uses css visibility.
      */
     show() {
-        const me = this;
+        let me = this;
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
@@ -2323,7 +2323,7 @@ class Base extends CoreBase {
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode = this.vnode, vdom = this.vdom, force = false) {
+    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
         VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
@@ -2347,6 +2347,9 @@ class Base extends CoreBase {
 
         // delegate the latest node updates to all possible child components found inside the vnode tree
         ComponentManager.getChildren(me).forEach(component => {
+            if (!component.vdom.id) {
+                console.log(component.id, component.vdom);
+            }
             childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id);
 
             if (childVnode) {
