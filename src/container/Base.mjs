@@ -387,11 +387,7 @@ class Base extends Component {
 
             if (item instanceof Neo.core.Base) {
                 layout?.applyChildAttributes(item, index);
-                vdom = {componentId: item.id};
-
-                if (item.vdom.removeDom) {
-                    vdom.removeDom = true
-                }
+                vdom = {componentId: item.id}
             } else {
                 vdom = item.vdom
             }
