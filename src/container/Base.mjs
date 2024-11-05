@@ -688,6 +688,9 @@ class Base extends Component {
 
             me.getVdomItemsRoot().cn.splice(index, 1);
 
+            // the next update cycle needs to include direct children
+            me.updateDepth = 2;
+
             !silent && me.update();
 
             if (destroyItem) {
