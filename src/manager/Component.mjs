@@ -321,12 +321,13 @@ class Component extends Base {
     /**
      * Copies a given vdom tree and replaces child component references with the vdom of their matching components
      * @param {Object} vdom
+     * @param {Number} depth=-1 The replacement depth. -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
      * @returns {Object}
      */
-    getVdomRenderTree(vdom) {
-        let output = Neo.clone(vdom);
+    getVdomTree(vdom, depth=-1) {
+        let output = {...vdom}; // shallow copy
 
-        if (vdom.cn) {
+        if (vdom.cn && (depth === -1 || depth > 1)) {
             output.cn = [];
 
             vdom.cn.forEach(item => {
@@ -334,7 +335,7 @@ class Component extends Base {
                     item = this.get(item.componentId).vdom
                 }
 
-                output.cn.push(this.getVdomRenderTree(item))
+                output.cn.push(this.getVdomTree(item, depth === -1 ? -1 : depth > 1 ? depth-1 : 1))
             })
         }
 
