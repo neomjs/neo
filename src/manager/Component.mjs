@@ -33,6 +33,33 @@ class Component extends Base {
     }
 
     /**
+     * Flattens a given vnode tree by replacing component based subtrees with componentId based references
+     * @param {Object} vnode
+     * @param {String} ownerId We do not want to replace the own id => wrapped items
+     * @returns {Object}
+     */
+    addVnodeComponentReferences(vnode, ownerId) {
+        vnode = {...vnode}; // shallow copy
+
+        let childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
+            component;
+
+        vnode.childNodes = childNodes;
+
+        childNodes.forEach((childNode, index) => {
+            if (childNode.id !== ownerId) {
+                component = this.get(childNode.id)
+            }
+
+            childNodes[index] = component ?
+                {componentId: component.id} :
+                this.addVnodeComponentReferences(childNode, ownerId)
+        });
+
+        return vnode
+    }
+
+    /**
      * Returns the first component which matches the config-selector moving down the component items tree.
      * Use returnFirstMatch=false to get an array of all matching items instead.
      * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.

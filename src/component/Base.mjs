@@ -2379,13 +2379,11 @@ class Base extends CoreBase {
 
         // delegate the latest node updates to all possible child components found inside the vnode tree
         ComponentManager.getChildren(me).forEach(component => {
-            if (!component.vdom.id) {
-                console.log(component.id, component.vdom);
-            }
             childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id);
 
             if (childVnode) {
-                component._vnode = childVnode.vnode; // silent update
+                // silent update
+                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode.vnode, childVnode.id);
 
                 if (!component.rendered) {
                     component._rendered = true;
@@ -2398,28 +2396,8 @@ class Base extends CoreBase {
             }
         });
 
-        // console.log(me.vnode, me.mounted);
-
-        // keep the vnode parent tree in sync
-        ComponentManager.getParents(me).forEach((component, index) => {
-            if (component.vnode) {
-                if (!me.vnode) {
-                    if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
-                        // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
-                        // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
-                    }
-                }
-
-                // check for dynamically rendered components which get inserted into the component tree
-                else if (index === 0 && me.vnode.outerHTML) {
-                    // console.log('dyn item', me.vnode, me.parentIndex);
-                    component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode)
-                } else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
-                    // todo: can happen for dynamically inserted container items
-                    // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
-                }
-            }
-        });
+        // silent update
+        me._vnode = ComponentManager.addVnodeComponentReferences(vnode, me.id);
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
