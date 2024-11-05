@@ -1516,6 +1516,7 @@ class Base extends CoreBase {
         opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
 
         console.log('update', me.id, me.updateDepth, opts.vdom);
+        console.log(vnode, opts.vnode);
 
         // Reset the updateDepth to the default value for the next update cycle
         me._updateDepth = 1;
@@ -2383,7 +2384,7 @@ class Base extends CoreBase {
 
             if (childVnode) {
                 // silent update
-                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode.vnode, childVnode.id);
+                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode.vnode, component.id);
 
                 if (!component.rendered) {
                     component._rendered = true;
