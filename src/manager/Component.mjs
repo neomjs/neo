@@ -52,7 +52,7 @@ class Component extends Base {
             }
 
             childNodes[index] = component ?
-                {componentId: component.id} :
+                {componentId: component.id, id: childNode.id} :
                 this.addVnodeComponentReferences(childNode, ownerId)
         });
 
