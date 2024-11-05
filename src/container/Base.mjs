@@ -739,6 +739,9 @@ class Base extends Component {
         NeoArray.move(me.items,                 item2Index, item1Index);
         NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
 
+        // the next update cycle needs to include direct children
+        me.updateDepth = 2;
+
         me.update()
     }
 }
