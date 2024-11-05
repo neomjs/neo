@@ -734,7 +734,8 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns items which match the property and value
+     * Returns items which match the property and value.
+     * Properties can contain dots for namespaces => find('vdom.id', 'neo-vnode-1')
      * @param {Object|String} property
      * @param {String|Number} [value] Only required in case the first param is a string
      * @param {Boolean} returnFirstMatch=false
@@ -758,7 +759,7 @@ class Base extends CoreBase {
                 matchArray = [];
 
                 propertiesArray.forEach(([key, value]) => {
-                    if (item[key] === value) {
+                    if (Neo.ns(key, false, item) === value) {
                         matchArray.push(true)
                     }
                 });
@@ -770,7 +771,7 @@ class Base extends CoreBase {
 
                     items.push(item)
                 }
-            } else if (item[property] === value) {
+            } else if (Neo.ns(property, false, item) === value) {
                 if (returnFirstMatch) {
                     return item
                 }
