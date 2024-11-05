@@ -535,8 +535,10 @@ class Base extends Component {
         }
 
         if (!silent) {
+            me.updateDepth = -1; // pass the full vdom tree to honor new nested component trees
+
             me.promiseUpdate().then(() => {
-                me.fire('insert', { index, item })
+                me.fire('insert', {index, item})
             })
         }
 
