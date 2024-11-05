@@ -41,18 +41,20 @@ class Component extends Base {
     addVnodeComponentReferences(vnode, ownerId) {
         vnode = {...vnode}; // shallow copy
 
-        let childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
+        let me         = this,
+            childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
             component;
 
         vnode.childNodes = childNodes;
 
         childNodes.forEach((childNode, index) => {
-            if (childNode.id !== ownerId) {
-                component = this.get(childNode.id)
+            if (!childNode.componentId && childNode.id !== ownerId) {
+                // searching for wrapped components as a fallback
+                component = me.get(childNode.id) || me.findFirst('vdom.id', childNode.id)
             }
 
             childNodes[index] = component ?
-                {componentId: component.id, id: childNode.id} :
+                {componentId: component.id, id: component.vdom.id} :
                 this.addVnodeComponentReferences(childNode, ownerId)
         });
 
