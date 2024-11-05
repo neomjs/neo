@@ -385,13 +385,13 @@ class VDom extends Base {
                 // we only want to change vdom ids in case there is not already an own id
                 // (think of adding & removing nodes in parallel)
                 if (!vdom.id && vnode.id) {
-                    console.log(vnode.id, vdom);
                     vdom.id = vnode.id
                 }
             }
 
             if (childNodes) {
-                cn   = childNodes.filter(item => item.removeDom !== true);
+                cn   = childNodes.map(item => VDom.getVdom(item));
+                cn   = cn.filter(item => item.removeDom !== true);
                 i    = 0;
                 len  = cn?.length || 0;
 
