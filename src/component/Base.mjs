@@ -360,6 +360,15 @@ class Base extends CoreBase {
          */
         ui_: null,
         /**
+         * Defines the depth of the vdom tree for the next update cycle.
+         * - The value 1 will only send the current vdom structure as it is
+         * - The value of 2 will include the vdom of direct children
+         * - The value of 3 will include the vdom of grandchildren
+         * - The value of -1 will include the full tree of any depth
+         * @member {Number} updateDepth_=1
+         */
+        updateDepth_: 1,
+        /**
          * The component vnode tree. Available after the component got rendered.
          * @member {Object} vnode_=null
          * @protected
@@ -1347,6 +1356,21 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered before the updateDepth config gets changed.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetUpdateDepth(value, oldValue) {
+        if (oldValue === undefined) {
+            return value
+        }
+
+        return oldValue === -1 || value === -1 ? -1 : Math.max(value, oldValue)
+    }
+
+    /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value
@@ -1473,7 +1497,7 @@ class Base extends CoreBase {
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
         let me   = this,
-            opts = {vdom, vnode},
+            opts = {vnode},
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
@@ -1487,7 +1511,14 @@ class Base extends CoreBase {
         // and we still want to pass it further into subtrees
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
-console.log('update', me.id, vdom);
+
+        opts.vdom = ComponentManager.getVdomTree(vdom, me.updateDepth);
+
+        console.log('update', me.id, me.updateDepth, opts.vdom);
+
+        // Reset the updateDepth to the default value for the next update cycle
+        me._updateDepth = 1;
+
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
             console.log('Error attempting to update component dom', err, me);
@@ -2206,7 +2237,7 @@ console.log('update', me.id, vdom);
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 windowId   : me.windowId,
-                ...ComponentManager.getVdomRenderTree(me.vdom)
+                ...ComponentManager.getVdomTree(me.vdom)
             });
 
             me.onRender(data, useVdomWorker ? autoMount : false);

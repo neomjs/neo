@@ -133,6 +133,7 @@ class Card extends Base {
             if (needsTransition) {
                 await me.slideCards(value, oldValue)
             } else if (removeInactiveCards || needsUpdate) {
+                container.updateDepth = -1; // include the full tree to honor new or changed inactive cards
                 container.update()
             }
         }
