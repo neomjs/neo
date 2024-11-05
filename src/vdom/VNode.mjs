@@ -4,7 +4,7 @@
  */
 class VNode {
     /**
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         /**
@@ -17,6 +17,10 @@ class VNode {
 
         /**
          * @member {Array} className=[]
+         */
+
+        /**
+         * @member {String} [componentId]
          */
 
         /**
@@ -45,7 +49,9 @@ class VNode {
          * @member {String} vtype='vnode'
          */
 
-        Object.assign(this, {
+        let me = this;
+
+        Object.assign(me, {
             attributes: config.attributes || [],
             childNodes: config.childNodes || [],
             className : config.className  || [],
@@ -56,9 +62,13 @@ class VNode {
             vtype     : config.vtype      || 'vnode'
         });
 
+        if (config.componentId) {
+            me.componentId = config.componentId
+        }
+
         // We only apply the static attribute, in case the value is true
         if (config.static) {
-            this.static = true
+            me.static = true
         }
     }
 }
