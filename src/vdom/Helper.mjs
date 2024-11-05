@@ -132,6 +132,10 @@ class Helper extends Base {
         let {deltas, oldVnode, vnode, vnodeMap} = config,
             attributes, delta, value, keys, styles, add, remove;
 
+        if (oldVnode.componentId && oldVnode.id === vnode.id) {
+            return deltas
+        }
+
         if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
             deltas.default.push({
                 action  : 'updateVtext',
@@ -306,7 +310,7 @@ class Helper extends Base {
             if (childNode) {
                 if (oldVnodeMap.get(childNode.id)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
-                } else {
+                } else {console.log('insert', childNode, oldVnode, new Map(oldVnodeMap));
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
 
