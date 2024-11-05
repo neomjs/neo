@@ -348,21 +348,29 @@ class Component extends Base {
     /**
      * Copies a given vdom tree and replaces child component references with the vdom of their matching components
      * @param {Object} vdom
-     * @param {Number} depth=-1 The replacement depth. -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
+     * @param {Number} depth=-1
+     *     The component replacement depth.
+     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
      * @returns {Object}
      */
     getVdomTree(vdom, depth=-1) {
         let output = {...vdom}, // shallow copy
             childDepth;
 
-        if (vdom.cn && (depth === -1 || depth > 1)) {
+        if (vdom.cn) {
             output.cn = [];
 
             childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
 
             vdom.cn.forEach(item => {
+                childDepth = depth;
+
                 if (item.componentId) {
-                    item = this.get(item.componentId).vdom
+                    childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+                    if (depth === -1 || depth > 1) {
+                        item = this.get(item.componentId).vdom
+                    }
                 }
 
                 output.cn.push(this.getVdomTree(item, childDepth))
@@ -375,21 +383,27 @@ class Component extends Base {
     /**
      * Copies a given vnode tree and replaces child component references with the vnode of their matching components
      * @param {Object} vnode
-     * @param {Number} depth=-1 The replacement depth. -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
+     * @param {Number} depth=-1
+     *     The component replacement depth.
+     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
      * @returns {Object}
      */
     getVnodeTree(vnode, depth=-1) {
         let output = {...vnode}, // shallow copy
             childDepth;
 
-        if (vnode.childNodes && (depth === -1 || depth > 1)) {
+        if (vnode.childNodes) {
             output.childNodes = [];
 
-            childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
-
             vnode.childNodes.forEach(item => {
+                childDepth = depth;
+
                 if (item.componentId) {
-                    item = this.get(item.componentId).vnode
+                    childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+                    if (depth === -1 || depth > 1) {
+                        item = this.get(item.componentId).vnode
+                    }
                 }
 
                 output.childNodes.push(this.getVnodeTree(item, childDepth))
