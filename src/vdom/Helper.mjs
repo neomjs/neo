@@ -310,7 +310,7 @@ class Helper extends Base {
             if (childNode) {
                 if (oldVnodeMap.get(childNode.id)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
-                } else {console.log('insert', childNode, oldVnode, new Map(oldVnodeMap));
+                } else {
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
 
@@ -520,11 +520,10 @@ class Helper extends Base {
                         hasUnit = value != parseInt(value);
                         node.style[key] = value + (hasUnit ? '' : 'px');
                         break
+                    case 'componentId':
                     case 'id':
-                        node.id = value;
-                        break
                     case 'static':
-                        node.static = value;
+                        node[key] = value;
                         break
                     case 'style':
                         style = node.style;
