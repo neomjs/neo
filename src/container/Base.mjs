@@ -531,7 +531,7 @@ class Base extends Component {
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, item.vdom)
+            me.getVdomItemsRoot().cn.splice(index, 0, {componentId: item.id})
         }
 
         if (!silent) {
