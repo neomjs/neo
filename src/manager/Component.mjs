@@ -325,17 +325,20 @@ class Component extends Base {
      * @returns {Object}
      */
     getVdomTree(vdom, depth=-1) {
-        let output = {...vdom}; // shallow copy
+        let output = {...vdom}, // shallow copy
+            childDepth;
 
         if (vdom.cn && (depth === -1 || depth > 1)) {
             output.cn = [];
+
+            childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
 
             vdom.cn.forEach(item => {
                 if (item.componentId) {
                     item = this.get(item.componentId).vdom
                 }
 
-                output.cn.push(this.getVdomTree(item, depth === -1 ? -1 : depth > 1 ? depth-1 : 1))
+                output.cn.push(this.getVdomTree(item, childDepth))
             })
         }
 
