@@ -1497,7 +1497,7 @@ class Base extends CoreBase {
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
         let me   = this,
-            opts = {vnode},
+            opts = {},
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
@@ -1512,7 +1512,8 @@ class Base extends CoreBase {
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
 
-        opts.vdom = ComponentManager.getVdomTree(vdom, me.updateDepth);
+        opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
+        opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
 
         console.log('update', me.id, me.updateDepth, opts.vdom);
 

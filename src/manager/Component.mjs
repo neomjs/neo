@@ -346,6 +346,33 @@ class Component extends Base {
     }
 
     /**
+     * Copies a given vnode tree and replaces child component references with the vnode of their matching components
+     * @param {Object} vnode
+     * @param {Number} depth=-1 The replacement depth. -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
+     * @returns {Object}
+     */
+    getVnodeTree(vnode, depth=-1) {
+        let output = {...vnode}, // shallow copy
+            childDepth;
+
+        if (vnode.childNodes && (depth === -1 || depth > 1)) {
+            output.childNodes = [];
+
+            childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+            vnode.childNodes.forEach(item => {
+                if (item.componentId) {
+                    item = this.get(item.componentId).vnode
+                }
+
+                output.childNodes.push(this.getVnodeTree(item, childDepth))
+            })
+        }
+
+        return output
+    }
+
+    /**
      * Check if the component had a property of any value somewhere in the Prototype chain
      *
      * @param {Neo.component.Base} component
