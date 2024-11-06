@@ -144,22 +144,20 @@ class VNode extends Base {
     }
 
     /**
-     * Get the ids of all child nodes of the given vnode
-     * @param vnode
-     * @param [childIds=[]]
-     * @returns {Array} childIds
+     * Get the ids of all child nodes of the given vnode, excluding component references
+     * @param {Object} vnode
+     * @param {String[]} childIds=[]
+     * @returns {String[]} childIds
      */
     static getChildIds(vnode, childIds=[]) {
-        vnode = VNode.getVnode(vnode);
+        let childNodes = vnode?.childNodes || [];
 
-        let childNodes = vnode && vnode.childNodes || [];
-
-        childNodes.map(node => VNode.getVnode(node)).forEach(childNode => {
-            if (childNode.id) {
+        childNodes.forEach(childNode => {
+            if (childNode.id && !childNode.componentId) {
                 childIds.push(childNode.id)
             }
 
-            childIds = VNode.getChildIds(childNode, childIds)
+            VNode.getChildIds(childNode, childIds)
         });
 
         return childIds

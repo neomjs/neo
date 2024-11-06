@@ -1515,9 +1515,6 @@ class Base extends CoreBase {
         opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
         opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
 
-        console.log('update', me.id, me.updateDepth, opts.vdom);
-        console.log(vnode, opts.vnode);
-
         // Reset the updateDepth to the default value for the next update cycle
         me._updateDepth = 1;
 
@@ -1528,9 +1525,9 @@ class Base extends CoreBase {
             reject?.()
         }).then(data => {
             me.isVdomUpdating = false;
+
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
-                // console.log('Component vnode updated', data);
                 me.vnode = data.vnode;
 
                 deltas = data.deltas;
