@@ -51,6 +51,14 @@ class VNode {
 
         let me = this;
 
+        if (config.componentId) {
+            me.componentId = config.componentId;
+
+            if (!config.id) {
+                config.id = config.componentId
+            }
+        }
+
         Object.assign(me, {
             attributes: config.attributes || [],
             childNodes: config.childNodes || [],
@@ -61,10 +69,6 @@ class VNode {
             style     : config.style,
             vtype     : config.vtype      || 'vnode'
         });
-
-        if (config.componentId) {
-            me.componentId = config.componentId
-        }
 
         // We only apply the static attribute, in case the value is true
         if (config.static) {

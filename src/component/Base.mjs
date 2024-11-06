@@ -1418,6 +1418,22 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut to create a component reference
+     * @returns {Object}
+     */
+    createVdomReference() {
+        let me        = this,
+            reference = {componentId: me.id},
+            vdomId    = me.vdom.id;
+
+        if (vdomId && me.id !== vdomId) {
+            reference.id = vdomId
+        }
+
+        return reference
+    }
+
+    /**
      * Unregister this instance from the ComponentManager
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)

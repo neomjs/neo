@@ -387,7 +387,7 @@ class Base extends Component {
 
             if (item instanceof Neo.core.Base) {
                 layout?.applyChildAttributes(item, index);
-                vdom = {componentId: item.id, id: item.vdom.id}
+                vdom = item.createVdomReference()
             } else {
                 vdom = item.vdom
             }
@@ -531,7 +531,7 @@ class Base extends Component {
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, {componentId: item.id, id: item.vdom.id})
+            me.getVdomItemsRoot().cn.splice(index, 0, item.createVdomReference())
         }
 
         if (!silent) {
