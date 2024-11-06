@@ -173,11 +173,11 @@ class Component extends Base {
     /**
      * todo: replace all calls of this method to calls using the util.VNode class
      * Get the ids of all child nodes of the given vnode
-     * @param vnode
-     * @param childIds
-     * @returns {Array} childIds
+     * @param {Object} vnode
+     * @param {String[]} childIds=[]
+     * @returns {String[]} childIds
      */
-    getChildIds(vnode, childIds) {
+    getChildIds(vnode, childIds=[]) {
         return VNodeUtil.getChildIds(vnode, childIds)
     }
 
