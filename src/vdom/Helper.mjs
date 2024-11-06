@@ -132,7 +132,7 @@ class Helper extends Base {
         let {deltas, oldVnode, vnode, vnodeMap} = config,
             attributes, delta, value, keys, styles, add, remove;
 
-        if (oldVnode.componentId && oldVnode.id === vnode.id) {
+        if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.id)) {
             return deltas
         }
 
