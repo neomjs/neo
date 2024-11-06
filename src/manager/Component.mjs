@@ -48,19 +48,27 @@ class Component extends Base {
 
         let me         = this,
             childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
-            component;
+            childNodeId, component, referenceNode;
 
         vnode.childNodes = childNodes;
 
         childNodes.forEach((childNode, index) => {
-            if (!childNode.componentId && childNode.id !== ownerId) {
+            childNodeId = childNode.id;
+
+            if (!childNode.componentId && childNodeId !== ownerId) {
                 // searching for wrapped components as a fallback
-                component = me.get(childNode.id) || me.wrapperNodes.get(childNode.id)
+                component = me.get(childNodeId) || me.wrapperNodes.get(childNodeId);
+
+                if (component) {
+                    referenceNode = {componentId: component.id};
+
+                    if (component.id !== childNodeId) {
+                        referenceNode.id = childNodeId
+                    }
+                }
             }
 
-            childNodes[index] = component ?
-                {componentId: component.id, id: component.vdom.id} :
-                this.addVnodeComponentReferences(childNode, ownerId)
+            childNodes[index] = component ? referenceNode : me.addVnodeComponentReferences(childNode, ownerId)
         });
 
         return vnode

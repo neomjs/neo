@@ -237,7 +237,7 @@ class Helper extends Base {
      */
     createDeltas(config) {
         let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
-            oldVnodeId = oldVnode?.id,
+            oldVnodeId = oldVnode?.id || oldVnode?.componentId,
             vnodeId    = vnode?.id;
 
         // Edge case: setting `removeDom: true` on a top-level vdom node
@@ -263,7 +263,7 @@ class Helper extends Base {
             indexDelta    = 0,
             insertDelta   = 0,
             len           = Math.max(childNodes.length, oldChildNodes.length),
-            childNode, nodeInNewTree, oldChildNode;
+            childNode, nodeInNewTree, oldChildNode, oldChildNodeId;
 
         me.compareAttributes({deltas, oldVnode, vnode, vnodeMap});
 
@@ -289,7 +289,8 @@ class Helper extends Base {
             }
 
             if (oldChildNode) {
-                nodeInNewTree = vnodeMap.get(oldChildNode.id);
+                oldChildNodeId = oldChildNode.id || oldChildNode.componentId;
+                nodeInNewTree  = vnodeMap.get(oldChildNodeId);
 
                 // Remove node, if no longer inside the new tree
                 if (!nodeInNewTree) {
@@ -314,7 +315,7 @@ class Helper extends Base {
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
 
-                if (oldChildNode && vnodeId === vnodeMap.get(oldChildNode.id)?.parentNode.id) {
+                if (oldChildNode && vnodeId === vnodeMap.get(oldChildNodeId)?.parentNode.id) {
                     len++;
                 }
             }
@@ -458,6 +459,10 @@ class Helper extends Base {
             node = {attributes: {}, childNodes: [], style: {}},
             potentialNode;
 
+        if (opts.componentId && !opts.id) {
+            opts.id = opts.componentId
+        }
+
         if (!opts.tag) {
             opts.tag = 'div'
         }
@@ -560,13 +565,17 @@ class Helper extends Base {
      */
     createVnodeMap(config) {
         let {vnode, parentNode=null, index=0, map=new Map()} = config,
-            id = vnode?.id;
+            id;
 
-        map.set(id, {id, index, parentNode, vnode});
+        if (vnode) {
+            id = vnode.id || vnode.componentId;
 
-        vnode?.childNodes?.forEach((childNode, index) => {
-            this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
-        });
+            map.set(id, {id, index, parentNode, vnode});
+
+            vnode.childNodes?.forEach((childNode, index) => {
+                this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
+            });
+        }
 
         return map
     }
@@ -680,9 +689,12 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
      */
-    removeNode(config) {
-        let {deltas, oldVnode, oldVnodeMap} = config,
-            delta        = {action: 'removeNode', id: oldVnode.id},
+    removeNode({deltas, oldVnode, oldVnodeMap}) {
+        if (oldVnode.componentId && !oldVnode.id) {
+            oldVnode.id = oldVnode.componentId
+        }
+
+        let delta        = {action: 'removeNode', id: oldVnode.id},
             {parentNode} = oldVnodeMap.get(oldVnode.id);
 
         if (oldVnode.vtype === 'text') {
