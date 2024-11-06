@@ -2365,8 +2365,10 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
     syncVnodeTree(vnode=this.vnode) {
-        let me    = this,
-            debug = false,
+        let me              = this,
+            childComponents = ComponentManager.getChildren(me),
+            debug           = false,
+            map             = {},
             childVnode, start;
 
         if (debug) {
@@ -2375,13 +2377,30 @@ class Base extends CoreBase {
 
         me.syncVdomIds();
 
+        if (me.id !== vnode.id) {
+            ComponentManager.registerWrapperNode(vnode.id, me)
+        }
+
+        // we need one separate iteration first to ensure all wrapper nodes get registered
+        childComponents.forEach(component => {
+            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id)?.vnode;
+
+            if (childVnode) {
+                map[component.id] = childVnode;
+
+                if (component.id !== childVnode.id) {
+                    ComponentManager.registerWrapperNode(childVnode.id, component)
+                }
+            }
+        });
+
         // delegate the latest node updates to all possible child components found inside the vnode tree
-        ComponentManager.getChildren(me).forEach(component => {
-            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id);
+        childComponents.forEach(component => {
+            childVnode = map[component.id];
 
             if (childVnode) {
                 // silent update
-                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode.vnode, component.id);
+                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
                 if (!component.rendered) {
                     component._rendered = true;
