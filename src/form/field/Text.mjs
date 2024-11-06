@@ -824,10 +824,10 @@ class Text extends Base {
             });
 
             postTriggers.sort((a, b) => b.weight - a.weight); // DESC
-            preTriggers.sort((a, b) => a.weight - b.weight); // ASC
+            preTriggers.sort( (a, b) => a.weight - b.weight); // ASC
 
-            postTriggers = postTriggers.map(a => a.vdom);
-            preTriggers  = preTriggers.map(a => a.vdom);
+            postTriggers = postTriggers.map(trigger => trigger.createVdomReference());
+            preTriggers  = preTriggers.map( trigger => trigger.createVdomReference());
 
             if (inputEl.tag === 'input') {
                 // wrap the input tag
