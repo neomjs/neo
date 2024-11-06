@@ -1532,7 +1532,7 @@ class Base extends CoreBase {
         opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
 
         // Reset the updateDepth to the default value for the next update cycle
-        me._updateDepth = 1;
+        me._updateDepth = me.constructor.config.updateDepth;
 
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
