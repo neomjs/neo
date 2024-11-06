@@ -2377,7 +2377,7 @@ class Base extends CoreBase {
 
         me.syncVdomIds();
 
-        if (me.id !== vnode.id) {
+        if (vnode && me.id !== vnode.id) {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
 
@@ -2414,7 +2414,7 @@ class Base extends CoreBase {
         });
 
         // silent update
-        me._vnode = ComponentManager.addVnodeComponentReferences(vnode, me.id);
+        me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
