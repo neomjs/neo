@@ -21,6 +21,11 @@ class Component extends Base {
     }
 
     /**
+     * @member {Map} wrapperNodes=new Map()
+     */
+    wrapperNodes = new Map()
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -50,7 +55,7 @@ class Component extends Base {
         childNodes.forEach((childNode, index) => {
             if (!childNode.componentId && childNode.id !== ownerId) {
                 // searching for wrapped components as a fallback
-                component = me.get(childNode.id) || me.findFirst('vdom.id', childNode.id)
+                component = me.get(childNode.id) || me.wrapperNodes.get(childNode.id)
             }
 
             childNodes[index] = component ?
@@ -433,6 +438,25 @@ class Component extends Base {
         }
 
         return false
+    }
+
+    /**
+     * @param {String} wrapperId
+     * @param {Neo.component.Base} component
+     */
+    registerWrapperNode(wrapperId, component) {
+        this.wrapperNodes.set(wrapperId, component)
+    }
+
+    /**
+     * @param {Neo.component.Base} item
+     */
+    unregister(item) {
+        if (item.id !== item.vdom.id) {
+            this.wrapperNodes.delete(item.vdom.id)
+        }
+
+        super.unregister(item)
     }
 
     /**
