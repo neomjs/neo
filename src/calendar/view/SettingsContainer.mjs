@@ -57,6 +57,8 @@ class SettingsContainer extends Container {
         me._style         = style; // silent update
         me._vdom.style    = style; // silent update
 
+        me.parent.updateDepth = -1;
+
         me.parent.promiseUpdate().then(() => {
             me.timeout(400).then(() => {
                 me.collapsed = true;
@@ -144,6 +146,8 @@ class SettingsContainer extends Container {
             style;
 
         delete me.vdom.removeDom;
+
+        me.parent.updateDepth = -1;
 
         me.parent.promiseUpdate().then(() => {
             me.collapsed = false;
