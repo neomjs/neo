@@ -204,6 +204,7 @@ class Button extends BaseButton {
                     flag     : 'filter-field',
                     hideLabel: true,
                     parentId : me.id,
+                    style    : {marginLeft: '.5em', marginRight: '.5em'},
                     windowId : me.windowId,
 
                     listeners: {
@@ -212,14 +213,10 @@ class Button extends BaseButton {
                         scope         : me
                     },
 
-                    style: {
-                        marginLeft : '.5em',
-                        marginRight: '.5em'
-                    },
                     ...me.editorConfig
                 });
 
-                me.vdom.cn.push(me.filterField.vdom)
+                me.vdom.cn.push(me.filterField.createVdomReference())
             } else {
                 delete me.filterField.vdom.removeDom
             }
@@ -227,6 +224,7 @@ class Button extends BaseButton {
             me.filterField.vdom.removeDom = true
         }
 
+        me.updateDepth = 2;
         me.update()
     }
 
