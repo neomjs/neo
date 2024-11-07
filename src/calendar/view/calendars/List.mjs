@@ -60,7 +60,6 @@ class List extends ComponentList {
         };
 
         if (checkBox) {
-            me.updateDepth = 2;
             checkBox.setSilent(config)
         } else {
             items[index] = checkBox = Neo.create({
@@ -73,7 +72,8 @@ class List extends ComponentList {
             })
         }
 
-        me.items = items;
+        me.items       = items;
+        me.updateDepth = 2;
 
         return [
             checkBox.createVdomReference(),
