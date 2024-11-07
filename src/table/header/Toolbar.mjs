@@ -63,6 +63,7 @@ class Toolbar extends BaseToolbar {
                 })
             });
 
+            me.updateDepth = -1; // filters can be deeply nested
             me.update()
         }
     }
