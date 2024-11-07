@@ -50,7 +50,7 @@ class ColorsList extends List {
 
         if (value && oldValue !== undefined && !me.disableSelection) {
             record = me.store.find('name', value)[0];
-            me.selectionModel?.select(me.getItemId(record[me.getKeyProperty()]));
+            me.selectionModel?.select(me.getItemId(record[me.getKeyProperty()]))
         }
     }
 
@@ -64,21 +64,21 @@ class ColorsList extends List {
         return {style: {
             backgroundColor: `var(--event-${record.name}-color)`,
             color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
-        }};
+        }}
     }
 
     /**
      * @returns {Object}
      */
     getVdomRoot() {
-        return this.vdom;
+        return this.vdom
     }
 
     /**
      * @returns {Object}
      */
     getVnodeRoot() {
-        return this.vnode;
+        return this.vnode
     }
 
     /**
@@ -90,7 +90,7 @@ class ColorsList extends List {
         let me      = this,
             {value} = me;
 
-        value && me.afterSetValue(value, null);
+        value && me.afterSetValue(value, null)
     }
 
     /**
@@ -103,7 +103,7 @@ class ColorsList extends List {
 
         me.fire('change', {
             record: me.store.get(recordId)
-        });
+        })
     }
 }
 
