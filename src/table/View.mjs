@@ -482,7 +482,7 @@ class View extends Component {
                     }
                 } else {
                     cellId   = me.getCellId(record, field.name);
-                    cellNode = VDomUtil.findVdomChild(vdom, cellId);
+                    cellNode = VDomUtil.find(vdom, cellId);
 
                     // the vdom might not exist yet => nothing to do in this case
                     if (cellNode?.vdom) {

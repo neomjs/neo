@@ -103,7 +103,7 @@ class CellRowModel extends CellModel {
             node         = RowModel.getRowNode(data.path),
             {view}       = me,
             {store}      = view,
-            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            vdomNode     = VDomUtil.find(view.vdom, node.id),
             newIndex     = (vdomNode.index + step) % store.getCount(),
             {parentNode} = vdomNode,
             id;

@@ -686,7 +686,7 @@ class Component extends BaseComponent {
             let me                 = this,
                 {editEventContainer} = me.owner,
                 eventNode          = path[0],
-                eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+                eventVdom          = VDomUtil.find(me.vdom, eventNode.id).vdom,
                 record             = me.eventStore.get(eventVdom.flag),
                 {style}            = editEventContainer;
 

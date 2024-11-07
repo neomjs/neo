@@ -268,7 +268,7 @@ class ProfileComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
-            el         = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            el         = VDomUtil.find(me.vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(me.vdom, 'feed-header'),
             params     = {};
 

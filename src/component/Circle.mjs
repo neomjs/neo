@@ -545,9 +545,7 @@ class Circle extends Component {
      * @returns {Object}
      */
     getItemEl(itemId) {
-        let item = VDomUtil.findVdomChild(this.getFrontEl(), itemId);
-
-        return item?.vdom
+        return VDomUtil.find(this.getFrontEl(), itemId)?.vdom
     }
 
     /**

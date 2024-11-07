@@ -410,7 +410,7 @@ class Text extends Base {
      */
     afterSetErrorPositionAbsolute(value, oldValue) {
         let me  = this,
-            cls = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error'}).vdom.cls;
+            cls = VDomUtil.find(me.vdom, {cls: 'neo-textfield-error'}).vdom.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-absolute');
 
@@ -1090,14 +1090,14 @@ class Text extends Base {
      * @returns {Object|null}
      */
     getCenterBorderEl() {
-        return VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'})?.vdom || null
+        return VDomUtil.find(this.vdom, {cls: 'neo-center-border'})?.vdom || null
     }
 
     /**
      * @returns {Object|null}
      */
     getInputEl() {
-        return VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'})?.vdom || null
+        return VDomUtil.find(this.vdom, {flag: 'neo-real-input'})?.vdom || null
     }
 
     /**
@@ -1137,7 +1137,7 @@ class Text extends Base {
      * @returns {Object|null}
      */
     getLabelEl() {
-        return VDomUtil.findVdomChild(this.vdom, {tag: 'label'})?.vdom || null
+        return VDomUtil.find(this.vdom, {tag: 'label'})?.vdom || null
     }
 
     /**
@@ -1486,7 +1486,7 @@ class Text extends Base {
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
             me.cls = cls;
 
-            errorWrapper = VDomUtil.findVdomChild(me.vdom, {cls: 'neo-textfield-error-wrapper'}).vdom;
+            errorWrapper = VDomUtil.find(me.vdom, {cls: 'neo-textfield-error-wrapper'}).vdom;
             errorNode    = errorWrapper.cn[0];
 
             if (value) {

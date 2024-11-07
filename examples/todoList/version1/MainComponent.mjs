@@ -99,7 +99,7 @@ class MainComponent extends Component {
         let me     = this,
             cls    = ['far', 'fa-square'],
             oldCls = ['fa',  'fa-check'],
-            node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom
+            node   = VdomUtil.find(me.vdom, data.path[0].id).vdom;
 
         if (data.path[0].cls.includes('fa-square')) {
             cls    = ['fa',  'fa-check'];
