@@ -722,7 +722,7 @@ class Base extends CoreBase {
         this.changeVdomRootKey('id', value);
 
         oldValue && ComponentManager.unregister(oldValue);
-        ComponentManager.register(this)
+        value    && ComponentManager.register(this)
     }
 
     /**
