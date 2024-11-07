@@ -1,4 +1,5 @@
 import Base      from './Base.mjs';
+import VDomUtil  from '../util/VDom.mjs';
 import VNodeUtil from '../util/VNode.mjs';
 
 /**
@@ -48,7 +49,7 @@ class Component extends Base {
 
         let me         = this,
             childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
-            childNodeId, component, referenceNode;
+            childNodeId, component, componentId, parentRef, referenceNode;
 
         vnode.childNodes = childNodes;
 
@@ -56,13 +57,28 @@ class Component extends Base {
             childNodeId = childNode.id;
 
             if (!childNode.componentId && childNodeId !== ownerId) {
-                // searching for wrapped components as a fallback
-                component = me.get(childNodeId) || me.wrapperNodes.get(childNodeId);
+                component = me.get(childNodeId);
+
+                if (!component) {
+                    // searching for wrapped components as a fallback
+                    component = me.wrapperNodes.get(childNodeId);
+
+                    if (component) {
+                        // update the parent component reference => assign the wrapper id
+                        componentId = component.id;
+                        parentRef   = VDomUtil.find({vdom: component.parent.vdom, opts: {componentId}, replaceComponentRefs: false});
+
+                        if (parentRef) {
+                            parentRef.vdom.id = childNodeId
+                        }
+                    }
+                }
 
                 if (component) {
-                    referenceNode = {componentId: component.id};
+                    componentId   = component.id;
+                    referenceNode = {componentId};
 
-                    if (component.id !== childNodeId) {
+                    if (componentId !== childNodeId) {
                         referenceNode.id = childNodeId
                     }
                 }
