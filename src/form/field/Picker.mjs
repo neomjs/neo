@@ -136,7 +136,8 @@ class Picker extends Text {
             {pickerWidth}   = me,
             pickerComponent = me.createPickerComponent();
 
-        me.picker =  Neo.create(Container, {
+        me.picker =  Neo.create({
+            module   : Container,
             parentId : 'document.body',
             floating : true,
             align    : {
