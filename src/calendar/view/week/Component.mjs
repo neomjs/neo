@@ -190,6 +190,7 @@ class Component extends BaseComponent {
          * @protected
          */
         totalColumns: null,
+        updateDepth: -1,
         /**
          * @member {Object} vdom
          */
@@ -224,13 +225,12 @@ class Component extends BaseComponent {
             {wheel   : me.onWheel,            scope: me}
         ]);
 
-        me.timeAxis = Neo.create(TimeAxisComponent, {
+        me.timeAxis = Neo.create({
+            module   : TimeAxisComponent,
             appName  : me.appName,
             parentId : me.id,
-            listeners: {
-                change: me.onTimeAxisChange,
-                scope : me
-            },
+            listeners: {change: me.onTimeAxisChange, scope : me},
+            windowId : me.windowId,
             ...me.timeAxisConfig
         });
 
