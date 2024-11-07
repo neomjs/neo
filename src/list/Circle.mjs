@@ -61,6 +61,7 @@ class Circle extends Component {
             };
 
         if (listItem) {
+            me.updateDepth = 2;
             listItem.setSilent(config)
         } else {
             items[index] = listItem = Neo.create({
@@ -79,7 +80,7 @@ class Circle extends Component {
 
         me.items = items;
 
-        return [listItem.vdom]
+        return [listItem.createVdomReference()]
     }
 }
 
