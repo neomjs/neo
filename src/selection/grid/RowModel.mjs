@@ -1,11 +1,11 @@
-import Model    from '../Model.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import BaseModel from './BaseModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.RowModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.grid.BaseModel
  */
-class RowModel extends Model {
+class RowModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.grid.RowModel'
@@ -34,35 +34,6 @@ class RowModel extends Model {
     }
 
     /**
-     * @param {Object} item
-     * @param {Boolean} [silent] true to prevent a vdom update
-     * @param {Object[]|String[]} itemCollection=this.items
-     * @param {String} [selectedCls]
-     */
-    deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselect(item, silent, itemCollection, selectedCls)
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAll(silent) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselectAll(silent)
-    }
-
-    /**
      * @param args
      */
     destroy(...args) {
@@ -70,7 +41,7 @@ class RowModel extends Model {
 
         me.view.un('rowClick', me.onRowClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -185,19 +156,6 @@ class RowModel extends Model {
             {fn: 'onKeyDownDown', key: 'Down', scope: id},
             {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
         )
-    }
-
-    /**
-     * @param {Object} args
-     */
-    select(...args) {
-        let {view} = this;
-
-        if (!view.silentSelect) {
-            view.updateDepth = 2
-        }
-
-        super.select(...args)
     }
 
     /**

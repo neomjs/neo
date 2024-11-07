@@ -1,10 +1,10 @@
-import Model from '../Model.mjs';
+import BaseModel from './BaseModel.mjs';
 
 /**
  * @class Neo.selection.table.CellModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.table.BaseModel
  */
-class CellModel extends Model {
+class CellModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.table.CellModel'
@@ -33,35 +33,6 @@ class CellModel extends Model {
     }
 
     /**
-     * @param {Object} item
-     * @param {Boolean} [silent] true to prevent a vdom update
-     * @param {Object[]|String[]} itemCollection=this.items
-     * @param {String} [selectedCls]
-     */
-    deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselect(item, silent, itemCollection, selectedCls)
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAll(silent) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselectAll(silent)
-    }
-
-    /**
      * @param args
      */
     destroy(...args) {
@@ -69,7 +40,7 @@ class CellModel extends Model {
 
         me.view.un('cellClick', me.onCellClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -170,19 +141,6 @@ class CellModel extends Model {
             {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
         )
-    }
-
-    /**
-     * @param {Object} args
-     */
-    select(...args) {
-        let {view} = this;
-
-        if (!view.silentSelect) {
-            view.updateDepth = 2
-        }
-
-        super.select(...args)
     }
 
     /**

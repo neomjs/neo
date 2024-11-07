@@ -1,11 +1,11 @@
-import Model    from '../Model.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import BaseModel from './BaseModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.ColumnModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.table.BaseModel
  */
-class ColumnModel extends Model {
+class ColumnModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.table.ColumnModel'
@@ -34,35 +34,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     * @param {Object} item
-     * @param {Boolean} [silent] true to prevent a vdom update
-     * @param {Object[]|String[]} itemCollection=this.items
-     * @param {String} [selectedCls]
-     */
-    deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselect(item, silent, itemCollection, selectedCls)
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAll(silent) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselectAll(silent)
-    }
-
-    /**
      * @param args
      */
     destroy(...args) {
@@ -70,7 +41,7 @@ class ColumnModel extends Model {
 
         me.view.un('cellClick', me.onCellClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -176,19 +147,6 @@ class ColumnModel extends Model {
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
             {fn: 'onKeyDownRight', key: 'Right', scope: id}
         )
-    }
-
-    /**
-     * @param {Object} args
-     */
-    select(...args) {
-        let {view} = this;
-
-        if (!view.silentSelect) {
-            view.updateDepth = 2
-        }
-
-        super.select(...args)
     }
 
     /**
