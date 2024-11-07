@@ -98,7 +98,8 @@ class DateField extends Picker {
 
         let me = this;
 
-        me.dateSelector = Neo.create(DateSelector, {
+        me.dateSelector = Neo.create({
+            module       : DateSelector,
             dayNameFormat: 'short',
             maxValue     : me.maxValue,
             minValue     : me.minValue,
