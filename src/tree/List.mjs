@@ -475,7 +475,7 @@ class Tree extends Base {
     onStoreRecordChange(data) {
         let me                  = this,
             {record}            = data,
-            {index, parentNode} = VDomUtil.findVdomChild(me.vdom, me.getItemId(record.id));
+            {index, parentNode} = VDomUtil.find(me.vdom, me.getItemId(record.id));
 
         parentNode.cn[index] = me.createItem(record);
 

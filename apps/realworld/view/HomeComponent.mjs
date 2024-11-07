@@ -231,8 +231,8 @@ class HomeComponent extends Component {
             node, oldNode;
 
         if (me.mounted) {
-            node    = VDomUtil.findVdomChild(me.vdom, me.getNavLinkVdomId(value)).parentNode;
-            oldNode = VDomUtil.findVdomChild(me.vdom, me.getNavLinkVdomId(oldValue)).parentNode;
+            node    = VDomUtil.find(me.vdom, me.getNavLinkVdomId(value)).parentNode;
+            oldNode = VDomUtil.find(me.vdom, me.getNavLinkVdomId(oldValue)).parentNode;
 
             NeoArray.add(node.cls, 'active');
             NeoArray.remove(oldNode.cls, 'active');
@@ -289,7 +289,7 @@ class HomeComponent extends Component {
      */
     afterSetLoggedIn(value, oldValue) {
         let me      = this,
-            navItem = VDomUtil.findVdomChild(me.vdom, me.id + '__nav-item-link_0').vdom;
+            navItem = VDomUtil.find(me.vdom, me.id + '__nav-item-link_0').vdom;
 
         NeoArray[value ? 'remove' : 'add'](navItem.cls, 'disabled');
         me.update();
@@ -339,16 +339,15 @@ class HomeComponent extends Component {
             me.set({
                 articlePreviews: data.json.articles,
                 countArticles  : data.json.articlesCount
-            });
-        });
+            })
+        })
     }
 
     /**
      * @returns {Object} vdom
      */
     getContainer() {
-        let el = VDomUtil.findVdomChild(this.vdom, {cls: 'col-md-9'});
-        return el?.vdom;
+        return VDomUtil.find(this.vdom, {cls: 'col-md-9'})?.vdom
     }
 
     /**
@@ -356,7 +355,7 @@ class HomeComponent extends Component {
      * @returns {Number}
      */
     getNavLinkId(nodeId) {
-        return parseInt(nodeId.split('__')[1]);
+        return parseInt(nodeId.split('__')[1])
     }
 
     /**
@@ -364,7 +363,7 @@ class HomeComponent extends Component {
      * @returns {String}
      */
     getNavLinkVdomId(id) {
-        return this.id + '__' + id;
+        return this.id + '__' + id
     }
 
     /**
@@ -372,7 +371,7 @@ class HomeComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
-            el         = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            el         = VDomUtil.find(me.vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(me.vdom, 'feed-header'),
             opts       = {};
 
@@ -401,7 +400,7 @@ class HomeComponent extends Component {
             me.update();
 
             me.getController()._articlesOffset = 0; // silent update
-            me.getArticles({}, opts);
+            me.getArticles({}, opts)
         }
     }
 
@@ -409,14 +408,14 @@ class HomeComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {
-        this.loggedIn = !!value;
+        this.loggedIn = !!value
     }
 
     /**
      * @param {Object} data
      */
     onPageNavLinkClick(data) {
-        this.currentPage = this.getNavLinkId(data.path[0].id);
+        this.currentPage = this.getNavLinkId(data.path[0].id)
     }
 
     /**
@@ -453,7 +452,7 @@ class HomeComponent extends Component {
 
         me.getArticles({
             tag: opts.value
-        });
+        })
     }
 }
 

@@ -87,7 +87,7 @@ class ColumnModel extends Model {
 
         if (id) {
             index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+            tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.select(columnNodeIds)
@@ -128,7 +128,7 @@ class ColumnModel extends Model {
         idArray[2] = dataFields[newIndex];
         id = idArray.join('__');
 
-        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+        tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.select(columnNodeIds);

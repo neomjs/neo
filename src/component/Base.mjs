@@ -1809,8 +1809,7 @@ class Base extends CoreBase {
      * @returns {Object}
      */
     getVdomChild(id, vdom=this.vdom) {
-        let node = VDomUtil.findVdomChild(vdom, id);
-        return node?.vdom
+        return VDomUtil.find(vdom, id)?.vdom
     }
 
     /**
@@ -2518,7 +2517,7 @@ class Base extends CoreBase {
             opts, vdom, vnode, vnodeStyle;
 
         if (delta) {
-            vdom  = VDomUtil.findVdomChild(me.vdom, id);
+            vdom  = VDomUtil.find(me.vdom, id);
             vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
 
             if (!me.hasUnmountedVdomChanges) {

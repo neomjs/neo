@@ -522,11 +522,11 @@ class DomEvent extends Base {
             delegationVdom;
 
         if (targetId && targetId !== delegationTargetId) {
-            delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
+            delegationVdom = VDomUtil.find(component.vdom, delegationTargetId);
 
             // delegationVdom can be undefined when dragging a proxy over the node.
             // see issues/1137 for details.
-            if (!delegationVdom || delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
+            if (!delegationVdom || delegationVdom.vdom && VDomUtil.find(delegationVdom.vdom, targetId)) {
                 return false
             }
         }

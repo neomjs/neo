@@ -51,7 +51,7 @@ class Color extends ComboBox {
         super.construct(config);
 
         let me           = this,
-            inputWrapper = VDomUtil.findVdomChild(me.vdom, {id: me.getInputWrapperId()});
+            inputWrapper = VDomUtil.find(me.vdom, me.getInputWrapperId());
 
         inputWrapper.vdom.cn.unshift({
             cls  : 'neo-color',
@@ -61,7 +61,7 @@ class Color extends ComboBox {
             }
         });
 
-        me.update();
+        me.update()
     }
 
     /**
@@ -73,12 +73,12 @@ class Color extends ComboBox {
      */
     afterSetValue(value, oldValue, preventFilter=false) {
         let me             = this,
-            colorIndicator = VDomUtil.findVdomChild(me.vdom, {id: me.getColorIndicatorId()})?.vdom,
+            colorIndicator = VDomUtil.find(me.vdom, me.getColorIndicatorId())?.vdom,
             {list, record} = me,
             selectionModel = me.list?.selectionModel;
 
         if (colorIndicator) {
-            colorIndicator.style.backgroundColor = me.getColor();
+            colorIndicator.style.backgroundColor = me.getColor()
         }
 
         if (record) {

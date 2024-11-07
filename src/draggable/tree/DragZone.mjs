@@ -88,7 +88,7 @@ class DragZone extends BaseDragZone {
             me.dragElement = {
                 tag: 'ul',
                 cls: ['neo-list-container', 'neo-list'],
-                cn : [VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom]
+                cn : [VDomUtil.find(me.owner.vdom, data.path[0].id).vdom]
             };
 
             me.dragStart(data)

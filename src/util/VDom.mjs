@@ -37,18 +37,17 @@ class VDom extends Base {
 
     /**
      * Search vdom child nodes by id or opts object for a given vdom tree
-     * @param {Object} config
-     * @param {Object} config.vdom
-     * @param {Object|String} config.opts Either an object containing vdom node attributes or a string based id
-     * @param {Number} [config.index] Internal flag, do not use it
-     * @param {Object} [config.parentNode] Internal flag, do not use it
-     * @param {Boolean} config.replaceComponentRefs=true
+     * @param {Object} vdom
+     * @param {Object|String} opts Either an object containing vdom node attributes or a string based id
+     * @param {Boolean} replaceComponentRefs=true
+     * @param {Number} [index] Internal flag, do not use it
+     * @param {Object} [parentNode] Internal flag, do not use it
      * @returns {Object}
      *     {Number} index
      *     {String} parentId
      *     {Object} vdom
      */
-    static find({vdom, opts, index, parentNode, replaceComponentRefs=true}) {
+    static find(vdom, opts, replaceComponentRefs=true, index, parentNode) {
         index = index || 0;
         opts  = !Neo.isString(opts) ? opts : {id: opts};
 
@@ -79,7 +78,7 @@ class VDom extends Base {
                             }
                         } else if (Neo.isArray(value) && Neo.isArray(vdom[key])) {
                             // todo: either search the vdom array for all keys or compare if the arrays are equal.
-                            throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays')
+                            throw new Error('find: cls matching not supported for target & source types of Arrays')
                         }
                         break
                     case 'style':
@@ -98,7 +97,7 @@ class VDom extends Base {
                                 matchArray.push(true)
                             }
                         } else {
-                            throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)')
+                            throw new Error('find: style matching not supported for mixed target & source types (Object VS String)')
                         }
                         break
                     default:
@@ -117,7 +116,7 @@ class VDom extends Base {
         if (vdom.cn) {
             for (; i < len; i++) {
                 if (vdom.cn[i]) {
-                    subChild = VDom.find({vdom: vdom.cn[i], opts, index: i, parentNode: vdom, replaceComponentRefs});
+                    subChild = VDom.find(vdom.cn[i], opts, replaceComponentRefs, i, vdom);
 
                     if (subChild) {
                         child = {
@@ -135,108 +134,13 @@ class VDom extends Base {
     }
 
     /**
-     * Search vdom child nodes by id or opts object for a given vdom tree
-     * @param {Object} vdom
-     * @param {Object|String} opts Either an object containing vdom node attributes or a string based id
-     * @param {Number} [index] Internal flag, do not use it
-     * @param {Object} [parentNode] Internal flag, do not use it
-     * @returns {Object}
-     *     {Number} index
-     *     {String} parentId
-     *     {Object} vdom
-     */
-    static findVdomChild(vdom, opts, index, parentNode) {
-        index = index || 0;
-        opts  = !Neo.isString(opts) ? opts : {id: opts};
-        vdom  = VDom.getVdom(vdom);
-
-        let child      = null,
-            matchArray = [],
-            styleMatch = true,
-            i          = 0,
-            len        = vdom.cn?.length,
-            optsArray  = Object.entries(opts),
-            optsLength = optsArray.length,
-            subChild;
-
-        optsArray.forEach(([key, value]) => {
-            if (vdom.hasOwnProperty(key)) {
-                switch(key) {
-                    case 'cls':
-                        if (typeof value === 'string' && Neo.isArray(vdom[key])) {
-                            if (vdom[key].includes(value)) {
-                                matchArray.push(true)
-                            }
-                        } else if (typeof value === 'string' && typeof vdom[key] === 'string') {
-                            if (vdom[key] === value) {
-                                matchArray.push(true)
-                            }
-                        } else if (Neo.isArray(value) && Neo.isArray(vdom[key])) {
-                            // todo: either search the vdom array for all keys or compare if the arrays are equal.
-                            throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays')
-                        }
-                        break
-                    case 'style':
-                        if (typeof value === 'string' && typeof vdom[key] === 'string') {
-                            if (vdom[key] === value) {
-                                matchArray.push(true)
-                            }
-                        } else if (Neo.isObject(value) && Neo.isObject(vdom[key])) {
-                            Object.entries(value).forEach(([styleKey, styleValue]) => {
-                                if (!(vdom[key].hasOwnProperty(styleKey) && vdom[key][styleKey] === styleValue)) {
-                                    styleMatch = false
-                                }
-                            });
-
-                            if (styleMatch) {
-                                matchArray.push(true)
-                            }
-                        } else {
-                            throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)')
-                        }
-                        break
-                    default:
-                        if (vdom[key] === value) {
-                            matchArray.push(true)
-                        }
-                        break
-                }
-            }
-        });
-
-        if (matchArray.length === optsLength) {
-            return {index, parentNode, vdom}
-        }
-
-        if (vdom.cn) {
-            for (; i < len; i++) {
-                if (vdom.cn[i]) {
-                    subChild = VDom.findVdomChild(vdom.cn[i], opts, i, vdom);
-
-                    if (subChild) {
-                        child = {
-                            index     : subChild.index,
-                            parentNode: subChild.parentNode,
-                            vdom      : subChild.vdom
-                        };
-                        break
-                    }
-                }
-            }
-        }
-
-        return child
-    }
-
-    /**
-     * Convenience shortcut for findVdomChild(vdom, {flag: flag});
+     * Convenience shortcut for find(vdom, {flag: flag});
      * @param {Object} vdom
      * @param {String} flag The flag reference specified on the target vdom child node
      * @returns {Object} vdom
      */
     static getByFlag(vdom, flag) {
-        let node = VDom.findVdomChild(vdom, {flag});
-        return node?.vdom
+        return VDom.find(vdom, {flag})?.vdom
     }
 
     /**
@@ -398,7 +302,7 @@ class VDom extends Base {
             targetNodeId = targetNodeId.id
         }
 
-        let targetNode = VDom.findVdomChild(vdom, {id: targetNodeId}),
+        let targetNode = VDom.find(vdom, targetNodeId),
             index;
 
         if (targetNode) {
@@ -417,7 +321,7 @@ class VDom extends Base {
      * @returns {Boolean} true in case the node was found & removed
      */
     static removeVdomChild(vdom, opts) {
-        let child = VDom.findVdomChild(vdom, opts);
+        let child = VDom.find(vdom, opts);
 
         if (child) {
             child.parentNode.cn.splice(child.index, 1);

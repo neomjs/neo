@@ -66,7 +66,7 @@ class Component extends Base {
                     if (component) {
                         // update the parent component reference => assign the wrapper id
                         componentId = component.id;
-                        parentRef   = VDomUtil.find({vdom: component.parent.vdom, opts: {componentId}, replaceComponentRefs: false});
+                        parentRef   = VDomUtil.find(component.parent.vdom, {componentId}, false);
 
                         if (parentRef) {
                             parentRef.vdom.id = childNodeId

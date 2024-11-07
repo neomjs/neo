@@ -100,7 +100,7 @@ class RowModel extends Model {
             node         = RowModel.getRowNode(data.path),
             {view}       = me,
             {store}      = view,
-            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            vdomNode     = VDomUtil.find(view.vdom, node.id),
             newIndex     = (vdomNode.index + step) % store.getCount(),
             {parentNode} = vdomNode,
             id;
@@ -134,7 +134,7 @@ class RowModel extends Model {
             me.toggleSelection(id);
 
             isSelected = me.isSelected(id);
-            record     = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
+            record     = view.store.getAt(VDomUtil.find(view.vdom, id).index);
 
             !isSelected && view.onDeselect?.(record);
 
