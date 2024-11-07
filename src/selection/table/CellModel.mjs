@@ -33,6 +33,35 @@ class CellModel extends Model {
     }
 
     /**
+     * @param {Object} item
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    deselect(item, silent, itemCollection=this.items, selectedCls) {
+        let {view} = this;
+
+        if (!silent) {
+            view.updateDepth = 2
+        }
+
+        super.deselect(item, silent, itemCollection, selectedCls)
+    }
+
+    /**
+     * @param {Boolean} [silent] true to prevent a vdom update
+     */
+    deselectAll(silent) {
+        let {view} = this;
+
+        if (!silent) {
+            view.updateDepth = 2
+        }
+
+        super.deselectAll(silent)
+    }
+
+    /**
      * @param args
      */
     destroy(...args) {
@@ -141,6 +170,19 @@ class CellModel extends Model {
             {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
             {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
         )
+    }
+
+    /**
+     * @param {Object} args
+     */
+    select(...args) {
+        let {view} = this;
+
+        if (!view.silentSelect) {
+            view.updateDepth = 2
+        }
+
+        super.select(...args)
     }
 
     /**
