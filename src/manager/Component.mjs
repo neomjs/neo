@@ -478,11 +478,15 @@ class Component extends Base {
     }
 
     /**
-     * @param {Neo.component.Base} item
+     * @param {Neo.component.Base|String} item
      */
     unregister(item) {
-        if (item.id !== item.vdom.id) {
-            this.wrapperNodes.delete(item.vdom.id)
+        if (item) {
+            if (Neo.isString(item)) {
+                this.wrapperNodes.delete(item)
+            } else if (item.id !== item.vdom.id) {
+                this.wrapperNodes.delete(item.vdom.id)
+            }
         }
 
         super.unregister(item)
