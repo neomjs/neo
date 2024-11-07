@@ -61,7 +61,7 @@ class Container extends BaseContainer {
             active: true,
             color : 'red',
             name  : 'New Calendar'
-        });
+        })
     }
 }
 
