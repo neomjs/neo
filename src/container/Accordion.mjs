@@ -48,7 +48,7 @@ class Accordion extends Panel {
         expandedItems_: [],
         /**
          * Creates a top header
-         * @memeber {String|null} title=null
+         * @member {String|null} title=null
          */
         title_: null
     }
