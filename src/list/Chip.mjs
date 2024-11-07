@@ -62,7 +62,7 @@ class Chip extends ComponentList {
                 items = me.items || [];
 
             items.forEach(item => {
-                item.display = value ? 'flex' : 'inline-flex';
+                item.display = value ? 'flex' : 'inline-flex'
             })
         }
     }
@@ -85,6 +85,7 @@ class Chip extends ComponentList {
             };
 
         if (listItem) {
+            me.updateDepth = 2;
             listItem.setSilent(config)
         } else {
             items[index] = listItem = Neo.create({
@@ -98,7 +99,7 @@ class Chip extends ComponentList {
 
         me.items = items;
 
-        return [listItem.vdom]
+        return [listItem.createVdomReference()]
     }
 }
 
