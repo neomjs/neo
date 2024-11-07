@@ -405,7 +405,7 @@ class Component extends Base {
      */
     getVnodeTree(vnode, depth=-1) {
         let output = {...vnode}, // shallow copy
-            childDepth;
+            childDepth, component;
 
         if (vnode.childNodes) {
             output.childNodes = [];
@@ -417,7 +417,12 @@ class Component extends Base {
                     childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
 
                     if (depth === -1 || depth > 1) {
-                        item = this.get(item.componentId).vnode
+                        component = this.get(item.componentId);
+
+                        // keep references in case there is no vnode (cmp not mounted)
+                        if (component.vnode) {
+                            item = component.vnode
+                        }
                     }
                 }
 
