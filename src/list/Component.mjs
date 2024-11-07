@@ -112,6 +112,10 @@ class Component extends Base {
             fromIndex, key, previousKeys;
 
         if (me.items) {
+            me.items.forEach(item => {
+                item.setSilent({id: null})
+            });
+
             key          = me.getKeyProperty();
             previousKeys = data.previousItems.map(e => e[key]);
 
@@ -120,6 +124,7 @@ class Component extends Base {
                 newItems.push(me.items[fromIndex])
             });
 
+            me.updateDepth = -1;
             me.items = newItems
         }
     }
