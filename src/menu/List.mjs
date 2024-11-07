@@ -251,12 +251,11 @@ class List extends BaseList {
      *
      */
     hideSubMenu() {
-        let me            = this,
-            activeSubMenu = me.activeSubMenu;
+        let {activeSubMenu} = this;
 
         if (activeSubMenu) {
             activeSubMenu.unmount();
-            me.activeSubMenu = null
+            this.activeSubMenu = null
         }
     }
 
@@ -402,7 +401,7 @@ class List extends BaseList {
             recordId = record[me.getKeyProperty()],
             submenu  = me.subMenuMap?.[me.getMenuMapId(recordId)];
 
-        if (!submenu || !submenu.mounted) {
+        if (!submenu?.mounted) {
             me.showSubMenu(nodeId, record)
         } else {
             me.hideSubMenu()
