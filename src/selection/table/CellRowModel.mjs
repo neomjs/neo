@@ -73,7 +73,10 @@ class CellRowModel extends CellModel {
 
         NeoArray.remove(me.selectedRowIds, rowId);
 
-        !silent && view.update()
+        if (!silent) {
+            view.updateDepth = 2;
+            view.update()
+        }
     }
 
     /**
@@ -138,7 +141,10 @@ class CellRowModel extends CellModel {
             me.selectedRowIds.push(id)
         }
 
-        !silent && view.update()
+        if (!silent) {
+            view.updateDepth = 2;
+            view.update()
+        }
     }
 
     /**
