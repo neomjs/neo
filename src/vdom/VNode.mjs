@@ -20,10 +20,6 @@ class VNode {
          */
 
         /**
-         * @member {String} [componentId]
-         */
-
-        /**
          * @member {String} id=Neo.getId('vnode')
          */
 
@@ -49,17 +45,7 @@ class VNode {
          * @member {String} vtype='vnode'
          */
 
-        let me = this;
-
-        if (config.componentId) {
-            me.componentId = config.componentId;
-
-            if (!config.id) {
-                config.id = config.componentId
-            }
-        }
-
-        Object.assign(me, {
+        Object.assign(this, {
             attributes: config.attributes || [],
             childNodes: config.childNodes || [],
             className : config.className  || [],
@@ -72,7 +58,7 @@ class VNode {
 
         // We only apply the static attribute, in case the value is true
         if (config.static) {
-            me.static = true
+            this.static = true
         }
     }
 }

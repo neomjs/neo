@@ -437,6 +437,15 @@ class Helper extends Base {
      * @returns {Object|Neo.vdom.VNode|null}
      */
     createVnode(opts) {
+        // do not create vnode instances for component reference objects
+        if (opts.componentId) {
+            if (!opts.id) {
+                opts.id = opts.componentId
+            }
+
+            return opts
+        }
+
         if (opts.removeDom === true) {
             return null
         }
@@ -458,10 +467,6 @@ class Helper extends Base {
         let me   = this,
             node = {attributes: {}, childNodes: [], style: {}},
             potentialNode;
-
-        if (opts.componentId && !opts.id) {
-            opts.id = opts.componentId
-        }
 
         if (!opts.tag) {
             opts.tag = 'div'
