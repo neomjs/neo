@@ -605,7 +605,7 @@ class Helper extends Base {
             if (currentNode) {
                 movedNodes.set(id, vnodeMap.get(id))
             } else {
-                vnode.childNodes.forEach(childNode => {
+                vnode.childNodes?.forEach(childNode => {
                     if (childNode.vtype !== 'text') {
                         this.findMovedNodes({movedNodes, oldVnodeMap, vnode: childNode, vnodeMap})
                     }
