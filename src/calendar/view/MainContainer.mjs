@@ -258,9 +258,9 @@ class MainContainer extends Container {
                 sideBar = me.items[1].items[0],
                 style   = sideBar.style || {};
 
-            me.updateDepth = -1;
-
             if (value) {
+                me.updateDepth = -1;
+
                 // todo: updates colliding with parent updates need to pass the update depth for the next parent update cycle
                 delete sideBar.vdom.removeDom;
 
@@ -268,8 +268,6 @@ class MainContainer extends Container {
                     sideBar.mounted = true;
 
                     me.timeout(50).then(() => {
-                        sideBar.updateDepth = -1;
-
                         style.marginLeft = '0px';
                         sideBar.style = style
                     })
@@ -279,7 +277,7 @@ class MainContainer extends Container {
                 sideBar._style      = style; // silent update
                 sideBar._vdom.style = style; // silent update
 
-                me.promiseUpdate().then(() => {
+                sideBar.promiseUpdate().then(() => {
                     me.timeout(400).then(() => {
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
