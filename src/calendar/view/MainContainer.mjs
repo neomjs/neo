@@ -258,13 +258,18 @@ class MainContainer extends Container {
                 sideBar = me.items[1].items[0],
                 style   = sideBar.style || {};
 
+            me.updateDepth = -1;
+
             if (value) {
+                // todo: updates colliding with parent updates need to pass the update depth for the next parent update cycle
                 delete sideBar.vdom.removeDom;
 
                 me.promiseUpdate().then(() => {
                     sideBar.mounted = true;
 
                     me.timeout(50).then(() => {
+                        sideBar.updateDepth = -1;
+
                         style.marginLeft = '0px';
                         sideBar.style = style
                     })
