@@ -12,7 +12,7 @@ class BaseModel extends Model {
          * @member {String} className='Neo.selection.grid.BaseModel'
          * @protected
          */
-        className: 'Neo.selection.grid.BaseModel',
+        className: 'Neo.selection.grid.BaseModel'
     }
 
     /**
