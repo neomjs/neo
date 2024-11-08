@@ -21,9 +21,10 @@ If you move quickly, you might reach 20,000 or 30,000 delta updates per second. 
 second &mdash; but we've never actually hit the limit.
 
 <pre data-neo>
-import Base from '../container/Base.mjs';
+import Base  from '../container/Base.mjs';
 import Helix from '../component/Helix.mjs';
-class Foo extends Base {
+
+class MainView extends Base {
     static config = {
         className: 'Benefits.speed.MainView',
         layout   : 'fit',
@@ -34,14 +35,14 @@ class Foo extends Base {
             store: {
                 autoLoad: true,
                 model: {
-                    fields: [ { name: 'image' , type: 'String'   } ],
+                    fields: [{name: 'image', type: 'String'}],
                 },
                 url: '../../../../resources/examples/data/ai_contacts.json'
             }
         }]
     }
 }
-Foo = Neo.setupClass(Foo);
+MainView = Neo.setupClass(MainView);
 </pre>
 
 
