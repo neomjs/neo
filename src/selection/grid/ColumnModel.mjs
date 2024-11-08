@@ -1,11 +1,11 @@
-import Model    from '../Model.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import BaseModel from './BaseModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.ColumnModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.grid.BaseModel
  */
-class ColumnModel extends Model {
+class ColumnModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.grid.ColumnModel'
@@ -41,7 +41,7 @@ class ColumnModel extends Model {
 
         me.view.un('cellClick', me.onCellClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -87,7 +87,7 @@ class ColumnModel extends Model {
 
         if (id) {
             index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
+            tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.select(columnNodeIds)
@@ -128,7 +128,7 @@ class ColumnModel extends Model {
         idArray[2] = fields[newIndex];
         id = idArray.join('__');
 
-        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
+        tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.select(columnNodeIds);
@@ -143,17 +143,11 @@ class ColumnModel extends Model {
 
         let {id, view} = this;
 
-        view.keys?._keys.push({
-            fn   : 'onKeyDownLeft',
-            key  : 'Left',
-            scope: id
-        }, {
-            fn   : 'onKeyDownRight',
-            key  : 'Right',
-            scope: id
-        })
+        view.keys?._keys.push(
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id}
+        )
     }
-
 
     /**
      *
@@ -161,15 +155,10 @@ class ColumnModel extends Model {
     unregister() {
         let {id, view} = this;
 
-        view.keys?.removeKeys([{
-            fn   : 'onKeyDownLeft',
-            key  : 'Left',
-            scope: id
-        }, {
-            fn   : 'onKeyDownRight',
-            key  : 'Right',
-            scope: id
-        }]);
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id}
+        ]);
 
         super.unregister()
     }

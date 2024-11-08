@@ -124,31 +124,34 @@ class MainContainer extends ConfigurationViewport {
                 {
                     dataField: 'edit',
                     text     : 'Edit Action',
-                    renderer: ({ column, index }) => {
+                    renderer({column, index}) {
                         const
+                            me       = this,
                             widgetId = `${column.id}-widget-${index}`,
-                            button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
+                            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                                 module  : Button,
-                                appName : this.appName,
-                                handler : this.editButtonHandler,
+                                appName : me.appName,
+                                handler : 'up.editButtonHandler',
                                 parentId: 'myTableStoreContainer',
                                 text    : 'Edit'
                             }));
 
-                        return button.vdom
+                        me.view.updateDepth = -1;
+
+                        return button.createVdomReference()
                     }
-                },
-                {
+                }, {
                     dataField: 'menu',
                     text     : 'Menu',
-                    renderer({ column, record, index }) {
+                    renderer({column, record, index}) {
                         const
+                            me       = this,
                             widgetId = `${column.id}-widget-${index}`,
-                            button = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create('Neo.button.Base', {
+                            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create('Neo.button.Base', {
                                 ntype   : 'button',
-                                appName : this.appName,
+                                appName : me.appName,
                                 text    : '\u22ee',
-                                windowId: this.windowId,
+                                windowId: me.windowId,
                                 menu    : {
                                     items : [{
                                         text : 'Menu option 1'
@@ -162,7 +165,9 @@ class MainContainer extends ConfigurationViewport {
                                 }
                             }));
 
-                            return button.vdom
+                        me.view.updateDepth = -1;
+
+                        return button.createVdomReference()
                     }
                 }
             ]

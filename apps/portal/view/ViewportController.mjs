@@ -239,7 +239,7 @@ class ViewportController extends Controller {
             connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
             scope     : me
-        });
+        })
     }
 
     /**

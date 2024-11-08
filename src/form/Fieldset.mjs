@@ -213,6 +213,8 @@ class Fieldset extends FormContainer {
             }
         } else {
             if (legend) {
+                me.updateDepth = 2;
+
                 legend.setSilent({
                     iconCls,
                     text: title

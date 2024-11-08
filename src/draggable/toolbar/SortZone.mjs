@@ -187,7 +187,7 @@ class SortZone extends DragZone {
 
             Object.assign(me, {
                 currentIndex           : index,
-                dragElement            : VDomUtil.findVdomChild(owner.vdom, button.id).vdom,
+                dragElement            : VDomUtil.find(owner.vdom, button.id).vdom,
                 dragProxyConfig        : {...me.dragProxyConfig, cls : [...owner.cls]},
                 indexMap               : indexMap,
                 ownerStyle             : {height: ownerStyle.height, width : ownerStyle.width},

@@ -1,11 +1,11 @@
-import Model    from '../Model.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import BaseModel from './BaseModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.RowModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.grid.BaseModel
  */
-class RowModel extends Model {
+class RowModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.grid.RowModel'
@@ -41,7 +41,7 @@ class RowModel extends Model {
 
         me.view.un('rowClick', me.onRowClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -100,7 +100,7 @@ class RowModel extends Model {
             node         = RowModel.getRowNode(data.path),
             {view}       = me,
             {store}      = view,
-            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            vdomNode     = VDomUtil.find(view.vdom, node.id),
             newIndex     = (vdomNode.index + step) % store.getCount(),
             {parentNode} = vdomNode,
             id;
@@ -134,7 +134,7 @@ class RowModel extends Model {
             me.toggleSelection(id);
 
             isSelected = me.isSelected(id);
-            record     = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
+            record     = view.store.getAt(VDomUtil.find(view.vdom, id).index);
 
             !isSelected && view.onDeselect?.(record);
 
@@ -152,15 +152,10 @@ class RowModel extends Model {
 
         let {id, view} = this;
 
-        view.keys?._keys.push({
-            fn   : 'onKeyDownDown',
-            key  : 'Down',
-            scope: id
-        }, {
-            fn   : 'onKeyDownUp',
-            key  : 'Up',
-            scope: id
-        })
+        view.keys?._keys.push(
+            {fn: 'onKeyDownDown', key: 'Down', scope: id},
+            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+        )
     }
 
     /**
@@ -169,15 +164,10 @@ class RowModel extends Model {
     unregister() {
         let {id, view} = this;
 
-        view.keys?.removeKeys([{
-            fn   : 'onKeyDownDown',
-            key  : 'Down',
-            scope: id
-        }, {
-            fn   : 'onKeyDownUp',
-            key  : 'Up',
-            scope: id
-        }]);
+        view.keys?.removeKeys([
+            {fn: 'onKeyDownDown', key: 'Down', scope: id},
+            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+        ]);
 
         super.unregister()
     }

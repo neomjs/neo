@@ -187,8 +187,8 @@ class TimeAxisComponent extends Component {
             html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
 
             vdom.cn.push({
-                cls  : ['neo-c-w-timeaxis-item'],
-                cn   : [{html: html}]
+                cls: ['neo-c-w-timeaxis-item'],
+                cn : [{html}]
             })
         }
     }

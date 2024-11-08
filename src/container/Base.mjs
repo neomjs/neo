@@ -377,7 +377,8 @@ class Base extends Component {
         let me        = this,
             items     = me._items,
             itemsRoot = me.getVdomItemsRoot(),
-            {layout}  = me;
+            {layout}  = me,
+            vdom;
 
         itemsRoot.cn = [];
 
@@ -385,10 +386,13 @@ class Base extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                layout?.applyChildAttributes(item, index)
+                layout?.applyChildAttributes(item, index);
+                vdom = item.createVdomReference()
+            } else {
+                vdom = item.vdom
             }
 
-            itemsRoot.cn.push(item.vdom)
+            itemsRoot.cn.push(vdom)
         });
 
         me.update()
@@ -527,12 +531,14 @@ class Base extends Component {
 
             me.items = items;
 
-            me.getVdomItemsRoot().cn.splice(index, 0, item.vdom)
+            me.getVdomItemsRoot().cn.splice(index, 0, item.createVdomReference())
         }
 
         if (!silent) {
+            me.updateDepth = -1; // pass the full vdom tree to honor new nested component trees
+
             me.promiseUpdate().then(() => {
-                me.fire('insert', { index, item })
+                me.fire('insert', {index, item})
             })
         }
 
@@ -631,7 +637,7 @@ class Base extends Component {
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent)
             }
         }
     }
@@ -682,6 +688,9 @@ class Base extends Component {
 
             me.getVdomItemsRoot().cn.splice(index, 1);
 
+            // the next update cycle needs to include direct children
+            me.updateDepth = 2;
+
             !silent && me.update();
 
             if (destroyItem) {
@@ -729,6 +738,9 @@ class Base extends Component {
 
         NeoArray.move(me.items,                 item2Index, item1Index);
         NeoArray.move(me.getVdomItemsRoot().cn, item2Index, item1Index);
+
+        // the next update cycle needs to include direct children
+        me.updateDepth = 2;
 
         me.update()
     }

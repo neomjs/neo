@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
 
 /**
  * @class Neo.util.VNode
@@ -25,6 +26,8 @@ class VNode extends Base {
      *     {Object} vnode
      */
     static findChildVnode(vnode, opts, index, parentNode) {
+        vnode = VNode.getVnode(vnode);
+
         index = index || 0;
         opts  = typeof opts !== 'string' ? opts : {id: opts};
 
@@ -112,6 +115,8 @@ class VNode extends Base {
      * @returns {Object|null} child vnode or null
      */
     static findChildVnodeById(vnode, id) {
+        vnode = VNode.getVnode(vnode);
+
         let childNodes = vnode.childNodes || [],
             i          = 0,
             len        = childNodes.length,
@@ -122,7 +127,7 @@ class VNode extends Base {
         }
 
         for (; i < len; i++) {
-            childNode = childNodes[i];
+            childNode = VNode.getVnode(childNodes[i]);
 
             if (childNode.id === id) {
                 return childNode
@@ -139,23 +144,36 @@ class VNode extends Base {
     }
 
     /**
-     * Get the ids of all child nodes of the given vnode
-     * @param vnode
-     * @param [childIds=[]]
-     * @returns {Array} childIds
+     * Get the ids of all child nodes of the given vnode, excluding component references
+     * @param {Object} vnode
+     * @param {String[]} childIds=[]
+     * @returns {String[]} childIds
      */
     static getChildIds(vnode, childIds=[]) {
-        let childNodes = vnode && vnode.childNodes || [];
+        let childNodes = vnode?.childNodes || [];
 
         childNodes.forEach(childNode => {
-            if (childNode.id) {
+            if (childNode.id && !childNode.componentId) {
                 childIds.push(childNode.id)
             }
 
-            childIds = VNode.getChildIds(childNode, childIds)
+            VNode.getChildIds(childNode, childIds)
         });
 
         return childIds
+    }
+
+    /**
+     * Convenience shortcut using manager.Component to replace vnode references if needed
+     * @param {Object} vnode
+     * @returns {Object}
+     */
+    static getVnode(vnode) {
+        if (vnode.componentId) {
+            vnode = ComponentManager.get(vnode.componentId).vnode
+        }
+
+        return vnode
     }
 
     /**
@@ -165,6 +183,8 @@ class VNode extends Base {
      * @returns {Boolean} true in case the node was found and removed
      */
     static removeChildVnode(vnode, id) {
+        vnode = VNode.getVnode(vnode);
+
         let childNodes = vnode.childNodes || [],
             i          = 0,
             len        = childNodes.length,
@@ -175,7 +195,7 @@ class VNode extends Base {
         }
 
         for (; i < len; i++) {
-            childNode = childNodes[i];
+            childNode = VNode.getVnode(childNodes[i]);
 
             if (childNode.id === id) {
                 childNodes.splice(i, 1);
@@ -198,6 +218,8 @@ class VNode extends Base {
      * @returns {Boolean} true in case the node was found and replaced
      */
     static replaceChildVnode(vnode, id, newChildVnode) {
+        vnode = VNode.getVnode(vnode);
+
         let childNodes = vnode.childNodes || [],
             i          = 0,
             len        = childNodes.length,
@@ -208,7 +230,7 @@ class VNode extends Base {
         }
 
         for (; i < len; i++) {
-            childNode = childNodes[i];
+            childNode = VNode.getVnode(childNodes[i]);
 
             if (childNode.id === id) {
                 childNodes[i] = newChildVnode;

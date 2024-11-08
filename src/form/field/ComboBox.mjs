@@ -456,7 +456,7 @@ class ComboBox extends Picker {
      * @returns {Object}
      */
     getInputHintEl() {
-        return VDomUtil.findVdomChild(this.vdom, this.getInputHintId())?.vdom
+        return VDomUtil.find(this.vdom, this.getInputHintId())?.vdom
     }
 
     /**
@@ -696,7 +696,7 @@ class ComboBox extends Picker {
      */
     updateTypeAhead(silent=false) {
         let me      = this,
-            inputEl = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-real-input'});
+            inputEl = VDomUtil.find(me.vdom, {flag: 'neo-real-input'});
 
         if (me.typeAhead) {
             inputEl.parentNode.cn[inputEl.index] = {

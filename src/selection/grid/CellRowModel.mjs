@@ -73,7 +73,10 @@ class CellRowModel extends CellModel {
 
         NeoArray.remove(me.selectedRowIds, rowId);
 
-        !silent && view.update()
+        if (!silent) {
+            view.updateDepth = 2;
+            view.update()
+        }
     }
 
     /**
@@ -103,7 +106,7 @@ class CellRowModel extends CellModel {
             node         = RowModel.getRowNode(data.path),
             {view}       = me,
             {store}      = view,
-            vdomNode     = VDomUtil.findVdomChild(view.vdom, node.id),
+            vdomNode     = VDomUtil.find(view.vdom, node.id),
             newIndex     = (vdomNode.index + step) % store.getCount(),
             {parentNode} = vdomNode,
             id;
@@ -138,7 +141,10 @@ class CellRowModel extends CellModel {
             me.selectedRowIds.push(id)
         }
 
-        !silent && view.update()
+        if (!silent) {
+            view.updateDepth = 2;
+            view.update()
+        }
     }
 
     /**

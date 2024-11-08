@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
 
 /**
  * @class Neo.util.VDom
@@ -38,6 +39,7 @@ class VDom extends Base {
      * Search vdom child nodes by id or opts object for a given vdom tree
      * @param {Object} vdom
      * @param {Object|String} opts Either an object containing vdom node attributes or a string based id
+     * @param {Boolean} replaceComponentRefs=true
      * @param {Number} [index] Internal flag, do not use it
      * @param {Object} [parentNode] Internal flag, do not use it
      * @returns {Object}
@@ -45,9 +47,13 @@ class VDom extends Base {
      *     {String} parentId
      *     {Object} vdom
      */
-    static findVdomChild(vdom, opts, index, parentNode) {
+    static find(vdom, opts, replaceComponentRefs=true, index, parentNode) {
         index = index || 0;
         opts  = !Neo.isString(opts) ? opts : {id: opts};
+
+        if (replaceComponentRefs) {
+            vdom = VDom.getVdom(vdom)
+        }
 
         let child      = null,
             matchArray = [],
@@ -72,7 +78,7 @@ class VDom extends Base {
                             }
                         } else if (Neo.isArray(value) && Neo.isArray(vdom[key])) {
                             // todo: either search the vdom array for all keys or compare if the arrays are equal.
-                            throw new Error('findVdomChild: cls matching not supported for target & source types of Arrays')
+                            throw new Error('find: cls matching not supported for target & source types of Arrays')
                         }
                         break
                     case 'style':
@@ -91,7 +97,7 @@ class VDom extends Base {
                                 matchArray.push(true)
                             }
                         } else {
-                            throw new Error('findVdomChild: style matching not supported for mixed target & source types (Object VS String)')
+                            throw new Error('find: style matching not supported for mixed target & source types (Object VS String)')
                         }
                         break
                     default:
@@ -110,7 +116,7 @@ class VDom extends Base {
         if (vdom.cn) {
             for (; i < len; i++) {
                 if (vdom.cn[i]) {
-                    subChild = VDom.findVdomChild(vdom.cn[i], opts, i, vdom);
+                    subChild = VDom.find(vdom.cn[i], opts, replaceComponentRefs, i, vdom);
 
                     if (subChild) {
                         child = {
@@ -128,14 +134,13 @@ class VDom extends Base {
     }
 
     /**
-     * Convenience shortcut for findVdomChild(vdom, {flag: flag});
+     * Convenience shortcut for find(vdom, {flag: flag});
      * @param {Object} vdom
      * @param {String} flag The flag reference specified on the target vdom child node
      * @returns {Object} vdom
      */
     static getByFlag(vdom, flag) {
-        let node = VDom.findVdomChild(vdom, {flag});
-        return node?.vdom
+        return VDom.find(vdom, {flag})?.vdom
     }
 
     /**
@@ -145,6 +150,8 @@ class VDom extends Base {
      * @returns {Array} childIds
      */
     static getChildIds(vdom, childIds=[]) {
+        vdom = VDom.getVdom(vdom);
+
         let childNodes = vdom?.cn || [];
 
         childNodes.forEach(childNode => {
@@ -164,6 +171,8 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getColumnNodes(vdom, index) {
+        vdom = VDom.getVdom(vdom);
+
         let columnNodes = [];
 
         vdom.cn?.forEach(row => {
@@ -191,6 +200,8 @@ class VDom extends Base {
      * @returns {Array} an array of vdom nodes which match the flag
      */
     static getFlags(vdom, flag, matchArray) {
+        vdom = VDom.getVdom(vdom);
+
         if (!matchArray) {
             matchArray = [];
 
@@ -217,6 +228,8 @@ class VDom extends Base {
      * @returns {Array}
      */
     static getParentNodes(vdom, id, topLevel=true) {
+        vdom = VDom.getVdom(vdom);
+
         let parents = null,
             i       = 0,
             len     = vdom.cn?.length || 0;
@@ -239,6 +252,19 @@ class VDom extends Base {
         }
 
         return parents
+    }
+
+    /**
+     * Convenience shortcut using manager.Component to replace vdom references if needed
+     * @param {Object} vdom
+     * @returns {Object}
+     */
+    static getVdom(vdom) {
+        if (vdom.componentId) {
+            vdom = ComponentManager.get(vdom.componentId).vdom
+        }
+
+        return vdom
     }
 
     /**
@@ -276,7 +302,7 @@ class VDom extends Base {
             targetNodeId = targetNodeId.id
         }
 
-        let targetNode = VDom.findVdomChild(vdom, {id: targetNodeId}),
+        let targetNode = VDom.find(vdom, targetNodeId),
             index;
 
         if (targetNode) {
@@ -295,7 +321,7 @@ class VDom extends Base {
      * @returns {Boolean} true in case the node was found & removed
      */
     static removeVdomChild(vdom, opts) {
-        let child = VDom.findVdomChild(vdom, opts);
+        let child = VDom.find(vdom, opts);
 
         if (child) {
             child.parentNode.cn.splice(child.index, 1);
@@ -313,6 +339,8 @@ class VDom extends Base {
      * @returns {Boolean} true in case the node was found and replaced
      */
     static replaceVdomChild(vdom, id, newChildNode) {
+        vdom = VDom.getVdom(vdom);
+
         let cn  = vdom.cn || [],
             i   = 0,
             len = cn.length,
@@ -347,6 +375,8 @@ class VDom extends Base {
      */
     static syncVdomIds(vnode, vdom, force=false) {
         if (vnode && vdom) {
+            vdom = VDom.getVdom(vdom);
+
             let childNodes = vdom.cn,
                 cn, i, len;
 
@@ -363,7 +393,8 @@ class VDom extends Base {
             }
 
             if (childNodes) {
-                cn   = childNodes.filter(item => item.removeDom !== true);
+                cn   = childNodes.map(item => VDom.getVdom(item));
+                cn   = cn.filter(item => item.removeDom !== true);
                 i    = 0;
                 len  = cn?.length || 0;
 

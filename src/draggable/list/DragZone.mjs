@@ -118,7 +118,7 @@ class DragZone extends BaseDragZone {
         let me = this;
 
         if (me.owner.draggable) {
-            me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+            me.dragElement = VDomUtil.find(me.owner.vdom, data.path[0].id).vdom;
             me.dragStart(data)
         }
     }

@@ -1,11 +1,11 @@
-import Model    from '../Model.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import BaseModel from './BaseModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.ColumnModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.table.BaseModel
  */
-class ColumnModel extends Model {
+class ColumnModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.table.ColumnModel'
@@ -41,7 +41,7 @@ class ColumnModel extends Model {
 
         me.view.un('cellClick', me.onCellClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**
@@ -87,7 +87,7 @@ class ColumnModel extends Model {
 
         if (id) {
             index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+            tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 
             me.select(columnNodeIds)
@@ -128,7 +128,7 @@ class ColumnModel extends Model {
         idArray[2] = dataFields[newIndex];
         id = idArray.join('__');
 
-        tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
+        tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
         columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
 
         me.select(columnNodeIds);
@@ -148,7 +148,6 @@ class ColumnModel extends Model {
             {fn: 'onKeyDownRight', key: 'Right', scope: id}
         )
     }
-
 
     /**
      *

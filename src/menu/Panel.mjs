@@ -82,7 +82,7 @@ class Panel extends BasePanel {
      * @protected
      */
     beforeSetList(value, oldValue) {
-        oldValue && oldValue.destroy();
+        oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, List, this.listConfig)
     }
 }

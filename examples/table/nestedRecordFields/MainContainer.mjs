@@ -106,7 +106,9 @@ class MainContainer extends Viewport {
                 windowId
             }));
 
-        return button.vdom
+        me.view.updateDepth = -1;
+
+        return button.createVdomReference()
     }
 }
 

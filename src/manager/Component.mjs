@@ -1,4 +1,5 @@
 import Base      from './Base.mjs';
+import VDomUtil  from '../util/VDom.mjs';
 import VNodeUtil from '../util/VNode.mjs';
 
 /**
@@ -21,6 +22,11 @@ class Component extends Base {
     }
 
     /**
+     * @member {Map} wrapperNodes=new Map()
+     */
+    wrapperNodes = new Map()
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -30,6 +36,58 @@ class Component extends Base {
 
         Neo.first        = me.getFirst.bind(me); // alias
         Neo.getComponent = me.getById.bind(me)   // alias
+    }
+
+    /**
+     * Flattens a given vnode tree by replacing component based subtrees with componentId based references
+     * @param {Object} vnode
+     * @param {String} ownerId We do not want to replace the own id => wrapped items
+     * @returns {Object}
+     */
+    addVnodeComponentReferences(vnode, ownerId) {
+        vnode = {...vnode}; // shallow copy
+
+        let me         = this,
+            childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
+            childNodeId, component, componentId, parentRef, referenceNode;
+
+        vnode.childNodes = childNodes;
+
+        childNodes.forEach((childNode, index) => {
+            childNodeId = childNode.id;
+
+            if (!childNode.componentId && childNodeId !== ownerId) {
+                component = me.get(childNodeId);
+
+                if (!component) {
+                    // searching for wrapped components as a fallback
+                    component = me.wrapperNodes.get(childNodeId);
+
+                    if (component) {
+                        // update the parent component reference => assign the wrapper id
+                        componentId = component.id;
+                        parentRef   = VDomUtil.find(component.parent.vdom, {componentId}, false);
+
+                        if (parentRef) {
+                            parentRef.vdom.id = childNodeId
+                        }
+                    }
+                }
+
+                if (component) {
+                    componentId   = component.id;
+                    referenceNode = {componentId};
+
+                    if (componentId !== childNodeId) {
+                        referenceNode.id = childNodeId
+                    }
+                }
+            }
+
+            childNodes[index] = component ? referenceNode : me.addVnodeComponentReferences(childNode, ownerId)
+        });
+
+        return vnode
     }
 
     /**
@@ -144,11 +202,11 @@ class Component extends Base {
     /**
      * todo: replace all calls of this method to calls using the util.VNode class
      * Get the ids of all child nodes of the given vnode
-     * @param vnode
-     * @param childIds
-     * @returns {Array} childIds
+     * @param {Object} vnode
+     * @param {String[]} childIds=[]
+     * @returns {String[]} childIds
      */
-    getChildIds(vnode, childIds) {
+    getChildIds(vnode, childIds=[]) {
         return VNodeUtil.getChildIds(vnode, childIds)
     }
 
@@ -319,6 +377,79 @@ class Component extends Base {
     }
 
     /**
+     * Copies a given vdom tree and replaces child component references with the vdom of their matching components
+     * @param {Object} vdom
+     * @param {Number} depth=-1
+     *     The component replacement depth.
+     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
+     * @returns {Object}
+     */
+    getVdomTree(vdom, depth=-1) {
+        let output = {...vdom}, // shallow copy
+            childDepth;
+
+        if (vdom.cn) {
+            output.cn = [];
+
+            childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+            vdom.cn.forEach(item => {
+                childDepth = depth;
+
+                if (item.componentId) {
+                    childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+                    if (depth === -1 || depth > 1) {
+                        item = this.get(item.componentId).vdom
+                    }
+                }
+
+                output.cn.push(this.getVdomTree(item, childDepth))
+            })
+        }
+
+        return output
+    }
+
+    /**
+     * Copies a given vnode tree and replaces child component references with the vnode of their matching components
+     * @param {Object} vnode
+     * @param {Number} depth=-1
+     *     The component replacement depth.
+     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
+     * @returns {Object}
+     */
+    getVnodeTree(vnode, depth=-1) {
+        let output = {...vnode}, // shallow copy
+            childDepth, component;
+
+        if (vnode.childNodes) {
+            output.childNodes = [];
+
+            vnode.childNodes.forEach(item => {
+                childDepth = depth;
+
+                if (item.componentId) {
+                    childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
+
+                    if (depth === -1 || depth > 1) {
+                        component = this.get(item.componentId);
+
+                        // keep references in case there is no vnode (cmp not mounted)
+                        if (component.vnode) {
+                            item = component.vnode
+                        }
+                    }
+                }
+
+                output.childNodes.push(this.getVnodeTree(item, childDepth))
+            })
+        }
+
+        return output
+    }
+
+    /**
      * Check if the component had a property of any value somewhere in the Prototype chain
      *
      * @param {Neo.component.Base} component
@@ -336,6 +467,29 @@ class Component extends Base {
         }
 
         return false
+    }
+
+    /**
+     * @param {String} wrapperId
+     * @param {Neo.component.Base} component
+     */
+    registerWrapperNode(wrapperId, component) {
+        this.wrapperNodes.set(wrapperId, component)
+    }
+
+    /**
+     * @param {Neo.component.Base|String} item
+     */
+    unregister(item) {
+        if (item) {
+            if (Neo.isString(item)) {
+                this.wrapperNodes.delete(item)
+            } else if (item.id !== item.vdom.id) {
+                this.wrapperNodes.delete(item.vdom.id)
+            }
+        }
+
+        super.unregister(item)
     }
 
     /**

@@ -1,10 +1,10 @@
-import Model from '../Model.mjs';
+import BaseModel from './BaseModel.mjs';
 
 /**
  * @class Neo.selection.grid.CellModel
- * @extends Neo.selection.Model
+ * @extends Neo.selection.grid.BaseModel
  */
-class CellModel extends Model {
+class CellModel extends BaseModel {
     static config = {
         /**
          * @member {String} className='Neo.selection.grid.CellModel'
@@ -40,7 +40,7 @@ class CellModel extends Model {
 
         me.view.un('cellClick', me.onCellClick, me);
 
-        super.destroy(...args);
+        super.destroy(...args)
     }
 
     /**

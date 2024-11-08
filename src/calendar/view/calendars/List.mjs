@@ -72,9 +72,13 @@ class List extends ComponentList {
             })
         }
 
-        me.items = items;
+        me.items       = items;
+        me.updateDepth = 2;
 
-        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}]
+        return [
+            checkBox.createVdomReference(),
+            {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}
+        ]
     }
 
     /**

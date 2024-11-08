@@ -229,7 +229,7 @@ class Model extends Base {
                 me.deselectAll(true)
             }
 
-            items.forEach((node, i) => {
+            items.forEach(node => {
                 node = view.getVdomChild(node);
 
                 if (node) {

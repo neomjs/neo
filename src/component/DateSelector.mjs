@@ -722,7 +722,7 @@ class DateSelector extends Component {
      */
     onCellClick(data) {
         let me     = this,
-            cellEl = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            cellEl = VDomUtil.find(me.vdom, data.path[0].id),
             date   = me.currentDate; // cloned
 
         date.setDate(parseInt(cellEl.vdom.cn[0].html));

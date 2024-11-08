@@ -360,6 +360,15 @@ class Base extends CoreBase {
          */
         ui_: null,
         /**
+         * Defines the depth of the vdom tree for the next update cycle.
+         * - The value 1 will only send the current vdom structure as it is
+         * - The value of 2 will include the vdom of direct children
+         * - The value of 3 will include the vdom of grandchildren
+         * - The value of -1 will include the full tree of any depth
+         * @member {Number} updateDepth_=1
+         */
+        updateDepth_: 1,
+        /**
          * The component vnode tree. Available after the component got rendered.
          * @member {Object} vnode_=null
          * @protected
@@ -713,7 +722,7 @@ class Base extends CoreBase {
         this.changeVdomRootKey('id', value);
 
         oldValue && ComponentManager.unregister(oldValue);
-        ComponentManager.register(this)
+        value    && ComponentManager.register(this)
     }
 
     /**
@@ -1347,6 +1356,21 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered before the updateDepth config gets changed.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetUpdateDepth(value, oldValue) {
+        if (oldValue === undefined) {
+            return value
+        }
+
+        return oldValue === -1 || value === -1 ? -1 : Math.max(value, oldValue)
+    }
+
+    /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value
@@ -1391,6 +1415,22 @@ class Base extends CoreBase {
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }
+    }
+
+    /**
+     * Convenience shortcut to create a component reference
+     * @returns {Object}
+     */
+    createVdomReference() {
+        let me        = this,
+            reference = {componentId: me.id},
+            vdomId    = me.vdom.id;
+
+        if (vdomId && me.id !== vdomId) {
+            reference.id = vdomId
+        }
+
+        return reference
     }
 
     /**
@@ -1473,7 +1513,7 @@ class Base extends CoreBase {
      */
     #executeVdomUpdate(vdom, vnode, resolve, reject) {
         let me   = this,
-            opts = {vdom, vnode},
+            opts = {},
             deltas;
 
         if (Neo.currentWorker.isSharedWorker) {
@@ -1488,6 +1528,12 @@ class Base extends CoreBase {
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
 
+        opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
+        opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
+
+        // Reset the updateDepth to the default value for the next update cycle
+        me._updateDepth = me.constructor.config.updateDepth;
+
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
             console.log('Error attempting to update component dom', err, me);
@@ -1495,9 +1541,9 @@ class Base extends CoreBase {
             reject?.()
         }).then(data => {
             me.isVdomUpdating = false;
+
             // checking if the component got destroyed before the update cycle is done
             if (me.id) {
-                // console.log('Component vnode updated', data);
                 me.vnode = data.vnode;
 
                 deltas = data.deltas;
@@ -1763,8 +1809,7 @@ class Base extends CoreBase {
      * @returns {Object}
      */
     getVdomChild(id, vdom=this.vdom) {
-        let node = VDomUtil.findVdomChild(vdom, id);
-        return node?.vdom
+        return VDomUtil.find(vdom, id)?.vdom
     }
 
     /**
@@ -2206,7 +2251,7 @@ class Base extends CoreBase {
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 windowId   : me.windowId,
-                ...me.vdom
+                ...ComponentManager.getVdomTree(me.vdom)
             });
 
             me.onRender(data, useVdomWorker ? autoMount : false);
@@ -2296,7 +2341,7 @@ class Base extends CoreBase {
      * hideMode: 'visibility' uses css visibility.
      */
     show() {
-        const me = this;
+        let me = this;
 
         if (me.hideMode !== 'visibility') {
             delete me.vdom.removeDom;
@@ -2323,7 +2368,7 @@ class Base extends CoreBase {
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode = this.vnode, vdom = this.vdom, force = false) {
+    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
         VDomUtil.syncVdomIds(vnode, vdom, force)
     }
 
@@ -2335,8 +2380,10 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
     syncVnodeTree(vnode=this.vnode) {
-        let me    = this,
-            debug = false,
+        let me              = this,
+            childComponents = ComponentManager.getChildren(me),
+            debug           = false,
+            map             = {},
             childVnode, start;
 
         if (debug) {
@@ -2345,12 +2392,30 @@ class Base extends CoreBase {
 
         me.syncVdomIds();
 
-        // delegate the latest node updates to all possible child components found inside the vnode tree
-        ComponentManager.getChildren(me).forEach(component => {
-            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id);
+        if (vnode && me.id !== vnode.id) {
+            ComponentManager.registerWrapperNode(vnode.id, me)
+        }
+
+        // we need one separate iteration first to ensure all wrapper nodes get registered
+        childComponents.forEach(component => {
+            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id)?.vnode;
 
             if (childVnode) {
-                component._vnode = childVnode.vnode; // silent update
+                map[component.id] = childVnode;
+
+                if (component.id !== childVnode.id) {
+                    ComponentManager.registerWrapperNode(childVnode.id, component)
+                }
+            }
+        });
+
+        // delegate the latest node updates to all possible child components found inside the vnode tree
+        childComponents.forEach(component => {
+            childVnode = map[component.id];
+
+            if (childVnode) {
+                // silent update
+                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
                 if (!component.rendered) {
                     component._rendered = true;
@@ -2363,28 +2428,8 @@ class Base extends CoreBase {
             }
         });
 
-        // console.log(me.vnode, me.mounted);
-
-        // keep the vnode parent tree in sync
-        ComponentManager.getParents(me).forEach((component, index) => {
-            if (component.vnode) {
-                if (!me.vnode) {
-                    if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
-                        // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
-                        // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
-                    }
-                }
-
-                // check for dynamically rendered components which get inserted into the component tree
-                else if (index === 0 && me.vnode.outerHTML) {
-                    // console.log('dyn item', me.vnode, me.parentIndex);
-                    component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode)
-                } else if (!VNodeUtil.replaceChildVnode(component.vnode, me.vnode.id, me.vnode)) {
-                    // todo: can happen for dynamically inserted container items
-                    // console.warn('syncVnodeTree: Could not replace the parent vnode for', me.vnode.id, component);
-                }
-            }
-        });
+        // silent update
+        me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
 
         debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
@@ -2472,7 +2517,7 @@ class Base extends CoreBase {
             opts, vdom, vnode, vnodeStyle;
 
         if (delta) {
-            vdom  = VDomUtil.findVdomChild(me.vdom, id);
+            vdom  = VDomUtil.find(me.vdom, id);
             vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
 
             if (!me.hasUnmountedVdomChanges) {

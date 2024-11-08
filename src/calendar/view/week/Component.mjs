@@ -190,6 +190,7 @@ class Component extends BaseComponent {
          * @protected
          */
         totalColumns: null,
+        updateDepth: -1,
         /**
          * @member {Object} vdom
          */
@@ -224,17 +225,16 @@ class Component extends BaseComponent {
             {wheel   : me.onWheel,            scope: me}
         ]);
 
-        me.timeAxis = Neo.create(TimeAxisComponent, {
+        me.timeAxis = Neo.create({
+            module   : TimeAxisComponent,
             appName  : me.appName,
             parentId : me.id,
-            listeners: {
-                change: me.onTimeAxisChange,
-                scope : me
-            },
+            listeners: {change: me.onTimeAxisChange, scope : me},
+            windowId : me.windowId,
             ...me.timeAxisConfig
         });
 
-        me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
+        me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.createVdomReference());
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             me.needsEventUpdate = true
@@ -686,7 +686,7 @@ class Component extends BaseComponent {
             let me                 = this,
                 {editEventContainer} = me.owner,
                 eventNode          = path[0],
-                eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+                eventVdom          = VDomUtil.find(me.vdom, eventNode.id).vdom,
                 record             = me.eventStore.get(eventVdom.flag),
                 {style}            = editEventContainer;
 

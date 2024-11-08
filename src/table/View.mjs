@@ -56,6 +56,19 @@ class View extends Component {
     }
 
     /**
+     * @member {String[]} selectedRows
+     */
+    get selectedRows() {
+        let tableContainer = this.parent;
+
+        if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
+            return tableContainer.selectionModel.items
+        }
+
+        return []
+    }
+
+    /**
      * @param config
      */
     construct(config) {
@@ -167,98 +180,106 @@ class View extends Component {
     }
 
     /**
+     * @param {Object} opts
+     * @param {Object} opts.record
+     * @param {Number} opts.rowIndex
+     * @returns {Object}
+     */
+    createTableRow({record, rowIndex}) {
+        let me              = this,
+            tableContainer  = me.parent,
+            colspan         = record[me.colspanField],
+            colspanKeys     = colspan && Object.keys(colspan),
+            columns         = tableContainer.items[0].items,
+            colCount        = columns.length,
+            dockLeftMargin  = 0,
+            dockRightMargin = 0,
+            id              = me.getRowId(record, rowIndex),
+            {selectedRows}  = me,
+            trCls           = me.getTrClass(record, rowIndex),
+            config, column, columnIndex, i, tableRow;
+
+        me.recordVnodeMap[id] = rowIndex;
+
+        if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
+            NeoArray.add(selectedRows, id)
+        }
+
+        if (selectedRows?.includes(id)) {
+            trCls.push('neo-selected');
+
+            me.parent.fire('select', {
+                record
+            })
+        }
+
+        tableRow = {
+            tag     : 'tr',
+            id,
+            cls     : trCls,
+            cn      : [],
+            tabIndex: '-1'
+        };
+
+        for (i=0; i < colCount; i++) {
+            column = columns[i];
+            config = me.applyRendererOutput({column, record, index: rowIndex, tableContainer});
+
+            if (column.dock) {
+                config.cls = ['neo-locked', ...config.cls || []];
+
+                if (column.dock === 'left') {
+                    config.style.left = dockLeftMargin + 'px';
+                    dockLeftMargin += (column.width + 1) // todo: borders fix
+                }
+            }
+
+            if (column.flex) {
+                config.style.width = '100%'
+            }
+
+            tableRow.cn.push(config);
+
+            if (colspanKeys?.includes(column.dataField)) {
+                i += (colspan[column.dataField] - 1)
+            }
+        }
+
+        for (i=0; i < colCount; i++) {
+            columnIndex = colCount - i -1;
+            column      = columns[columnIndex];
+
+            if (column.dock === 'right') {
+                tableRow.cn[columnIndex].style.right = dockRightMargin + 'px';
+                dockRightMargin += (column.width + 1) // todo: borders fix
+            }
+
+            if (colspanKeys?.includes(column.dataField)) {
+                i += (colspan[column.dataField] - 1)
+            }
+        }
+
+        // the dock margins are the same for each row
+        rowIndex === 0 && Object.assign(tableContainer, {dockLeftMargin, dockRightMargin});
+
+        return tableRow
+    }
+
+    /**
      * @param {Object[]} inputData
      */
     createViewData(inputData) {
         let me             = this,
             amountRows     = inputData.length,
-            tableContainer = me.parent,
-            columns        = tableContainer.items[0].items,
-            colCount       = columns.length,
-            data           = [],
             i              = 0,
-            {vdom}         = me,
-            config, colspan, colspanKeys, column, dockLeftMargin, dockRightMargin, id, index, j, record, selectedRows, trCls;
-
-        if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
-            selectedRows = tableContainer.selectionModel.items || [];
-        }
+            rows           = [],
+            {selectedRows} = me;
 
         for (; i < amountRows; i++) {
-            record      = inputData[i];
-            colspan     = record[me.colspanField];
-            colspanKeys = colspan && Object.keys(colspan);
-            id          = me.getRowId(record, i);
-
-            me.recordVnodeMap[id] = i;
-
-            trCls = me.getTrClass(record, i);
-
-            if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
-                NeoArray.add(selectedRows, id)
-            }
-
-            if (selectedRows?.includes(id)) {
-                trCls.push('neo-selected');
-
-                me.parent.fire('select', {
-                    record
-                })
-            }
-
-            data.push({
-                tag     : 'tr',
-                id,
-                cls     : trCls,
-                cn      : [],
-                tabIndex: '-1'
-            });
-
-            dockLeftMargin  = 0;
-            dockRightMargin = 0;
-
-            for (j=0; j < colCount; j++) {
-                column = columns[j];
-                config = me.applyRendererOutput({column, record, index: i, tableContainer});
-
-                if (column.dock) {
-                    config.cls = ['neo-locked', ...config.cls || []];
-
-                    if (column.dock === 'left') {
-                        config.style.left = dockLeftMargin + 'px';
-                        dockLeftMargin += (column.width + 1) // todo: borders fix
-                    }
-                }
-
-                if (column.flex) {
-                    config.style.width = '100%'
-                }
-
-                data[i].cn.push(config);
-
-                if (colspanKeys?.includes(column.dataField)) {
-                    j += (colspan[column.dataField] - 1)
-                }
-            }
-
-            for (j=0; j < colCount; j++) {
-                index  = colCount - j -1;
-                column = columns[index];
-
-                if (column.dock === 'right') {
-                    data[i].cn[index].style.right = dockRightMargin + 'px';
-                    dockRightMargin += (column.width + 1) // todo: borders fix
-                }
-
-                if (colspanKeys?.includes(column.dataField)) {
-                    j += (colspan[column.dataField] - 1)
-                }
-            }
+            rows.push(me.createTableRow({record: inputData[i], rowIndex: i}))
         }
 
-        vdom.cn = data;
-
-        Object.assign(tableContainer, {dockLeftMargin, dockRightMargin});
+        me.vdom.cn = rows;
 
         me.promiseUpdate().then(() => {
             if (selectedRows?.length > 0) {
@@ -440,9 +461,9 @@ class View extends Component {
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange(opts) {
+    onStoreRecordChange({fields, model, record}) {
         let me               = this,
-            fieldNames       = opts.fields.map(field => field.name),
+            fieldNames       = fields.map(field => field.name),
             needsUpdate      = false,
             tableContainer   = me.parent,
             {selectionModel} = tableContainer,
@@ -450,17 +471,18 @@ class View extends Component {
             cellId, cellNode, column, index, scope;
 
         if (fieldNames.includes(me.colspanField)) {
-            // we should narrow it down to only update the current row
-            me.createViewData(me.store.items)
+            index = me.store.indexOf(record);
+            me.vdom.cn[index] = me.createTableRow({record, rowIndex: index});
+            me.update()
         } else {
-            opts.fields.forEach(field => {
+            fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-table-rowmodel') {
-                        selectionModel[!field.value && selectionModel.singleSelect ? 'deselect' : 'select'](me.getRowId(opts.record))
+                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
                     }
                 } else {
-                    cellId   = me.getCellId(opts.record, field.name);
-                    cellNode = VDomUtil.findVdomChild(vdom, cellId);
+                    cellId   = me.getCellId(record, field.name);
+                    cellNode = VDomUtil.find(vdom, cellId);
 
                     // the vdom might not exist yet => nothing to do in this case
                     if (cellNode?.vdom) {
@@ -469,7 +491,7 @@ class View extends Component {
                         needsUpdate = true;
                         scope       = column.rendererScope || tableContainer;
 
-                        cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record: opts.record, index, tableContainer})
+                        cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record, index, tableContainer})
                     }
                 }
             })
