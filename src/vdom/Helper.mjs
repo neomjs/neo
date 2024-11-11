@@ -316,7 +316,7 @@ class Helper extends Base {
                 }
 
                 if (oldChildNode && vnodeId === vnodeMap.get(oldChildNodeId)?.parentNode.id) {
-                    len++;
+                    len++
                 }
             }
         }

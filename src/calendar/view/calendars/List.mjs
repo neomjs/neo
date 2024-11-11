@@ -150,6 +150,14 @@ class List extends ComponentList {
     onSelect(items) {
         this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]))
     }
+
+    /**
+     * Disabling the super class logic for now, since the collection.Base mutation event already covers the sorting
+     * @param {Object} data
+     */
+    sortItems(data) {
+
+    }
 }
 
 export default Neo.setupClass(List);
