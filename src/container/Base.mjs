@@ -168,7 +168,7 @@ class Base extends Component {
         if (oldValue !== undefined) {
             super.afterSetMounted(value, oldValue);
 
-            for (let i = 0, { items } = this, { length } = items; i < length; i++) {
+            for (let i = 0, {items} = this, {length} = items; i < length; i++) {
                 if (!items[i].vdom.removeDom) {
                     items[i].mounted = value
                 }

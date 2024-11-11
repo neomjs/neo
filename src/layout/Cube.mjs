@@ -144,6 +144,7 @@ class Cube extends Card {
 
             if (Neo.typeOf(item.module) === 'Function') {
                 await me.loadModule(item, value);
+                container.updateDepth = -1;
                 container.update();
 
                 await me.timeout(100) // wait for the view to get painted first
@@ -277,6 +278,14 @@ class Cube extends Card {
     }
 
     /**
+     * @protected
+     */
+    applyRenderAttributes() {
+        this.container.updateDepth = -1;
+        super.applyRenderAttributes()
+    }
+
+    /**
      *
      */
     destroy(...args) {
@@ -299,9 +308,9 @@ class Cube extends Card {
         vdom.cn = container.getVdomItemsRoot().cn;
 
         if (me.hideInactiveCardsOnDestroy) {
-            vdom.cn.forEach((item, index) => {
+            container.items.forEach((item, index) => {
                 if (index < 6 && index !== me.activeIndex) {
-                    item.removeDom = true
+                    item.vdom.removeDom = true
                 }
             })
         }
@@ -309,6 +318,7 @@ class Cube extends Card {
         // override
         container.getVdomItemsRoot = me.#cachedVdomItemsRoot;
 
+        container.updateDepth = -1;
         container.update();
 
         super.destroy(...args)
@@ -336,12 +346,13 @@ class Cube extends Card {
 
         me.timeout(50).then(() => {
             // Important when switching from a card layout to this one
-            container.vdom.cn[0].cn[0].cn.forEach((node, index) => {
+            container.items.forEach((item, index) => {
                 if (index < 6) {
-                    delete node.removeDom
+                    delete item.vdom.removeDom
                 }
             });
 
+            container.updateDepth = -1;
             container.update()
         })
     }
