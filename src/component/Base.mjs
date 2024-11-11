@@ -208,10 +208,10 @@ class Base extends CoreBase {
         isLoading_: false,
         /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
-         * @member {Boolean} isVdomUpdating=false
+         * @member {Boolean} isVdomUpdating_=false
          * @protected
          */
-        isVdomUpdating: false,
+        isVdomUpdating_: false,
         /**
          * Using the keys config will create an instance of Neo.util.KeyNavigation.
          * @see {@link Neo.util.KeyNavigation KeyNavigation}
@@ -404,6 +404,11 @@ class Base extends CoreBase {
      * @member {String[]} childUpdateCache=[]
      */
     childUpdateCache = []
+    /**
+     * Stores the updateDepth while an update is running to enable checks for parent update collisions
+     * @member {Number|null} currentUpdateDepth=null
+     */
+    currentUpdateDepth = null
     /**
      * @member {Function[]} resolveUpdateCache=[]
      */
@@ -765,6 +770,16 @@ class Base extends CoreBase {
             NeoArray.toggle(cls, 'neo-masked', value);
             me.set({cls, vdom})
         }
+    }
+
+    /**
+     * Triggered after the isVdomUpdating config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetIsVdomUpdating(value, oldValue) {
+        this.currentUpdateDepth = value ? this.updateDepth : null
     }
 
     /**
