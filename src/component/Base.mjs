@@ -1940,9 +1940,9 @@ class Base extends CoreBase {
 
                     // If an update is running and does not have a collision, we do not need to check further parents
                     return false
-                } else {
-                    return me.isParentUpdating(parent.parentId, resolve, distance+1)
                 }
+
+                return me.isParentUpdating(parent.parentId, resolve, distance+1)
             }
         }
 
@@ -2068,9 +2068,9 @@ class Base extends CoreBase {
                     resolve && parent.resolveUpdateCache.push(resolve);
                     me.resolveUpdateCache = [];
                     return true
-                } else {
-                    return me.needsParentUpdate(parent.parentId, resolve, distance+1)
                 }
+
+                return me.needsParentUpdate(parent.parentId, resolve, distance+1)
             }
         }
 
