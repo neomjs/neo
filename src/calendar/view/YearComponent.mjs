@@ -224,9 +224,6 @@ class YearComponent extends Component {
 
             if (year !== oldYear) {
                 this.changeYear(year - oldYear)
-            } else {
-                // todo
-                console.log('## select a new day', value.getMonth(), value.getDate())
             }
         }
     }
