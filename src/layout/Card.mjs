@@ -208,7 +208,7 @@ class Card extends Base {
 
         items[index] = item = Neo.create(item);
 
-        container.getVdomItemsRoot().cn[index] = item.vdom;
+        container.getVdomItemsRoot().cn[index] = item.createVdomReference();
 
         container.fire('cardLoaded', {item});
 
