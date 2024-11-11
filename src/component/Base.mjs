@@ -2053,21 +2053,23 @@ class Base extends CoreBase {
      * Checks the needsVdomUpdate config inside the parent tree
      * @param {String} parentId=this.parentId
      * @param {Function} [resolve] gets passed by updateVdom()
+     * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId, resolve) {
+    needsParentUpdate(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
 
             if (parent) {
-                if (parent.needsVdomUpdate) {
+                // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
+                if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
                     parent.resolveUpdateCache.push(...me.resolveUpdateCache);
                     resolve && parent.resolveUpdateCache.push(resolve);
                     me.resolveUpdateCache = [];
                     return true
                 } else {
-                    return me.needsParentUpdate(parent.parentId)
+                    return me.needsParentUpdate(parent.parentId, resolve, distance+1)
                 }
             }
         }
