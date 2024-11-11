@@ -1934,7 +1934,7 @@ class Base extends CoreBase {
 
                         // Adding the resolve fn to its own cache, since the parent will trigger
                         // a new update() directly on this cmp
-                        resolve && me.resolveUpdateCache.push(resolve)
+                        resolve && me.resolveUpdateCache.push(resolve);
                         return true
                     }
 
