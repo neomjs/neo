@@ -1846,6 +1846,16 @@ class Base extends CoreBase {
     }
 
     /**
+     * Checks if a given updateDepth & distance would result in an update collision
+     * @param {Number} updateDepth
+     * @param {Number} distance
+     * @returns {Boolean}
+     */
+    hasUpdateCollision(updateDepth, distance) {
+        return updateDepth === -1 ? true : distance < updateDepth
+    }
+
+    /**
      * Hide the component.
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
@@ -1904,28 +1914,34 @@ class Base extends CoreBase {
      * Checks for vdom updates inside the parent chain and if found.
      * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
-     * @param {Function} [resolve] gets passed by updateVdom()
+     * @param {Function} [resolve] Gets passed by updateVdom()
+     * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId, resolve) {
+    isParentVdomUpdating(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.isVdomUpdating) {
-                    if (Neo.config.logVdomUpdateCollisions) {
-                        console.warn('vdom parent update conflict with:', parent, 'for:', me)
+                    if (me.hasUpdateCollision(parent.currentUpdateDepth, distance)) {
+                        if (Neo.config.logVdomUpdateCollisions) {
+                            console.warn('vdom parent update conflict with:', parent, 'for:', me)
+                        }
+
+                        NeoArray.add(parent.childUpdateCache, me.id);
+
+                        // Adding the resolve fn to its own cache, since the parent will trigger
+                        // a new update() directly on this cmp
+                        resolve && me.resolveUpdateCache.push(resolve)
+                        return true
                     }
 
-                    NeoArray.add(parent.childUpdateCache, me.id);
-
-                    // Adding the resolve fn to its own cache, since the parent will trigger
-                    // a new update() directly on this cmp
-                    resolve && me.resolveUpdateCache.push(resolve)
-                    return true
+                    // If an update is running and does not have a collision, we do not need to check further parents
+                    return false
                 } else {
-                    return me.isParentVdomUpdating(parent.parentId, resolve)
+                    return me.isParentVdomUpdating(parent.parentId, resolve, distance+1)
                 }
             }
         }
