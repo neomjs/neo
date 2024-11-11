@@ -1918,7 +1918,7 @@ class Base extends CoreBase {
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId, resolve, distance=1) {
+    isParentUpdating(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1941,7 +1941,7 @@ class Base extends CoreBase {
                     // If an update is running and does not have a collision, we do not need to check further parents
                     return false
                 } else {
-                    return me.isParentVdomUpdating(parent.parentId, resolve, distance+1)
+                    return me.isParentUpdating(parent.parentId, resolve, distance+1)
                 }
             }
         }
@@ -2637,7 +2637,7 @@ class Base extends CoreBase {
 
                 if (
                     !me.needsParentUpdate(parentId, resolve)
-                    && !me.isParentVdomUpdating(parentId, resolve)
+                    && !me.isParentUpdating(parentId, resolve)
                     && mounted
                     && vnode
                 ) {
