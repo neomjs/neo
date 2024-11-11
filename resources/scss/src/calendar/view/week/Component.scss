@@ -84,6 +84,12 @@
             top              .4s  ease-out,
             width            .4s  ease-out;
 
+        &.neo-dragproxy {
+            > * {
+                height: unset;
+            }
+        }
+
         &.neo-focus {
             color  : #fff;
             outline: 0;

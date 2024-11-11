@@ -208,10 +208,10 @@ class Base extends CoreBase {
         isLoading_: false,
         /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
-         * @member {Boolean} isVdomUpdating=false
+         * @member {Boolean} isVdomUpdating_=false
          * @protected
          */
-        isVdomUpdating: false,
+        isVdomUpdating_: false,
         /**
          * Using the keys config will create an instance of Neo.util.KeyNavigation.
          * @see {@link Neo.util.KeyNavigation KeyNavigation}
@@ -404,6 +404,11 @@ class Base extends CoreBase {
      * @member {String[]} childUpdateCache=[]
      */
     childUpdateCache = []
+    /**
+     * Stores the updateDepth while an update is running to enable checks for parent update collisions
+     * @member {Number|null} currentUpdateDepth=null
+     */
+    currentUpdateDepth = null
     /**
      * @member {Function[]} resolveUpdateCache=[]
      */
@@ -765,6 +770,16 @@ class Base extends CoreBase {
             NeoArray.toggle(cls, 'neo-masked', value);
             me.set({cls, vdom})
         }
+    }
+
+    /**
+     * Triggered after the isVdomUpdating config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetIsVdomUpdating(value, oldValue) {
+        this.currentUpdateDepth = value ? this.updateDepth : null
     }
 
     /**
@@ -1831,6 +1846,16 @@ class Base extends CoreBase {
     }
 
     /**
+     * Checks if a given updateDepth & distance would result in an update collision
+     * @param {Number} updateDepth
+     * @param {Number} distance
+     * @returns {Boolean}
+     */
+    hasUpdateCollision(updateDepth, distance) {
+        return updateDepth === -1 ? true : distance < updateDepth
+    }
+
+    /**
      * Hide the component.
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
@@ -1889,28 +1914,34 @@ class Base extends CoreBase {
      * Checks for vdom updates inside the parent chain and if found.
      * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
-     * @param {Function} [resolve] gets passed by updateVdom()
+     * @param {Function} [resolve] Gets passed by updateVdom()
+     * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId, resolve) {
+    isParentVdomUpdating(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
 
             if (parent) {
                 if (parent.isVdomUpdating) {
-                    if (Neo.config.logVdomUpdateCollisions) {
-                        console.warn('vdom parent update conflict with:', parent, 'for:', me)
+                    if (me.hasUpdateCollision(parent.currentUpdateDepth, distance)) {
+                        if (Neo.config.logVdomUpdateCollisions) {
+                            console.warn('vdom parent update conflict with:', parent, 'for:', me)
+                        }
+
+                        NeoArray.add(parent.childUpdateCache, me.id);
+
+                        // Adding the resolve fn to its own cache, since the parent will trigger
+                        // a new update() directly on this cmp
+                        resolve && me.resolveUpdateCache.push(resolve);
+                        return true
                     }
 
-                    NeoArray.add(parent.childUpdateCache, me.id);
-
-                    // Adding the resolve fn to its own cache, since the parent will trigger
-                    // a new update() directly on this cmp
-                    resolve && me.resolveUpdateCache.push(resolve)
-                    return true
+                    // If an update is running and does not have a collision, we do not need to check further parents
+                    return false
                 } else {
-                    return me.isParentVdomUpdating(parent.parentId, resolve)
+                    return me.isParentVdomUpdating(parent.parentId, resolve, distance+1)
                 }
             }
         }

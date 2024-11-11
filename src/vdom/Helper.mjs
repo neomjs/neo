@@ -309,14 +309,14 @@ class Helper extends Base {
             }
 
             if (childNode) {
-                if (oldVnodeMap.get(childNode.id)) {
-                    me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
+                if (me.isMovedNode(childNode, oldVnodeMap)) {
+                    me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
                 }
 
                 if (oldChildNode && vnodeId === vnodeMap.get(oldChildNodeId)?.parentNode.id) {
-                    len++;
+                    len++
                 }
             }
         }
@@ -600,9 +600,7 @@ class Helper extends Base {
             id = vnode?.id;
 
         if (id) {
-            let currentNode = oldVnodeMap.get(id)
-
-            if (currentNode) {
+            if (this.isMovedNode(vnode, oldVnodeMap)) {
                 movedNodes.set(id, vnodeMap.get(id))
             } else {
                 vnode.childNodes?.forEach(childNode => {
@@ -645,6 +643,21 @@ class Helper extends Base {
 
             me.createDeltas({deltas, oldVnode: oldVnodeMap.get(id).vnode, oldVnodeMap, vnode: details.vnode, vnodeMap})
         })
+    }
+
+    /**
+     *
+     * @param {Neo.vdom.VNode} vnode
+     * @param {Map} oldVnodeMap
+     * @returns {Boolean}
+     */
+    isMovedNode(vnode, oldVnodeMap) {
+        let oldVnode = oldVnodeMap.get(vnode.id);
+
+        return oldVnode && (
+            !oldVnode.vnode.componentId ||                   // the old vnode is not a reference
+            vnode.componentId === oldVnode.vnode.componentId // old & new nodes are the same references
+        )
     }
 
     /**
