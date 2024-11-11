@@ -253,13 +253,15 @@ class Card extends Base {
 
         vdom.cn = [
             {cls: ['neo-relative'], cn: [
-                {cls: ['neo-animation-wrapper'], style, cn: [card.vdom]}
+                {cls: ['neo-animation-wrapper'], style, cn: [card.createVdomReference()]}
             ]}
         ];
 
         animationWrapper = vdom.cn[0].cn[0];
 
-        animationWrapper.cn[slideIn ? 'unshift' : 'push'](oldCard.vdom);
+        animationWrapper.cn[slideIn ? 'unshift' : 'push'](oldCard.createVdomReference());
+
+        container.updateDepth = -1;
 
         await container.promiseUpdate();
 
@@ -274,10 +276,12 @@ class Card extends Base {
         vdom.cn = [];
 
         container.items.forEach(item => {
-            vdom.cn.push(item.vdom)
+            vdom.cn.push(item.createVdomReference())
         });
 
         oldCard.vdom.removeDom = true;
+
+        container.updateDepth = -1;
 
         await container.promiseUpdate()
     }
