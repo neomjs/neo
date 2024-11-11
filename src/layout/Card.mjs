@@ -201,12 +201,12 @@ class Card extends Base {
         item.className = proto.className;
         item.module    = module;
 
-        me.applyChildAttributes(item, index);
-
         delete item.isLoading;
         delete item.vdom;
 
         items[index] = item = Neo.create(item);
+
+        me.applyChildAttributes(item, index);
 
         container.getVdomItemsRoot().cn[index] = item.createVdomReference();
 
