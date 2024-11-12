@@ -13,9 +13,10 @@ class MainContainer extends Viewport {
         layout   : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            ntype : 'container',
-            cls   : ['video-wrapper'],
-            layout: {ntype: 'hbox', align: 'stretch'},
+            ntype    : 'container',
+            cls      : ['video-wrapper'],
+            layout   : {ntype: 'hbox', align: 'stretch'},
+            reference: 'video-wrapper',
 
             itemDefaults: {
                 ntype : 'container',
@@ -51,9 +52,10 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     onMoveVideoButtonClick(data) {
-        let me         = this,
-            container1 = me.getReference('container-1'),
-            container2 = me.getReference('container-2');
+        let me           = this,
+            container1   = me.getReference('container-1'),
+            container2   = me.getReference('container-2'),
+            videoWrapper = me.getReference('video-wrapper');
 
         container1.silentVdomUpdate = true;
         container2.silentVdomUpdate = true;
@@ -64,7 +66,12 @@ class MainContainer extends Viewport {
             container1.add(container2.removeAt(0, false))
         }
 
-        me.promiseUpdate().then(() => {
+        // include 2 level of children:
+        // level 1 => container-1, container-2
+        // level 2 => video element(s)
+        videoWrapper.updateDepth = 3;
+
+        videoWrapper.promiseUpdate().then(() => {
             container1.silentVdomUpdate = false;
             container2.silentVdomUpdate = false
         })
