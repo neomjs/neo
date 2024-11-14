@@ -150,9 +150,7 @@ class VNode extends Base {
      * @returns {String[]} childIds
      */
     static getChildIds(vnode, childIds=[]) {
-        let childNodes = vnode?.childNodes || [];
-
-        childNodes.forEach(childNode => {
+        vnode?.childNodes?.forEach(childNode => {
             if (childNode.id && !childNode.componentId) {
                 childIds.push(childNode.id)
             }
