@@ -756,19 +756,7 @@ class Base extends CoreBase {
                     vdom.cn = []
                 }
 
-                vdom.cn.push(me.loadMask = {
-                    cls: ['neo-load-mask'],
-                    cn : [{
-                        cls: ['neo-load-mask-body'],
-                        cn : [{
-                            cls: me.loadingSpinnerCls
-                        }, {
-                            cls      : ['neo-loading-message'],
-                            html     : value,
-                            removeDom: !Neo.isString(value)
-                        }]
-                    }]
-                })
+                vdom.cn.push(me.createLoadingMask(value))
             }
 
             NeoArray.toggle(cls, 'neo-masked', value);
@@ -1405,6 +1393,28 @@ class Base extends CoreBase {
         }
 
         me.update()
+    }
+
+    /**
+     * Override this method in case you need different mask markups.
+     * The removal logic relies on the top level node having the cls 'neo-load-mask'
+     * @param {Boolean|String} loadingMessage
+     * @returns {Object} vdom
+     */
+    createLoadingMask(loadingMessage) {
+        return {
+            cls: ['neo-load-mask'],
+            cn : [{
+                cls: ['neo-load-mask-body'],
+                cn : [{
+                    cls: this.loadingSpinnerCls
+                }, {
+                    cls      : ['neo-loading-message'],
+                    html     : loadingMessage,
+                    removeDom: !Neo.isString(loadingMessage)
+                }]
+            }]
+        }
     }
 
     /**
