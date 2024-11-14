@@ -2195,7 +2195,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
-    promiseUpdate(vdom = this.vdom, vnode = this.vnode) {
+    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -2616,11 +2616,8 @@ class Base extends CoreBase {
             {app, mounted, parentId} = me,
             listenerId;
 
-        if (resolve && me.isVdomUpdating) {
-            me.resolveUpdateCache.push(resolve)
-        }
-
         if (me.isVdomUpdating || me.silentVdomUpdate) {
+            resolve && me.resolveUpdateCache.push(resolve);
             me.needsVdomUpdate = true
         } else {
             if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
