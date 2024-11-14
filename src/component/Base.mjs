@@ -737,7 +737,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetIsLoading(value, oldValue) {
-        if (!(value === false && oldValue === undefined)) {
+        if (value || oldValue !== undefined) {
             let me          = this,
                 {cls, vdom} = me,
                 maskIndex;
