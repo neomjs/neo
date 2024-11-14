@@ -743,7 +743,7 @@ class Base extends CoreBase {
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
-                maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
+                maskIndex = vdom.cn.findIndex(c => c.cls?.includes('neo-load-mask'));
 
                 // Remove the load mask
                 if (maskIndex !== -1) {
