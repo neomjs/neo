@@ -752,6 +752,10 @@ class Base extends CoreBase {
             }
 
             if (value) {
+                if (!vdom.cn) {
+                    vdom.cn = []
+                }
+
                 vdom.cn.push(me.loadMask = {
                     cls: ['neo-load-mask'],
                     cn : [{
