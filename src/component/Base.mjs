@@ -2616,19 +2616,6 @@ class Base extends CoreBase {
             {app, mounted, parentId} = me,
             listenerId;
 
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key]
-            });
-
-            vdom = Object.assign(me._vdom, vdom)
-        }
-
         if (resolve && me.isVdomUpdating) {
             me.resolveUpdateCache.push(resolve)
         }
