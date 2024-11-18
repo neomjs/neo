@@ -40,8 +40,12 @@ class MainNeo extends BaseContainer {
         }, {
             cls : ['neo-h3'],
             flex: 'none',
-            html: 'Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging a vast component library and harness the power of multi-threading for extreme real-time performance.',
-            tag : 'h3'
+            tag : 'h3',
+
+            html: [
+                'Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging ',
+                'a vast component library and harness the power of multi-threading for extreme real-time performance.'
+            ].join('')
         }, {
             ntype: 'container',
             cls  : ['button-group'],
