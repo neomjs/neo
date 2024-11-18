@@ -114,7 +114,7 @@ class VNode extends Base {
      * @param {String|null} id
      * @returns {Object|null} child vnode or null
      */
-    static findChildVnodeById(vnode, id) {
+    static getById(vnode, id) {
         vnode = VNode.getVnode(vnode);
 
         let childNodes = vnode.childNodes || [],
@@ -133,7 +133,7 @@ class VNode extends Base {
                 return childNode
             }
 
-            childNode = VNode.findChildVnodeById(childNode, id);
+            childNode = VNode.getById(childNode, id);
 
             if (childNode) {
                 return childNode
