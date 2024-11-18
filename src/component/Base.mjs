@@ -2445,7 +2445,7 @@ class Base extends CoreBase {
 
         // we need one separate iteration first to ensure all wrapper nodes get registered
         childComponents.forEach(component => {
-            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id)?.vnode;
+            childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
 
             if (childVnode) {
                 map[component.id] = childVnode;
@@ -2533,7 +2533,7 @@ class Base extends CoreBase {
     updateCls(cls, oldCls, id=this.id) {
         let me          = this,
             {vnode}     = me,
-            vnodeTarget = vnode && VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
+            vnodeTarget = vnode && VNodeUtil.find(me.vnode, {id})?.vnode;
 
         if (vnode && !Neo.isEqual(cls, oldCls)) {
             if (vnodeTarget) {
@@ -2565,7 +2565,7 @@ class Base extends CoreBase {
 
         if (delta) {
             vdom  = VDomUtil.find(me.vdom, id);
-            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
+            vnode = me.vnode && VNodeUtil.find(me.vnode, id);
 
             if (!me.hasUnmountedVdomChanges) {
                 me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted

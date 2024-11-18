@@ -1356,7 +1356,7 @@ class Text extends Base {
         let me         = this,
             oldValue   = me.value,
             inputValue = data.value,
-            vnode      = VNodeUtil.findChildVnode(me.vnode, {nodeName: 'input'});
+            vnode      = VNodeUtil.find(me.vnode, {nodeName: 'input'});
 
         if (vnode) {
             // Update the current state (modified DOM by the user) to enable the delta-updates logic.
