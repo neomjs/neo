@@ -410,7 +410,7 @@ class LivePreview extends Container {
             ui       : 'ghost'
         });
 
-        items[0].style = {marginLeft: 'auto'};
+        items.unshift('->');
 
         // we want to add a normal (non-header) button
         tabContainer.getTabBar().add(items);
