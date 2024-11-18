@@ -89,44 +89,29 @@ class SettingsContainer extends Container {
             items: [{
                 module: () => import('./settings/GeneralContainer.mjs'),
                 flag  : 'general',
-                style : {padding: '20px'},
-
-                tabButtonConfig: {
-                    text: 'General'
-                }
+                header: {text: 'General'},
+                style : {padding: '20px'}
             }, {
-                ntype: 'component',
-                flag : 'day',
-                html : 'Day',
-                style: {padding: '20px'},
-
-                tabButtonConfig: {
-                    text: 'Day'
-                }
+                ntype : 'component',
+                flag  : 'day',
+                header: {text: 'Day'},
+                html  : 'Day',
+                style : {padding: '20px'}
             }, {
                 module: () => import('./settings/WeekContainer.mjs'),
                 flag  : 'week',
-                style : {padding: '20px'},
-
-                tabButtonConfig: {
-                    text: 'Week'
-                }
+                header: {text: 'Week'},
+                style : {padding: '20px'}
             }, {
                 module: () => import('./settings/MonthContainer.mjs'),
                 flag  : 'month',
-                style : {padding: '20px'},
-
-                tabButtonConfig: {
-                    text: 'Month'
-                }
+                header: {text: 'Month'},
+                style : {padding: '20px'}
             }, {
                 module: () => import('./settings/YearContainer.mjs'),
                 flag  : 'year',
-                style : {padding: '20px'},
-
-                tabButtonConfig: {
-                    text: 'Year'
-                }
+                header: {text: 'Year'},
+                style : {padding: '20px'}
             }],
 
             listeners: {

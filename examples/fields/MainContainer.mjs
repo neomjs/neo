@@ -81,7 +81,7 @@ class MainContainer extends Container {
                     }
                 ],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fas fa-list',
                     text   : 'Picker'
                 }
@@ -140,7 +140,7 @@ class MainContainer extends Container {
                     }
                 ],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fas fa-check-square',
                     text   : 'CheckBox'
                 }
@@ -199,7 +199,7 @@ class MainContainer extends Container {
                     }
                 ],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'far fa-circle',
                     text   : 'Radio'
                 }
@@ -234,7 +234,7 @@ class MainContainer extends Container {
                     }
                 ],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-exchange-alt',
                     text   : 'Range'
                 }
@@ -268,13 +268,13 @@ class MainContainer extends Container {
                         value    : 10
                     }
                 ],
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-sort-numeric-up',
                     text   : 'Number'
                 }
             },
             {
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-calendar',
                     text   : 'Date'
                 },

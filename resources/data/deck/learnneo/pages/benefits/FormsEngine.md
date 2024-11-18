@@ -147,12 +147,12 @@ class MainView extends FormContainer {
         }, {
             module: TabContainer,
             items : [{
-                module         : FormContainer,
-                itemDefaults   : {module: TextField, labelPosition: 'inline'},
-                layout         : {ntype:'vbox', align:'start'},
-                reference      : 'user-form',
-                tabButtonConfig: {text: 'User'},
-                tag            : 'div',
+                module      : FormContainer,
+                header      : {text: 'User'},
+                itemDefaults: {module: TextField, labelPosition: 'inline'},
+                layout      : {ntype:'vbox', align:'start'},
+                reference   : 'user-form',
+                tag         : 'div',
 
                 items: [{
                     labelText: 'Firstname',
@@ -165,12 +165,12 @@ class MainView extends FormContainer {
                     value    : 'Doe'
                 }]
             }, {
-                module         : FormContainer,
-                itemDefaults   : {module: TextField, labelPosition: 'inline'},
-                layout         : {ntype:'vbox', align:'start'},
-                reference      : 'product-form',
-                tabButtonConfig: {text: 'Product'},
-                tag            : 'div',
+                module      : FormContainer,
+                header      : {text: 'Product'},
+                itemDefaults: {module: TextField, labelPosition: 'inline'},
+                layout      : {ntype:'vbox', align:'start'},
+                reference   : 'product-form',
+                tag         : 'div',
 
                 items: [{
                     labelText: 'Name',
@@ -189,7 +189,7 @@ class MainView extends FormContainer {
             itemDefaults: {module: Button},
             layout      : {ntype: 'hbox'},
 
-            items : [{
+            items: [{
                 handler: 'up.getMainFormValues',
                 text   : 'Get Main Values'
             }, {

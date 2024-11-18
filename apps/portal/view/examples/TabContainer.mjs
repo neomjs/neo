@@ -42,27 +42,27 @@ class TabContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            reference      : 'examples-devmode-list',
-            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_devmode.json'},
-            tabButtonConfig: {
+            reference: 'examples-devmode-list',
+            store    : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_devmode.json'},
+            header   : {
                 iconCls: 'fa fa-chess-knight',
                 route  : '/examples/devmode',
                 text   : 'DevMode'
             }
         }, {
-            environment    : 'dist/development',
-            reference      : 'examples-dist-dev-list',
-            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
-            tabButtonConfig: {
+            environment: 'dist/development',
+            reference  : 'examples-dist-dev-list',
+            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
+            header     : {
                 iconCls: 'fa fa-chess-queen',
                 route  : '/examples/dist_dev',
                 text   : 'dist/dev'
             }
         }, {
-            environment    : 'dist/production',
-            reference      : 'examples-dist-prod-list',
-            store          : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_prod.json'},
-            tabButtonConfig: {
+            environment: 'dist/production',
+            reference  : 'examples-dist-prod-list',
+            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_prod.json'},
+            header     : {
                 iconCls: 'fa fa-chess-king',
                 route  : '/examples/dist_prod',
                 text   : 'dist/prod'

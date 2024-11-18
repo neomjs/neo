@@ -272,16 +272,16 @@ items: [HeaderContainer, {
     style      : {margin: '10px', marginTop: 0},
   
     items: [{
-        module         : () => import('./TableContainer.mjs'),
-        reference      : 'table-container',
-        tabButtonConfig: {
+        module   : () => import('./TableContainer.mjs'),
+        reference: 'table-container',
+        header   : {
             iconCls: 'fa fa-table',
             route  : 'mainview=table',
             text   : 'Table'
         }
     }, {
-        module         : () => import('./mapboxGl/Container.mjs'),
-        tabButtonConfig: {
+        module: () => import('./mapboxGl/Container.mjs'),
+        header: {
             iconCls: 'fa fa-globe-americas',
             route  : 'mainview=mapboxglmap',
             text   : 'Mapbox GL Map'

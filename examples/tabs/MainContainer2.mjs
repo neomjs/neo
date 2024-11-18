@@ -32,7 +32,7 @@ class MainContainer2 extends Container {
             },
 
             items: [{
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-home',
                     text   : 'Tab 1'
                 },
@@ -40,7 +40,7 @@ class MainContainer2 extends Container {
                     innerHTML: 'Tab Content 1'
                 }
             }, {
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-play-circle',
                     text   : 'Tab 2'
                 },
@@ -88,7 +88,7 @@ class MainContainer2 extends Container {
                     }]
                 }],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-user',
                     text   : 'Tab 3'
                 }
@@ -128,7 +128,7 @@ class MainContainer2 extends Container {
                     this.tabCount++;
 
                     tabContainer.insert(3, {
-                        tabButtonConfig: {
+                        header: {
                             iconCls: 'fa fa-user',
                             text   : 'Dynamic Tab ' + this.tabCount
                         },

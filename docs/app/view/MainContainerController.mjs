@@ -57,7 +57,7 @@ class MainContainerController extends Component {
             id           : record.className,
             structureData: record,
 
-            tabButtonConfig: {
+            header: {
                 iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
                 text   : record.name
             }
@@ -74,7 +74,7 @@ class MainContainerController extends Component {
             pathArray           = [],
             store               = me.getReference('examples-treelist').store,
             tmpRecord           = record,
-            tabButtonConfig;
+            header;
 
         while (tmpRecord.parentId !== null) {
             tmpRecord = store.get(tmpRecord.parentId);
@@ -83,7 +83,7 @@ class MainContainerController extends Component {
 
         name = 'examples_' + name;
 
-        tabButtonConfig = {
+        header = {
             iconCls: 'fa fa-desktop',
             text   : record.name
         };
@@ -94,8 +94,8 @@ class MainContainerController extends Component {
                 record.path).then((module) => {
                     contentTabContainer.add({
                         module: module.default,
-                        id    : name,
-                        tabButtonConfig
+                        header,
+                        id    : name
                     })
                 }
             )
@@ -115,10 +115,10 @@ class MainContainerController extends Component {
 
                 contentTabContainer.add({
                     ntype: 'container',
+                    header,
                     id   : name,
                     items,
-                    style: {padding: '10px'},
-                    tabButtonConfig
+                    style: {padding: '10px'}
                 })
             })
         }
@@ -212,7 +212,7 @@ class MainContainerController extends Component {
             fileType: record.type,
             id      : record.name,
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-hands-helping',
                 text   : record.name
             }
@@ -240,7 +240,7 @@ class MainContainerController extends Component {
                 line         : lineNumber,
                 structureData: record,
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-code',
                     text   : record.name
                 }

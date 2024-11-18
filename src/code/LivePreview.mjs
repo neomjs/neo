@@ -63,16 +63,16 @@ class LivePreview extends Container {
             removeInactiveCards: false,
 
             items: [{
-                module         : MonacoEditor,
-                hideLabel      : true,
-                listeners      : {editorChange: 'up.onEditorChange'},
-                style          : {height: '100%'},
-                reference      : 'editor',
-                tabButtonConfig: {text: 'Source'}
+                module   : MonacoEditor,
+                header   : {text: 'Source'},
+                hideLabel: true,
+                listeners: {editorChange: 'up.onEditorChange'},
+                style    : {height: '100%'},
+                reference: 'editor'
             }, {
-                module         : Container,
-                reference      : 'preview',
-                tabButtonConfig: {text: 'Preview'}
+                module   : Container,
+                header   : {text: 'Preview'},
+                reference: 'preview'
             }]
         }],
         /**

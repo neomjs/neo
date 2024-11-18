@@ -71,7 +71,7 @@ class MainContainer extends Viewport {
                     listeners: {leafItemClick: 'onApiListLeafClick'},
                     reference: 'api-treelist',
 
-                    tabButtonConfig: {
+                    header: {
                         iconCls: 'fa fa-code',
                         text   : 'API'
                     }
@@ -80,7 +80,7 @@ class MainContainer extends Viewport {
                     listeners: {leafItemClick: 'onExamplesListLeafClick'},
                     reference: 'examples-treelist',
 
-                    tabButtonConfig: {
+                    header: {
                         iconCls: 'fa fa-desktop',
                         text   : 'Examples'
                     }
@@ -118,7 +118,7 @@ class MainContainer extends Viewport {
         }
 
         // Disable the examples Tab for dist versions until the webpack builds can handle this (see: #140)
-        me.items[1].items[0].items[1].tabButtonConfig.disabled = Neo.config.environment !== 'development'
+        me.items[1].items[0].items[1].header.disabled = Neo.config.environment !== 'development'
     }
 
     /**

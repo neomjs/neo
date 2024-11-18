@@ -142,12 +142,12 @@ class MainContainer extends TabContainer {
                 }]
             }],
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-home',
                 text   : 'Tab 1'
             }
         }, {
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-play-circle',
                 text   : 'Tab 2'
             },
@@ -155,7 +155,7 @@ class MainContainer extends TabContainer {
                 innerHTML: 'Test 2'
             }
         }, {
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-user',
                 text   : 'Tab 3'
             },

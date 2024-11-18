@@ -368,7 +368,7 @@ items: [HeaderContainer, {
             listeners: {leafItemClick: 'onApiListLeafClick'},
             reference: 'api-treelist',
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-code',
                 text   : 'API'
             }
@@ -377,7 +377,7 @@ items: [HeaderContainer, {
             listeners: {leafItemClick: 'onTutorialListLeafClick'},
             reference: 'tutorials-treelist',
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-hands-helping',
                 text   : 'Tutorials'
             }
@@ -386,7 +386,7 @@ items: [HeaderContainer, {
             listeners: {leafItemClick: 'onExamplesListLeafClick'},
             reference: 'examples-treelist',
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-desktop',
                 text   : 'Examples'
             }
@@ -437,14 +437,14 @@ items: [{
         flex       : 3,
 
         items: [{
-            ntype          : 'component',
-            cls            : ['neo-examples-tab-component'],
-            style          : {padding: '20px'},
-            tabButtonConfig: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
-            vdom           : {innerHTML: 'todo'}
+            ntype : 'component',
+            cls   : ['neo-examples-tab-component'],
+            header: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
+            style : {padding: '20px'},
+            vdom  : {innerHTML: 'todo'}
         }, {
-            module         : PreviewList,
-            tabButtonConfig: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}
+            module: PreviewList,
+            header: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}
         }]
     }, {
         module: TagListComponent,

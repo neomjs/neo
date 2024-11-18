@@ -127,7 +127,7 @@ class TableContainer extends Container {
                         reference: 'line-chart',
                     }],
 
-                    tabButtonConfig: {
+                    header: {
                         iconCls: 'fa fa-chart-line',
                         text   : 'Chart'
                     }
@@ -150,7 +150,7 @@ class TableContainer extends Container {
             parentId : me.id,
             reference: 'historical-data-table',
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-table',
                 text   : 'Table'
             },

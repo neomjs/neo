@@ -45,7 +45,7 @@ class MainContainer extends Viewport {
                     label: 'dense'
                 }],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-home',
                     text   : 'Tab 1'
                 }
@@ -78,7 +78,7 @@ class MainContainer extends Viewport {
                     label: 'dense'
                 }],
 
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-play-circle',
                     text   : 'Tab 2'
                 }
