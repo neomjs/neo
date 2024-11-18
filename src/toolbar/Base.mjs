@@ -151,7 +151,7 @@ class Base extends Container {
         let items = this._items;
 
         if (Array.isArray(items)) {
-            items.map(item => this.replaceSpacer(item))
+            this._items = items.map(item => this.replaceSpacer(item))
         }
 
         return super.createItems()
@@ -206,7 +206,7 @@ class Base extends Container {
      */
     insert(index, item, silent=false) {
         if (Array.isArray(item)) {
-            item.map(item => this.replaceSpacer(item))
+            item = item.map(item => this.replaceSpacer(item))
         } else {
             item = this.replaceSpacer(item)
         }
