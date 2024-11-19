@@ -98,7 +98,7 @@ class DomEvents extends Base {
         singleton: true,
         /**
          * Remote method access for other workers
-         * @member {Object} remote={app: ['addDomListener']}
+         * @member {Object} remote
          * @protected
          */
         remote: {
