@@ -62,10 +62,11 @@ class Time extends Picker {
             parentId: me.id,
             showDisc: false,
             size    : null,
+            windowId: me.windowId,
             ...me.clockConfig
         });
 
-        me.vdom.cn = [me.clock.vdom];
+        me.vdom.cn = [me.clock.createVdomReference()];
         me.update()
     }
 
