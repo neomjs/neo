@@ -1883,6 +1883,7 @@ class Base extends CoreBase {
             let removeFn = function () {
                 if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
+                    me.parent.updateDepth = 2;
                     me.parent.update()
                 } else {
                     me.unmount()
@@ -2396,6 +2397,7 @@ class Base extends CoreBase {
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if (me.parentId !== 'document.body') {
+                me.parent.updateDepth = 2;
                 me.parent.update()
             } else {
                 !me.mounted && me.render(true)
