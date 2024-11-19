@@ -22,13 +22,13 @@ class Color extends Base {
         baseCls: ['neo-color-list', 'neo-list'],
         /**
          * The data.Model field which contains the color value
-         * @member {String} colorField='name'
+         * @member {String} colorField_='name'
          */
-        colorField: 'name',
+        colorField_: 'name',
         /**
          * Override the formatter to apply a custom background-color styling.
          * E.g. using CSS vars for different themes
-         * @member {Function} colorField=(scope,data)=>data[scope.colorField]
+         * @member {Function} colorFormatter=(scope,data)=>data[scope.colorField]
          */
         colorFormatter: (scope,data) => data[scope.colorField]
     }
