@@ -174,20 +174,18 @@ class MainContainer extends ConfigurationViewport {
             itemDefaults: {
                 ntype: 'component',
                 cls  : ['neo-examples-tab-component'],
-                style: {
-                    padding: '20px'
-                }
+                style: {padding: '20px'}
             },
 
             items: [{
-                tabButtonConfig: {iconCls: 'fa fa-home',        text: 'Tab 1', flag: 'tab1',},
-                vdom           : {innerHTML: 'Tab 1 Content'}
+                header: {iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1',},
+                vdom  : {innerHTML: 'Tab 1 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
-                vdom           : {innerHTML: 'Tab 2 Content'}
+                header: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
+                vdom  : {innerHTML: 'Tab 2 Content'}
             }, {
-                tabButtonConfig: {iconCls: 'fa fa-user',        text: 'Tab 3', badgeText: 'hello'},
-                vdom           : {innerHTML: 'Tab 3 Content'}
+                header: {iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello'},
+                vdom  : {innerHTML: 'Tab 3 Content'}
             }],
 
             listeners: {

@@ -41,7 +41,7 @@ class ContentTabContainer extends Container {
             html : 'Welcome to the neo.mjs docs!',
             style: {padding: '20px'},
 
-            tabButtonConfig: {
+            header: {
                 iconCls: 'fa fa-users',
                 text   : 'Welcome!'
             }

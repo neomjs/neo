@@ -500,7 +500,7 @@ class Base extends Component {
     /**
      * Inserts an item or array of items at a specific index
      * @param {Number} index
-     * @param {Object|Array} item
+     * @param {Array|Object} item
      * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */

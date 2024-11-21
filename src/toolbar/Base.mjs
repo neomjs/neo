@@ -151,14 +151,7 @@ class Base extends Container {
         let items = this._items;
 
         if (Array.isArray(items)) {
-            items.forEach((item, index) => {
-                if (item === '->') {
-                    items[index] = Neo.create({
-                        module: Component,
-                        flex  : 1
-                    })
-                }
-            })
+            this._items = items.map(item => this.replaceSpacer(item))
         }
 
         return super.createItems()
@@ -202,6 +195,31 @@ class Base extends Container {
         }
 
         return layoutConfig || me.layout
+    }
+
+    /**
+     * Inserts an item or array of items at a specific index
+     * @param {Number} index
+     * @param {Array|Object} item
+     * @param {Boolean} [silent=false]
+     * @returns {Neo.component.Base|Neo.component.Base[]}
+     */
+    insert(index, item, silent=false) {
+        if (Array.isArray(item)) {
+            item = item.map(item => this.replaceSpacer(item))
+        } else {
+            item = this.replaceSpacer(item)
+        }
+
+        return super.insert(index, item, silent)
+    }
+
+    /**
+     * @param {Array|Object|String} item
+     * @returns {Array|Object}
+     */
+    replaceSpacer(item) {
+        return item === '->' ? {module: Component, flex: 1} : item
     }
 }
 

@@ -125,7 +125,12 @@ class Base extends Component {
          */
         selectionModel_: null,
         /**
-         * Set this to true in case a select event should only update _vdom (e.g. when used inside a form.field.Select
+         * Set this to true in case a keyboard navigation should immediately select the focussed item
+         * @member {Boolean} selectOnFocus=false
+         */
+        selectOnFocus: false,
+        /**
+         * Set this to true in case a select event should only update _vdom (e.g. when used inside a form.field.ComboBox
          * @member {Boolean} silentSelect=false
          */
         silentSelect: false,
@@ -298,6 +303,7 @@ class Base extends Component {
             if (!me.hasNavigator) {
                 me.navigator = {
                     appName       : me.appName,
+                    autoClick     : me.selectOnFocus,
                     id            : me.id,
                     keepFocusIndex: me.keepFocusIndex,
                     selector      : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,

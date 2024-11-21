@@ -243,7 +243,7 @@ class Container extends BaseContainer {
         });
 
         items.forEach((item, index) => {
-            tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
+            tabButtons.push(me.getTabButtonConfig(item.header, index));
 
             if (!(item instanceof Neo.component.Base)) {
                 item = {flex: 1, ...me.itemDefaults, isTab: true, ...item}
@@ -410,7 +410,7 @@ class Container extends BaseContainer {
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             hasItem       = false,
-            i, len, returnArray, superItem, tab, tabButtonConfig;
+            i, len, returnArray, superItem, tab;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -441,9 +441,7 @@ class Container extends BaseContainer {
             }
 
             if (!hasItem) {
-                tabButtonConfig = item.tabButtonConfig;
-
-                tab = tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
+                tab = tabBar.insert(index, me.getTabButtonConfig(item.header, index));
 
                 // todo: non index based matching of tab buttons and cards
                 i = 0;

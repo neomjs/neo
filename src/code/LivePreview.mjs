@@ -63,16 +63,16 @@ class LivePreview extends Container {
             removeInactiveCards: false,
 
             items: [{
-                module         : MonacoEditor,
-                hideLabel      : true,
-                listeners      : {editorChange: 'up.onEditorChange'},
-                style          : {height: '100%'},
-                reference      : 'editor',
-                tabButtonConfig: {text: 'Source'}
+                module   : MonacoEditor,
+                header   : {text: 'Source'},
+                hideLabel: true,
+                listeners: {editorChange: 'up.onEditorChange'},
+                style    : {height: '100%'},
+                reference: 'editor'
             }, {
-                module         : Container,
-                reference      : 'preview',
-                tabButtonConfig: {text: 'Preview'}
+                module   : Container,
+                header   : {text: 'Preview'},
+                reference: 'preview'
             }]
         }],
         /**
@@ -410,7 +410,7 @@ class LivePreview extends Container {
             ui       : 'ghost'
         });
 
-        items[0].style = {marginLeft: 'auto'};
+        items.unshift('->');
 
         // we want to add a normal (non-header) button
         tabContainer.getTabBar().add(items);

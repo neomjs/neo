@@ -36,48 +36,48 @@ class MainContainer extends Viewport {
             style      : {margin: '10px', marginTop: 0},
 
             items: [{
-                module         : () => import('./TableContainer.mjs'),
-                reference      : 'table-container',
-                tabButtonConfig: {
+                module   : () => import('./TableContainer.mjs'),
+                reference: 'table-container',
+                header   : {
                     iconCls: 'fa fa-table',
                     route  : 'mainview=table',
                     text   : 'Table'
                 }
             }, {
-                module         : () => import('./mapboxGl/Container.mjs'),
-                reference      : 'mapbox-gl-container',
-                tabButtonConfig: {
+                module   : () => import('./mapboxGl/Container.mjs'),
+                reference: 'mapbox-gl-container',
+                header   : {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=mapboxglmap',
                     text   : 'Mapbox GL Map'
                 }
             }, {
-                module         : () => import('./WorldMapContainer.mjs'),
-                tabButtonConfig: {
+                module: () => import('./WorldMapContainer.mjs'),
+                header: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=worldmap',
                     text   : 'World Map'
                 }
             }, {
-                module         : () => import('./GalleryContainer.mjs'),
-                reference      : 'gallery-container',
-                tabButtonConfig: {
+                module   : () => import('./GalleryContainer.mjs'),
+                reference: 'gallery-container',
+                header   : {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
                     text   : 'Gallery'
                 }
             }, {
-                module         : () => import('./HelixContainer.mjs'),
-                reference      : 'helix-container',
-                tabButtonConfig: {
+                module   : () => import('./HelixContainer.mjs'),
+                reference: 'helix-container',
+                header   : {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
                     text   : 'Helix'
                 }
             }, {
-                module         : () => import('./AttributionComponent.mjs'),
-                reference      : 'attribution',
-                tabButtonConfig: {
+                module   : () => import('./AttributionComponent.mjs'),
+                reference: 'attribution',
+                header   : {
                     iconCls: 'fa fa-copyright',
                     route  : 'mainview=attribution',
                     text   : 'Attribution'

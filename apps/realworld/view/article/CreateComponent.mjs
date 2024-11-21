@@ -190,7 +190,7 @@ class CreateComponent extends Component {
                 id        : event.target.id,
                 attributes: 'value'
             }).then(data => {
-                VNodeUtil.findChildVnode(me.vnode, {className: 'field-tags'}).vnode.attributes.value = data.value;
+                VNodeUtil.find(me.vnode, {className: 'field-tags'}).vnode.attributes.value = data.value;
                 me.tagList = [...me._tagList, data.value];
             });
         }

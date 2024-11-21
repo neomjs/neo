@@ -22,6 +22,11 @@ class ColorsList extends List {
             store: 'stores.colors'
         },
         /**
+         * Set this to true in case a keyboard navigation should immediately select the focussed item
+         * @member {Boolean} selectOnFocus=true
+         */
+        selectOnFocus: true,
+        /**
          * @member {Boolean} useWrapperNode=false
          */
         useWrapperNode: false,

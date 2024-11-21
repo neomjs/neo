@@ -25,7 +25,7 @@ class VNode extends Base {
      *     {String} parentId
      *     {Object} vnode
      */
-    static findChildVnode(vnode, opts, index, parentNode) {
+    static find(vnode, opts, index, parentNode) {
         vnode = VNode.getVnode(vnode);
 
         index = index || 0;
@@ -68,7 +68,7 @@ class VNode extends Base {
                             }
                         } else if (Neo.isArray(value) && Neo.isArray(vnode[key])) {
                             // todo: either search the vnode array for all keys or compare if the arrays are equal.
-                            throw new Error('findChildVnode: cls matching not supported for target & source types of Arrays')
+                            throw new Error('find: cls matching not supported for target & source types of Arrays')
                         }
                         break
                     case 'style':
@@ -98,7 +98,7 @@ class VNode extends Base {
         }
 
         for (; i < len; i++) {
-            subChild = VNode.findChildVnode(vnode.childNodes[i], opts, i, vnode);
+            subChild = VNode.find(vnode.childNodes[i], opts, i, vnode);
 
             if (subChild) {
                 return subChild
@@ -114,7 +114,7 @@ class VNode extends Base {
      * @param {String|null} id
      * @returns {Object|null} child vnode or null
      */
-    static findChildVnodeById(vnode, id) {
+    static getById(vnode, id) {
         vnode = VNode.getVnode(vnode);
 
         let childNodes = vnode.childNodes || [],
@@ -133,7 +133,7 @@ class VNode extends Base {
                 return childNode
             }
 
-            childNode = VNode.findChildVnodeById(childNode, id);
+            childNode = VNode.getById(childNode, id);
 
             if (childNode) {
                 return childNode
@@ -150,9 +150,7 @@ class VNode extends Base {
      * @returns {String[]} childIds
      */
     static getChildIds(vnode, childIds=[]) {
-        let childNodes = vnode?.childNodes || [];
-
-        childNodes.forEach(childNode => {
+        vnode?.childNodes?.forEach(childNode => {
             if (childNode.id && !childNode.componentId) {
                 childIds.push(childNode.id)
             }

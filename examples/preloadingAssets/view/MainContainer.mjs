@@ -37,7 +37,7 @@ class MainContainer extends Viewport {
             },
 
             items: [{
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-user-astronaut',
                     text   : 'Bob'
                 },
@@ -47,7 +47,7 @@ class MainContainer extends Viewport {
                     src: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/examples/ai_images/000150.jpg'
                 }
             }, {
-                tabButtonConfig: {
+                header: {
                     iconCls: 'fa fa-user-ninja',
                     text   : 'Alice'
                 },

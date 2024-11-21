@@ -355,14 +355,14 @@ class ViewportController extends Controller {
                 NeoArray.toggle(cls, 'separate-bar', vertical)
             }
 
-            headerSocialIcons.cls = cls
+            headerSocialIcons.cls = cls;
 
 
             if (hidden && vertical) {
                 await me.timeout(200)
             }
 
-            headerSocialIcons.hidden = hidden;
+            headerSocialIcons.hidden = hidden
         }
     }
 }

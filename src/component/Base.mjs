@@ -737,13 +737,13 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetIsLoading(value, oldValue) {
-        if (!(value === false && oldValue === undefined)) {
+        if (value || oldValue !== undefined) {
             let me          = this,
                 {cls, vdom} = me,
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
-                maskIndex = vdom.cn.findIndex(c => c.cls.includes('neo-load-mask'));
+                maskIndex = vdom.cn.findLastIndex(c => c.cls?.includes('neo-load-mask'));
 
                 // Remove the load mask
                 if (maskIndex !== -1) {
@@ -752,19 +752,11 @@ class Base extends CoreBase {
             }
 
             if (value) {
-                vdom.cn.push(me.loadMask = {
-                    cls: ['neo-load-mask'],
-                    cn : [{
-                        cls: ['neo-load-mask-body'],
-                        cn : [{
-                            cls: me.loadingSpinnerCls
-                        }, {
-                            cls      : ['neo-loading-message'],
-                            html     : value,
-                            removeDom: !Neo.isString(value)
-                        }]
-                    }]
-                })
+                if (!vdom.cn) {
+                    vdom.cn = []
+                }
+
+                vdom.cn.push(me.createLoadingMask(value))
             }
 
             NeoArray.toggle(cls, 'neo-masked', value);
@@ -1404,6 +1396,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Override this method in case you need different mask markups.
+     * The removal logic relies on the top level node having the cls 'neo-load-mask'
+     * @param {Boolean|String} loadingMessage
+     * @returns {Object} vdom
+     */
+    createLoadingMask(loadingMessage) {
+        return {
+            cls: ['neo-load-mask'],
+            cn : [{
+                cls: ['neo-load-mask-body'],
+                cn : [{
+                    cls: this.loadingSpinnerCls
+                }, {
+                    cls      : ['neo-loading-message'],
+                    html     : loadingMessage,
+                    removeDom: !Neo.isString(loadingMessage)
+                }]
+            }]
+        }
+    }
+
+    /**
      * Creates the tooltip instances
      * @param {Object|String} value
      * @protected
@@ -1869,6 +1883,7 @@ class Base extends CoreBase {
             let removeFn = function () {
                 if (me.parentId !== 'document.body') {
                     me.vdom.removeDom = true;
+                    me.parent.updateDepth = 2;
                     me.parent.update()
                 } else {
                     me.unmount()
@@ -1918,7 +1933,7 @@ class Base extends CoreBase {
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    isParentVdomUpdating(parentId=this.parentId, resolve, distance=1) {
+    isParentUpdating(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -1940,9 +1955,9 @@ class Base extends CoreBase {
 
                     // If an update is running and does not have a collision, we do not need to check further parents
                     return false
-                } else {
-                    return me.isParentVdomUpdating(parent.parentId, resolve, distance+1)
                 }
+
+                return me.isParentUpdating(parent.parentId, resolve, distance+1)
             }
         }
 
@@ -2053,22 +2068,24 @@ class Base extends CoreBase {
      * Checks the needsVdomUpdate config inside the parent tree
      * @param {String} parentId=this.parentId
      * @param {Function} [resolve] gets passed by updateVdom()
+     * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId, resolve) {
+    needsParentUpdate(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
 
             if (parent) {
-                if (parent.needsVdomUpdate) {
+                // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
+                if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
                     parent.resolveUpdateCache.push(...me.resolveUpdateCache);
                     resolve && parent.resolveUpdateCache.push(resolve);
                     me.resolveUpdateCache = [];
                     return true
-                } else {
-                    return me.needsParentUpdate(parent.parentId)
                 }
+
+                return me.needsParentUpdate(parent.parentId, resolve, distance+1)
             }
         }
 
@@ -2179,7 +2196,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
-    promiseUpdate(vdom = this.vdom, vnode = this.vnode) {
+    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
         return new Promise((resolve, reject) => {
             this.updateVdom(vdom, vnode, resolve, reject)
         })
@@ -2380,6 +2397,7 @@ class Base extends CoreBase {
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if (me.parentId !== 'document.body') {
+                me.parent.updateDepth = 2;
                 me.parent.update()
             } else {
                 !me.mounted && me.render(true)
@@ -2429,7 +2447,7 @@ class Base extends CoreBase {
 
         // we need one separate iteration first to ensure all wrapper nodes get registered
         childComponents.forEach(component => {
-            childVnode = VNodeUtil.findChildVnode(me.vnode, component.vdom.id)?.vnode;
+            childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
 
             if (childVnode) {
                 map[component.id] = childVnode;
@@ -2517,7 +2535,7 @@ class Base extends CoreBase {
     updateCls(cls, oldCls, id=this.id) {
         let me          = this,
             {vnode}     = me,
-            vnodeTarget = vnode && VNodeUtil.findChildVnode(me.vnode, {id})?.vnode;
+            vnodeTarget = vnode && VNodeUtil.find(me.vnode, {id})?.vnode;
 
         if (vnode && !Neo.isEqual(cls, oldCls)) {
             if (vnodeTarget) {
@@ -2549,7 +2567,7 @@ class Base extends CoreBase {
 
         if (delta) {
             vdom  = VDomUtil.find(me.vdom, id);
-            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id);
+            vnode = me.vnode && VNodeUtil.find(me.vnode, id);
 
             if (!me.hasUnmountedVdomChanges) {
                 me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
@@ -2600,24 +2618,8 @@ class Base extends CoreBase {
             {app, mounted, parentId} = me,
             listenerId;
 
-        // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
-        // child vdom trees. The if case should not happen, but in case it does, keeping the reference and merging
-        // the content over seems to be the best strategy
-        if (me._vdom !== vdom) {
-            Logger.warn('vdom got replaced for: ' + me.id + '. Copying the content into the reference holder object');
-
-            Object.keys(me._vdom).forEach(key => {
-                delete me._vdom[key]
-            });
-
-            vdom = Object.assign(me._vdom, vdom)
-        }
-
-        if (resolve && me.isVdomUpdating) {
-            me.resolveUpdateCache.push(resolve)
-        }
-
         if (me.isVdomUpdating || me.silentVdomUpdate) {
+            resolve && me.resolveUpdateCache.push(resolve);
             me.needsVdomUpdate = true
         } else {
             if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
@@ -2637,7 +2639,7 @@ class Base extends CoreBase {
 
                 if (
                     !me.needsParentUpdate(parentId, resolve)
-                    && !me.isParentVdomUpdating(parentId, resolve)
+                    && !me.isParentUpdating(parentId, resolve)
                     && mounted
                     && vnode
                 ) {
