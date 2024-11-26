@@ -20,7 +20,7 @@ class Compare extends Base {
      */
     static isEqual(item1, item2) {
         if (item1 === item2) {
-            return true;
+            return true
         }
 
         let type1 = Neo.typeOf(item1),
@@ -28,39 +28,39 @@ class Compare extends Base {
             key;
 
         if (type1 !== type2) {
-            return false;
+            return false
         }
 
         switch (type1) {
             case 'Array': {
                 if (item1.length !== item2.length) {
-                    return false;
+                    return false
                 }
 
                 for (const [i, v] of item1.entries()) {
                     if (!Compare.isEqual(v, item2[i])) {
-                        return false;
+                        return false
                     }
                 }
 
-                break;
+                break
             }
 
             case 'Date': {
-                return item1.valueOf() === item2.valueOf();
+                return item1.valueOf() === item2.valueOf()
             }
 
             case 'Function': {
                 if (item1.name !== item2.name) {
-                    return false;
+                    return false
                 }
 
-                return item1.toString() === item2.toString();
+                return item1.toString() === item2.toString()
             }
 
             case 'Map': {
                 if (item1.size !== item2.size) {
-                    return false;
+                    return false
                 }
 
                 let val2;
@@ -69,63 +69,63 @@ class Compare extends Base {
                     val2 = item2.get(key);
 
                     if (val2 !== val || val2 === undefined && !item2.has(key)) {
-                        return false;
+                        return false
                     }
                 }
 
-                break;
+                break
             }
 
             case 'NeoInstance': {
                 if (item1.id !== item2.id) {
-                    return false;
+                    return false
                 }
 
-                break;
+                break
             }
 
             case 'Object': {
                 if (Object.keys(item1).length !== Object.keys(item2).length) {
-                    return false;
+                    return false
                 }
 
                 for (key in item1) {
                     if (!Compare.isEqual(item1[key], item2[key])) {
-                        return false;
+                        return false
                     }
                 }
 
-                break;
+                break
             }
 
             case 'RegExp': {
                 if (item1.toString() !== item2.toString()) {
-                    return false;
+                    return false
                 }
 
-                break;
+                break
             }
 
             case 'Set': {
                 if (item1.size !== item2.size) {
-                    return false;
+                    return false
                 }
 
                 for (key of item1) {
                     if (!item2.has(key)) {
-                        return false;
+                        return false
                     }
                 }
 
-                break;
+                break
             }
 
             default: {
-                return item1 === item2;
+                return item1 === item2
             }
         }
 
-        return true;
+        return true
     }
 }
 
