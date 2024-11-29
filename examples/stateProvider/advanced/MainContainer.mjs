@@ -1,7 +1,7 @@
-import ComponentModel          from '../../../src/model/Component.mjs';
 import DisplayField            from '../../../src/form/field/Display.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
+import StateProvider           from '../../../src/state/Provider.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -21,9 +21,9 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object|Neo.model.Component} model
+         * @member {Object|Neo.state.Provider} stateProvider
          */
-        model: {
+        stateProvider: {
             data: {
                 button1Text: 'Button 1',
                 button3Text: 'Button 3'
@@ -42,7 +42,7 @@ class MainContainer extends Viewport {
             module   : Panel,
             reference: 'panel',
 
-            model: {
+            stateProvider: {
                 data: {
                     button2Text: 'Button 2'
                 }
@@ -142,14 +142,14 @@ class MainContainer extends Viewport {
                 text   : 'Add a third button & textfield'
             }, {
                 ntype  : 'button',
-                handler: 'onLogMainModelIntoConsoleButtonClick',
+                handler: 'onLogMainStateProviderIntoConsoleButtonClick',
                 style  : {marginTop: '1em'},
-                text   : 'Log main model into console'
+                text   : 'Log main stateProvider into console'
             }, {
                 ntype  : 'button',
-                handler: 'onLogChildModelIntoConsoleButtonClick',
+                handler: 'onLogChildStateProviderIntoConsoleButtonClick',
                 style  : {marginTop: '1em'},
-                text   : 'Log child model into console'
+                text   : 'Log child stateProvider into console'
             }]
         }]
     }

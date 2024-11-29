@@ -81,15 +81,15 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onLogChildModelIntoConsoleButtonClick(data) {
-        console.log(this.getReference('panel').model)
+    onLogChildStateProviderIntoConsoleButtonClick(data) {
+        console.log(this.getReference('panel').stateProvider)
     }
 
     /**
      * @param {Object} data
      */
-    onLogMainModelIntoConsoleButtonClick(data) {
-        console.log(this.getModel())
+    onLogMainStateProviderIntoConsoleButtonClick(data) {
+        console.log(this.getStateProvider())
     }
 
     /**
@@ -124,14 +124,14 @@ class MainContainerController extends Controller {
      */
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
-        this.getReference('panel').getModel().setData('button1Text', value)
+        this.getReference('panel').getStateProvider().setData('button1Text', value)
     }
 
     /**
      * @param {String} value
      */
     updateButton2Text(value) {
-        this.getReference('panel').getModel().setData({
+        this.getReference('panel').getStateProvider().setData({
             button2Text: value
         })
     }
@@ -140,7 +140,7 @@ class MainContainerController extends Controller {
      * @param {String} value
      */
     updateButton3Text(value) {
-        this.getModel().data['button3Text'] = value
+        this.getStateProvider().data['button3Text'] = value
     }
 }
 
