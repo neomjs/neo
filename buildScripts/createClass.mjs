@@ -120,7 +120,7 @@ if (programOpts.info) {
                 'core.Base',
                 'data.Model',
                 'data.Store',
-                'model.Component',
+                'state.Provider',
                 'tab.Container',
                 'table.Container'
             ]
@@ -520,15 +520,15 @@ if (programOpts.info) {
                 break;
             }
 
-            case 'model.Component': {
-                baseType   = 'Neo.model.Component';
-                configName = 'model';
+            case 'state.Provider': {
+                baseType   = 'Neo.state.Provider';
+                configName = 'stateProvider';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Model');
+                index      = file.indexOf('StateProvider');
 
                 if (index > 0) {
-                    viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
+                    viewFile = path.join(classFolder, file.substring(0, index) + '.mjs');
 
                     if (fs.existsSync(viewFile)) {
                         adjustView({baseType, configName, importName, importPath, viewFile});
@@ -620,7 +620,7 @@ if (programOpts.info) {
             "        }]"
         );
 
-        baseClass === 'model.Component' && addComma(classContent).push(
+        baseClass === 'state.Provider' && addComma(classContent).push(
             "        /**",
             "         * @member {Object} data",
             "         */",
@@ -671,7 +671,7 @@ if (programOpts.info) {
             "        singleton: true"
         );
 
-        baseClass === 'model.Component' && addComma(classContent).push(
+        baseClass === 'state.Provider' && addComma(classContent).push(
             "        /**",
             "         * @member {Object} stores",
             "         */",
@@ -716,8 +716,8 @@ if (programOpts.info) {
             return 'controller.Component';
         }
 
-        if (className.endsWith('model')) {
-            return 'model.Component';
+        if (className.endsWith('stateprovider')) {
+            return 'state.Provider';
         }
 
         if (className.includes('table')) {
