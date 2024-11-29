@@ -45,8 +45,8 @@ class MainContainerController extends Controller {
                         hide: me.enableEditUserButton.bind(me, true)
                     },
 
-                    model: {
-                        parent: me.getModel()
+                    stateProvider: {
+                        parent: me.getStateProvider()
                     }
                 })
             })

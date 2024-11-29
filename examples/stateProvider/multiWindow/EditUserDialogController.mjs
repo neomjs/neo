@@ -17,7 +17,7 @@ class EditUserDialogController extends Controller {
      * @param {Object} data
      */
     onFirstnameTextFieldChange(data) {
-        this.getModel().setData({
+        this.getStateProvider().setData({
             'user.firstname': data.value || ''
         })
     }
@@ -26,7 +26,7 @@ class EditUserDialogController extends Controller {
      * @param {Object} data
      */
     onLastnameTextFieldChange(data) {
-        this.getModel().setData({
+        this.getStateProvider().setData({
             'user.lastname': data.value || ''
         })
     }

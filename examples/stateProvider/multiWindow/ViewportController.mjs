@@ -1,6 +1,6 @@
 import ComponentController from '../../../src/controller/Component.mjs';
-import ComponentModel      from '../../../src/model/Component.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
+import StateProvider       from '../../../src/state/Provider.mjs';
 
 /**
  * @class Neo.examples.stateProvider.multiWindow.ViewportController
@@ -12,9 +12,9 @@ class MainContainerController extends ComponentController {
      */
     connectedApps = []
     /**
-     * @member {Neo.model.Component|null} mainModel=null
+     * @member {Neo.state.Provider|null} mainStateProvider=null
      */
-    mainModel = null
+    mainStateProvider = null
 
     static config = {
         /**
@@ -46,14 +46,14 @@ class MainContainerController extends ComponentController {
     onAppConnect(data) {
         let me   = this,
             name = data.appName,
-            model, view;
+            stateProvider, view;
 
         console.log('onAppConnect', data);
 
         NeoArray.add(me.connectedApps, name);
 
-        if (!me.mainModel) {
-            model = {
+        if (!me.mainStateProvider) {
+            stateProvider = {
                 data: {
                     user: {
                         firstname: 'Tobias',
@@ -62,19 +62,19 @@ class MainContainerController extends ComponentController {
                 }
             };
         } else {
-            model = {
-                parent: me.mainModel
+            stateProvider = {
+                parent: me.mainStateProvider
             };
         }
 
         import('../multiWindow/MainContainer.mjs').then(module => {
             view = Neo.apps[name].mainView.add({
                 module: module.default,
-                model : model
+                stateProvider
             });
 
-            if (!me.mainModel) {
-                me.mainModel = view.model
+            if (!me.mainStateProvider) {
+                me.mainStateProvider = view.stateProvider
             }
         })
     }
