@@ -573,7 +573,7 @@ class Base extends CoreBase {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (Neo.currentWorker.isUsingViewModels && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (Neo.currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
@@ -1687,7 +1687,7 @@ class Base extends CoreBase {
      * @returns {Neo.state.Provider|null}
      */
     getStateProvider(ntype) {
-        if (!Neo.currentWorker.isUsingViewModels) {
+        if (!Neo.currentWorker.isUsingStateProviders) {
             return null
         }
 

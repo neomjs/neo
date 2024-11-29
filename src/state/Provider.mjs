@@ -80,7 +80,7 @@ class Provider extends Base {
      * @param {Object} config
      */
     construct(config) {
-        Neo.currentWorker.isUsingViewModels = true;
+        Neo.currentWorker.isUsingStateProviders = true;
         super.construct(config);
         this.bindings = {}
     }

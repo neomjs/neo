@@ -52,10 +52,10 @@ class App extends Base {
      */
     data = null
     /**
-     * @member {Boolean} isUsingViewModels=false
+     * @member {Boolean} isUsingStateProviders=false
      * @protected
      */
-    isUsingViewModels = false
+    isUsingStateProviders = false
     /**
      * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
      * before the json theme structure got loaded.
