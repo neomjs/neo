@@ -1,5 +1,5 @@
 {
-    "appPath"    : "examples/stateProvider/inlineNoModel/app.mjs",
+    "appPath"    : "examples/stateProvider/inlineNoStateProvider/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
     "mainPath"   : "./Main.mjs",

@@ -1,16 +1,16 @@
 import Controller from '../../../src/controller/Component.mjs';
 
 /**
- * @class Neo.examples.stateProvider.inlineNoModel.MainContainerController
+ * @class Neo.examples.stateProvider.inlineNoStateProvider.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Controller {
     static config = {
         /**
-         * @member {String} className='Neo.examples.stateProvider.inlineNoModel.MainContainerController'
+         * @member {String} className='Neo.examples.stateProvider.inlineNoStateProvider.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.stateProvider.inlineNoModel.MainContainerController',
+        className: 'Neo.examples.stateProvider.inlineNoStateProvider.MainContainerController',
         /**
          * @member {String} button1Text_='Button 1'
          */

@@ -4,16 +4,16 @@ import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Neo.examples.stateProvider.inlineNoModel.MainContainer
+ * @class Neo.examples.stateProvider.inlineNoStateProvider.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static config = {
         /**
-         * @member {String} className='Neo.examples.stateProvider.inlineNoModel.MainContainer'
+         * @member {String} className='Neo.examples.stateProvider.inlineNoStateProvider.MainContainer'
          * @protected
          */
-        className: 'Neo.examples.stateProvider.inlineNoModel.MainContainer',
+        className: 'Neo.examples.stateProvider.inlineNoStateProvider.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
@@ -45,7 +45,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'inline example without using a model.Component'
+                    text : 'inline example without using a state.Provider'
                 }, {
                     ntype: 'component',
                     flex : 1
