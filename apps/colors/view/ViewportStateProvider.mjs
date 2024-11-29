@@ -1,17 +1,17 @@
-import Component   from '../../../src/model/Component.mjs';
-import ColorsStore from '../store/Colors.mjs';
+import ColorsStore   from '../store/Colors.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
- * @class Colors.view.ViewportModel
- * @extends Neo.model.Component
+ * @class Colors.view.ViewportStateProvider
+ * @extends Neo.state.Provider
  */
-class ViewportModel extends Component {
+class ViewportStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Colors.view.ViewportModel'
+         * @member {String} className='Colors.view.ViewportStateProvider'
          * @protected
          */
-        className: 'Colors.view.ViewportModel',
+        className: 'Colors.view.ViewportStateProvider',
         /**
          * @member {Object} data
          */
@@ -48,4 +48,4 @@ class ViewportModel extends Component {
     }
 }
 
-export default Neo.setupClass(ViewportModel);
+export default Neo.setupClass(ViewportStateProvider);
