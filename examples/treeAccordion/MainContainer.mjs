@@ -3,9 +3,9 @@ import CheckBox              from '../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
 import NumberField           from '../../src/form/field/Number.mjs';
 import Panel                 from '../../src/container/Panel.mjs';
+import StateProvider         from '../../src/state/Provider.mjs';
 import Store                 from '../../src/data/Store.mjs';
 import ViewController        from '../../src/controller/Component.mjs';
-import ViewModel             from '../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.treeAccordion.MainContainer
@@ -103,7 +103,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.ntype({
             ntype: 'container',
 
-            model: {
+            stateProvider: {
                 data: {
                     selection: [{name: 'Please select something'}]
                 }
