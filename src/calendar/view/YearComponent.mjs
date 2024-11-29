@@ -44,7 +44,7 @@ class YearComponent extends Component {
          */
         cachedUpdate: null,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -73,7 +73,7 @@ class YearComponent extends Component {
          */
         eventIndicatorMedium_: 2,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -94,7 +94,7 @@ class YearComponent extends Component {
          */
         isUpdating_: false,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -131,7 +131,7 @@ class YearComponent extends Component {
          */
         showDisabledDays_: true,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
@@ -166,7 +166,7 @@ class YearComponent extends Component {
         ]},
         /**
          * 0-6 => Sun-Sat
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0

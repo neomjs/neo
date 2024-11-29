@@ -45,7 +45,7 @@ class EditEventContainer extends FormContainer {
          */
         endTimeFieldConfig: null,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Intl.DateTimeFormat|null} intlFormat_time=null
          * @protected
          */
@@ -177,7 +177,7 @@ class EditEventContainer extends FormContainer {
 
                 store: {
                     module  : CalendarStore,
-                    sourceId: me.model.getStore('calendars').id
+                    sourceId: me.stateProvider.getStore('calendars').id
                 },
 
                 ...me.calendarFieldConfig
