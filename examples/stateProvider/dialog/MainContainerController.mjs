@@ -31,8 +31,8 @@ class MainContainerController extends Controller {
                     appName        : me.component.appName,
                     closeAction    : 'hide',
 
-                    model: {
-                        parent: me.getModel()
+                    stateProvider: {
+                        parent: me.getStateProvider()
                     }
                 })
             })

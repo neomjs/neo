@@ -1,6 +1,6 @@
-import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
+import StateProvider           from '../../../src/state/Provider.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
@@ -19,10 +19,10 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object|Neo.model.Component} model
+         * @member {Object|Neo.state.Provider} stateProvider
          */
-        model: {
-            module: ComponentModel,
+        stateProvider: {
+            module: StateProvider,
 
             data: {
                 user: {
