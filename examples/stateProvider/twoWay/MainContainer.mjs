@@ -1,7 +1,7 @@
-import ComponentModel from '../../../src/model/Component.mjs';
-import Label          from '../../../src/component/Label.mjs';
-import TextField      from '../../../src/form/field/Text.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
+import TextField     from '../../../src/form/field/Text.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.stateProvider.twoWay.MainContainer
@@ -15,9 +15,9 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.stateProvider.twoWay.MainContainer',
         /**
-         * @member {Object|Neo.model.Component} model
+         * @member {Object|Neo.state.Provider} stateProvider
          */
-        model: {
+        stateProvider: {
             data: {
                 user: {
                     details: {
