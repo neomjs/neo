@@ -10,10 +10,10 @@ import TextField    from '../../../src/form/field/Text.mjs';
 class EditUserDialog extends Dialog {
     static config = {
         /**
-         * @member {String} className='Neo.examples.model.dialog.EditUserDialog'
+         * @member {String} className='Neo.examples.table.nestedRecordFields.EditUserDialog'
          * @protected
          */
-        className: 'Neo.examples.model.dialog.EditUserDialog',
+        className: 'Neo.examples.table.nestedRecordFields.EditUserDialog',
         /**
          * @member {String} closeAction='hide'
          */

@@ -12,10 +12,10 @@ import Viewport                from '../../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static config = {
         /**
-         * @member {String} className='Neo.examples.model.advanced.MainContainer'
+         * @member {String} className='Neo.examples.stateProvider.advanced.MainContainer'
          * @protected
          */
-        className: 'Neo.examples.model.advanced.MainContainer',
+        className: 'Neo.examples.stateProvider.advanced.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
