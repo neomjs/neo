@@ -1,18 +1,18 @@
-import Component           from '../../../../src/model/Component.mjs';
 import ContentSectionStore from '../../store/ContentSections.mjs';
 import ContentStore        from '../../store/Content.mjs';
+import StateProvider       from '../../../../src/state/Provider.mjs';
 
 /**
- * @class Portal.view.learn.MainContainerModel
- * @extends Neo.model.Component
+ * @class Portal.view.learn.MainContainerStateProvider
+ * @extends Neo.state.Provider
  */
-class MainContainerModel extends Component {
+class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.MainContainerModel'
+         * @member {String} className='Portal.view.learn.MainContainerStateProvider'
          * @protected
          */
-        className: 'Portal.view.learn.MainContainerModel',
+        className: 'Portal.view.learn.MainContainerStateProvider',
         /**
          * @member {String} contentBasePath='../../resources/data/deck/'
          */
@@ -155,4 +155,4 @@ class MainContainerModel extends Component {
     }
 }
 
-export default Neo.setupClass(MainContainerModel);
+export default Neo.setupClass(MainContainerStateProvider);

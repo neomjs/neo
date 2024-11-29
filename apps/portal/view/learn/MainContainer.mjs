@@ -1,10 +1,10 @@
-import Container               from '../../../../src/container/Base.mjs';
-import ContentTreeList         from './ContentTreeList.mjs';
-import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel      from './MainContainerModel.mjs';
-import PageContainer           from './PageContainer.mjs';
-import PageSectionsContainer   from './PageSectionsContainer.mjs';
-import Splitter                from '../../../../src/component/Splitter.mjs';
+import Container                  from '../../../../src/container/Base.mjs';
+import ContentTreeList            from './ContentTreeList.mjs';
+import MainContainerController    from './MainContainerController.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import PageContainer              from './PageContainer.mjs';
+import PageSectionsContainer      from './PageSectionsContainer.mjs';
+import Splitter                   from '../../../../src/component/Splitter.mjs';
 
 /**
  * @class Portal.view.learn.MainContainer
@@ -64,9 +64,9 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Neo.model.Component} model=MainContainerModel
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel
+        stateProvider: MainContainerStateProvider
     }
 }
 

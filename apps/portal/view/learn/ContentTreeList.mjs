@@ -83,7 +83,7 @@ class ContentTreeList extends TreeList {
     onStoreLoad() {
         super.onStoreLoad();
 
-        this.getModel().data.countPages = this.store.getCount()
+        this.getStateProvider().data.countPages = this.store.getCount()
     }
 }
 

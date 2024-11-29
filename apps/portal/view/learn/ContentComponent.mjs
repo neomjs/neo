@@ -174,7 +174,7 @@ class ContentComponent extends Component {
     async doFetchContent(record) {
         let me                  = this,
             {appName, windowId} = me,
-            path                = me.getModel().getData('contentPath'),
+            path                = me.getStateProvider().getData('contentPath'),
             baseConfigs, content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
 
         path += `/pages/${record.id.replaceAll('.', '/')}.md`;
@@ -380,7 +380,7 @@ class ContentComponent extends Component {
             }
         });
 
-        me.getModel().getStore('contentSections').data = storeData;
+        me.getStateProvider().getStore('contentSections').data = storeData;
 
         return contentArray.join('\n')
     }
