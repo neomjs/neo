@@ -1,9 +1,9 @@
-import FooterContainer         from './FooterContainer.mjs';
-import HeaderContainer         from './HeaderContainer.mjs';
-import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel      from './MainContainerModel.mjs';
-import TabContainer            from '../../../src/tab/Container.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import FooterContainer            from './FooterContainer.mjs';
+import HeaderContainer            from './HeaderContainer.mjs';
+import MainContainerController    from './MainContainerController.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import TabContainer               from '../../../src/tab/Container.mjs';
+import Viewport                   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Covid.view.MainContainer
@@ -86,9 +86,9 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {Neo.model.Component} model=MainContainerModel
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel
+        stateProvider: MainContainerStateProvider
     }
 }
 

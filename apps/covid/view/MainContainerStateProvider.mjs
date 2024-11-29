@@ -1,16 +1,16 @@
-import Component from '../../../src/model/Component.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
- * @class Covid.view.MainContainerModel
- * @extends Neo.model.Component
+ * @class Covid.view.MainContainerStateProvider
+ * @extends Neo.state.Provider
  */
-class MainContainerModel extends Component {
+class MainContainerModel extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Covid.view.MainContainerModel'
+         * @member {String} className='Covid.view.MainContainerStateProvider'
          * @protected
          */
-        className: 'Covid.view.MainContainerModel',
+        className: 'Covid.view.MainContainerStateProvider',
         /**
          * @member {Object} data
          */
