@@ -97,7 +97,7 @@ class TableContainerController extends ComponentController {
             }
 
             // the array is sorted by date ASC
-            Object.assign(dataArray[0], {
+            dataArray[0] && Object.assign(dataArray[0], {
                 dailyActive   : dataArray[0].active,
                 dailyCases    : dataArray[0].cases,
                 dailyDeaths   : dataArray[0].deaths,
