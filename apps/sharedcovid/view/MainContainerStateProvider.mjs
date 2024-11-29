@@ -2,7 +2,7 @@ import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
  * @class SharedCovid.view.MainContainerStateProvider
- * @extends Neo.model.Component
+ * @extends Neo.state.Provider
  */
 class MainContainerStateProvider extends StateProvider {
     static config = {
@@ -39,7 +39,7 @@ class MainContainerStateProvider extends StateProvider {
             if (key === 'country') {
                 Neo.Main.editRoute({
                     country: value
-                });
+                })
             }
         }
     }

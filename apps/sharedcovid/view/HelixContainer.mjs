@@ -253,8 +253,8 @@ class HelixContainer extends Container {
             parentId : me.id,
             reference: 'helix',
 
-            model: {
-                parent: me.getModel()
+            stateProvider: {
+                parent: me.getStateProvider()
             },
 
             ...me.helixConfig

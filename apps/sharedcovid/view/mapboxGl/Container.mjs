@@ -117,8 +117,8 @@ class Container extends BaseContainer {
             parentId : me.id,
             reference: 'mapboxglmap',
 
-            model: {
-                parent: me.getModel()
+            stateProvider: {
+                parent: me.getStateProvider()
             }
         });
 
