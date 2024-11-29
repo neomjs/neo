@@ -1,8 +1,0 @@
-{
-    "appPath"         : "examples/model/multiWindow/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "themes"          : ["neo-theme-dark"],
-    "useSharedWorkers": true
-}
