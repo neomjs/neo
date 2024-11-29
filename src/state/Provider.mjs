@@ -86,7 +86,7 @@ class Provider extends Base {
     }
 
     /**
-     * Adds a given key/value combination on this model level.
+     * Adds a given key/value combination on this stateProvider level.
      * The method is used by setData() & setDataAtSameLevel()
      * in case the  data property does not exist yet.
      * @param {String} key
@@ -161,7 +161,7 @@ class Provider extends Base {
             Object.entries(value).forEach(([key, storeValue]) => {
                 controller?.parseConfig(storeValue);
 
-                // support mapping string based listeners into the model instance
+                // support mapping string based listeners into the stateProvider instance
                 Object.entries(storeValue.listeners || {}).forEach(([listenerKey,listener]) => {
                     if (Neo.isString(listener) && Neo.isFunction(me[listener])) {
                         storeValue.listeners[listenerKey] = me[listener].bind(me)
@@ -190,7 +190,7 @@ class Provider extends Base {
 
     /**
      * Registers a new binding in case a matching data property does exist.
-     * Otherwise it will use the closest model with a match.
+     * Otherwise it will use the closest stateProvider with a match.
      * @param {String} componentId
      * @param {String} key
      * @param {String} value
@@ -201,16 +201,16 @@ class Provider extends Base {
             data    = me.getDataScope(key),
             scope   = data.scope,
             keyLeaf = data.key,
-            bindingScope, parentModel;
+            bindingScope, parentStateProvider;
 
         if (scope?.hasOwnProperty(keyLeaf)) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter
         } else {
-            parentModel = me.getParent();
+            parentStateProvider = me.getParent();
 
-            if (parentModel) {
-                parentModel.createBinding(componentId, key, value, formatter)
+            if (parentStateProvider) {
+                parentStateProvider.createBinding(componentId, key, value, formatter)
             } else {
                 console.error('No state.Provider found with the specified data property', componentId, keyLeaf, value)
             }
@@ -219,7 +219,7 @@ class Provider extends Base {
 
     /**
      * Registers a new binding in case a matching data property does exist.
-     * Otherwise, it will use the closest model with a match.
+     * Otherwise, it will use the closest stateProvider with a match.
      * @param {String} componentId
      * @param {String} formatter
      * @param {String} value
@@ -341,29 +341,29 @@ class Provider extends Base {
     }
 
     /**
-     * Access the closest data property inside the VM parent chain.
+     * Access the closest data property inside the parent chain.
      * @param {String} key
-     * @param {Neo.model.Component} originModel=this for internal usage only
+     * @param {Neo.state.Provider} originStateProvider=this for internal usage only
      * @returns {*} value
      */
-    getData(key, originModel=this) {
+    getData(key, originStateProvider=this) {
         let me      = this,
             data    = me.getDataScope(key),
             {scope} = data,
             keyLeaf = data.key,
-            parentModel;
+            parentStateProvider;
 
         if (scope?.hasOwnProperty(keyLeaf)) {
             return scope[keyLeaf]
         }
 
-        parentModel = me.getParent();
+        parentStateProvider = me.getParent();
 
-        if (!parentModel) {
-            console.error(`data property '${key}' does not exist.`, originModel)
+        if (!parentStateProvider) {
+            console.error(`data property '${key}' does not exist.`, originStateProvider)
         }
 
-        return parentModel.getData(key, originModel)
+        return parentStateProvider.getData(key, originStateProvider)
     }
 
     /**
@@ -471,7 +471,7 @@ class Provider extends Base {
     }
 
     /**
-     * Get the closest model inside the components parent tree
+     * Get the closest stateProvider inside the components parent tree
      * @returns {Neo.state.Provider|null}
      */
     getParent() {
@@ -481,56 +481,56 @@ class Provider extends Base {
             return parent
         }
 
-        return this.component.parent?.getModel() || null
+        return this.component.parent?.getStateProvider() || null
     }
 
     /**
      * Access the closest store inside the VM parent chain.
      * @param {String} key
-     * @param {Neo.state.Provider} originModel=this for internal usage only
+     * @param {Neo.state.Provider} originStateProvider=this for internal usage only
      * @returns {Neo.data.Store}
      */
-    getStore(key, originModel=this) {
+    getStore(key, originStateProvider=this) {
         let me       = this,
             {stores} = me,
-            parentModel;
+            parentStateProvider;
 
         if (stores?.hasOwnProperty(key)) {
             return stores[key]
         }
 
-        parentModel = me.getParent();
+        parentStateProvider = me.getParent();
 
-        if (!parentModel) {
-            console.error(`store '${key}' not found inside this model or parents.`, originModel)
+        if (!parentStateProvider) {
+            console.error(`store '${key}' not found inside this stateProvider or parents.`, originStateProvider)
         }
 
-        return parentModel.getStore(key, originModel)
+        return parentStateProvider.getStore(key, originStateProvider)
     }
 
     /**
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
-     * Passing an originModel param will try to set each key on the closest property match
-     * inside the parent model chain => setData()
-     * Not passing it will set all values on the model where the method gets called => setDataAtSameLevel()
+     * Passing an originStateProvider param will try to set each key on the closest property match
+     * inside the parent stateProvider chain => setData()
+     * Not passing it will set all values on the stateProvider where the method gets called => setDataAtSameLevel()
      * @param {Object|String} key
      * @param {*} value
-     * @param {Neo.state.Provider} [originModel]
+     * @param {Neo.state.Provider} [originStateProvider]
      * @protected
      */
-    internalSetData(key, value, originModel) {
+    internalSetData(key, value, originStateProvider) {
         let me = this,
-            data, keyLeaf, parentModel, scope;
+            data, keyLeaf, parentStateProvider, scope;
 
         if (Neo.isObject(value) && !value.isRecord) {
             Object.entries(value).forEach(([dataKey, dataValue]) => {
-                me.internalSetData(`${key}.${dataKey}`, dataValue, originModel)
+                me.internalSetData(`${key}.${dataKey}`, dataValue, originStateProvider)
             })
         } else if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
-                me.internalSetData(dataKey, dataValue, originModel)
+                me.internalSetData(dataKey, dataValue, originStateProvider)
             })
         } else {
             data    = me.getDataScope(key);
@@ -540,13 +540,13 @@ class Provider extends Base {
             if (scope?.hasOwnProperty(keyLeaf)) {
                 scope[keyLeaf] = value
             } else {
-                if (originModel) {
-                    parentModel = me.getParent();
+                if (originStateProvider) {
+                    parentStateProvider = me.getParent();
 
-                    if (parentModel) {
-                        parentModel.internalSetData(key, value, originModel)
+                    if (parentStateProvider) {
+                        parentStateProvider.internalSetData(key, value, originStateProvider)
                     } else {
-                        originModel.addDataProperty(key, value)
+                        originStateProvider.addDataProperty(key, value)
                     }
                 } else {
                     me.addDataProperty(key, value)
@@ -586,24 +586,24 @@ class Provider extends Base {
     onDataPropertyChange(key, value, oldValue) {
         let me      = this,
             binding = me.bindings && Neo.ns(key, false, me.bindings),
-            component, config, hierarchyData, model;
+            component, config, hierarchyData, stateProvider;
 
         if (binding) {
             hierarchyData = {};
 
             Object.entries(binding).forEach(([componentId, configObject]) => {
-                component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
-                config    = {};
-                model     = component.getModel() || me;
+                component     = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
+                config        = {};
+                stateProvider = component.getStateProvider() || me;
 
-                if (!hierarchyData[model.id]) {
-                    hierarchyData[model.id] = model.getHierarchyData()
+                if (!hierarchyData[stateProvider.id]) {
+                    hierarchyData[stateProvider.id] = stateProvider.getHierarchyData()
                 }
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
-                    // we can not call me.callFormatter(), since a data property inside a parent model
-                    // could have changed which is relying on data properties inside a closer model
-                    config[configField] = model.callFormatter(formatter, hierarchyData[model.id])
+                    // we can not call me.callFormatter(), since a data property inside a parent stateProvider
+                    // could have changed which is relying on data properties inside a closer stateProvider
+                    config[configField] = stateProvider.callFormatter(formatter, hierarchyData[stateProvider.id])
                 });
 
                 component?.set(config)
@@ -645,19 +645,17 @@ class Provider extends Base {
     }
 
     /**
-     * Removes all bindings for a given component id inside this model
-     * as well as inside all parent models.
+     * Removes all bindings for a given component id inside this stateProvider as well as inside all parent stateProviders.
      * @param {String} componentId
      */
     removeBindings(componentId) {
-        let me          = this,
-            parentModel = me.getParent();
+        let me = this;
 
         Object.entries(me.bindings).forEach(([dataProperty, binding]) => {
             delete binding[componentId]
         });
 
-        parentModel?.removeBindings(componentId)
+        me.getParent()?.removeBindings(componentId)
     }
 
     /**
@@ -672,7 +670,7 @@ class Provider extends Base {
 
         if (formulas) {
             if (!initialRun && (!data.key || !data.value)) {
-                console.warn('[ViewModel:formulas] missing key or value', data.key, data.value)
+                console.warn('[StateProvider:formulas] missing key or value', data.key, data.value)
             }
 
             for ([key, value] of Object.entries(formulas)) {
@@ -720,7 +718,7 @@ class Provider extends Base {
     }
 
     /**
-     * The method will assign all values to the closest model where it finds an existing key.
+     * The method will assign all values to the closest stateProvider where it finds an existing key.
      * In case no match is found inside the parent chain, a new data property will get generated.
      * @param {Object|String} key
      * @param {*} value
@@ -731,7 +729,7 @@ class Provider extends Base {
 
     /**
      * Use this method instead of setData() in case you want to enforce
-     * setting all keys on this instance instead of looking for matches inside parent models.
+     * setting all keys on this instance instead of looking for matches inside parent stateProviders.
      * @param {Object|String} key
      * @param {*} value
      */
