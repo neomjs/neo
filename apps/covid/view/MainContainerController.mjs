@@ -119,16 +119,14 @@ class MainContainerController extends ComponentController {
     applySummaryData(data) {
         let me        = this,
             container = me.getReference('total-stats'),
-            {vdom}    = container;
+            vdom;
 
         me.summaryData = data;
 
-        vdom.cn[0].cn[1].html = Util.formatNumber({value: data.cases});
-        vdom.cn[1].cn[1].html = Util.formatNumber({value: data.active});
-        vdom.cn[2].cn[1].html = Util.formatNumber({value: data.recovered});
-        vdom.cn[3].cn[1].html = Util.formatNumber({value: data.deaths});
-
-        container.update();
+        container.items[0].vdom.cn[1].html = Util.formatNumber({value: data.cases});     container.items[0].update();
+        container.items[1].vdom.cn[1].html = Util.formatNumber({value: data.active});    container.items[1].update();
+        container.items[2].vdom.cn[1].html = Util.formatNumber({value: data.recovered}); container.items[2].update();
+        container.items[3].vdom.cn[1].html = Util.formatNumber({value: data.deaths});    container.items[3].update();
 
         container = me.getReference('last-update');
         vdom      = container.vdom;
