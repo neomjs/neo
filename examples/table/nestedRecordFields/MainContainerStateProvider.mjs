@@ -1,20 +1,20 @@
-import MainStore from './MainStore.mjs';
-import Model     from '../../../src/model/Component.mjs';
-import Store     from '../../../src/data/Store.mjs';
+import MainStore     from './MainStore.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
+import Store         from '../../../src/data/Store.mjs';
 
 const countrySymbol = Symbol.for('country');
 
 /**
- * @class Neo.examples.table.nestedRecordFields.MainContainerModel
- * @extends Neo.model.Component
+ * @class Neo.examples.table.nestedRecordFields.MainContainerStateProvider
+ * @extends Neo.state.Provider
  */
-class MainContainerModel extends Model {
+class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Neo.examples.table.nestedRecordFields.MainContainerModel'
+         * @member {String} className='Neo.examples.table.nestedRecordFields.MainContainerStateProvider'
          * @protected
          */
-        className: 'Neo.examples.table.nestedRecordFields.MainContainerModel',
+        className: 'Neo.examples.table.nestedRecordFields.MainContainerStateProvider',
         /**
          * @member {Object} stores
          */
@@ -30,7 +30,7 @@ class MainContainerModel extends Model {
                     fields: [
                         {name: 'code'},
                         {name: 'name'}
-                    ]},
+                    ]}
             },
             mainStore: MainStore
         }
@@ -58,4 +58,4 @@ class MainContainerModel extends Model {
     }
 }
 
-export default Neo.setupClass(MainContainerModel);
+export default Neo.setupClass(MainContainerStateProvider);

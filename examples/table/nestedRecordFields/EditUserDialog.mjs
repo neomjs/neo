@@ -121,7 +121,7 @@ class EditUserDialog extends Dialog {
      */
     onSelectedFieldChange(data) {
         let me    = this,
-            store = me.getModel().getStore('mainStore');
+            store = me.getStateProvider().getStore('mainStore');
 
         if (data.value === false) {
             me.record.annotations.selected = false
