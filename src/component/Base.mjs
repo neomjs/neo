@@ -1681,36 +1681,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns this.stateProvider or the closest parent stateProvider
-     * @param {String} [ntype]
-     * @returns {Neo.state.Provider|null}
-     */
-    getStateProvider(ntype) {
-        if (!Neo.currentWorker.isUsingStateProviders) {
-            return null
-        }
-
-        let me = this,
-            provider;
-
-        if (!ntype) {
-            provider = me[closestProvider];
-
-            if (provider) {
-                return provider
-            }
-        }
-
-        provider = me.getConfigInstanceByNtype('state-provider', ntype);
-
-        if (!ntype) {
-            me[closestProvider] = provider
-        }
-
-        return provider
-    }
-
-    /**
      * Honors different item roots for mount / render OPs
      * @returns {String}
      */
@@ -1796,6 +1766,36 @@ class Base extends CoreBase {
      */
     getReference(value) {
         return this.down({reference: value})
+    }
+
+    /**
+     * Returns this.stateProvider or the closest parent stateProvider
+     * @param {String} [ntype]
+     * @returns {Neo.state.Provider|null}
+     */
+    getStateProvider(ntype) {
+        if (!Neo.currentWorker.isUsingStateProviders) {
+            return null
+        }
+
+        let me = this,
+            provider;
+
+        if (!ntype) {
+            provider = me[closestProvider];
+
+            if (provider) {
+                return provider
+            }
+        }
+
+        provider = me.getConfigInstanceByNtype('stateProvider', ntype);
+
+        if (!ntype) {
+            me[closestProvider] = provider
+        }
+
+        return provider
     }
 
     /**
