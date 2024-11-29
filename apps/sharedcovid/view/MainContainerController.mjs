@@ -131,10 +131,13 @@ class MainContainerController extends ComponentController {
 
         me.summaryData = data;
 
-        container.items[0].vdom.cn[1].html = Util.formatNumber({value: data.cases});     container.items[0].update();
-        container.items[1].vdom.cn[1].html = Util.formatNumber({value: data.active});    container.items[1].update();
-        container.items[2].vdom.cn[1].html = Util.formatNumber({value: data.recovered}); container.items[2].update();
-        container.items[3].vdom.cn[1].html = Util.formatNumber({value: data.deaths});    container.items[3].update();
+        container.items[0].vdom.cn[1].html = Util.formatNumber({value: data.cases});
+        container.items[1].vdom.cn[1].html = Util.formatNumber({value: data.active});
+        container.items[2].vdom.cn[1].html = Util.formatNumber({value: data.recovered});
+        container.items[3].vdom.cn[1].html = Util.formatNumber({value: data.deaths});
+
+        container.updateDepth = 2;
+        container.update();
 
         container = me.getReference('last-update');
         vdom      = container.vdom;
