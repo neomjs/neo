@@ -413,7 +413,7 @@ class MainContainerController extends ComponentController {
                 record = value && store.find('country', value)?.[0]
             }
 
-            this.getModel().setData({
+            this.getStateProvider().setData({
                 country      : value,
                 countryRecord: record || null
             })
@@ -444,7 +444,7 @@ class MainContainerController extends ComponentController {
                 return
             }
 
-            me.getModel().setData({
+            me.getStateProvider().setData({
                 country: country || null
             });
 
@@ -470,7 +470,7 @@ class MainContainerController extends ComponentController {
                     me.mapboxglMapHasData = true;
                 }
 
-                countryRecord = me.getModel().data.countryRecord;
+                countryRecord = me.getStateProvider().data.countryRecord;
                 countryRecord && MainContainerController.selectMapboxGlCountry(me.mapBoxView, countryRecord);
 
                 me.mapBoxView.autoResize();

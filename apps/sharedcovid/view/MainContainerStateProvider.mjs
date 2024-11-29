@@ -1,16 +1,16 @@
-import Component from '../../../src/model/Component.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
- * @class SharedCovid.view.MainContainerModel
+ * @class SharedCovid.view.MainContainerStateProvider
  * @extends Neo.model.Component
  */
-class MainContainerModel extends Component {
+class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='SharedCovid.view.MainContainerModel'
+         * @member {String} className='SharedCovid.view.MainContainerStateProvider'
          * @protected
          */
-        className: 'SharedCovid.view.MainContainerModel',
+        className: 'SharedCovid.view.MainContainerStateProvider',
         /**
          * @member {Object} data
          */
@@ -45,4 +45,4 @@ class MainContainerModel extends Component {
     }
 }
 
-export default Neo.setupClass(MainContainerModel);
+export default Neo.setupClass(MainContainerStateProvider);

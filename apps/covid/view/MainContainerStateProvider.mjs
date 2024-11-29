@@ -4,7 +4,7 @@ import StateProvider from '../../../src/state/Provider.mjs';
  * @class Covid.view.MainContainerStateProvider
  * @extends Neo.state.Provider
  */
-class MainContainerModel extends StateProvider {
+class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
          * @member {String} className='Covid.view.MainContainerStateProvider'
@@ -45,4 +45,4 @@ class MainContainerModel extends StateProvider {
     }
 }
 
-export default Neo.setupClass(MainContainerModel);
+export default Neo.setupClass(MainContainerStateProvider);
