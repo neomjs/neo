@@ -38,11 +38,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
+            handler: data => data.component.setState({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.setState({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -93,11 +93,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
+            handler: data => data.component.setState({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.setState({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -119,6 +119,9 @@ We also added 2 Buttons to change the value of each data prop, so that we can se
 update right away.
 
 Let us take a look at the Button handler:</br>
+`data.component.setState({world: 'Neo.mjs!'})`
+
+This is a shortcut syntax for:</br>
 `data.component.getStateProvider().setData({world: 'Neo.mjs!'})`
 
 data.component equals to the Button instance itself. Since the Button instance does not have its own stateProvider,
@@ -167,11 +170,11 @@ class MainView extends Container {
                 }
             }, {
                 module : Button,
-                handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
+                handler: data => data.component.setState({hello: 'Hi'}),
                 text   : 'Change Hello'
             }, {
                 module : Button,
-                handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
+                handler: data => data.component.setState({world: 'Neo.mjs!'}),
                 text   : 'Change World'
             }],
             layout: {ntype: 'vbox', align: 'start'}
@@ -230,11 +233,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({user: {firstname: 'Max'}}),
+            handler: data => data.component.setState({user: {firstname: 'Max'}}),
             text   : 'Change Firstname'
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({'user.lastname': 'Rahder'}),
+            handler: data => data.component.setState({'user.lastname': 'Rahder'}),
             text   : 'Change Lastname'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -251,10 +254,10 @@ We can bind to these nested props like before:</br>
 Any change of a nested data prop will directly get reflected into the bound components.
 
 We can update a nested data prop with passing its path:</br>
-`data => data.component.getStateProvider().setData({'user.lastname': 'Rahder'})`
+`data => data.component.setState({'user.lastname': 'Rahder'})`
 
 Or we can directly pass the object containing the change(s):</br>
-`data => data.component.getStateProvider().setData({user: {firstname: 'Max'}})`
+`data => data.component.setState({user: {firstname: 'Max'}})`
 
 Hint: This will not override left out nested data props (lastname in this case).
 
@@ -272,15 +275,11 @@ class EditUserDialogController extends Controller {
     }
 
     onFirstnameTextFieldChange(data) {
-        this.getStateProvider().setData({
-            'user.firstname': data.value || ''
-        })
+        this.setState({'user.firstname': data.value || ''})
     }
 
     onLastnameTextFieldChange(data) {
-        this.getStateProvider().setData({
-            'user.lastname': data.value || ''
-        })
+        this.setState({'user.lastname': data.value || ''})
     }
 }
 EditUserDialogController = Neo.setupClass(EditUserDialogController);
@@ -426,11 +425,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
+            handler: data => data.component.setState({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.setState({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}
