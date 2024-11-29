@@ -64,14 +64,14 @@ class SideNavList extends List {
     }
 
     /**
-     * Saves activeIndex & activeTitle into the closest view model
+     * Saves activeIndex & activeTitle into the closest stateProvider
      * @param {String[]} items
      */
     onSelect(items) {
         let me     = this,
             record = me.store.get(me.getItemRecordId(items[0]));
 
-        me.getModel().setData({
+        me.getStateProvider().setData({
             activeIndex: record.cardIndex,
             activeTitle: record.name
         })
@@ -89,7 +89,7 @@ class SideNavList extends List {
             }
         });
 
-        this.getModel().data.maxIndex = maxIndex;
+        this.getStateProvider().data.maxIndex = maxIndex;
 
         super.onStoreLoad()
     }

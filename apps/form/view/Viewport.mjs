@@ -1,8 +1,8 @@
-import BaseViewport       from '../../../src/container/Viewport.mjs';
-import FormContainer      from './FormContainer.mjs';
-import SideNavList        from './SideNavList.mjs';
-import ViewportController from './ViewportController.mjs';
-import ViewportModel      from './ViewportModel.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import FormContainer         from './FormContainer.mjs';
+import SideNavList           from './SideNavList.mjs';
+import ViewportController    from './ViewportController.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Form.view.Viewport
@@ -49,9 +49,9 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Neo.model.Component} model=ViewportModel
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
-        model: ViewportModel
+        stateProvider: ViewportStateProvider
     }
 }
 

@@ -30,14 +30,14 @@ class FormContainerController extends Component {
      * @param {Object} data
      */
     onNextPageButtonClick(data) {
-        this.getModel().data.activeIndex++;
+        this.getStateProvider().data.activeIndex++;
     }
 
     /**
      * @param {Object} data
      */
     onPrevPageButtonClick(data) {
-        this.getModel().data.activeIndex--;
+        this.getStateProvider().data.activeIndex--;
     }
 
     /**

@@ -1,17 +1,17 @@
-import Component    from '../../../src/model/Component.mjs';
-import SideNavStore from '../store/SideNav.mjs'
+import SideNavStore  from '../store/SideNav.mjs'
+import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
- * @class Form.view.ViewportModel
- * @extends Neo.model.Component
+ * @class Form.view.ViewportStateProvider
+ * @extends Neo.state.Provider
  */
-class ViewportModel extends Component {
+class ViewportStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Form.view.ViewportModel'
+         * @member {String} className='Form.view.ViewportStateProvider'
          * @protected
          */
-        className: 'Form.view.ViewportModel',
+        className: 'Form.view.ViewportStateProvider',
         /**
          * @member {Object} data
          */
@@ -90,4 +90,4 @@ class ViewportModel extends Component {
     }
 }
 
-export default Neo.setupClass(ViewportModel);
+export default Neo.setupClass(ViewportStateProvider);
