@@ -53,9 +53,9 @@
 }, {
     "id"       : 14,
     "image"    : "devmode/model-component-example.png",
-    "name"     : "View Models Example",
-    "sourceUrl": "examples/model/advanced",
-    "url"      : "dist/production/examples/model/advanced/index.html"
+    "name"     : "State Provider Example",
+    "sourceUrl": "examples/stateProvider/advanced",
+    "url"      : "dist/production/examples/stateProvider/advanced/index.html"
 }, {
     "id"       : 13,
     "image"    : "devmode/dragdrop.png",
