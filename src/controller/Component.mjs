@@ -137,7 +137,7 @@ class Component extends Base {
      */
     getStateProvider(sameLevelOnly=false) {
         let {component} = this;
-        return sameLevelOnly ? component.model : component.getStateProvider()
+        return sameLevelOnly ? component.stateProvider : component.getStateProvider()
     }
 
     /**
