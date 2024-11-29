@@ -141,7 +141,7 @@ class Component extends Base {
     }
 
     /**
-     * Convenience shortcut for accessing model.Component based data.Stores
+     * Convenience shortcut for accessing state.Provider based data.Stores
      * @param {String} key
      * @returns {Neo.data.Store}
      */
