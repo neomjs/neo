@@ -85,14 +85,14 @@ class Base extends CoreBase {
          */
         baseCls: [],
         /**
-         * Bind configs to model.Component data properties.
+         * Bind configs to state.Provider data properties.
          * Example for a button.Base:
          * @example
          * bind: {
          *     iconCls: data => `fa fa-{$data.icon}`,
          *     text   : data => data.foo.bar
          * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/model
+         * @see https://github.com/neomjs/neo/blob/dev/examples/stateProvider
          * @member {Object|null} bind=null
          */
         bind: null,
@@ -114,7 +114,7 @@ class Base extends CoreBase {
          */
         controller_: null,
         /**
-         * Convenience shortcut to access the data config of the closest model.Component.
+         * Convenience shortcut to access the data config of the closest state.Provider.
          * Read only.
          * @member {Object} data_=null
          * @protected
@@ -244,14 +244,9 @@ class Base extends CoreBase {
          */
         minWidth_: null,
         /**
-         * Optionally add a model.Component
-         * @member {Object|null} model_=null
-         */
-        model_: null,
-        /**
-         * Override specific model data properties.
+         * Override specific stateProvider data properties.
          * This will merge the content.
-         * @member {Object|null} model_=null
+         * @member {Object|null} modelData=null
          */
         modelData: null,
         /**
@@ -268,7 +263,7 @@ class Base extends CoreBase {
         needsVdomUpdate_: false,
         /**
          * If the parentId does not match a neo component id, you can manually set this value for finding
-         * view controllers or models.
+         * view controllers or state providers.
          * Use case: manually dropping components into a vdom structure
          * @member {Neo.component.Base|null} parentComponent_=null
          * @protected
@@ -324,6 +319,11 @@ class Base extends CoreBase {
          * @member {Boolean} silentVdomUpdate_=false
          */
         silentVdomUpdate_: false,
+        /**
+         * Optionally add a state.Provider to share state data with child components
+         * @member {Object|null} stateProvider_=null
+         */
+        stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style_=null
@@ -1167,8 +1167,7 @@ class Base extends CoreBase {
 
     /**
      * Triggered when accessing the data config
-     * Convenience shortcut which is expensive to use,
-     * since it will generate a merged parent model data map.
+     * Convenience shortcut which is expensive to use, since it will generate a merged parent state providers data map.
      * @param {Object} value
      * @protected
      */
@@ -1304,14 +1303,14 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the model config gets changed.
-     * Creates a model.Component instance if needed.
+     * Triggered before the stateProvider config gets changed.
+     * Creates a state.Provider instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.model.Component}
+     * @returns {Neo.state.Provider}
      * @protected
      */
-    beforeSetModel(value, oldValue) {
+    beforeSetStateProvider(value, oldValue) {
         oldValue?.destroy();
 
         if (value) {
@@ -1322,7 +1321,7 @@ class Base extends CoreBase {
                 defaultValues.data = me.modelData
             }
 
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', defaultValues)
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
         }
 
         return null
@@ -1482,7 +1481,7 @@ class Base extends CoreBase {
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        me.model = null; // triggers destroy()
+        me.stateProvider = null; // triggers destroy()
 
         me.bind && parentStateProvider?.removeBindings(me.id);
 
@@ -1682,7 +1681,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns this.model or the closest parent model
+     * Returns this.stateProvider or the closest parent stateProvider
      * @param {String} [ntype]
      * @returns {Neo.state.Provider|null}
      */
@@ -1912,7 +1911,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * We are using this method as a ctor hook here to add the initial model.Component & controller.Component parsing
+     * We are using this method as a ctor hook here to add the initial state.Provider & controller.Component parsing
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      */
