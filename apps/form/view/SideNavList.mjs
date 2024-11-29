@@ -71,7 +71,7 @@ class SideNavList extends List {
         let me     = this,
             record = me.store.get(me.getItemRecordId(items[0]));
 
-        me.getStateProvider().setData({
+        me.setState({
             activeIndex: record.cardIndex,
             activeTitle: record.name
         })

@@ -237,7 +237,7 @@ class MainContainerController extends ComponentController {
                 record = value && store.find('country', value)?.[0];
             }
 
-            this.getStateProvider().setData({
+            this.setState({
                 country      : value,
                 countryRecord: record || null
             });
@@ -266,7 +266,7 @@ class MainContainerController extends ComponentController {
             return
         }
 
-        me.getStateProvider().setData({
+        me.setState({
             country: country || null
         });
 

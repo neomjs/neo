@@ -124,14 +124,14 @@ class MainContainerController extends Controller {
      */
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
-        this.getReference('panel').getStateProvider().setData('button1Text', value)
+        this.getReference('panel').setState('button1Text', value)
     }
 
     /**
      * @param {String} value
      */
     updateButton2Text(value) {
-        this.getReference('panel').getStateProvider().setData({
+        this.getReference('panel').setState({
             button2Text: value
         })
     }

@@ -600,7 +600,7 @@ class MainContainer extends Container {
      * @param {String} data.value
      */
     onDateSelectorChange(data) {
-        data.oldValue !== undefined && this.getStateProvider().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`))
+        data.oldValue !== undefined && this.setState('currentDate', new Date(`${data.value}T00:00:00.000Z`))
     }
 
     /**

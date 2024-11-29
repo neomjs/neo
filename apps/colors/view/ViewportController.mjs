@@ -152,7 +152,7 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onChangeOpenWidgetsAsPopups(data) {
-        this.getStateProvider().setData('openWidgetsAsPopups', data.value)
+        this.setState('openWidgetsAsPopups', data.value)
     }
 
     /**
@@ -206,7 +206,7 @@ class ViewportController extends Controller {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS
 
-        me.getStateProvider().setData({isUpdating: true});
+        me.setState({isUpdating: true});
 
         if (!me.intervalId) {
             me.intervalId = setInterval(() => {
@@ -221,7 +221,7 @@ class ViewportController extends Controller {
     onStopButtonClick(data) {
         let me = this;
 
-        me.getStateProvider().setData({isUpdating: false});
+        me.setState({isUpdating: false});
 
         if (me.intervalId) {
             clearInterval(me.intervalId);

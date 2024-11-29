@@ -63,7 +63,7 @@ class MainContainerController extends Controller {
      * @param {String} value
      */
     updateButton2Text(value) {
-        this.getStateProvider().setData({
+        this.setState({
             'user.details.lastname': value
         })
     }

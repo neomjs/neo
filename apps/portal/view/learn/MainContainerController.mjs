@@ -34,7 +34,7 @@ class MainContainerController extends Controller {
             path: 'location.search',
             windowId
         }).then(data => {
-            this.getStateProvider().setData({
+            this.setState({
                 deck: getSearchParams(data).deck || 'learnneo'
             })
         })
@@ -60,16 +60,16 @@ class MainContainerController extends Controller {
 
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
-                me.getStateProvider().setData({
+                me.setState({
                     deck: getSearchParams(data).deck || 'learnneo'
-                });
+                })
             });
 
         // todo: target file does not exist inside the repo
         /*fetch('../../../../resources/data/deck/EditorConfig.json')
             .then(response => response.json()
                 .then(data =>
-                    me.getStateProvider().setData('editorConfig', data)
+                    me.setState('editorConfig', data)
                 ))*/
     }
 
