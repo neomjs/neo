@@ -156,7 +156,7 @@ class AccordionTree extends TreeList {
         store.items.forEach((record) => {
             const itemId   = me.getItemId(record[me.getKeyProperty()]),
                   vdom     = me.getVdomChild(itemId),
-                  itemVdom = VDomUtil.getByFlag(vdom, 'icon');
+                  itemVdom = VDomUtil.getByFlag(vdom, 'iconCls');
 
             if (record.isLeaf) {
                 itemVdom.removeDom = hide
