@@ -1,6 +1,6 @@
-import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
+import StateProvider           from '../../../src/state/Provider.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -20,10 +20,10 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object|Neo.model.Component} model
+         * @member {Object|Neo.state.Provider} stateProvider
          */
-        model: {
-            module: ComponentModel,
+        stateProvider: {
+            module: StateProvider,
 
             data: {
                 button1Text: 'Button 1',
@@ -57,7 +57,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'model.Component: inline definition'
+                    text : 'state.Provider: inline definition'
                 }, {
                     ntype: 'component',
                     flex : 1
@@ -105,9 +105,9 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype  : 'button',
-                handler: 'onLogModelIntoConsoleButtonClick',
+                handler: 'onLogStateProviderIntoConsoleButtonClick',
                 style  : {marginTop: '2em'},
-                text   : 'Log model into console'
+                text   : 'Log stateProvider into console'
             }]
         }]
     }
