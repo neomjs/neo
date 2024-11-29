@@ -131,6 +131,15 @@ class Component extends Base {
     }
 
     /**
+     * Convenience shortcut
+     * @param args
+     * @returns {*}
+     */
+    getState(...args) {
+        return this.getStateProvider().getData(...args)
+    }
+
+    /**
      * sameLevelOnly=false will return the closest stateProvider inside the component parent tree,
      * in case there is none on the same level.
      * @param {Boolean} [sameLevelOnly=false]
@@ -266,6 +275,14 @@ class Component extends Base {
         }
 
         me.getParent()?.removeReference(component)
+    }
+
+    /**
+     * Convenience shortcut
+     * @param args
+     */
+    setState(...args) {
+        this.getStateProvider().setData(...args)
     }
 }
 

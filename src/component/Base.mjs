@@ -1769,6 +1769,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut
+     * @param args
+     * @returns {*}
+     */
+    getState(...args) {
+        return this.getStateProvider().getData(...args)
+    }
+
+    /**
      * Returns this.stateProvider or the closest parent stateProvider
      * @param {String} [ntype]
      * @returns {Neo.state.Provider|null}
@@ -2380,6 +2389,14 @@ class Base extends CoreBase {
      */
     setSilent(values = {}) {
         return this.set(values, true)
+    }
+
+    /**
+     * Convenience shortcut
+     * @param args
+     */
+    setState(...args) {
+        this.getStateProvider().setData(...args)
     }
 
     /**
