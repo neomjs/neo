@@ -1,8 +1,8 @@
+import ClassSystemUtil    from '../util/ClassSystem.mjs';
+import NeoArray           from '../util/Array.mjs';
 import TreeList           from '../tree/List.mjs';
-import TreeAccordionModel from "../selection/TreeAccordionModel.mjs";
-import NeoArray           from "../util/Array.mjs";
-import ClassSystemUtil    from "../util/ClassSystem.mjs";
-import VDomUtil           from "../util/VDom.mjs";
+import TreeAccordionModel from '../selection/TreeAccordionModel.mjs';
+import VDomUtil           from '../util/VDom.mjs';
 
 /**
  * @class Neo.tree.Accordion
