@@ -166,7 +166,7 @@ class EditContainer extends FormContainer {
 
         // todo: we could add a confirm dialog
 
-        me.getModel().getStore('calendars').remove(me.record);
+        me.getStateProvider().getStore('calendars').remove(me.record);
         me.unmount();
     }
 

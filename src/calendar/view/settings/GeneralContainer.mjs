@@ -273,7 +273,7 @@ class GeneralContainer extends Container {
      * @param {Object} data
      */
     onDataChange(data) {
-        this.getModel().setData(data.component.name, data.value)
+        this.getStateProvider().setData(data.component.name, data.value)
     }
 
     /**
@@ -281,7 +281,7 @@ class GeneralContainer extends Container {
      */
     onRadioDataChange(data) {
         if (data.value) {
-            this.getModel().setData(data.component.name, data.component.fieldValue)
+            this.getStateProvider().setData(data.component.name, data.component.fieldValue)
         }
     }
 }

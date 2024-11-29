@@ -148,7 +148,7 @@ class List extends ComponentList {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]))
+        this.getStateProvider().setData('activeCalendarId', this.getItemRecordId(items[0]))
     }
 
     /**

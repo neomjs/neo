@@ -1,21 +1,21 @@
 import CalendarsStore from '../store/Calendars.mjs';
 import ColorsStore    from '../store/Colors.mjs';
 import EventsStore    from '../store/Events.mjs';
-import Component      from '../../../src/model/Component.mjs';
+import StateProvider  from '../../../src/state/Provider.mjs';
 
 const todayDate = new Date();
 
 /**
- * @class Neo.calendar.view.MainContainerModel
- * @extends Neo.model.Component
+ * @class Neo.calendar.view.MainContainerStateProvider
+ * @extends Neo.state.Provider
  */
-class MainContainerModel extends Component {
+class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Neo.calendar.view.MainContainerModel'
+         * @member {String} className='Neo.calendar.view.MainContainerStateProvider'
          * @protected
          */
-        className: 'Neo.calendar.view.MainContainerModel',
+        className: 'Neo.calendar.view.MainContainerStateProvider',
         /**
          * @member {Object} data
          */
@@ -168,4 +168,4 @@ class MainContainerModel extends Component {
     }
 }
 
-export default Neo.setupClass(MainContainerModel);
+export default Neo.setupClass(MainContainerStateProvider);

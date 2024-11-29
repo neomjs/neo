@@ -250,7 +250,7 @@ class EditEventContainer extends FormContainer {
     onDeleteButtonClick(data) {
         let me = this;
 
-        me.getModel().getStore('events').remove(me.record);
+        me.getStateProvider().getStore('events').remove(me.record);
         me.unmount()
     }
 

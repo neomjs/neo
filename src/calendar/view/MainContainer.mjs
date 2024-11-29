@@ -1,11 +1,11 @@
-import CalendarsContainer    from './calendars/Container.mjs';
-import Container             from '../../container/Base.mjs';
-import DateSelector          from '../../component/DateSelector.mjs';
-import DateUtil              from '../../util/Date.mjs';
-import EditCalendarContainer from './calendars/EditContainer.mjs';
-import EditEventContainer    from './EditEventContainer.mjs';
-import MainContainerModel    from './MainContainerModel.mjs';
-import Toolbar               from '../../toolbar/Base.mjs';
+import CalendarsContainer         from './calendars/Container.mjs';
+import Container                  from '../../container/Base.mjs';
+import DateSelector               from '../../component/DateSelector.mjs';
+import DateUtil                   from '../../util/Date.mjs';
+import EditCalendarContainer      from './calendars/EditContainer.mjs';
+import EditEventContainer         from './EditEventContainer.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import Toolbar                    from '../../toolbar/Base.mjs';
 
 const todayDate = new Date();
 
@@ -103,10 +103,6 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
-         */
-        model: MainContainerModel,
-        /**
          * @member {Neo.calendar.view.Component|null} monthComponent=null
          */
         monthComponent: null,
@@ -139,6 +135,10 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          */
         sideBarWidth: 220,
+        /**
+         * @member {Neo.calendar.view.MainContainerStateProvider} stateProvider=MainContainerStateProvider
+         */
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
@@ -326,12 +326,12 @@ class MainContainer extends Container {
             let me = this;
 
             me._editCalendarContainer = value = Neo.create({
-                module  : EditCalendarContainer,
-                appName : me.appName,
-                model   : {parent: me.getModel()},
-                owner   : me,
-                width   : 250,
-                windowId: me.windowId,
+                module       : EditCalendarContainer,
+                appName      : me.appName,
+                owner        : me,
+                stateProvider: {parent: me.getStateProvider()},
+                width        : 250,
+                windowId     : me.windowId,
                 ...me.editCalendarContainerConfig
             })
         }
@@ -349,12 +349,12 @@ class MainContainer extends Container {
             let me = this;
 
             me._editEventContainer = value = Neo.create({
-                module  : EditEventContainer,
-                appName : me.appName,
-                model   : {parent: me.getModel()},
-                owner   : me,
-                width   : 250,
-                windowId: me.windowId,
+                module       : EditEventContainer,
+                appName      : me.appName,
+                owner        : me,
+                stateProvider: {parent: me.getStateProvider()},
+                width        : 250,
+                windowId     : me.windowId,
                 ...me.editEventContainerConfig
             })
         }
@@ -600,7 +600,7 @@ class MainContainer extends Container {
      * @param {String} data.value
      */
     onDateSelectorChange(data) {
-        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`))
+        data.oldValue !== undefined && this.getStateProvider().setData('currentDate', new Date(`${data.value}T00:00:00.000Z`))
     }
 
     /**
@@ -621,7 +621,7 @@ class MainContainer extends Container {
      * @param data
      */
     onTodayButtonClick(data) {
-        this.model.setData({
+        this.stateProvider.setData({
             currentDate: todayDate
         })
     }
@@ -656,7 +656,7 @@ class MainContainer extends Container {
 
         map[me.activeView]();
 
-        me.model.setData({currentDate})
+        me.stateProvider.setData({currentDate})
     }
 }
 
