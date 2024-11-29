@@ -32,7 +32,7 @@ class ViewportController extends Component {
      */
     async onValidatePageButtonClick(data) {
         let me          = this,
-            activeIndex = me.getModel().data.activeIndex,
+            activeIndex = me.getStateProvider().data.activeIndex,
             activeCard  = me.getReference('pages-container').items[activeIndex],
             formValues  = await activeCard.getSubmitValues();
 
@@ -48,10 +48,10 @@ class ViewportController extends Component {
      */
     async updateRecordValidityState(pageIndex=null) {
         let me             = this,
-            model          = me.getModel(),
+            stateProvider  = me.getStateProvider(),
             pagesContainer = me.getReference('pages-container'),
             sideNav        = me.getReference('side-nav'),
-            store          = model.getStore('sideNav'),
+            store          = stateProvider.getStore('sideNav'),
             i              = 0,
             len            = pagesContainer.items.length,
             formState, listIndex, page;
@@ -63,7 +63,7 @@ class ViewportController extends Component {
 
         for (; i < len; i++) {
             page      = pagesContainer.items[i];
-            listIndex = sideNav.getActiveIndex(i);
+            listIndex = sideNav.getSelectedIndex(i);
             formState = await page.getFormState();
 
             store.getAt(listIndex).formState = formState

@@ -55,7 +55,6 @@ class Base {
     /**
      * Configs will get merged throughout the class hierarchy
      * @returns {Object} config
-     * @tutorial 02_ClassSystem
      */
     static config = {
         /**

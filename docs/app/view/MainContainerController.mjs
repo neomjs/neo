@@ -38,8 +38,8 @@ class MainContainerController extends Component {
             opts    = {appName, windowId: me.component.windowId};
 
         if (appName === 'Portal') {
-            opts.highlightJsPath = '../../docs/resources/highlight/highlight.pack.js';
-            opts.themePath       = '../../docs/resources/highlightjs-custom-github-theme.css'
+            opts.highlightJsPath = '../../docs/resources/lib/highlight/highlight.pack.js';
+            opts.themePath       = '../../docs/resources/lib/highlightjs-custom-github-theme.css'
         }
 
         Neo.main.addon.HighlightJS.loadFiles(opts)
@@ -153,16 +153,16 @@ class MainContainerController extends Component {
 
         if (button.text === 'Source View Theme Light') {
             buttonText = 'Source View Theme Dark';
-            href       = './resources/highlightjs-custom-github-theme.css'
+            href       = './resources/lib/highlightjs-custom-github-theme.css'
         } else {
             buttonText = 'Source View Theme Light';
-            href       = './resources/highlightjs-custom-dark-theme.css'
+            href       = './resources/lib/highlightjs-custom-dark-theme.css'
         }
 
         Neo.main.addon.Stylesheet.swapStyleSheet({
-            appName: me.component.appName,
             href,
-            id     : 'hljs-theme'
+            id      : 'hljs-theme',
+            windowId: me.windowId,
         }).then(data => {
             button.text = buttonText
         })

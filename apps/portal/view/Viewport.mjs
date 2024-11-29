@@ -1,9 +1,9 @@
-import BaseViewport       from '../../../src/container/Viewport.mjs';
-import Container          from '../../../src/container/Base.mjs';
-import HeaderToolbar      from './HeaderToolbar.mjs';
-import NeoArray           from '../../../src/util/Array.mjs';
-import ViewportController from './ViewportController.mjs';
-import ViewportModel      from './ViewportModel.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import Container             from '../../../src/container/Base.mjs';
+import HeaderToolbar         from './HeaderToolbar.mjs';
+import NeoArray              from '../../../src/util/Array.mjs';
+import ViewportController    from './ViewportController.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Portal.view.Viewport
@@ -56,10 +56,6 @@ class Viewport extends BaseViewport {
             ]
         }],
         /**
-         * @member {Neo.model.Component} model=ViewportModel
-         */
-        model: ViewportModel,
-        /**
          * @member {Boolean} monitorSize=true
          */
         monitorSize: true,
@@ -67,7 +63,11 @@ class Viewport extends BaseViewport {
          * Values are: large, medium, small, xSmall
          * @member {String|null} size_=null
          */
-        size_: null
+        size_: null,
+        /**
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         */
+        stateProvider: ViewportStateProvider
     }
 
     /**
@@ -96,7 +96,7 @@ class Viewport extends BaseViewport {
             NeoArray.add(   cls, 'portal-size-' + value);
             me.cls = cls;
 
-            me.model.setData({size: value});
+            me.stateProvider.setData({size: value});
 
             me.controller.size = value
         }

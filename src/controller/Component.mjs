@@ -96,16 +96,6 @@ class Component extends Base {
     }
 
     /**
-     * sameLevelOnly=false will return the closest VM inside the component parent tree,
-     * in case there is none on the same level.
-     * @param {Boolean} [sameLevelOnly=false]
-     */
-    getModel(sameLevelOnly=false) {
-        let {component} = this;
-        return sameLevelOnly ? component.model : component.getModel()
-    }
-
-    /**
      * Get the closest controller inside the components parent tree
      * @returns {Neo.controller.Component|null}
      */
@@ -141,12 +131,31 @@ class Component extends Base {
     }
 
     /**
-     * Convenience shortcut for accessing model.Component based data.Stores
+     * Convenience shortcut
+     * @param args
+     * @returns {*}
+     */
+    getState(...args) {
+        return this.getStateProvider().getData(...args)
+    }
+
+    /**
+     * sameLevelOnly=false will return the closest stateProvider inside the component parent tree,
+     * in case there is none on the same level.
+     * @param {Boolean} [sameLevelOnly=false]
+     */
+    getStateProvider(sameLevelOnly=false) {
+        let {component} = this;
+        return sameLevelOnly ? component.stateProvider : component.getStateProvider()
+    }
+
+    /**
+     * Convenience shortcut for accessing state.Provider based data.Stores
      * @param {String} key
      * @returns {Neo.data.Store}
      */
     getStore(key) {
-        return this.getModel().getStore(key)
+        return this.getStateProvider().getStore(key)
     }
 
     /**
@@ -266,6 +275,14 @@ class Component extends Base {
         }
 
         me.getParent()?.removeReference(component)
+    }
+
+    /**
+     * Convenience shortcut
+     * @param args
+     */
+    setState(...args) {
+        this.getStateProvider().setData(...args)
     }
 }
 

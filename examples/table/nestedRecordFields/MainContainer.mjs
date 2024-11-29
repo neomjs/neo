@@ -1,7 +1,7 @@
-import Button             from '../../../src/button/Base.mjs';
-import MainContainerModel from './MainContainerModel.mjs';
-import TableContainer     from '../../../src/table/Container.mjs';
-import Viewport           from '../../../src/container/Viewport.mjs';
+import Button                     from '../../../src/button/Base.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import TableContainer             from '../../../src/table/Container.mjs';
+import Viewport                   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.table.nestedRecordFields.MainContainer
@@ -19,9 +19,9 @@ class MainContainer extends Viewport {
          */
         layout: 'fit',
         /**
-         * @member {Neo.model.Component} model=MainContainerModel
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel,
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Object} style={padding:'20px'}
          */
@@ -52,7 +52,7 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     countryRenderer({record}) {
-        let countryStore = this.getModel().getStore('countries');
+        let countryStore = this.getStateProvider().getStore('countries');
 
         if (countryStore.getCount() > 0) {
             return countryStore.get(record.country).name
@@ -76,7 +76,7 @@ class MainContainer extends Viewport {
                     module         : module.default,
                     animateTargetId: button.id,
                     appName,
-                    model          : {parent: me.getModel()},
+                    stateProvider  : {parent: me.getStateProvider()},
                     record,
                     windowId
                 })

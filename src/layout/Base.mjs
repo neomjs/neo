@@ -101,18 +101,18 @@ class Base extends CoreBase {
     destroy() {
         let me = this;
 
-        me.bind && me.container.getModel()?.removeBindings(me.id);
+        me.bind && me.getStateProvider()?.removeBindings(me.id);
 
         super.destroy()
     }
 
     /**
-     * Returns the container model or its closest parent model
+     * Returns the container stateProvider or its closest parent stateProvider
      * @param {String} [ntype]
-     * @returns {Neo.model.Component|null}
+     * @returns {Neo.state.Provider|null}
      */
-    getModel(ntype) {
-        return this.container.getModel()
+    getStateProvider(ntype) {
+        return this.container.getStateProvider(ntype)
     }
 
     /**
@@ -125,7 +125,7 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.bind && me.container.getModel()?.parseConfig(me)
+        me.bind && me.container.getStateProvider()?.parseConfig(me)
     }
 
     /**

@@ -48,7 +48,7 @@ class ViewportController extends Controller {
 
         url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
 
-        if (me.getModel().getData('openWidgetsAsPopups')) {
+        if (me.getStateProvider().getData('openWidgetsAsPopups')) {
             let widget                     = me.getReference(name),
                 winData                    = await Neo.Main.getWindowData({windowId} ),
                 rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
@@ -152,7 +152,7 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onChangeOpenWidgetsAsPopups(data) {
-        this.getModel().setData('openWidgetsAsPopups', data.value)
+        this.setState('openWidgetsAsPopups', data.value)
     }
 
     /**
@@ -206,7 +206,7 @@ class ViewportController extends Controller {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS
 
-        me.getModel().setData({isUpdating: true});
+        me.setState({isUpdating: true});
 
         if (!me.intervalId) {
             me.intervalId = setInterval(() => {
@@ -221,7 +221,7 @@ class ViewportController extends Controller {
     onStopButtonClick(data) {
         let me = this;
 
-        me.getModel().setData({isUpdating: false});
+        me.setState({isUpdating: false});
 
         if (me.intervalId) {
             clearInterval(me.intervalId);
@@ -244,11 +244,11 @@ class ViewportController extends Controller {
      * @param {Number|Object|null} value The new VM data property value
      */
     updateDataProperty(data, name, value) {
-        let model = this.getModel();
+        let stateProvider = this.getStateProvider();
 
-        model.setData(name, value);
+        stateProvider.setData(name, value);
 
-        if (data.oldValue !== null && !model.getData('isUpdating')) {
+        if (data.oldValue !== null && !stateProvider.getData('isUpdating')) {
             this.updateWidgets()
         }
     }
@@ -265,7 +265,7 @@ class ViewportController extends Controller {
         } else {
             // Depending on the delay of the Socket Connection,
             // the next data package could still contain the old settings
-            if (this.getModel().getData('amountRows') === records.length) {
+            if (this.getStateProvider().getData('amountRows') === records.length) {
                 store.data = records
             }
         }
@@ -275,13 +275,13 @@ class ViewportController extends Controller {
      *
      */
     updateWidgets() {
-        let me    = this,
-            model = me.getModel();
+        let me            = this,
+            stateProvider = me.getStateProvider();
 
         Colors.backend.ColorService.read({
-            amountColors : model.getData('amountColors'),
-            amountColumns: model.getData('amountColumns'),
-            amountRows   : model.getData('amountRows')
+            amountColors : stateProvider.getData('amountColors'),
+            amountColumns: stateProvider.getData('amountColumns'),
+            amountRows   : stateProvider.getData('amountRows')
         }).then(response => {
             if (!me.isDestroyed) {
                 let {data} = response;

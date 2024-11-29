@@ -252,7 +252,7 @@ class EventDragZone extends DragZone {
         // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
         // see: https://github.com/neomjs/neo/issues/2392
 
-        owner.getModel().getStore('events').doSort();
+        owner.getStateProvider().getStore('events').doSort();
         owner.updateEvents()
     }
 

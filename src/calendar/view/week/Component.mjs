@@ -53,7 +53,7 @@ class Component extends BaseComponent {
             weekStartDay        : data => data.weekStartDay
         },
         /**
-         * Bound to the view model
+         * Bound to the state provider
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -68,7 +68,7 @@ class Component extends BaseComponent {
          */
         columnsVisible_: 7,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Date|null} currentDate_=null
          * @protected
          */
@@ -80,13 +80,13 @@ class Component extends BaseComponent {
          */
         dayNameFormat_: 'short',
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Boolean} enableDrag_=true
          * @protected
          */
         enableDrag_: true,
         /**
-         * Bound to the view model
+         * Bound to the state provider
          * @member {String|null} eventBorder_=null
          */
         eventBorder_: null,
@@ -95,7 +95,7 @@ class Component extends BaseComponent {
          */
         eventDragZone: null,
         /**
-         * Bound to the view model
+         * Bound to the state provider
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -117,7 +117,7 @@ class Component extends BaseComponent {
          */
         intlFormat_day: null,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Intl.DateTimeFormat|null} intlFormat_time_=null
          * @protected
          */
@@ -128,12 +128,12 @@ class Component extends BaseComponent {
          */
         isUpdating: false,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
         /**
-         * Time in minutes. Bound to the view model.
+         * Time in minutes. Bound to the state provider.
          * @member {Number} minimumEventDuration=30
          * @protected
          */
@@ -164,7 +164,7 @@ class Component extends BaseComponent {
          */
         showEventEndTime_: false,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
@@ -206,7 +206,7 @@ class Component extends BaseComponent {
         ]},
         /**
          * 0-6 => Sun-Sat
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0

@@ -15,7 +15,7 @@ import VNodeUtil        from '../util/VNode.mjs';
 const
     addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController   = Symbol.for('closestController'),
-    closestModel        = Symbol.for('closestModel'),
+    closestProvider     = Symbol.for('closestProvider'),
     lengthRE            = /^\d+\w+$/,
     twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
@@ -85,14 +85,14 @@ class Base extends CoreBase {
          */
         baseCls: [],
         /**
-         * Bind configs to model.Component data properties.
+         * Bind configs to state.Provider data properties.
          * Example for a button.Base:
          * @example
          * bind: {
          *     iconCls: data => `fa fa-{$data.icon}`,
          *     text   : data => data.foo.bar
          * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/model
+         * @see https://github.com/neomjs/neo/blob/dev/examples/stateProvider
          * @member {Object|null} bind=null
          */
         bind: null,
@@ -114,7 +114,7 @@ class Base extends CoreBase {
          */
         controller_: null,
         /**
-         * Convenience shortcut to access the data config of the closest model.Component.
+         * Convenience shortcut to access the data config of the closest state.Provider.
          * Read only.
          * @member {Object} data_=null
          * @protected
@@ -244,14 +244,9 @@ class Base extends CoreBase {
          */
         minWidth_: null,
         /**
-         * Optionally add a model.Component
-         * @member {Object|null} model_=null
-         */
-        model_: null,
-        /**
-         * Override specific model data properties.
+         * Override specific stateProvider data properties.
          * This will merge the content.
-         * @member {Object|null} model_=null
+         * @member {Object|null} modelData=null
          */
         modelData: null,
         /**
@@ -268,7 +263,7 @@ class Base extends CoreBase {
         needsVdomUpdate_: false,
         /**
          * If the parentId does not match a neo component id, you can manually set this value for finding
-         * view controllers or models.
+         * view controllers or state providers.
          * Use case: manually dropping components into a vdom structure
          * @member {Neo.component.Base|null} parentComponent_=null
          * @protected
@@ -324,6 +319,11 @@ class Base extends CoreBase {
          * @member {Boolean} silentVdomUpdate_=false
          */
         silentVdomUpdate_: false,
+        /**
+         * Optionally add a state.Provider to share state data with child components
+         * @member {Object|null} stateProvider_=null
+         */
+        stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style_=null
@@ -573,11 +573,11 @@ class Base extends CoreBase {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (Neo.currentWorker.isUsingViewModels && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (Neo.currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getModel()?.setData(binding.key, value)
+                this.getStateProvider()?.setData(binding.key, value)
             }
         }
     }
@@ -1167,13 +1167,12 @@ class Base extends CoreBase {
 
     /**
      * Triggered when accessing the data config
-     * Convenience shortcut which is expensive to use,
-     * since it will generate a merged parent model data map.
+     * Convenience shortcut which is expensive to use, since it will generate a merged parent state providers data map.
      * @param {Object} value
      * @protected
      */
     beforeGetData(value) {
-        return this.getModel().getHierarchyData()
+        return this.getStateProvider().getHierarchyData()
     }
 
     /**
@@ -1304,14 +1303,14 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the model config gets changed.
-     * Creates a model.Component instance if needed.
+     * Triggered before the stateProvider config gets changed.
+     * Creates a state.Provider instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.model.Component}
+     * @returns {Neo.state.Provider}
      * @protected
      */
-    beforeSetModel(value, oldValue) {
+    beforeSetStateProvider(value, oldValue) {
         oldValue?.destroy();
 
         if (value) {
@@ -1322,7 +1321,7 @@ class Base extends CoreBase {
                 defaultValues.data = me.modelData
             }
 
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', defaultValues)
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
         }
 
         return null
@@ -1469,9 +1468,9 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                 = this,
-            {parent, parentId} = me,
-            parentModel        = parent?.getModel(),
+        let me                  = this,
+            {parent, parentId}  = me,
+            parentStateProvider = parent?.getStateProvider(),
             parentVdom;
 
         me.revertFocus();
@@ -1482,9 +1481,9 @@ class Base extends CoreBase {
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        me.model = null; // triggers destroy()
+        me.stateProvider = null; // triggers destroy()
 
-        me.bind && parentModel?.removeBindings(me.id);
+        me.bind && parentStateProvider?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
             plugin.destroy()
@@ -1614,7 +1613,7 @@ class Base extends CoreBase {
     /**
      * Find an instance stored inside a config via optionally passing a ntype.
      * Returns this[configName] or the closest parent component with a match.
-     * Used by getController() & getModel()
+     * Used by getController() & getStateProvider()
      * @param {String} configName
      * @param {String} [ntype]
      * @returns {Neo.core.Base|null}
@@ -1679,36 +1678,6 @@ class Base extends CoreBase {
         }
 
         return Rectangle.clone(result)
-    }
-
-    /**
-     * Returns this.model or the closest parent model
-     * @param {String} [ntype]
-     * @returns {Neo.model.Component|null}
-     */
-    getModel(ntype) {
-        if (!Neo.currentWorker.isUsingViewModels) {
-            return null
-        }
-
-        let me = this,
-            model;
-
-        if (!ntype) {
-            model = me[closestModel];
-
-            if (model) {
-                return model
-            }
-        }
-
-        model = me.getConfigInstanceByNtype('model', ntype);
-
-        if (!ntype) {
-            me[closestModel] = model
-        }
-
-        return model
     }
 
     /**
@@ -1797,6 +1766,45 @@ class Base extends CoreBase {
      */
     getReference(value) {
         return this.down({reference: value})
+    }
+
+    /**
+     * Convenience shortcut
+     * @param args
+     * @returns {*}
+     */
+    getState(...args) {
+        return this.getStateProvider().getData(...args)
+    }
+
+    /**
+     * Returns this.stateProvider or the closest parent stateProvider
+     * @param {String} [ntype]
+     * @returns {Neo.state.Provider|null}
+     */
+    getStateProvider(ntype) {
+        if (!Neo.currentWorker.isUsingStateProviders) {
+            return null
+        }
+
+        let me = this,
+            provider;
+
+        if (!ntype) {
+            provider = me[closestProvider];
+
+            if (provider) {
+                return provider
+            }
+        }
+
+        provider = me.getConfigInstanceByNtype('stateProvider', ntype);
+
+        if (!ntype) {
+            me[closestProvider] = provider
+        }
+
+        return provider
     }
 
     /**
@@ -1912,7 +1920,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * We are using this method as a ctor hook here to add the initial model.Component & controller.Component parsing
+     * We are using this method as a ctor hook here to add the initial state.Provider & controller.Component parsing
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      */
@@ -1921,8 +1929,8 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.getController()?.parseConfig(me);
-        me.getModel()     ?.parseConfig(me)
+        me.getController()   ?.parseConfig(me);
+        me.getStateProvider()?.parseConfig(me)
     }
 
     /**
@@ -2381,6 +2389,14 @@ class Base extends CoreBase {
      */
     setSilent(values = {}) {
         return this.set(values, true)
+    }
+
+    /**
+     * Convenience shortcut
+     * @param args
+     */
+    setState(...args) {
+        this.getStateProvider().setData(...args)
     }
 
     /**

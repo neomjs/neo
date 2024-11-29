@@ -313,10 +313,10 @@ class Base extends Component {
             case 'NeoInstance': {
                 item.set(config);
 
-                // In case an item got created outside a VC or VM based hierarchy, there might be bindings or string
+                // In case an item got created outside a VC or stateProvider based hierarchy, there might be bindings or string
                 // based listeners which still need to get resolved.
-                item.getController()?.parseConfig(item);
-                item.getModel()     ?.parseConfig(item);
+                item.getController()   ?.parseConfig(item);
+                item.getStateProvider()?.parseConfig(item);
                 break
             }
 

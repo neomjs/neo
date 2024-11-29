@@ -1,11 +1,11 @@
-import ClassSystemUtil        from '../util/ClassSystem.mjs';
-import Container              from '../container/Base.mjs';
-import DateSelectorModel      from '../selection/DateSelectorModel.mjs';
-import DayViewComponent       from './DayViewComponent.mjs';
-import DateUtil               from '../util/Date.mjs';
-import NeoArray               from '../util/Array.mjs';
-import SelectorContainerModel from './SelectorContainerModel.mjs';
-import Toolbar                from '../toolbar/Base.mjs';
+import ClassSystemUtil                from '../util/ClassSystem.mjs';
+import Container                      from '../container/Base.mjs';
+import DateSelectorModel              from '../selection/DateSelectorModel.mjs';
+import DayViewComponent               from './DayViewComponent.mjs';
+import DateUtil                       from '../util/Date.mjs';
+import NeoArray                       from '../util/Array.mjs';
+import SelectorContainerStateProvider from './SelectorContainerStateProvider.mjs';
+import Toolbar                        from '../toolbar/Base.mjs';
 
 const todayDate = new Date();
 
@@ -115,10 +115,6 @@ class SelectorContainer extends Container {
          */
         minValue_: null,
         /**
-         * @member {Neo.model.Component} model=SelectorContainerModel
-         */
-        model: SelectorContainerModel,
-        /**
          * Used for wheel events. min value = 1.
          * A higher value means lesser sensitivity for wheel events
          * => you need to scroll "more" to trigger a month / year change
@@ -149,6 +145,10 @@ class SelectorContainer extends Container {
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
+        /**
+         * @member {Neo.state.Provider} stateProvider=SelectorContainerStateProvider
+         */
+        stateProvider: SelectorContainerStateProvider,
         /**
          * True to use sliding animations
          * @member {Boolean} useAnimations=true

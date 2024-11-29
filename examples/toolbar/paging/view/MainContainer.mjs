@@ -1,8 +1,8 @@
-import MainContainerController from './MainContainerController.mjs';
-import MainContainerModel      from './MainContainerModel.mjs';
-import PagingToolbar           from '../../../../src/toolbar/Paging.mjs';
-import UserTableContainer      from './UserTableContainer.mjs';
-import Viewport                from '../../../../src/container/Viewport.mjs';
+import MainContainerController    from './MainContainerController.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import PagingToolbar              from '../../../../src/toolbar/Paging.mjs';
+import UserTableContainer         from './UserTableContainer.mjs';
+import Viewport                   from '../../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.toolbar.paging.view.MainContainer
@@ -92,9 +92,9 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {Neo.model.Component} model=MainContainerModel
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel,
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Object} style={padding:'20px'}
          */

@@ -34,7 +34,7 @@ class MainContainerController extends Controller {
             path: 'location.search',
             windowId
         }).then(data => {
-            this.getModel().setData({
+            this.setState({
                 deck: getSearchParams(data).deck || 'learnneo'
             })
         })
@@ -60,16 +60,16 @@ class MainContainerController extends Controller {
 
         Neo.Main.getByPath({path: 'location.search'})
             .then(data => {
-                me.getModel().setData({
+                me.setState({
                     deck: getSearchParams(data).deck || 'learnneo'
-                });
+                })
             });
 
         // todo: target file does not exist inside the repo
         /*fetch('../../../../resources/data/deck/EditorConfig.json')
             .then(response => response.json()
                 .then(data =>
-                    me.getModel().setData('editorConfig', data)
+                    me.setState('editorConfig', data)
                 ))*/
     }
 
@@ -78,7 +78,7 @@ class MainContainerController extends Controller {
      * @returns {Promise<void>}
      */
     async onContentEdit(data) {
-        const vm = this.getModel();
+        const vm = this.getStateProvider();
         console.log(data);
         const editorConfig = vm.getData('editorConfig');
         const subDir = vm.getData('deck')
@@ -119,7 +119,7 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onNextPageButtonClick(data) {
-        this.navigateTo(this.getModel().getData('nextPageRecord').id)
+        this.navigateTo(this.getStateProvider().getData('nextPageRecord').id)
     }
 
     /**
@@ -133,14 +133,14 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onPreviousPageButtonClick(data) {
-        this.navigateTo(this.getModel().getData('previousPageRecord').id)
+        this.navigateTo(this.getStateProvider().getData('previousPageRecord').id)
     }
 
     /**
      * @param {Object} data
      */
     onRouteDefault(data) {
-        if (!this.getModel().data.currentPageRecord) {
+        if (!this.getStateProvider().data.currentPageRecord) {
             this.onRouteLearnItem({itemId: 'benefits.Introduction'})
         }
     }
@@ -150,14 +150,14 @@ class MainContainerController extends Controller {
      * @param {String} data.itemId
      */
     onRouteLearnItem(data) {
-        let model = this.getModel(),
-            store = model.getStore('contentTree');
+        let stateProvider = this.getStateProvider(),
+            store         = stateProvider.getStore('contentTree');
 
         if (store.getCount() > 0) {
-            model.data.currentPageRecord = store.get(data.itemId)
+            stateProvider.data.currentPageRecord = store.get(data.itemId)
         } else {
             store.on({
-                load : () => {model.data.currentPageRecord = store.get(data.itemId)},
+                load : () => {stateProvider.data.currentPageRecord = store.get(data.itemId)},
                 delay: 10,
                 once : true
             })

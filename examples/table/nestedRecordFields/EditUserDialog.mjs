@@ -10,10 +10,10 @@ import TextField    from '../../../src/form/field/Text.mjs';
 class EditUserDialog extends Dialog {
     static config = {
         /**
-         * @member {String} className='Neo.examples.model.dialog.EditUserDialog'
+         * @member {String} className='Neo.examples.table.nestedRecordFields.EditUserDialog'
          * @protected
          */
-        className: 'Neo.examples.model.dialog.EditUserDialog',
+        className: 'Neo.examples.table.nestedRecordFields.EditUserDialog',
         /**
          * @member {String} closeAction='hide'
          */
@@ -121,7 +121,7 @@ class EditUserDialog extends Dialog {
      */
     onSelectedFieldChange(data) {
         let me    = this,
-            store = me.getModel().getStore('mainStore');
+            store = me.getStateProvider().getStore('mainStore');
 
         if (data.value === false) {
             me.record.annotations.selected = false

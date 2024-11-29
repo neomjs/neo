@@ -74,7 +74,7 @@ if (programOpts.info) {
             type   : 'input',
             name   : 'className',
             message: 'Please choose the namespace for your class:',
-            default: 'Covid.view.MyContainer'
+            default: 'MyApp.view.MyContainer'
         });
 
         Object.assign(answers, answer);
@@ -95,7 +95,7 @@ if (programOpts.info) {
                 'core.Base',
                 'data.Model',
                 'data.Store',
-                'model.Component',
+                'state.Provider',
                 'tab.Container',
                 'table.Container'
             ]
@@ -221,8 +221,8 @@ function guessBaseClass(className) {
         return 'controller.Component';
     }
 
-    if (className.endsWith('model')) {
-        return 'model.Component';
+    if (className.endsWith('stateprovider')) {
+        return 'state.Provider';
     }
 
     if (className.includes('table')) {

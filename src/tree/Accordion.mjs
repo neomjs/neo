@@ -1,8 +1,8 @@
+import ClassSystemUtil    from '../util/ClassSystem.mjs';
+import NeoArray           from '../util/Array.mjs';
 import TreeList           from '../tree/List.mjs';
-import TreeAccordionModel from "../selection/TreeAccordionModel.mjs";
-import NeoArray           from "../util/Array.mjs";
-import ClassSystemUtil    from "../util/ClassSystem.mjs";
-import VDomUtil           from "../util/VDom.mjs";
+import TreeAccordionModel from '../selection/TreeAccordionModel.mjs';
+import VDomUtil           from '../util/VDom.mjs';
 
 /**
  * @class Neo.tree.Accordion
@@ -39,11 +39,6 @@ class AccordionTree extends TreeList {
          */
         baseCls: ['neo-tree-list'],
         /**
-         * Set to false to hide the initial root item
-         * @member {Boolean} firstParentIsVisible=true
-         */
-        firstParentIsVisible_: true,
-        /**
          * Define the field names for the store to show header, text and icon
          * @member {Object} fields={header:'name',icon:'iconCls',text:'content'}
          */
@@ -52,6 +47,11 @@ class AccordionTree extends TreeList {
             icon  : 'iconCls',
             text  : 'content'
         },
+        /**
+         * Set to false to hide the initial root item
+         * @member {Boolean} firstParentIsVisible=true
+         */
+        firstParentIsVisible_: true,
         /**
          * Set to false will auto expand root parent items and disallow collapsing
          * @member {Boolean} rootParentIsCollapsible=false
@@ -109,10 +109,12 @@ class AccordionTree extends TreeList {
      * @param {Boolean} oldValue
      */
     afterSetFirstParentIsVisible(value, oldValue) {
-        this[!value ? 'addCls' : 'removeCls']('first-parent-not-visible');
+        let firstRecord = this.store.first();
 
-        if (this.store.first()) {
-            this.store.first().visible = value
+        this.toggleCls('first-parent-not-visible', !value);
+
+        if (firstRecord) {
+            firstRecord.visible = value
         }
     }
 
@@ -154,7 +156,7 @@ class AccordionTree extends TreeList {
         store.items.forEach((record) => {
             const itemId   = me.getItemId(record[me.getKeyProperty()]),
                   vdom     = me.getVdomChild(itemId),
-                  itemVdom = VDomUtil.getByFlag(vdom, 'icon');
+                  itemVdom = VDomUtil.getByFlag(vdom, 'iconCls');
 
             if (record.isLeaf) {
                 itemVdom.removeDom = hide

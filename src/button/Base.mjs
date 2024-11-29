@@ -122,14 +122,14 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {tag: 'button', type: 'button', cn: [
-                    {tag: 'span', cls: ['neo-button-glyph']},
-                    {tag: 'span', cls: ['neo-button-text']},
-                    {cls: ['neo-button-badge']},
-                    {cls: ['neo-button-ripple-wrapper'], cn: [
-                            {cls: ['neo-button-ripple']}
-                        ]}
-                ]}
+        {tag: 'button', type: 'button', cn: [
+            {tag: 'span', cls: ['neo-button-glyph']},
+            {tag: 'span', cls: ['neo-button-text']},
+            {cls: ['neo-button-badge']},
+            {cls: ['neo-button-ripple-wrapper'], cn: [
+                {cls: ['neo-button-ripple']}
+            ]}
+        ]}
     }
 
     /**
@@ -272,11 +272,11 @@ class Base extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me         = this,
-                    isArray    = Array.isArray(value),
-                    items      = isArray ? value : value.items,
-                    menuConfig = isArray ? {} : value,
-                    model      = me.getModel(),
+                let me            = this,
+                    isArray       = Array.isArray(value),
+                    items         = isArray ? value : value.items,
+                    menuConfig    = isArray ? {} : value,
+                    stateProvider = me.getStateProvider(),
                     {appName, theme, windowId} = me,
 
                     config = Neo.merge({
@@ -295,8 +295,8 @@ class Base extends Component {
                     config.items = items
                 }
 
-                if (model) {
-                    config.model = {parent: model}
+                if (stateProvider) {
+                    config.stateProvider = {parent: stateProvider}
                 }
 
                 me.menuList = Neo.create(config)

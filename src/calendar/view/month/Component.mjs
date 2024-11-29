@@ -39,7 +39,7 @@ class Component extends BaseComponent {
             weekStartDay : data => data.weekStartDay
         },
         /**
-         * Bound to the view model
+         * Bound to the state provider
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -56,12 +56,12 @@ class Component extends BaseComponent {
          */
         dayNameFormat_: 'short',
         /**
-         * Bound to the view model
+         * Bound to the state provider
          * @member {String|null} eventBorder_=null
          */
         eventBorder_: null,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -93,7 +93,7 @@ class Component extends BaseComponent {
          */
         isScrolling: false,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -120,7 +120,7 @@ class Component extends BaseComponent {
          */
         scrollTaskId: null,
         /**
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
@@ -148,7 +148,7 @@ class Component extends BaseComponent {
         ]},
         /**
          * 0-6 => Sun-Sat
-         * Bound to the view model.
+         * Bound to the state provider.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0

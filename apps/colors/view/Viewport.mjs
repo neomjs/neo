@@ -1,10 +1,10 @@
-import BaseViewport       from '../../../src/container/Viewport.mjs';
-import BarChartComponent  from './BarChartComponent.mjs';
-import HeaderToolbar      from './HeaderToolbar.mjs';
-import PieChartComponent  from './PieChartComponent.mjs';
-import TableContainer     from './TableContainer.mjs';
-import ViewportController from './ViewportController.mjs';
-import ViewportModel      from './ViewportModel.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import BarChartComponent     from './BarChartComponent.mjs';
+import HeaderToolbar         from './HeaderToolbar.mjs';
+import PieChartComponent     from './PieChartComponent.mjs';
+import TableContainer        from './TableContainer.mjs';
+import ViewportController    from './ViewportController.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Colors.view.Viewport
@@ -46,9 +46,9 @@ class Viewport extends BaseViewport {
             reference: 'bar-chart'
         }],
         /**
-         * @member {Neo.model.Component} model=ViewportModel
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
-        model: ViewportModel
+        stateProvider: ViewportStateProvider
     }
 }
 

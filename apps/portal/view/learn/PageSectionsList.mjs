@@ -82,7 +82,7 @@ class PageSectionsList extends List {
     onStoreLoad() {
         super.onStoreLoad();
 
-        this.getModel().data.countSections = this.store.getCount()
+        this.getStateProvider().data.countSections = this.store.getCount()
     }
 }
 

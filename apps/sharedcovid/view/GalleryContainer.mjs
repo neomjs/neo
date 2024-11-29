@@ -207,8 +207,8 @@ class GalleryContainer extends Container {
             parentId : me.id,
             reference: 'gallery',
 
-            model: {
-                parent: me.getModel()
+            stateProvider: {
+                parent: me.getStateProvider()
             },
 
             ...me.galleryConfig
