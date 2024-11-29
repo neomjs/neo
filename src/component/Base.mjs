@@ -577,7 +577,7 @@ class Base extends CoreBase {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getModel()?.setData(binding.key, value)
+                this.getStateProvider()?.setData(binding.key, value)
             }
         }
     }
@@ -1173,7 +1173,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeGetData(value) {
-        return this.getModel().getHierarchyData()
+        return this.getStateProvider().getHierarchyData()
     }
 
     /**
@@ -1469,9 +1469,9 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                 = this,
-            {parent, parentId} = me,
-            parentModel        = parent?.getModel(),
+        let me                  = this,
+            {parent, parentId}  = me,
+            parentStateProvider = parent?.getStateProvider(),
             parentVdom;
 
         me.revertFocus();
@@ -1484,7 +1484,7 @@ class Base extends CoreBase {
 
         me.model = null; // triggers destroy()
 
-        me.bind && parentModel?.removeBindings(me.id);
+        me.bind && parentStateProvider?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
             plugin.destroy()
@@ -1614,7 +1614,7 @@ class Base extends CoreBase {
     /**
      * Find an instance stored inside a config via optionally passing a ntype.
      * Returns this[configName] or the closest parent component with a match.
-     * Used by getController() & getModel()
+     * Used by getController() & getStateProvider()
      * @param {String} configName
      * @param {String} [ntype]
      * @returns {Neo.core.Base|null}
@@ -1684,31 +1684,31 @@ class Base extends CoreBase {
     /**
      * Returns this.model or the closest parent model
      * @param {String} [ntype]
-     * @returns {Neo.model.Component|null}
+     * @returns {Neo.state.Provider|null}
      */
-    getModel(ntype) {
+    getStateProvider(ntype) {
         if (!Neo.currentWorker.isUsingViewModels) {
             return null
         }
 
         let me = this,
-            model;
+            provider;
 
         if (!ntype) {
-            model = me[closestProvider];
+            provider = me[closestProvider];
 
-            if (model) {
-                return model
+            if (provider) {
+                return provider
             }
         }
 
-        model = me.getConfigInstanceByNtype('model', ntype);
+        provider = me.getConfigInstanceByNtype('state-provider', ntype);
 
         if (!ntype) {
-            me[closestProvider] = model
+            me[closestProvider] = provider
         }
 
-        return model
+        return provider
     }
 
     /**
@@ -1921,8 +1921,8 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.getController()?.parseConfig(me);
-        me.getModel()     ?.parseConfig(me)
+        me.getController()   ?.parseConfig(me);
+        me.getStateProvider()?.parseConfig(me)
     }
 
     /**
