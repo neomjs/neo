@@ -1,6 +1,6 @@
-import MainContainerModel from '../../../src/calendar/view/MainContainerModel.mjs';
-import Viewport           from '../../../src/container/Viewport.mjs';
-import WeekComponent      from '../../../src/calendar/view/week/Component.mjs';
+import MainContainerStateProvider from '../../../src/calendar/view/MainContainerStateProvider.mjs';
+import Viewport                   from '../../../src/container/Viewport.mjs';
+import WeekComponent              from '../../../src/calendar/view/week/Component.mjs';
 
 /**
  * @class Neo.examples.calendar.weekview.MainContainer
@@ -24,10 +24,10 @@ class MainContainer extends Viewport {
          * configs. We have two options here:
          * 1. Extend Neo.calendar.view.week.Component and add the configs and view model there.
          * 2. Just drop them into a parent view.
-         * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
+         * @member {Neo.calendar.view.MainContainerStateProvider} stateProvider=MainContainerStateProvider
          */
-        model: {
-            module: MainContainerModel,
+        stateProvider: {
+            module: MainContainerStateProvider,
             data  : {
                 currentDate: new Date('2024-07-21')
             }
