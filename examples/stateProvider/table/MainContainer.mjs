@@ -1,6 +1,6 @@
-import MainContainerModel from './MainContainerModel.mjs';
-import TableContainer     from '../../../src/table/Container.mjs';
-import Viewport           from '../../../src/container/Viewport.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import TableContainer             from '../../../src/table/Container.mjs';
+import Viewport                   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class  Neo.examples.stateProvider.table.MainContainer
@@ -18,9 +18,9 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'fit'},
         /**
-         * @member {Object|Neo.model.Component} model=MainContainerModel
+         * @member {Object|Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel,
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Object} style
          */
