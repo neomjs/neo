@@ -15,7 +15,7 @@ import VNodeUtil        from '../util/VNode.mjs';
 const
     addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController   = Symbol.for('closestController'),
-    closestModel        = Symbol.for('closestModel'),
+    closestProvider     = Symbol.for('closestProvider'),
     lengthRE            = /^\d+\w+$/,
     twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
@@ -1695,7 +1695,7 @@ class Base extends CoreBase {
             model;
 
         if (!ntype) {
-            model = me[closestModel];
+            model = me[closestProvider];
 
             if (model) {
                 return model
@@ -1705,7 +1705,7 @@ class Base extends CoreBase {
         model = me.getConfigInstanceByNtype('model', ntype);
 
         if (!ntype) {
-            me[closestModel] = model
+            me[closestProvider] = model
         }
 
         return model
