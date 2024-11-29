@@ -1,19 +1,14 @@
-View models (VMs) in Neo.mjs are state providers.
-
 While Components can manage their own state using the Class Config System,
 you want to use VMs as soon as you want to share data properties with multiple child Components.
 
 Rules of thumb:
-1. Leaf Components inside the Component Tree (Container items) will most likely not need a VM.
-2. We can define multiple VMs as needed (they do communicate).
+1. Leaf Components inside the Component Tree (Container items) will not need a state provider.
+2. We can define multiple state providers as needed (they do communicate).
 3. We want to define shared state data properties as low inside the component tree as possible.
 
-We often reference a VM as `model.Component` (the class name inside Neo.mjs),
-other libraries or frameworks often call them Stores.
+Other libraries or frameworks often call state providers "Stores".
 
-Since we also have Data Stores (tabular data), we chose to use the name VM to avoid confusion.
-
-## Inline Models
+## Inline State Providers
 ### Direct Bindings
 <pre data-neo>
 import Button    from '../button/Base.mjs';
@@ -23,7 +18,7 @@ import Label     from '../component/Label.mjs';
 class MainView extends Container {
     static config = {
         className: 'Guides.vm1.MainView',
-        model: {
+        stateProvider: {
             data: {
                 hello: 'Hello',
                 world: 'world!'
@@ -43,11 +38,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({hello: 'Hi'}),
+            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -56,7 +51,7 @@ class MainView extends Container {
 MainView = Neo.setupClass(MainView);
 </pre>
 
-We use a Container with a VM containing the data props `hello` and `world`.
+We use a Container with a stateProvider containing the data props `hello` and `world`.
 Inside the Container are 2 Labels which bind their `text` config to a data prop directly.
 
 We can easily bind 1:1 to specific data props using the following syntax:</br>
@@ -71,7 +66,7 @@ import Label     from '../component/Label.mjs';
 class MainView extends Container {
     static config = {
         className: 'Guides.vm2.MainView',
-        model: {
+        stateProvider: {
             data: {
                 hello: 'Hello',
                 world: 'world!'
@@ -98,11 +93,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({hello: 'Hi'}),
+            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -111,7 +106,7 @@ class MainView extends Container {
 MainView = Neo.setupClass(MainView);
 </pre>
 
-We use a Container with a VM containing the data props `hello` and `world`.
+We use a Container with a stateProvider containing the data props `hello` and `world`.
 Inside the Container are 3 Labels which bind their `text` config to a combination of both data props.
 
 We are showcasing 3 different ways how you can define your binding (resulting in the same output).
@@ -124,12 +119,12 @@ We also added 2 Buttons to change the value of each data prop, so that we can se
 update right away.
 
 Let us take a look at the Button handler:</br>
-`data.component.getModel().setData({world: 'Neo.mjs!'})`
+`data.component.getStateProvider().setData({world: 'Neo.mjs!'})`
 
-data.component equals to the Button instance itself. Since the Button instance does not have its own VM,
-`getModel()` will return the closest VM inside the parent chain.
+data.component equals to the Button instance itself. Since the Button instance does not have its own stateProvider,
+`getStateProvider()` will return the closest stateProvider inside the parent chain.
 
-### Nested Inline Models
+### Nested Inline State Providers
 <pre data-neo>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
@@ -138,7 +133,7 @@ import Label     from '../component/Label.mjs';
 class MainView extends Container {
     static config = {
         className: 'Guides.vm3.MainView',
-        model: {
+        stateProvider: {
             data: {
                 hello: 'Hello'
             }
@@ -146,7 +141,7 @@ class MainView extends Container {
         layout: 'fit',
         items : [{
             module: Container,
-            model: {
+            stateProvider: {
                 data: {
                     world: 'world!'
                 }
@@ -172,11 +167,11 @@ class MainView extends Container {
                 }
             }, {
                 module : Button,
-                handler: data => data.component.getModel().setData({hello: 'Hi'}),
+                handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
                 text   : 'Change Hello'
             }, {
                 module : Button,
-                handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+                handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
                 text   : 'Change World'
             }],
             layout: {ntype: 'vbox', align: 'start'}
@@ -191,15 +186,15 @@ The output of this demo is supposed to exactly look the same like the previous d
 This time we nest our Labels into a Container with a fit layout.
 Just for demo purposes, we want to avoid overnesting inside real apps.
 
-Our top level VM now only contains the `hello` data prop, and we added a second VM inside the nested Container
-which contains the `world` data prop.
+Our top level stateProvider now only contains the `hello` data prop, and we added a second stateProvider inside the 
+nested Container which contains the `world` data prop.
 
-As a result, the bindings for all 3 Labels contain a combination of data props which live inside different VMs.
+As a result, the bindings for all 3 Labels contain a combination of data props which live inside different stateProviders.
 As long as these VMs are inside the parent hierarchy this works fine.
 
-The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the VM parent chain.
+The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the stateProvider parent chain.
 
-We can even change data props which live inside different VMs at once. As easy as this:</br>
+We can even change data props which live inside different stateProviders at once. As easy as this:</br>
 `setData({hello: 'foo', world: 'bar'})`
 
 Hint: Modify the example code (Button handler) to try it out right away!
@@ -213,7 +208,7 @@ import Label     from '../component/Label.mjs';
 class MainView extends Container {
     static config = {
         className: 'Guides.vm4.MainView',
-        model: {
+        stateProvider: {
             data: {
                 user: {
                     firstname: 'Tobias',
@@ -235,11 +230,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({user: {firstname: 'Max'}}),
+            handler: data => data.component.getStateProvider().setData({user: {firstname: 'Max'}}),
             text   : 'Change Firstname'
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({'user.lastname': 'Rahder'}),
+            handler: data => data.component.getStateProvider().setData({'user.lastname': 'Rahder'}),
             text   : 'Change Lastname'
         }],
         layout: {ntype: 'vbox', align: 'start'}
@@ -247,7 +242,7 @@ class MainView extends Container {
 }
 MainView = Neo.setupClass(MainView);
 </pre>
-Data props inside VMs can be nested. Our VM contains a `user` data prop as an object,
+Data props inside VMs can be nested. Our stateProvider contains a `user` data prop as an object,
 which contains the nested props `firstname` and `lastname`.
 
 We can bind to these nested props like before:</br>
@@ -256,10 +251,10 @@ We can bind to these nested props like before:</br>
 Any change of a nested data prop will directly get reflected into the bound components.
 
 We can update a nested data prop with passing its path:</br>
-`data => data.component.getModel().setData({'user.lastname': 'Rahder'})`
+`data => data.component.getStateProvider().setData({'user.lastname': 'Rahder'})`
 
 Or we can directly pass the object containing the change(s):</br>
-`data => data.component.getModel().setData({user: {firstname: 'Max'}})`
+`data => data.component.getStateProvider().setData({user: {firstname: 'Max'}})`
 
 Hint: This will not override left out nested data props (lastname in this case).
 
@@ -277,13 +272,13 @@ class EditUserDialogController extends Controller {
     }
 
     onFirstnameTextFieldChange(data) {
-        this.getModel().setData({
+        this.getStateProvider().setData({
             'user.firstname': data.value || ''
         })
     }
 
     onLastnameTextFieldChange(data) {
-        this.getModel().setData({
+        this.getStateProvider().setData({
             'user.lastname': data.value || ''
         })
     }
@@ -327,8 +322,8 @@ class MainContainerController extends Controller {
                 appName        : me.component.appName,
                 closeAction    : 'hide',
 
-                model: {
-                    parent: me.getModel()
+                stateProvider: {
+                    parent: me.getStateProvider()
                 }
             })
         } else {
@@ -342,7 +337,7 @@ class MainView extends Viewport {
     static config = {
         className : 'Guides.vm5.MainView',
         controller: MainContainerController,
-        model: {
+        stateProvider: {
             data: {
                 user: {
                     firstname: 'Tobias',
@@ -386,19 +381,19 @@ class MainView extends Viewport {
 MainView = Neo.setupClass(MainView);
 </pre>
 
-## Class based Models
-When your models contain many data props or need custom logic, you can easily move them into their own classes.
+## Class based State Providers
+When your stateProviders contain many data props or need custom logic, you can easily move them into their own classes.
 
 ### Direct Bindings
 <pre data-neo>
-import Button    from '../button/Base.mjs';
-import Container from '../container/Base.mjs';
-import Label     from '../component/Label.mjs';
-import ViewModel from '../model/Component.mjs';
+import Button        from '../button/Base.mjs';
+import Container     from '../container/Base.mjs';
+import Label         from '../component/Label.mjs';
+import StateProvider from '../state/Provider.mjs';
 
-class MainViewModel extends ViewModel {
+class MainViewStateProvider extends StateProvider {
     static config = {
-        className: 'Guides.vm6.MainViewModel',
+        className: 'Guides.vm6.MainViewStateProvider',
         data: {
             hello: 'Hello',
             world: 'world!'
@@ -410,12 +405,12 @@ class MainViewModel extends ViewModel {
         Neo.Main.log({value: `onDataPropertyChange: key: ${key}, value: ${value}, oldValue: ${oldValue}`})
     }
 }
-MainViewModel = Neo.setupClass(MainViewModel);
+MainViewStateProvider = Neo.setupClass(MainViewStateProvider);
 
 class MainView extends Container {
     static config = {
-        className: 'Guides.vm6.MainView',
-        model    : MainViewModel, // directly assign the imported module
+        className    : 'Guides.vm6.MainView',
+        stateProvider: MainViewStateProvider, // directly assign the imported module
 
         itemDefaults: {
             module: Label,
@@ -431,11 +426,11 @@ class MainView extends Container {
             }
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({hello: 'Hi'}),
+            handler: data => data.component.getStateProvider().setData({hello: 'Hi'}),
             text   : 'Change Hello'
         }, {
             module : Button,
-            handler: data => data.component.getModel().setData({world: 'Neo.mjs!'}),
+            handler: data => data.component.getStateProvider().setData({world: 'Neo.mjs!'}),
             text   : 'Change World'
         }],
         layout: {ntype: 'vbox', align: 'start'}

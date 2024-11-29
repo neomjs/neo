@@ -190,7 +190,7 @@ class Provider extends Base {
 
     /**
      * Registers a new binding in case a matching data property does exist.
-     * Otherwise it will use the closest stateProvider with a match.
+     * Otherwise, it will use the closest stateProvider with a match.
      * @param {String} componentId
      * @param {String} key
      * @param {String} value
