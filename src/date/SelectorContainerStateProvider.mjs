@@ -1,16 +1,16 @@
-import Component from '../model/Component.mjs';
+import StateProvider from '../state/Provider.mjs';
 
 /**
- * @class Neo.date.SelectorContainerModel
- * @extends Neo.model.Component
+ * @class Neo.date.SelectorContainerStateProvider
+ * @extends Neo.state.Provider
  */
-class SelectorContainerModel extends Component {
+class SelectorContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Neo.date.SelectorContainerModel'
+         * @member {String} className='Neo.date.SelectorContainerStateProvider'
          * @protected
          */
-        className: 'Neo.date.SelectorContainerModel',
+        className: 'Neo.date.SelectorContainerStateProvider',
         /**
          * @member {Object} data
          */
@@ -28,4 +28,4 @@ class SelectorContainerModel extends Component {
     }
 }
 
-export default Neo.setupClass(SelectorContainerModel);
+export default Neo.setupClass(SelectorContainerStateProvider);
