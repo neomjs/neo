@@ -1,8 +1,8 @@
-import MainContainerController from './MainContainerController.mjs'
-import MainContainerModel      from './MainContainerModel.mjs'
-import Panel                   from '../../../src/container/Panel.mjs';
-import TextField               from '../../../src/form/field/Text.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import MainContainerController    from './MainContainerController.mjs'
+import MainContainerStateProvider from './MainContainerStateProvider.mjs'
+import Panel                      from '../../../src/container/Panel.mjs';
+import TextField                  from '../../../src/form/field/Text.mjs';
+import Viewport                   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.stateProvider.extendedClass.MainContainer
@@ -20,9 +20,9 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object|Neo.model.Component} model=MainContainerModel
+         * @member {Object|Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        model: MainContainerModel,
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Object} style
          */
@@ -50,7 +50,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'model.Component: extended class'
+                    text : 'state.Provider: extended class'
                 }, {
                     ntype: 'component',
                     flex : 1
@@ -102,9 +102,9 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype  : 'button',
-                handler: 'onLogModelIntoConsoleButtonClick',
+                handler: 'onLogStateProviderIntoConsoleButtonClick',
                 style  : {marginTop: '2em'},
-                text   : 'Log model into console'
+                text   : 'Log stateProvider into console'
             }]
         }]
     }

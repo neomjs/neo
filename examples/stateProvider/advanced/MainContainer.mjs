@@ -64,7 +64,7 @@ class MainContainer extends Viewport {
 
                 items: [{
                     ntype: 'label',
-                    text : 'model.Component: advanced'
+                    text : 'state.Provider: advanced'
                 }, {
                     ntype: 'component',
                     flex : 1

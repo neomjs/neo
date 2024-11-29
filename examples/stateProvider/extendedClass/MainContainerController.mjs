@@ -30,8 +30,8 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onLogModelIntoConsoleButtonClick(data) {
-        console.log(this.getModel())
+    onLogStateProviderIntoConsoleButtonClick(data) {
+        console.log(this.getStateProvider())
     }
 
     /**
@@ -56,14 +56,14 @@ class MainContainerController extends Controller {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value || ''
+        this.getStateProvider().data['button1Text'] = value || ''
     }
 
     /**
      * @param {String} value
      */
     updateButton2Text(value) {
-        this.getModel().setData({
+        this.getStateProvider().setData({
             button2Text: value || ''
         })
     }
