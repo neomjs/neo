@@ -276,8 +276,6 @@ class Helper extends Base {
             childNode    = childNodes[i];
             oldChildNode = oldChildNodes[i + indexDelta];
 
-            // console.log(childNode?.id, oldChildNode?.id);
-
             if (!childNode && !oldChildNode) {
                 break
             }
@@ -556,7 +554,7 @@ class Helper extends Base {
     }
 
     /**
-     * Creates a flap map of the tree, containing ids as keys and infos as values
+     * Creates a flat map of the tree, containing ids as keys and infos as values
      * @param {Object}         config
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Neo.vdom.VNode} [config.parentNode=null]
