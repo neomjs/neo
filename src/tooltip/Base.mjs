@@ -204,7 +204,7 @@ class Base extends Container {
                         const me = this;
 
                         // Revert last pointerOver config set to initial setting.
-                        me.set(me.resetCfg);
+                        me.setSilent(me.resetCfg);
                         me.resetCfg = {};
 
                         // Use the tooltip config block that the target was configured with
@@ -216,7 +216,7 @@ class Base extends Container {
                         for (const key in config) {
                             me.resetCfg[key] = me[key];
                         }
-
+console.log(config, me.vdom);
                         // Set ourself up as the target wants
                         me.set(config)
                     }
