@@ -200,8 +200,9 @@ class Base extends Container {
                 windowId    : app.mainView.windowId,
                 listeners : {
                     // Reconfigure on over a target
-                    async targetOver({ target, data }) {
-                        const me = this;
+                    targetOver({ target, data }) {
+                        let me = this,
+                            config, key;
 
                         // Revert last pointerOver config set to initial setting.
                         me.setSilent(me.resetCfg);
@@ -210,13 +211,13 @@ class Base extends Container {
                         // Use the tooltip config block that the target was configured with
                         // to reconfigure this instance, or if there was none, check the
                         // data-neo-tooltip property for a text string.
-                        const config = target?._tooltip || { text : data.target.data.neoTooltip };
+                        config = target?._tooltip || {text: data.target.data.neoTooltip};
 
                         // Cache things we have to reset
-                        for (const key in config) {
-                            me.resetCfg[key] = me[key];
+                        for (key in config) {
+                            me.resetCfg[key] = me[key]
                         }
-console.log(config, me.vdom);
+
                         // Set ourself up as the target wants
                         me.set(config)
                     }
