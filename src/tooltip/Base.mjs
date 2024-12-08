@@ -228,6 +228,15 @@ class Base extends Container {
         return singletons[app.name]
     }
 
+    // Used as a delegate filter to activate on targets which have a tooltip configuration
+    static delegateFilter(path) {
+        for (let i = 0, { length } = path; i < length; i++) {
+            if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
+                return i
+            }
+        }
+    }
+
     /**
      * Instantly hides the tooltip
      */
@@ -278,18 +287,8 @@ class Base extends Container {
             if (me.mounted) {
                 me.show();
                 me.alignTo()
-            }
-            else {
+            } else {
                 me.showDelayed(data)
-            }
-        }
-    }
-
-    // Used as a delegate filter to activate on targets which have a tooltip configuration
-    static delegateFilter(path) {
-        for (let i = 0, { length } = path; i < length; i++) {
-            if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
-                return i
             }
         }
     }
