@@ -5,12 +5,12 @@ const
     configSymbol = Symbol.for('configSymbol'),
     getSetCache  = Symbol('getSetCache'),
     typeDetector = {
-        function: (item) => {
+        function: item => {
             if (item.prototype?.constructor.isClass) {
                 return 'NeoClass'
             }
         },
-        object: (item) => {
+        object: item => {
             if (item.constructor.isClass && item instanceof Neo.core.Base) {
                 return 'NeoInstance'
             }

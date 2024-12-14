@@ -200,21 +200,22 @@ class Base extends Container {
                 windowId    : app.mainView.windowId,
                 listeners : {
                     // Reconfigure on over a target
-                    async targetOver({ target, data }) {
-                        const me = this;
+                    targetOver({ target, data }) {
+                        let me = this,
+                            config, key;
 
                         // Revert last pointerOver config set to initial setting.
-                        me.set(me.resetCfg);
+                        me.setSilent(me.resetCfg);
                         me.resetCfg = {};
 
                         // Use the tooltip config block that the target was configured with
                         // to reconfigure this instance, or if there was none, check the
                         // data-neo-tooltip property for a text string.
-                        const config = target?._tooltip || { text : data.target.data.neoTooltip };
+                        config = target?._tooltip || {text: data.target.data.neoTooltip};
 
                         // Cache things we have to reset
-                        for (const key in config) {
-                            me.resetCfg[key] = me[key];
+                        for (key in config) {
+                            me.resetCfg[key] = me[key]
                         }
 
                         // Set ourself up as the target wants
@@ -225,6 +226,15 @@ class Base extends Container {
         }
 
         return singletons[app.name]
+    }
+
+    // Used as a delegate filter to activate on targets which have a tooltip configuration
+    static delegateFilter(path) {
+        for (let i = 0, { length } = path; i < length; i++) {
+            if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
+                return i
+            }
+        }
     }
 
     /**
@@ -277,18 +287,8 @@ class Base extends Container {
             if (me.mounted) {
                 me.show();
                 me.alignTo()
-            }
-            else {
+            } else {
                 me.showDelayed(data)
-            }
-        }
-    }
-
-    // Used as a delegate filter to activate on targets which have a tooltip configuration
-    static delegateFilter(path) {
-        for (let i = 0, { length } = path; i < length; i++) {
-            if (path[i].cls.includes('neo-uses-shared-tooltip') || path[i].data['neoTooltip']) {
-                return i
             }
         }
     }
