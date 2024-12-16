@@ -182,10 +182,14 @@ class View extends Component {
     /**
      * @param {Object} opts
      * @param {Object} opts.record
-     * @param {Number} opts.rowIndex
+     * @param {Number} [opts.rowIndex]
      * @returns {Object}
      */
     createTableRow({record, rowIndex}) {
+        if (!Neo.isNumber(rowIndex)) {
+            rowIndex = this.store.indexOf(record)
+        }
+
         let me              = this,
             tableContainer  = me.parent,
             colspan         = record[me.colspanField],

@@ -62,7 +62,9 @@ class CellEditing extends Plugin {
                 windowId : me.windowId,
 
                 keys: {
-                    Enter: me.onEditorKeyEnter.bind(me)
+                    Enter : 'onEditorKeyEnter',
+                    Escape: 'onEditorKeyEscape',
+                    scope : me
                 }
             })
         } else {
@@ -84,7 +86,6 @@ class CellEditing extends Plugin {
     }
 
     /**
-     *
      * @param {Object} path
      * @param {Neo.form.field.Base} field
      */
@@ -92,6 +93,18 @@ class CellEditing extends Plugin {
         if (field.isValid()) {
             field.record[field.dataField] = field.value
         }
+    }
+
+    /**
+     * @param {Object} path
+     * @param {Neo.form.field.Base} field
+     */
+    onEditorKeyEscape(path, field) {
+        let tableView = this.owner.view,
+            rowIndex  = tableView.store.indexOf(field.record);
+
+        tableView.vdom.cn[rowIndex] = tableView.createTableRow({record: field.record, rowIndex});
+        tableView.update()
     }
 }
 

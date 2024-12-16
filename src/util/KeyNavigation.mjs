@@ -75,7 +75,7 @@ class KeyNavigation extends Base {
             upperCaseKey = me.parseUpperCaseKey(upperCaseKey);
 
             me.keys.forEach(key => {
-                scope = Neo.get(key.scope);
+                scope = Neo.isString(key.scope) ? Neo.get(key.scope) : key.scope;
 
                 if (key.key.toUpperCase() === upperCaseKey) {
                     if (Neo.isFunction(key.fn)) {
