@@ -144,6 +144,20 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @param {String} dataField
+     * @returns {Neo.button.Base|null}
+     */
+    getColumn(dataField) {
+        for (const item of this.items) {
+            if (item.dataField === dataField) {
+                return item
+            }
+        }
+
+        return null
+    }
+
+    /**
      * @param {String} dock
      * @returns {String} layoutConfig
      * @override
