@@ -54,13 +54,23 @@ class CellEditing extends Plugin {
             me.editors[dataField] = editor = Neo.create({
                 module   : TextField,
                 appName  : me.appName,
+                dataField,
                 hideLabel: true,
                 parentId : view.id,
+                record,
                 value    : record[dataField],
-                windowId : me.windowId
+                windowId : me.windowId,
+
+                keys: {
+                    Enter: me.onEditorKeyEnter.bind(me)
+                }
             })
         } else {
-            editor.setSilent({value: record[dataField]})
+            editor.setSilent({
+                dataField,
+                record,
+                value: record[dataField]
+            })
         }
 
         cellNode.cn = [editor.createVdomReference()];
@@ -71,6 +81,17 @@ class CellEditing extends Plugin {
         view.promiseUpdate().then(() => {
             editor.focus()
         })
+    }
+
+    /**
+     *
+     * @param {Object} path
+     * @param {Neo.form.field.Base} field
+     */
+    onEditorKeyEnter(path, field) {
+        if (field.isValid()) {
+            field.record[field.dataField] = field.value
+        }
     }
 }
 
