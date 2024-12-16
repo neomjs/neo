@@ -124,18 +124,10 @@ class CellEditing extends Plugin {
     /**
      * @param {Object} path
      * @param {Neo.form.field.Base} field
+     * @returns {Promise<void>}
      */
-    onEditorKeyEnter(path, field) {
-        if (field.isValid()) {
-            let fieldValue = field.record[field.dataField];
-
-            // We only get a record change event => UI update, in case there is a real change
-            if (fieldValue !== field.value) {
-                field.record[field.dataField] = field.value
-            } else {
-                this.unmountEditor()
-            }
-        }
+    async onEditorKeyEnter(path, field) {
+        await this.submitEditor()
     }
 
     /**
@@ -159,7 +151,7 @@ class CellEditing extends Plugin {
             index    = (oldIndex + 1) % store.getCount(),
             record   = store.getAt(index);
 
-        await me.unmountEditor();
+        await me.submitEditor();
         await me.mountEditor(record, field.dataField);
     }
 
@@ -168,6 +160,30 @@ class CellEditing extends Plugin {
      */
     async onFocusLeave() {
         await this.unmountEditor()
+    }
+
+    /**
+     * If the field is valid:
+     * Updates the record field, in case the value of the editor changed,
+     * otherwise unmounts the editor
+     * @returns {Promise<void>}
+     */
+    async submitEditor() {
+        let field = this.mountedEditor;
+
+        if (field?.isValid()) {
+            let fieldValue = field.record[field.dataField];
+
+            // We only get a record change event => UI update, in case there is a real change
+            if (fieldValue !== field.value) {
+                field.record[field.dataField] = field.value;
+
+                // Short delay to ensure the update OP is done
+                await this.timeout(50)
+            } else {
+                await this.unmountEditor()
+            }
+        }
     }
 
     /**
