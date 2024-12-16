@@ -72,6 +72,7 @@ class CellEditing extends Plugin {
             me.editors[dataField] = editor = Neo.create({
                 module   : TextField,
                 appName  : me.appName,
+                cls      : ['neo-table-editor'],
                 dataField,
                 hideLabel: true,
                 parentId : view.id,
