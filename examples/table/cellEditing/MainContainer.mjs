@@ -99,7 +99,7 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create(TableContainer, {
-            id            : 'myTableStoreContainer',
+            cellEditing   : true,
             selectionModel: CellModel,
             store         : MainStore,
 

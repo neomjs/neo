@@ -28,6 +28,11 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-table-container'],
         /**
+         * true uses table.plugin.CellEditing
+         * @member {Boolean} cellEditing_=false
+         */
+        cellEditing_: false,
+        /**
          * Default configs for each column
          * @member {Object} columnDefaults=null
          */
@@ -148,6 +153,29 @@ class Container extends BaseContainer {
         me.vdom.id = me.getWrapperId();
 
         me.createColumns(me.columns)
+    }
+
+    /**
+     * Triggered after the cellEditing config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCellEditing(value, oldValue) {
+        if (value) {
+            import('./plugin/CellEditing.mjs').then(module => {
+                let me         = this,
+                    {windowId} = me,
+                    plugins    = me.plugins || [];
+
+                plugins.push({
+                    module : module.default,
+                    windowId
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
