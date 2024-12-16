@@ -164,12 +164,13 @@ class Container extends BaseContainer {
     afterSetCellEditing(value, oldValue) {
         if (value) {
             import('./plugin/CellEditing.mjs').then(module => {
-                let me         = this,
-                    {windowId} = me,
-                    plugins    = me.plugins || [];
+                let me                  = this,
+                    {appName, windowId} = me,
+                    plugins             = me.plugins || [];
 
                 plugins.push({
                     module : module.default,
+                    appName,
                     windowId
                 });
 
