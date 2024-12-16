@@ -52,6 +52,11 @@ class CellEditing extends Plugin {
         super.destroy(...args)
     }
 
+    /**
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {Promise<void>}
+     */
     async mountEditor(record, dataField) {
         let me       = this,
             {view}   = me.owner,
