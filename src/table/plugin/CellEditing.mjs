@@ -51,17 +51,9 @@ class CellEditing extends Plugin {
         super.destroy(...args)
     }
 
-    /**
-     *
-     * @param {Object} data
-     * @param {Object} data.data
-     * @param {String} data.dataField
-     * @param {Object} data.record
-     * @param {Neo.table.View} data.view
-     * @returns {Promise<void>}
-     */
-    async onCellDoubleClick({data, dataField, record, view}) {
+    async mountEditor(record, dataField) {
         let me       = this,
+            {view}   = me.owner,
             cellId   = view.getCellId(record, dataField),
             cell     = VdomUtil.find(view.vdom, cellId),
             cellNode = cell.parentNode.cn[cell.index],
@@ -90,6 +82,7 @@ class CellEditing extends Plugin {
                 keys: {
                     Enter : 'onEditorKeyEnter',
                     Escape: 'onEditorKeyEscape',
+                    Tab   : 'onEditorKeyTab',
                     scope : me
                 }
             })
@@ -114,6 +107,19 @@ class CellEditing extends Plugin {
     }
 
     /**
+     *
+     * @param {Object} data
+     * @param {Object} data.data
+     * @param {String} data.dataField
+     * @param {Object} data.record
+     * @param {Neo.table.View} data.view
+     * @returns {Promise<void>}
+     */
+    async onCellDoubleClick({data, dataField, record, view}) {
+        await this.mountEditor(record, dataField)
+    }
+
+    /**
      * @param {Object} path
      * @param {Neo.form.field.Base} field
      */
@@ -130,6 +136,22 @@ class CellEditing extends Plugin {
      */
     async onEditorKeyEscape(path, field) {
         await this.unmountEditor()
+    }
+
+    /**
+     * @param {Object} path
+     * @param {Neo.form.field.Base} field
+     * @returns {Promise<void>}
+     */
+    async onEditorKeyTab(path, field) {
+        let me       = this,
+            store    = me.owner.store,
+            oldIndex = store.indexOf(field.record),
+            index    = (oldIndex + 1) % store.getCount(),
+            record   = store.getAt(index);
+
+        await me.unmountEditor();
+        await me.mountEditor(record, field.dataField);
     }
 
     /**
