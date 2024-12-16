@@ -106,7 +106,7 @@ class MainContainer extends ConfigurationViewport {
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id'},
+                {dataField: 'githubId',  text: 'Github Id', editable: false},
                 {dataField: 'country',   text: 'Country'}
             ]
         })

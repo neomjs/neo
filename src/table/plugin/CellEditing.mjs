@@ -58,16 +58,22 @@ class CellEditing extends Plugin {
      * @param {String} data.dataField
      * @param {Object} data.record
      * @param {Neo.table.View} data.view
+     * @returns {Promise<void>}
      */
     async onCellDoubleClick({data, dataField, record, view}) {
         let me       = this,
             cellId   = view.getCellId(record, dataField),
             cell     = VdomUtil.find(view.vdom, cellId),
             cellNode = cell.parentNode.cn[cell.index],
+            column   = me.owner.headerToolbar.getColumn(dataField),
             editor   = me.editors[dataField];
 
         if (me.mountedEditor) {
-            await me.unmountEditor(me.mountedEditor.record)
+            await me.unmountEditor()
+        }
+
+        if (column.editable === false) {
+            return
         }
 
         if (!editor) {
@@ -123,18 +129,23 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onEditorKeyEscape(path, field) {
-        await this.unmountEditor(field.record)
+        await this.unmountEditor()
     }
 
     /**
-     * @param record
      * @returns {Promise<void>}
      */
-    async unmountEditor(record) {
-        let tableView = this.owner.view,
+    async unmountEditor() {
+        if (!this.mountedEditor) {
+            return
+        }
+
+        let me        = this,
+            record    = me.mountedEditor.record,
+            tableView = me.owner.view,
             rowIndex  = tableView.store.indexOf(record);
 
-        this.mountedEditor = null;
+        me.mountedEditor = null;
 
         tableView.vdom.cn[rowIndex] = tableView.createTableRow({record, rowIndex});
         await tableView.promiseUpdate()
