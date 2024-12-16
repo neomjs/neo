@@ -36,6 +36,7 @@ class CellEditing extends Plugin {
 
         me.owner.on({
             cellDoubleClick: me.onCellDoubleClick,
+            focusLeave     : me.onFocusLeave,
             scope          : me
         })
     }
@@ -153,6 +154,13 @@ class CellEditing extends Plugin {
 
         await me.unmountEditor();
         await me.mountEditor(record, field.dataField);
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async onFocusLeave() {
+        await this.unmountEditor()
     }
 
     /**
