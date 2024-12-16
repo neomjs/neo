@@ -127,7 +127,14 @@ class CellEditing extends Plugin {
      */
     onEditorKeyEnter(path, field) {
         if (field.isValid()) {
-            field.record[field.dataField] = field.value
+            let fieldValue = field.record[field.dataField];
+
+            // We only get a record change event => UI update, in case there is a real change
+            if (fieldValue !== field.value) {
+                field.record[field.dataField] = field.value
+            } else {
+                this.unmountEditor()
+            }
         }
     }
 
