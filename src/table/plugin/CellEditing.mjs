@@ -20,6 +20,11 @@ class CellEditing extends Plugin {
      * @member {Object} editors={}
      */
     editors = {}
+    /**
+     * Storing the currently mounted editor
+     * @member {Neo.form.field.Base|null} mountedEditor=null
+     */
+    mountedEditor = null
 
     /**
      * @param {Object} config
@@ -54,12 +59,16 @@ class CellEditing extends Plugin {
      * @param {Object} data.record
      * @param {Neo.table.View} data.view
      */
-    onCellDoubleClick({data, dataField, record, view}) {
+    async onCellDoubleClick({data, dataField, record, view}) {
         let me       = this,
             cellId   = view.getCellId(record, dataField),
             cell     = VdomUtil.find(view.vdom, cellId),
             cellNode = cell.parentNode.cn[cell.index],
             editor   = me.editors[dataField];
+
+        if (me.mountedEditor) {
+            await me.unmountEditor(me.mountedEditor.record)
+        }
 
         if (!editor) {
             me.editors[dataField] = editor = Neo.create({
@@ -86,6 +95,8 @@ class CellEditing extends Plugin {
             })
         }
 
+        me.mountedEditor = editor;
+
         cellNode.cn = [editor.createVdomReference()];
         delete cellNode.innerHTML;
 
@@ -109,13 +120,24 @@ class CellEditing extends Plugin {
     /**
      * @param {Object} path
      * @param {Neo.form.field.Base} field
+     * @returns {Promise<void>}
      */
-    onEditorKeyEscape(path, field) {
-        let tableView = this.owner.view,
-            rowIndex  = tableView.store.indexOf(field.record);
+    async onEditorKeyEscape(path, field) {
+        await this.unmountEditor(field.record)
+    }
 
-        tableView.vdom.cn[rowIndex] = tableView.createTableRow({record: field.record, rowIndex});
-        tableView.update()
+    /**
+     * @param record
+     * @returns {Promise<void>}
+     */
+    async unmountEditor(record) {
+        let tableView = this.owner.view,
+            rowIndex  = tableView.store.indexOf(record);
+
+        this.mountedEditor = null;
+
+        tableView.vdom.cn[rowIndex] = tableView.createTableRow({record, rowIndex});
+        await tableView.promiseUpdate()
     }
 }
 
