@@ -108,9 +108,8 @@ class CellEditing extends Plugin {
 
         view.updateDepth = 2;
 
-        view.promiseUpdate().then(() => {
-            editor.focus()
-        })
+        await view.promiseUpdate();
+        editor.focus()
     }
 
     /**
