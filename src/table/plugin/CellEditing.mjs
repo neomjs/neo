@@ -36,6 +36,17 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @param {args} args
+     */
+    destroy(...args) {
+        Object.values(this.editors).forEach(editor => {
+            editor.destroy(false, true)
+        });
+
+        super.destroy(...args)
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {Object} data.data
