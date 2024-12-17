@@ -61,8 +61,7 @@ class CellEditing extends Plugin {
         let me       = this,
             {view}   = me.owner,
             cellId   = view.getCellId(record, dataField),
-            cell     = VdomUtil.find(view.vdom, cellId),
-            cellNode = cell.parentNode.cn[cell.index],
+            cellNode = VdomUtil.find(view.vdom, cellId).vdom,
             column   = me.owner.headerToolbar.getColumn(dataField),
             editor   = me.editors[dataField];
 
@@ -150,7 +149,7 @@ class CellEditing extends Plugin {
      */
     async onEditorKeyTab(path, field) {
         let me       = this,
-            store    = me.owner.store,
+            {store}  = me.owner,
             oldIndex = store.indexOf(field.record),
             index    = (oldIndex + 1) % store.getCount(),
             record   = store.getAt(index);
