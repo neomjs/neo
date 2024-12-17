@@ -95,7 +95,9 @@ class CellEditing extends Plugin {
                     Escape: 'onEditorKeyEscape',
                     Tab   : 'onEditorKeyTab',
                     scope : me
-                }
+                },
+
+                ...column.editor
             })
         } else {
             editor.setSilent({record, value: record[dataField]})
@@ -106,7 +108,7 @@ class CellEditing extends Plugin {
         cellNode.cn = [editor.createVdomReference()];
         delete cellNode.innerHTML;
 
-        view.updateDepth = 2;
+        view.updateDepth = -1;
 
         await view.promiseUpdate();
         editor.focus()
@@ -180,7 +182,7 @@ class CellEditing extends Plugin {
 
             // We only get a record change event => UI update, in case there is a real change
             if (fieldValue !== field.value) {
-                field.record[field.dataField] = field.value;
+                field.record[field.dataField] = field.getSubmitValue();
 
                 // Short delay to ensure the update OP is done
                 await this.timeout(50)

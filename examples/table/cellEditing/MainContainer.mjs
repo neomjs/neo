@@ -2,7 +2,8 @@ import CellColumnModel            from '../../../src/selection/table/CellColumnM
 import CellColumnRowModel         from '../../../src/selection/table/CellColumnRowModel.mjs';
 import CellModel                  from '../../../src/selection/table/CellModel.mjs';
 import CellRowModel               from '../../../src/selection/table/CellRowModel.mjs';
-import Checkbox                   from '../../../src/form/field/CheckBox.mjs';
+import CheckBox                   from '../../../src/form/field/CheckBox.mjs';
+import CountryField               from '../../../src/form/field/Country.mjs';
 import ConfigurationViewport      from '../../ConfigurationViewport.mjs';
 import MainContainerStateProvider from './MainContainerStateProvider.mjs';
 import MainStore                  from './MainStore.mjs';
@@ -83,13 +84,13 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }, {
-            module   : Checkbox,
+            module   : CheckBox,
             checked  : me.exampleComponent.sortable,
             labelText: 'sortable',
             listeners: {change: me.onConfigChange.bind(me, 'sortable')},
             style    : {marginTop: '10px'}
         }, {
-            module   : Checkbox,
+            module   : CheckBox,
             checked  : false,
             labelText: 'Fit width',
             listeners: {
@@ -131,8 +132,24 @@ class MainContainer extends ConfigurationViewport {
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id (Non-editable)', editable: false},
-                {dataField: 'country',   text: 'Country', renderer: 'up.countryRenderer'}
+                {
+                    dataField: 'githubId',
+                    editable : false,
+                    text     : 'Github Id (Non-editable)'
+                }, {
+                    dataField: 'country',
+                    renderer : 'up.countryRenderer',
+                    text     : 'Country',
+
+                    // Use a custom editor field
+                    editor: {
+                        module        : CountryField,
+                        bind          : {store: 'stores.countries'},
+                        clearable     : false,
+                        forceSelection: true,
+                        valueField    : 'code'
+                    }
+                }
             ]
         }
     }

@@ -9,9 +9,6 @@ class MainModel extends Model {
         className: 'Neo.examples.table.cellEditing.MainModel',
 
         fields: [{
-            name: 'colspan',
-            type: 'Object'
-        }, {
             name: 'country',
             type: 'String'
         }, {
