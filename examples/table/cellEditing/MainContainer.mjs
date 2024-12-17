@@ -98,15 +98,20 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.table.Container}
      */
     createExampleComponent() {
-        return Neo.create(TableContainer, {
+        return Neo.create({
+            module        : TableContainer,
             cellEditing   : true,
             selectionModel: CellModel,
             store         : MainStore,
 
+            columnDefaults: {
+                editable: true
+            },
+
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id', editable: false},
+                {dataField: 'githubId',  text: 'Github Id (Non-editable)', editable: false},
                 {dataField: 'country',   text: 'Country'}
             ]
         })

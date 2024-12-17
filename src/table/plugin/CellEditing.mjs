@@ -58,32 +58,33 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async mountEditor(record, dataField) {
-        let me       = this,
-            {view}   = me.owner,
-            cellId   = view.getCellId(record, dataField),
-            cellNode = VdomUtil.find(view.vdom, cellId).vdom,
-            column   = me.owner.headerToolbar.getColumn(dataField),
-            editor   = me.editors[dataField];
+        let me                  = this,
+            {appName, windowId} = me,
+            {view}              = me.owner,
+            cellId              = view.getCellId(record, dataField),
+            cellNode            = VdomUtil.find(view.vdom, cellId).vdom,
+            column              = me.owner.headerToolbar.getColumn(dataField),
+            editor              = me.editors[dataField];
 
         if (me.mountedEditor) {
             await me.unmountEditor()
         }
 
-        if (column.editable === false) {
+        if (!column.editable) {
             return
         }
 
         if (!editor) {
             me.editors[dataField] = editor = Neo.create({
                 module   : TextField,
-                appName  : me.appName,
+                appName,
                 cls      : ['neo-table-editor'],
                 dataField,
                 hideLabel: true,
                 parentId : view.id,
                 record,
                 value    : record[dataField],
-                windowId : me.windowId,
+                windowId,
 
                 keys: {
                     Enter : 'onEditorKeyEnter',
