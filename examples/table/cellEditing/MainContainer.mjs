@@ -1,13 +1,14 @@
-import CellColumnModel       from '../../../src/selection/table/CellColumnModel.mjs';
-import CellColumnRowModel    from '../../../src/selection/table/CellColumnRowModel.mjs';
-import CellModel             from '../../../src/selection/table/CellModel.mjs';
-import CellRowModel          from '../../../src/selection/table/CellRowModel.mjs';
-import Checkbox              from '../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import MainStore             from './MainStore.mjs';
-import NumberField           from '../../../src/form/field/Number.mjs';
-import Radio                 from '../../../src/form/field/Radio.mjs';
-import TableContainer        from '../../../src/table/Container.mjs';
+import CellColumnModel            from '../../../src/selection/table/CellColumnModel.mjs';
+import CellColumnRowModel         from '../../../src/selection/table/CellColumnRowModel.mjs';
+import CellModel                  from '../../../src/selection/table/CellModel.mjs';
+import CellRowModel               from '../../../src/selection/table/CellRowModel.mjs';
+import Checkbox                   from '../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport      from '../../ConfigurationViewport.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import MainStore                  from './MainStore.mjs';
+import NumberField                from '../../../src/form/field/Number.mjs';
+import Radio                      from '../../../src/form/field/Radio.mjs';
+import TableContainer             from '../../../src/table/Container.mjs';
 
 /**
  * @class Neo.examples.table.cellEditing.MainContainer
@@ -20,9 +21,26 @@ class MainContainer extends ConfigurationViewport {
         configItemLabelWidth: 130,
         configPanelFlex     : 1.5,
         exampleComponentFlex: 3,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        layout              : {ntype: 'hbox', align: 'stretch'},
+        stateProvider       : MainContainerStateProvider
     }
 
+    /**
+     * @param {Object} data
+     */
+    countryRenderer({record}) {
+        let countryStore = this.getStateProvider().getStore('countries');
+
+        if (countryStore.getCount() > 0) {
+            return countryStore.get(record.country).name
+        }
+
+        return ''
+    }
+
+    /**
+     * @returns {Object[]}
+     */
     createConfigurationComponents() {
         let me = this;
 
@@ -100,7 +118,9 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return {
             module        : TableContainer,
+            bind          : {store : 'stores.mainStore'},
             cellEditing   : true,
+            parentId      : this.id,
             selectionModel: CellModel,
             store         : MainStore,
 
@@ -112,7 +132,7 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
                 {dataField: 'githubId',  text: 'Github Id (Non-editable)', editable: false},
-                {dataField: 'country',   text: 'Country'}
+                {dataField: 'country',   text: 'Country', renderer: 'up.countryRenderer'}
             ]
         }
     }
