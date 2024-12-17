@@ -93,11 +93,7 @@ class CellEditing extends Plugin {
                 }
             })
         } else {
-            editor.setSilent({
-                dataField,
-                record,
-                value: record[dataField]
-            })
+            editor.setSilent({record, value: record[dataField]})
         }
 
         me.mountedEditor = editor;
