@@ -12,7 +12,11 @@ class CellEditing extends Plugin {
          * @member {String} className='Neo.table.plugin.CellEditing'
          * @protected
          */
-        className: 'Neo.table.plugin.CellEditing'
+        className: 'Neo.table.plugin.CellEditing',
+        /**
+         * @member {String[]} editorCls=['neo-table-editor']
+         */
+        editorCls: ['neo-table-editor']
     }
 
     /**
@@ -78,7 +82,7 @@ class CellEditing extends Plugin {
             me.editors[dataField] = editor = Neo.create({
                 module   : TextField,
                 appName,
-                cls      : ['neo-table-editor'],
+                cls      : me.editorCls,
                 dataField,
                 hideLabel: true,
                 parentId : view.id,
