@@ -95,10 +95,10 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.table.Container}
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module        : TableContainer,
             cellEditing   : true,
             selectionModel: CellModel,
@@ -114,7 +114,7 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'githubId',  text: 'Github Id (Non-editable)', editable: false},
                 {dataField: 'country',   text: 'Country'}
             ]
-        })
+        }
     }
 }
 
