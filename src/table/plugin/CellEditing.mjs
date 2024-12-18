@@ -19,6 +19,10 @@ class CellEditing extends Plugin {
          */
         ntype: 'plugin-table-cell-editing',
         /**
+         * @member {String} cellCls='neo-table-cell'
+         */
+        cellCls: 'neo-table-cell',
+        /**
          * @member {Boolean} disabled_=false
          */
         disabled_: false,
@@ -169,21 +173,23 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @param {Object} path
+     * @param {Object} data
      * @param {Neo.form.field.Base} field
      * @returns {Promise<void>}
      */
-    async onEditorKeyEnter(path, field) {
-        await this.submitEditor()
+    async onEditorKeyEnter(data, field) {
+        await this.submitEditor();
+        this.selectCell(data)
     }
 
     /**
-     * @param {Object} path
+     * @param {Object} data
      * @param {Neo.form.field.Base} field
      * @returns {Promise<void>}
      */
-    async onEditorKeyEscape(path, field) {
-        await this.unmountEditor()
+    async onEditorKeyEscape(data, field) {
+        await this.unmountEditor();
+        this.selectCell(data)
     }
 
     /**
@@ -245,6 +251,31 @@ class CellEditing extends Plugin {
             record    = tableView.getRecord(target.id);
 
             await me.mountEditor(record, dataField)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.path
+     */
+    selectCell({path}) {
+        let me               = this,
+            {selectionModel} = me.owner,
+            i                = 0,
+            len              = path.length,
+            cellId;
+
+        for (; i < len; i++) {
+            if (path[i].cls?.includes(me.cellCls)) {
+                cellId = path[i].id;
+                break
+            }
+        }
+
+        if (cellId) {
+            selectionModel?.deselect(cellId, true); // the cell might still count as selected => silent deselect first
+            selectionModel?.select(cellId);
+            me.owner.focus(cellId)
         }
     }
 
