@@ -109,7 +109,8 @@ class CellEditing extends Plugin {
             cellId              = view.getCellId(record, dataField),
             cellNode            = VdomUtil.find(view.vdom, cellId).vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
-            editor              = me.editors[dataField];
+            editor              = me.editors[dataField],
+            value               = record[dataField];
 
         if (me.mountedEditor) {
             await me.unmountEditor();
@@ -129,7 +130,7 @@ class CellEditing extends Plugin {
                 hideLabel: true,
                 parentId : view.id,
                 record,
-                value    : record[dataField],
+                value,
                 windowId,
 
                 keys: {
@@ -142,7 +143,8 @@ class CellEditing extends Plugin {
                 ...column.editor
             })
         } else {
-            editor.setSilent({record, value: record[dataField]})
+            editor.originalConfig.value = value;
+            editor.setSilent({record, value})
         }
 
         me.mountedEditor = editor;
@@ -178,8 +180,11 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onEditorKeyEnter(data, field) {
-        await this.submitEditor();
-        this.selectCell(data)
+        let me = this;
+
+        await me.submitEditor();
+        await me.timeout(20);
+        me.selectCell(data)
     }
 
     /**
@@ -188,8 +193,11 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onEditorKeyEscape(data, field) {
-        await this.unmountEditor();
-        this.selectCell(data)
+        let me = this;
+
+        await me.unmountEditor();
+        await me.timeout(20);
+        me.selectCell(data)
     }
 
     /**
@@ -286,19 +294,15 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async submitEditor() {
-        let field = this.mountedEditor;
+        let me    = this,
+            field = me.mountedEditor;
 
         if (field?.isValid()) {
-            let fieldValue = field.record[field.dataField];
-
-            // We only get a record change event => UI update, in case there is a real change
-            if (fieldValue !== field.value) {
-                field.record[field.dataField] = field.getSubmitValue();
-
-                // Short delay to ensure the update OP is done
-                await this.timeout(50)
+            if (field.isDirty) {
+                me.mountedEditor = null;
+                field.record[field.dataField] = field.getSubmitValue()
             } else {
-                await this.unmountEditor()
+                await me.unmountEditor()
             }
         }
     }

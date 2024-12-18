@@ -171,7 +171,8 @@ class DateField extends Picker {
      */
     beforeSetValue(value, oldValue) {
         if (Neo.typeOf(value) === 'Date') {
-            value = DateUtil.convertToyyyymmdd(value)
+            value = DateUtil.convertToyyyymmdd(value);
+            this.originalConfig.value = value
         }
 
         value = super.beforeSetValue(value, oldValue);
