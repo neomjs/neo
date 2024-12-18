@@ -35,9 +35,9 @@ class Focus extends CoreBase {
         /**
          * The amount of time for a focusIn to occur after the last focusOut
          * to get combined into a focusmove event.
-         * @member {Number} maxFocusInOutGap=30
+         * @member {Number} maxFocusInOutGap=50
          */
-        maxFocusInOutGap: 30,
+        maxFocusInOutGap: 50,
         /**
          * The maximum amount of items stored inside the history array
          * @member {Number} maxHistoryLength=20

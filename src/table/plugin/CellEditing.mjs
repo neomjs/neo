@@ -94,7 +94,8 @@ class CellEditing extends Plugin {
             editor              = me.editors[dataField];
 
         if (me.mountedEditor) {
-            await me.unmountEditor()
+            await me.unmountEditor();
+            await me.timeout(10)
         }
 
         if (!column.editable) {
@@ -134,6 +135,9 @@ class CellEditing extends Plugin {
         view.updateDepth = -1;
 
         await view.promiseUpdate();
+
+        await me.timeout(10);
+
         editor.focus()
     }
 
