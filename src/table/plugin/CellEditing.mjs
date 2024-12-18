@@ -45,12 +45,26 @@ class CellEditing extends Plugin {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me               = this,
+            {owner}          = me,
+            {selectionModel} = owner;
 
-        me.owner.on({
-            cellDoubleClick: me.onCellDoubleClick,
-            focusLeave     : me.onFocusLeave,
-            scope          : me
+        owner.on({
+            cellDoubleClick     : me.onCellDoubleClick,
+            focusLeave          : me.onFocusLeave,
+            selectionModelChange: me.onSelectionModelChange,
+            scope               : me
+        });
+
+        // Connect an already registered selectionModel instance
+        if (Neo.typeOf(selectionModel) === 'NeoInstance') {
+            me.onSelectionModelChange({value: selectionModel})
+        }
+
+        owner.keys.add({
+            Enter: 'onTableKeyDown',
+            Space: 'onTableKeyDown',
+            scope: me
         })
     }
 
@@ -186,7 +200,7 @@ class CellEditing extends Plugin {
             record       = store.getAt(index);
 
         await me.submitEditor();
-        await me.mountEditor(record, field.dataField);
+        await me.mountEditor(record, field.dataField)
     }
 
     /**
@@ -195,6 +209,43 @@ class CellEditing extends Plugin {
      */
     async onFocusLeave(data) {
         await this.unmountEditor()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSelectionChange(data) {
+        // todo: Once we separate cell selections & focus, we can use this event to mount editors
+        // console.log('onSelectionChange', data);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSelectionModelChange(data) {
+        let selectionModel = data.value;
+
+        if (selectionModel.ntype.includes('cell')) {
+            selectionModel.on('selectionChange', this.onSelectionChange, this)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {Promise<void>}
+     */
+    async onTableKeyDown(data) {
+        let me        = this,
+            {target}  = data,
+            tableView = me.owner.view,
+            dataField, record;
+
+        if (!me.mountedEditor && target.cls?.includes('neo-selected')) {
+            dataField = tableView.getCellDataField(target.id);
+            record    = tableView.getRecord(target.id);
+
+            await me.mountEditor(record, dataField)
+        }
     }
 
     /**
