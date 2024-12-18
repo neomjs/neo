@@ -20,6 +20,9 @@ class MainModel extends Model {
         }, {
             name: 'randomNumber',
             type: 'Int'
+        }, {
+            name: 'randomDate',
+            type: 'Date'
         }]
     }
 }

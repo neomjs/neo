@@ -131,6 +131,7 @@ class View extends Component {
                 }
                 break
             }
+            case 'Date':
             case 'Number':
             case 'String': {
                 rendererOutput = {

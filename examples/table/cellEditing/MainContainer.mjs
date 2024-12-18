@@ -5,6 +5,7 @@ import CellRowModel               from '../../../src/selection/table/CellRowMode
 import CheckBox                   from '../../../src/form/field/CheckBox.mjs';
 import CountryField               from '../../../src/form/field/Country.mjs';
 import ConfigurationViewport      from '../../ConfigurationViewport.mjs';
+import DateField                  from '../../../src/form/field/Date.mjs';
 import MainContainerStateProvider from './MainContainerStateProvider.mjs';
 import MainStore                  from './MainStore.mjs';
 import NumberField                from '../../../src/form/field/Number.mjs';
@@ -132,9 +133,16 @@ class MainContainer extends ConfigurationViewport {
                         stepSize : 5
                     }
                 }, {
-                    dataField: 'githubId',
-                    editable : false,
-                    text     : 'Github Id (Non-editable)'
+                    dataField: 'randomDate',
+                    renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
+                    text     : 'Random Date',
+
+                    editor: {
+                        module   : DateField,
+                        clearable: false,
+                        maxValue : '2024-12-20',
+                        minValue : '2024-12-10'
+                    }
                 }, {
                     dataField: 'country',
                     renderer : 'up.countryRenderer',
@@ -147,7 +155,11 @@ class MainContainer extends ConfigurationViewport {
                         forceSelection: true,
                         valueField    : 'code'
                     }
-                }
+                }, {
+                    dataField: 'githubId',
+                    editable : false,
+                    text     : 'Github Id (Non-editable)'
+                },
             ]
         }
     }

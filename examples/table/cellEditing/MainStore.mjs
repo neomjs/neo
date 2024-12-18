@@ -15,31 +15,37 @@ class MainStore extends Store {
             country     : 'DE',
             firstname   : 'Tobias',
             githubId    : 'tobiu',
+            randomDate  : '2024-12-20',
             randomNumber: 100
         }, {
             country     : 'US',
             firstname   : 'Rich',
             githubId    : 'rwaters',
+            randomDate  : '2024-12-18',
             randomNumber: 90
         }, {
             country     : 'DE',
             firstname   : 'Nils',
             githubId    : 'mrsunshine',
+            randomDate  : '2024-12-19',
             randomNumber: 70
         }, {
             country     : 'US',
             firstname   : 'Gerard',
             githubId    : 'camtnbikerrwc',
+            randomDate  : '2024-12-17',
             randomNumber: 80
         }, {
             country     : 'SK',
             firstname   : 'Jozef',
             githubId    : 'jsakalos',
+            randomDate  : '2024-12-16',
             randomNumber: 60
         }, {
             country     : 'DE',
             firstname   : 'Bastian',
             githubId    : 'bhaustein',
+            randomDate  : '2024-12-15',
             randomNumber: 50
         }]
     }
