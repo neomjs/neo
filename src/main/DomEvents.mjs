@@ -541,19 +541,28 @@ class DomEvents extends Base {
      * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
-        let {target}  = event,
+        let me        = this,
+            {target}  = event,
             {tagName} = target,
             isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA';
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
             event.preventDefault()
         } else {
-            this.sendMessageToApp(this.getKeyboardEventData(event));
+            me.sendMessageToApp(me.getKeyboardEventData(event));
+
+            if (
+                isInput &&
+                event.key === 'Tab' &&
+                me.testPathInclusion(event, ['neo-table-editor'], true)
+            ) {
+                event.preventDefault()
+            }
 
             if (
                 !isInput &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
-                this.testPathInclusion(event, ['neo-selection'], true)
+                me.testPathInclusion(event, ['neo-selection'], true)
             ) {
                 event.preventDefault()
             }
