@@ -186,9 +186,10 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @param {Object} data
      * @returns {Promise<void>}
      */
-    async onFocusLeave() {
+    async onFocusLeave(data) {
         await this.unmountEditor()
     }
 
