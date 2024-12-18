@@ -393,6 +393,21 @@ class DateSelector extends Component {
     }
 
     /**
+     * Triggered before the value config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        // If the value is set as a Date, try to convert it into a string
+        if (Neo.typeOf(value) === 'Date') {
+            return DateUtil.convertToyyyymmdd(value)
+        }
+
+        return value
+    }
+
+    /**
      * Triggered before the weekStartDay config gets changed
      * @param {String} value
      * @param {String} oldValue
