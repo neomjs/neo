@@ -191,7 +191,11 @@ class Model extends Base {
         }
 
         me.view = component;
-        me.addDomListener()
+        me.addDomListener();
+
+        component.fire('selectionModelChange', {
+            value: me
+        })
     }
 
     /**
