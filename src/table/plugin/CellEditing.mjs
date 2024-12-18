@@ -169,16 +169,17 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @param {Object} path
+     * @param {Object} event
      * @param {Neo.form.field.Base} field
      * @returns {Promise<void>}
      */
-    async onEditorKeyTab(path, field) {
-        let me       = this,
-            {store}  = me.owner,
-            oldIndex = store.indexOf(field.record),
-            index    = (oldIndex + 1) % store.getCount(),
-            record   = store.getAt(index);
+    async onEditorKeyTab(event, field) {
+        let me           = this,
+            {store}      = me.owner,
+            oldIndex     = store.indexOf(field.record),
+            countRecords = store.getCount(),
+            index        = (oldIndex + (event.altKey ? -1 : 1) + countRecords) % countRecords,
+            record       = store.getAt(index);
 
         await me.submitEditor();
         await me.mountEditor(record, field.dataField);
