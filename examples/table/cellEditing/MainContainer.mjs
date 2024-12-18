@@ -84,32 +84,19 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }, {
-            module   : CheckBox,
-            checked  : me.exampleComponent.sortable,
-            labelText: 'sortable',
-            listeners: {change: me.onConfigChange.bind(me, 'sortable')},
-            style    : {marginTop: '10px'}
+            module        : CheckBox,
+            checked       : me.exampleComponent.sortable,
+            hideLabel     : true,
+            listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
+            style         : {marginTop: '10px'},
+            valueLabelText: 'sortable'
         }, {
-            module   : CheckBox,
-            checked  : false,
-            labelText: 'Fit width',
-            listeners: {
-                change({ value }) {
-                    const { style } = me.exampleComponent;
-
-                    if (value) {
-                        style.width = '100%';
-                        style.tableLayout = 'fixed';
-                    } else {
-                        style.width = '';
-                        style.tableLayout = '';
-                    }
-
-                    me.exampleComponent.style = style;
-                    me.exampleComponent.update();
-                }
-            },
-            style: {marginTop: '10px'}
+            module        : CheckBox,
+            checked       : false, // we can not access the lazy-loaded plugin yet
+            hideLabel     : true,
+            listeners     : {change: me.onPluginConfigChange.bind(me, 'disabled')},
+            style         : {marginTop: '10px'},
+            valueLabelText: 'Disable CellEditing'
         }]
     }
 
@@ -152,6 +139,14 @@ class MainContainer extends ConfigurationViewport {
                 }
             ]
         }
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onPluginConfigChange(config, opts) {
+        this.exampleComponent.getPlugin('table-cell-editing')[config] = opts.value
     }
 }
 

@@ -14,6 +14,15 @@ class CellEditing extends Plugin {
          */
         className: 'Neo.table.plugin.CellEditing',
         /**
+         * @member {String} ntype='plugin-table-cell-editing'
+         * @protected
+         */
+        ntype: 'plugin-table-cell-editing',
+        /**
+         * @member {Boolean} disabled_=false
+         */
+        disabled_: false,
+        /**
          * @member {String[]} editorCls=['neo-table-editor']
          */
         editorCls: ['neo-table-editor']
@@ -46,6 +55,16 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * Triggered after the disabled config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        oldValue && this.unmountEditor()
+    }
+
+    /**
      * @param {args} args
      */
     destroy(...args) {
@@ -62,6 +81,10 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async mountEditor(record, dataField) {
+        if (this.disabled) {
+            return
+        }
+
         let me                  = this,
             {appName, windowId} = me,
             {view}              = me.owner,
