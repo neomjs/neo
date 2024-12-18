@@ -164,11 +164,7 @@ class Resizable extends Base {
          * @member {Object} targetNode=null
          * @protected
          */
-        targetNode: null,
-        /**
-         * @member {Number|null} windowId_=null
-         */
-        windowId_: null
+        targetNode: null
     }
 
     /**
