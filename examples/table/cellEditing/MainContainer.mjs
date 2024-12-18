@@ -117,9 +117,21 @@ class MainContainer extends ConfigurationViewport {
             },
 
             columns: [
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
                 {
+                    dataField: 'firstname',
+                    text     : 'Firstname'
+                }, {
+                    dataField: 'randomNumber',
+                    text     : 'Number (step 5)',
+
+                    editor: {
+                        module   : NumberField,
+                        clearable: false,
+                        maxValue : 100,
+                        minValue : 0,
+                        stepSize : 5
+                    }
+                }, {
                     dataField: 'githubId',
                     editable : false,
                     text     : 'Github Id (Non-editable)'
@@ -128,7 +140,6 @@ class MainContainer extends ConfigurationViewport {
                     renderer : 'up.countryRenderer',
                     text     : 'Country',
 
-                    // Use a custom editor field
                     editor: {
                         module        : CountryField,
                         bind          : {store: 'stores.countries'},

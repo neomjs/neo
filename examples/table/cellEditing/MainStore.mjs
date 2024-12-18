@@ -12,35 +12,35 @@ class MainStore extends Store {
         model      : Model,
 
         data: [{
-            country  : 'DE',
-            firstname: 'Tobias',
-            githubId : 'tobiu',
-            lastname : 'Uhlig'
+            country     : 'DE',
+            firstname   : 'Tobias',
+            githubId    : 'tobiu',
+            randomNumber: 100
         }, {
-            country  : 'US',
-            firstname: 'Rich',
-            githubId : 'rwaters',
-            lastname : 'Waters'
+            country     : 'US',
+            firstname   : 'Rich',
+            githubId    : 'rwaters',
+            randomNumber: 90
         }, {
-            country  : 'DE',
-            firstname: 'Nils',
-            githubId : 'mrsunshine',
-            lastname : 'Dehl'
+            country     : 'DE',
+            firstname   : 'Nils',
+            githubId    : 'mrsunshine',
+            randomNumber: 70
         }, {
-            country  : 'US',
-            firstname: 'Gerard',
-            githubId : 'camtnbikerrwc',
-            lastname : 'Horan'
+            country     : 'US',
+            firstname   : 'Gerard',
+            githubId    : 'camtnbikerrwc',
+            randomNumber: 80
         }, {
-            country  : 'SK',
-            firstname: 'Jozef',
-            githubId : 'jsakalos',
-            lastname : 'Sakalos'
+            country     : 'SK',
+            firstname   : 'Jozef',
+            githubId    : 'jsakalos',
+            randomNumber: 60
         }, {
-            country  : 'DE',
-            firstname: 'Bastian',
-            githubId : 'bhaustein',
-            lastname : 'Haustein'
+            country     : 'DE',
+            firstname   : 'Bastian',
+            githubId    : 'bhaustein',
+            randomNumber: 50
         }]
     }
 }

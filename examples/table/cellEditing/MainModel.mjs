@@ -18,8 +18,8 @@ class MainModel extends Model {
             name: 'githubId',
             type: 'String'
         }, {
-            name: 'lastname',
-            type: 'String'
+            name: 'randomNumber',
+            type: 'Int'
         }]
     }
 }
