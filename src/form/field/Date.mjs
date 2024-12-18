@@ -170,8 +170,13 @@ class DateField extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        const val = super.beforeSetValue(value, oldValue);
-        return (this.isoDate && val) ? val.substring(0, 10) : val;
+        if (Neo.typeOf(value) === 'Date') {
+            value = DateUtil.convertToyyyymmdd(value)
+        }
+
+        value = super.beforeSetValue(value, oldValue);
+
+        return (this.isoDate && value) ? value.substring(0, 10) : value
     }
 
     /**
@@ -244,7 +249,7 @@ class DateField extends Picker {
     onInputValueChange(data) {
         this.invalidInput = !data.valid;
 
-        if (data.valid === true) {
+        if (data.valid) {
             super.onInputValueChange(data)
         } else {
             this.validate(false)
