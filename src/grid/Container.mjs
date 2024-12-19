@@ -26,6 +26,11 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-grid-container'],
         /**
+         * true uses grid.plugin.CellEditing
+         * @member {Boolean} cellEditing_=false
+         */
+        cellEditing_: false,
+        /**
          * @member {Object[]} columns_=[]
          */
         columns_: [],
@@ -102,6 +107,30 @@ class Container extends BaseContainer {
         me.vdom.id = me.id + 'wrapper';
 
         me.createColumns(me.columns)
+    }
+
+    /**
+     * Triggered after the cellEditing config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCellEditing(value, oldValue) {
+        if (value) {
+            import('./plugin/CellEditing.mjs').then(module => {
+                let me                  = this,
+                    {appName, windowId} = me,
+                    plugins             = me.plugins || [];
+
+                plugins.push({
+                    module : module.default,
+                    appName,
+                    windowId
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
