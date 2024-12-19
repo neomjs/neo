@@ -379,9 +379,9 @@ class Container extends BaseContainer {
      * @returns {*}
      */
     createColumns(columns) {
-        let me             = this,
-            columnDefaults = me.columnDefaults,
-            sorters        = me.store?.sorters,
+        let me               = this,
+            {columnDefaults} = me,
+            sorters          = me.store?.sorters,
             renderer;
 
         if (!columns || !columns.length) {

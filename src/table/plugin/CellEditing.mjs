@@ -322,7 +322,7 @@ class CellEditing extends Plugin {
 
         me.mountedEditor = null;
 
-        tableView.vdom.cn[rowIndex] = tableView.createTableRow({record, rowIndex});
+        tableView.vdom.cn[rowIndex] = tableView.createRow({record, rowIndex});
         await tableView.promiseUpdate()
     }
 }

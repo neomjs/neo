@@ -43,19 +43,6 @@
         z-index : 5;
     }
 
-    .neo-grid-header-cell:nth-child(1) {
-        position: sticky;
-        left    : 0;
-        top     : 0;
-        z-index : 200 !important;
-    }
-
-    .neo-grid-cell:nth-child(1) {
-        position: sticky;
-        left     : 0;
-        z-index  : 20;
-    }
-
     .neo-grid-cell, .neo-grid-header-cell {
         border-bottom: 1px solid var(--grid-container-border-color);
         border-right : 1px solid var(--grid-container-border-color);

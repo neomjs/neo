@@ -1,5 +1,7 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import CssUtil         from '../util/Css.mjs';
+import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
@@ -26,17 +28,31 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-grid-container'],
         /**
-         * true uses grid.plugin.CellEditing
+         * true uses table.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
          */
         cellEditing_: false,
+        /**
+         * Default configs for each column
+         * @member {Object} columnDefaults=null
+         */
+        columnDefaults: null,
         /**
          * @member {Object[]} columns_=[]
          */
         columns_: [],
         /**
+         * Configs for Neo.table.header.Toolbar
+         * @member {Object|null} [headerToolbarConfig=null]
+         */
+        headerToolbarConfig: null,
+        /**
+         * @member {String|null} headerToolbarId_=null
+         */
+        headerToolbarId_: null,
+        /**
          * Additional used keys for the selection model
-         * @member {Object} keys={}
+         * @member {Object} keys
          */
         keys: {},
         /**
@@ -44,13 +60,46 @@ class Container extends BaseContainer {
          */
         layout: 'base',
         /**
+         * @member {Boolean} scrollbarsCssApplied=false
+         * @protected
+         */
+        scrollbarsCssApplied: false,
+        /**
          * @member {Neo.selection.Model} selectionModel_=null
          */
         selectionModel_: null,
         /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
+         * @member {Boolean} sortable_=true
+         */
+        sortable_: true,
+        /**
          * @member {Neo.data.Store} store_=null
          */
         store_: null,
+        /**
+         * todo: only works for chrome & safari -> add a check
+         * @member {Boolean} useCustomScrollbars_=true
+         */
+        useCustomScrollbars_: true,
+        /**
+         * Configs for Neo.table.View
+         * @member {Object|null} [viewConfig=null]
+         */
+        viewConfig: null,
+        /**
+         * @member {String|null} viewId_=null
+         * @protected
+         */
+        viewId_: null,
+        /**
+         * @member {Array|null} items=null
+         * @protected
+         */
+        items: null,
         /**
          * @member {Object} _vdom={cls:['neo-grid-wrapper'],cn:[{cn:[]}]}
          */
@@ -61,24 +110,20 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Configs for Neo.grid.header.Toolbar
-     * @member {Object|null} [headerToolbarConfig=null]
+     * Convenience method to access the Neo.grid.header.Toolbar
+     * @returns {Neo.table.header.Toolbar|null}
      */
-    headerToolbarConfig = null
+    get headerToolbar() {
+        return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
+    }
+
     /**
-     * @member {String|null} headerToolbarId_=null
+     * Convenience method to access the Neo.grid.View
+     * @returns {Neo.table.View|null}
      */
-    headerToolbarId = null
-    /**
-     * Configs for Neo.grid.View
-     * @member {Object|null} [viewConfig=null]
-     */
-    viewConfig = null
-    /**
-     * @member {String|null} viewId_=null
-     * @protected
-     */
-    viewId = null
+    get view() {
+        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
+    }
 
     /**
      * @param {Object} config
@@ -95,6 +140,7 @@ class Container extends BaseContainer {
             module           : header.Toolbar,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
+            sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
             module     : View,
@@ -104,7 +150,7 @@ class Container extends BaseContainer {
             ...me.viewConfig
         }];
 
-        me.vdom.id = me.id + 'wrapper';
+        me.vdom.id = me.getWrapperId();
 
         me.createColumns(me.columns)
     }
@@ -134,6 +180,26 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the columns config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetColumns(value, oldValue) {
+        if (Array.isArray(oldValue) && oldValue.length > 0) {
+            let me              = this,
+                {headerToolbar} = me;
+
+            if (headerToolbar) {
+                headerToolbar.items = value;
+                headerToolbar.createItems()
+            }
+
+            me.view?.createViewData(me.store.items)
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -141,6 +207,65 @@ class Container extends BaseContainer {
      */
     afterSetSelectionModel(value, oldValue) {
         this.rendered && value.register(this)
+    }
+
+    /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.headerToolbar.showHeaderFilters = value
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.headerToolbar.sortable = value
+        }
+    }
+
+    /**
+     * Triggered after the useCustomScrollbars config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseCustomScrollbars(value, oldValue) {
+        if (value === true) {
+            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar'])
+        }
+    }
+
+    /**
+     * @protected
+     */
+    applyCustomScrollbarsCss() {
+        let me       = this,
+            id       = me.getWrapperId(),
+            cssRules = [];
+
+        if (me.dockLeftMargin) {
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}')
+        }
+
+        if (me.dockRightMargin) {
+            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}')
+        }
+
+        if (cssRules.length > 0) {
+            CssUtil.insertRules(me.appName, cssRules)
+        }
+
+        me.scrollbarsCssApplied = true
     }
 
     /**
@@ -155,6 +280,16 @@ class Container extends BaseContainer {
         }
 
         return value
+    }
+
+    /**
+     * Triggered before the headerToolbarId config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetHeaderToolbarId(value, oldValue) {
+        return value || oldValue
     }
 
     /**
@@ -207,6 +342,39 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered before the viewId config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetViewId(value, oldValue) {
+        return value || oldValue
+    }
+
+    /**
+     * In case you want to update multiple existing records in parallel,
+     * using this method is faster than updating each record one by one.
+     * At least until we introduce row based vdom updates.
+     * @param {Object[]} records
+     */
+    bulkUpdateRecords(records) {
+        let {store, view} = this,
+            {keyProperty} = store;
+
+        if (view) {
+            view.silentVdomUpdate = true;
+
+            records.forEach(item => {
+                store.get(item[keyProperty])?.set(item)
+            });
+
+            view.silentVdomUpdate = false;
+
+            view.update()
+        }
+    }
+
+    /**
      * @param {Object[]} columns
      * @returns {*}
      */
@@ -217,7 +385,7 @@ class Container extends BaseContainer {
             renderer;
 
         if (!columns || !columns.length) {
-            Neo.logError('Attempting to create a grid.Container without defined columns', me.id)
+            Neo.logError('Attempting to create a table.Container without defined columns', me.id);
         }
 
         columns.forEach(column => {
@@ -226,7 +394,7 @@ class Container extends BaseContainer {
             columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
             if (column.dock && !column.width) {
-                Neo.logError('Attempting to create a docked column without a defined width', column, me.id)
+                Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
             }
 
             if (renderer && Neo.isString(renderer) && me[renderer]) {
@@ -234,7 +402,7 @@ class Container extends BaseContainer {
             }
 
             if (sorters?.[0]) {
-                if (column.field === sorters[0].property) {
+                if (column.dataField === sorters[0].property) {
                     column.isSorted = sorters[0].direction
                 }
             }
@@ -251,10 +419,16 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Object[]} inputData
+     * @param {Array} inputData
      */
     createViewData(inputData) {
-        this.getView().createViewData(inputData)
+        let me = this;
+
+        me.view.createViewData(inputData);
+
+        if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
+            me.applyCustomScrollbarsCss()
+        }
     }
 
     /**
@@ -273,18 +447,18 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.grid.View}
-     */
-    getView() {
-        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
-    }
-
-    /**
      * @override
      * @returns {Neo.vdom.VNode}
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @returns {String}
+     */
+    getWrapperId() {
+        return `${this.id}__wrapper`
     }
 
     /**
@@ -321,8 +495,7 @@ class Container extends BaseContainer {
      * @protected
      */
     onStoreLoad(data) {
-        let me = this,
-            listenerId;
+        let me = this;
 
         if (me.rendered) {
             me.createViewData(data);
@@ -331,12 +504,11 @@ class Container extends BaseContainer {
                 me.removeSortingCss()
             }
         } else {
-            listenerId = me.on('rendered', () => {
-                me.un('rendered', listenerId);
+            me.on('rendered', () => {
                 me.timeout(50).then(() => {
                     me.createViewData(data)
                 })
-            })
+            }, me, {once: true})
         }
     }
 
@@ -351,16 +523,18 @@ class Container extends BaseContainer {
      * @param {*} opts.value
      */
     onStoreRecordChange(opts) {
-        this.getView().onStoreRecordChange(opts)
+        this.view.onStoreRecordChange(opts)
     }
 
     /**
-     * @param {String} field
+     * @param {String} dataField
      * @protected
      */
-    removeSortingCss(field) {
-        this.items[0].items.forEach(column => {
-            column.field !== field && column.removeSortingCss()
+    removeSortingCss(dataField) {
+        this.headerToolbar.items.forEach(column => {
+            if (column.dataField !== dataField) {
+                column.removeSortingCss()
+            }
         })
     }
 }

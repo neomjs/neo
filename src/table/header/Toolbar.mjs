@@ -28,7 +28,7 @@ class Toolbar extends BaseToolbar {
          * @member {Object} itemDefaults={ntype : 'table-header-button'}
          */
         itemDefaults: {
-            ntype : 'table-header-button'
+            ntype: 'table-header-button'
         },
         /**
          * @member {Boolean} showHeaderFilters_=false

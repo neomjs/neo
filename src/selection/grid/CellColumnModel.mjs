@@ -88,7 +88,7 @@ class CellColumnModel extends CellModel {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             {view}        = me,
-            fields        = view.columns.map(c => c.field),
+            fields        = view.columns.map(c => c.dataField),
             newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
             columnNodeIds, tbodyNode;
 

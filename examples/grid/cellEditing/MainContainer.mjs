@@ -114,53 +114,52 @@ class MainContainer extends ConfigurationViewport {
             store         : MainStore,
 
             columnDefaults: {
-                editable: true
+                editable: true,
+                width   : 200
             },
 
-            columns: [
-                {
-                    dataField: 'firstname',
-                    text     : 'Firstname'
-                }, {
-                    dataField: 'randomNumber',
-                    text     : 'Number (step 5)',
+            columns: [{
+                dataField: 'firstname',
+                text     : 'Firstname'
+            }, {
+                dataField: 'randomNumber',
+                text     : 'Number (step 5)',
 
-                    editor: {
-                        module   : NumberField,
-                        clearable: false,
-                        maxValue : 100,
-                        minValue : 0,
-                        stepSize : 5
-                    }
-                }, {
-                    dataField: 'randomDate',
-                    renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
-                    text     : 'Random Date',
+                editor: {
+                    module   : NumberField,
+                    clearable: false,
+                    maxValue : 100,
+                    minValue : 0,
+                    stepSize : 5
+                }
+            }, {
+                dataField: 'randomDate',
+                renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
+                text     : 'Random Date',
 
-                    editor: {
-                        module   : DateField,
-                        clearable: false,
-                        maxValue : '2024-12-20',
-                        minValue : '2024-12-10'
-                    }
-                }, {
-                    dataField: 'country',
-                    renderer : 'up.countryRenderer',
-                    text     : 'Country',
+                editor: {
+                    module   : DateField,
+                    clearable: false,
+                    maxValue : '2024-12-20',
+                    minValue : '2024-12-10'
+                }
+            }, {
+                dataField: 'country',
+                renderer : 'up.countryRenderer',
+                text     : 'Country',
 
-                    editor: {
-                        module        : CountryField,
-                        bind          : {store: 'stores.countries'},
-                        clearable     : false,
-                        forceSelection: true,
-                        valueField    : 'code'
-                    }
-                }, {
-                    dataField: 'githubId',
-                    editable : false,
-                    text     : 'Github Id (Non-editable)'
-                },
-            ]
+                editor: {
+                    module        : CountryField,
+                    bind          : {store: 'stores.countries'},
+                    clearable     : false,
+                    forceSelection: true,
+                    valueField    : 'code'
+                }
+            }, {
+                dataField: 'githubId',
+                editable : false,
+                text     : 'Github Id (Non-editable)'
+            }]
         }
     }
 
