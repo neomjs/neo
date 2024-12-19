@@ -1,4 +1,5 @@
 import BaseToolbar from '../../toolbar/Base.mjs';
+import NeoArray    from '../../util/Array.mjs';
 
 /**
  * @class Neo.grid.header.Toolbar
@@ -102,15 +103,13 @@ class Toolbar extends BaseToolbar {
             if (item.width)    {style.width    = item.width    + 'px'}
 
             if (item.dock) {
-                item.vdom.cls = ['neo-locked'];
+                NeoArray.add(item.vdom.cls, 'neo-locked');
 
                 if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px'
                 }
 
                 dockLeftWidth += (item.width + 1) // todo: borders fix
-            } else {
-               // item.vdom.cls = [] // remove the button cls from the th tag
             }
 
             item.sortable = me.sortable;
