@@ -142,7 +142,7 @@ class DateField extends Picker {
     afterSetMinValue(value, oldValue) {
         let me = this;
 
-        me.changeInputElKey('max', value);
+        me.changeInputElKey('min', value);
 
         if (me.dateSelector) {
             me.dateSelector.minValue = value
