@@ -165,7 +165,7 @@ class ComboBox extends Picker {
      */
     afterSetStore(value, oldValue) {
         let me = this,
-            filters;
+            filters, val;
 
         if (value) {
             if (me.useFilter) {
@@ -185,7 +185,14 @@ class ComboBox extends Picker {
                 me.list.store = value
             }
 
-            value.on('load', me.onStoreLoad, me)
+            value.on('load', me.onStoreLoad, me);
+
+            if (me.value) {
+                val = me.value;
+
+                me._value = null; // silent reset to trigger a change event
+                me.value  = val
+            }
         }
     }
 
@@ -247,6 +254,11 @@ class ComboBox extends Picker {
     beforeSetStore(value, oldValue) {
         let me                         = this,
             {displayField, valueField} = me;
+
+        // Do not create a default store instance, in case there is a bound store to be created
+        if (!value && me.bind?.store) {
+            return null
+        }
 
         oldValue?.destroy();
 
@@ -310,6 +322,10 @@ class ComboBox extends Picker {
 
         if (value === null) {
             return null
+        }
+
+        if (!store) { // We will (re)set the value once the store is created
+            return value
         }
 
         // we can only match record ids or display values in case the store is loaded

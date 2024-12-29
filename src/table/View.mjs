@@ -131,6 +131,7 @@ class View extends Component {
                 }
                 break
             }
+            case 'Date':
             case 'Number':
             case 'String': {
                 rendererOutput = {
@@ -182,10 +183,14 @@ class View extends Component {
     /**
      * @param {Object} opts
      * @param {Object} opts.record
-     * @param {Number} opts.rowIndex
+     * @param {Number} [opts.rowIndex]
      * @returns {Object}
      */
-    createTableRow({record, rowIndex}) {
+    createRow({record, rowIndex}) {
+        if (!Neo.isNumber(rowIndex)) {
+            rowIndex = this.store.indexOf(record)
+        }
+
         let me              = this,
             tableContainer  = me.parent,
             colspan         = record[me.colspanField],
@@ -276,7 +281,7 @@ class View extends Component {
             {selectedRows} = me;
 
         for (; i < amountRows; i++) {
-            rows.push(me.createTableRow({record: inputData[i], rowIndex: i}))
+            rows.push(me.createRow({record: inputData[i], rowIndex: i}))
         }
 
         me.vdom.cn = rows;
@@ -472,7 +477,7 @@ class View extends Component {
 
         if (fieldNames.includes(me.colspanField)) {
             index = me.store.indexOf(record);
-            me.vdom.cn[index] = me.createTableRow({record, rowIndex: index});
+            me.vdom.cn[index] = me.createRow({record, rowIndex: index});
             me.update()
         } else {
             fields.forEach(field => {

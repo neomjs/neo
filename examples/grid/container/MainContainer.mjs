@@ -79,7 +79,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create(GridContainer, {
+        return {
+            module        : GridContainer,
             selectionModel: CellModel,
             store         : MainStore,
 
@@ -88,12 +89,12 @@ class MainContainer extends ConfigurationViewport {
             },
 
             columns: [
-                {field: 'firstname', text: 'Firstname'},
-                {field: 'lastname',  text: 'Lastname'},
-                {field: 'githubId',  text: 'Github Id'},
-                {field: 'country',   text: 'Country'}
+                {dataField: 'firstname', text: 'Firstname'},
+                {dataField: 'lastname',  text: 'Lastname'},
+                {dataField: 'githubId',  text: 'Github Id'},
+                {dataField: 'country',   text: 'Country'}
             ]
-        })
+        }
     }
 }
 

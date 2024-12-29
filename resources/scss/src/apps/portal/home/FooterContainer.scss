@@ -31,15 +31,24 @@
         padding    : var(--button-padding);
     }
 
-    .neo-version,
-    .portal-home-footer-spacer {
+    .neo-version {
         height: var(--button-height);
         margin: var(--button-margin);
+    }
+
+    .portal-home-footer-spacer {
+        height: calc(2 * var(--button-height));
+        margin: calc(2 * var(--button-margin));
     }
 
     .portal-home-footer-section {
         background-color: transparent;
         color           : white;
+    }
+
+    .portal-home-footer-spacer {
+        height: calc(2 * var(--button-height));
+        margin: calc(2 * var(--button-margin));
     }
 
     @media (max-width: 800px) {

@@ -1,4 +1,5 @@
 import BaseToolbar from '../../toolbar/Base.mjs';
+import NeoArray    from '../../util/Array.mjs';
 
 /**
  * @class Neo.grid.header.Toolbar
@@ -21,11 +22,59 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
-         * @member {Object} itemDefaults={ntype:'grid-header-button'}
-         * @protected
+         * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          */
         itemDefaults: {
             ntype: 'grid-header-button'
+        },
+        /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
+         * @member {Boolean} sortable=true
+         */
+        sortable: true
+    }
+
+    /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    showHeaderFilter: value
+                })
+            });
+
+            me.updateDepth = -1; // filters can be deeply nested
+            me.update()
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    sortable: value
+                })
+            });
+
+            me.update()
         }
     }
 
@@ -41,7 +90,7 @@ class Toolbar extends BaseToolbar {
 
         let dockLeftWidth  = 0,
             dockRightWidth = 0,
-            items          = me.items,
+            {items}        = me,
             len            = items.length,
             style;
 
@@ -54,7 +103,7 @@ class Toolbar extends BaseToolbar {
             if (item.width)    {style.width    = item.width    + 'px'}
 
             if (item.dock) {
-                item.vdom.cls.push('neo-locked');
+                NeoArray.add(item.vdom.cls, 'neo-locked');
 
                 if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px'
@@ -63,6 +112,7 @@ class Toolbar extends BaseToolbar {
                 dockLeftWidth += (item.width + 1) // todo: borders fix
             }
 
+            item.sortable = me.sortable;
             item.wrapperStyle = style;
 
             // inverse loop direction
@@ -79,6 +129,20 @@ class Toolbar extends BaseToolbar {
         });
 
         me.update()
+    }
+
+    /**
+     * @param {String} dataField
+     * @returns {Neo.button.Base|null}
+     */
+    getColumn(dataField) {
+        for (const item of this.items) {
+            if (item.dataField === dataField) {
+                return item
+            }
+        }
+
+        return null
     }
 }
 

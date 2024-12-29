@@ -29,7 +29,6 @@ class Container extends Base {
             picture        : 'tobiu.png',
             profileGitHub  : 'https://github.com/tobiu',
             profileLinkedIn: 'https://www.linkedin.com/in/tobiasuhlig/',
-            profileX       : 'https://x.com/UhligTobias',
             teamRole       : 'Co-Founder & Core Team Member'
         }, {
             module         : MemberContainer,
@@ -38,7 +37,6 @@ class Container extends Base {
             picture        : 'rwaters.png',
             profileGitHub  : 'https://github.com/rwaters',
             profileLinkedIn: 'https://www.linkedin.com/in/rwaters/',
-            profileX       : 'https://x.com/rwaters',
             teamRole       : 'Co-Founder & Core Team Member'
         }, {
             module         : MemberContainer,

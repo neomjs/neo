@@ -1,0 +1,11 @@
+.neo-grid-view {
+    .neo-grid-cell {
+        &:has(.neo-grid-editor) {
+            padding: 1px 4px 2px;
+        }
+    }
+
+    .neo-grid-editor {
+        margin: 0;
+    }
+}

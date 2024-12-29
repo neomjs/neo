@@ -5,16 +5,16 @@ import Store         from '../../../src/data/Store.mjs';
 const countrySymbol = Symbol.for('country');
 
 /**
- * @class Neo.examples.table.nestedRecordFields.MainContainerStateProvider
+ * @class Neo.examples.table.cellEditing.MainContainerStateProvider
  * @extends Neo.state.Provider
  */
 class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Neo.examples.table.nestedRecordFields.MainContainerStateProvider'
+         * @member {String} className='Neo.examples.table.cellEditing.MainContainerStateProvider'
          * @protected
          */
-        className: 'Neo.examples.table.nestedRecordFields.MainContainerStateProvider',
+        className: 'Neo.examples.table.cellEditing.MainContainerStateProvider',
         /**
          * @member {Object} stores
          */

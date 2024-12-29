@@ -1,0 +1,11 @@
+.neo-table-view {
+    .neo-table-cell {
+        &:has(.neo-table-editor) {
+            padding: 1px 4px 2px;
+        }
+    }
+
+    .neo-table-editor {
+        margin: 0;
+    }
+}

@@ -72,7 +72,7 @@ class ColumnModel extends BaseModel {
     static getColumnIndex(cellId, columns) {
         let idArray       = cellId.split('__'),
             currentColumn = idArray[2],
-            dataFields    = columns.map(c => c.field);
+            dataFields    = columns.map(c => c.dataField);
 
         return dataFields.indexOf(currentColumn)
     }
@@ -117,7 +117,7 @@ class ColumnModel extends BaseModel {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             {view}        = me,
-            fields        = view.columns.map(c => c.field),
+            fields        = view.columns.map(c => c.dataField),
             newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
             columnNodeIds, id, tbodyNode;
 

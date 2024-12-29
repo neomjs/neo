@@ -28,7 +28,7 @@ class Toolbar extends BaseToolbar {
          * @member {Object} itemDefaults={ntype : 'table-header-button'}
          */
         itemDefaults: {
-            ntype : 'table-header-button'
+            ntype: 'table-header-button'
         },
         /**
          * @member {Boolean} showHeaderFilters_=false
@@ -141,6 +141,20 @@ class Toolbar extends BaseToolbar {
         });
 
         me.update()
+    }
+
+    /**
+     * @param {String} dataField
+     * @returns {Neo.button.Base|null}
+     */
+    getColumn(dataField) {
+        for (const item of this.items) {
+            if (item.dataField === dataField) {
+                return item
+            }
+        }
+
+        return null
     }
 
     /**

@@ -37,10 +37,6 @@ class MemberContainer extends Container {
          */
         profileLinkedIn_: null,
         /**
-         * @member {String|null} profileX_=null
-         */
-        profileX_: null,
-        /**
          * @member {String|null} teamRole_=null
          */
         teamRole_: null,
@@ -56,8 +52,6 @@ class MemberContainer extends Container {
                 iconCls: 'portal-profile fa-brands fa-github'
             }, {
                 iconCls: 'portal-profile fa-brands fa-linkedin'
-            }, {
-                iconCls: 'portal-profile fa-brands fa-x-twitter'
             }]
         }, {
             cls : ['portal-profile-component'],
@@ -142,16 +136,6 @@ class MemberContainer extends Container {
     }
 
     /**
-     * Triggered after the profileX config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetProfileX(value, oldValue) {
-        this.updateProfileButton(this.items[0].items[2], value)
-    }
-
-    /**
      * Triggered after the teamRole config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -174,10 +158,7 @@ class MemberContainer extends Container {
      */
     updateProfileButton(button, url) {
         if (button.set) {
-            button.set({
-                hidden: !url,
-                url
-            })
+            button.set({hidden: !url, url})
         } else {
             // initial values
             button.hidden = !url;

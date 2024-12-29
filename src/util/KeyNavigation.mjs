@@ -75,10 +75,14 @@ class KeyNavigation extends Base {
             upperCaseKey = me.parseUpperCaseKey(upperCaseKey);
 
             me.keys.forEach(key => {
-                scope = Neo.get(key.scope);
+                scope = Neo.isString(key.scope) ? Neo.get(key.scope) : key.scope;
 
                 if (key.key.toUpperCase() === upperCaseKey) {
-                    scope[key.fn]?.apply(scope, [data])
+                    if (Neo.isFunction(key.fn)) {
+                        key.fn.apply(scope, [data, me.component])
+                    } else {
+                        scope[key.fn]?.apply(scope, [data, me.component])
+                    }
                 }
             })
         }
@@ -94,12 +98,14 @@ class KeyNavigation extends Base {
                 keyArray    = [];
 
             if (componentId) {
-                Object.entries(value).forEach(([key, value]) => {
-                    keyArray.push({
-                        fn   : value,
-                        key,
-                        scope: componentId // todo: support VCs later on
-                    })
+                Object.entries(value).forEach(([key, val]) => {
+                    if (key !== 'scope') {
+                        keyArray.push({
+                            fn   : val,
+                            key,
+                            scope: value.scope || componentId // todo: support VCs later on
+                        })
+                    }
                 });
 
                 value = keyArray

@@ -87,7 +87,7 @@ class CellModel extends BaseModel {
             {view}        = me,
             idArray       = data.path[0].id.split('__'),
             currentColumn = idArray[2],
-            dataFields    = view.columns.map(c => c.field),
+            dataFields    = view.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             id;
 
