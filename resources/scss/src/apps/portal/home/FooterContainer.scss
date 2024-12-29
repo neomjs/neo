@@ -46,6 +46,11 @@
         color           : white;
     }
 
+    .portal-home-footer-spacer {
+        height: calc(2 * var(--button-height));
+        margin: calc(2 * var(--button-margin));
+    }
+
     @media (max-width: 800px) {
         max-height: 18em;
         min-height: 18em;
