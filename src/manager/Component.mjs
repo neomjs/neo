@@ -178,6 +178,15 @@ class Component extends Base {
     }
 
     /**
+     * Returns the object associated to the key, or null if there is none.
+     * @param key
+     * @returns {Neo.component.Base|null}
+     */
+    get(key) {
+        return this.wrapperNodes.get(key) || super.get(key)
+    }
+
+    /**
      * Returns all child components which are recursively matched via their parentId
      * @param {Neo.component.Base} component
      * @returns {Neo.component.Base[]} childComponents
@@ -241,14 +250,14 @@ class Component extends Base {
      * @returns {Neo.component.Base|null|Neo.component.Base[]}
      *
      * @example
-            // as String: ntype[comma separated propterties]
-            Neo.first('toolbar button[text=Try me,icon=people]')
-            // as Object: Add properties. ntype is optional
-            Neo.first({
+     // as String: ntype[comma separated propterties]
+     Neo.first('toolbar button[text=Try me,icon=people]')
+     // as Object: Add properties. ntype is optional
+     Neo.first({
                 icon: 'people'
             })
-            // as Array: An Array of Objects. No Strings allowed
-            Neo.first([{
+     // as Array: An Array of Objects. No Strings allowed
+     Neo.first([{
                 ntype: 'toolbar'
             },{
                 ntype: 'button', text: 'Try me', icon: 'people
@@ -258,7 +267,7 @@ class Component extends Base {
      * not stop after the first result.
      *
      * @example
-            Neo.first('button', false) // => [Button, Button, Button]
+     Neo.first('button', false) // => [Button, Button, Button]
      */
     getFirst(componentDescription, returnFirstMatch = true) {
         let objects = [],
@@ -279,7 +288,7 @@ class Component extends Base {
 
                 if (pairs) {
                     const pairsRegex = /\[(.*?)\]/,
-                        pairsMatch = pairs.match(pairsRegex);
+                          pairsMatch = pairs.match(pairsRegex);
 
                     if (pairsMatch) {
                         const pairs = pairsMatch[1].split(',');
@@ -345,7 +354,7 @@ class Component extends Base {
             len           = path?.length || 0;
 
         for (; i < len; i++) {
-            if (me.has(path[i])) {
+            if (me.has(path[i]) || me.wrapperNodes.get(path[i])) {
                 componentPath.push(path[i])
             }
         }

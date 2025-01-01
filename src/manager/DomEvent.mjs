@@ -202,7 +202,7 @@ class DomEvent extends Base {
             opts     : config,
             priority : config.priority,
             scope    : config.scope   || scope,
-            vnodeId  : config.vnodeId || scope.id
+            vnodeId  : config.vnodeId || scope.vdom.id
         };
     }
 
@@ -427,15 +427,15 @@ class DomEvent extends Base {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
                             bubble        : domListener.bubble   || value.bubble,
-                            delegate      : domListener.delegate || value.delegate || '#' + component.id,
+                            delegate      : domListener.delegate || value.delegate || '#' + component.vdom.id,
                             eventName     : key,
-                            id            : component.id,
+                            id            : component.vdom.id, // honor wrapper nodes
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
                             priority      : domListener.priority || value.priority || 1,
                             scope         : domListener.scope    || component,
-                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.id
+                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.vdom.id
                         })
                     }
                 })
@@ -468,8 +468,7 @@ class DomEvent extends Base {
             if (j != null) {
                 targetId = path[j].id
             }
-        }
-        else {
+        } else {
             let delegationArray = delegate.split(' '),
                 len             = delegationArray.length,
                 hasMatch, i, item, isId;
