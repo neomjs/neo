@@ -43,7 +43,7 @@ class Toolbar extends BaseToolbar {
          * @member {Object} _vdom
          */
         _vdom:
-        {'aria-rowindex':1, cn: [{cn: []}]}
+        {'aria-rowindex': 1, cn: [{cn: []}]}
     }
 
     /**
