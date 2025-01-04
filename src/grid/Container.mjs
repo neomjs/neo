@@ -108,7 +108,7 @@ class GridContainer extends BaseContainer {
          */
         _vdom:
         {cls: ['neo-grid-wrapper'], cn: [
-            {cn: []}
+            {'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
         ]}
     }
 
@@ -437,7 +437,12 @@ class GridContainer extends BaseContainer {
      * @param {Array} inputData
      */
     createViewData(inputData) {
-        this.view.createViewData(inputData)
+        let me = this;
+
+        me.getVdomRoot()['aria-rowcount'] = inputData.length + 2; // 1 based & the header row counts as well
+        me.update();
+
+        me.view.createViewData(inputData)
     }
 
     /**
