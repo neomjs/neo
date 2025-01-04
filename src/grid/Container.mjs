@@ -151,6 +151,7 @@ class GridContainer extends BaseContainer {
 
         me.items = [{
             module           : header.Toolbar,
+            gridContainer    : me,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable,

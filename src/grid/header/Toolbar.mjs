@@ -22,6 +22,10 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         */
+        gridContainer: null,
+        /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          */
         itemDefaults: {
@@ -44,6 +48,22 @@ class Toolbar extends BaseToolbar {
          */
         _vdom:
         {'aria-rowindex': 1, cn: [{cn: []}]}
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        value && me.getDomRect(me.items.map(item => item.id)).then(rects => {
+            me.gridContainer.view.columnPositions = rects.map(item => ({width: item.width, x: item.x}))
+        })
     }
 
     /**
