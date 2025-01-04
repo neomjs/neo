@@ -401,7 +401,7 @@ class GridView extends Component {
 
         gridRow = {
             id,
-            'aria-rowindex': rowIndex,
+            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2, see https://github.com/neomjs/neo/issues/6175
             cls            : trCls,
             cn             : [],
             role           : 'row',
