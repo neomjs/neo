@@ -1,4 +1,4 @@
-import CoreBase   from '../core/Base.mjs';
+import Base       from '../core/Base.mjs';
 import Filter     from './Filter.mjs';
 import Logger     from '../util/Logger.mjs';
 import Observable from '../core/Observable.mjs';
@@ -16,7 +16,7 @@ const countMutations   = Symbol('countMutations'),
  * @class Neo.collection.Base
  * @extends Neo.core.Base
  */
-class Base extends CoreBase {
+class Collection extends Base {
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=true
@@ -453,7 +453,7 @@ class Base extends CoreBase {
             config.sorters.push(sorter.originalConfig)
         });
 
-        return Neo.create(Base, config)
+        return Neo.create(Collection, config)
     }
 
     /**
@@ -669,7 +669,7 @@ class Base extends CoreBase {
                 delete config.items;
                 delete config.sorters;
 
-                me.allItems = Neo.create(Base, {
+                me.allItems = Neo.create(Collection, {
                     ...Neo.clone(config, true, true),
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
@@ -1265,4 +1265,4 @@ class Base extends CoreBase {
  * @returns {Object}
  */
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Collection);

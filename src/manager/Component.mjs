@@ -1,4 +1,4 @@
-import Base      from './Base.mjs';
+import Manager   from './Base.mjs';
 import VDomUtil  from '../util/VDom.mjs';
 import VNodeUtil from '../util/VNode.mjs';
 
@@ -7,7 +7,7 @@ import VNodeUtil from '../util/VNode.mjs';
  * @extends Neo.manager.Base
  * @singleton
  */
-class Component extends Base {
+class Component extends Manager {
     static config = {
         /**
          * @member {String} className='Neo.manager.Component'

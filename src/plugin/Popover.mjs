@@ -1,6 +1,6 @@
-import Base      from './Base.mjs';
 import Container from '../container/Base.mjs'
-import NeoArray  from "../util/Array.mjs";
+import NeoArray  from '../util/Array.mjs';
+import Plugin    from './Base.mjs';
 
 /**
  * Popover usable as tooltip
@@ -26,7 +26,7 @@ import NeoArray  from "../util/Array.mjs";
  *         }]
  *     }]
  */
-class Popover extends Base {
+class Popover extends Plugin {
     /**
      * Valid values for align
      * @member {String[]} alignValues=['bc-tc','tc-bc','tl-tr','tr-tl','cl-cr','cr-cl',null]

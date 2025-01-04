@@ -1,10 +1,10 @@
-import Base from './Base.mjs';
+import Field from './Base.mjs';
 
 /**
  * @class Neo.form.field.Hidden
  * @extends Neo.form.field.Base
  */
-class Hidden extends Base {
+class Hidden extends Field {
     static config = {
         /**
          * @member {String} className='Neo.form.field.Hidden'

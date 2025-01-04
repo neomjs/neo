@@ -1,7 +1,7 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
 import Store           from '../data/Store.mjs';
-import Toolbar         from '../toolbar/Base.mjs';
+import Toolbar         from './Base.mjs';
 
 /**
  * @class Neo.toolbar.Breadcrumb

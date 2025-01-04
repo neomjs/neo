@@ -1,6 +1,6 @@
+import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
@@ -24,7 +24,7 @@ const
  * @class Neo.component.Base
  * @extends Neo.core.Base
  */
-class Base extends CoreBase {
+class Component extends Base {
     /**
      * Valid values for hideMode
      * @member {String[]} hideModes=['removeDom','visibility']
@@ -2698,4 +2698,4 @@ class Base extends CoreBase {
  * @param {Object[]} data.oldPath dom element ids upwards
  */
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Component);

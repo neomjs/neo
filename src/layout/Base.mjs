@@ -1,4 +1,4 @@
-import CoreBase from '../core/Base.mjs';
+import Base     from '../core/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -7,7 +7,7 @@ import NeoArray from '../util/Array.mjs';
  * @class Neo.layout.Base
  * @extends Neo.core.Base
  */
-class Base extends CoreBase {
+class Layout extends Base {
     static config = {
         /**
          * @member {String} className='Neo.layout.Base'
@@ -156,4 +156,4 @@ class Base extends CoreBase {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Layout);

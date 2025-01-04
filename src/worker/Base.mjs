@@ -1,4 +1,4 @@
-import CoreBase           from '../core/Base.mjs';
+import Base               from '../core/Base.mjs';
 import Observable         from '../core/Observable.mjs';
 import Message            from './Message.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
@@ -9,7 +9,7 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  * @extends Neo.core.Base
  * @abstract
  */
-class Base extends CoreBase {
+class Worker extends Base {
     static config = {
         /**
          * @member {String} className='Neo.worker.Base'
@@ -309,4 +309,4 @@ class Base extends CoreBase {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Worker);

@@ -1,6 +1,6 @@
-import Base         from '../../form/field/Base.mjs';
-import NeoArray     from '../../util/Array.mjs';
-import StringUtil   from '../../util/String.mjs';
+import Field      from './Base.mjs';
+import NeoArray   from '../../util/Array.mjs';
+import StringUtil from '../../util/String.mjs';
 
 const
     sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
@@ -84,7 +84,7 @@ const
  * @class Neo.form.field.FileUpload
  * @extends Neo.form.field.Base
  */
-class FileUpload extends Base {
+class FileUpload extends Field {
     static config = {
         /**
          * @member {String} className='Neo.form.field.FileUpload'

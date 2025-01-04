@@ -8,7 +8,7 @@ let singletons = {};
  * @class Neo.tooltip.Base
  * @extends Neo.container.Base
  */
-class Base extends Container {
+class Tooltip extends Container {
     static config = {
         /**
          * @member {String} className='Neo.tooltip.Base'
@@ -368,4 +368,4 @@ class Base extends Container {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Tooltip);

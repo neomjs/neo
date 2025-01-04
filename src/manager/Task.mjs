@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Manager from './Base.mjs';
 
 /**
  * @class Neo.manager.Task
@@ -32,7 +32,7 @@ import Base from './Base.mjs';
  *     TaskManager.run(taskId);
  *     TaskManager.get(taskId).repeat = 20;
  */
-class Task extends Base {
+class Task extends Manager {
     static config = {
         /**
          * @member {String} className='Neo.manager.Task'

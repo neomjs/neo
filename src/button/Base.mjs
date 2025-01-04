@@ -5,7 +5,7 @@ import NeoArray  from '../util/Array.mjs';
  * @class Neo.button.Base
  * @extends Neo.component.Base
  */
-class Base extends Component {
+class Button extends Component {
     /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
@@ -581,4 +581,4 @@ class Base extends Component {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Button);

@@ -1,11 +1,11 @@
-import Base from './Base.mjs';
+import List from './Base.mjs';
 
 /**
  * A base class for lists which will use component based list items
  * @class Neo.list.Component
  * @extends Neo.list.Base
  */
-class Component extends Base {
+class Component extends List {
     static config = {
         /**
          * @member {String} className='Neo.list.Component'

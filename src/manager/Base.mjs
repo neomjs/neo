@@ -1,11 +1,11 @@
-import CollectionBase from '../collection/Base.mjs';
+import Collection from '../collection/Base.mjs';
 
 /**
  * Abstract base class for the other manager classes
  * @class Neo.manager.Base
  * @extends Neo.collection.Base
  */
-class Base extends CollectionBase{
+class Manager extends Collection{
     static config = {
         /**
          * @member {String} className='Neo.manager.Base'
@@ -44,4 +44,4 @@ class Base extends CollectionBase{
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Manager);

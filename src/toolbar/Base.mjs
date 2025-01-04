@@ -8,7 +8,7 @@ import NeoArray  from '../util/Array.mjs';
  * @class Neo.toolbar.Base
  * @extends Neo.container.Base
  */
-class Base extends Container {
+class Toolbar extends Container {
     /**
      * Valid values for dock
      * @member {String[]} dockPositions=['top','right','bottom','left', null]
@@ -223,4 +223,4 @@ class Base extends Container {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Toolbar);

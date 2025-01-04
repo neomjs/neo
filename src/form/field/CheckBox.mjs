@@ -1,12 +1,12 @@
-import Base             from './Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
+import Field            from './Base.mjs';
 import NeoArray         from '../../util/Array.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
  * @extends Neo.form.field.Base
  */
-class CheckBox extends Base {
+class CheckBox extends Field {
     /**
      * Valid values for labelPosition
      * @member {String[]} labelPositions=['left','top']

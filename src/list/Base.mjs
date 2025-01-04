@@ -8,7 +8,7 @@ import Store           from '../data/Store.mjs';
  * @class Neo.list.Base
  * @extends Neo.component.Base
  */
-class Base extends Component {
+class List extends Component {
     static config = {
         /**
          * @member {String} className='Neo.list.Base'
@@ -848,4 +848,4 @@ class Base extends Component {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(List);
