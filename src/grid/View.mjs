@@ -49,6 +49,11 @@ class GridView extends Component {
          */
         containerId: null,
         /**
+         * @member {Object[]} columnPositions_=[]
+         * @protected
+         */
+        columnPositions_: [],
+        /**
          * @member {Boolean} isScrolling_=false
          */
         isScrolling_: false,
@@ -184,6 +189,20 @@ class GridView extends Component {
         if (value > 0) {
             this.vdom.cn[1].width = value + 'px';
             this.update()
+        }
+    }
+
+    /**
+     * Triggered after the columnPositions config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetColumnPositions(value, oldValue) {
+        let me = this;
+
+        if (value.length > 0 && me.store.getCount() > 0) {
+            me.createViewData(me.store.items)
         }
     }
 
@@ -422,9 +441,11 @@ class GridView extends Component {
                 }
             }
 
-            if (column.flex) {
-                config.style.width = '100%'
-            }
+            config.style = {
+                ...config.style,
+                left : me.columnPositions[i].x     + 'px',
+                width: me.columnPositions[i].width + 'px'
+            };
 
             gridRow.cn.push(config);
 
@@ -464,7 +485,7 @@ class GridView extends Component {
             rows           = [],
             {selectedRows} = me;
 
-        if (amountRows < 1) {
+        if (amountRows < 1 || me.columnPositions.length < 1) {
             return
         }
 
