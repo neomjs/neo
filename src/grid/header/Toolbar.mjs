@@ -28,6 +28,10 @@ class Toolbar extends BaseToolbar {
             ntype: 'grid-header-button'
         },
         /**
+         * @member {String} role='row'
+         */
+        role: 'row',
+        /**
          * @member {Boolean} showHeaderFilters_=false
          */
         showHeaderFilters_: false,

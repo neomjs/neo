@@ -87,6 +87,10 @@ class Button extends BaseButton {
          */
         rendererScope: null,
         /**
+         * @member {String} role='columnheader'
+         */
+        role: 'columnheader',
+        /**
          * @member {Boolean} showHeaderFilter_=false
          */
         showHeaderFilter_: false,

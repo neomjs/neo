@@ -1,4 +1,8 @@
 .neo-grid-view {
+    &.neo-is-scrolling * {
+        pointer-events: none !important;
+    }
+
     .neo-center {
         justify-content: center;
     }
@@ -71,5 +75,15 @@
                 outline: 0;
             }
         }
+    }
+}
+
+.neo-grid-view-wrapper {
+    .neo-grid-scrollbar {
+        height        : 1px;
+        position      : absolute;
+        top           : 0;
+        visibility    : hidden;
+        width         : 1px;
     }
 }
