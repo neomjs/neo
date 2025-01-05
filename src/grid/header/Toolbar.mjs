@@ -62,7 +62,12 @@ class Toolbar extends BaseToolbar {
         let me = this;
 
         value && me.getDomRect(me.items.map(item => item.id)).then(rects => {
-            me.gridContainer.view.columnPositions = rects.map(item => ({width: item.width, x: item.x}))
+            let lastItem = rects[rects.length -1];
+
+            me.gridContainer.view.set({
+                availableWidth : lastItem.x + lastItem.width - rects[0].x,
+                columnPositions: rects.map(item => ({width: item.width, x: item.x}))
+            })
         })
     }
 

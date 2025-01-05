@@ -187,6 +187,7 @@ class GridView extends Component {
      */
     afterSetAvailableWidth(value, oldValue) {
         if (value > 0) {
+            this.vdom.width = value + 'px';
             this.vdom.cn[1].width = value + 'px';
             this.update()
         }
@@ -496,10 +497,6 @@ class GridView extends Component {
         me.getVdomRoot().cn = rows;
 
         me.promiseUpdate().then(() => {
-            me.getDomRect(me.id).then(rect => {
-                me.availableWidth = rect.width
-            })
-
             if (selectedRows?.length > 0) {
                 // this logic only works for selection.grid.RowModel
                 Neo.main.DomAccess.scrollToTableRow({appName: me.appName, id: selectedRows[0]})

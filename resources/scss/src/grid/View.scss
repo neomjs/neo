@@ -1,4 +1,20 @@
+.neo-grid-view-wrapper {
+    overflow-x: hidden;
+    overflow-y: auto;
+    position  : relative;
+
+    .neo-grid-scrollbar {
+        height        : 1px;
+        position      : absolute;
+        top           : 0;
+        visibility    : hidden;
+        width         : 1px;
+    }
+}
+
 .neo-grid-view {
+    overflow-x: visible;
+
     &.neo-is-scrolling * {
         pointer-events: none !important;
     }
@@ -75,15 +91,5 @@
                 outline: 0;
             }
         }
-    }
-}
-
-.neo-grid-view-wrapper {
-    .neo-grid-scrollbar {
-        height        : 1px;
-        position      : absolute;
-        top           : 0;
-        visibility    : hidden;
-        width         : 1px;
     }
 }

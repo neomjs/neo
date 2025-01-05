@@ -20,10 +20,8 @@
         border-right: 1px solid var(--grid-container-border-color);
     }
 
-    &.neo-locked { // todo: for testing, will get removed once the header toolbar is outside of the scroll region
-        position: sticky;
-        top     : 0;
-        z-index : 5001;
+    &.neo-locked {
+
     }
 
     &.neo-drag-over {
