@@ -692,6 +692,7 @@ class GridView extends Component {
     }
 
     /**
+     * Only triggers for vertical scrolling
      * @param {Object} data
      */
     onScroll(data) {

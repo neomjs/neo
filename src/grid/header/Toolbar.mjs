@@ -66,7 +66,7 @@ class Toolbar extends BaseToolbar {
 
             me.gridContainer.view.set({
                 availableWidth : lastItem.x + lastItem.width - rects[0].x,
-                columnPositions: rects.map(item => ({width: item.width, x: item.x}))
+                columnPositions: rects.map(item => ({width: item.width, x: item.x - rects[0].x}))
             })
         })
     }
