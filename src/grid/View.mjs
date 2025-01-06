@@ -91,6 +91,12 @@ class GridView extends Component {
          */
         useRowRecordIds: true,
         /**
+         * Stores the indexes of the first & last painted columns
+         * @member {Array} visibleColumns_=[0,0]
+         * @protected
+         */
+        visibleColumns_: [0, 0],
+        /**
          * @member {String[]} wrapperCls=[]
          */
         wrapperCls: ['neo-grid-view-wrapper'],
@@ -202,8 +208,13 @@ class GridView extends Component {
     afterSetColumnPositions(value, oldValue) {
         let me = this;
 
-        if (value.length > 0 && me.store.getCount() > 0) {
-            me.createViewData(me.store.items)
+        if (value.length > 0) {
+            // for changing an array inline, we need to use the leading underscore
+            me._visibleColumns[1] = value.length - 1;
+
+            if (me.store.getCount() > 0) {
+                me.createViewData(me.store.items)
+            }
         }
     }
 
@@ -247,7 +258,33 @@ class GridView extends Component {
      * @protected
      */
     afterSetScrollPosition(value, oldValue) {
-        this.startIndex = Math.floor(value.y / this.rowHeight)
+        let me                   = this,
+            countColumnPositions = me.columnPositions.length;
+
+        if (value.x !== oldValue?.x && countColumnPositions > 0) {
+            let i        = 0,
+                endIndex = countColumnPositions - 1,
+                column, startIndex;
+
+            for (; i < countColumnPositions; i++) {
+                column = me.columnPositions[i];
+
+                if (value.x >= column.x && value.x <= column.x + column.width) {
+                    startIndex = i
+                }
+
+                if (me.containerWidth + value.x < column.x) {
+                    endIndex = i - 1;
+                    break
+                }
+            }
+
+            me.visibleColumns = [startIndex, endIndex]
+        }
+
+        if (value.y !== oldValue?.y) {
+            me.startIndex = Math.floor(value.y / me.rowHeight)
+        }
     }
 
     /**
@@ -286,6 +323,18 @@ class GridView extends Component {
             });
 
             value.getCount() > 0 && me.updateScrollHeight()
+        }
+    }
+
+    /**
+     * Triggered after the visibleColumns config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetVisibleColumns(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createViewData(this.store.items)
         }
     }
 
@@ -388,23 +437,18 @@ class GridView extends Component {
             rowIndex = this.store.indexOf(record)
         }
 
-        let me              = this,
-            {gridContainer} = me,
-            colspan         = record[me.colspanField],
-            colspanKeys     = colspan && Object.keys(colspan),
-            columns         = gridContainer.items[0].items,
-            colCount        = columns.length,
-            dockLeftMargin  = 0,
-            dockRightMargin = 0,
-            id              = me.getRowId(record, rowIndex),
-            {selectedRows}  = me,
-            trCls           = me.getTrClass(record, rowIndex),
-            config, column, columnIndex, gridRow, i;
+        let me       = this,
+            {gridContainer, selectedRows, visibleColumns} = me,
+            columns  = gridContainer.items[0].items,
+            colCount = columns.length,
+            id       = me.getRowId(record, rowIndex),
+            trCls    = me.getTrClass(record, rowIndex),
+            config, column, gridRow, i;
 
         me.recordVnodeMap[id] = rowIndex;
 
         if (rowIndex % 2 !== 0) {
-            trCls.push('neo-even');
+            trCls.push('neo-even')
         }
 
         if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
@@ -430,47 +474,25 @@ class GridView extends Component {
         };
 
         for (i=0; i < colCount; i++) {
-            column = columns[i];
-            config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
+            if (i < visibleColumns[0] || i > visibleColumns[1]) {
+                config = {removeDom: true}
+            } else {
+                column = columns[i];
+                config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
 
-            if (column.dock) {
-                config.cls = ['neo-locked', ...config.cls || []];
+                if (column.dock) {
+                    config.cls = ['neo-locked', ...config.cls || []]
+                }
 
-                if (column.dock === 'left') {
-                    config.style.left = dockLeftMargin + 'px';
-                    dockLeftMargin += (column.width + 1) // todo: borders fix
+                config.style = {
+                    ...config.style,
+                    left : me.columnPositions[i].x     + 'px',
+                    width: me.columnPositions[i].width + 'px'
                 }
             }
 
-            config.style = {
-                ...config.style,
-                left : me.columnPositions[i].x     + 'px',
-                width: me.columnPositions[i].width + 'px'
-            };
-
-            gridRow.cn.push(config);
-
-            if (colspanKeys?.includes(column.dataField)) {
-                i += (colspan[column.dataField] - 1)
-            }
+            gridRow.cn.push(config)
         }
-
-        for (i=0; i < colCount; i++) {
-            columnIndex = colCount - i -1;
-            column      = columns[columnIndex];
-
-            if (column.dock === 'right') {
-                gridRow.cn[columnIndex].style.right = dockRightMargin + 'px';
-                dockRightMargin += (column.width + 1) // todo: borders fix
-            }
-
-            if (colspanKeys?.includes(column.dataField)) {
-                i += (colspan[column.dataField] - 1)
-            }
-        }
-
-        // the dock margins are the same for each row
-        rowIndex === 0 && Object.assign(gridContainer, {dockLeftMargin, dockRightMargin});
 
         return gridRow
     }
@@ -706,7 +728,7 @@ class GridView extends Component {
 
         me.set({
             isScrolling   : true,
-            scrollPosition: {x: data.scrollLeft, y: data.scrollTop}
+            scrollPosition: {x: me.scrollPosition.x, y: data.scrollTop}
         })
     }
 

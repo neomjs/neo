@@ -167,7 +167,12 @@ class GridContainer extends BaseContainer {
 
         me.vdom.id = me.getWrapperId();
 
-        me.createColumns(me.columns)
+        me.createColumns(me.columns);
+
+        me.addDomListeners({
+            scroll: me.onScroll,
+            scope : me
+        })
     }
 
     /**
@@ -226,7 +231,10 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         value && me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
-            me.view.availableHeight = containerRect.height - headerRect.height
+            me.view.set({
+                availableHeight: containerRect.height - headerRect.height,
+                containerWidth : containerRect.width
+            })
         })
     }
 
@@ -487,8 +495,8 @@ class GridContainer extends BaseContainer {
     /**
      * @param {Object} data
      */
-    onScrollChange({x, y}) {
-        this.view.scrollPosition = {x, y}
+    onScroll(data) {
+        this.view.scrollPosition = {x: data.scrollLeft, y: this.view.scrollPosition.y}
     }
 
     /**
