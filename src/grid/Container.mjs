@@ -451,7 +451,7 @@ class GridContainer extends BaseContainer {
         me.getVdomRoot()['aria-rowcount'] = inputData.length + 2; // 1 based & the header row counts as well
         me.update();
 
-        me.view.createViewData(inputData)
+        me.view.createViewData()
     }
 
     /**

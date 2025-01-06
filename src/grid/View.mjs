@@ -181,7 +181,7 @@ class GridView extends Component {
         let me = this;
 
         if (value > 0 && me.store.getCount() > 0) {
-            me.createViewData(me.store.items)
+            me.createViewData()
         }
     }
 
@@ -213,7 +213,7 @@ class GridView extends Component {
             me._visibleColumns[1] = value.length - 1;
 
             if (me.store.getCount() > 0) {
-                me.createViewData(me.store.items)
+                me.createViewData()
             }
         }
     }
@@ -303,7 +303,7 @@ class GridView extends Component {
                 transform: `translate(0px, ${(value * me.rowHeight)}px)`
             }
 
-            me.createViewData(me.store.items, value)
+            me.createViewData()
         }
     }
 
@@ -334,7 +334,7 @@ class GridView extends Component {
      */
     afterSetVisibleColumns(value, oldValue) {
         if (oldValue !== undefined) {
-            this.createViewData(this.store.items)
+            this.createViewData()
         }
     }
 
@@ -498,15 +498,15 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object[]} inputData
-     * @param {Number} startIndex=0
+     *
      */
-    createViewData(inputData, startIndex=0) {
-        let me             = this,
-            amountRows     = me.availableRows + startIndex,
-            i              = startIndex,
-            rows           = [],
-            {selectedRows} = me;
+    createViewData() {
+        let me                         = this,
+            {selectedRows, startIndex} = me,
+            amountRows                 = me.availableRows + startIndex,
+            i                          = startIndex,
+            inputData                  = me.store.items,
+            rows                       = [];
 
         if (amountRows < 1 || me.columnPositions.length < 1) {
             return
