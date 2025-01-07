@@ -10,6 +10,15 @@ import * as header     from './header/_export.mjs';
  * @extends Neo.container.Base
  */
 class GridContainer extends BaseContainer {
+    /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        onResize: {type: 'buffer', timer: 300}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.grid.Container'
@@ -170,6 +179,7 @@ class GridContainer extends BaseContainer {
         me.createColumns(me.columns);
 
         me.addDomListeners({
+            resize: me.onResize,
             scroll: me.onScroll,
             scope : me
         })
@@ -228,14 +238,22 @@ class GridContainer extends BaseContainer {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this;
+        let me               = this,
+            {ResizeObserver} = Neo.main.addon,
+            resizeParams     = {id: me.id, windowId: me.windowId};
 
-        value && me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
-            me.view.set({
-                availableHeight: containerRect.height - headerRect.height,
-                containerWidth : containerRect.width
+        if (value) {
+            ResizeObserver.register(resizeParams);
+
+            me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
+                me.view.set({
+                    availableHeight: containerRect.height - headerRect.height,
+                    containerWidth : containerRect.width
+                })
             })
-        })
+        } else if (!value && oldValue) { // unmount
+            ResizeObserver.unregister(resizeParams)
+        }
     }
 
     /**
@@ -455,6 +473,20 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.mounted && Neo.main.addon.ResizeObserver.unregister({
+            id      : me.id,
+            windowId: me.windowId
+        });
+
+        super.destroy(...args)
+    }
+
+    /**
      * @override
      * @returns {*}
      */
@@ -490,6 +522,13 @@ class GridContainer extends BaseContainer {
     onConstructed() {
         super.onConstructed();
         this.selectionModel?.register(this)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onResize(data) {
+        console.log('onResize', data)
     }
 
     /**
