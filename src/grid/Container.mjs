@@ -532,12 +532,11 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         if (!me.initialResizeEvent) {
-            console.log(this.mounted, data);
             await me.passSizeToView(true);
 
             me.view.updateVisibleColumns();
 
-            me.headerToolbar.passSizeToView()
+            await me.headerToolbar.passSizeToView()
         } else {
             me.initialResizeEvent = false
         }
