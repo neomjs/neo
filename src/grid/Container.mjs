@@ -122,6 +122,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * We do not need the first event to trigger logic, since afterSetMounted() handles this
+     * @member {Boolean}} initialResizeEvent=true
+     */
+    initialResizeEvent = true
+
+    /**
      * Convenience method to access the Neo.grid.header.Toolbar
      * @returns {Neo.grid.header.Toolbar|null}
      */
@@ -246,6 +252,7 @@ class GridContainer extends BaseContainer {
             ResizeObserver.register(resizeParams);
             me.passSizeToView()
         } else if (!value && oldValue) { // unmount
+            me.initialResizeEvent = true;
             ResizeObserver.unregister(resizeParams)
         }
     }
@@ -524,12 +531,16 @@ class GridContainer extends BaseContainer {
     async onResize(data) {
         let me = this;
 
-        console.log(this.mounted, data);
-        await me.passSizeToView(true);
+        if (!me.initialResizeEvent) {
+            console.log(this.mounted, data);
+            await me.passSizeToView(true);
 
-        me.view.updateVisibleColumns();
+            me.view.updateVisibleColumns();
 
-        me.headerToolbar.passSizeToView()
+            me.headerToolbar.passSizeToView()
+        } else {
+            me.initialResizeEvent = false
+        }
     }
 
     /**
