@@ -258,28 +258,10 @@ class GridView extends Component {
      * @protected
      */
     afterSetScrollPosition(value, oldValue) {
-        let me                   = this,
-            countColumnPositions = me.columnPositions.length;
+        let me = this;
 
-        if (value.x !== oldValue?.x && countColumnPositions > 0) {
-            let i        = 0,
-                endIndex = countColumnPositions - 1,
-                column, startIndex;
-
-            for (; i < countColumnPositions; i++) {
-                column = me.columnPositions[i];
-
-                if (value.x >= column.x && value.x <= column.x + column.width) {
-                    startIndex = i
-                }
-
-                if (me.containerWidth + value.x < column.x) {
-                    endIndex = i - 1;
-                    break
-                }
-            }
-
-            me.visibleColumns = [startIndex, endIndex]
+        if (value.x !== oldValue?.x && me.columnPositions.length > 0) {
+            me.updateVisibleColumns()
         }
 
         if (value.y !== oldValue?.y) {
@@ -791,6 +773,33 @@ class GridView extends Component {
             me.vdom.cn[1].height = `${(countRecords + 2) * rowHeight}px`;
             me.update()
         }
+    }
+
+    /**
+     *
+     */
+    updateVisibleColumns() {
+        let me       = this,
+            {x}      = me.scrollPosition,
+            i        = 0,
+            len      = me.columnPositions.length,
+            endIndex = len - 1,
+            column, startIndex;
+
+        for (; i < len; i++) {
+            column = me.columnPositions[i];
+
+            if (x >= column.x && x <= column.x + column.width) {
+                startIndex = i
+            }
+
+            if (me.containerWidth + x < column.x) {
+                endIndex = i - 1;
+                break
+            }
+        }
+
+        me.visibleColumns = [startIndex, endIndex]
     }
 }
 

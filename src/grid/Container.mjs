@@ -527,6 +527,8 @@ class GridContainer extends BaseContainer {
         console.log(this.mounted, data);
         await me.passSizeToView(true);
 
+        me.view.updateVisibleColumns();
+
         me.headerToolbar.passSizeToView()
     }
 
