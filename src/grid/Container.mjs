@@ -521,8 +521,13 @@ class GridContainer extends BaseContainer {
     /**
      * @param {Object} data
      */
-    onResize(data) {
-        console.log('onResize', data)
+    async onResize(data) {
+        let me = this;
+
+        console.log(this.mounted, data);
+        await me.passSizeToView(true);
+
+        me.headerToolbar.passSizeToView()
     }
 
     /**
@@ -590,16 +595,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
+     * @returns {Promise<void>}
      */
-    passSizeToView() {
-        let me = this;
+    async passSizeToView(silent=false) {
+        let me                          = this,
+            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbarId]);
 
-        me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
-            me.view.set({
-                availableHeight: containerRect.height - headerRect.height,
-                containerWidth : containerRect.width
-            })
+        me.view[silent ? 'setSilent' : 'set']({
+            availableHeight: containerRect.height - headerRect.height,
+            containerWidth : containerRect.width
         })
     }
 

@@ -58,17 +58,7 @@ class Toolbar extends BaseToolbar {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        let me = this;
-
-        value && me.getDomRect(me.items.map(item => item.id)).then(rects => {
-            let lastItem = rects[rects.length -1];
-
-            me.gridContainer.view.set({
-                availableWidth : lastItem.x + lastItem.width - rects[0].x,
-                columnPositions: rects.map(item => ({width: item.width, x: item.x - rects[0].x}))
-            })
-        })
+        value && this.passSizeToView()
     }
 
     /**
@@ -177,6 +167,23 @@ class Toolbar extends BaseToolbar {
         }
 
         return null
+    }
+
+
+
+    /**
+     * @param {Boolean} silent=false
+     * @returns {Promise<void>}
+     */
+    async passSizeToView(silent=false) {
+        let me       = this,
+            rects    = await me.getDomRect(me.items.map(item => item.id)),
+            lastItem = rects[rects.length - 1];
+
+        me.gridContainer.view[silent ? 'setSilent' : 'set']({
+            availableWidth : lastItem.x + lastItem.width - rects[0].x,
+            columnPositions: rects.map(item => ({width: item.width, x: item.x - rects[0].x}))
+        })
     }
 }
 
