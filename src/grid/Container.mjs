@@ -244,13 +244,7 @@ class GridContainer extends BaseContainer {
 
         if (value) {
             ResizeObserver.register(resizeParams);
-
-            me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
-                me.view.set({
-                    availableHeight: containerRect.height - headerRect.height,
-                    containerWidth : containerRect.width
-                })
-            })
+            me.passSizeToView()
         } else if (!value && oldValue) { // unmount
             ResizeObserver.unregister(resizeParams)
         }
@@ -593,6 +587,20 @@ class GridContainer extends BaseContainer {
      */
     onStoreRecordChange(opts) {
         this.view.onStoreRecordChange(opts)
+    }
+
+    /**
+     *
+     */
+    passSizeToView() {
+        let me = this;
+
+        me.getDomRect([me.id, me.headerToolbarId]).then(([containerRect, headerRect]) => {
+            me.view.set({
+                availableHeight: containerRect.height - headerRect.height,
+                containerWidth : containerRect.width
+            })
+        })
     }
 
     /**
