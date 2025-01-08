@@ -39,6 +39,12 @@ class GridView extends Component {
          */
         baseCls: ['neo-grid-view'],
         /**
+         * The amount of rows to paint before the first & after the last visible row,
+         * to enhance the scrolling performance
+         * @member {Number} bufferRowRange_=5
+         */
+        bufferRowRange_: 5,
+        /**
          * Define which model field contains the value of colspan definitions
          * @member {String} colspanField='colspan'
          */
@@ -172,17 +178,13 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the availableRows config got changed
+     * Triggered after the bufferRowRange config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetAvailableRows(value, oldValue) {
-        let me = this;
-
-        if (value > 0 && me.store.getCount() > 0) {
-            me.createViewData()
-        }
+    afterSetBufferRowRange(value, oldValue) {
+        oldValue !== undefined && this.createViewData()
     }
 
     /**
@@ -193,9 +195,25 @@ class GridView extends Component {
      */
     afterSetAvailableWidth(value, oldValue) {
         if (value > 0) {
-            this.vdom.width = value + 'px';
-            this.vdom.cn[1].width = value + 'px';
-            this.update()
+            let me = this;
+
+            me.vdom.width = value + 'px';
+            me.vdom.cn[1].width = value + 'px';
+            me.update()
+        }
+    }
+
+    /**
+     * Triggered after the availableRows config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetAvailableRows(value, oldValue) {
+        let me = this;
+
+        if (value > 0 && me.store.getCount() > 0) {
+            me.createViewData()
         }
     }
 
@@ -484,19 +502,20 @@ class GridView extends Component {
      *
      */
     createViewData() {
-        let me                         = this,
-            {selectedRows, startIndex} = me,
-            amountRows                 = me.availableRows + startIndex,
-            i                          = startIndex,
-            inputData                  = me.store.items,
-            rows                       = [];
+        let me   = this,
+            {bufferRowRange, selectedRows, startIndex} = me,
+            rows = [],
+            endIndex, i;
 
-        if (amountRows < 1 || me.columnPositions.length < 1) {
+        if (me.availableRows < 1 || me.columnPositions.length < 1) {
             return
         }
 
-        for (; i < amountRows; i++) {
-            rows.push(me.createRow({record: inputData[i], rowIndex: i}))
+        startIndex = Math.max(0, startIndex - bufferRowRange);
+        endIndex   = Math.min(me.store.getCount(), me.availableRows + startIndex + bufferRowRange);
+
+        for (i=startIndex; i < endIndex; i++) {
+            rows.push(me.createRow({record: me.store.items[i], rowIndex: i}))
         }
 
         me.getVdomRoot().cn = rows;
