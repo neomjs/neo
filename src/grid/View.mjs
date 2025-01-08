@@ -441,7 +441,6 @@ class GridView extends Component {
         let me       = this,
             {gridContainer, selectedRows, visibleColumns} = me,
             columns  = gridContainer.items[0].items,
-            colCount = columns.length,
             id       = me.getRowId(record, rowIndex),
             trCls    = me.getTrClass(record, rowIndex),
             config, column, gridRow, i;
@@ -474,22 +473,18 @@ class GridView extends Component {
             tabIndex       : '-1'
         };
 
-        for (i=0; i < colCount; i++) {
-            if (i < visibleColumns[0] || i > visibleColumns[1]) {
-                config = {removeDom: true}
-            } else {
-                column = columns[i];
-                config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
+        for (i=visibleColumns[0]; i <= visibleColumns[1]; i++) {
+            column = columns[i];
+            config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
 
-                if (column.dock) {
-                    config.cls = ['neo-locked', ...config.cls || []]
-                }
+            if (column.dock) {
+                config.cls = ['neo-locked', ...config.cls || []]
+            }
 
-                config.style = {
-                    ...config.style,
-                    left : me.columnPositions[i].x     + 'px',
-                    width: me.columnPositions[i].width + 'px'
-                }
+            config.style = {
+                ...config.style,
+                left : me.columnPositions[i].x     + 'px',
+                width: me.columnPositions[i].width + 'px'
             }
 
             gridRow.cn.push(config)
