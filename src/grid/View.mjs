@@ -384,11 +384,12 @@ class GridView extends Component {
         }
 
         cellConfig = {
-            id      : cellId,
-            cls     : cellCls,
-            role    : 'gridcell',
-            style   : rendererOutput.style || {},
-            tabIndex: '-1'
+            'aria-colindex': index + 1, // 1 based
+            id             : cellId,
+            cls            : cellCls,
+            role           : 'gridcell',
+            style          : rendererOutput.style || {},
+            tabIndex       : '-1'
         };
 
         if (column.width) {
