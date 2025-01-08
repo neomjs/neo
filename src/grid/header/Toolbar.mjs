@@ -119,6 +119,8 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
+            item.vdom['aria-colindex'] = index + 1; // 1 based
+
             style = item.wrapperStyle;
 
             // todo: only add px if number
