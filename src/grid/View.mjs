@@ -276,14 +276,22 @@ class GridView extends Component {
      * @protected
      */
     afterSetScrollPosition(value, oldValue) {
-        let me = this;
+        let me = this,
+            newStartIndex;
 
         if (value.x !== oldValue?.x && me.columnPositions.length > 0) {
             me.updateVisibleColumns()
         }
 
         if (value.y !== oldValue?.y) {
-            me.startIndex = Math.floor(value.y / me.rowHeight)
+            newStartIndex = Math.floor(value.y / me.rowHeight);
+
+            // console.log(Math.abs(me.startIndex - newStartIndex), me.bufferRowRange);
+
+            if (Math.abs(me.startIndex - newStartIndex) >= me.bufferRowRange) {
+                // console.log('update', newStartIndex);
+                me.startIndex = newStartIndex
+            }
         }
     }
 
