@@ -1,5 +1,6 @@
 .neo-grid-wrapper {
     overflow-x: auto;
+    overflow-y: hidden;
     position  : relative;
 }
 
@@ -11,6 +12,7 @@
     font-weight   : 400;
     height        : 100%;
     line-height   : 19px;
+    overflow-y    : hidden;
     position      : absolute;
     width         : 100%;
 
