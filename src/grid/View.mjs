@@ -300,17 +300,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetStartIndex(value, oldValue) {
-        let me   = this,
-            vdom = me.getVdomRoot();
-
-        if (oldValue !== undefined && value <= me.store.getCount() - me.availableRows) {
-            vdom.style = {
-                ...vdom.style,
-                transform: `translate(0px, ${(value * me.rowHeight)}px)`
-            }
-
-            me.createViewData()
-        }
+        oldValue !== undefined && this.createViewData()
     }
 
     /**
@@ -479,7 +469,7 @@ class GridView extends Component {
 
             style: {
                 height   : me.rowHeight + 'px',
-                transform: `translate(0px, ${(rowIndex - me.startIndex) * me.rowHeight}px)`
+                transform: `translate(0px, ${rowIndex * me.rowHeight}px)`
             }
         };
 
