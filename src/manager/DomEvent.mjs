@@ -427,9 +427,9 @@ class DomEvent extends Base {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
                             bubble        : domListener.bubble   || value.bubble,
-                            delegate      : domListener.delegate || value.delegate || '#' + component.vdom.id,
+                            delegate      : domListener.delegate || value.delegate || '#' + (component.vdom.id || component.id),
                             eventName     : key,
-                            id            : component.vdom.id, // honor wrapper nodes
+                            id            : component.vdom.id || component.id, // honor wrapper nodes
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
