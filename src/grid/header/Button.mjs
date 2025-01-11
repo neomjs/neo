@@ -28,9 +28,9 @@ class Button extends BaseButton {
          */
         ntype: 'grid-header-button',
         /**
-         * @member {String[]} baseCls=['neo-grid-header-button']
+         * @member {String[]} baseCls=['neo-grid-header-button','neo-button']
          */
-        baseCls: ['neo-grid-header-button'],
+        baseCls: ['neo-grid-header-button', 'neo-button'],
         /**
          * Alignment of the matching grid cells. Valid values are left, center, right
          * @member {String} cellAlign_='left'

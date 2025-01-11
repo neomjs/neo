@@ -131,11 +131,12 @@ class Toolbar extends BaseToolbar {
             if (item.dock) {
                 NeoArray.add(item.vdom.cls, 'neo-locked');
 
-                if (item.dock === 'left') {
+                /*if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px'
                 }
 
                 dockLeftWidth += (item.width + 1) // todo: borders fix
+                 */
             }
 
             item.sortable = me.sortable;
@@ -144,14 +145,14 @@ class Toolbar extends BaseToolbar {
             // inverse loop direction
             item = items[len - index -1];
 
-            if (item.dock === 'right') {
+            /*if (item.dock === 'right') {
                 style = item.wrapperStyle;
                 style.right = dockRightWidth + 'px';
 
                 item.wrapperStyle = style;
 
                 dockRightWidth += (item.width + 1) // todo: borders fix
-            }
+            }*/
         });
 
         me.update()
