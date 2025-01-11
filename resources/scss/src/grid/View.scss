@@ -1,4 +1,5 @@
 .neo-grid-view-wrapper {
+    height    : 100%;
     overflow-x: hidden;
     overflow-y: auto;
     position  : relative;
@@ -13,6 +14,7 @@
 }
 
 .neo-grid-view {
+    height    : 100%;
     overflow-x: visible;
 
     &.neo-is-scrolling * {
@@ -28,6 +30,8 @@
     }
 
     .neo-grid-row {
+        position: absolute;
+
          &:hover {
              .neo-grid-cell {
                  background-color: var(--grid-cell-background-color-hover);

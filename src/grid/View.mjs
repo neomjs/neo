@@ -178,13 +178,15 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the bufferRowRange config got changed
+     * Triggered after the availableRows config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetBufferRowRange(value, oldValue) {
-        oldValue !== undefined && this.createViewData()
+    afterSetAvailableRows(value, oldValue) {
+        if (value > 0 && this.store.getCount() > 0) {
+            this.createViewData()
+        }
     }
 
     /**
@@ -204,17 +206,13 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the availableRows config got changed
+     * Triggered after the bufferRowRange config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetAvailableRows(value, oldValue) {
-        let me = this;
-
-        if (value > 0 && me.store.getCount() > 0) {
-            me.createViewData()
-        }
+    afterSetBufferRowRange(value, oldValue) {
+        oldValue !== undefined && this.createViewData()
     }
 
     /**
@@ -276,7 +274,8 @@ class GridView extends Component {
      * @protected
      */
     afterSetScrollPosition(value, oldValue) {
-        let me = this,
+        let me               = this,
+            {bufferRowRange} = me,
             newStartIndex;
 
         if (value.x !== oldValue?.x && me.columnPositions.length > 0) {
@@ -286,10 +285,9 @@ class GridView extends Component {
         if (value.y !== oldValue?.y) {
             newStartIndex = Math.floor(value.y / me.rowHeight);
 
-            // console.log(Math.abs(me.startIndex - newStartIndex), me.bufferRowRange);
-
-            if (Math.abs(me.startIndex - newStartIndex) >= me.bufferRowRange) {
-                // console.log('update', newStartIndex);
+            if (newStartIndex < bufferRowRange) {
+                me.startIndex = 0
+            } else if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
                 me.startIndex = newStartIndex
             }
         }
@@ -473,12 +471,16 @@ class GridView extends Component {
 
         gridRow = {
             id,
-            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2, see https://github.com/neomjs/neo/issues/6175
+            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cls            : trCls,
             cn             : [],
             role           : 'row',
-            style          : {height: me.rowHeight + 'px'},
-            tabIndex       : '-1'
+            tabIndex       : '-1',
+
+            style: {
+                height   : me.rowHeight + 'px',
+                transform: `translate(0px, ${(rowIndex - me.startIndex) * me.rowHeight}px)`
+            }
         };
 
         for (i=visibleColumns[0]; i <= visibleColumns[1]; i++) {
@@ -514,8 +516,8 @@ class GridView extends Component {
             return
         }
 
-        startIndex = Math.max(0, startIndex - bufferRowRange);
         endIndex   = Math.min(me.store.getCount(), me.availableRows + startIndex + bufferRowRange);
+        startIndex = Math.max(0, startIndex - bufferRowRange);
 
         for (i=startIndex; i < endIndex; i++) {
             rows.push(me.createRow({record: me.store.items[i], rowIndex: i}))
@@ -793,7 +795,7 @@ class GridView extends Component {
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[1].height = `${(countRecords + 2) * rowHeight}px`;
+            me.vdom.cn[1].height = `${(countRecords + 1) * rowHeight}px`;
             me.update()
         }
     }
