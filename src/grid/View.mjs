@@ -41,9 +41,9 @@ class GridView extends Component {
         /**
          * The amount of rows to paint before the first & after the last visible row,
          * to enhance the scrolling performance
-         * @member {Number} bufferRowRange_=5
+         * @member {Number} bufferRowRange_=3
          */
-        bufferRowRange_: 5,
+        bufferRowRange_: 3,
         /**
          * Define which model field contains the value of colspan definitions
          * @member {String} colspanField='colspan'
