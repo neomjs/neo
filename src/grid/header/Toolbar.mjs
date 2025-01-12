@@ -179,14 +179,32 @@ class Toolbar extends BaseToolbar {
      * @returns {Promise<void>}
      */
     async passSizeToView(silent=false) {
-        let me       = this,
-            rects    = await me.getDomRect(me.items.map(item => item.id)),
-            lastItem = rects[rects.length - 1];
+        let me              = this,
+            rects           = await me.getDomRect(me.items.map(item => item.id)),
+            lastItem        = rects[rects.length - 1],
+            columnPositions = rects.map(item => ({width: item.width, x: item.x - rects[0].x})),
+            i               = 1,
+            len             = columnPositions.length,
+            layoutFinished  = true;
 
-        me.gridContainer.view[silent ? 'setSilent' : 'set']({
-            availableWidth : lastItem.x + lastItem.width - rects[0].x,
-            columnPositions: rects.map(item => ({width: item.width, x: item.x - rects[0].x}))
-        })
+        // If the css sizing is not done, columns after the first one can get x = 0
+        for (; i < len; i++) {
+            if (columnPositions[i].x === 0) {
+                layoutFinished = false;
+                break;
+            }
+        }
+
+        // Delay for slow connections, where the container-sizing is not done yet
+        if (!layoutFinished) {
+            await me.timeout(100);
+            await me.passSizeToView(silent)
+        } else {
+            me.gridContainer.view[silent ? 'setSilent' : 'set']({
+                availableWidth: lastItem.x + lastItem.width - rects[0].x,
+                columnPositions
+            })
+        }
     }
 }
 
