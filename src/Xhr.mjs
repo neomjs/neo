@@ -18,7 +18,7 @@ class Xhr extends XhrConnection {
          */
         ntype: 'xhr',
         /**
-         * @member {Object} remote={app:['promiseRequest','promiseJson']}
+         * @member {Object} remote={app:['promiseRequest','promiseJson','setDefaultHeaders']}
          * @protected
          */
         remote: {

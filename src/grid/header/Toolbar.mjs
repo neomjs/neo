@@ -22,11 +22,19 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         */
+        gridContainer: null,
+        /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          */
         itemDefaults: {
             ntype: 'grid-header-button'
         },
+        /**
+         * @member {String} role='row'
+         */
+        role: 'row',
         /**
          * @member {Boolean} showHeaderFilters_=false
          */
@@ -34,7 +42,23 @@ class Toolbar extends BaseToolbar {
         /**
          * @member {Boolean} sortable=true
          */
-        sortable: true
+        sortable: true,
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {'aria-rowindex': 1, cn: [{cn: []}]}
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        value && this.passSizeToView()
     }
 
     /**
@@ -95,6 +119,8 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
+            item.vdom['aria-colindex'] = index + 1; // 1 based
+
             style = item.wrapperStyle;
 
             // todo: only add px if number
@@ -105,11 +131,12 @@ class Toolbar extends BaseToolbar {
             if (item.dock) {
                 NeoArray.add(item.vdom.cls, 'neo-locked');
 
-                if (item.dock === 'left') {
+                /*if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px'
                 }
 
                 dockLeftWidth += (item.width + 1) // todo: borders fix
+                 */
             }
 
             item.sortable = me.sortable;
@@ -118,14 +145,14 @@ class Toolbar extends BaseToolbar {
             // inverse loop direction
             item = items[len - index -1];
 
-            if (item.dock === 'right') {
+            /*if (item.dock === 'right') {
                 style = item.wrapperStyle;
                 style.right = dockRightWidth + 'px';
 
                 item.wrapperStyle = style;
 
                 dockRightWidth += (item.width + 1) // todo: borders fix
-            }
+            }*/
         });
 
         me.update()
@@ -143,6 +170,41 @@ class Toolbar extends BaseToolbar {
         }
 
         return null
+    }
+
+
+
+    /**
+     * @param {Boolean} silent=false
+     * @returns {Promise<void>}
+     */
+    async passSizeToView(silent=false) {
+        let me              = this,
+            rects           = await me.getDomRect(me.items.map(item => item.id)),
+            lastItem        = rects[rects.length - 1],
+            columnPositions = rects.map(item => ({width: item.width, x: item.x - rects[0].x})),
+            i               = 1,
+            len             = columnPositions.length,
+            layoutFinished  = true;
+
+        // If the css sizing is not done, columns after the first one can get x = 0
+        for (; i < len; i++) {
+            if (columnPositions[i].x === 0) {
+                layoutFinished = false;
+                break;
+            }
+        }
+
+        // Delay for slow connections, where the container-sizing is not done yet
+        if (!layoutFinished) {
+            await me.timeout(100);
+            await me.passSizeToView(silent)
+        } else {
+            me.gridContainer.view[silent ? 'setSilent' : 'set']({
+                availableWidth: lastItem.x + lastItem.width - rects[0].x,
+                columnPositions
+            })
+        }
     }
 }
 

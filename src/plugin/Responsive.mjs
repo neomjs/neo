@@ -1,10 +1,10 @@
-import BasePlugin from './Base.mjs';
+import Plugin from './Base.mjs';
 
 /**
  * @class Neo.plugin.Responsive
  * @extends Neo.plugin.Base
  */
-class Responsive extends BasePlugin {
+class Responsive extends Plugin {
     static config = {
         /**
          * @member {String} className='Neo.plugin.Responsive'

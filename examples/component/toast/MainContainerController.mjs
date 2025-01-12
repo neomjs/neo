@@ -20,7 +20,7 @@ class MainContainerController extends ComponentController {
     construct(config) {
         super.construct(config);
         Neo.main.addon.HighlightJS.switchTheme('dark');
-        Neo.main.addon.HighlightJS.loadLibrary({})
+        Neo.main.addon.HighlightJS.loadFiles({})
     }
 
     /**
@@ -72,7 +72,9 @@ class MainContainerController extends ComponentController {
             }
         })
 
-        values.appName = me.component.appName;
+        values.appName  = me.component.appName;
+        values.windowId = me.component.windowId;
+
         Neo.toast(values)
     }
 

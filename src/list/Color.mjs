@@ -1,10 +1,10 @@
-import Base from './Base.mjs';
+import List from './Base.mjs';
 
 /**
  * @class Neo.list.Color
  * @extends Neo.list.Base
  */
-class Color extends Base {
+class Color extends List {
     static config = {
         /**
          * @member {String} className='Neo.list.Color'

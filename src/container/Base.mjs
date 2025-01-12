@@ -14,7 +14,7 @@ const byWeight = ({ weight : lhs = 0 }, { weight : rhs = 0 }) => lhs - rhs;
  * @class Neo.container.Base
  * @extends Neo.component.Base
  */
-class Base extends Component {
+class Container extends Component {
     static config = {
         /**
          * @member {String} className='Neo.container.Base'
@@ -746,4 +746,4 @@ class Base extends Component {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Container);

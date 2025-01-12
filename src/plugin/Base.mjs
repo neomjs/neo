@@ -1,4 +1,4 @@
-import CoreBase from '../core/Base.mjs';
+import Base from '../core/Base.mjs';
 
 /**
  * Abstract base class for plugin implementations.
@@ -7,7 +7,7 @@ import CoreBase from '../core/Base.mjs';
  * @class Neo.plugin.Base
  * @extends Neo.core.Base
  */
-class Base extends CoreBase {
+class Plugin extends Base {
     static config = {
         /**
          * @member {String} className='Neo.plugin.Base'
@@ -64,4 +64,4 @@ class Base extends CoreBase {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Plugin);

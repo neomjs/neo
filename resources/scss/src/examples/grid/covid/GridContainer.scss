@@ -4,13 +4,13 @@
 
 .neo-grid-container.covid-country-grid {
     .neo-country-column {
+        max-width: 200px;
         min-width: 200px;
         width    : initial;
     }
 
     .neo-grid-cell {
         min-width: 100px;
-        width    : 300px;
     }
 
     .neo-index-column {

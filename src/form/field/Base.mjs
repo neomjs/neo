@@ -7,7 +7,7 @@ import NeoArray         from '../../util/Array.mjs';
  * @class Neo.form.field.Base
  * @extends Neo.component.Base
  */
-class Base extends Component {
+class Field extends Component {
     /**
      * Valid values for isTouchedEvent
      * @member {String[]} isTouchedEvents=['focusEnter','focusLeave']
@@ -379,4 +379,4 @@ class Base extends Component {
  * @returns {Object}
  */
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Field);

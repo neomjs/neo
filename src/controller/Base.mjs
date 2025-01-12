@@ -1,4 +1,4 @@
-import CoreBase    from '../core/Base.mjs';
+import Base        from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
 const
@@ -9,7 +9,7 @@ const
  * @class Neo.controller.Base
  * @extends Neo.core.Base
  */
-class Base extends CoreBase {
+class Controller extends Base {
     static config = {
         /**
          * @member {String} className='Neo.controller.Base'
@@ -214,4 +214,4 @@ class Base extends CoreBase {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Controller);

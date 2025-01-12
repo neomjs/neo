@@ -1,11 +1,11 @@
 import CircleComponent from '../component/Circle.mjs';
-import Component       from './Component.mjs';
+import ComponentList   from './Component.mjs';
 
 /**
  * @class Neo.list.Circle
  * @extends Neo.list.Component
  */
-class Circle extends Component {
+class Circle extends ComponentList {
     static config = {
         /**
          * @member {String} className='Neo.list.Circle'

@@ -1,5 +1,5 @@
-import Base     from './Base.mjs';
-import NeoArray from "../util/Array.mjs";
+import Manager  from './Base.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * See Neo.dialog.Toast for examples
@@ -7,7 +7,7 @@ import NeoArray from "../util/Array.mjs";
  * @extends Neo.manager.Base
  * @singleton
  */
-class Toast extends Base {
+class Toast extends Manager {
     static config = {
         /**
          * @member {String} className='Neo.manager.Toast'

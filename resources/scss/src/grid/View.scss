@@ -1,4 +1,27 @@
+.neo-grid-view-wrapper {
+    height         : 100%;
+    overflow-anchor: none;
+    overflow-x     : hidden;
+    overflow-y     : auto;
+    position       : relative;
+
+    .neo-grid-scrollbar {
+        height        : 1px;
+        position      : absolute;
+        top           : 0;
+        visibility    : hidden;
+        width         : 1px;
+    }
+}
+
 .neo-grid-view {
+    height    : 100%;
+    overflow-x: visible;
+
+    &.neo-is-scrolling * {
+        pointer-events: none !important;
+    }
+
     .neo-center {
         justify-content: center;
     }
@@ -8,33 +31,37 @@
     }
 
     .neo-grid-row {
-             &:hover {
-                 .neo-grid-cell {
-                     background-color: var(--grid-cell-background-color-hover);
-                 }
-             }
+        position: absolute;
 
-             // selection.RowModel
-             &.neo-selected {
-                 .neo-grid-cell {
-                     background-color: var(--grid-rowmodel-selected-cell-background-color);
-                     color           : var(--grid-rowmodel-selected-cell-color);
-                 }
-             }
-
-             // selection.CellModel
+         &:hover {
              .neo-grid-cell {
-                 &.neo-selected {
-                     background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
-                     color           : var(--grid-cellmodel-selected-cell-color) !important;
-                 }
-
-                 &.selected-column-cell {
-                     background-color: var(--grid-cellmodel-selected-column-cell-background-color);
-                     color           : var(--grid-cellmodel-selected-column-cell-color);
-                 }
+                 background-color: var(--grid-cell-background-color-hover);
              }
          }
+
+         // selection.RowModel
+         &.neo-selected {
+             .neo-grid-cell {
+                 background-color: var(--grid-rowmodel-selected-cell-background-color);
+                 color           : var(--grid-rowmodel-selected-cell-color);
+             }
+         }
+
+         .neo-grid-cell {
+             position: absolute;
+
+             // selection.CellModel
+             &.neo-selected {
+                 background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
+                 color           : var(--grid-cellmodel-selected-cell-color) !important;
+             }
+
+             &.selected-column-cell {
+                 background-color: var(--grid-cellmodel-selected-column-cell-background-color);
+                 color           : var(--grid-cellmodel-selected-column-cell-color);
+             }
+         }
+     }
 }
 
 .neo-selection-cellrowmodel,

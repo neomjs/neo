@@ -1,4 +1,4 @@
-import Base         from '../component/Base.mjs';
+import Component    from '../component/Base.mjs';
 import NeoArray     from "../util/Array.mjs";
 import ToastManager from '../manager/Toast.mjs';
 
@@ -20,7 +20,7 @@ import ToastManager from '../manager/Toast.mjs';
             title           : 'Alarm Clock' // null
         })
  */
-class Toast extends Base {
+class Toast extends Component {
     /**
      * Valid values for positions
      * @member {String[]} positions = ['tl','tc','tr','bl','bc','br']

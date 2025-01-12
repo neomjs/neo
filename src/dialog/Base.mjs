@@ -9,7 +9,7 @@ let DragZone;
  * @class Neo.dialog.Base
  * @extends Neo.container.Panel
  */
-class Base extends Panel {
+class Dialog extends Panel {
     /**
      * Valid values for closeAction
      * @member {String[]} closeActions=['close','hide']
@@ -796,4 +796,4 @@ class Base extends Panel {
     }
 }
 
-export default Neo.setupClass(Base);
+export default Neo.setupClass(Dialog);

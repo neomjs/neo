@@ -1,17 +1,24 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import CssUtil         from '../util/Css.mjs';
-import NeoArray        from '../util/Array.mjs';
+import GridView        from './View.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import Store           from '../data/Store.mjs';
-import View            from './View.mjs';
 import * as header     from './header/_export.mjs';
 
 /**
  * @class Neo.grid.Container
  * @extends Neo.container.Base
  */
-class Container extends BaseContainer {
+class GridContainer extends BaseContainer {
+    /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        onResize: {type: 'buffer', timer: 300}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.grid.Container'
@@ -25,10 +32,11 @@ class Container extends BaseContainer {
         ntype: 'grid-container',
         /**
          * @member {String[]} baseCls=['neo-grid-container']
+         * @protected
          */
         baseCls: ['neo-grid-container'],
         /**
-         * true uses table.plugin.CellEditing
+         * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
          */
         cellEditing_: false,
@@ -42,7 +50,7 @@ class Container extends BaseContainer {
          */
         columns_: [],
         /**
-         * Configs for Neo.table.header.Toolbar
+         * Configs for Neo.grid.header.Toolbar
          * @member {Object|null} [headerToolbarConfig=null]
          */
         headerToolbarConfig: null,
@@ -60,10 +68,19 @@ class Container extends BaseContainer {
          */
         layout: 'base',
         /**
-         * @member {Boolean} scrollbarsCssApplied=false
+         * @member {String} role='grid'
+         */
+        role: 'grid',
+        /**
+         * Number in px
+         * @member {Number} rowHeight_=32
+         */
+        rowHeight_: 32,
+        /**
+         * @member {String|null} scrollbarId_=null
          * @protected
          */
-        scrollbarsCssApplied: false,
+        scrollbarId_: null,
         /**
          * @member {Neo.selection.Model} selectionModel_=null
          */
@@ -81,12 +98,7 @@ class Container extends BaseContainer {
          */
         store_: null,
         /**
-         * todo: only works for chrome & safari -> add a check
-         * @member {Boolean} useCustomScrollbars_=true
-         */
-        useCustomScrollbars_: true,
-        /**
-         * Configs for Neo.table.View
+         * Configs for Neo.grid.View
          * @member {Object|null} [viewConfig=null]
          */
         viewConfig: null,
@@ -105,21 +117,35 @@ class Container extends BaseContainer {
          */
         _vdom:
         {cls: ['neo-grid-wrapper'], cn: [
-            {cn: []}
+            {'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
         ]}
     }
 
     /**
+     * We do not need the first event to trigger logic, since afterSetMounted() handles this
+     * @member {Boolean}} initialResizeEvent=true
+     */
+    initialResizeEvent = true
+
+    /**
      * Convenience method to access the Neo.grid.header.Toolbar
-     * @returns {Neo.table.header.Toolbar|null}
+     * @returns {Neo.grid.header.Toolbar|null}
      */
     get headerToolbar() {
         return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
     }
 
     /**
+     * Convenience method to access the Neo.grid.Scrollbar
+     * @returns {Neo.grid.Scrollbar|null}
+     */
+    get scrollbar() {
+        return Neo.getComponent(this.scrollbarId) || Neo.get(this.scrollbarId)
+    }
+
+    /**
      * Convenience method to access the Neo.grid.View
-     * @returns {Neo.table.View|null}
+     * @returns {Neo.grid.View|null}
      */
     get view() {
         return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
@@ -131,28 +157,38 @@ class Container extends BaseContainer {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me                 = this,
+            {rowHeight, store} = me;
 
         me.headerToolbarId = Neo.getId('grid-header-toolbar');
+        me.scrollbarId     = Neo.getId('grid-scrollbar');
         me.viewId          = Neo.getId('grid-view');
 
         me.items = [{
             module           : header.Toolbar,
+            gridContainer    : me,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : View,
+            module     : GridView,
             containerId: me.id,
             id         : me.viewId,
-            store      : me.store,
+            rowHeight,
+            store,
             ...me.viewConfig
         }];
 
         me.vdom.id = me.getWrapperId();
 
-        me.createColumns(me.columns)
+        me.createColumns(me.columns);
+
+        me.addDomListeners({
+            resize: me.onResize,
+            scroll: me.onScroll,
+            scope : me
+        })
     }
 
     /**
@@ -200,6 +236,61 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let me             = this,
+            ResizeObserver = Neo.main?.addon?.ResizeObserver,
+            resizeParams   = {id: me.id, windowId: me.windowId};
+
+        // Check if the remotes api is ready for slow network connections & dist/prod
+        if (!ResizeObserver) {
+            await me.timeout(100);
+            await me.addResizeObserver(mounted)
+        } else {
+            if (mounted) {
+                ResizeObserver.register(resizeParams);
+                await me.passSizeToView()
+            } else {
+                me.initialResizeEvent = true;
+                ResizeObserver.unregister(resizeParams)
+            }
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        oldValue !== undefined && this.addResizeObserver(value)
+    }
+
+    /**
+     * Triggered after the rowHeight config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRowHeight(value, oldValue) {
+        if (value > 0) {
+            let {scrollbar, view} = this;
+
+            if (scrollbar) {
+                scrollbar.rowHeight = value
+            }
+
+            if (view) {
+                view.rowHeight = value
+            }
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -231,41 +322,6 @@ class Container extends BaseContainer {
         if (oldValue !== undefined) {
             this.headerToolbar.sortable = value
         }
-    }
-
-    /**
-     * Triggered after the useCustomScrollbars config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetUseCustomScrollbars(value, oldValue) {
-        if (value === true) {
-            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar'])
-        }
-    }
-
-    /**
-     * @protected
-     */
-    applyCustomScrollbarsCss() {
-        let me       = this,
-            id       = me.getWrapperId(),
-            cssRules = [];
-
-        if (me.dockLeftMargin) {
-            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-left: ' + me.dockLeftMargin + 'px;}')
-        }
-
-        if (me.dockRightMargin) {
-            cssRules.push('#' + id + '::-webkit-scrollbar-track:horizontal {margin-right: ' + me.dockRightMargin + 'px;}')
-        }
-
-        if (cssRules.length > 0) {
-            CssUtil.insertRules(me.appName, cssRules)
-        }
-
-        me.scrollbarsCssApplied = true
     }
 
     /**
@@ -385,7 +441,7 @@ class Container extends BaseContainer {
             renderer;
 
         if (!columns || !columns.length) {
-            Neo.logError('Attempting to create a table.Container without defined columns', me.id);
+            Neo.logError('Attempting to create a grid.Container without defined columns', me.id);
         }
 
         columns.forEach(column => {
@@ -424,11 +480,24 @@ class Container extends BaseContainer {
     createViewData(inputData) {
         let me = this;
 
-        me.view.createViewData(inputData);
+        me.getVdomRoot()['aria-rowcount'] = inputData.length + 2; // 1 based & the header row counts as well
+        me.update();
 
-        if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
-            me.applyCustomScrollbarsCss()
-        }
+        me.view.createViewData()
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.mounted && Neo.main.addon.ResizeObserver.unregister({
+            id      : me.id,
+            windowId: me.windowId
+        });
+
+        super.destroy(...args)
     }
 
     /**
@@ -467,6 +536,30 @@ class Container extends BaseContainer {
     onConstructed() {
         super.onConstructed();
         this.selectionModel?.register(this)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onResize(data) {
+        let me = this;
+
+        if (!me.initialResizeEvent) {
+            await me.passSizeToView(true);
+
+            me.view.updateVisibleColumns();
+
+            await me.headerToolbar.passSizeToView()
+        } else {
+            me.initialResizeEvent = false
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onScroll(data) {
+        this.view.scrollPosition = {x: data.scrollLeft, y: this.view.scrollPosition.y}
     }
 
     /**
@@ -527,6 +620,26 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @param {Boolean} silent=false
+     * @returns {Promise<void>}
+     */
+    async passSizeToView(silent=false) {
+        let me                          = this,
+            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbarId]);
+
+        // delay for slow connections, where the container-sizing is not done yet
+        if (containerRect.height === headerRect.height) {
+            await me.timeout(100);
+            await me.passSizeToView(silent)
+        } else {
+            me.view[silent ? 'setSilent' : 'set']({
+                availableHeight: containerRect.height - headerRect.height,
+                containerWidth : containerRect.width
+            })
+        }
+    }
+
+    /**
      * @param {String} dataField
      * @protected
      */
@@ -539,4 +652,4 @@ class Container extends BaseContainer {
     }
 }
 
-export default Neo.setupClass(Container);
+export default Neo.setupClass(GridContainer);

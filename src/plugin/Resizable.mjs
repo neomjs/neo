@@ -1,12 +1,12 @@
-import Base     from './Base.mjs';
 import DragZone from '../draggable/DragZone.mjs';
 import NeoArray from '../util/Array.mjs';
+import Plugin   from './Base.mjs';
 
 /**
  * @class Neo.plugin.Resizable
  * @extends Neo.plugin.Base
  */
-class Resizable extends Base {
+class Resizable extends Plugin {
     /**
      * Resize cursor styles use north, south based names, so we need a mapping.
      * The order has to match the static positions array.

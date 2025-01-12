@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Plugin from './Base.mjs';
 
 /**
  * @class Neo.plugin.PrefixField
@@ -17,7 +17,7 @@ import Base from './Base.mjs';
  *         }]
  *     }
  */
-class PrefixField extends Base {
+class PrefixField extends Plugin {
     static config = {
         /**
          * @member {String} className='Neo.plugin.PrefixField'

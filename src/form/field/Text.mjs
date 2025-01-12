@@ -1,6 +1,6 @@
-import Base         from './Base.mjs';
 import BaseTrigger  from './trigger/Base.mjs';
 import ClearTrigger from './trigger/Clear.mjs';
+import Field        from './Base.mjs';
 import NeoArray     from '../../util/Array.mjs';
 import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
@@ -10,7 +10,7 @@ import VNodeUtil    from '../../util/VNode.mjs';
  * @class Neo.form.field.Text
  * @extends Neo.form.field.Base
  */
-class Text extends Base {
+class Text extends Field {
     /**
      * Valid values for autoCapitalize
      * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
