@@ -16,6 +16,7 @@ const
     addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController   = Symbol.for('closestController'),
     closestProvider     = Symbol.for('closestProvider'),
+    {currentWorker}     = Neo,
     lengthRE            = /^\d+\w+$/,
     twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
@@ -573,7 +574,7 @@ class Component extends Base {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (Neo.currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
@@ -1057,7 +1058,7 @@ class Component extends Base {
             controller = me.controller;
 
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, me.__proto__);
+            currentWorker.insertThemeFiles(value, me.__proto__);
 
             if (controller) {
                 controller.windowId = value
@@ -1544,7 +1545,7 @@ class Component extends Base {
             opts = {},
             deltas;
 
-        if (Neo.currentWorker.isSharedWorker) {
+        if (currentWorker.isSharedWorker) {
             opts.appName  = me.appName;
             opts.windowId = me.windowId
         }
@@ -1783,7 +1784,7 @@ class Component extends Base {
      * @returns {Neo.state.Provider|null}
      */
     getStateProvider(ntype) {
-        if (!Neo.currentWorker.isUsingStateProviders) {
+        if (!currentWorker.isUsingStateProviders) {
             return null
         }
 
@@ -2055,7 +2056,7 @@ class Component extends Base {
 
             me.render(true)
         } else {
-            await Neo.currentWorker.promiseMessage('main', {
+            await currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
                 appName    : me.appName,
                 id         : me.id,
@@ -2287,8 +2288,9 @@ class Component extends Base {
             {app}           = me,
             {useVdomWorker} = Neo.config;
 
-        if (Neo.currentWorker.countLoadingThemeFiles !== 0) {
-            Neo.currentWorker.on('themeFilesLoaded', function() {
+        // Verify that the critical rendering path => CSS files for the new tree is in place
+        if (currentWorker.countLoadingThemeFiles !== 0) {
+            currentWorker.on('themeFilesLoaded', function() {
                 me.render(mount)
             }, me, {once: true});
 
@@ -2620,11 +2622,11 @@ class Component extends Base {
                     deltas: [{id, style: delta}]
                 };
 
-                if (Neo.currentWorker.isSharedWorker) {
+                if (currentWorker.isSharedWorker) {
                     opts.appName = me.appName
                 }
 
-                Neo.currentWorker.sendMessage('main', opts)
+                currentWorker.sendMessage('main', opts)
             }
         }
     }
@@ -2667,7 +2669,14 @@ class Component extends Base {
                     && mounted
                     && vnode
                 ) {
-                    me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    // Verify that the critical rendering path => CSS files for the new tree is in place
+                    if (currentWorker.countLoadingThemeFiles !== 0) {
+                        currentWorker.on('themeFilesLoaded', function() {
+                            me.updateVdom(vdom, vnode, resolve, reject)
+                        }, me, {once: true})
+                    } else {
+                        me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    }
                 }
             }
         }
