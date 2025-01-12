@@ -92,11 +92,12 @@ class Stylesheet extends Base {
      * @param {String} data.className
      * @param {String[]} data.folders
      */
-    addThemeFiles(data) {
+    async addThemeFiles(data) {
         let {className} = data,
             {config}    = Neo,
             env         = config.environment,
             path        = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            promises    = [],
             rootPath    = config.basePath.substring(6);
 
         if (className.startsWith('Neo.')) {
@@ -107,13 +108,15 @@ class Stylesheet extends Base {
 
         data.folders.forEach(folder => {
             if (folder === 'src' || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)) {
-                this.createStyleSheet(
+                promises.push(this.createStyleSheet(
                     null,
                     null,
                     `${rootPath}${path}css/${folder}/${className}.css`
-                )
+                ))
             }
-        })
+        });
+
+        await Promise.all(promises)
     }
 
     /**
@@ -121,28 +124,34 @@ class Stylesheet extends Base {
      * @param {String} [name]
      * @param {String} [id]
      * @param {String} [href]
+     * @returns {Promise<void>}
      */
-    createStyleSheet(name, id, href) {
+    async createStyleSheet(name, id, href) {
         if (!name && !href) {
             throw new Error('createStyleSheet: you need to either pass a name or a href')
         }
 
-        let link = document.createElement('link'),
-            env  = Neo.config.environment,
-            path = env.startsWith('dist/') ? env : ('dist/' + env),
-            url  = href ? href : Neo.config.basePath + path + '/' + name;
+        return new Promise((resolve, reject) => {
+            let link = document.createElement('link'),
+                env  = Neo.config.environment,
+                path = env.startsWith('dist/') ? env : ('dist/' + env),
+                url  = href ? href : Neo.config.basePath + path + '/' + name;
 
-        Object.assign(link, {
-            href: url,
-            rel : 'stylesheet',
-            type: 'text/css'
-        });
+            Object.assign(link, {
+                href: url,
+                rel : 'stylesheet',
+                type: 'text/css'
+            });
 
-        if (id) {
-            link.id = id
-        }
+            if (id) {
+                link.id = id
+            }
 
-        document.head.appendChild(link)
+            link.addEventListener('error', function() {reject()})
+            link.addEventListener('load',  function() {resolve()})
+
+            document.head.appendChild(link)
+        })
     }
 
     /**
