@@ -1,8 +1,9 @@
 .neo-grid-view-wrapper {
-    height    : 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    position  : relative;
+    height         : 100%;
+    overflow-anchor: none;
+    overflow-x     : hidden;
+    overflow-y     : auto;
+    position       : relative;
 
     .neo-grid-scrollbar {
         height        : 1px;
