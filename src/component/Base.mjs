@@ -2667,7 +2667,14 @@ class Component extends Base {
                     && mounted
                     && vnode
                 ) {
-                    me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    // Verify that the critical rendering path => CSS files for the new tree is in place
+                    if (Neo.currentWorker.countLoadingThemeFiles !== 0) {
+                        Neo.currentWorker.on('themeFilesLoaded', function() {
+                            me.updateVdom(vdom, vnode, resolve, reject)
+                        }, me, {once: true})
+                    } else {
+                        me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                    }
                 }
             }
         }
