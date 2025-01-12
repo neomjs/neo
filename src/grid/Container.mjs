@@ -244,6 +244,7 @@ class GridContainer extends BaseContainer {
             ResizeObserver = Neo.main?.addon?.ResizeObserver,
             resizeParams   = {id: me.id, windowId: me.windowId};
 
+        // Check if the remotes api is ready for slow network connections & dist/prod
         if (!ResizeObserver) {
             await me.timeout(100);
             await me.addResizeObserver(mounted)
