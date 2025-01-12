@@ -126,8 +126,8 @@ class HighlightJS extends Base {
      */
     switchTheme(theme) {
         let definedThemes = {
-                dark : './resources/highlightjs-custom-dark-theme.css',
-                light: './resources/highlightjs-custom-github-theme.css'
+                dark : './resources/lib/highlightjs-custom-dark-theme.css',
+                light: './resources/lib/highlightjs-custom-github-theme.css'
             },
             switchToTheme = definedThemes[theme];
 
