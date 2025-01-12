@@ -2282,10 +2282,18 @@ class Component extends Base {
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
     async render(mount) {
-        let me            = this,
-            autoMount     = mount || me.autoMount,
-            app           = me.app,
-            useVdomWorker = Neo.config.useVdomWorker;
+        let me              = this,
+            autoMount       = mount || me.autoMount,
+            {app}           = me,
+            {useVdomWorker} = Neo.config;
+
+        if (Neo.currentWorker.countLoadingThemeFiles !== 0) {
+            Neo.currentWorker.on('themeFilesLoaded', function() {
+                me.render(mount)
+            }, me, {once: true});
+
+            return
+        }
 
         me.rendering = true;
 
