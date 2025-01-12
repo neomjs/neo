@@ -614,10 +614,16 @@ class GridContainer extends BaseContainer {
         let me                          = this,
             [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbarId]);
 
-        me.view[silent ? 'setSilent' : 'set']({
-            availableHeight: containerRect.height - headerRect.height,
-            containerWidth : containerRect.width
-        })
+        // delay for slow connections, where the container-sizing is not done yet
+        if (containerRect.height === headerRect.height) {
+            await me.timeout(100);
+            await me.passSizeToView(silent)
+        } else {
+            me.view[silent ? 'setSilent' : 'set']({
+                availableHeight: containerRect.height - headerRect.height,
+                containerWidth : containerRect.width
+            })
+        }
     }
 
     /**
