@@ -282,7 +282,7 @@ class App extends Base {
     insertThemeFiles(windowId, proto, className) {
         if (Neo.config.themes.length > 0) {
             className = className || proto.className;
-            //console.log(windowId, className);
+
             let me     = this,
                 cssMap = Neo.cssMap,
                 parent = proto?.__proto__,
@@ -310,7 +310,7 @@ class App extends Base {
                 }
 
                 themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
-                //console.log(cssMap);
+
                 if (themeFolders && !Neo.ns(`${windowId}.${className}`, false, cssMap)) {
                     classPath = className.split('.');
                     fileName  = classPath.pop();
