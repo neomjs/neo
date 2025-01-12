@@ -7,16 +7,17 @@
 }
 
 .neo-grid-container {
-    border        : 1px solid var(--grid-container-border-color);
-    border-spacing: 0;
-    color         : var(--grid-container-color);
-    font-size     : 13px;
-    font-weight   : 400;
-    height        : 100%;
-    line-height   : 19px;
-    overflow-y    : hidden;
-    position      : absolute;
-    width         : 100%;
+    border             : 1px solid var(--grid-container-border-color);
+    border-spacing     : 0;
+    color              : var(--grid-container-color);
+    font-size          : 13px;
+    font-weight        : 400;
+    height             : 100%;
+    line-height        : 19px;
+    overscroll-behavior: none;
+    overflow-y         : hidden;
+    position           : absolute;
+    width              : 100%;
 
     .neo-grid-row {
         display: flex;
