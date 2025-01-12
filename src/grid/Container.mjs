@@ -236,6 +236,29 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let me             = this,
+            ResizeObserver = Neo.main?.addon?.ResizeObserver,
+            resizeParams   = {id: me.id, windowId: me.windowId};
+
+        if (!ResizeObserver) {
+            await me.timeout(100);
+            await me.addResizeObserver(mounted)
+        } else {
+            if (mounted) {
+                ResizeObserver.register(resizeParams);
+                await me.passSizeToView()
+            } else {
+                me.initialResizeEvent = true;
+                ResizeObserver.unregister(resizeParams)
+            }
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -243,18 +266,7 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        let me               = this,
-            {ResizeObserver} = Neo.main.addon,
-            resizeParams     = {id: me.id, windowId: me.windowId};
-
-        if (value) {
-            ResizeObserver.register(resizeParams);
-            me.passSizeToView()
-        } else if (!value && oldValue) { // unmount
-            me.initialResizeEvent = true;
-            ResizeObserver.unregister(resizeParams)
-        }
+        oldValue !== undefined && this.addResizeObserver(value)
     }
 
     /**
