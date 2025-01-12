@@ -21,6 +21,10 @@ class App extends Base {
          */
         className: 'Neo.worker.App',
         /**
+         * @member {Number} countLoadingThemeFiles_=0
+         */
+        countLoadingThemeFiles_: 0,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -75,6 +79,18 @@ class App extends Base {
         // convenience shortcuts
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
         Neo.setCssVariable = me.setCssVariable.bind(me)
+    }
+
+    /**
+     * Triggered after the countLoadingThemeFiles config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCountLoadingThemeFiles(value, oldValue) {
+        if (value === 0 && oldValue !== undefined) {
+            this.fire('themeFilesLoaded')
+        }
     }
 
     /**
@@ -319,10 +335,14 @@ class App extends Base {
 
                     ns[fileName] = true;
 
+                    me.countLoadingThemeFiles++;
+
                     Neo.main.addon.Stylesheet.addThemeFiles({
                         className: mapClassName || className,
                         folders  : themeFolders,
                         windowId
+                    }).then(() => {
+                        me.countLoadingThemeFiles--
                     })
                 }
             }
