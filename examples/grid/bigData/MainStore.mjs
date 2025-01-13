@@ -7,30 +7,42 @@ import Store from '../../../src/data/Store.mjs';
  */
 class MainStore extends Store {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.grid.bigData.MainStore'
+         * @protected
+         */
         className: 'Neo.examples.grid.bigData.MainStore',
-        model    : Model
+        /**
+         * @member {Number} amountRows_=10000
+         */
+        amountRows_: 10000,
+        /**
+         * @member {Neo.data.Model} model=Model
+         */
+        model: Model
     }
 
     /**
-     * @param {Object} config
+     * Triggered after the amountRows config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
-        this.data = this.generateData(10000);
-        console.log(this);
+    afterSetAmountRows(value, oldValue) {
+        this.data = this.generateData(value)
     }
 
     /**
-     * @param {Number} countRows
+     * @param {Number} amountRows
      * @returns {Object[]}
      */
-    generateData(countRows) {
+    generateData(amountRows) {
         let countColumns = 48,
             records      = [],
             row          =  0,
             column, record;
 
-        for (; row < countRows; row++) {
+        for (; row < amountRows; row++) {
             column = 1;
             record = {id: row + 1, firstname: 'Tobias', lastname: 'Uhlig'};
 

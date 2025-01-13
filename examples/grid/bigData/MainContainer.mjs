@@ -20,7 +20,7 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
-            style : {marginBottom: '1em'},
+            style : {marginBottom: '1em', padding: 0},
 
             itemDefaults: {
                 module      : ComboBox,
@@ -34,6 +34,7 @@ class MainContainer extends Viewport {
                 labelWidth: 110,
                 listeners : {change: 'up.onAmountRowsChange'},
                 store     : ['1000', '5000', '10000', '20000'],
+                style     : {marginLeft: '1em'},
                 value     : '10000',
                 width     : 200
             }, {
@@ -54,7 +55,8 @@ class MainContainer extends Viewport {
                 width     : 160
             }]
         }, {
-            module: GridContainer
+            module   : GridContainer,
+            reference: 'grid'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
@@ -84,7 +86,9 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     onAmountRowsChange(data) {
-        console.log('onAmountRowsChange', data);
+        if (data.oldValue) {
+            this.getItem('grid').store.amountRows = parseInt(data.value.id)
+        }
     }
 }
 
