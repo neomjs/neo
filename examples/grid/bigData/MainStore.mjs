@@ -13,6 +13,10 @@ class MainStore extends Store {
          */
         className: 'Neo.examples.grid.bigData.MainStore',
         /**
+         * @member {Number} amountColumns_=50
+         */
+        amountColumns_: 50,
+        /**
          * @member {Number} amountRows_=10000
          */
         amountRows_: 10000,
@@ -23,30 +27,46 @@ class MainStore extends Store {
     }
 
     /**
+     * Triggered after the amountColumns config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetAmountColumns(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.data = me.generateData(me.amountRows, value)
+        }
+    }
+
+    /**
      * Triggered after the amountRows config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetAmountRows(value, oldValue) {
-        this.data = this.generateData(value)
+        let me = this;
+
+        me.data = me.generateData(value, me.amountColumns)
     }
 
     /**
      * @param {Number} amountRows
+     * @param {Number} amountColumns
      * @returns {Object[]}
      */
-    generateData(amountRows) {
-        let countColumns = 48,
-            records      = [],
-            row          =  0,
+    generateData(amountRows, amountColumns) {
+        let records = [],
+            row     = 0,
             column, record;
 
         for (; row < amountRows; row++) {
             column = 1;
             record = {id: row + 1, firstname: 'Tobias', lastname: 'Uhlig'};
 
-            for (; column < countColumns; column++) {
+            for (; column < amountColumns - 2; column++) {
                 record['number' + column] = Math.round(Math.random() * 10000)
             }
 
