@@ -31,7 +31,7 @@ class MainModel extends Model {
                 {name: 'lastname',  type: 'String'}
             ];
 
-        for (; i < value; i++) {
+        for (; i <= value; i++) {
             fields.push({name: 'number' + i, type: 'Int'})
         }
 

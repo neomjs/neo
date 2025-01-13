@@ -76,7 +76,7 @@ class MainContainer extends Viewport {
      */
     onAmountColumnsChange(data) {
         if (data.oldValue) {
-            this.getItem('grid').store.amountColumns = parseInt(data.value.id)
+            this.getItem('grid').amountColumns = parseInt(data.value.id)
         }
     }
 

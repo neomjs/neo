@@ -141,14 +141,14 @@ class MainStore extends Store {
             column, record;
 
         for (; row < amountRows; row++) {
-            column = 1;
+            column = 4;
             record = {
                 id       : row + 1,
                 firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
                 lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)]
             };
 
-            for (; column < amountColumns - 2; column++) {
+            for (; column <= amountColumns; column++) {
                 record['number' + column] = Math.round(Math.random() * 10000)
             }
 
