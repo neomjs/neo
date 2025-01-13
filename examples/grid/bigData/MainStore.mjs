@@ -16,7 +16,7 @@ class MainStore extends Store {
      */
     construct(config) {
         super.construct(config);
-        this.data = this.generateData(50000);
+        this.data = this.generateData(10000);
         console.log(this);
     }
 
