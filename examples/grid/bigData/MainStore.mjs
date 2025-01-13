@@ -100,6 +100,8 @@ class MainStore extends Store {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.model.amountColumns = value;
+
             me.data = me.generateData(me.amountRows, value)
         }
     }
