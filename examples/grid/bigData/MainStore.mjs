@@ -26,6 +26,70 @@ class MainStore extends Store {
         model: Model
     }
 
+    firstnames = [
+        'Ashley',
+        'Barbara',
+        'Betty',
+        'Chris',
+        'David',
+        'Elizabeth',
+        'Jack',
+        'James',
+        'Jennifer',
+        'Jessica',
+        'Joe',
+        'John',
+        'Karen',
+        'Kelly',
+        'Kim',
+        'Linda',
+        'Lisa',
+        'Mary',
+        'Max',
+        'Michael',
+        'Nancy',
+        'Patricia',
+        'Rich',
+        'Robert',
+        'Sam',
+        'Sandra',
+        'Sarah',
+        'Susan',
+        'Thomas',
+        'Tobias'
+    ]
+
+    lastnames = [
+        'Anderson',
+        'Brown',
+        'Davis',
+        'Garcia',
+        'Gonzales',
+        'Harris',
+        'Hernandez',
+        'Jackson',
+        'Johnson',
+        'Jones',
+        'Lee',
+        'Lopez',
+        'Martin',
+        'Martinez',
+        'Miller',
+        'Moore',
+        'Perez',
+        'Rahder',
+        'Rodriguez',
+        'Smith',
+        'Taylor',
+        'Thomas',
+        'Thompson',
+        'Uhlig',
+        'Waters',
+        'White',
+        'Williams',
+        'Wilson'
+    ]
+
     /**
      * Triggered after the amountColumns config got changed
      * @param {Number} value
@@ -58,13 +122,20 @@ class MainStore extends Store {
      * @returns {Object[]}
      */
     generateData(amountRows, amountColumns) {
-        let records = [],
-            row     = 0,
+        let me               = this,
+            amountFirstnames = me.firstnames.length,
+            amountLastnames  = me.lastnames.length,
+            records          = [],
+            row              = 0,
             column, record;
 
         for (; row < amountRows; row++) {
             column = 1;
-            record = {id: row + 1, firstname: 'Tobias', lastname: 'Uhlig'};
+            record = {
+                id       : row + 1,
+                firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
+                lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)]
+            };
 
             for (; column < amountColumns - 2; column++) {
                 record['number' + column] = Math.round(Math.random() * 10000)
