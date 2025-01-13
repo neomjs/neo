@@ -111,9 +111,15 @@ class MainStore extends Store {
      * @protected
      */
     afterSetAmountRows(value, oldValue) {
-        let me = this;
+        let me    = this,
+            data  = me.generateData(value, me.amountColumns),
+            start = performance.now();
 
-        me.data = me.generateData(value, me.amountColumns)
+        console.log('Start creating records');
+
+        me.data = data;
+
+        console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
     }
 
     /**
@@ -122,7 +128,10 @@ class MainStore extends Store {
      * @returns {Object[]}
      */
     generateData(amountRows, amountColumns) {
+        console.log('Start creating data', {amountRows, amountColumns});
+
         let me               = this,
+            start            = performance.now(),
             amountFirstnames = me.firstnames.length,
             amountLastnames  = me.lastnames.length,
             records          = [],
@@ -143,6 +152,8 @@ class MainStore extends Store {
 
             records.push(record)
         }
+
+        console.log(`Data creation total time: ${Math.round(performance.now() - start)}ms`);
 
         return records
     }
