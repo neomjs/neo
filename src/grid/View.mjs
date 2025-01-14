@@ -663,10 +663,9 @@ class GridView extends Component {
 
     /**
      * @param {Object} record
-     * @param {Number} [index]
      * @returns {String}
      */
-    getRowId(record, index) {
+    getRowId(record) {
         return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
     }
 
