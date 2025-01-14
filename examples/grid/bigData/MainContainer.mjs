@@ -15,6 +15,10 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.grid.bigData.MainContainer',
         /**
+         * @member {String[]} cls=['neo-examples-bigdata-maincontainer']
+         */
+        cls: ['neo-examples-bigdata-maincontainer'],
+        /**
          * @member {Object[]} items
          */
         items: [{
