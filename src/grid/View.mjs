@@ -75,10 +75,6 @@ class GridView extends Component {
          */
         isScrolling_: false,
         /**
-         * @member {Object} recordVnodeMap={}
-         */
-        recordVnodeMap: {},
-        /**
          * @member {String} role='rowgroup'
          */
         role: 'rowgroup',
@@ -462,8 +458,6 @@ class GridView extends Component {
             trCls    = me.getTrClass(record, rowIndex),
             config, column, endIndex, gridRow, i, startIndex;
 
-        me.recordVnodeMap[id] = rowIndex;
-
         if (rowIndex % 2 !== 0) {
             trCls.push('neo-even')
         }
@@ -651,10 +645,20 @@ class GridView extends Component {
 
     /**
      * @param {String} rowId
-     * @returns {Object}
+     * @returns {Record}
      */
     getRecordByRowId(rowId) {
-        return this.store.getAt(this.recordVnodeMap[rowId])
+        let recordId = rowId.split('__')[2],
+            {store}  = this,
+            {model}  = store,
+            keyField = model?.getField(store.getKeyProperty()),
+            keyType  = keyField?.type?.toLowerCase();
+
+        if (keyType === 'int' || keyType === 'integer') {
+            recordId = parseInt(recordId)
+        }
+
+        return store.get(recordId)
     }
 
     /**
@@ -663,7 +667,7 @@ class GridView extends Component {
      * @returns {String}
      */
     getRowId(record, index) {
-        return `${this.id}__tr__${record[this.store.keyProperty]}`
+        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
     }
 
     /**
