@@ -256,21 +256,23 @@ class Store extends Base {
      * @returns {*}
      */
     beforeSetData(value, oldValue) {
-        let me = this;
-
         if (value) {
             if (!Array.isArray(value)) {
                 value = [value]
             }
 
-            // todo: add a config to make the cloning optional
-            value = Neo.clone(value, true);
+            let me  = this,
+                i   = 0,
+                len = value.length,
+                item;
 
-            value.forEach((key, index) => {
-                if (!RecordFactory.isRecord(key)) {
-                    value[index] = RecordFactory.createRecord(me.model, key)
+            for (; i < len; i++) {
+                item = value[i]
+
+                if (!RecordFactory.isRecord(item)) {
+                    value[i] = RecordFactory.createRecord(me.model, item)
                 }
-            })
+            }
         }
 
         return value

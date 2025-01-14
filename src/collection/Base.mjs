@@ -1181,7 +1181,12 @@ class Collection extends Base {
             }
 
             if (addedItems.length > 0) {
-                items.splice(Neo.isNumber(index) ? index : items.length, 0, ...addedItems);
+                if (items.length === 0) {
+                    // Performance improvement for Safari, see: https://github.com/neomjs/neo/issues/6228
+                    me._items = addedItems
+                } else {
+                    items.splice(Neo.isNumber(index) ? index : items.length, 0, ...addedItems)
+                }
 
                 if (me.autoSort && me._sorters.length > 0) {
                     me.doSort()
