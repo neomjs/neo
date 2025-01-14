@@ -24,6 +24,7 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'stretch', wrap: 'wrap'},
             style : {marginBottom: '1em', padding: 0},
 
             itemDefaults: {
@@ -38,7 +39,6 @@ class MainContainer extends Viewport {
                 labelWidth: 110,
                 listeners : {change: 'up.onAmountRowsChange'},
                 store     : ['1000', '5000', '10000', '20000', '50000'],
-                style     : {marginLeft: '1em'},
                 value     : '10000',
                 width     : 200
             }, {
@@ -46,7 +46,6 @@ class MainContainer extends Viewport {
                 labelWidth: 135,
                 listeners : {change: 'up.onAmountColumnsChange'},
                 store     : ['10', '25', '50', '75', '100'],
-                style     : {marginLeft: '2em'},
                 value     : '50',
                 width     : 200
             }, {
@@ -54,7 +53,6 @@ class MainContainer extends Viewport {
                 labelWidth: 140,
                 listeners : {change: 'up.ontBufferRowRangeChange'},
                 store     : ['0', '3', '5', '10', '25', '50'],
-                style     : {marginLeft: '2em'},
                 value     : '5',
                 width     : 200
             }]
