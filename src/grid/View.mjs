@@ -121,7 +121,7 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
+        {tabIndex: '-1', cn: [
             {cn: []},
             {cls: 'neo-grid-scrollbar'}
         ]}
@@ -428,8 +428,7 @@ class GridView extends Component {
             id             : cellId,
             cls            : cellCls,
             role           : 'gridcell',
-            style          : rendererOutput.style || {},
-            tabIndex       : '-1'
+            style          : rendererOutput.style || {}
         };
 
         if (column.width) {
@@ -491,7 +490,6 @@ class GridView extends Component {
             cls            : trCls,
             cn             : [],
             role           : 'row',
-            tabIndex       : '-1',
 
             style: {
                 height   : me.rowHeight + 'px',
