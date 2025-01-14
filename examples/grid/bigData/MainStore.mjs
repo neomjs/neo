@@ -98,11 +98,17 @@ class MainStore extends Store {
      */
     afterSetAmountColumns(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
+            let me    = this,
+                data  = me.generateData(me.amountRows, value),
+                start = performance.now();
 
             me.model.amountColumns = value;
 
-            me.data = me.generateData(me.amountRows, value)
+            console.log('Start creating records');
+
+            me.data = data;
+
+            console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
         }
     }
 
