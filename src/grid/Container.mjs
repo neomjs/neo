@@ -597,6 +597,14 @@ class GridContainer extends BaseContainer {
         if (me.rendered) {
             me.createViewData(data);
 
+            me.timeout(50).then(() => {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.view.vdom.id,
+                    value    : 0
+                })
+            })
+
             if (me.store.sorters.length < 1) {
                 me.removeSortingCss()
             }
