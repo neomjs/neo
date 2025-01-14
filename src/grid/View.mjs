@@ -39,6 +39,12 @@ class GridView extends Component {
          */
         baseCls: ['neo-grid-view'],
         /**
+         * The amount of columns (cells) to paint before the first & after the last visible column,
+         * to enhance the scrolling performance
+         * @member {Number} bufferColumnRange_=3
+         */
+        bufferColumnRange_: 3,
+        /**
          * The amount of rows to paint before the first & after the last visible row,
          * to enhance the scrolling performance
          * @member {Number} bufferRowRange_=3
@@ -98,7 +104,7 @@ class GridView extends Component {
         useRowRecordIds: true,
         /**
          * Stores the indexes of the first & last painted columns
-         * @member {Array} visibleColumns_=[0,0]
+         * @member {Number[]} visibleColumns_=[0,0]
          * @protected
          */
         visibleColumns_: [0, 0],
@@ -203,6 +209,16 @@ class GridView extends Component {
             me.vdom.cn[1].width = value + 'px';
             me.update()
         }
+    }
+
+    /**
+     * Triggered after the bufferColumnRange config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetBufferColumnRange(value, oldValue) {
+        oldValue !== undefined && this.createViewData()
     }
 
     /**
@@ -322,8 +338,8 @@ class GridView extends Component {
 
     /**
      * Triggered after the visibleColumns config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Number[]} value
+     * @param {Number[]} oldValue
      * @protected
      */
     afterSetVisibleColumns(value, oldValue) {
@@ -433,11 +449,11 @@ class GridView extends Component {
         }
 
         let me       = this,
-            {gridContainer, selectedRows, visibleColumns} = me,
+            {bufferColumnRange, gridContainer, selectedRows, visibleColumns} = me,
             columns  = gridContainer.items[0].items,
             id       = me.getRowId(record, rowIndex),
             trCls    = me.getTrClass(record, rowIndex),
-            config, column, gridRow, i;
+            config, column, endIndex, gridRow, i, startIndex;
 
         me.recordVnodeMap[id] = rowIndex;
 
@@ -471,7 +487,10 @@ class GridView extends Component {
             }
         };
 
-        for (i=visibleColumns[0]; i <= visibleColumns[1]; i++) {
+        endIndex   = Math.min(columns.length - 1, visibleColumns[1] + bufferColumnRange);
+        startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
+
+        for (i=startIndex; i <= endIndex; i++) {
             column = columns[i];
             config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
 
@@ -787,15 +806,16 @@ class GridView extends Component {
      *
      */
     updateVisibleColumns() {
-        let me       = this,
-            {x}      = me.scrollPosition,
-            i        = 0,
-            len      = me.columnPositions.length,
-            endIndex = len - 1,
+        let me                = this,
+            {columnPositions} = me,
+            {x}               = me.scrollPosition,
+            i                 = 0,
+            len               = columnPositions.length,
+            endIndex          = len - 1,
             column, startIndex;
 
         for (; i < len; i++) {
-            column = me.columnPositions[i];
+            column = columnPositions[i];
 
             if (x >= column.x && x <= column.x + column.width) {
                 startIndex = i
@@ -807,7 +827,9 @@ class GridView extends Component {
             }
         }
 
-        me.visibleColumns = [startIndex, endIndex]
+        if (Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange) {
+            me.visibleColumns = [startIndex, endIndex]
+        }
     }
 }
 
