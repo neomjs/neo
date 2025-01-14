@@ -49,12 +49,19 @@ class MainContainer extends Viewport {
                 value     : '50',
                 width     : 200
             }, {
-                labelText : 'Buffer Row Range',
-                labelWidth: 140,
+                labelText : 'Buffer Rows',
+                labelWidth: 95,
                 listeners : {change: 'up.ontBufferRowRangeChange'},
                 store     : ['0', '3', '5', '10', '25', '50'],
                 value     : '5',
-                width     : 200
+                width     : 160
+            }, {
+                labelText : 'Buffer Columns',
+                labelWidth: 120,
+                listeners : {change: 'up.ontBufferColumnRangeChange'},
+                store     : ['0', '3', '5', '10', '20'],
+                value     : '0',
+                width     : 185
             }]
         }, {
             module    : GridContainer,
@@ -73,12 +80,16 @@ class MainContainer extends Viewport {
         style: {padding: '20px'}
     }
 
+    get grid() {
+        return this.getItem('grid')
+    }
+
     /**
      * @param {Object} data
      */
     onAmountColumnsChange(data) {
         if (data.oldValue) {
-            this.getItem('grid').amountColumns = parseInt(data.value.id)
+            this.grid.amountColumns = parseInt(data.value.id)
         }
     }
 
@@ -87,7 +98,16 @@ class MainContainer extends Viewport {
      */
     onAmountRowsChange(data) {
         if (data.oldValue) {
-            this.getItem('grid').store.amountRows = parseInt(data.value.id)
+            this.grid.store.amountRows = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    ontBufferColumnRangeChange(data) {
+        if (data.oldValue) {
+            this.grid.view.bufferColumnRange = parseInt(data.value.id)
         }
     }
 
@@ -96,7 +116,7 @@ class MainContainer extends Viewport {
      */
     ontBufferRowRangeChange(data) {
         if (data.oldValue) {
-            this.getItem('grid').view.bufferRowRange = parseInt(data.value.id)
+            this.grid.view.bufferRowRange = parseInt(data.value.id)
         }
     }
 }

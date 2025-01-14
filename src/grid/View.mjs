@@ -39,6 +39,12 @@ class GridView extends Component {
          */
         baseCls: ['neo-grid-view'],
         /**
+         * The amount of columns (cells) to paint before the first & after the last visible column,
+         * to enhance the scrolling performance
+         * @member {Number} bufferColumnRange_=0
+         */
+        bufferColumnRange_: 0,
+        /**
          * The amount of rows to paint before the first & after the last visible row,
          * to enhance the scrolling performance
          * @member {Number} bufferRowRange_=3
@@ -54,6 +60,11 @@ class GridView extends Component {
          * @protected
          */
         containerId: null,
+        /**
+         * Internal flag. Gets calculated after mounting grid.View rows
+         * @member {Number} containerWidth_=0
+         */
+        containerWidth_: 0,
         /**
          * @member {Object[]} columnPositions_=[]
          * @protected
@@ -98,7 +109,7 @@ class GridView extends Component {
         useRowRecordIds: true,
         /**
          * Stores the indexes of the first & last painted columns
-         * @member {Array} visibleColumns_=[0,0]
+         * @member {Number[]} visibleColumns_=[0,0]
          * @protected
          */
         visibleColumns_: [0, 0],
@@ -206,6 +217,16 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the bufferColumnRange config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetBufferColumnRange(value, oldValue) {
+        oldValue !== undefined && this.createViewData()
+    }
+
+    /**
      * Triggered after the bufferRowRange config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -216,19 +237,26 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the containerWidth config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetContainerWidth(value, oldValue) {
+        if (value > 0 && this.columnPositions.length > 0) {
+            this.updateVisibleColumns()
+        }
+    }
+
+    /**
      * Triggered after the columnPositions config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
      */
     afterSetColumnPositions(value, oldValue) {
-        let me = this;
-
-        if (value.length > 0) {
-            // for changing an array inline, we need to use the leading underscore
-            me._visibleColumns[1] = value.length - 1;
-
-            me.createViewData()
+        if (value.length > 0 && this.containerWidth > 0) {
+            this.updateVisibleColumns()
         }
     }
 
@@ -322,8 +350,8 @@ class GridView extends Component {
 
     /**
      * Triggered after the visibleColumns config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Number[]} value
+     * @param {Number[]} oldValue
      * @protected
      */
     afterSetVisibleColumns(value, oldValue) {
@@ -433,11 +461,11 @@ class GridView extends Component {
         }
 
         let me       = this,
-            {gridContainer, selectedRows, visibleColumns} = me,
+            {bufferColumnRange, gridContainer, selectedRows, visibleColumns} = me,
             columns  = gridContainer.items[0].items,
             id       = me.getRowId(record, rowIndex),
             trCls    = me.getTrClass(record, rowIndex),
-            config, column, gridRow, i;
+            config, column, endIndex, gridRow, i, startIndex;
 
         me.recordVnodeMap[id] = rowIndex;
 
@@ -471,7 +499,10 @@ class GridView extends Component {
             }
         };
 
-        for (i=visibleColumns[0]; i <= visibleColumns[1]; i++) {
+        endIndex   = Math.min(columns.length - 1, visibleColumns[1] + bufferColumnRange);
+        startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
+
+        for (i=startIndex; i <= endIndex; i++) {
             column = columns[i];
             config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
 
@@ -495,16 +526,23 @@ class GridView extends Component {
      *
      */
     createViewData() {
-        let me   = this,
+        let me           = this,
             {bufferRowRange, startIndex, store} = me,
-            rows = [],
+            countRecords = store.getCount(),
+            rows         = [],
             endIndex, i;
 
-        if (store.getCount() < 1 || me.availableRows < 1 || me.columnPositions.length < 1) {
+        if (
+            countRecords              < 1 ||
+            me.availableRows          < 1 ||
+            me._containerWidth        < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
+            me.columnPositions.length < 1 ||
+            me.visibleColumns[1]      < 1
+        ) {
             return
         }
 
-        endIndex   = Math.min(store.getCount(), me.availableRows + startIndex + bufferRowRange);
+        endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
         startIndex = Math.max(0, startIndex - bufferRowRange);
 
         for (i=startIndex; i < endIndex; i++) {
@@ -787,15 +825,16 @@ class GridView extends Component {
      *
      */
     updateVisibleColumns() {
-        let me       = this,
-            {x}      = me.scrollPosition,
-            i        = 0,
-            len      = me.columnPositions.length,
-            endIndex = len - 1,
+        let me                = this,
+            {columnPositions} = me,
+            {x}               = me.scrollPosition,
+            i                 = 0,
+            len               = columnPositions.length,
+            endIndex          = len - 1,
             column, startIndex;
 
         for (; i < len; i++) {
-            column = me.columnPositions[i];
+            column = columnPositions[i];
 
             if (x >= column.x && x <= column.x + column.width) {
                 startIndex = i
@@ -807,7 +846,12 @@ class GridView extends Component {
             }
         }
 
-        me.visibleColumns = [startIndex, endIndex]
+        if (
+            Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange ||
+            me.visibleColumns[1] < 1 // initial call
+        ) {
+            me.visibleColumns = [startIndex, endIndex]
+        }
     }
 }
 
