@@ -1,4 +1,11 @@
 [{
+    "id"          : 23,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/bigData.png",
+    "name"        : "Buffered Data Grid with 5M cells",
+    "sourceUrl"   : "examples/grid/bigData",
+    "url"         : "dist/production/examples/grid/bigData/index.html"
+}, {
     "id"           : 22,
     "image"        : "devmode/sharedcovid.png",
     "name"         : "Multi Window Covid App",
@@ -119,6 +126,7 @@
     "url"      : "dist/production/examples/form/field/combobox/index.html"
 }, {
     "id"           : 3,
+    "environments" : ["Desktop", "Mobile"],
     "image"        : "dist_prod/portalApp.png",
     "name"         : "Portal App",
     "sharedWorkers": true,

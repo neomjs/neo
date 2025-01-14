@@ -112,10 +112,7 @@ class Toolbar extends BaseToolbar {
 
         super.createItems();
 
-        let dockLeftWidth  = 0,
-            dockRightWidth = 0,
-            {items}        = me,
-            len            = items.length,
+        let {items} = me,
             style;
 
         items.forEach((item, index) => {
@@ -128,34 +125,13 @@ class Toolbar extends BaseToolbar {
             if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
             if (item.width)    {style.width    = item.width    + 'px'}
 
-            if (item.dock) {
-                NeoArray.add(item.vdom.cls, 'neo-locked');
-
-                /*if (item.dock === 'left') {
-                    style.left = dockLeftWidth + 'px'
-                }
-
-                dockLeftWidth += (item.width + 1) // todo: borders fix
-                 */
-            }
-
             item.sortable = me.sortable;
-            item.wrapperStyle = style;
-
-            // inverse loop direction
-            item = items[len - index -1];
-
-            /*if (item.dock === 'right') {
-                style = item.wrapperStyle;
-                style.right = dockRightWidth + 'px';
-
-                item.wrapperStyle = style;
-
-                dockRightWidth += (item.width + 1) // todo: borders fix
-            }*/
+            item.wrapperStyle = style
         });
 
-        me.update()
+        me.promiseUpdate().then(() => {
+            me.mounted && me.passSizeToView()
+        })
     }
 
     /**
@@ -171,8 +147,6 @@ class Toolbar extends BaseToolbar {
 
         return null
     }
-
-
 
     /**
      * @param {Boolean} silent=false

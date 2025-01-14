@@ -1,5 +1,5 @@
 {
-    "appPath"         : "examples/grid/covid/app.mjs",
+    "appPath"         : "examples/grid/bigData/app.mjs",
     "basePath"        : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",

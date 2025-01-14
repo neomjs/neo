@@ -221,8 +221,8 @@ class GridContainer extends BaseContainer {
      * @param {Object[]|null} oldValue
      * @protected
      */
-    afterSetColumns(value, oldValue) {
-        if (Array.isArray(oldValue) && oldValue.length > 0) {
+    async afterSetColumns(value, oldValue) {
+        if (oldValue?.length > 0) {
             let me              = this,
                 {headerToolbar} = me;
 
@@ -231,7 +231,11 @@ class GridContainer extends BaseContainer {
                 headerToolbar.createItems()
             }
 
-            me.view?.createViewData(me.store.items)
+            await me.timeout(50);
+
+            await me.passSizeToView();
+
+            me.view?.createViewData()
         }
     }
 
@@ -592,6 +596,14 @@ class GridContainer extends BaseContainer {
 
         if (me.rendered) {
             me.createViewData(data);
+
+            me.timeout(50).then(() => {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.view.vdom.id,
+                    value    : 0
+                })
+            })
 
             if (me.store.sorters.length < 1) {
                 me.removeSortingCss()

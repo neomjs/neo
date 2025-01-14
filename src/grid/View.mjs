@@ -184,7 +184,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetAvailableRows(value, oldValue) {
-        if (value > 0 && this.store.getCount() > 0) {
+        if (value > 0) {
             this.createViewData()
         }
     }
@@ -228,9 +228,7 @@ class GridView extends Component {
             // for changing an array inline, we need to use the leading underscore
             me._visibleColumns[1] = value.length - 1;
 
-            if (me.store.getCount() > 0) {
-                me.createViewData()
-            }
+            me.createViewData()
         }
     }
 
@@ -498,29 +496,24 @@ class GridView extends Component {
      */
     createViewData() {
         let me   = this,
-            {bufferRowRange, selectedRows, startIndex} = me,
+            {bufferRowRange, startIndex, store} = me,
             rows = [],
             endIndex, i;
 
-        if (me.availableRows < 1 || me.columnPositions.length < 1) {
+        if (store.getCount() < 1 || me.availableRows < 1 || me.columnPositions.length < 1) {
             return
         }
 
-        endIndex   = Math.min(me.store.getCount(), me.availableRows + startIndex + bufferRowRange);
+        endIndex   = Math.min(store.getCount(), me.availableRows + startIndex + bufferRowRange);
         startIndex = Math.max(0, startIndex - bufferRowRange);
 
         for (i=startIndex; i < endIndex; i++) {
-            rows.push(me.createRow({record: me.store.items[i], rowIndex: i}))
+            rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
 
         me.getVdomRoot().cn = rows;
 
-        me.promiseUpdate().then(() => {
-            if (selectedRows?.length > 0) {
-                // this logic only works for selection.grid.RowModel
-                Neo.main.DomAccess.scrollToTableRow({appName: me.appName, id: selectedRows[0]})
-            }
-        })
+        me.update()
     }
 
     /**

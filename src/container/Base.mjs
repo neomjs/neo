@@ -395,6 +395,8 @@ class Container extends Component {
             itemsRoot.cn.push(vdom)
         });
 
+        // We need to add items into the vdom
+        me.updateDepth = -1;
         me.update()
     }
 
