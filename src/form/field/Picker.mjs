@@ -311,7 +311,7 @@ class Picker extends Text {
      * @protected
      */
     onPickerTriggerClick() {
-        this.editable && this.togglePicker()
+        this.togglePicker()
     }
 
     /**
