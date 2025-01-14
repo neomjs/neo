@@ -45,7 +45,7 @@ class MainContainer extends Viewport {
                 labelText : 'Amount Columns',
                 labelWidth: 135,
                 listeners : {change: 'up.onAmountColumnsChange'},
-                store     : ['25', '50', '75', '100'],
+                store     : ['10', '25', '50', '75', '100'],
                 style     : {marginLeft: '2em'},
                 value     : '50',
                 width     : 200
