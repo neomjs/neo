@@ -608,12 +608,6 @@ class GridContainer extends BaseContainer {
             if (me.store.sorters.length < 1) {
                 me.removeSortingCss()
             }
-        } else {
-            me.on('rendered', () => {
-                me.timeout(50).then(() => {
-                    me.createViewData(data)
-                })
-            }, me, {once: true})
         }
     }
 

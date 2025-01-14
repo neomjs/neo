@@ -61,6 +61,11 @@ class GridView extends Component {
          */
         containerId: null,
         /**
+         * Internal flag. Gets calculated after mounting grid.View rows
+         * @member {Number} containerWidth_=0
+         */
+        containerWidth_: 0,
+        /**
          * @member {Object[]} columnPositions_=[]
          * @protected
          */
@@ -232,19 +237,26 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the containerWidth config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetContainerWidth(value, oldValue) {
+        if (value > 0 && this.columnPositions.length > 0) {
+            this.updateVisibleColumns()
+        }
+    }
+
+    /**
      * Triggered after the columnPositions config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
      */
     afterSetColumnPositions(value, oldValue) {
-        let me = this;
-
-        if (value.length > 0) {
-            // for changing an array inline, we need to use the leading underscore
-            me._visibleColumns[1] = value.length - 1;
-
-            me.createViewData()
+        if (value.length > 0 && this.containerWidth > 0) {
+            this.updateVisibleColumns()
         }
     }
 
@@ -514,16 +526,23 @@ class GridView extends Component {
      *
      */
     createViewData() {
-        let me   = this,
+        let me           = this,
             {bufferRowRange, startIndex, store} = me,
-            rows = [],
+            countRecords = store.getCount(),
+            rows         = [],
             endIndex, i;
 
-        if (store.getCount() < 1 || me.availableRows < 1 || me.columnPositions.length < 1) {
+        if (
+            countRecords              < 1 ||
+            me._availableRows         < 1 ||
+            me._containerWidth        < 1 ||
+            me.columnPositions.length < 1 ||
+            me.visibleColumns[1]      < 1
+        ) {
             return
         }
 
-        endIndex   = Math.min(store.getCount(), me.availableRows + startIndex + bufferRowRange);
+        endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
         startIndex = Math.max(0, startIndex - bufferRowRange);
 
         for (i=startIndex; i < endIndex; i++) {
@@ -827,7 +846,10 @@ class GridView extends Component {
             }
         }
 
-        if (Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange) {
+        if (
+            Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange ||
+            me.visibleColumns[1] < 1 // initial call
+        ) {
             me.visibleColumns = [startIndex, endIndex]
         }
     }
