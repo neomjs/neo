@@ -221,7 +221,7 @@ class GridContainer extends BaseContainer {
      * @param {Object[]|null} oldValue
      * @protected
      */
-    afterSetColumns(value, oldValue) {
+    async afterSetColumns(value, oldValue) {
         if (oldValue?.length > 0) {
             let me              = this,
                 {headerToolbar} = me;
@@ -230,6 +230,10 @@ class GridContainer extends BaseContainer {
                 headerToolbar.items = value;
                 headerToolbar.createItems()
             }
+
+            await me.timeout(50);
+
+            await me.passSizeToView();
 
             me.view?.createViewData()
         }
