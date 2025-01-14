@@ -41,9 +41,9 @@ class GridView extends Component {
         /**
          * The amount of columns (cells) to paint before the first & after the last visible column,
          * to enhance the scrolling performance
-         * @member {Number} bufferColumnRange_=3
+         * @member {Number} bufferColumnRange_=0
          */
-        bufferColumnRange_: 3,
+        bufferColumnRange_: 0,
         /**
          * The amount of rows to paint before the first & after the last visible row,
          * to enhance the scrolling performance
@@ -534,8 +534,8 @@ class GridView extends Component {
 
         if (
             countRecords              < 1 ||
-            me._availableRows         < 1 ||
-            me._containerWidth        < 1 ||
+            me.availableRows          < 1 ||
+            me._containerWidth        < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.length < 1 ||
             me.visibleColumns[1]      < 1
         ) {
