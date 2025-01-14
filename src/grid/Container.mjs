@@ -222,7 +222,7 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetColumns(value, oldValue) {
-        if (Array.isArray(oldValue) && oldValue.length > 0) {
+        if (oldValue?.length > 0) {
             let me              = this,
                 {headerToolbar} = me;
 
@@ -231,7 +231,7 @@ class GridContainer extends BaseContainer {
                 headerToolbar.createItems()
             }
 
-            me.view?.createViewData(me.store.items)
+            me.view?.createViewData()
         }
     }
 
