@@ -104,10 +104,6 @@ class GridView extends Component {
          */
         store_: null,
         /**
-         * @member {Boolean} useRowRecordIds=true
-         */
-        useRowRecordIds: true,
-        /**
          * Stores the indexes of the first & last painted columns
          * @member {Number[]} visibleColumns_=[0,0]
          * @protected
@@ -667,15 +663,7 @@ class GridView extends Component {
      * @returns {String}
      */
     getRowId(record, index) {
-        let me      = this,
-            {store} = me;
-
-        if (me.useRowRecordIds) {
-            return `${me.id}__tr__${record[store.keyProperty]}`
-        } else {
-            index = Neo.isNumber(index) ? index : store.indexOf(record);
-            return me.vdom.cn[index]?.id || Neo.getId('tr')
-        }
+        return `${this.id}__tr__${record[this.store.keyProperty]}`
     }
 
     /**
