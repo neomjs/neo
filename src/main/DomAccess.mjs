@@ -11,8 +11,8 @@ const
     lengthRE         = /^\d+\w+$/,
 
     capturePassive = {
-        capture : true,
-        passive : true
+        capture: true,
+        passive: true
     },
 
     fontSizeProps = [
