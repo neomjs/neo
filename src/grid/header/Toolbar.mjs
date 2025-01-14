@@ -129,7 +129,9 @@ class Toolbar extends BaseToolbar {
             item.wrapperStyle = style
         });
 
-        me.update()
+        me.promiseUpdate().then(() => {
+            me.mounted && me.passSizeToView()
+        })
     }
 
     /**
