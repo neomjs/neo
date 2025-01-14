@@ -164,8 +164,8 @@ class Manager extends Base {
             isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
             cls        = isShared ? SharedWorker : Worker,
             worker     = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                ? new cls(filePath, {name: name, type: 'module'})
-                : new cls(filePath, {name: name});
+                ? new cls(filePath, {name, type: 'module'})
+                : new cls(filePath, {name});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
         (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
