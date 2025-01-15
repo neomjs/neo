@@ -106,12 +106,11 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return {
-            module        : GridContainer,
-            bind          : {store : 'stores.mainStore'},
-            cellEditing   : true,
-            parentId      : this.id,
-            selectionModel: CellModel,
-            store         : MainStore,
+            module     : GridContainer,
+            bind       : {store: 'stores.mainStore'},
+            cellEditing: true,
+            parentId   : this.id,
+            store      : MainStore,
 
             columnDefaults: {
                 editable: true,
@@ -159,7 +158,11 @@ class MainContainer extends ConfigurationViewport {
                 dataField: 'githubId',
                 editable : false,
                 text     : 'Github Id (Non-editable)'
-            }]
+            }],
+
+            viewConfig: {
+                selectionModel: CellModel
+            }
         }
     }
 

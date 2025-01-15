@@ -25,7 +25,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createConfigurationComponents() {
-        let me = this;
+        let me     = this,
+            {view} = me.exampleComponent;
 
         const selectionModelRadioDefaults = {
             module        : Radio,
@@ -45,34 +46,34 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-cellmodel',
             labelText     : 'selectionModel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-columnmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-columnmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', ColumnModel)},
             valueLabelText: 'Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-rowmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-rowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', RowModel)},
             valueLabelText: 'Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-cellcolumnmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellrowmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-cellrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
+            checked       : view.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }]
@@ -80,9 +81,8 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return {
-            module        : GridContainer,
-            selectionModel: CellModel,
-            store         : MainStore,
+            module: GridContainer,
+            store : MainStore,
 
             columnDefaults: {
                 width: 200
@@ -93,7 +93,22 @@ class MainContainer extends ConfigurationViewport {
                 {dataField: 'lastname',  text: 'Lastname'},
                 {dataField: 'githubId',  text: 'Github Id'},
                 {dataField: 'country',   text: 'Country'}
-            ]
+            ],
+
+            viewConfig: {
+                selectionModel: CellModel
+            }
+        }
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onRadioChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.exampleComponent.view[config] = value
         }
     }
 }

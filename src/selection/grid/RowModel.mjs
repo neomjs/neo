@@ -30,7 +30,7 @@ class RowModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('rowClick', me.onRowClick, me)
+        me.view.gridContainer.on('rowClick', me.onRowClick, me)
     }
 
     /**
@@ -42,19 +42,6 @@ class RowModel extends BaseModel {
         me.view.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
-    }
-
-    /**
-     * Finds the matching table row for a given row index
-     * @param {Number} index row index
-     * @returns {String|null} The table row node id
-     */
-    getRowId(index) {
-        if (index < 0 || this.view.store.getCount() < index) {
-            return null
-        }
-
-        return this.view.vdom.cn[0].cn[1].cn[index].id
     }
 
     /**
@@ -76,7 +63,7 @@ class RowModel extends BaseModel {
      */
     onNavKeyRow(step) {
         let me           = this,
-            {view}       = me.view,
+            {view}       = me,
             {store}      = view,
             currentIndex = 0,
             newIndex, newRecord, rowId;
@@ -109,7 +96,7 @@ class RowModel extends BaseModel {
     onRowClick(data) {
         let me     = this,
             id     = data.data.currentTarget,
-            {view} = me.view,
+            {view} = me,
             isSelected, record;
 
         if (id) {

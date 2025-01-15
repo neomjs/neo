@@ -1,6 +1,8 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
-import VDomUtil  from '../util/VDom.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Component       from '../component/Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
+import VDomUtil        from '../util/VDom.mjs';
 
 /**
  * @class Neo.grid.View
@@ -75,6 +77,11 @@ class GridView extends Component {
          */
         isScrolling_: false,
         /**
+         * Additional used keys for the selection model
+         * @member {Object} keys
+         */
+        keys: {},
+        /**
          * @member {String} role='rowgroup'
          */
         role: 'rowgroup',
@@ -87,6 +94,10 @@ class GridView extends Component {
          * @member {Object} scrollPosition_={x:0,y:0}
          */
         scrollPosition_: {x: 0, y: 0},
+        /**
+         * @member {Neo.selection.Model} selectionModel_=null
+         */
+        selectionModel_: null,
         /**
          * @member {String} selectedRecordField='annotations.selected'
          */
@@ -135,10 +146,10 @@ class GridView extends Component {
      * @member {String[]} selectedRows
      */
     get selectedRows() {
-        let {gridContainer} = this;
+        let {selectionModel} = this;
 
-        if (gridContainer.selectionModel.ntype === 'selection-grid-rowmodel') {
-            return gridContainer.selectionModel.items
+        if (selectionModel.ntype === 'selection-grid-rowmodel') {
+            return selectionModel.items
         }
 
         return []
@@ -312,6 +323,16 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.rendered && value.register(this)
+    }
+
+    /**
      * Triggered after the startIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -438,6 +459,18 @@ class GridView extends Component {
         }
 
         return cellConfig
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -714,6 +747,14 @@ class GridView extends Component {
      */
     onCellDoubleClick(data) {
         this.fireCellEvent(data, 'cellDoubleClick')
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this)
     }
 
     /**
