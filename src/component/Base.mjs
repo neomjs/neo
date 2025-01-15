@@ -1954,6 +1954,17 @@ class Component extends Base {
                             console.warn('vdom parent update conflict with:', parent, 'for:', me)
                         }
 
+                        // If our update gets prevented, ensure that the next parent updateDepth
+                        // includes our own updateDepth
+                        if (parent.updateDepth !== -1) {
+                            if (me.updateDepth === -1) {
+                                parent.updateDepth = -1
+                            } else {
+                                // Since updateDepth is 1-based, we need to subtract 1 level
+                                parent.updateDepth =  parent.updateDepth + distance + me.updateDepth -1
+                            }
+                        }
+
                         NeoArray.add(parent.childUpdateCache, me.id);
 
                         // Adding the resolve fn to its own cache, since the parent will trigger
