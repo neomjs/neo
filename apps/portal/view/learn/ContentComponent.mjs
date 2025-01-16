@@ -84,18 +84,6 @@ class ContentComponent extends Component {
 
         if (value) {
             me.timeout(50).then(() => {
-                me.customComponents.forEach(component => {
-                    if (!component.mounted && !component.rendering) {
-                        component.render(true)
-                    }
-                });
-
-                me.livePreviews.forEach(livePreview => {
-                    if (!livePreview.mounted && !livePreview.rendering) {
-                        livePreview.render(true)
-                    }
-                });
-
                 Neo.main.addon.IntersectionObserver.register({
                     callback: 'findTopmostItem',
                     id      : me.id,
@@ -110,7 +98,7 @@ class ContentComponent extends Component {
 
             me.livePreviews.forEach(livePreview => {
                 livePreview.mounted = false
-            });
+            })
         }
     }
 
