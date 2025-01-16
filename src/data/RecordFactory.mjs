@@ -75,7 +75,7 @@ class RecordFactory extends Base {
 
                         value = instance.parseRecordValue(me, field, value);
 
-                        if (!Neo.isEqual(value, oldValue)) {console.log(value, oldValue)
+                        if (!Neo.isEqual(value, oldValue)) {
                             this[symbol] = value;
 
                             me._isModified = true;
