@@ -52,7 +52,7 @@
         "commander": "^13.0.0",
         "cssnano": "^7.0.6",
         "envinfo": "^7.14.0",
-        "fs-extra": "^11.2.0",
+        "fs-extra": "^11.3.0",
         "highlightjs-line-numbers.js": "^2.9.0",
         "inquirer": "^12.3.2",
         "marked": "^15.0.6",
