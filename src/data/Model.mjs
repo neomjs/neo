@@ -17,9 +17,9 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
-         * @member {Array|null} fields=null
+         * @member {Object[]|null} fields_=null
          */
-        fields: null,
+        fields_: null,
         /**
          * @member {String} keyProperty_='id'
          */
@@ -39,22 +39,46 @@ class Model extends Base {
     }
 
     /**
+     * @member {Map} fieldsMap=new Map()
+     */
+    fieldsMap = new Map()
+
+    /**
+     Triggered after the fields config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetFields(value, oldValue) {
+        if (value) {
+            this.updateFieldsMap(value)
+        }
+    }
+
+    /**
      * Finds a field config by a given field name
      * @param {String} name
      * @returns {Object|null} The field config object or null if no match was found
      */
     getField(name) {
-        let me  = this,
-            i   = 0,
-            len = me.fields?.length || 0;
+        return this.fieldsMap.get(name) || null
+    }
 
-        for (; i < len; i++) {
-            if (me.fields[i].name === name) {
-                return me.fields[i]
-            }
-        }
+    /**
+     * @param {Object[]} fields
+     * @param {Boolean} isRoot=true
+     */
+    updateFieldsMap(fields, isRoot=true) {
+        let {fieldsMap} = this;
 
-        return null
+        isRoot && fieldsMap.clear();
+
+        fields.forEach(field => {
+            fieldsMap.set(field.name, field);
+
+            // Assuming that nested fields contain the full path as the name, we do not need a prefix.
+            field.fields && this.updateFieldsMap(field.fields, false)
+        })
     }
 }
 
