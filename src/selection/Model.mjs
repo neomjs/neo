@@ -189,11 +189,11 @@ class Model extends Base {
      */
     register(component) {
         let me  = this,
-            cls = component.cls || [];
+            cls = component.wrapperCls || [];
 
         if (me.cls && !cls.includes(me.cls)) {
             cls.push(me.cls);
-            component.cls = cls
+            component.wrapperCls = cls
         }
 
         me.view = component;

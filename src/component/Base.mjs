@@ -402,9 +402,12 @@ class Component extends Base {
     }
 
     /**
-     * @member {String[]} childUpdateCache=[]
+     * If an update() gets called while a parent is updating, we store the id & distance of the
+     * requesting component inside the childUpdateCache of the parent, to get resolved once the update is done.
+     * e.g. childUpdateCache = {'neo-grid-view-1': {distance: 1, resolve: fn}}
+     * @member {Object} childUpdateCache={}
      */
-    childUpdateCache = []
+    childUpdateCache = {}
     /**
      * Stores the updateDepth while an update is running to enable checks for parent update collisions
      * @member {Number|null} currentUpdateDepth=null
@@ -1954,7 +1957,7 @@ class Component extends Base {
                             console.warn('vdom parent update conflict with:', parent, 'for:', me)
                         }
 
-                        NeoArray.add(parent.childUpdateCache, me.id);
+                        parent.childUpdateCache[me.id] = {distance, resolve};
 
                         // Adding the resolve fn to its own cache, since the parent will trigger
                         // a new update() directly on this cmp
@@ -2335,22 +2338,46 @@ class Component extends Base {
      * @protected
      */
     resolveVdomUpdate(resolve) {
-        let me = this;
+        let me                  = this,
+            hasChildUpdateCache = !Neo.isEmpty(me.childUpdateCache),
+            component;
 
         me.doResolveUpdateCache();
 
         resolve?.();
 
         if (me.needsVdomUpdate) {
-            // if a new update is scheduled, we can clear the cache => these updates are included
-            me.childUpdateCache = [];
+            if (hasChildUpdateCache) {
+                Object.entries(me.childUpdateCache).forEach(([key, value]) => {
+                    component = Neo.getComponent(key);
+
+                    // The component might already got destroyed
+                    if (component) {
+                        // Pass callbacks to the resolver cache => getting executed once the following update is done
+                        value.resolve && NeoArray.add(me.resolveUpdateCache, value.resolve);
+
+                        // Adjust the updateDepth to include the depth of all merged child updates
+                        if (me.updateDepth !== -1) {
+                            if (component.updateDepth === -1) {
+                                me.updateDepth = -1
+                            } else {
+                                // Since updateDepth is 1-based, we need to subtract 1 level
+                                me.updateDepth = me.updateDepth + value.distance + component.updateDepth - 1
+                            }
+                        }
+                    }
+                });
+
+                me.childUpdateCache = {}
+            }
 
             me.update()
-        } else if (me.childUpdateCache) {
-            [...me.childUpdateCache].forEach(id => {
-                Neo.getComponent(id)?.update();
-                NeoArray.remove(me.childUpdateCache, id)
-            })
+        } else if (hasChildUpdateCache) {
+            Object.keys(me.childUpdateCache).forEach(key => {
+                Neo.getComponent(key)?.update()
+            });
+
+            me.childUpdateCache = {}
         }
     }
 

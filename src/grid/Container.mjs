@@ -1,7 +1,6 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import GridView        from './View.mjs';
-import RowModel        from '../selection/grid/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import * as header     from './header/_export.mjs';
 
@@ -59,11 +58,6 @@ class GridContainer extends BaseContainer {
          */
         headerToolbarId_: null,
         /**
-         * Additional used keys for the selection model
-         * @member {Object} keys
-         */
-        keys: {},
-        /**
          * @member {String} layout='base'
          */
         layout: 'base',
@@ -81,10 +75,6 @@ class GridContainer extends BaseContainer {
          * @protected
          */
         scrollbarId_: null,
-        /**
-         * @member {Neo.selection.Model} selectionModel_=null
-         */
-        selectionModel_: null,
         /**
          * @member {Boolean} showHeaderFilters_=false
          */
@@ -295,16 +285,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered after the selectionModel config got changed
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this)
-    }
-
-    /**
      * Triggered after the showHeaderFilters config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -350,18 +330,6 @@ class GridContainer extends BaseContainer {
      */
     beforeSetHeaderToolbarId(value, oldValue) {
         return value || oldValue
-    }
-
-    /**
-     * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    beforeSetSelectionModel(value, oldValue) {
-        oldValue?.destroy();
-
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -532,14 +500,6 @@ class GridContainer extends BaseContainer {
      */
     getWrapperId() {
         return `${this.id}__wrapper`
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-        this.selectionModel?.register(this)
     }
 
     /**

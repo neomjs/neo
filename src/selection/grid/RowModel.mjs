@@ -30,7 +30,7 @@ class RowModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('rowClick', me.onRowClick, me)
+        me.view.gridContainer.on('rowClick', me.onRowClick, me)
     }
 
     /**
@@ -45,75 +45,44 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * Finds the matching table row for a given row index
-     * @param {Number} index row index
-     * @returns {String|null} The table row node id
-     */
-    getRowId(index) {
-        if (index < 0 || this.view.store.getCount() < index) {
-            return null
-        }
-
-        return this.view.vdom.cn[0].cn[1].cn[index].id
-    }
-
-    /**
-     * Finds the matching table row for a given event path
-     * @param {Object} path The event path
-     * @returns {Object|null} The node containing the table row class or null
-     * @protected
-     */
-    static getRowNode(path) {
-        let i    = 0,
-            len  = path.length,
-            node = null;
-
-        for (; i < len; i++) {
-            if (path[i].cls.includes('neo-grid-row')) {
-                node = path[i]
-            }
-        }
-
-        return node
-    }
-
-    /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(data, 1)
+        this.onNavKeyRow(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(data, -1)
+        this.onNavKeyRow(-1)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyRow(data, step) {
+    onNavKeyRow(step) {
         let me           = this,
-            node         = RowModel.getRowNode(data.path),
             {view}       = me,
             {store}      = view,
-            vdomNode     = VDomUtil.find(view.vdom, node.id),
-            newIndex     = (vdomNode.index + step) % store.getCount(),
-            {parentNode} = vdomNode,
-            id;
+            currentIndex = 0,
+            newIndex, newRecord, rowId;
+
+        if (me.hasSelection()) {
+            currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
+        }
+
+        newIndex = (currentIndex + step) % store.getCount();
 
         while (newIndex < 0) {
             newIndex += store.getCount()
         }
 
-        id = parentNode.cn[newIndex].id;
+        newRecord = store.getAt(newIndex);
+        rowId     = view.getRowId(newRecord);
 
-        if (id) {
-            me.select(id);
-            view.focus(id);
+        if (rowId) {
+            me.select(rowId);
 
             view.fire('select', {
                 record: store.getAt(newIndex)

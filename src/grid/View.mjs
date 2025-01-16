@@ -1,6 +1,8 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
-import VDomUtil  from '../util/VDom.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Component       from '../component/Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
+import VDomUtil        from '../util/VDom.mjs';
 
 /**
  * @class Neo.grid.View
@@ -75,9 +77,10 @@ class GridView extends Component {
          */
         isScrolling_: false,
         /**
-         * @member {Object} recordVnodeMap={}
+         * Additional used keys for the selection model
+         * @member {Object} keys
          */
-        recordVnodeMap: {},
+        keys: {},
         /**
          * @member {String} role='rowgroup'
          */
@@ -92,6 +95,10 @@ class GridView extends Component {
          */
         scrollPosition_: {x: 0, y: 0},
         /**
+         * @member {Neo.selection.Model} selectionModel_=null
+         */
+        selectionModel_: null,
+        /**
          * @member {String} selectedRecordField='annotations.selected'
          */
         selectedRecordField: 'annotations.selected',
@@ -103,10 +110,6 @@ class GridView extends Component {
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
-        /**
-         * @member {Boolean} useRowRecordIds=true
-         */
-        useRowRecordIds: true,
         /**
          * Stores the indexes of the first & last painted columns
          * @member {Number[]} visibleColumns_=[0,0]
@@ -121,7 +124,7 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
+        {tabIndex: '-1', cn: [
             {cn: []},
             {cls: 'neo-grid-scrollbar'}
         ]}
@@ -143,10 +146,10 @@ class GridView extends Component {
      * @member {String[]} selectedRows
      */
     get selectedRows() {
-        let {gridContainer} = this;
+        let {selectionModel} = this;
 
-        if (gridContainer.selectionModel.ntype === 'selection-grid-rowmodel') {
-            return gridContainer.selectionModel.items
+        if (selectionModel.ntype === 'selection-grid-rowmodel') {
+            return selectionModel.items
         }
 
         return []
@@ -320,6 +323,16 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.rendered && value.register(this)
+    }
+
+    /**
      * Triggered after the startIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -428,8 +441,7 @@ class GridView extends Component {
             id             : cellId,
             cls            : cellCls,
             role           : 'gridcell',
-            style          : rendererOutput.style || {},
-            tabIndex       : '-1'
+            style          : rendererOutput.style || {}
         };
 
         if (column.width) {
@@ -450,6 +462,18 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RowModel)
+    }
+
+    /**
      * @param {Object} opts
      * @param {Object} opts.record
      * @param {Number} [opts.rowIndex]
@@ -466,8 +490,6 @@ class GridView extends Component {
             id       = me.getRowId(record, rowIndex),
             trCls    = me.getTrClass(record, rowIndex),
             config, column, endIndex, gridRow, i, startIndex;
-
-        me.recordVnodeMap[id] = rowIndex;
 
         if (rowIndex % 2 !== 0) {
             trCls.push('neo-even')
@@ -491,7 +513,6 @@ class GridView extends Component {
             cls            : trCls,
             cn             : [],
             role           : 'row',
-            tabIndex       : '-1',
 
             style: {
                 height   : me.rowHeight + 'px',
@@ -657,27 +678,28 @@ class GridView extends Component {
 
     /**
      * @param {String} rowId
-     * @returns {Object}
+     * @returns {Record}
      */
     getRecordByRowId(rowId) {
-        return this.store.getAt(this.recordVnodeMap[rowId])
+        let recordId = rowId.split('__')[2],
+            {store}  = this,
+            {model}  = store,
+            keyField = model?.getField(store.getKeyProperty()),
+            keyType  = keyField?.type?.toLowerCase();
+
+        if (keyType === 'int' || keyType === 'integer') {
+            recordId = parseInt(recordId)
+        }
+
+        return store.get(recordId)
     }
 
     /**
      * @param {Object} record
-     * @param {Number} [index]
      * @returns {String}
      */
-    getRowId(record, index) {
-        let me      = this,
-            {store} = me;
-
-        if (me.useRowRecordIds) {
-            return `${me.id}__tr__${record[store.keyProperty]}`
-        } else {
-            index = Neo.isNumber(index) ? index : store.indexOf(record);
-            return me.vdom.cn[index]?.id || Neo.getId('tr')
-        }
+    getRowId(record) {
+        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
     }
 
     /**
@@ -728,6 +750,14 @@ class GridView extends Component {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this)
+    }
+
+    /**
      * @param {Object} data
      */
     onRowClick(data) {
@@ -768,7 +798,7 @@ class GridView extends Component {
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange({fields, model, record}) {
+    onStoreRecordChange({fields, record}) {
         let me               = this,
             fieldNames       = fields.map(field => field.name),
             needsUpdate      = false,

@@ -1,5 +1,9 @@
 .portal-examples-tab-container.neo-tab-container {
-
+    .neo-tab-strip {
+        .neo-active-tab-indicator {
+            background-color: #3E63DD;
+        }
+    }
 }
 
 // must not be inside the root class to honor the styling for tab button drag&drop

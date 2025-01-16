@@ -5,6 +5,10 @@
     overflow-y     : auto;
     position       : relative;
 
+    &:focus {
+        outline: none;
+    }
+
     .neo-grid-scrollbar {
         height        : 1px;
         position      : absolute;

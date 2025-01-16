@@ -106,7 +106,8 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
-        let me = this;
+        let me        = this,
+            {mounted} = me;
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
@@ -130,7 +131,8 @@ class Toolbar extends BaseToolbar {
         });
 
         me.promiseUpdate().then(() => {
-            me.mounted && me.passSizeToView()
+            // To prevent duplicate calls, we need to check the mounted state before the update call
+            mounted && me.passSizeToView()
         })
     }
 
