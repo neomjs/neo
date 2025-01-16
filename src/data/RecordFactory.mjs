@@ -35,17 +35,16 @@ class RecordFactory extends Base {
 
     /**
      * @param {Object} data
-     * @param {Object} data.config
      * @param {Object} data.field
      * @param {Neo.data.RecordFactory} data.me
      * @param {Neo.data.Model} data.model
      * @param {String} data.path=''
      */
-    createField({config, field, me, model, path=''}) {
-        let value     = Neo.ns(field.mapping || field.name, false, config),
-            fieldName = field.name.split('.').pop(),
+    createField({field, me, model, path=''}) {
+        let fieldName = field.name.split('.').pop(),
             symbol    = Symbol.for(fieldName),
-            fieldPath, parsedValue, properties;
+            fieldPath, properties,
+            value;
 
         if (field.fields) {
             field.fields.forEach(childField => {
@@ -53,18 +52,16 @@ class RecordFactory extends Base {
                 fieldPath = fieldPath.filter(Boolean);
                 fieldPath.push(field.name);
 
-                this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
+                this.createField({field: childField, me, model, path: fieldPath.join('.')})
             })
         } else {
             if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
                 value = field.defaultValue
             }
 
-            parsedValue = instance.parseRecordValue(me, field, value, config);
-
             properties = {
                 [symbol]: {
-                    value   : Neo.clone(parsedValue, true),
+                    value,
                     writable: true
                 },
                 [fieldName]: {
@@ -78,7 +75,7 @@ class RecordFactory extends Base {
 
                         value = instance.parseRecordValue(me, field, value);
 
-                        if (!Neo.isEqual(value, oldValue)) {
+                        if (!Neo.isEqual(value, oldValue)) {console.log(value, oldValue)
                             this[symbol] = value;
 
                             me._isModified = true;
@@ -97,7 +94,7 @@ class RecordFactory extends Base {
             // adding the original value of each field
             if (model.trackModifiedFields) {
                 properties[instance.ovPrefix + field.name] = {
-                    value: parsedValue
+                    value
                 }
             }
 
@@ -139,20 +136,8 @@ class RecordFactory extends Base {
                     static name = 'Record'
 
                     constructor(config) {
-                        let me = this;
-
-                        Object.defineProperties(me, {
-                            _isModified: {
-                                value   : false,
-                                writable: true
-                            }
-                        });
-
-                        if (Array.isArray(model.fields)) {
-                            model.fields.forEach(field => {
-                                instance.createField({config, field, me, model})
-                            })
-                        }
+                        this.setSilent(config);
+                        this._isModified = false
                     }
 
                     /**
@@ -171,6 +156,12 @@ class RecordFactory extends Base {
                         instance.setRecordFields(model, this, fields, true)
                     }
                 };
+
+                if (Array.isArray(model.fields)) {
+                    model.fields.forEach(field => {
+                        instance.createField({field, me: cls.prototype, model})
+                    })
+                }
 
                 Object.defineProperty(cls.prototype, 'isRecord', {value: true});
                 Object.defineProperty(cls, 'isClass', {value: true});
