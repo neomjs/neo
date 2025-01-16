@@ -426,9 +426,9 @@ class Button extends BaseButton {
         if (store) {
             filter = store.getFilter(me.dataField);
             model  = store.model;
-            field  = model && model.getField(me.dataField);
+            field  = model.getField(me.dataField);
 
-            if (value && field.type.toLowerCase() === 'date') {
+            if (value && field?.type.toLowerCase() === 'date') {
                 value = new Date(value)
             }
 
