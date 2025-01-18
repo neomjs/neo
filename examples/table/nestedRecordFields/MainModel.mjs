@@ -13,7 +13,7 @@ class MainModel extends Model {
             type: 'Object',
 
             fields: [{
-                name        : 'annotations.selected',
+                name        : 'selected',
                 type        : 'Boolean',
                 defaultValue: false
             }]
@@ -28,10 +28,10 @@ class MainModel extends Model {
             type: 'Object',
 
             fields: [{
-                name: 'user.firstname',
+                name: 'firstname',
                 type: 'String'
             }, {
-                name: 'user.lastname',
+                name: 'lastname',
                 type: 'String'
             }]
         }]

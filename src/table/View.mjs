@@ -104,7 +104,7 @@ class View extends Component {
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
-            fieldValue  = Neo.ns(dataField, false, record),
+            fieldValue  = record[dataField],
             hasStore    = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
             cellConfig, rendererOutput;
@@ -206,7 +206,7 @@ class View extends Component {
 
         me.recordVnodeMap[id] = rowIndex;
 
-        if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
+        if (selectedRows && record[me.selectedRecordField]) {
             NeoArray.add(selectedRows, id)
         }
 

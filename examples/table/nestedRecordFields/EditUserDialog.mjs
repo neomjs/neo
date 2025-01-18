@@ -89,9 +89,9 @@ class EditUserDialog extends Dialog {
             await me.timeout(20);
 
             me.getItem('country-field')  .value   = record.country;
-            me.getItem('firstname-field').value   = record.user.firstname;
-            me.getItem('lastname-field') .value   = record.user.lastname;
-            me.getItem('selected-field') .checked = record.annotations.selected
+            me.getItem('firstname-field').value   = record['user.firstname'];
+            me.getItem('lastname-field') .value   = record['user.lastname'];
+            me.getItem('selected-field') .checked = record['annotations.selected'];
         }
     }
 
@@ -106,14 +106,14 @@ class EditUserDialog extends Dialog {
      * @param {Object} data
      */
     onFirstnameFieldChange(data) {
-        this.record.user.firstname = data.value
+        this.record['user.firstname'] = data.value
     }
 
     /**
      * @param {Object} data
      */
     onLastnameFieldChange(data) {
-        this.record.user.lastname = data.value
+        this.record['user.lastname'] = data.value
     }
 
     /**
@@ -124,11 +124,11 @@ class EditUserDialog extends Dialog {
             store = me.getStateProvider().getStore('mainStore');
 
         if (data.value === false) {
-            me.record.annotations.selected = false
+            me.record['annotations.selected'] = false
         } else {
             // Assuming we want to support a single row selection
             store.items.forEach(record => {
-                record.annotations.selected = record === me.record ? data.value : false
+                record['annotations.selected'] = record === me.record ? data.value : false
             })
         }
     }

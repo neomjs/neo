@@ -43,32 +43,35 @@ class RecordFactory extends Base {
      * @param {String} data.path=''
      */
     createField({field, me, model, path=''}) {
-        let fieldName = field.name.split('.').pop(),
-            fieldPath, properties,
-            value;
+        let fieldName = field.name,
+            fieldPath = path === '' ? fieldName : `${path}.${fieldName}`,
+            properties;
 
         if (field.fields) {
             field.fields.forEach(childField => {
-                fieldPath = path.split('.');
-                fieldPath = fieldPath.filter(Boolean);
-                fieldPath.push(field.name);
-
-                this.createField({field: childField, me, model, path: fieldPath.join('.')})
+                this.createField({field: childField, me, model, path: fieldPath})
             })
         } else {
-            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
-                value = field.defaultValue
-            }
-
             properties = {
-                [fieldName]: {
+                [fieldPath]: {
                     configurable: true,
                     enumerable  : true,
                     get() {
+                        if (model.hasNestedFields) {
+                            return Neo.ns(fieldPath, false, this[dataSymbol])
+                        }
+
                         return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        let oldValue = this[dataSymbol][fieldName];
+                        let me = this,
+                            oldValue;
+
+                        if (model.hasNestedFields) {
+                            oldValue = Neo.ns(fieldPath, false, me[dataSymbol])
+                        } else {
+                            oldValue = me[dataSymbol][fieldName]
+                        }
 
                         value = instance.parseRecordValue(me, field, value);
 
@@ -95,7 +98,7 @@ class RecordFactory extends Base {
                 }
             }
 
-            Object.defineProperties(path ? Neo.ns(path, true, me) : me, properties)
+            Object.defineProperties(me, properties)
         }
     }
 
