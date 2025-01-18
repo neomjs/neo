@@ -2,6 +2,8 @@ import Base   from '../core/Base.mjs';
 import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
+const dataSymbol = Symbol.for('data');
+
 let instance;
 
 /**
@@ -42,7 +44,6 @@ class RecordFactory extends Base {
      */
     createField({field, me, model, path=''}) {
         let fieldName = field.name.split('.').pop(),
-            symbol    = Symbol.for(fieldName),
             fieldPath, properties,
             value;
 
@@ -60,23 +61,19 @@ class RecordFactory extends Base {
             }
 
             properties = {
-                [symbol]: {
-                    value,
-                    writable: true
-                },
                 [fieldName]: {
                     configurable: true,
                     enumerable  : true,
                     get() {
-                        return this[symbol]
+                        return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        let oldValue = this[symbol];
+                        let oldValue = this[dataSymbol][fieldName];
 
                         value = instance.parseRecordValue(me, field, value);
 
                         if (!Neo.isEqual(value, oldValue)) {
-                            this[symbol] = value;
+                            this[dataSymbol][fieldName] = value;
 
                             me._isModified = true;
                             me._isModified = instance.isModified(me, model.trackModifiedFields);
@@ -134,7 +131,9 @@ class RecordFactory extends Base {
                 ns      = Neo.ns(nsArray, true);
                 cls     = ns[key] = class Record {
                     // We do not want to minify the ctor class name in dist/production
-                    static name = 'Record'
+                    static name = 'Record';
+
+                    [dataSymbol] = {}
 
                     constructor(config) {
                         this.setSilent(config);
@@ -332,7 +331,8 @@ class RecordFactory extends Base {
             value    = instance.parseRecordValue(record, model.getField(key), value);
 
             if (!Neo.isEqual(oldValue, value)) {
-                record[Symbol.for(key)] = value; // silent update
+                record[dataSymbol][key] = value;
+
                 record._isModified = true;
                 changedFields.push({name: key, oldValue, value})
             }
