@@ -6,13 +6,6 @@ import RecordFactory from './RecordFactory.mjs';
  * @extends Neo.core.Base
  */
 class Model extends Base {
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true
-
     static config = {
         /**
          * @member {String} className='Neo.data.Model'
