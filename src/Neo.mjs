@@ -320,11 +320,11 @@ Neo = globalThis.Neo = Object.assign({
      *
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
-     * @param {Boolean} [create] Set create to true to create empty objects for non-existing parts
+     * @param {Boolean} create=false Set create to true to create empty objects for non-existing parts
      * @param {Object} [scope] Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
-    ns(names, create, scope) {
+    ns(names, create=false, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
         return names.reduce((prev, current) => {
@@ -342,11 +342,11 @@ Neo = globalThis.Neo = Object.assign({
      * Extended version of Neo.ns() which supports mapping into arrays.
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
-     * @param {Boolean} [create] Set create to true to create empty objects for non-existing parts
+     * @param {Boolean} create=false Set create to true to create empty objects for non-existing parts
      * @param {Object} [scope] Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
-    nsWithArrays(names, create, scope) {
+    nsWithArrays(names, create=false, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
         return names.reduce((prev, current) => {
