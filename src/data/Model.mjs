@@ -1,5 +1,5 @@
-import Base       from '../core/Base.mjs';
-import Observable from '../core/Observable.mjs';
+import Base          from '../core/Base.mjs';
+import RecordFactory from './RecordFactory.mjs';
 
 /**
  * @class Neo.data.Model
@@ -52,6 +52,14 @@ class Model extends Base {
     fieldsMap = new Map()
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        RecordFactory.createRecordClass(this)
+    }
+
+    /**
      Triggered after the fields config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
@@ -59,14 +67,12 @@ class Model extends Base {
      */
     afterSetFields(value, oldValue) {
         if (value) {
-            let me = this;
+            this.updateFieldsMap(value);
 
-            me.updateFieldsMap(value);
-
-            if (oldValue !== undefined) {
-                me.fire('fieldsChange', {
-                    model: me
-                })
+            // Fields can get changed multiple times before the model instance is getting constructed.
+            // We only need the latest state before construction & honor run-time changes.
+            if (this.isConstructed) {
+                RecordFactory.createRecordClass(value)
             }
         }
     }
