@@ -197,8 +197,13 @@ class Store extends Base {
      */
     afterSetModel(value, oldValue) {
         if (value) {
-            value.storeId = this.id;
-            RecordFactory.createRecordClass(value)
+            let me = this;
+
+            value.storeId = me.id;
+
+            RecordFactory.createRecordClass(value);
+
+            value.on('fieldsChange', me.onModelFieldsChange, me)
         }
     }
 
@@ -426,6 +431,14 @@ class Store extends Base {
         } else {
             super.onFilterChange(opts)
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onModelFieldsChange(data) {
+        RecordFactory.createRecordClass(data.model);
     }
 
     /**

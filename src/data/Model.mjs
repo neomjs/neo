@@ -1,10 +1,18 @@
-import Base from '../core/Base.mjs';
+import Base       from '../core/Base.mjs';
+import Observable from '../core/Observable.mjs';
 
 /**
  * @class Neo.data.Model
  * @extends Neo.core.Base
  */
 class Model extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.data.Model'
@@ -51,7 +59,15 @@ class Model extends Base {
      */
     afterSetFields(value, oldValue) {
         if (value) {
-            this.updateFieldsMap(value)
+            let me = this;
+
+            me.updateFieldsMap(value);
+
+            if (oldValue !== undefined) {
+                me.fire('fieldsChange', {
+                    model: me
+                })
+            }
         }
     }
 
