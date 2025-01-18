@@ -64,25 +64,19 @@ class RecordFactory extends Base {
                         return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        let me = this,
-                            oldValue;
-
-                        if (model.hasNestedFields) {
-                            oldValue = Neo.ns(fieldPath, false, me[dataSymbol])
-                        } else {
-                            oldValue = me[dataSymbol][fieldName]
-                        }
+                        let me       = this,
+                            oldValue = me[dataSymbol][fieldName];
 
                         value = instance.parseRecordValue(me, field, value);
 
                         if (!Neo.isEqual(value, oldValue)) {
-                            this[dataSymbol][fieldName] = value;
+                            instance.setRecordData(fieldPath, model, me, value);
 
                             me._isModified = true;
                             me._isModified = instance.isModified(me, model.trackModifiedFields);
 
                             instance.onRecordChange({
-                                fields: [{name: field.name, oldValue, value}],
+                                fields: [{name: fieldPath, oldValue, value}],
                                 model,
                                 record: me
                             })
@@ -320,6 +314,27 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @param {String} fieldName
+     * @param {Neo.data.Model} model
+     * @param {Record} record
+     * @param {*} value
+     * @protected
+     */
+    setRecordData(fieldName, model, record, value) {
+        if (model.hasNestedFields && fieldName.includes('.')) {
+            let ns, nsArray;
+
+            nsArray   = fieldName.split('.');
+            fieldName = nsArray.pop();
+            ns        = Neo.ns(nsArray, true, record[dataSymbol]);
+
+            ns[fieldName] = value
+        } else {
+            record[dataSymbol][fieldName] = value
+        }
+    }
+
+    /**
      * @param {Neo.data.Model} model
      * @param {Object} record
      * @param {Object} fields
@@ -327,8 +342,8 @@ class RecordFactory extends Base {
      * @param {Object[]} changedFields=[] Internal flag
      */
     setRecordFields(model, record, fields, silent=false, changedFields=[]) {
-        let {fieldsMap, hasNestedFields} = model,
-            fieldExists, fieldName, ns, nsArray, oldValue;
+        let {fieldsMap} = model,
+            fieldExists, oldValue;
 
         Object.entries(fields).forEach(([key, value]) => {
             fieldExists = fieldsMap.has(key);
@@ -342,15 +357,7 @@ class RecordFactory extends Base {
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    if (hasNestedFields && key.includes('.')) {
-                        nsArray   = key.split('.');
-                        fieldName = nsArray.pop();
-                        ns        = Neo.ns(nsArray, true, record[dataSymbol]);
-
-                        ns[fieldName] = value
-                    } else {
-                        record[dataSymbol][key] = value
-                    }
+                    instance.setRecordData(key, model, record, value);
 
                     record._isModified = true;
                     changedFields.push({name: key, oldValue, value})
