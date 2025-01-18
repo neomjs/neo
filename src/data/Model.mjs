@@ -95,9 +95,10 @@ class Model extends Base {
         let me          = this,
             {fieldsMap} = me;
 
-        isRoot && fieldsMap.clear();
-
-        me.hasNestedFields = false;
+        if (isRoot) {
+            fieldsMap.clear();
+            me.hasNestedFields = false
+        }
 
         fields.forEach(field => {
             fieldsMap.set(field.name, field);
