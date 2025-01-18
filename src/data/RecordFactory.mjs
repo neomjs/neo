@@ -119,15 +119,16 @@ class RecordFactory extends Base {
 
     /**
      * @param {Neo.data.Model} model
+     * @param {Boolean} overwrite=false
      * @returns {Object}
      */
-    createRecordClass(model) {
+    createRecordClass(model, overwrite=false) {
         if (model instanceof Model) {
             let className = `${this.recordNamespace}.${model.className}.${model.id}`,
                 ns        = Neo.ns(className),
                 key, nsArray, cls;
 
-            if (!ns) {
+            if (!ns || overwrite) {
                 nsArray = className.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true);

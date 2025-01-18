@@ -60,12 +60,14 @@ class Model extends Base {
      */
     afterSetFields(value, oldValue) {
         if (value) {
-            this.updateFieldsMap(value);
+            let me = this;
+
+            me.updateFieldsMap(value);
 
             // Fields can get changed multiple times before the model instance is getting constructed.
             // We only need the latest state before construction & honor run-time changes.
-            if (this.isConstructed) {
-                RecordFactory.createRecordClass(value)
+            if (me.isConstructed) {
+                RecordFactory.createRecordClass(me, true)
             }
         }
     }
