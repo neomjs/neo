@@ -414,6 +414,8 @@ class Dialog extends Panel {
         // rendered outside the visible area
         await me.render(true);
 
+        await me.timeout(20);
+
         let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
 
         // Move to cover the animation target
