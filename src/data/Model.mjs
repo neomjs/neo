@@ -41,8 +41,14 @@ class Model extends Base {
 
     /**
      * @member {Map} fieldsMap=new Map()
+     * @protected
      */
     fieldsMap = new Map()
+    /**
+     * @member {Boolean} hasNestedFields=false
+     * @protected
+     */
+    hasNestedFields = false
 
     /**
      * @param {Object} config
@@ -86,15 +92,21 @@ class Model extends Base {
      * @param {Boolean} isRoot=true
      */
     updateFieldsMap(fields, isRoot=true) {
-        let {fieldsMap} = this;
+        let me          = this,
+            {fieldsMap} = me;
 
         isRoot && fieldsMap.clear();
+
+        me.hasNestedFields = false;
 
         fields.forEach(field => {
             fieldsMap.set(field.name, field);
 
             // Assuming that nested fields contain the full path as the name, we do not need a prefix.
-            field.fields && this.updateFieldsMap(field.fields, false)
+            if (field.fields) {
+                me.hasNestedFields = true;
+                me.updateFieldsMap(field.fields, false)
+            }
         })
     }
 }
