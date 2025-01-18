@@ -90,10 +90,12 @@ class Model extends Base {
     /**
      * @param {Object[]} fields
      * @param {Boolean} isRoot=true
+     * @param {String} path=''
      */
-    updateFieldsMap(fields, isRoot=true) {
+    updateFieldsMap(fields, isRoot=true, path='') {
         let me          = this,
-            {fieldsMap} = me;
+            {fieldsMap} = me,
+            fieldName;
 
         if (isRoot) {
             fieldsMap.clear();
@@ -101,12 +103,14 @@ class Model extends Base {
         }
 
         fields.forEach(field => {
-            fieldsMap.set(field.name, field);
+            fieldName = path + field.name
 
             // Assuming that nested fields contain the full path as the name, we do not need a prefix.
             if (field.fields) {
                 me.hasNestedFields = true;
-                me.updateFieldsMap(field.fields, false)
+                me.updateFieldsMap(field.fields, false, field.name + '.')
+            } else {
+                fieldsMap.set(fieldName, field)
             }
         })
     }

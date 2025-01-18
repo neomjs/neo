@@ -250,7 +250,7 @@ class RecordFactory extends Base {
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {
+    parseRecordValue(record, field, value, recordConfig=null) {!field && console.log(record, value);
         if (field.calculate) {
             return field.calculate(record, field, recordConfig)
         }
@@ -324,20 +324,37 @@ class RecordFactory extends Base {
      * @param {Object} record
      * @param {Object} fields
      * @param {Boolean} silent=false
+     * @param {Object[]} changedFields=[] Internal flag
      */
-    setRecordFields(model, record, fields, silent=false) {
-        let changedFields = [],
-            oldValue;
+    setRecordFields(model, record, fields, silent=false, changedFields=[]) {
+        let {fieldsMap, hasNestedFields} = model,
+            fieldExists, fieldName, ns, nsArray, oldValue;
 
         Object.entries(fields).forEach(([key, value]) => {
-            oldValue = record[key];
-            value    = instance.parseRecordValue(record, model.getField(key), value);
+            fieldExists = fieldsMap.has(key);
 
-            if (!Neo.isEqual(oldValue, value)) {
-                record[dataSymbol][key] = value;
+            if (Neo.isObject(value) && !fieldExists) {
+                Object.entries(value).forEach(([childKey, childValue]) => {
+                    this.setRecordFields(model, record, {[`${key}.${childKey}`]: childValue}, true, changedFields)
+                })
+            } else if (fieldExists) {
+                oldValue = record[key];
+                value    = instance.parseRecordValue(record, model.getField(key), value);
 
-                record._isModified = true;
-                changedFields.push({name: key, oldValue, value})
+                if (!Neo.isEqual(oldValue, value)) {
+                    if (hasNestedFields && key.includes('.')) {
+                        nsArray   = key.split('.');
+                        fieldName = nsArray.pop();
+                        ns        = Neo.ns(nsArray, true, record[dataSymbol]);
+
+                        ns[fieldName] = value
+                    } else {
+                        record[dataSymbol][key] = value
+                    }
+
+                    record._isModified = true;
+                    changedFields.push({name: key, oldValue, value})
+                }
             }
         });
 
