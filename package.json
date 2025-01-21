@@ -49,7 +49,7 @@
         "autoprefixer": "^10.4.20",
         "chalk": "^5.4.1",
         "clean-webpack-plugin": "^4.0.0",
-        "commander": "^13.0.0",
+        "commander": "^13.1.0",
         "cssnano": "^7.0.6",
         "envinfo": "^7.14.0",
         "fs-extra": "^11.3.0",
