@@ -395,9 +395,10 @@ class ComboBox extends Picker {
      * @param {String|null} value The value to filter the picker by
      */
     doFilter(value) {
-        let me                      = this,
-            {picker, record, store} = me,
-            filter                  = store.getFilter(me.displayField);
+        let me              = this,
+            {picker, store} = me,
+            record          = me.value,
+            filter          = store.getFilter(me.displayField);
 
         if (filter) {
             filter.value = value
@@ -408,7 +409,7 @@ class ComboBox extends Picker {
             me.showPicker();
 
             // List might not exist until the picker is created
-            let {list }          = me,
+            let {list}           = me,
                 {selectionModel} = list;
 
             // On show, set the active item to be the current selected record or the first
@@ -420,7 +421,8 @@ class ComboBox extends Picker {
             }
 
             me.timeout(100).then(() => {
-                const index = store.indexOf(record);
+                let index = store.indexOf(record);
+
                 list._focusIndex = -1; // silent update to ensure afterSetFocusIndex() always gets called
                 list.focusIndex  = index > -1 ? index : 0
             })
