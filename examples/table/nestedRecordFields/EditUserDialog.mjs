@@ -99,21 +99,33 @@ class EditUserDialog extends Dialog {
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        this.record.country = data.value.code
+        // You can also access the internal setter directly:
+        // this.record.country = data.value.code
+        // Using the API allows bulk changes
+
+        this.record.set({country: data.value.code})
     }
 
     /**
      * @param {Object} data
      */
     onFirstnameFieldChange(data) {
-        this.record['user.firstname'] = data.value
+        // You can also access the internal setter directly:
+        // this.record['user.firstname'] = data.value
+        // Using the API allows bulk changes
+        this.record.set({user: {firstname: data.value}})
+
+
     }
 
     /**
      * @param {Object} data
      */
     onLastnameFieldChange(data) {
-        this.record['user.lastname'] = data.value
+        // You can also access the internal setter directly:
+        // this.record['user.lastname'] = data.value
+        // Using the API allows bulk changes
+        this.record.set({user: {lastname: data.value}})
     }
 
     /**
@@ -124,11 +136,16 @@ class EditUserDialog extends Dialog {
             store = me.getStateProvider().getStore('mainStore');
 
         if (data.value === false) {
-            me.record['annotations.selected'] = false
+            // You can also access the internal setter directly:
+            // me.record['annotations.selected'] = false
+            // Using the API allows bulk changes
+            me.record.set({annotations: {selected: false}})
         } else {
             // Assuming we want to support a single row selection
             store.items.forEach(record => {
-                record['annotations.selected'] = record === me.record ? data.value : false
+                record.set({annotations: {
+                    selected: record === me.record ? data.value : false
+                }})
             })
         }
     }
