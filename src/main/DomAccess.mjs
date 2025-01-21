@@ -520,19 +520,28 @@ class DomAccess extends Base {
 
     /**
      * @param {String|HTMLElement} nodeId
-     * @returns {HTMLElement}
+     * @returns {HTMLElement|null}
      * @protected
      */
     getElement(nodeId) {
-        return nodeId.nodeType ? nodeId : Neo.config.useDomIds ?  document.getElementById(nodeId) : document.querySelector(`[data-neo-id='${nodeId}']`)
+        let node = nodeId?.nodeType ?
+            nodeId : Neo.config.useDomIds ?
+                document.getElementById(nodeId) :
+                document.querySelector(`[data-neo-id='${nodeId}']`);
+
+        return node || null
     }
 
     /**
-     * @param {String|HTMLElement} [nodeId='document.body']
-     * @returns {HTMLElement}
+     * @param {String|HTMLElement} nodeId='document.body'
+     * @returns {HTMLElement|null}
      * @protected
      */
     getElementOrBody(nodeId='document.body') {
+        if (!nodeId) {
+            return null
+        }
+
         return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId)
     }
 
