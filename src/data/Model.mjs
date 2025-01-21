@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base          from '../core/Base.mjs';
+import RecordFactory from './RecordFactory.mjs';
 
 /**
  * @class Neo.data.Model
@@ -17,9 +18,9 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
-         * @member {Array|null} fields=null
+         * @member {Object[]|null} fields_=null
          */
-        fields: null,
+        fields_: null,
         /**
          * @member {String} keyProperty_='id'
          */
@@ -39,11 +40,43 @@ class Model extends Base {
     }
 
     /**
-     * A property set in all data records so that they are easily identifiable.
-     * @property {Boolean} isRecord=true
-     * @readonly
+     * @member {Map} fieldsMap=new Map()
+     * @protected
      */
-    isRecord = true
+    fieldsMap = new Map()
+    /**
+     * @member {Boolean} hasNestedFields=false
+     * @protected
+     */
+    hasNestedFields = false
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        RecordFactory.createRecordClass(this)
+    }
+
+    /**
+     Triggered after the fields config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetFields(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            me.updateFieldsMap(value);
+
+            // Fields can get changed multiple times before the model instance is getting constructed.
+            // We only need the latest state before construction & honor run-time changes.
+            if (me.isConstructed) {
+                RecordFactory.createRecordClass(me, true)
+            }
+        }
+    }
 
     /**
      * Finds a field config by a given field name
@@ -51,17 +84,35 @@ class Model extends Base {
      * @returns {Object|null} The field config object or null if no match was found
      */
     getField(name) {
-        let me  = this,
-            i   = 0,
-            len = me.fields?.length || 0;
+        return this.fieldsMap.get(name) || null
+    }
 
-        for (; i < len; i++) {
-            if (me.fields[i].name === name) {
-                return me.fields[i]
-            }
+    /**
+     * @param {Object[]} fields
+     * @param {Boolean} isRoot=true
+     * @param {String} path=''
+     */
+    updateFieldsMap(fields, isRoot=true, path='') {
+        let me          = this,
+            {fieldsMap} = me,
+            fieldName;
+
+        if (isRoot) {
+            fieldsMap.clear();
+            me.hasNestedFields = false
         }
 
-        return null
+        fields.forEach(field => {
+            fieldName = path + field.name
+
+            // Assuming that nested fields contain the full path as the name, we do not need a prefix.
+            if (field.fields) {
+                me.hasNestedFields = true;
+                me.updateFieldsMap(field.fields, false, field.name + '.')
+            } else {
+                fieldsMap.set(fieldName, field)
+            }
+        })
     }
 }
 

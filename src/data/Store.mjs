@@ -197,8 +197,7 @@ class Store extends Base {
      */
     afterSetModel(value, oldValue) {
         if (value) {
-            value.storeId = this.id;
-            RecordFactory.createRecordClass(value)
+            value.storeId = this.id
         }
     }
 

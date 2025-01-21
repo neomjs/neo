@@ -2,6 +2,8 @@ import Base   from '../core/Base.mjs';
 import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
+const dataSymbol = Symbol.for('data');
+
 let instance;
 
 /**
@@ -35,57 +37,46 @@ class RecordFactory extends Base {
 
     /**
      * @param {Object} data
-     * @param {Object} data.config
      * @param {Object} data.field
      * @param {Neo.data.RecordFactory} data.me
      * @param {Neo.data.Model} data.model
      * @param {String} data.path=''
      */
-    createField({config, field, me, model, path=''}) {
-        let value     = Neo.ns(field.mapping || field.name, false, config),
-            fieldName = field.name.split('.').pop(),
-            symbol    = Symbol.for(fieldName),
-            fieldPath, parsedValue, properties;
+    createField({field, me, model, path=''}) {
+        let fieldName = field.name,
+            fieldPath = path === '' ? fieldName : `${path}.${fieldName}`,
+            properties;
 
         if (field.fields) {
             field.fields.forEach(childField => {
-                fieldPath = path.split('.');
-                fieldPath = fieldPath.filter(Boolean);
-                fieldPath.push(field.name);
-
-                this.createField({config, field: childField, me, model, path: fieldPath.join('.')})
+                this.createField({field: childField, me, model, path: fieldPath})
             })
         } else {
-            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
-                value = field.defaultValue
-            }
-
-            parsedValue = instance.parseRecordValue(me, field, value, config);
-
             properties = {
-                [symbol]: {
-                    value   : Neo.clone(parsedValue, true),
-                    writable: true
-                },
-                [fieldName]: {
+                [fieldPath]: {
                     configurable: true,
                     enumerable  : true,
                     get() {
-                        return this[symbol]
+                        if (model.hasNestedFields) {
+                            return Neo.ns(fieldPath, false, this[dataSymbol])
+                        }
+
+                        return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        let oldValue = this[symbol];
+                        let me       = this,
+                            oldValue = me[dataSymbol][fieldName];
 
                         value = instance.parseRecordValue(me, field, value);
 
                         if (!Neo.isEqual(value, oldValue)) {
-                            this[symbol] = value;
+                            instance.setRecordData(fieldPath, model, me, value);
 
                             me._isModified = true;
                             me._isModified = instance.isModified(me, model.trackModifiedFields);
 
                             instance.onRecordChange({
-                                fields: [{name: field.name, oldValue, value}],
+                                fields: [{name: fieldPath, oldValue, value}],
                                 model,
                                 record: me
                             })
@@ -97,11 +88,11 @@ class RecordFactory extends Base {
             // adding the original value of each field
             if (model.trackModifiedFields) {
                 properties[instance.ovPrefix + field.name] = {
-                    value: parsedValue
+                    value
                 }
             }
 
-            Object.defineProperties(path ? Neo.ns(path, true, me) : me, properties)
+            Object.defineProperties(me, properties)
         }
     }
 
@@ -122,37 +113,28 @@ class RecordFactory extends Base {
 
     /**
      * @param {Neo.data.Model} model
+     * @param {Boolean} overwrite=false
      * @returns {Object}
      */
-    createRecordClass(model) {
+    createRecordClass(model, overwrite=false) {
         if (model instanceof Model) {
             let className = `${this.recordNamespace}.${model.className}.${model.id}`,
                 ns        = Neo.ns(className),
                 key, nsArray, cls;
 
-            if (!ns) {
+            if (!ns || overwrite) {
                 nsArray = className.split('.');
                 key     = nsArray.pop();
                 ns      = Neo.ns(nsArray, true);
                 cls     = ns[key] = class Record {
                     // We do not want to minify the ctor class name in dist/production
-                    static name = 'Record'
+                    static name = 'Record';
+
+                    [dataSymbol] = {}
 
                     constructor(config) {
-                        let me = this;
-
-                        Object.defineProperties(me, {
-                            _isModified: {
-                                value   : false,
-                                writable: true
-                            }
-                        });
-
-                        if (Array.isArray(model.fields)) {
-                            model.fields.forEach(field => {
-                                instance.createField({config, field, me, model})
-                            })
-                        }
+                        this.setSilent(config);
+                        this._isModified = false
                     }
 
                     /**
@@ -170,7 +152,21 @@ class RecordFactory extends Base {
                     setSilent(fields) {
                         instance.setRecordFields(model, this, fields, true)
                     }
+
+                    /**
+                     * When using JSON.stringify(this), we want to get the raw data
+                     * @returns {Object}
+                     */
+                    toJSON() {
+                        return this[dataSymbol]
+                    }
                 };
+
+                if (Array.isArray(model.fields)) {
+                    model.fields.forEach(field => {
+                        instance.createField({field, me: cls.prototype, model})
+                    })
+                }
 
                 Object.defineProperty(cls.prototype, 'isRecord', {value: true});
                 Object.defineProperty(cls, 'isClass', {value: true});
@@ -256,7 +252,7 @@ class RecordFactory extends Base {
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {
+    parseRecordValue(record, field, value, recordConfig=null) {!field && console.log(record, value);
         if (field.calculate) {
             return field.calculate(record, field, recordConfig)
         }
@@ -326,23 +322,54 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @param {String} fieldName
+     * @param {Neo.data.Model} model
+     * @param {Record} record
+     * @param {*} value
+     * @protected
+     */
+    setRecordData(fieldName, model, record, value) {
+        if (model.hasNestedFields && fieldName.includes('.')) {
+            let ns, nsArray;
+
+            nsArray   = fieldName.split('.');
+            fieldName = nsArray.pop();
+            ns        = Neo.ns(nsArray, true, record[dataSymbol]);
+
+            ns[fieldName] = value
+        } else {
+            record[dataSymbol][fieldName] = value
+        }
+    }
+
+    /**
      * @param {Neo.data.Model} model
      * @param {Object} record
      * @param {Object} fields
      * @param {Boolean} silent=false
+     * @param {Object[]} changedFields=[] Internal flag
      */
-    setRecordFields(model, record, fields, silent=false) {
-        let changedFields = [],
-            oldValue;
+    setRecordFields(model, record, fields, silent=false, changedFields=[]) {
+        let {fieldsMap} = model,
+            fieldExists, oldValue;
 
         Object.entries(fields).forEach(([key, value]) => {
-            oldValue = record[key];
-            value    = instance.parseRecordValue(record, model.getField(key), value);
+            fieldExists = fieldsMap.has(key);
 
-            if (!Neo.isEqual(oldValue, value)) {
-                record[Symbol.for(key)] = value; // silent update
-                record._isModified = true;
-                changedFields.push({name: key, oldValue, value})
+            if (Neo.isObject(value) && !fieldExists) {
+                Object.entries(value).forEach(([childKey, childValue]) => {
+                    this.setRecordFields(model, record, {[`${key}.${childKey}`]: childValue}, true, changedFields)
+                })
+            } else if (fieldExists) {
+                oldValue = record[key];
+                value    = instance.parseRecordValue(record, model.getField(key), value);
+
+                if (!Neo.isEqual(oldValue, value)) {
+                    instance.setRecordData(key, model, record, value);
+
+                    record._isModified = true;
+                    changedFields.push({name: key, oldValue, value})
+                }
             }
         });
 

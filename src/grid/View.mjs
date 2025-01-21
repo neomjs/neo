@@ -388,7 +388,7 @@ class GridView extends Component {
             cellCls     = ['neo-grid-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
-            fieldValue  = Neo.ns(dataField, false, record),
+            fieldValue  = record[dataField],
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -495,7 +495,7 @@ class GridView extends Component {
             trCls.push('neo-even')
         }
 
-        if (selectedRows && Neo.ns(me.selectedRecordField, false, record)) {
+        if (selectedRows && record[me.selectedRecordField]) {
             NeoArray.add(selectedRows, id)
         }
 

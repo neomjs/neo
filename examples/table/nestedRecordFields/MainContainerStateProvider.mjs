@@ -2,7 +2,7 @@ import MainStore     from './MainStore.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Store         from '../../../src/data/Store.mjs';
 
-const countrySymbol = Symbol.for('country');
+const dataSymbol = Symbol.for('data');
 
 /**
  * @class Neo.examples.table.nestedRecordFields.MainContainerStateProvider
@@ -51,7 +51,7 @@ class MainContainerStateProvider extends StateProvider {
                 country = record.country;
 
                 // hack resetting the current value to get a new record change
-                record[countrySymbol] = null;
+                record[dataSymbol].country = null;
 
                 record.country = country
             })
