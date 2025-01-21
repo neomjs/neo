@@ -256,13 +256,7 @@ class List extends Component {
      * @protected
      */
     afterSetFocusIndex(value, oldValue) {
-        let me = this;
-
-        if (Neo.isNumber(value)) {
-            Neo.main.addon.Navigator.navigateTo([me.getHeaderlessIndex(value), me.navigator])
-        } else if (value) {
-            Neo.main.addon.Navigator.navigateTo([me.getItemId(value[me.getKeyProperty()]), me.navigator])
-        }
+        value !== null && this.updateItemFocus(value)
     }
 
     /**
@@ -844,6 +838,32 @@ class List extends Component {
             else if (item) {
                 me.selectionModel?.selectAt(me.store.indexOf(item))
             }
+        }
+    }
+
+    /**
+     *
+     * @param {Number|Object} value
+     * @returns {Promise<void>}
+     */
+    async updateItemFocus(value) {
+        let me           = this,
+            {navigateTo} = Neo.main.addon.Navigator;
+
+        if (me.mounted) {
+            if (Neo.isNumber(value)) {
+                navigateTo([me.getHeaderlessIndex(value), me.navigator])
+            } else if (value) {
+                navigateTo([me.getItemId(value[me.getKeyProperty()]), me.navigator])
+            }
+        } else {
+            me.on('mounted', () => {
+                // We could subscribe multiple times before getting mounted,
+                // so only trigger the callback for the last focusIndex
+                if (value === me.focusIndex) {
+                    me.updateItemFocus(me.focusIndex)
+                }
+            }, me, {once: true})
         }
     }
 }

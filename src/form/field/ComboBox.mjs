@@ -410,7 +410,8 @@ class ComboBox extends Picker {
 
             // List might not exist until the picker is created
             let {list}           = me,
-                {selectionModel} = list;
+                {selectionModel} = list,
+                index            = store.indexOf(record);
 
             // On show, set the active item to be the current selected record or the first
             if (record) {
@@ -420,12 +421,8 @@ class ComboBox extends Picker {
                 selectionModel.suspendEvents = false
             }
 
-            me.timeout(100).then(() => {
-                let index = store.indexOf(record);
-
-                list._focusIndex = -1; // silent update to ensure afterSetFocusIndex() always gets called
-                list.focusIndex  = index > -1 ? index : 0
-            })
+            list._focusIndex = -1; // silent update to ensure afterSetFocusIndex() always gets called
+            list.focusIndex  = index > -1 ? index : 0
         }
         // Filtered down to nothing - hide picker if it has been created.
         else {
