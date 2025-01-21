@@ -152,6 +152,14 @@ class RecordFactory extends Base {
                     setSilent(fields) {
                         instance.setRecordFields(model, this, fields, true)
                     }
+
+                    /**
+                     * When using JSON.stringify(this), we want to get the raw data
+                     * @returns {Object}
+                     */
+                    toJSON() {
+                        return this[dataSymbol]
+                    }
                 };
 
                 if (Array.isArray(model.fields)) {
