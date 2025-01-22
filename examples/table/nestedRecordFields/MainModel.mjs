@@ -7,10 +7,10 @@ import Model from '../../../src/data/Model.mjs';
 class MainModel extends Model {
     static config = {
         /**
-         * @member {String} className='Neo.examples.table.container.MainModel'
+         * @member {String} className='Neo.examples.table.nestedRecordFields.MainModel'
          * @protected
          */
-        className: 'Neo.examples.table.container.MainModel',
+        className: 'Neo.examples.table.nestedRecordFields.MainModel',
         /**
          * @member {Object[]} fields
          */

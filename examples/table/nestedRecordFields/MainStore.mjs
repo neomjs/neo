@@ -7,7 +7,7 @@ import Store from '../../../src/data/Store.mjs';
  */
 class MainStore extends Store {
     static config = {
-        className  : 'Neo.examples.table.container.MainStore',
+        className  : 'Neo.examples.table.nestedRecordFields.MainStore',
         keyProperty: 'githubId',
         model      : Model,
 
