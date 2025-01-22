@@ -21,12 +21,6 @@ class RecordFactory extends Base {
          */
         className: 'Neo.data.RecordFactory',
         /**
-         * The internal record prefix for original field values.
-         * Only used in case the model has trackModifiedFields set to true.
-         * @member {String} ovPrefix='ov_'
-         */
-        ovPrefix: 'ov_',
-        /**
          * @member {String} recordNamespace='Neo.data.record'
          */
         recordNamespace: 'Neo.data.record',
@@ -87,13 +81,6 @@ class RecordFactory extends Base {
                 }
             };
 
-            // adding the original value of each field
-            if (model.trackModifiedFields) {
-                properties[instance.ovPrefix + field.name] = {
-                    value
-                }
-            }
-
             Object.defineProperties(me, properties)
         }
     }
@@ -141,6 +128,7 @@ class RecordFactory extends Base {
                         let me = this;
 
                         if (model.trackModifiedFields) {
+                            me[initialDataSymbol] = {};
                             me.setInitial(config)
                         }
 
@@ -163,7 +151,7 @@ class RecordFactory extends Base {
                      * @protected
                      */
                     setInitial(fields) {
-                        instance.setRecordFields({fields, initialData: true, model, record: this})
+                        instance.setRecordFields({fields, initialData: true, model, record: this, silent: true})
                     }
 
                     /**
@@ -398,7 +386,7 @@ class RecordFactory extends Base {
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData({fieldName: key, model, record, value});
+                    instance.setRecordData({fieldName: key, initialData, model, record, value});
 
                     record._isModified = true;
                     changedFields.push({name: key, oldValue, value})
