@@ -151,7 +151,7 @@ class RecordFactory extends Base {
                      * @protected
                      */
                     setInitial(fields) {
-                        instance.setRecordFields({fields, initialData: true, model, record: this, silent: true})
+                        instance.setRecordFields({fields, model, record: this, silent: true, useInitialData: true})
                     }
 
                     /**
@@ -333,14 +333,14 @@ class RecordFactory extends Base {
     /**
      * @param {Object}         data
      * @param {String}         data.fieldName
-     * @param {Boolean}        data.initialData=false true will apply changes to the initialData symbol
      * @param {Neo.data.Model} data.model
      * @param {Record}         data.record
      * @param {*}              data.value
+     * @param {Boolean}        data.useInitialData=false true will apply changes to the initialData symbol
      * @protected
      */
-    setRecordData({fieldName, initialData=false, model, record, value}) {
-        let scope = initialData ? initialDataSymbol : dataSymbol;
+    setRecordData({fieldName, model, record, useInitialData=false, value}) {
+        let scope = useInitialData ? initialDataSymbol : dataSymbol;
 
         if (model.hasNestedFields && fieldName.includes('.')) {
             let ns, nsArray;
@@ -359,12 +359,12 @@ class RecordFactory extends Base {
      * @param {Object}         data
      * @param {Object[]}       data.changedFields=[] Internal flag
      * @param {Object}         data.fields
-     * @param {Boolean}        data.initialData=false true will apply changes to the initialData symbol
      * @param {Neo.data.Model} data.model
      * @param {Object}         data.record
      * @param {Boolean}        data.silent=false
+     * @param {Boolean}        data.useInitialData=false true will apply changes to the initialData symbol
      */
-    setRecordFields({changedFields=[], fields, initialData=false, model, record, silent=false}) {
+    setRecordFields({changedFields=[], fields, model, record, silent=false, useInitialData=false}) {
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
@@ -376,10 +376,10 @@ class RecordFactory extends Base {
                     this.setRecordFields({
                         changedFields,
                         fields: {[`${key}.${childKey}`]: childValue},
-                        initialData,
                         model,
                         record,
-                        silent: true
+                        silent: true,
+                        useInitialData
                     })
                 })
             } else if (fieldExists) {
@@ -387,7 +387,7 @@ class RecordFactory extends Base {
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData({fieldName: key, initialData, model, record, value});
+                    instance.setRecordData({fieldName: key, model, record, useInitialData, value});
 
                     record._isModified = true;
                     changedFields.push({name: key, oldValue, value})
