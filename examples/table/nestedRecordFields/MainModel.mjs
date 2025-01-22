@@ -6,8 +6,14 @@ import Model from '../../../src/data/Model.mjs';
  */
 class MainModel extends Model {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.table.container.MainModel'
+         * @protected
+         */
         className: 'Neo.examples.table.container.MainModel',
-
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'annotations',
             type: 'Object',
@@ -34,7 +40,11 @@ class MainModel extends Model {
                 name: 'lastname',
                 type: 'String'
             }]
-        }]
+        }],
+        /**
+         * @member {Boolean} trackModifiedFields=true
+         */
+        trackModifiedFields: true
     }
 }
 
