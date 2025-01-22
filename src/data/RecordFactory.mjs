@@ -68,8 +68,7 @@ class RecordFactory extends Base {
                         if (!Neo.isEqual(value, oldValue)) {
                             instance.setRecordData({fieldName: fieldPath, model, record: me, value});
 
-                            me._isModified = true;
-                            me._isModified = instance.isModified(me, model.trackModifiedFields);
+                            me._isModified = me.isModified;
 
                             instance.onRecordChange({
                                 fields: [{name: fieldPath, oldValue, value}],
