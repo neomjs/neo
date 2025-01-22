@@ -194,20 +194,7 @@ class RecordFactory extends Base {
      */
     isModified(record, trackModifiedFields) {
         if (trackModifiedFields) {
-            let fields = Object.keys(record),
-                i      = 0,
-                len    = fields.length,
-                field;
-
-            for (; i < len; i++) {
-                field = fields[i];
-
-                if (!Neo.isEqual(record[field], record[this.ovPrefix + field])) {
-                    return true
-                }
-            }
-
-            return false
+            return Neo.isEqual(record[dataSymbol], record[initialDataSymbol])
         }
 
         return record._isModified
