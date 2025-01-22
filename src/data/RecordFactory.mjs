@@ -376,6 +376,7 @@ class RecordFactory extends Base {
                     this.setRecordFields({
                         changedFields,
                         fields: {[`${key}.${childKey}`]: childValue},
+                        initialData,
                         model,
                         record,
                         silent: true
