@@ -134,9 +134,18 @@ class RecordFactory extends Base {
 
                     [dataSymbol] = {}
 
+                    /**
+                     * @param {Object} config
+                     */
                     constructor(config) {
-                        this.setSilent(config);
-                        this._isModified = false
+                        let me = this;
+
+                        if (model.trackModifiedFields) {
+                            me.setInitial(config)
+                        }
+
+                        me.setSilent(config); // We do not want to fire change events when constructing
+                        me._isModified = false
                     }
 
                     /**
@@ -145,6 +154,16 @@ class RecordFactory extends Base {
                      */
                     set(fields) {
                         instance.setRecordFields({fields, model, record: this})
+                    }
+
+                    /**
+                     * If the model uses trackModifiedFields, we will store the initial data
+                     * for tracking the dirty state (changed fields)
+                     * @param {Object} fields
+                     * @protected
+                     */
+                    setInitial(fields) {
+                        instance.setRecordFields({fields, initialData: true, model, record: this})
                     }
 
                     /**
@@ -348,11 +367,12 @@ class RecordFactory extends Base {
      * @param {Object}         data
      * @param {Object[]}       data.changedFields=[] Internal flag
      * @param {Object}         data.fields
+     * @param {Boolean}        data.initialData=false true will apply changes to the initialData symbol
      * @param {Neo.data.Model} data.model
      * @param {Object}         data.record
      * @param {Boolean}        data.silent=false
      */
-    setRecordFields({changedFields=[], fields, model, record, silent=false}) {
+    setRecordFields({changedFields=[], fields, initialData=false, model, record, silent=false}) {
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
