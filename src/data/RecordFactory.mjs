@@ -72,7 +72,7 @@ class RecordFactory extends Base {
                         value = instance.parseRecordValue(me, field, value);
 
                         if (!Neo.isEqual(value, oldValue)) {
-                            instance.setRecordData(fieldPath, model, me, value);
+                            instance.setRecordData({fieldName: fieldPath, model, record: me, value});
 
                             me._isModified = true;
                             me._isModified = instance.isModified(me, model.trackModifiedFields);
@@ -343,23 +343,27 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @param {String} fieldName
-     * @param {Neo.data.Model} model
-     * @param {Record} record
-     * @param {*} value
+     * @param {Object}         data
+     * @param {String}         data.fieldName
+     * @param {Boolean}        data.initialData=false true will apply changes to the initialData symbol
+     * @param {Neo.data.Model} data.model
+     * @param {Record}         data.record
+     * @param {*}              data.value
      * @protected
      */
-    setRecordData(fieldName, model, record, value) {
+    setRecordData({fieldName, initialData=false, model, record, value}) {
+        let scope = initialData ? initialDataSymbol : dataSymbol;
+
         if (model.hasNestedFields && fieldName.includes('.')) {
             let ns, nsArray;
 
             nsArray   = fieldName.split('.');
             fieldName = nsArray.pop();
-            ns        = Neo.ns(nsArray, true, record[dataSymbol]);
+            ns        = Neo.ns(nsArray, true, record[scope]);
 
             ns[fieldName] = value
         } else {
-            record[dataSymbol][fieldName] = value
+            record[scope][fieldName] = value
         }
     }
 
@@ -394,7 +398,7 @@ class RecordFactory extends Base {
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData(key, model, record, value);
+                    instance.setRecordData({fieldName: key, model, record, value});
 
                     record._isModified = true;
                     changedFields.push({name: key, oldValue, value})
