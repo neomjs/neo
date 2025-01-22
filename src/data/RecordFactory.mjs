@@ -121,6 +121,16 @@ class RecordFactory extends Base {
 
                     [dataSymbol] = {}
 
+                    get isModified() {
+                        let me = this;
+
+                        if (model.trackModifiedFields) {
+                            return Neo.isEqual(me[dataSymbol], me[initialDataSymbol])
+                        }
+
+                        return me._isModified
+                    }
+
                     /**
                      * @param {Object} config
                      */
@@ -189,15 +199,10 @@ class RecordFactory extends Base {
 
     /**
      * @param {Object} record
-     * @param {Boolean} trackModifiedFields
      * @returns {Boolean} true in case a change was found
      */
-    isModified(record, trackModifiedFields) {
-        if (trackModifiedFields) {
-            return Neo.isEqual(record[dataSymbol], record[initialDataSymbol])
-        }
-
-        return record._isModified
+    isModified(record) {
+        return record.isModified
     }
 
     /**
