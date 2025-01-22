@@ -381,7 +381,10 @@ class RecordFactory extends Base {
                 if (!Neo.isEqual(oldValue, value)) {
                     instance.setRecordData({fieldName: key, model, record, useInitialData, value});
 
-                    record._isModified = true;
+                    if (!useInitialData) {
+                        record._isModified = true
+                    }
+
                     changedFields.push({name: key, oldValue, value})
                 }
             }
