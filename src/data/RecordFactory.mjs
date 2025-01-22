@@ -231,7 +231,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.isRecord
+        return record?.isRecord || false
     }
 
     /**
