@@ -2,7 +2,9 @@ import Base   from '../core/Base.mjs';
 import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
-const dataSymbol = Symbol.for('data');
+const
+    dataSymbol        = Symbol.for('data'),
+    initialDataSymbol = Symbol.for('initialData');
 
 let instance;
 
@@ -142,7 +144,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     set(fields) {
-                        instance.setRecordFields(model, this, fields)
+                        instance.setRecordFields({fields, model, record: this})
                     }
 
                     /**
@@ -150,7 +152,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     setSilent(fields) {
-                        instance.setRecordFields(model, this, fields, true)
+                        instance.setRecordFields({fields, model, record: this, silent: true})
                     }
 
                     /**
@@ -252,7 +254,7 @@ class RecordFactory extends Base {
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {!field && console.log(record, value);
+    parseRecordValue(record, field, value, recordConfig=null) {
         if (field.calculate) {
             return field.calculate(record, field, recordConfig)
         }
@@ -343,13 +345,14 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @param {Neo.data.Model} model
-     * @param {Object} record
-     * @param {Object} fields
-     * @param {Boolean} silent=false
-     * @param {Object[]} changedFields=[] Internal flag
+     * @param {Object}         data
+     * @param {Object[]}       data.changedFields=[] Internal flag
+     * @param {Object}         data.fields
+     * @param {Neo.data.Model} data.model
+     * @param {Object}         data.record
+     * @param {Boolean}        data.silent=false
      */
-    setRecordFields(model, record, fields, silent=false, changedFields=[]) {
+    setRecordFields({changedFields=[], fields, model, record, silent=false}) {
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
@@ -358,7 +361,13 @@ class RecordFactory extends Base {
 
             if (Neo.isObject(value) && !fieldExists) {
                 Object.entries(value).forEach(([childKey, childValue]) => {
-                    this.setRecordFields(model, record, {[`${key}.${childKey}`]: childValue}, true, changedFields)
+                    this.setRecordFields({
+                        changedFields,
+                        fields: {[`${key}.${childKey}`]: childValue},
+                        model,
+                        record,
+                        silent: true
+                    })
                 })
             } else if (fieldExists) {
                 oldValue = record[key];
