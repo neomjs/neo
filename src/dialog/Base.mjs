@@ -413,8 +413,7 @@ class Dialog extends Panel {
 
         // rendered outside the visible area
         await me.render(true);
-
-        await me.timeout(30);
+        await me.timeout(150);
 
         let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
 
