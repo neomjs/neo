@@ -77,6 +77,10 @@
                 margin-right: 0.3em;
                 padding     : 0;
 
+                &:active {
+                    border: none !important;
+                }
+
                 &:last-child {
                     margin-right: 0;
                 }
