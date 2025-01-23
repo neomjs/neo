@@ -3,8 +3,8 @@ import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
 const
-    dataSymbol        = Symbol.for('data'),
-    initialDataSymbol = Symbol.for('initialData');
+    dataSymbol         = Symbol.for('data'),
+    originalDataSymbol = Symbol.for('originalData');
 
 let instance;
 
@@ -124,7 +124,7 @@ class RecordFactory extends Base {
                         let me = this;
 
                         if (model.trackModifiedFields) {
-                            return Neo.isEqual(me[dataSymbol], me[initialDataSymbol])
+                            return Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
                         }
 
                         return me._isModified
@@ -137,8 +137,8 @@ class RecordFactory extends Base {
                         let me = this;
 
                         if (model.trackModifiedFields) {
-                            me[initialDataSymbol] = {};
-                            me.setInitial(config)
+                            me[originalDataSymbol] = {};
+                            me.setOriginal(config)
                         }
 
                         me.setSilent(config); // We do not want to fire change events when constructing
@@ -158,20 +158,20 @@ class RecordFactory extends Base {
                         }
 
                         if (model.trackModifiedFields) {
-                            let dataScope, initialDataScope;
+                            let dataScope, originalDataScope;
 
                             if (model.hasNestedFields && fieldName.includes('.')) {
                                 let nsArray = fieldName.split('.');
 
-                                fieldName        = nsArray.pop();
-                                dataScope        = Neo.ns(nsArray, false, me[dataSymbol]);
-                                initialDataScope = Neo.ns(nsArray, false, me[initialDataSymbol])
+                                fieldName         = nsArray.pop();
+                                dataScope         = Neo.ns(nsArray, false, me[dataSymbol]);
+                                originalDataScope = Neo.ns(nsArray, false, me[originalDataSymbol])
                             } else {
-                                dataScope        = me[dataSymbol];
-                                initialDataScope = me[dataSymbol]
+                                dataScope         = me[dataSymbol];
+                                originalDataScope = me[originalDataSymbol]
                             }
 
-                            return !Neo.isEqual(dataScope[fieldName], initialDataScope[fieldName])
+                            return !Neo.isEqual(dataScope[fieldName], originalDataScope[fieldName])
                         }
 
                         return null
@@ -186,13 +186,13 @@ class RecordFactory extends Base {
                     }
 
                     /**
-                     * If the model uses trackModifiedFields, we will store the initial data
+                     * If the model uses trackModifiedFields, we will store the original data
                      * for tracking the dirty state (changed fields)
                      * @param {Object} fields
                      * @protected
                      */
-                    setInitial(fields) {
-                        instance.setRecordFields({fields, model, record: this, silent: true, useInitialData: true})
+                    setOriginal(fields) {
+                        instance.setRecordFields({fields, model, record: this, silent: true, useOriginalData: true})
                     }
 
                     /**
@@ -348,12 +348,12 @@ class RecordFactory extends Base {
      * @param {String}         data.fieldName
      * @param {Neo.data.Model} data.model
      * @param {Record}         data.record
+     * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      * @param {*}              data.value
-     * @param {Boolean}        data.useInitialData=false true will apply changes to the initialData symbol
      * @protected
      */
-    setRecordData({fieldName, model, record, useInitialData=false, value}) {
-        let scope = useInitialData ? initialDataSymbol : dataSymbol;
+    setRecordData({fieldName, model, record, useOriginalData=false, value}) {
+        let scope = useOriginalData ? originalDataSymbol : dataSymbol;
 
         if (model.hasNestedFields && fieldName.includes('.')) {
             let ns, nsArray;
@@ -375,9 +375,9 @@ class RecordFactory extends Base {
      * @param {Neo.data.Model} data.model
      * @param {Object}         data.record
      * @param {Boolean}        data.silent=false
-     * @param {Boolean}        data.useInitialData=false true will apply changes to the initialData symbol
+     * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
-    setRecordFields({changedFields=[], fields, model, record, silent=false, useInitialData=false}) {
+    setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
@@ -392,7 +392,7 @@ class RecordFactory extends Base {
                         model,
                         record,
                         silent: true,
-                        useInitialData
+                        useOriginalData
                     })
                 })
             } else if (fieldExists) {
@@ -400,9 +400,9 @@ class RecordFactory extends Base {
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData({fieldName: key, model, record, useInitialData, value});
+                    instance.setRecordData({fieldName: key, model, record, useOriginalData, value});
 
-                    if (!useInitialData) {
+                    if (!useOriginalData) {
                         record._isModified = true
                     }
 
