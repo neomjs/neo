@@ -2,7 +2,9 @@ import Base   from '../core/Base.mjs';
 import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
-const dataSymbol = Symbol.for('data');
+const
+    dataSymbol         = Symbol.for('data'),
+    originalDataSymbol = Symbol.for('originalData');
 
 let instance;
 
@@ -18,12 +20,6 @@ class RecordFactory extends Base {
          * @protected
          */
         className: 'Neo.data.RecordFactory',
-        /**
-         * The internal record prefix for original field values.
-         * Only used in case the model has trackModifiedFields set to true.
-         * @member {String} ovPrefix='ov_'
-         */
-        ovPrefix: 'ov_',
         /**
          * @member {String} recordNamespace='Neo.data.record'
          */
@@ -70,10 +66,9 @@ class RecordFactory extends Base {
                         value = instance.parseRecordValue(me, field, value);
 
                         if (!Neo.isEqual(value, oldValue)) {
-                            instance.setRecordData(fieldPath, model, me, value);
+                            instance.setRecordData({fieldName: fieldPath, model, record: me, value});
 
-                            me._isModified = true;
-                            me._isModified = instance.isModified(me, model.trackModifiedFields);
+                            me._isModified = me.isModified;
 
                             instance.onRecordChange({
                                 fields: [{name: fieldPath, oldValue, value}],
@@ -84,13 +79,6 @@ class RecordFactory extends Base {
                     }
                 }
             };
-
-            // adding the original value of each field
-            if (model.trackModifiedFields) {
-                properties[instance.ovPrefix + field.name] = {
-                    value
-                }
-            }
 
             Object.defineProperties(me, properties)
         }
@@ -132,9 +120,61 @@ class RecordFactory extends Base {
 
                     [dataSymbol] = {}
 
+                    get isModified() {
+                        let me = this;
+
+                        if (model.trackModifiedFields) {
+                            return Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
+                        }
+
+                        return me._isModified
+                    }
+
+                    /**
+                     * @param {Object} config
+                     */
                     constructor(config) {
-                        this.setSilent(config);
-                        this._isModified = false
+                        let me = this;
+
+                        if (model.trackModifiedFields) {
+                            me[originalDataSymbol] = {};
+                            me.setOriginal(config)
+                        }
+
+                        me.setSilent(config); // We do not want to fire change events when constructing
+                        me._isModified = false
+                    }
+
+                    /**
+                     * @param {String} fieldName
+                     * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
+                     */
+                    isModifiedField(fieldName) {
+                        let me = this;
+
+                        // Check if the field getter does exist
+                        if (!me.__proto__.hasOwnProperty(fieldName)) {
+                            Logger.logError('The record does not contain the field', fieldName, me)
+                        }
+
+                        if (model.trackModifiedFields) {
+                            let dataScope, originalDataScope;
+
+                            if (model.hasNestedFields && fieldName.includes('.')) {
+                                let nsArray = fieldName.split('.');
+
+                                fieldName         = nsArray.pop();
+                                dataScope         = Neo.ns(nsArray, false, me[dataSymbol]);
+                                originalDataScope = Neo.ns(nsArray, false, me[originalDataSymbol])
+                            } else {
+                                dataScope         = me[dataSymbol];
+                                originalDataScope = me[originalDataSymbol]
+                            }
+
+                            return !Neo.isEqual(dataScope[fieldName], originalDataScope[fieldName])
+                        }
+
+                        return null
                     }
 
                     /**
@@ -142,7 +182,17 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     set(fields) {
-                        instance.setRecordFields(model, this, fields)
+                        instance.setRecordFields({fields, model, record: this})
+                    }
+
+                    /**
+                     * If the model uses trackModifiedFields, we will store the original data
+                     * for tracking the dirty state (changed fields)
+                     * @param {Object} fields
+                     * @protected
+                     */
+                    setOriginal(fields) {
+                        instance.setRecordFields({fields, model, record: this, silent: true, useOriginalData: true})
                     }
 
                     /**
@@ -150,7 +200,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     setSilent(fields) {
-                        instance.setRecordFields(model, this, fields, true)
+                        instance.setRecordFields({fields, model, record: this, silent: true})
                     }
 
                     /**
@@ -180,28 +230,10 @@ class RecordFactory extends Base {
 
     /**
      * @param {Object} record
-     * @param {Boolean} trackModifiedFields
      * @returns {Boolean} true in case a change was found
      */
-    isModified(record, trackModifiedFields) {
-        if (trackModifiedFields) {
-            let fields = Object.keys(record),
-                i      = 0,
-                len    = fields.length,
-                field;
-
-            for (; i < len; i++) {
-                field = fields[i];
-
-                if (!Neo.isEqual(record[field], record[this.ovPrefix + field])) {
-                    return true
-                }
-            }
-
-            return false
-        }
-
-        return record._isModified
+    isModified(record) {
+        return record.isModified
     }
 
     /**
@@ -210,17 +242,7 @@ class RecordFactory extends Base {
      * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
      */
     isModifiedField(record, fieldName) {
-        if (!record.hasOwnProperty(fieldName)) {
-            Logger.logError('The record does not contain the field', fieldName, record)
-        }
-
-        let modifiedField = this.ovPrefix + fieldName;
-
-        if (record.hasOwnProperty(modifiedField)) {
-            return !Neo.isEqual(record[fieldName], record[modifiedField])
-        }
-
-        return null
+        return record.isModifiedField(fieldName)
     }
 
     /**
@@ -229,7 +251,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(record) {
-        return record?.isRecord
+        return record?.isRecord || false
     }
 
     /**
@@ -252,7 +274,7 @@ class RecordFactory extends Base {
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {!field && console.log(record, value);
+    parseRecordValue(record, field, value, recordConfig=null) {
         if (field.calculate) {
             return field.calculate(record, field, recordConfig)
         }
@@ -322,34 +344,40 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @param {String} fieldName
-     * @param {Neo.data.Model} model
-     * @param {Record} record
-     * @param {*} value
+     * @param {Object}         data
+     * @param {String}         data.fieldName
+     * @param {Neo.data.Model} data.model
+     * @param {Record}         data.record
+     * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
+     * @param {*}              data.value
      * @protected
      */
-    setRecordData(fieldName, model, record, value) {
+    setRecordData({fieldName, model, record, useOriginalData=false, value}) {
+        let scope = useOriginalData ? originalDataSymbol : dataSymbol;
+
         if (model.hasNestedFields && fieldName.includes('.')) {
             let ns, nsArray;
 
             nsArray   = fieldName.split('.');
             fieldName = nsArray.pop();
-            ns        = Neo.ns(nsArray, true, record[dataSymbol]);
+            ns        = Neo.ns(nsArray, true, record[scope]);
 
             ns[fieldName] = value
         } else {
-            record[dataSymbol][fieldName] = value
+            record[scope][fieldName] = value
         }
     }
 
     /**
-     * @param {Neo.data.Model} model
-     * @param {Object} record
-     * @param {Object} fields
-     * @param {Boolean} silent=false
-     * @param {Object[]} changedFields=[] Internal flag
+     * @param {Object}         data
+     * @param {Object[]}       data.changedFields=[] Internal flag
+     * @param {Object}         data.fields
+     * @param {Neo.data.Model} data.model
+     * @param {Object}         data.record
+     * @param {Boolean}        data.silent=false
+     * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
-    setRecordFields(model, record, fields, silent=false, changedFields=[]) {
+    setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
@@ -358,16 +386,26 @@ class RecordFactory extends Base {
 
             if (Neo.isObject(value) && !fieldExists) {
                 Object.entries(value).forEach(([childKey, childValue]) => {
-                    this.setRecordFields(model, record, {[`${key}.${childKey}`]: childValue}, true, changedFields)
+                    this.setRecordFields({
+                        changedFields,
+                        fields: {[`${key}.${childKey}`]: childValue},
+                        model,
+                        record,
+                        silent: true,
+                        useOriginalData
+                    })
                 })
             } else if (fieldExists) {
                 oldValue = record[key];
                 value    = instance.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData(key, model, record, value);
+                    instance.setRecordData({fieldName: key, model, record, useOriginalData, value});
 
-                    record._isModified = true;
+                    if (!useOriginalData) {
+                        record._isModified = true
+                    }
+
                     changedFields.push({name: key, oldValue, value})
                 }
             }

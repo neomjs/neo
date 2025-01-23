@@ -39,7 +39,11 @@ class MainContainer extends Viewport {
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', renderer: 'up.editRenderer'}
-            ]
+            ],
+
+            viewConfig: {
+                highlightModifiedCells: true
+            }
         }]
     }
 

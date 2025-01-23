@@ -6,8 +6,14 @@ import Model from '../../../src/data/Model.mjs';
  */
 class MainModel extends Model {
     static config = {
-        className: 'Neo.examples.table.container.MainModel',
-
+        /**
+         * @member {String} className='Neo.examples.table.nestedRecordFields.MainModel'
+         * @protected
+         */
+        className: 'Neo.examples.table.nestedRecordFields.MainModel',
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'annotations',
             type: 'Object',
@@ -19,6 +25,9 @@ class MainModel extends Model {
             }]
         }, {
             name: 'country',
+            type: 'String'
+        }, {
+            name: 'edit',
             type: 'String'
         }, {
             name: 'githubId',
@@ -34,7 +43,11 @@ class MainModel extends Model {
                 name: 'lastname',
                 type: 'String'
             }]
-        }]
+        }],
+        /**
+         * @member {Boolean} trackModifiedFields=true
+         */
+        trackModifiedFields: true
     }
 }
 
