@@ -27,6 +27,9 @@ class MainModel extends Model {
             name: 'country',
             type: 'String'
         }, {
+            name: 'edit',
+            type: 'String'
+        }, {
             name: 'githubId',
             type: 'String'
         }, {

@@ -33,6 +33,10 @@ class View extends Component {
          */
         containerId: null,
         /**
+         * @member {Boolean} highlightModifiedCells_=false
+         */
+        highlightModifiedCells_: false,
+        /**
          * @member {Object} recordVnodeMap={}
          */
         recordVnodeMap: {},
@@ -148,6 +152,12 @@ class View extends Component {
 
         if (column.cellAlign !== 'left') {
             cellCls.push('neo-' + column.cellAlign)
+        }
+
+        if (me.highlightModifiedCells && me.store.model.trackModifiedFields) {
+            if (record.isModifiedField(dataField)) {
+                cellCls.push('neo-is-modified')
+            }
         }
 
         if (!cellId) {

@@ -8,6 +8,24 @@
     }
 
     .neo-table-row {
+        .neo-table-cell {
+            position: relative;
+
+            &.neo-is-modified {
+                &:after {
+                    border-color: transparent orange transparent transparent;
+                    border-style: solid;
+                    border-width: 0 10px 10px 0;
+                    content     : '';
+                    height      : 0;
+                    position    : absolute;
+                    right       : 0;
+                    top         : -1px;
+                    width       : 0;
+                }
+            }
+        }
+
         &:hover {
             .neo-table-cell {
                 background-color: var(--table-cell-background-color-hover);
