@@ -146,6 +146,38 @@ class RecordFactory extends Base {
                     }
 
                     /**
+                     * @param {String} fieldName
+                     * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
+                     */
+                    isModifiedField(fieldName) {
+                        let me = this;
+
+                        // Check if the field getter does exist
+                        if (!me.__proto__.hasOwnProperty(fieldName)) {
+                            Logger.logError('The record does not contain the field', fieldName, me)
+                        }
+
+                        if (model.trackModifiedFields) {
+                            let dataScope, initialDataScope;
+
+                            if (model.hasNestedFields && fieldName.includes('.')) {
+                                let nsArray = fieldName.split('.');
+
+                                fieldName        = nsArray.pop();
+                                dataScope        = Neo.ns(nsArray, false, me[dataSymbol]);
+                                initialDataScope = Neo.ns(nsArray, false, me[initialDataSymbol])
+                            } else {
+                                dataScope        = me[dataSymbol];
+                                initialDataScope = me[dataSymbol]
+                            }
+
+                            return !Neo.isEqual(dataScope[fieldName], initialDataScope[fieldName])
+                        }
+
+                        return null
+                    }
+
+                    /**
                      * Bulk-update multiple record fields at once
                      * @param {Object} fields
                      */
@@ -210,17 +242,7 @@ class RecordFactory extends Base {
      * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
      */
     isModifiedField(record, fieldName) {
-        if (!record.hasOwnProperty(fieldName)) {
-            Logger.logError('The record does not contain the field', fieldName, record)
-        }
-
-        let modifiedField = this.ovPrefix + fieldName;
-
-        if (record.hasOwnProperty(modifiedField)) {
-            return !Neo.isEqual(record[fieldName], record[modifiedField])
-        }
-
-        return null
+        return record.isModifiedField(fieldName)
     }
 
     /**
