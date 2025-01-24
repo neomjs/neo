@@ -252,14 +252,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @param {Object} record
-     * @returns {Boolean} true in case a change was found
-     */
-    isModified(record) {
-        return record.isModified
-    }
-
-    /**
      * Tests if a given object is an instance of a class created by this factory
      * @param {Object} record
      * @returns {Boolean}
