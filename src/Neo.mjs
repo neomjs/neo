@@ -66,10 +66,10 @@ Neo = globalThis.Neo = Object.assign({
      *
      * // e.g. Neo.core.Util.isObject => Neo.isObject
      * @memberOf module:Neo
-     * @param {Neo|Neo.core.Base} target The target class or singleton Instance or Neo
-     * @param {Neo.core.Base} namespace The class containing the methods
-     * @param {Object} config
-     * @param {Boolean} [bind] set this to true in case you want to bind methods to the "from" namespace
+     * @param {Neo|Neo.core.Base} target    The target class or singleton Instance or Neo
+     * @param {Neo.core.Base}     namespace The class containing the methods
+     * @param {Object}            config
+     * @param {Boolean}           [bind]    set this to true in case you want to bind methods to the "from" namespace
      * @returns {Object} target
      */
     applyFromNs(target, namespace, config, bind) {
@@ -104,7 +104,7 @@ Neo = globalThis.Neo = Object.assign({
     /**
      * Copies all keys of defaults into target, in case they don't already exist
      * @memberOf module:Neo
-     * @param {Object} target The target object
+     * @param {Object} target   The target object
      * @param {Object} defaults The object containing the keys you want to copy
      * @returns {Object} target
      */
@@ -172,7 +172,7 @@ Neo = globalThis.Neo = Object.assign({
     /**
      * @memberOf module:Neo
      * @param {Object|Array|*} obj
-     * @param {Boolean} deep=false Set this to true in case you want to clone nested objects as well
+     * @param {Boolean} deep=false               Set this to true in case you want to clone nested objects as well
      * @param {Boolean} ignoreNeoInstances=false returns existing instances if set to true
      * @returns {Object|Array|*} the cloned input
      */
@@ -243,7 +243,7 @@ Neo = globalThis.Neo = Object.assign({
      * });
      * @memberOf module:Neo
      * @param {String|Object|Neo.core.Base} className
-     * @param {Object} [config]
+     * @param {Object}                      [config]
      * @returns {Neo.core.Base|null} The new class instance
      * @tutorial 02_ClassSystem
      */
@@ -292,7 +292,7 @@ Neo = globalThis.Neo = Object.assign({
      * Checks if there is a set method for a given property key inside the prototype chain
      * @memberOf module:Neo
      * @param {Neo.core.Base} proto The top level prototype of a class
-     * @param {String} key the property key to test
+     * @param {String}        key   The property key to test
      * @returns {Boolean}
      */
     hasPropertySetter(proto, key) {
@@ -348,9 +348,9 @@ Neo = globalThis.Neo = Object.assign({
      * // return globalThis.Neo.button.Base;
      *
      * @memberOf module:Neo
-     * @param {String[]|String} names The class name string containing dots or an Array of the string parts
-     * @param {Boolean} create=false Set create to true to create empty objects for non-existing parts
-     * @param {Object} [scope] Set a different starting point as globalThis
+     * @param {String[]|String} names        The class name string containing dots or an Array of the string parts
+     * @param {Boolean}         create=false Set create to true to create empty objects for non-existing parts
+     * @param {Object}          [scope]      Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
     ns(names, create=false, scope) {
@@ -370,9 +370,9 @@ Neo = globalThis.Neo = Object.assign({
     /**
      * Extended version of Neo.ns() which supports mapping into arrays.
      * @memberOf module:Neo
-     * @param {Array|String} names The class name string containing dots or an Array of the string parts
-     * @param {Boolean} create=false Set create to true to create empty objects for non-existing parts
-     * @param {Object} [scope] Set a different starting point as globalThis
+     * @param {Array|String} names        The class name string containing dots or an Array of the string parts
+     * @param {Boolean}      create=false Set create to true to create empty objects for non-existing parts
+     * @param {Object}       [scope]      Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
     nsWithArrays(names, create=false, scope) {
@@ -412,7 +412,7 @@ Neo = globalThis.Neo = Object.assign({
      * });
      * @memberOf module:Neo
      * @param {String|Object} ntype
-     * @param {Object} [config]
+     * @param {Object}        [config]
      * @returns {Neo.core.Base}
      * @see {@link module:Neo.create create}
      */
@@ -604,7 +604,7 @@ const ignoreMixin = [
 
 /**
  * @param {Neo.core.Base} cls
- * @param {Array} mixins
+ * @param {Array}         mixins
  * @private
  */
 function applyMixins(cls, mixins) {
@@ -643,7 +643,7 @@ function applyMixins(cls, mixins) {
 /**
  * Creates get / set methods for class configs ending with an underscore
  * @param {Neo.core.Base} proto
- * @param {String} key
+ * @param {String}        key
  * @private
  * @tutorial 02_ClassSystem
  */
@@ -737,8 +737,8 @@ function autoGenerateGetSet(proto, key) {
 
 /**
  * @param {Boolean} create
- * @param {Object} current
- * @param {Object} prev
+ * @param {Object}  current
+ * @param {Object}  prev
  * @returns {Object|undefined}
  */
 function createArrayNs(create, current, prev) {
