@@ -121,6 +121,35 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
+     * Assigns a new value to a given nested objects path.
+     * It will create the path structure or parts of it, in case it does not exist.
+     * @example
+     * Neo.assignToNs('annotations.selected', false, record)
+     *
+     * @memberOf module:Neo
+     * @param {String[]|String} path             The path string containing dots or an Array of the string parts
+     * @param {*}               value            The new value to assign to the leaf node
+     * @param {Object}          scope=globalThis Set a different starting point as globalThis
+     * @param {Boolean}         force=true       false will only assign default values (assign if old value === undefined)
+     */
+    assignToNs(path, value, scope=globalThis, force=true) {
+        path = Array.isArray(path) ? path : path.split('.');
+
+        let key;
+
+        if (path.length > 1) {
+            key   = path.pop();
+            scope = Neo.ns(path, true, scope)
+        } else {
+            key = path
+        }
+
+        if (force || scope[key] === undefined) {
+            scope[key] = value
+        }
+    },
+
+    /**
      * Converts kebab-case strings into camel-case
      * @memberOf module:Neo
      * @param {String} value The target object
@@ -319,7 +348,7 @@ Neo = globalThis.Neo = Object.assign({
      * // return globalThis.Neo.button.Base;
      *
      * @memberOf module:Neo
-     * @param {Array|String} names The class name string containing dots or an Array of the string parts
+     * @param {String[]|String} names The class name string containing dots or an Array of the string parts
      * @param {Boolean} create=false Set create to true to create empty objects for non-existing parts
      * @param {Object} [scope] Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace

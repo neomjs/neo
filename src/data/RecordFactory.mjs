@@ -34,27 +34,17 @@ class RecordFactory extends Base {
     /**
      * Assigns model based default values to a data object
      * @param {Object}         data
-     * @param {Record}         record
      * @param {Neo.data.Model} model
      * @returns {Object}
      */
-    assignDefaultValues(data, record, model) {
-        let {hasNestedFields} = model,
-            scope;
-
+    assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
             if (Object.hasOwn(field, 'defaultValue')) {
-                if (hasNestedFields && fieldName.includes('.')) {
-                    let nsArray = fieldName.split('.');
-
-                    fieldName = nsArray.pop();
-                    scope     = Neo.ns(nsArray, true, data)
-                } else {
-                    scope = data
-                }
-
-                if (scope[fieldName] === undefined) {
-                    scope[fieldName] = field.defaultValue
+                // We could always use Neo.assignToNs() => the check is just for improving the performance
+                if (model.hasNestedFields) {
+                    Neo.assignToNs(fieldName, field.defaultValue, data, false)
+                } else if (data[fieldName] === undefined) {
+                    data[fieldName] = field.defaultValue
                 }
             }
         });
@@ -167,7 +157,7 @@ class RecordFactory extends Base {
                     constructor(config) {
                         let me = this;
 
-                        config = instance.assignDefaultValues(config, me, model);
+                        config = instance.assignDefaultValues(config, model);
 
                         if (model.trackModifiedFields) {
                             me[originalDataSymbol] = {};
