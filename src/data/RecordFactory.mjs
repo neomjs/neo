@@ -204,6 +204,15 @@ class RecordFactory extends Base {
                      * Bulk-update multiple record fields at once
                      * @param {Object} fields
                      */
+                    reset(fields) {
+                        this.setOriginal(fields)
+                        this.set(fields)
+                    }
+
+                    /**
+                     * Bulk-update multiple record fields at once
+                     * @param {Object} fields
+                     */
                     set(fields) {
                         instance.setRecordFields({fields, model, record: this})
                     }
@@ -359,6 +368,10 @@ class RecordFactory extends Base {
      * @protected
      */
     setRecordData({fieldName, model, record, useOriginalData=false, value}) {
+        if (useOriginalData && !model.trackModifiedFields) {
+            return
+        }
+
         let scope = useOriginalData ? originalDataSymbol : dataSymbol;
 
         if (model.hasNestedFields && fieldName.includes('.')) {
@@ -384,6 +397,10 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
+        if (useOriginalData && !model.trackModifiedFields) {
+            return
+        }
+
         let {fieldsMap} = model,
             fieldExists, oldValue;
 
@@ -417,7 +434,7 @@ class RecordFactory extends Base {
             }
         });
 
-        if (!silent && Object.keys(changedFields).length > 0) {
+        if (!silent && !useOriginalData && Object.keys(changedFields).length > 0) {
             Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
         }
     }
