@@ -260,15 +260,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @param {Object} record
-     * @param {String} fieldName
-     * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
-     */
-    isModifiedField(record, fieldName) {
-        return record.isModifiedField(fieldName)
-    }
-
-    /**
      * Tests if a given object is an instance of a class created by this factory
      * @param {Object} record
      * @returns {Boolean}
