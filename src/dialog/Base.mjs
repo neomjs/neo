@@ -411,11 +411,23 @@ class Dialog extends Panel {
 
         rect = await me.getDomRect(me.animateTargetId);
 
+        if (style.left || style.top) {
+            let tempStyle = {...style};
+
+            // Ensure that the initial mounting happens outside the visible area
+            delete style.left;
+            delete style.top;
+
+            me.style = style;
+
+            // Silent update & ensure that a given starting position won't get lost
+            me._style = style = tempStyle
+        }
+
         // rendered outside the visible area
         await me.render(true);
-        await me.timeout(150);
 
-        let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
+        let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
 
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
