@@ -154,7 +154,7 @@ class View extends Component {
             cellCls.push('neo-' + column.cellAlign)
         }
 
-        if (me.highlightModifiedCells && me.store.model.trackModifiedFields) {
+        if (me.highlightModifiedCells) {
             if (record.isModifiedField(dataField)) {
                 cellCls.push('neo-is-modified')
             }

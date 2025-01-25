@@ -73,6 +73,10 @@ class GridView extends Component {
          */
         columnPositions_: [],
         /**
+         * @member {Boolean} highlightModifiedCells_=false
+         */
+        highlightModifiedCells_: false,
+        /**
          * @member {Boolean} isScrolling_=false
          */
         isScrolling_: false,
@@ -430,6 +434,12 @@ class GridView extends Component {
 
         if (column.cellAlign !== 'left') {
             cellCls.push('neo-' + column.cellAlign)
+        }
+
+        if (me.highlightModifiedCells) {
+            if (record.isModifiedField(dataField)) {
+                cellCls.push('neo-is-modified')
+            }
         }
 
         if (!cellId) {
