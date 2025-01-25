@@ -4,6 +4,7 @@ import Model  from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
+    isModifiedSymbol   = Symbol.for('isModified'),
     originalDataSymbol = Symbol.for('originalData');
 
 let instance;
@@ -89,7 +90,9 @@ class RecordFactory extends Base {
                         if (!Neo.isEqual(value, oldValue)) {
                             instance.setRecordData({fieldName: fieldPath, model, record: me, value});
 
-                            me._isModified = me.isModified;
+                            if (!model.trackModifiedFields) {
+                                me[isModifiedSymbol] = true
+                            }
 
                             instance.onRecordChange({
                                 fields: [{name: fieldPath, oldValue, value}],
@@ -145,10 +148,10 @@ class RecordFactory extends Base {
                         let me = this;
 
                         if (model.trackModifiedFields) {
-                            return Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
+                            return !Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
                         }
 
-                        return me._isModified
+                        return me[isModifiedSymbol]
                     }
 
                     /**
@@ -165,7 +168,7 @@ class RecordFactory extends Base {
                         }
 
                         me.setSilent(config); // We do not want to fire change events when constructing
-                        me._isModified = false
+                        me[isModifiedSymbol] = false
                     }
 
                     /**
@@ -205,7 +208,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     reset(fields) {
-                        this.setOriginal(fields)
+                        this.setOriginal(fields);
                         this.set(fields)
                     }
 
@@ -397,12 +400,12 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
-        if (useOriginalData && !model.trackModifiedFields) {
+        let {fieldsMap, trackModifiedFields} = model,
+            fieldExists, oldValue;
+
+        if (!trackModifiedFields && useOriginalData) {
             return
         }
-
-        let {fieldsMap} = model,
-            fieldExists, oldValue;
 
         Object.entries(fields).forEach(([key, value]) => {
             fieldExists = fieldsMap.has(key);
@@ -425,8 +428,8 @@ class RecordFactory extends Base {
                 if (!Neo.isEqual(oldValue, value)) {
                     instance.setRecordData({fieldName: key, model, record, useOriginalData, value});
 
-                    if (!useOriginalData) {
-                        record._isModified = true
+                    if (!trackModifiedFields && !useOriginalData) {
+                        record[isModifiedSymbol] = true
                     }
 
                     changedFields.push({name: key, oldValue, value})
