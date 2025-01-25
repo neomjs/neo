@@ -1,5 +1,7 @@
 :root .neo-theme-dark { // .neo-table-view
     --table-cell-background-color-hover                    : #54595c;
+    --table-cell-ismodified-color                          : orange;
+    --table-cell-ismodified-size                           : 10px;
     --table-cellmodel-selected-cell-background-color       : #64B5F6;
     --table-cellmodel-selected-cell-color                  : #2b2b2b;
     --table-cellmodel-selected-column-cell-background-color: #4f558a;

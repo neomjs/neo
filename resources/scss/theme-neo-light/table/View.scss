@@ -2,6 +2,8 @@
 
 :root .neo-theme-neo-light { // .neo-table-view
     --table-cell-background-color-hover                    : #{color.adjust(#33343d, $lightness: 70%)};
+    --table-cell-ismodified-color                          : orange;
+    --table-cell-ismodified-size                           : 10px;
     --table-cellmodel-selected-cell-background-color       : #{color.adjust(#64B5F6, $lightness: 22%)};
     --table-cellmodel-selected-cell-color                  : #2b2b2b;
     --table-cellmodel-selected-column-cell-background-color: #{color.adjust(#4f558a, $lightness: 52%)};
