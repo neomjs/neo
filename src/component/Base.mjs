@@ -970,12 +970,24 @@ class Component extends Base {
      */
     afterSetTheme(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let cls = this.cls;
+            let me          = this,
+                {cls}       = me,
+                needsUpdate = false;
 
-            NeoArray.remove(cls, oldValue);
-            value && NeoArray.add(cls, value);
+            if (oldValue && cls.includes(oldValue)) {
+                NeoArray.remove(cls, oldValue);
+                needsUpdate = true
+            }
 
-            this.cls = cls
+            // We do not need to add a DOM based CSS selector, in case the theme is already inherited
+            if (value !== me.parent?.theme) {
+                value && NeoArray.add(cls, value);
+                needsUpdate = true
+            }
+
+            if (needsUpdate) {
+                me.cls = cls
+            }
         }
     }
 

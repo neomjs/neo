@@ -217,6 +217,22 @@ class Container extends Component {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        value && this.items?.forEach(item => {
+            if (!Neo.isString(item)) {
+                item.theme = value
+            }
+        })
+    }
+
+    /**
      * Triggered after the windowId config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue
