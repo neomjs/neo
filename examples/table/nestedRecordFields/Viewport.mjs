@@ -15,21 +15,28 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.table.nestedRecordFields.Viewport',
         /**
-         * @member {Object|String} layout='fit'
-         */
-        layout: 'fit',
-        /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
         stateProvider: ViewportStateProvider,
         /**
-         * @member {Object} style={padding:'20px'}
+         * @member {Object} style={padding:'1em'}
          */
-        style: {padding: '20px'},
+        style: {padding: '1em'},
         /**
          * @member {Object[]} items
          */
         items: [{
+            ntype    : 'toolbar',
+            flex     : 'none',
+            reference: 'switch-theme-button',
+            style    : {marginBottom: '1em'},
+
+            items: ['->', {
+                handler: 'up.onSwitchThemeButtonClick',
+                iconCls: 'fas fa-moon',
+                text   : 'Dark Theme'
+            }]
+        }, {
             module: TableContainer,
             bind  : {store : 'stores.mainStore'},
 
@@ -69,10 +76,10 @@ class Viewport extends BaseViewport {
      * @param {Object} data
      */
     editButtonHandler(data) {
-        let me                          = this,
-            button                      = data.component,
-            {appName, dialog, windowId} = me,
-            {record}                    = button;
+        let me       = this,
+            button   = data.component,
+            {appName, dialog, theme, windowId} = me,
+            {record} = button;
 
         if (!dialog) {
             import('./EditUserDialog.mjs').then(module => {
@@ -82,6 +89,7 @@ class Viewport extends BaseViewport {
                     appName,
                     stateProvider  : {parent: me.getStateProvider()},
                     record,
+                    theme,
                     windowId
                 })
             })
@@ -113,6 +121,27 @@ class Viewport extends BaseViewport {
         me.view.updateDepth = -1;
 
         return button.createVdomReference()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSwitchThemeButtonClick(data) {
+        let me          = this,
+            button      = data.component,
+            isDarkTheme = me.theme === 'neo-theme-dark',
+            theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
+
+        button.set({
+            iconCls: isDarkTheme ? 'fa fa-moon' : 'fa fa-sun',
+            text   : isDarkTheme ? 'Dark Theme' : 'Light Theme'
+        });
+
+        me.theme = theme;
+
+        if (me.dialog) {
+            me.dialog.theme = theme
+        }
     }
 }
 
