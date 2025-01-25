@@ -803,7 +803,7 @@ class GridView extends Component {
             fieldNames       = fields.map(field => field.name),
             needsUpdate      = false,
             {gridContainer}  = me,
-            {selectionModel} = gridContainer,
+            {selectionModel} = gridContainer.view,
             {vdom}           = me,
             cellId, cellNode, cellStyle, cellVdom, column, index;
 
