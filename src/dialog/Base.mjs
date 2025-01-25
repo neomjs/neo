@@ -426,9 +426,8 @@ class Dialog extends Panel {
 
         // rendered outside the visible area
         await me.render(true);
-        await me.timeout(150);
 
-        let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
+        let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
 
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
