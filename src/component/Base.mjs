@@ -1684,7 +1684,7 @@ class Component extends Base {
      * Convenience shortcut
      * @param {String[]|String} id=this.id
      * @param {String} appName=this.appName
-     * @returns {Promise<Neo.util.Rectangle||Neo.util.Rectangle[]>}
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
         let result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
@@ -1707,7 +1707,7 @@ class Component extends Base {
      * @param {Number}          opts.attempts=10 Reruns in case the rect height or width equals 0
      * @param {Number}          opts.delay=50    Time in ms before checking again
      * @param {String[]|String} opts.id=this.id
-     * @returns {Promise<Neo.util.Rectangle||Neo.util.Rectangle[]>}
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
     async waitForDomRect({appName=this.appName, attempts=10, delay=50, id=this.id}) {
         let me     = this,
