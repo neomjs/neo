@@ -2,5 +2,6 @@
     "appPath"    : "examples/table/nestedRecordFields/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-dark", "neo-theme-light"]
 }

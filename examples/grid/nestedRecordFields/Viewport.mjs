@@ -33,8 +33,8 @@ class Viewport extends BaseViewport {
 
             items: ['->', {
                 handler: 'up.onSwitchThemeButtonClick',
-                iconCls: 'fas fa-moon',
-                text   : 'Dark Theme'
+                iconCls: 'fas fa-sun',
+                text   : 'Light Theme'
             }]
         }, {
             module: GridContainer,
@@ -133,7 +133,7 @@ class Viewport extends BaseViewport {
     onSwitchThemeButtonClick(data) {
         let me          = this,
             button      = data.component,
-            isDarkTheme = me.theme === 'neo-theme-dark',
+            isDarkTheme = me.theme !== 'neo-theme-light',
             theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
 
         button.set({
