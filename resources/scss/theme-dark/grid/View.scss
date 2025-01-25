@@ -1,5 +1,7 @@
 :root .neo-theme-dark { // .neo-grid-view
     --grid-cell-background-color-hover                    : #54595c;
+    --grid-cell-ismodified-color                          : orange;
+    --grid-cell-ismodified-size                           : 10px;
     --grid-cellmodel-selected-cell-background-color       : #64B5F6;
     --grid-cellmodel-selected-cell-color                  : #2b2b2b;
     --grid-cellmodel-selected-column-cell-background-color: #4f558a;

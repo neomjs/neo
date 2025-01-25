@@ -22,6 +22,22 @@
     height    : 100%;
     overflow-x: visible;
 
+    .neo-grid-cell {
+        &.neo-is-modified {
+            &:after {
+                border-color: transparent var(--grid-cell-ismodified-color) transparent transparent;
+                border-style: solid;
+                border-width: 0 var(--grid-cell-ismodified-size) var(--grid-cell-ismodified-size) 0;
+                content     : '';
+                height      : 0;
+                position    : absolute;
+                right       : 0;
+                top         : 0;
+                width       : 0;
+            }
+        }
+    }
+
     &.neo-is-scrolling * {
         pointer-events: none !important;
     }

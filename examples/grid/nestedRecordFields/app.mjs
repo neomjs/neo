@@ -2,5 +2,5 @@ import Viewport from './Viewport.mjs';
 
 export const onStart = () => Neo.app({
     mainView: Viewport,
-    name    : 'Neo.examples.table.nestedRecordFields'
+    name    : 'Neo.examples.grid.nestedRecordFields'
 })

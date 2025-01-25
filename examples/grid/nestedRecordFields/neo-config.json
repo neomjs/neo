@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/grid/nestedRecordFields/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "ResizeObserver", "Stylesheet"]
+}

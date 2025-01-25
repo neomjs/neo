@@ -13,9 +13,9 @@
 
             &.neo-is-modified {
                 &:after {
-                    border-color: transparent orange transparent transparent;
+                    border-color: transparent var(--table-cell-ismodified-color) transparent transparent;
                     border-style: solid;
-                    border-width: 0 10px 10px 0;
+                    border-width: 0 var(--table-cell-ismodified-size) var(--table-cell-ismodified-size) 0;
                     content     : '';
                     height      : 0;
                     position    : absolute;

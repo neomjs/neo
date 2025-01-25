@@ -4,6 +4,7 @@ import Model  from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
+    isModifiedSymbol   = Symbol.for('isModified'),
     originalDataSymbol = Symbol.for('originalData');
 
 let instance;
@@ -34,27 +35,17 @@ class RecordFactory extends Base {
     /**
      * Assigns model based default values to a data object
      * @param {Object}         data
-     * @param {Record}         record
      * @param {Neo.data.Model} model
      * @returns {Object}
      */
-    assignDefaultValues(data, record, model) {
-        let {hasNestedFields} = model,
-            scope;
-
+    assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
             if (Object.hasOwn(field, 'defaultValue')) {
-                if (hasNestedFields && fieldName.includes('.')) {
-                    let nsArray = fieldName.split('.');
-
-                    fieldName = nsArray.pop();
-                    scope     = Neo.ns(nsArray, true, data)
-                } else {
-                    scope = data
-                }
-
-                if (scope[fieldName] === undefined) {
-                    scope[fieldName] = field.defaultValue
+                // We could always use Neo.assignToNs() => the check is just for improving the performance
+                if (model.hasNestedFields) {
+                    Neo.assignToNs(fieldName, field.defaultValue, data, false)
+                } else if (data[fieldName] === undefined) {
+                    data[fieldName] = field.defaultValue
                 }
             }
         });
@@ -65,18 +56,18 @@ class RecordFactory extends Base {
     /**
      * @param {Object} data
      * @param {Object} data.field
-     * @param {Neo.data.RecordFactory} data.me
      * @param {Neo.data.Model} data.model
      * @param {String} data.path=''
+     * @param {Object} data.proto
      */
-    createField({field, me, model, path=''}) {
+    createField({field, model, path='', proto}) {
         let fieldName = field.name,
             fieldPath = path === '' ? fieldName : `${path}.${fieldName}`,
             properties;
 
         if (field.fields) {
             field.fields.forEach(childField => {
-                this.createField({field: childField, me, model, path: fieldPath})
+                this.createField({field: childField, model, path: fieldPath, proto})
             })
         } else {
             properties = {
@@ -99,7 +90,9 @@ class RecordFactory extends Base {
                         if (!Neo.isEqual(value, oldValue)) {
                             instance.setRecordData({fieldName: fieldPath, model, record: me, value});
 
-                            me._isModified = me.isModified;
+                            if (!model.trackModifiedFields) {
+                                me[isModifiedSymbol] = true
+                            }
 
                             instance.onRecordChange({
                                 fields: [{name: fieldPath, oldValue, value}],
@@ -111,7 +104,7 @@ class RecordFactory extends Base {
                 }
             };
 
-            Object.defineProperties(me, properties)
+            Object.defineProperties(proto, properties)
         }
     }
 
@@ -155,10 +148,10 @@ class RecordFactory extends Base {
                         let me = this;
 
                         if (model.trackModifiedFields) {
-                            return Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
+                            return !Neo.isEqual(me[dataSymbol], me[originalDataSymbol])
                         }
 
-                        return me._isModified
+                        return me[isModifiedSymbol]
                     }
 
                     /**
@@ -167,7 +160,7 @@ class RecordFactory extends Base {
                     constructor(config) {
                         let me = this;
 
-                        config = instance.assignDefaultValues(config, me, model);
+                        config = instance.assignDefaultValues(config, model);
 
                         if (model.trackModifiedFields) {
                             me[originalDataSymbol] = {};
@@ -175,7 +168,7 @@ class RecordFactory extends Base {
                         }
 
                         me.setSilent(config); // We do not want to fire change events when constructing
-                        me._isModified = false
+                        me[isModifiedSymbol] = false
                     }
 
                     /**
@@ -186,7 +179,7 @@ class RecordFactory extends Base {
                         let me = this;
 
                         // Check if the field getter does exist
-                        if (!me.__proto__.hasOwnProperty(fieldName)) {
+                        if (!Object.hasOwn(me.__proto__, fieldName)) {
                             Logger.logError('The record does not contain the field', fieldName, me)
                         }
 
@@ -208,6 +201,15 @@ class RecordFactory extends Base {
                         }
 
                         return null
+                    }
+
+                    /**
+                     * Bulk-update multiple record fields at once
+                     * @param {Object} fields
+                     */
+                    reset(fields) {
+                        this.setOriginal(fields);
+                        this.set(fields)
                     }
 
                     /**
@@ -247,7 +249,7 @@ class RecordFactory extends Base {
 
                 if (Array.isArray(model.fields)) {
                     model.fields.forEach(field => {
-                        instance.createField({field, me: cls.prototype, model})
+                        instance.createField({field, model, proto: cls.prototype})
                     })
                 }
 
@@ -259,23 +261,6 @@ class RecordFactory extends Base {
 
             return ns
         }
-    }
-
-    /**
-     * @param {Object} record
-     * @returns {Boolean} true in case a change was found
-     */
-    isModified(record) {
-        return record.isModified
-    }
-
-    /**
-     * @param {Object} record
-     * @param {String} fieldName
-     * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
-     */
-    isModifiedField(record, fieldName) {
-        return record.isModifiedField(fieldName)
     }
 
     /**
@@ -386,6 +371,10 @@ class RecordFactory extends Base {
      * @protected
      */
     setRecordData({fieldName, model, record, useOriginalData=false, value}) {
+        if (useOriginalData && !model.trackModifiedFields) {
+            return
+        }
+
         let scope = useOriginalData ? originalDataSymbol : dataSymbol;
 
         if (model.hasNestedFields && fieldName.includes('.')) {
@@ -411,8 +400,12 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
-        let {fieldsMap} = model,
+        let {fieldsMap, trackModifiedFields} = model,
             fieldExists, oldValue;
+
+        if (!trackModifiedFields && useOriginalData) {
+            return
+        }
 
         Object.entries(fields).forEach(([key, value]) => {
             fieldExists = fieldsMap.has(key);
@@ -435,8 +428,8 @@ class RecordFactory extends Base {
                 if (!Neo.isEqual(oldValue, value)) {
                     instance.setRecordData({fieldName: key, model, record, useOriginalData, value});
 
-                    if (!useOriginalData) {
-                        record._isModified = true
+                    if (!trackModifiedFields && !useOriginalData) {
+                        record[isModifiedSymbol] = true
                     }
 
                     changedFields.push({name: key, oldValue, value})
@@ -444,7 +437,7 @@ class RecordFactory extends Base {
             }
         });
 
-        if (!silent && Object.keys(changedFields).length > 0) {
+        if (!silent && !useOriginalData && Object.keys(changedFields).length > 0) {
             Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
         }
     }

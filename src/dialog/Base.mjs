@@ -417,10 +417,6 @@ class Dialog extends Panel {
 
         let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
 
-        await me.timeout(30);
-
-        let [dialogRect, bodyRect] = await me.getDomRect([me.id, 'document.body']);
-
         // Move to cover the animation target
         await Neo.applyDeltas(appName, {
             id,
