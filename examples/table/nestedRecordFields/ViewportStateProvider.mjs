@@ -5,16 +5,16 @@ import Store         from '../../../src/data/Store.mjs';
 const dataSymbol = Symbol.for('data');
 
 /**
- * @class Neo.examples.table.nestedRecordFields.MainContainerStateProvider
+ * @class Neo.examples.table.nestedRecordFields.ViewportStateProvider
  * @extends Neo.state.Provider
  */
-class MainContainerStateProvider extends StateProvider {
+class ViewportStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Neo.examples.table.nestedRecordFields.MainContainerStateProvider'
+         * @member {String} className='Neo.examples.table.nestedRecordFields.ViewportStateProvider'
          * @protected
          */
-        className: 'Neo.examples.table.nestedRecordFields.MainContainerStateProvider',
+        className: 'Neo.examples.table.nestedRecordFields.ViewportStateProvider',
         /**
          * @member {Object} stores
          */
@@ -59,4 +59,4 @@ class MainContainerStateProvider extends StateProvider {
     }
 }
 
-export default Neo.setupClass(MainContainerStateProvider);
+export default Neo.setupClass(ViewportStateProvider);
