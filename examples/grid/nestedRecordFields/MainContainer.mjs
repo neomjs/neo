@@ -1,6 +1,6 @@
 import Button                     from '../../../src/button/Base.mjs';
+import GridContainer              from '../../../src/grid/Container.mjs';
 import MainContainerStateProvider from './MainContainerStateProvider.mjs';
-import TableContainer             from '../../../src/table/Container.mjs';
 import Viewport                   from '../../../src/container/Viewport.mjs';
 
 /**
@@ -30,7 +30,7 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: TableContainer,
+            module: GridContainer,
             bind  : {store : 'stores.mainStore'},
 
             columns: [
