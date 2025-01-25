@@ -33,6 +33,10 @@ class MainContainer extends Viewport {
             module: GridContainer,
             bind  : {store : 'stores.mainStore'},
 
+            columnDefaults: {
+                width: 200
+            },
+
             columns: [
                 {dataField: 'user.firstname', text: 'Firstname'},
                 {dataField: 'user.lastname',  text: 'Lastname'},
@@ -96,7 +100,7 @@ class MainContainer extends Viewport {
     /**
      * @param {Object} data
      */
-    editRenderer({column, index, record, tableContainer}) {
+    editRenderer({column, gridContainer, index, record}) {
         let me                  = this,
             {appName, windowId} = me,
             widgetId            = `${column.id}-widget-${index}`,
@@ -104,7 +108,7 @@ class MainContainer extends Viewport {
                 module  : Button,
                 appName,
                 handler : 'up.editButtonHandler',
-                parentId: tableContainer.id,
+                parentId: gridContainer.id,
                 record,
                 text    : 'Edit',
                 windowId
