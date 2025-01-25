@@ -1,27 +1,27 @@
-import Button                     from '../../../src/button/Base.mjs';
-import GridContainer              from '../../../src/grid/Container.mjs';
-import MainContainerStateProvider from './MainContainerStateProvider.mjs';
-import Viewport                   from '../../../src/container/Viewport.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import Button                from '../../../src/button/Base.mjs';
+import GridContainer         from '../../../src/grid/Container.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Neo.examples.grid.nestedRecordFields.MainContainer
  * @extends Neo.container.Viewport
  */
-class MainContainer extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         /**
-         * @member {String} className='Neo.examples.grid.nestedRecordFields.MainContainer'
+         * @member {String} className='Neo.examples.grid.nestedRecordFields.Viewport'
          * @protected
          */
-        className: 'Neo.examples.grid.nestedRecordFields.MainContainer',
+        className: 'Neo.examples.grid.nestedRecordFields.Viewport',
         /**
          * @member {Object|String} layout='fit'
          */
         layout: 'fit',
         /**
-         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
-        stateProvider: MainContainerStateProvider,
+        stateProvider: ViewportStateProvider,
         /**
          * @member {Object} style={padding:'20px'}
          */
@@ -120,4 +120,4 @@ class MainContainer extends Viewport {
     }
 }
 
-export default Neo.setupClass(MainContainer);
+export default Neo.setupClass(Viewport);
