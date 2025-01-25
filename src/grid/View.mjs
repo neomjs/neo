@@ -805,7 +805,7 @@ class GridView extends Component {
             {gridContainer}  = me,
             {selectionModel} = gridContainer,
             {vdom}           = me,
-            cellId, cellNode, column, index, scope;
+            cellId, cellNode, cellStyle, cellVdom, column, index;
 
         if (fieldNames.includes(me.colspanField)) {
             index = me.store.indexOf(record);
@@ -821,14 +821,22 @@ class GridView extends Component {
                     cellId   = me.getCellId(record, field.name);
                     cellNode = VDomUtil.find(vdom, cellId);
 
-                    // the vdom might not exist yet => nothing to do in this case
+                    // The vdom might not exist yet => nothing to do in this case
                     if (cellNode?.vdom) {
+                        cellStyle   = cellNode.vdom.style;
                         column      = me.getColumn(field.name);
                         index       = cellNode.index;
+                        cellVdom    = me.applyRendererOutput({cellId, column, gridContainer, index, record});
                         needsUpdate = true;
-                        scope       = column.rendererScope || gridContainer;
 
-                        cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, gridContainer, index, record})
+                        // The cell-positioning logic happens outside applyRendererOutput()
+                        // We need to preserve these styles
+                        Object.assign(cellVdom.style, {
+                            left : cellStyle.left,
+                            width: cellStyle.width
+                        });
+
+                        cellNode.parentNode.cn[index] = cellVdom
                     }
                 }
             })
