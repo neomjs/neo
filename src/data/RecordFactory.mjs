@@ -179,7 +179,7 @@ class RecordFactory extends Base {
                         let me = this;
 
                         // Check if the field getter does exist
-                        if (!me.__proto__.hasOwnProperty(fieldName)) {
+                        if (!Object.hasOwn(me.__proto__, fieldName)) {
                             Logger.logError('The record does not contain the field', fieldName, me)
                         }
 
