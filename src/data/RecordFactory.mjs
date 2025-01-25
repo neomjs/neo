@@ -56,18 +56,18 @@ class RecordFactory extends Base {
     /**
      * @param {Object} data
      * @param {Object} data.field
-     * @param {Neo.data.RecordFactory} data.me
      * @param {Neo.data.Model} data.model
      * @param {String} data.path=''
+     * @param {Object} data.proto
      */
-    createField({field, me, model, path=''}) {
+    createField({field, model, path='', proto}) {
         let fieldName = field.name,
             fieldPath = path === '' ? fieldName : `${path}.${fieldName}`,
             properties;
 
         if (field.fields) {
             field.fields.forEach(childField => {
-                this.createField({field: childField, me, model, path: fieldPath})
+                this.createField({field: childField, model, path: fieldPath, proto})
             })
         } else {
             properties = {
@@ -104,7 +104,7 @@ class RecordFactory extends Base {
                 }
             };
 
-            Object.defineProperties(me, properties)
+            Object.defineProperties(proto, properties)
         }
     }
 
@@ -249,7 +249,7 @@ class RecordFactory extends Base {
 
                 if (Array.isArray(model.fields)) {
                     model.fields.forEach(field => {
-                        instance.createField({field, me: cls.prototype, model})
+                        instance.createField({field, model, proto: cls.prototype})
                     })
                 }
 
