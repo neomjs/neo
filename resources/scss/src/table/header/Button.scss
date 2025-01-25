@@ -1,6 +1,7 @@
 .neo-table-header-button {
     align-items     : center;
     background-color: var(--table-header-button-background-color);
+    background-image: var(--table-header-button-background-image);
     border-width    : 0;
     color           : var(--table-header-button-color);
     cursor          : pointer;
@@ -14,8 +15,6 @@
     padding         : 7px 10px 6px;
     white-space     : nowrap;
     width           : 100% !important;
-
-    background-image: var(--table-header-button-background-image);
 
     &.neo-drag-over {
         background-image: linear-gradient(green, darkgreen);;

@@ -2,6 +2,7 @@
     align-items     : center;
     background-color: var(--grid-header-button-background-color);
     background-image: var(--grid-header-button-background-image);
+    border-radius   : 0;
     border-width    : 0;
     color           : var(--grid-header-button-color);
     cursor          : pointer;
@@ -13,7 +14,6 @@
     height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
     margin          : 0;
-    padding         : 7px 10px 6px;
     white-space     : nowrap;
 
     &:not(:last-child) {
@@ -69,6 +69,8 @@
     }
 
     .neo-button-text {
+        color         : var(--grid-header-button-color);
         pointer-events: none;
+        text-transform: none;
     }
 }
