@@ -60,7 +60,8 @@ class MainContainer extends Viewport {
                     for (; j < repeats; j++) {
                         for (i=0; i < countRecords; i++) {
                             record = store.items[i];
-                            Object.entries(record).forEach(([field, value]) => {
+
+                            Object.entries(record[Symbol.for('data')]).forEach(([field, value]) => {
                                 if (field !== 'githubId') {
                                     if (value.includes(string1)) {
                                         newValue = value.replace(string1, string2);
@@ -72,7 +73,7 @@ class MainContainer extends Viewport {
 
                                     record[field] = newValue; // triggers the change
                                 }
-                            });
+                            })
                         }
                     }
                 }
@@ -110,7 +111,7 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: function(data) {
                         if (data.value) {
-                            Neo.getComponent('myTableStoreContainer').selectionModel = {
+                            Neo.getComponent('myTableStoreContainer').view.selectionModel = {
                                 ntype: this.value
                             };
                         }
@@ -127,7 +128,7 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: function(data) {
                         if (data.value) {
-                            Neo.getComponent('myTableStoreContainer').selectionModel = {
+                            Neo.getComponent('myTableStoreContainer').view.selectionModel = {
                                 ntype: this.value
                             };
                         }
@@ -144,7 +145,7 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: function(data) {
                         if (data.value) {
-                            Neo.getComponent('myTableStoreContainer').selectionModel = {
+                            Neo.getComponent('myTableStoreContainer').view.selectionModel = {
                                 ntype: this.value
                             };
                         }
@@ -161,7 +162,7 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: function(data) {
                         if (data.value) {
-                            Neo.getComponent('myTableStoreContainer').selectionModel = {
+                            Neo.getComponent('myTableStoreContainer').view.selectionModel = {
                                 ntype: this.value
                             };
                         }
@@ -178,7 +179,7 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: function(data) {
                         if (data.value) {
-                            Neo.getComponent('myTableStoreContainer').selectionModel = {
+                            Neo.getComponent('myTableStoreContainer').view.selectionModel = {
                                 ntype: this.value
                             };
                         }
@@ -186,12 +187,12 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            module        : TableContainer,
-            id            : 'myTableStoreContainer',
-            selectionModel: CellModel,
-            store         : MainStore,
-            width         : '100%',
-            wrapperStyle  : {height: '300px'},
+            module      : TableContainer,
+            id          : 'myTableStoreContainer',
+            store       : MainStore,
+            viewConfig  : {selectionModel: CellModel},
+            width       : '100%',
+            wrapperStyle: {height: '300px'},
 
             columns: [{
                 dataField: 'firstname',
