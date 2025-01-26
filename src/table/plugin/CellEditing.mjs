@@ -65,7 +65,7 @@ class CellEditing extends Plugin {
             me.onSelectionModelChange({value: selectionModel})
         }
 
-        owner.keys.add({
+        owner.view.keys.add({
             Enter: 'onTableKeyDown',
             Space: 'onTableKeyDown',
             scope: me
@@ -156,7 +156,7 @@ class CellEditing extends Plugin {
 
         await view.promiseUpdate();
 
-        await me.timeout(10);
+        await me.timeout(30);
 
         editor.focus()
     }
