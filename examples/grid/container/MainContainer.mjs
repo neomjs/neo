@@ -97,6 +97,10 @@ class MainContainer extends ConfigurationViewport {
 
             viewConfig: {
                 selectionModel: CellModel
+            },
+
+            wrapperStyle: {
+                height: '500px'
             }
         }
     }
