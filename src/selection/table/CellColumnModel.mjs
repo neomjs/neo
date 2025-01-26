@@ -63,14 +63,14 @@ class CellColumnModel extends CellModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me = this,
-            id = data.data.currentTarget,
-            columnNodeIds, index, tbodyNode;
+        let me              = this,
+            {headerToolbar} = me.view.parent,
+            id              = data.data.currentTarget,
+            columnNodeIds, index;
 
         if (id) {
-            index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
-            columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
+            index         = ColumnModel.getColumnIndex(id, headerToolbar.items);
+            columnNodeIds = VDomUtil.getColumnNodesIds(me.view.vdom, index);
 
             me.deselectAllCells(true);
             me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls)
@@ -88,7 +88,7 @@ class CellColumnModel extends CellModel {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             {view}        = me,
-            dataFields    = view.columns.map(c => c.dataField),
+            dataFields    = view.parent.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             columnNodeIds, tbodyNode;
 
