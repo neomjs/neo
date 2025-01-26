@@ -25,19 +25,10 @@ class CellRowModel extends CellModel {
          */
         cls: 'neo-selection-cellrowmodel',
         /**
-         * @member {Array|null} selectedRowIds=null
+         * @member {String[]} selectedRowIds=[]
          * @protected
          */
-        selectedRowIds: null
-    }
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        this.selectedRowIds = []
+        selectedRowIds: []
     }
 
     /**

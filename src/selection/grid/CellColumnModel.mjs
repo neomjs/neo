@@ -28,19 +28,10 @@ class CellColumnModel extends CellModel {
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
-         * @member {String[]|null} selectedColumnCellIds=null
+         * @member {String[]} selectedColumnCellIds=[]
          * @protected
          */
-        selectedColumnCellIds: null
-    }
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        this.selectedColumnCellIds = []
+        selectedColumnCellIds: []
     }
 
     /**
