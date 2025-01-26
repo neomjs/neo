@@ -27,7 +27,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createConfigurationComponents() {
-        let me = this;
+        let me               = this,
+            {selectionModel} = me.exampleComponent.view;
 
         const selectionModelRadioDefaults = {
             module        : Radio,
@@ -47,35 +48,35 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellmodel',
+            checked       : selectionModel.ntype === 'selection-table-cellmodel',
             labelText     : 'selectionModel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-columnmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', ColumnModel)},
+            checked       : selectionModel.ntype === 'selection-table-columnmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', ColumnModel)},
             valueLabelText: 'Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-rowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', RowModel)},
+            checked       : selectionModel.ntype === 'selection-table-rowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', RowModel)},
             valueLabelText: 'Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellcolumnmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
+            checked       : selectionModel.ntype === 'selection-table-cellcolumnmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
+            checked       : selectionModel.ntype === 'selection-table-cellrowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-table-cellcolumnrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
+            checked       : selectionModel.ntype === 'selection-table-cellcolumnrowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }, {
             module   : Checkbox,
@@ -88,8 +89,8 @@ class MainContainer extends ConfigurationViewport {
             checked  : false,
             labelText: 'Fit width',
             listeners: {
-                change({ value }) {
-                    const { style } = me.exampleComponent;
+                change({value}) {
+                    const {style} = me.exampleComponent;
 
                     if (value) {
                         style.width = '100%';
@@ -100,7 +101,7 @@ class MainContainer extends ConfigurationViewport {
                     }
 
                     me.exampleComponent.style = style;
-                    me.exampleComponent.update();
+                    me.exampleComponent.update()
                 }
             },
             style: {marginTop: '10px'}
@@ -112,9 +113,12 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create(TableContainer, {
-            id            : 'myTableStoreContainer',
-            selectionModel: CellModel,
-            store         : MainStore,
+            id   : 'myTableStoreContainer',
+            store: MainStore,
+
+            viewConfig: {
+                selectionModel: CellModel
+            },
 
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},
@@ -179,6 +183,17 @@ class MainContainer extends ConfigurationViewport {
      */
     editButtonHandler(data) {
         console.log(data)
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onRadioViewChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.exampleComponent.view[config] = value
+        }
     }
 }
 

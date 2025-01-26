@@ -2,7 +2,6 @@ import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import CssUtil         from '../util/Css.mjs';
 import NeoArray        from '../util/Array.mjs';
-import RowModel        from '../selection/table/RowModel.mjs';
 import Store           from '../data/Store.mjs';
 import View            from './View.mjs';
 import * as header     from './header/_export.mjs';
@@ -51,11 +50,6 @@ class Container extends BaseContainer {
          */
         headerToolbarId_: null,
         /**
-         * Additional used keys for the selection model
-         * @member {Object} keys
-         */
-        keys: {},
-        /**
          * @member {String} layout='base'
          */
         layout: 'base',
@@ -65,7 +59,9 @@ class Container extends BaseContainer {
          */
         scrollbarsCssApplied: false,
         /**
+         * Will get removed in neo v9, assign selection models to table.View instead
          * @member {Neo.selection.Model} selectionModel_=null
+         * @deprecated
          */
         selectionModel_: null,
         /**
@@ -143,10 +139,11 @@ class Container extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : View,
-            containerId: me.id,
-            id         : me.viewId,
-            store      : me.store,
+            module        : View,
+            containerId   : me.id,
+            id            : me.viewId,
+            selectionModel: me.selectionModel, // todo: remove this line in neo v9
+            store         : me.store,
             ...me.viewConfig
         }];
 
@@ -204,9 +201,12 @@ class Container extends BaseContainer {
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @protected
+     * @deprecated
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this)
+        if (value && this.view) {
+            this.view.selectionModel = value
+        }
     }
 
     /**
@@ -290,18 +290,6 @@ class Container extends BaseContainer {
      */
     beforeSetHeaderToolbarId(value, oldValue) {
         return value || oldValue
-    }
-
-    /**
-     * Triggered before the selectionModel config gets changed.
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     */
-    beforeSetSelectionModel(value, oldValue) {
-        oldValue?.destroy();
-
-        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -459,14 +447,6 @@ class Container extends BaseContainer {
      */
     getWrapperId() {
         return `${this.id}__wrapper`
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-        this.selectionModel?.register(this)
     }
 
     /**

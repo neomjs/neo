@@ -29,7 +29,7 @@ class CellModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('cellClick', me.onCellClick, me)
+        me.view.parent.on('cellClick', me.onCellClick, me)
     }
 
     /**
@@ -38,7 +38,7 @@ class CellModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.un('cellClick', me.onCellClick, me);
+        me.view.parent.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -87,7 +87,7 @@ class CellModel extends BaseModel {
             {view}        = me,
             idArray       = data.path[0].id.split('__'),
             currentColumn = idArray[2],
-            dataFields    = view.columns.map(c => c.dataField),
+            dataFields    = view.parent.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             id;
 
