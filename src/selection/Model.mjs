@@ -127,10 +127,11 @@ class Model extends Base {
 
     /**
      * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
      */
-    deselectAll(silent) {
+    deselectAll(silent, itemCollection=this.items) {
         let me     = this,
-            items  = [...me.items],
+            items  = [...itemCollection],
             {view} = me;
 
         if (items.length) {
@@ -235,8 +236,8 @@ class Model extends Base {
             items: [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
 
         if (!Neo.isEqual(itemCollection, items)) {
-            if (me.singleSelect) {
-                me.deselectAll(true)
+            if (me.singleSelect && itemCollection === me.items) {
+                me.deselectAll(true, itemCollection)
             }
 
             items.forEach(node => {
