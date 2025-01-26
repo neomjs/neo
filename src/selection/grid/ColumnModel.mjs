@@ -80,9 +80,8 @@ class ColumnModel extends BaseModel {
      * @param {Number} step
      */
     onNavKeyColumn(step) {
-        let me            = this,
-            {view}        = me,
-            dataFields    = view.parent.columns.map(c => c.dataField),
+        let me                 = this,
+            {dataFields, view} = me,
             columnNodeIds, currentColumn, index;
 
         if (me.hasSelection()) {

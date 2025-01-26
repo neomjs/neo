@@ -16,6 +16,14 @@ class BaseModel extends Model {
     }
 
     /**
+     * Convenience shortcut
+     * @member {String[]} dataFields
+     */
+    get dataFields() {
+        return this.view.parent.columns.map(c => c.dataField)
+    }
+
+    /**
      * @param {Object} item
      * @param {Boolean} [silent] true to prevent a vdom update
      * @param {Object[]|String[]} itemCollection=this.items

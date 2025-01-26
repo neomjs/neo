@@ -82,10 +82,9 @@ class CellModel extends BaseModel {
      * @param {Number} step
      */
     onNavKeyColumn(step) {
-        let me         = this,
-            {view}     = me,
-            {store}    = view,
-            dataFields = view.parent.columns.map(c => c.dataField),
+        let me                 = this,
+            {dataFields, view} = me,
+            {store}            = view,
             currentColumn, newIndex, record;
 
         if (me.hasSelection()) {
@@ -119,7 +118,7 @@ class CellModel extends BaseModel {
             currentIndex = store.indexOf(view.getRecord(me.items[0]));
             dataField    = view.getDataField(me.items[0])
         } else {
-            dataField = view.parent.columns[0].dataField
+            dataField = me.dataFields[0]
         }
 
         newIndex = (currentIndex + step) % store.getCount();
