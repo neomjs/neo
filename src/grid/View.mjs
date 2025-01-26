@@ -632,7 +632,7 @@ class GridView extends Component {
      * @returns {String}
      */
     getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField
+        return this.id + '__' + record[this.store.getKeyProperty()] + '__' + dataField
     }
 
     /**
