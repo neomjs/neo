@@ -1,6 +1,5 @@
-import CellModel   from './CellModel.mjs';
-import ColumnModel from './ColumnModel.mjs';
-import VDomUtil    from '../../util/VDom.mjs';
+import CellModel from './CellModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.CellColumnModel
@@ -29,7 +28,7 @@ class CellColumnModel extends CellModel {
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
-         * @member {Array|null} selectedColumnCellIds=null
+         * @member {String[]|null} selectedColumnCellIds=null
          * @protected
          */
         selectedColumnCellIds: null
@@ -63,14 +62,15 @@ class CellColumnModel extends CellModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me = this,
-            id = data.data.currentTarget,
-            columnNodeIds, index, tbodyNode;
+        let me     = this,
+            {view} = me,
+            cellId = data.data.currentTarget,
+            columnNodeIds, dataField, index;
 
-        if (id) {
-            index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
-            columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
+        if (cellId) {
+            dataField     = view.getDataField(cellId);
+            index         = view.getColumn(dataField, true);
+            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
 
             me.deselectAllCells(true);
             me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls)
@@ -80,29 +80,31 @@ class CellColumnModel extends CellModel {
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyColumn(data, step) {
-        let me            = this,
-            idArray       = ColumnModel.getCellId(data.path).split('__'),
-            currentColumn = idArray[2],
-            {view}        = me,
-            fields        = view.columns.map(c => c.dataField),
-            newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
-            columnNodeIds, tbodyNode;
+    onNavKeyColumn(step) {
+        let me                 = this,
+            {dataFields, view} = me,
+            columnNodeIds, currentColumn, index;
 
-        while (newIndex < 0) {
-            newIndex += fields.length
+        if (me.hasSelection()) {
+            currentColumn = view.getDataField(me.items[0])
+        } else {
+            currentColumn = dataFields[0]
         }
 
-        tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
-        columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
+        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
+
+        while (index < 0) {
+            index += dataFields.length
+        }
+
+        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
 
         me.deselectAllCells(true);
         me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls);
 
-        super.onNavKeyColumn(data, step)
+        super.onNavKeyColumn(step)
     }
 
     /**
