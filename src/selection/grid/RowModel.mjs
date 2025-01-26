@@ -39,7 +39,7 @@ class RowModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.un('rowClick', me.onRowClick, me);
+        me.view.gridContainer.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }
@@ -103,7 +103,7 @@ class RowModel extends BaseModel {
             me.toggleSelection(id);
 
             isSelected = me.isSelected(id);
-            record     = view.store.getAt(VDomUtil.find(view.vdom, id).index);
+            record     = view.getRecord(id);
 
             !isSelected && view.onDeselect?.(record);
 

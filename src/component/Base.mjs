@@ -1684,7 +1684,7 @@ class Component extends Base {
      * Convenience shortcut
      * @param {String[]|String} id=this.id
      * @param {String} appName=this.appName
-     * @returns {Promise<Neo.util.Rectangle||Neo.util.Rectangle[]>}
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
     async getDomRect(id=this.id, appName=this.appName) {
         let result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
@@ -1694,42 +1694,6 @@ class Component extends Base {
         }
 
         return Rectangle.clone(result)
-    }
-
-    /**
-     * In case you are sure a DOMRect exists, use getDomRect()
-     * Otherwise you can wait for it using this method.
-     * @example:
-     *     await this.render(true);
-     *     await this.waitForDomRect();
-     * @param {Object}          opts
-     * @param {String}          opts.appName=this.appName
-     * @param {Number}          opts.attempts=10 Reruns in case the rect height or width equals 0
-     * @param {Number}          opts.delay=50    Time in ms before checking again
-     * @param {String[]|String} opts.id=this.id
-     * @returns {Promise<Neo.util.Rectangle||Neo.util.Rectangle[]>}
-     */
-    async waitForDomRect({appName=this.appName, attempts=10, delay=50, id=this.id}) {
-        let me     = this,
-            result = await me.getDomRect(id, appName),
-            reRun  = false;
-
-        if (Array.isArray(result)) {
-            result.forEach(rect => {
-                if (rect.height < 1 || rect.width < 1) {
-                    reRun = true
-                }
-            })
-        } else if (result.height < 1 || result.width < 1) {
-            reRun = true
-        }
-
-        if (reRun && attempts > 0) {
-            await me.timeout(delay);
-            return await me.waitForDomRect({appName, attempts: attempts-1, delay, id})
-        }
-
-        return result
     }
 
     /**
@@ -2757,6 +2721,42 @@ class Component extends Base {
         }
 
         me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
+    }
+
+    /**
+     * In case you are sure a DOMRect exists, use getDomRect()
+     * Otherwise you can wait for it using this method.
+     * @example:
+     *     await this.render(true);
+     *     await this.waitForDomRect();
+     * @param {Object}          opts
+     * @param {String}          opts.appName=this.appName
+     * @param {Number}          opts.attempts=10 Reruns in case the rect height or width equals 0
+     * @param {Number}          opts.delay=50    Time in ms before checking again
+     * @param {String[]|String} opts.id=this.id
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
+     */
+    async waitForDomRect({appName=this.appName, attempts=10, delay=50, id=this.id}) {
+        let me     = this,
+            result = await me.getDomRect(id, appName),
+            reRun  = false;
+
+        if (Array.isArray(result)) {
+            result.forEach(rect => {
+                if (rect.height < 1 || rect.width < 1) {
+                    reRun = true
+                }
+            })
+        } else if (result.height < 1 || result.width < 1) {
+            reRun = true
+        }
+
+        if (reRun && attempts > 0) {
+            await me.timeout(delay);
+            return await me.waitForDomRect({appName, attempts: attempts-1, delay, id})
+        }
+
+        return result
     }
 }
 

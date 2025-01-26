@@ -1,6 +1,8 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
-import VDomUtil  from '../util/VDom.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Component       from '../component/Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import RowModel        from '../selection/table/RowModel.mjs';
+import VDomUtil        from '../util/VDom.mjs';
 
 /**
  * @class Neo.table.View
@@ -37,9 +39,18 @@ class View extends Component {
          */
         highlightModifiedCells_: false,
         /**
+         * Additional used keys for the selection model
+         * @member {Object} keys
+         */
+        keys: {},
+        /**
          * @member {Object} recordVnodeMap={}
          */
         recordVnodeMap: {},
+        /**
+         * @member {Neo.selection.Model} selectionModel_=null
+         */
+        selectionModel_: null,
         /**
          * @member {String} selectedRecordField='annotations.selected'
          */
@@ -63,10 +74,8 @@ class View extends Component {
      * @member {String[]} selectedRows
      */
     get selectedRows() {
-        let tableContainer = this.parent;
-
-        if (tableContainer.selectionModel.ntype === 'selection-table-rowmodel') {
-            return tableContainer.selectionModel.items
+        if (this.selectionModel.ntype === 'selection-table-rowmodel') {
+            return this.selectionModel.items
         }
 
         return []
@@ -91,6 +100,16 @@ class View extends Component {
             delegate: '.neo-table-row',
             scope   : me
         }])
+    }
+
+    /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    afterSetSelectionModel(value, oldValue) {
+        this.rendered && value.register(this)
     }
 
     /**
@@ -188,6 +207,18 @@ class View extends Component {
         }
 
         return cellConfig
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @protected
+     */
+    beforeSetSelectionModel(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
@@ -452,6 +483,14 @@ class View extends Component {
      */
     onCellDoubleClick(data) {
         this.fireCellEvent(data, 'cellDoubleClick')
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.selectionModel?.register(this)
     }
 
     /**

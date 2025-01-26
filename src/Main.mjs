@@ -213,6 +213,7 @@ class Main extends core.Base {
         }
 
         this.registerAddon(module.default);
+        await this.timeout(20); // Wait until remotes are registered
 
         return true
     }

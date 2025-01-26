@@ -110,9 +110,6 @@ class Model extends Base {
             NeoArray.remove(itemCollection, item);
 
             if (!silent) {
-                // We need a bigger depth, since grid.Container & table.Container use selection.Model as a  top-level config.
-                // In case the config would get moved to grid.View & table.View, we would not need it.
-                view.updateDepth = -1;
                 view.update();
 
                 me.fire('selectionChange', {
@@ -127,10 +124,11 @@ class Model extends Base {
 
     /**
      * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
      */
-    deselectAll(silent) {
+    deselectAll(silent, itemCollection=this.items) {
         let me     = this,
-            items  = [...me.items],
+            items  = [...itemCollection],
             {view} = me;
 
         if (items.length) {
@@ -139,9 +137,6 @@ class Model extends Base {
             });
 
             if (!silent && items.length > 0) {
-                // We need a bigger depth, since grid.Container & table.Container use selection.Model as a  top-level config.
-                // In case the config would get moved to grid.View & table.View, we would not need it.
-                view.updateDepth = -1;
                 view.update()
             }
 
@@ -235,8 +230,8 @@ class Model extends Base {
             items: [items]).map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
 
         if (!Neo.isEqual(itemCollection, items)) {
-            if (me.singleSelect) {
-                me.deselectAll(true)
+            if (me.singleSelect && itemCollection === me.items) {
+                me.deselectAll(true, itemCollection)
             }
 
             items.forEach(node => {
@@ -251,9 +246,6 @@ class Model extends Base {
             NeoArray.add(itemCollection, items);
 
             if (!view.silentSelect) {
-                // We need a bigger depth, since grid.Container & table.Container use selection.Model as a  top-level config.
-                // In case the config would get moved to grid.View & table.View, we would not need it.
-                view.updateDepth = -1;
                 view.update()
             }
 

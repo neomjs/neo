@@ -16,45 +16,11 @@ class BaseModel extends Model {
     }
 
     /**
-     * @param {Object} item
-     * @param {Boolean} [silent] true to prevent a vdom update
-     * @param {Object[]|String[]} itemCollection=this.items
-     * @param {String} [selectedCls]
+     * Convenience shortcut
+     * @member {String[]} dataFields
      */
-    deselect(item, silent, itemCollection=this.items, selectedCls) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselect(item, silent, itemCollection, selectedCls)
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAll(silent) {
-        let {view} = this;
-
-        if (!silent) {
-            view.updateDepth = 2
-        }
-
-        super.deselectAll(silent)
-    }
-
-    /**
-     * @param {Object} args
-     */
-    select(...args) {
-        let {view} = this;
-
-        if (!view.silentSelect) {
-            view.updateDepth = 2
-        }
-
-        super.select(...args)
+    get dataFields() {
+        return this.view.parent.columns.map(c => c.dataField)
     }
 }
 

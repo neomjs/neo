@@ -236,20 +236,20 @@ class GridContainer extends BaseContainer {
     async addResizeObserver(mounted) {
         let me             = this,
             ResizeObserver = Neo.main?.addon?.ResizeObserver,
-            resizeParams   = {id: me.id, windowId: me.windowId};
+            {windowId}     = me,
+            resizeParams   = {id: me.id, windowId};
 
-        // Check if the remotes api is ready for slow network connections & dist/prod
         if (!ResizeObserver) {
-            await me.timeout(100);
-            await me.addResizeObserver(mounted)
+            await Neo.Main.importAddon({name: 'ResizeObserver', windowId});
+            ResizeObserver = Neo.main.addon.ResizeObserver
+        }
+
+        if (mounted) {
+            ResizeObserver.register(resizeParams);
+            await me.passSizeToView()
         } else {
-            if (mounted) {
-                ResizeObserver.register(resizeParams);
-                await me.passSizeToView()
-            } else {
-                me.initialResizeEvent = true;
-                ResizeObserver.unregister(resizeParams)
-            }
+            me.initialResizeEvent = true;
+            ResizeObserver.unregister(resizeParams)
         }
     }
 

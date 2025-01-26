@@ -25,8 +25,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createConfigurationComponents() {
-        let me     = this,
-            {view} = me.exampleComponent;
+        let me               = this,
+            {selectionModel} = me.exampleComponent.view;
 
         const selectionModelRadioDefaults = {
             module        : Radio,
@@ -46,35 +46,35 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-cellmodel',
+            checked       : selectionModel.ntype === 'selection-grid-cellmodel',
             labelText     : 'selectionModel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-columnmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', ColumnModel)},
+            checked       : selectionModel.ntype === 'selection-grid-columnmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', ColumnModel)},
             valueLabelText: 'Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-rowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', RowModel)},
+            checked       : selectionModel.ntype === 'selection-grid-rowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', RowModel)},
             valueLabelText: 'Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-cellcolumnmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
+            checked       : selectionModel.ntype === 'selection-grid-cellcolumnmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-cellrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
+            checked       : selectionModel.ntype === 'selection-grid-cellrowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : view.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
+            checked       : selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }]
     }
@@ -97,6 +97,10 @@ class MainContainer extends ConfigurationViewport {
 
             viewConfig: {
                 selectionModel: CellModel
+            },
+
+            wrapperStyle: {
+                height: '250px'
             }
         }
     }
@@ -106,7 +110,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {String} value
      * @param {Object} opts
      */
-    onRadioChange(config, value, opts) {
+    onRadioViewChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
             this.exampleComponent.view[config] = value
         }

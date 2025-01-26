@@ -30,7 +30,7 @@ class ColumnModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('cellClick', me.onCellClick, me)
+        me.view.parent.on('cellClick', me.onCellClick, me)
     }
 
     /**
@@ -39,7 +39,7 @@ class ColumnModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.un('cellClick', me.onCellClick, me);
+        me.view.parent.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -81,14 +81,14 @@ class ColumnModel extends BaseModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me = this,
-            id = data.data.currentTarget,
-            columnNodeIds, index, tbodyNode;
+        let me              = this,
+            {headerToolbar} = me.view.parent,
+            id              = data.data.currentTarget,
+            columnNodeIds, index;
 
         if (id) {
-            index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
-            columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
+            index         = ColumnModel.getColumnIndex(id, headerToolbar.items);
+            columnNodeIds = VDomUtil.getColumnNodesIds(me.view.vdom, index);
 
             me.select(columnNodeIds)
         }
@@ -117,7 +117,7 @@ class ColumnModel extends BaseModel {
             idArray       = ColumnModel.getCellId(data.path).split('__'),
             currentColumn = idArray[2],
             {view}        = me,
-            dataFields    = view.columns.map(c => c.dataField),
+            dataFields    = view.parent.columns.map(c => c.dataField),
             newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
             columnNodeIds, id, tbodyNode;
 
