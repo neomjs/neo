@@ -86,10 +86,10 @@ class CellModel extends BaseModel {
             {view}     = me,
             {store}    = view,
             dataFields = view.parent.columns.map(c => c.dataField),
-            currentColumn, id, newIndex, record;
+            currentColumn, newIndex, record;
 
         if (me.hasSelection()) {
-            currentColumn = me.items[0].split('__')[2];
+            currentColumn = view.getDataField(me.items[0]);
             record        = view.getRecord(me.items[0])
         } else {
             currentColumn = dataFields[0];
@@ -102,9 +102,7 @@ class CellModel extends BaseModel {
             newIndex += dataFields.length
         }
 
-        id = view.getCellId(record, dataFields[newIndex]);
-
-        me.select(id)
+        me.select(view.getCellId(record, dataFields[newIndex]))
     }
 
     /**
@@ -115,12 +113,13 @@ class CellModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             currentIndex = 0,
-            dataField    = view.parent.columns[0].dataField,
-            id, newIndex, newRecord;
+            dataField, newIndex;
 
         if (me.hasSelection()) {
             currentIndex = store.indexOf(view.getRecord(me.items[0]));
-            dataField    = me.items[0].split('__')[2];
+            dataField    = view.getDataField(me.items[0])
+        } else {
+            dataField = view.parent.columns[0].dataField
         }
 
         newIndex = (currentIndex + step) % store.getCount();
@@ -129,10 +128,7 @@ class CellModel extends BaseModel {
             newIndex += store.getCount()
         }
 
-        newRecord = store.getAt(newIndex);
-        id        = view.getCellId(newRecord, dataField);
-
-        me.select(id)
+        me.select(view.getCellId(store.getAt(newIndex), dataField))
     }
 
     /**
