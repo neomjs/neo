@@ -29,7 +29,7 @@ class CellModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('cellClick', me.onCellClick, me)
+        me.view.parent.on('cellClick', me.onCellClick, me)
     }
 
     /**
@@ -38,7 +38,7 @@ class CellModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.un('cellClick', me.onCellClick, me);
+        me.view.parent.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -54,76 +54,85 @@ class CellModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(data, 1)
+        this.onNavKeyRow(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1)
+        this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1)
+        this.onNavKeyColumn(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(data, -1)
+        this.onNavKeyRow(-1)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyColumn(data, step) {
-        let me            = this,
-            {view}        = me,
-            idArray       = data.path[0].id.split('__'),
-            currentColumn = idArray[2],
-            dataFields    = view.columns.map(c => c.dataField),
-            newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
-            id;
+    onNavKeyColumn(step) {
+        let me         = this,
+            {view}     = me,
+            {store}    = view,
+            dataFields = view.parent.columns.map(c => c.dataField),
+            currentColumn, id, newIndex, record;
+
+        if (me.hasSelection()) {
+            currentColumn = me.items[0].split('__')[2];
+            record        = view.getRecord(me.items[0])
+        } else {
+            currentColumn = dataFields[0];
+            record        = store.getAt(0)
+        }
+
+        newIndex = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
 
         while (newIndex < 0) {
             newIndex += dataFields.length
         }
 
-        idArray[2] = dataFields[newIndex];
-        id = idArray.join('__');
+        id = view.getCellId(record, dataFields[newIndex]);
 
-        me.select(id);
-        view.focus(id)
+        me.select(id)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyRow(data, step) {
-        let me       = this,
-            {view}   = me,
-            {store}  = view,
-            idArray  = data.path[0].id.split('__'),
-            recordId = idArray[1],
-            newIndex = (store.indexOf(recordId) + step) % store.getCount(),
-            id;
+    onNavKeyRow(step) {
+        let me           = this,
+            {view}       = me,
+            {store}      = view,
+            currentIndex = 0,
+            dataField    = view.parent.columns[0].dataField,
+            id, newIndex, newRecord;
+
+        if (me.hasSelection()) {
+            currentIndex = store.indexOf(view.getRecord(me.items[0]));
+            dataField    = me.items[0].split('__')[2];
+        }
+
+        newIndex = (currentIndex + step) % store.getCount();
 
         while (newIndex < 0) {
             newIndex += store.getCount()
         }
 
-        idArray[1] = store.getKeyAt(newIndex);
-        id = idArray.join('__');
+        newRecord = store.getAt(newIndex);
+        id        = view.getCellId(newRecord, dataField);
 
-        me.select(id);
-        view.focus(id)
+        me.select(id)
     }
 
     /**
@@ -133,13 +142,14 @@ class CellModel extends BaseModel {
         super.register(component);
 
         let me         = this,
-            {id, view} = me;
+            {id, view} = me,
+            scope      = id;
 
         view.keys?._keys.push(
-            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope}
         )
     }
 
@@ -148,13 +158,14 @@ class CellModel extends BaseModel {
      */
     unregister() {
         let me         = this,
-            {id, view} = me;
+            {id, view} = me,
+            scope      = id;
 
         view.keys?.removeKeys([
-            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope}
         ]);
 
         super.unregister()
