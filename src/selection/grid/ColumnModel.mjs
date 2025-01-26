@@ -30,7 +30,7 @@ class ColumnModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.on('cellClick', me.onCellClick, me)
+        me.view.parent.on('cellClick', me.onCellClick, me)
     }
 
     /**
@@ -39,56 +39,24 @@ class ColumnModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.un('cellClick', me.onCellClick, me);
+        me.view.parent.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
-    }
-
-    /**
-     * @param {Object} eventPath
-     * @returns {String|null} cellId
-     */
-    static getCellId(eventPath) {
-        let id   = null,
-            i    = 0,
-            len  = eventPath.length;
-
-        for (; i < len; i++) {
-            if (eventPath[i].cls.includes('neo-grid-cell')) {
-                id = eventPath[i].id;
-                break
-            }
-        }
-
-        return id
-    }
-
-    /**
-     * todo: move to grid.Container or view
-     * @param {String} cellId
-     * @param {Object[]} columns
-     * @returns {Number} index
-     */
-    static getColumnIndex(cellId, columns) {
-        let idArray       = cellId.split('__'),
-            currentColumn = idArray[2],
-            dataFields    = columns.map(c => c.dataField);
-
-        return dataFields.indexOf(currentColumn)
     }
 
     /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me = this,
-            id = data.data.currentTarget,
-            columnNodeIds, index, tbodyNode;
+        let me     = this,
+            {view} = me,
+            cellId = data.data.currentTarget,
+            columnNodeIds, dataField, index;
 
-        if (id) {
-            index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
-            tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
-            columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
+        if (cellId) {
+            dataField     = view.getDataField(cellId);
+            index         = view.getColumn(dataField, true);
+            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
 
             me.select(columnNodeIds)
         }
@@ -98,41 +66,40 @@ class ColumnModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1)
+        this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1)
+        this.onNavKeyColumn(1)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyColumn(data, step) {
+    onNavKeyColumn(step) {
         let me            = this,
-            idArray       = ColumnModel.getCellId(data.path).split('__'),
-            currentColumn = idArray[2],
             {view}        = me,
-            fields        = view.columns.map(c => c.dataField),
-            newIndex      = (fields.indexOf(currentColumn) + step) % fields.length,
-            columnNodeIds, id, tbodyNode;
+            dataFields    = view.parent.columns.map(c => c.dataField),
+            columnNodeIds, currentColumn, index;
 
-        while (newIndex < 0) {
-            newIndex += fields.length
+        if (me.hasSelection()) {
+            currentColumn = view.getDataField(me.items[0])
+        } else {
+            currentColumn = dataFields[0]
         }
 
-        idArray[2] = fields[newIndex];
-        id = idArray.join('__');
+        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
 
-        tbodyNode     = VDomUtil.find(me.view.vdom, {cls: 'neo-grid-view'}).vdom;
-        columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
+        while (index < 0) {
+            index += dataFields.length
+        }
 
-        me.select(columnNodeIds);
-        view.focus(id) // we have to focus one cell to ensure the keynav keeps working
+        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
+
+        me.select(columnNodeIds)
     }
 
     /**
