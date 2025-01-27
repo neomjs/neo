@@ -420,36 +420,33 @@ class DomAccess extends Base {
 
     /**
      * Returns the attributes for a given dom node id
-     * @param {Object} data
-     * @param {Array|String} data.id either an id or an array of ids
-     * @param {Array|String} data.attributes either an attribute or an array of attributes
+     * @param {Object}          data
+     * @param {String|String[]} data.attributes either an attribute or an array of attributes
+     * @param {String|String[]} data.id either an id or an array of ids
      * @returns {Array|Object} In case id is an array, an array of attribute objects is returned, otherwise an object
      */
-    getAttributes(data) {
+    getAttributes({attributes, id}) {
         let returnData;
 
-        if (Array.isArray(data.id)) {
+        if (Array.isArray(id)) {
             returnData = [];
 
-            data.id.forEach(id => {
-                returnData.push(this.getAttributes({
-                    attributes: data.attributes,
-                    id        : id
-                }))
+            id.forEach(id => {
+                returnData.push(this.getAttributes({attributes, id}))
             })
         } else {
-            let node = this.getElementOrBody(data.id);
+            let node = this.getElementOrBody(id);
 
             returnData = {};
 
             if (node) {
-                if (!Array.isArray(data.attributes)) {
-                    data.attributes = [data.attributes];
-
-                    data.attributes.forEach(attribute => {
-                        returnData[attribute] = node[attribute]
-                    })
+                if (!Array.isArray(attributes)) {
+                    attributes = [attributes]
                 }
+
+                attributes.forEach(attribute => {
+                    returnData[attribute] = node[attribute]
+                })
             }
         }
 
