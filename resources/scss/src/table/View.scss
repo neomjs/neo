@@ -9,8 +9,6 @@
 
     .neo-table-row {
         .neo-table-cell {
-            position: relative;
-
             &.neo-is-modified {
                 &:after {
                     border-color: transparent var(--table-cell-ismodified-color) transparent transparent;

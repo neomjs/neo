@@ -28,6 +28,7 @@ $text-color      : #1c60a0;
     --button-glyph-color-active                 : #{$text-color};
     --button-glyph-color-disabled               : #{$text-color};
     --button-glyph-color-hover                  : #{$text-color};
+    --button-glyph-margin                       : 1px 6px 0 0;
     --button-height                             : initial;
     --button-margin                             : 2px;
     --button-opacity-disabled                   : var(--neo-disabled-opacity);
