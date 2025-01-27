@@ -65,7 +65,7 @@
     .neo-button-glyph {
         color         : var(--button-glyph-color);
         font-size     : 12px;
-        margin        : 0 6px 0 0;
+        margin        : var(--button-glyph-margin);
         pointer-events: none;
         z-index       : 2;
     }
