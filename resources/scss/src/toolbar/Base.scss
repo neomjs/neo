@@ -147,7 +147,7 @@
         .neo-button {
             &.icon-left {
                 .neo-button-glyph {
-                    margin: 0 6px 0 0;
+                    margin: var(--button-glyph-margin);
                 }
             }
         }
