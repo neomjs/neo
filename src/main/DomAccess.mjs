@@ -82,6 +82,7 @@ class DomAccess extends Base {
                 'align',
                 'applyBodyCls',
                 'blur',
+                'CSSsupports',
                 'execCommand',
                 'focus',
                 'getAttributes',
@@ -378,6 +379,29 @@ class DomAccess extends Base {
         this.getElement(data.id)?.blur();
         return {id: data.id}
     }
+
+    /**
+     * https://developer.mozilla.org/en-US/docs/Web/API/CSS/supports_static
+     * CSS.supports() indicates if the browser supports a given CSS feature
+     * e.g. to validate user color input:
+     *   CSS.supports('color','red') -> true
+     *   CSS.supports('color','reddish') -> false
+     * two syntaxes: 
+     *   CSS.supports(propertyName, value)
+     *   CSS.supports(supportCondition)
+     * @param {Object} data
+     * @param {Object} data.CSSarguments
+     * @paran {String} data.CSSarguments.propertyName
+     * @paran {String} data.CSSarguments.supportCondition
+     * @paran {String} data.CSSarguments.value
+
+     */
+    CSSsupports(data) {
+       let {propertyName, supportCondition, value}  = data.CSSarguments;
+       let result = value ? CSS.supports(propertyName,value) : CSS.supports(supportCondition);
+       return result;
+    }
+    
 
     /**
      * @param {Object} data
