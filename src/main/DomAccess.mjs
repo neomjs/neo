@@ -390,15 +390,17 @@ class DomAccess extends Base {
      *   CSS.supports(propertyName, value)
      *   CSS.supports(supportCondition)
      * @param {Object} data
-     * @param {Object} data.CSSarguments
-     * @paran {String} data.CSSarguments.propertyName
-     * @paran {String} data.CSSarguments.supportCondition
-     * @paran {String} data.CSSarguments.value
+     * @param {Object} data.cssArguments
+     * @paran {String} data.cssArguments.propertyName
+     * @paran {String} data.cssArguments.supportCondition
+     * @paran {String} data.cssArguments.value
 
      */
     CSSsupports(data) {
-       let {propertyName, supportCondition, value}  = data.CSSarguments;
-       let result = value ? CSS.supports(propertyName,value) : CSS.supports(supportCondition);
+       let result,
+           {propertyName, supportCondition, value} = data.cssArguments;
+       
+       result = value ? CSS.supports(propertyName,value) : CSS.supports(supportCondition);
        return result;
     }
     
