@@ -1,7 +1,5 @@
 import CellModel from './CellModel.mjs';
 import NeoArray  from '../../util/Array.mjs';
-import RowModel  from './RowModel.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.CellRowModel
@@ -71,39 +69,39 @@ class CellRowModel extends CellModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me   = this,
-            node = RowModel.getRowNode(data.data.path), // we could add a separate export for this method
-            id   = node?.id;
+        let me     = this,
+            record = me.view.getRecord(data.data.currentTarget),
+            rowId  = me.view.getRowId(record);
 
-        if (id) {
+        if (rowId) {
             me.deselectAllRows(true);
-            me.selectRow(id)
+            me.selectRow(rowId)
         }
 
         super.onCellClick(data)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyRow(data, step) {
-        super.onNavKeyRow(data, step);
+    onNavKeyRow(step) {
+        super.onNavKeyRow(step);
 
-        let me         = this,
-            node       = RowModel.getRowNode(data.path),
-            {view}     = me,
-            {store}    = view,
-            vdomNode   = VDomUtil.find(view.vdom, node.id),
-            newIndex   = (vdomNode.index + step) % store.getCount(),
-            parentNode = vdomNode.parentNode,
+        let me           = this,
+            {view}       = me,
+            {store}      = view,
+            countRecords = store.getCount(),
+            rowId        = me.selectedRowIds[0] || view.getRowId(store.getAt(0)),
+            record       = view.getRecord(rowId),
+            index        = store.indexOf(record),
+            newIndex     = (index + step) % countRecords,
             id;
 
         while (newIndex < 0) {
-            newIndex += store.getCount()
+            newIndex += countRecords
         }
 
-        id = parentNode.cn[newIndex].id;
+        id = view.getRowId(store.getAt(newIndex));
 
         if (id) {
             me.deselectAllRows(true);
