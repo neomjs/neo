@@ -102,21 +102,3 @@
         }
     }
 }
-
-.neo-selection-cellcolumnmodel,
-.neo-selection-cellcolumnrowmodel,
-.neo-selection-cellmodel,
-.neo-selection-cellrowmodel,
-.neo-selection-columnmodel,
-.neo-selection-rowmodel {
-    .neo-grid-row {
-        &:focus {
-            outline: 0;
-        }
-        .neo-grid-cell {
-            &:focus {
-                outline: 0;
-            }
-        }
-    }
-}
