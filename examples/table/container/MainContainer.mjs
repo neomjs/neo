@@ -100,8 +100,7 @@ class MainContainer extends ConfigurationViewport {
                         style.tableLayout = '';
                     }
 
-                    me.exampleComponent.style = style;
-                    me.exampleComponent.update()
+                    me.exampleComponent.style = style
                 }
             },
             style: {marginTop: '10px'}
