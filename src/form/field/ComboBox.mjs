@@ -450,10 +450,7 @@ class ComboBox extends Picker {
     fireChangeEvent(value, oldValue) {
         let me            = this,
             FormContainer = Neo.form?.Container,
-            params;
-
-        if (!(me.forceSelection && !value)) {
-            params = {component: me, oldValue, value};
+            params        = {component: me, oldValue, value};
 
             me.fire('change', params);
 
@@ -464,7 +461,6 @@ class ComboBox extends Picker {
                     }
                 })
             }
-        }
     }
 
     /**

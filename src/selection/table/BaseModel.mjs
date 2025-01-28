@@ -14,6 +14,14 @@ class BaseModel extends Model {
          */
         className: 'Neo.selection.table.BaseModel'
     }
+
+    /**
+     * Convenience shortcut
+     * @member {String[]} dataFields
+     */
+    get dataFields() {
+        return this.view.parent.columns.map(c => c.dataField)
+    }
 }
 
 export default Neo.setupClass(BaseModel);

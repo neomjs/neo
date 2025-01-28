@@ -45,50 +45,18 @@ class ColumnModel extends BaseModel {
     }
 
     /**
-     * @param {Object} eventPath
-     * @returns {String|null} cellId
-     */
-    static getCellId(eventPath) {
-        let id   = null,
-            i    = 0,
-            len  = eventPath.length;
-
-        for (; i < len; i++) {
-            if (eventPath[i].tagName === 'td') {
-                id = eventPath[i].id;
-                break
-            }
-        }
-
-        return id
-    }
-
-    /**
-     * todo: move to table.Container or view
-     * @param {String} cellId
-     * @param {Array} columns
-     * @returns {Number} index
-     */
-    static getColumnIndex(cellId, columns) {
-        let idArray       = cellId.split('__'),
-            currentColumn = idArray[2],
-            dataFields    = columns.map(c => c.dataField);
-
-        return dataFields.indexOf(currentColumn)
-    }
-
-    /**
      * @param {Object} data
      */
     onCellClick(data) {
-        let me              = this,
-            {headerToolbar} = me.view.parent,
-            id              = data.data.currentTarget,
-            columnNodeIds, index;
+        let me     = this,
+            {view} = me,
+            cellId = data.data.currentTarget,
+            columnNodeIds, dataField, index;
 
-        if (id) {
-            index         = ColumnModel.getColumnIndex(id, headerToolbar.items);
-            columnNodeIds = VDomUtil.getColumnNodesIds(me.view.vdom, index);
+        if (cellId) {
+            dataField     = view.getDataField(cellId);
+            index         = view.getColumn(dataField, true);
+            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom, index);
 
             me.select(columnNodeIds)
         }
@@ -98,41 +66,39 @@ class ColumnModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(data, -1)
+        this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(data, 1)
+        this.onNavKeyColumn(1)
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyColumn(data, step) {
-        let me            = this,
-            idArray       = ColumnModel.getCellId(data.path).split('__'),
-            currentColumn = idArray[2],
-            {view}        = me,
-            dataFields    = view.parent.columns.map(c => c.dataField),
-            newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
-            columnNodeIds, id, tbodyNode;
+    onNavKeyColumn(step) {
+        let me                 = this,
+            {dataFields, view} = me,
+            columnNodeIds, currentColumn, index;
 
-        while (newIndex < 0) {
-            newIndex += dataFields.length
+        if (me.hasSelection()) {
+            currentColumn = view.getDataField(me.items[0])
+        } else {
+            currentColumn = dataFields[0]
         }
 
-        idArray[2] = dataFields[newIndex];
-        id = idArray.join('__');
+        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
 
-        tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
-        columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
+        while (index < 0) {
+            index += dataFields.length
+        }
 
-        me.select(columnNodeIds);
-        view.focus(id) // we have to focus one cell to ensure the keynav keeps working
+        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom, index);
+
+        me.select(columnNodeIds)
     }
 
     /**

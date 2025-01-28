@@ -293,6 +293,76 @@ class Button extends BaseButton {
     }
 
     /**
+     * @param {Object} data
+     */
+    changeFilterOperator(data) {
+        let me             = this,
+            tableContainer = me.up('table-container'),
+            store          = tableContainer?.store,
+            operator       = data.value,
+            filter, filters;
+
+        if (store) {
+            filter = store.getFilter(me.dataField);
+
+            if (!filter) {
+                filters = store.filters;
+
+                filters.push({
+                    property: me.dataField,
+                    operator,
+                    value   : null,
+                    ...me.filterConfig
+                });
+
+                store.filters = filters
+            } else {
+                filter.operator = operator
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeFilterValue(data) {
+        let me             = this,
+            tableContainer = me.up('table-container'),
+            store          = tableContainer?.store,
+            {value}        = data,
+            field, filter, filters, model;
+
+        if (store) {
+            filter = store.getFilter(me.dataField);
+            model  = store.model;
+            field  = model && model.getField(me.dataField);
+
+            if (value && field.type.toLowerCase() === 'date') {
+                value = new Date(value)
+            }
+
+            if (Neo.isRecord(value)) {
+                value = value[me.filterField.displayField]
+            }
+
+            if (!filter) {
+                filters = store.filters;
+
+                filters.push({
+                    property: me.dataField,
+                    operator: 'like',
+                    value,
+                    ...me.filterConfig
+                });
+
+                store.filters = filters
+            } else {
+                filter.value = value
+            }
+        }
+    }
+
+    /**
      *
      */
     destroy(...args) {
@@ -409,72 +479,6 @@ class Button extends BaseButton {
 
         style.opacity = 1;
         me.style = style
-    }
-
-    /**
-     * @param {Object} data
-     */
-    changeFilterOperator(data) {
-        let me             = this,
-            tableContainer = me.up('table-container'),
-            store          = tableContainer?.store,
-            operator       = data.value,
-            filter, filters;
-
-        if (store) {
-            filter = store.getFilter(me.dataField);
-
-            if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
-                    operator,
-                    value   : null,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
-            } else {
-                filter.operator = operator
-            }
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    changeFilterValue(data) {
-        let me             = this,
-            tableContainer = me.up('table-container'),
-            store          = tableContainer?.store,
-            {value}        = data,
-            field, filter, filters, model;
-
-        if (store) {
-            filter = store.getFilter(me.dataField);
-            model  = store.model;
-            field  = model && model.getField(me.dataField);
-
-            if (value && field.type.toLowerCase() === 'date') {
-                value = new Date(value)
-            }
-
-            if (!filter) {
-                filters = store.filters;
-
-                filters.push({
-                    property: me.dataField,
-                    operator: 'like',
-                    value,
-                    ...me.filterConfig
-                });
-
-                store.filters = filters
-            } else {
-                filter.value = value
-            }
-        }
     }
 
     /**

@@ -68,7 +68,7 @@ class MainContainer extends Viewport {
 
                     store: {
                         autoLoad   : true,
-                        keyProperty: 'name',
+                        keyProperty: 'code',
                         url        : '../../resources/examples/data/countries.json',
 
                         model: {

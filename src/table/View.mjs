@@ -67,7 +67,7 @@ class View extends Component {
          * @member {Object} _vdom={tag: 'tbody', cn : []}
          */
         _vdom:
-        {tag: 'tbody', cn: []}
+        {tag: 'tbody', tabIndex: -1, cn: []}
     }
 
     /**
@@ -189,11 +189,10 @@ class View extends Component {
         }
 
         cellConfig = {
-            tag     : 'td',
-            id      : cellId,
-            cls     : cellCls,
-            style   : rendererOutput.style || {},
-            tabIndex: '-1'
+            tag  : 'td',
+            id   : cellId,
+            cls  : cellCls,
+            style: rendererOutput.style || {}
         };
 
         if (colspan && Object.keys(colspan).includes(dataField)) {
@@ -260,11 +259,10 @@ class View extends Component {
         }
 
         tableRow = {
-            tag     : 'tr',
+            tag: 'tr',
             id,
-            cls     : trCls,
-            cn      : [],
-            tabIndex: '-1'
+            cls: trCls,
+            cn : []
         };
 
         for (i=0; i < colCount; i++) {
@@ -407,6 +405,14 @@ class View extends Component {
         }
 
         return null
+    }
+
+    /**
+     * @param {String} cellId
+     * @returns {String}
+     */
+    getDataField(cellId) {
+        return cellId.split('__')[2]
     }
 
     /**

@@ -158,13 +158,19 @@ class Main extends core.Base {
     /**
      * Request specific accessible window attributes by path into the app worker.
      * Keep in mind that this excludes anything DOM related or instances.
-     * Example: Neo.Main.getByPath({path: 'navigator.language'}).then(data => {})
+     * In case your path matches a method, you can also pass params for it.
+     * @example:
+     *     Neo.Main.getByPath({path: 'navigator.language'}).then(data => {})
+     * @example:
+     *     Neo.Main.getByPath({path: 'CSS.supports', params: ['display: flex']}).then(data => {})
      * @param {Object} data
+     * @param {Array}  data.params=[]
      * @param {String} data.path
      * @returns {*}
      */
-    getByPath(data) {
-        return Neo.nsWithArrays(data.path)
+    getByPath({params=[], path}) {
+        let target = Neo.nsWithArrays(path);
+        return Neo.isFunction(target) ? target(...params) : target
     }
 
     /**
