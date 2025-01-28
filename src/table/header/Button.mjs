@@ -341,6 +341,10 @@ class Button extends BaseButton {
                 value = new Date(value)
             }
 
+            if (Neo.isRecord(value)) {
+                value = value[me.filterField.displayField]
+            }
+
             if (!filter) {
                 filters = store.filters;
 
