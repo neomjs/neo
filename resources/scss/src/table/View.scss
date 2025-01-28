@@ -1,4 +1,8 @@
 .neo-table-view {
+    &:focus {
+        outline: none;
+    }
+
     .neo-center {
         text-align: center;
     }
@@ -67,24 +71,6 @@
             &.neo-selected {
                 background-color: var(--table-cellrowmodel-selected-cell-background-color);
                 color           : var(--table-cellrowmodel-selected-cell-color);
-            }
-        }
-    }
-}
-
-.neo-selection-cellcolumnmodel,
-.neo-selection-cellcolumnrowmodel,
-.neo-selection-cellmodel,
-.neo-selection-cellrowmodel,
-.neo-selection-columnmodel,
-.neo-selection-rowmodel {
-    .neo-table-row {
-        &:focus {
-            outline: 0;
-        }
-        .neo-table-cell {
-            &:focus {
-                outline: 0;
             }
         }
     }
