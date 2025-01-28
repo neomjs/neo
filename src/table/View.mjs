@@ -410,6 +410,14 @@ class View extends Component {
     }
 
     /**
+     * @param {String} cellId
+     * @returns {String}
+     */
+    getDataField(cellId) {
+        return cellId.split('__')[2]
+    }
+
+    /**
      * Get the matching record by passing a row id, a cell id or an id inside a table cell.
      * @param {String} nodeId
      * @returns {Object|null}
