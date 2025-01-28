@@ -1,6 +1,5 @@
-import CellModel   from './CellModel.mjs';
-import ColumnModel from './ColumnModel.mjs';
-import VDomUtil    from '../../util/VDom.mjs';
+import CellModel from './CellModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.CellColumnModel
@@ -41,7 +40,7 @@ class CellColumnModel extends CellModel {
     deselectAllCells(silent) {
         let me      = this,
             cellIds = [...me.selectedColumnCellIds],
-            {view}  = me;
+            {view}  = me
 
         cellIds.forEach(cellId => {
             me.deselect(cellId, true, me.selectedColumnCellIds, me.selectedColumnCellCls)
@@ -54,14 +53,15 @@ class CellColumnModel extends CellModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me              = this,
-            {headerToolbar} = me.view.parent,
-            id              = data.data.currentTarget,
-            columnNodeIds, index;
+        let me     = this,
+            {view} = me,
+            cellId = data.data.currentTarget,
+            columnNodeIds, dataField, index;
 
-        if (id) {
-            index         = ColumnModel.getColumnIndex(id, headerToolbar.items);
-            columnNodeIds = VDomUtil.getColumnNodesIds(me.view.vdom, index);
+        if (cellId) {
+            dataField     = view.getDataField(cellId);
+            index         = view.getColumn(dataField, true);
+            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom, index);
 
             me.deselectAllCells(true);
             me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls)
@@ -71,29 +71,31 @@ class CellColumnModel extends CellModel {
     }
 
     /**
-     * @param {Object} data
      * @param {Number} step
      */
-    onNavKeyColumn(data, step) {
-        let me            = this,
-            idArray       = ColumnModel.getCellId(data.path).split('__'),
-            currentColumn = idArray[2],
-            {view}        = me,
-            dataFields    = view.parent.columns.map(c => c.dataField),
-            newIndex      = (dataFields.indexOf(currentColumn) + step) % dataFields.length,
-            columnNodeIds, tbodyNode;
+    onNavKeyColumn(step) {
+        let me                 = this,
+            {dataFields, view} = me,
+            columnNodeIds, currentColumn, index;
 
-        while (newIndex < 0) {
-            newIndex += dataFields.length
+        if (me.hasSelection()) {
+            currentColumn = view.getDataField(me.items[0])
+        } else {
+            currentColumn = dataFields[0]
         }
 
-        tbodyNode     = VDomUtil.find(me.view.vdom, {tag: 'tbody'}).vdom;
-        columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, newIndex);
+        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
+
+        while (index < 0) {
+            index += dataFields.length
+        }
+
+        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom, index);
 
         me.deselectAllCells(true);
         me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls);
 
-        super.onNavKeyColumn(data, step)
+        super.onNavKeyColumn(step)
     }
 
     /**
