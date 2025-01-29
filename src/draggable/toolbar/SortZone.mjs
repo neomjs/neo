@@ -18,14 +18,6 @@ class SortZone extends DragZone {
          */
         ntype: 'toolbar-sortzone',
         /**
-         * Depending on the parent tree positioning (especially using position: relative),
-         * it might be required to subtract the parent height & width from the proxy element position.
-         * draggable.grid.header.toolbar.SortZone needs it
-         * draggable.tab.header.toolbar.SortZone does not need it
-         * @member {Boolean} adjustProxyRectToParent=false
-         */
-        adjustProxyRectToParent: false,
-        /**
          * @member {Boolean} alwaysFireDragMove=true
          */
         alwaysFireDragMove: true,
@@ -109,7 +101,7 @@ class SortZone extends DragZone {
             owner.style = ownerStyle;
 
             owner.items.forEach((item, index) => {
-                itemStyle = item.style || {};
+                itemStyle = item.wrapperStyle || {};
 
                 Object.assign(itemStyle, {
                     height  : itemStyles[index].height || null,
@@ -124,7 +116,7 @@ class SortZone extends DragZone {
                     itemStyle.visibility = null
                 }
 
-                item.style = itemStyle
+                item.wrapperStyle = itemStyle
             });
 
             if (me.startIndex !== me.currentIndex) {
@@ -235,15 +227,12 @@ class SortZone extends DragZone {
                 me.itemRects = itemRects;
 
                 owner.items.forEach((item, index) => {
-                    itemStyle = item.style || {};
+                    itemStyle = item.wrapperStyle || {};
                     rect      = itemRects[index];
 
-                    if (me.adjustProxyRectToParent) {
-                        rect.x = rect.x - me.ownerRect.x - 1;
-                        rect.y = rect.y - me.ownerRect.y - 1
-                    }
+                    me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
-                    item.style = Object.assign(itemStyle, {
+                    item.wrapperStyle = Object.assign(itemStyle, {
                         height  : `${rect.height}px`,
                         left    : `${rect.left}px`,
                         margin  : me.itemMargin,
@@ -255,9 +244,9 @@ class SortZone extends DragZone {
 
                 // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
                 me.timeout(5).then(() => {
-                    itemStyle = button.style || {};
+                    itemStyle = button.wrapperStyle || {};
                     itemStyle.visibility = 'hidden';
-                    button.style = itemStyle
+                    button.wrapperStyle = itemStyle
                 })
             })
         }
@@ -308,14 +297,14 @@ class SortZone extends DragZone {
      * @param {Object} rect
      */
     updateItem(index, rect) {
-        let me      = this,
-            item    = me.owner.items[me.indexMap[index]],
-            {style} = item;
+        let me             = this,
+            item           = me.owner.items[me.indexMap[index]],
+            {wrapperStyle} = item;
 
-        style.left = `${rect.left}px`;
-        style.top  = `${rect.top}px`;
+        wrapperStyle.left = `${rect.left}px`;
+        wrapperStyle.top  = `${rect.top}px`;
 
-        item.style = style
+        item.wrapperStyle = wrapperStyle
     }
 }
 

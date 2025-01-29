@@ -1,30 +1,34 @@
 import BaseSortZone from '../../../toolbar/SortZone.mjs';
 
 /**
- * @class Neo.draggable.grid.header.toolbar.SortZone
+ * @class Neo.draggable.table.header.toolbar.SortZone
  * @extends Neo.draggable.toolbar.SortZone
  */
 class SortZone extends BaseSortZone {
     static config = {
         /**
-         * @member {String} className='Neo.draggable.grid.header.toolbar.SortZone'
+         * @member {String} className='Neo.draggable.table.header.toolbar.SortZone'
          * @protected
          */
-        className: 'Neo.draggable.grid.header.toolbar.SortZone',
+        className: 'Neo.draggable.table.header.toolbar.SortZone',
         /**
-         * @member {String} ntype='grid-header-toolbar-sortzone'
+         * @member {String} ntype='table-header-toolbar-sortzone'
          * @protected
          */
-        ntype: 'grid-header-toolbar-sortzone',
+        ntype: 'table-header-toolbar-sortzone',
         /**
          * @member {String|null} itemMargin=null
          * @protected
          */
-        itemMargin: '1px',
+        itemMargin: '-2px 1px 1px 1px',
         /**
          * @member {Boolean} moveVertical=false
          */
-        moveVertical: false
+        moveVertical: false,
+        /**
+         * @member {Number} offsetY=0
+         */
+        offsetY: 5
     }
 
     /**
@@ -33,7 +37,7 @@ class SortZone extends BaseSortZone {
      */
     adjustProxyRectToParent(rect, parentRect) {
         rect.x = rect.x - parentRect.x - 1;
-        rect.y = rect.y - parentRect.y - 1
+        rect.y = rect.y - parentRect.y
     }
 
     /**
@@ -44,14 +48,10 @@ class SortZone extends BaseSortZone {
 
         let {owner} = this;
 
-        owner.items.forEach((item, index) => {
-            item.vdom['aria-colindex'] = index + 1; // 1 based
-        });
-
         owner.updateDepth = 2;
         owner.update();
 
-        owner.parent.view.createViewData()
+        owner.parent.view.createViewData(owner.parent.view.store.items)
     }
 }
 

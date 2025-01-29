@@ -111,43 +111,6 @@ class Button extends BaseButton {
     }
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.draggable && me.addDomListeners({
-            dragend  : me.onDragEnd,
-            dragenter: me.onDragEnter,
-            dragleave: me.onDragLeave,
-            dragover : me.onDragOver,
-            dragstart: me.onDragStart,
-            drop     : me.onDrop,
-            scope    : me
-        })
-    }
-
-    /**
-     * Triggered after the draggable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDraggable(value, oldValue) {
-        let me = this;
-
-        if (value === true) {
-            me.getVdomRoot().draggable = true
-        } else {
-            delete me.getVdomRoot().draggable
-        }
-
-        me.update()
-    }
-
-    /**
      * Triggered after the isSorted config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -411,74 +374,6 @@ class Button extends BaseButton {
         }
 
         me.isSorted = map[me.isSorted + '']
-    }
-
-    /**
-     * @protected
-     */
-    onDragEnd() {
-        let me      = this,
-            {style} = me;
-
-        delete style.opacity;
-        me.style = style
-    }
-
-    /**
-     * @protected
-     */
-    onDragEnter() {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.add(cls, 'neo-drag-over');
-        me.cls = cls
-    }
-
-    /**
-     * @protected
-     */
-    onDragLeave() {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.remove(cls, 'neo-drag-over');
-        me.cls = cls
-    }
-
-    /**
-     * @param {Object} event
-     */
-    onDragOver(event) {
-        //console.log('onDragOver', event);
-    }
-
-    /**
-     * @protected
-     */
-    onDragStart() {
-        let me      = this,
-            {style} = me;
-
-        style.opacity = 0.4;
-        me.style = style
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onDrop(data) {
-        let me             = this,
-            headerToolbar  = me.parent,
-            {style}        = me,
-            tableContainer = headerToolbar.parent;
-
-        me.onDragLeave();
-        headerToolbar.switchItems(me.id, data.srcId);
-        tableContainer.createViewData(tableContainer.store.data);
-
-        style.opacity = 1;
-        me.style = style
     }
 
     /**
