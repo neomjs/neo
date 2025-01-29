@@ -89,16 +89,21 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
+        let me = this;
 
-            me.items.forEach(item => {
-                item.setSilent({
-                    sortable: value
+        if (value && !me.sortZone) {
+            import('../../draggable/toolbar/SortZone.mjs').then(module => {
+                let {appName, id, windowId} = me;
+
+                me.sortZone = Neo.create({
+                    module             : module.default,
+                    appName,
+                    boundaryContainerId: id,
+                    owner              : me,
+                    windowId,
+                    ...me.sortZoneConfig
                 })
-            });
-
-            me.update()
+            })
         }
     }
 
